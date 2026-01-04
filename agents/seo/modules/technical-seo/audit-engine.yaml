@@ -1,0 +1,965 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# TECHNICAL SEO AUDIT ENGINE
+# The Marketing Department 2026 - SEO Agent Module
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "tech-seo-audit-engine"
+  name: "Technical SEO Audit Engine"
+  version: "1.0.0"
+  category: "technical_seo"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIT CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  audit_configuration:
+
+    crawl_settings:
+      default_user_agent: "SEOAgentBot/1.0 (+https://marketing-dept.ai/bot)"
+      user_agent_options:
+        - "Googlebot-Desktop"
+        - "Googlebot-Mobile"
+        - "Bingbot"
+        - "Custom"
+
+      crawl_speed:
+        default: "5_requests_per_second"
+        options:
+          polite: "1_request_per_second"
+          normal: "5_requests_per_second"
+          aggressive: "10_requests_per_second"
+          max: "20_requests_per_second"
+
+      crawl_depth:
+        default: "unlimited"
+        max_limit: 1000
+
+      javascript_rendering:
+        enabled: true
+        render_timeout: "30_seconds"
+        wait_for_network_idle: true
+
+      authentication:
+        basic_auth: true
+        form_login: true
+        cookie_auth: true
+        custom_headers: true
+
+    scan_scope:
+      include_patterns:
+        - "/*"
+      exclude_patterns:
+        - "/admin/*"
+        - "/wp-admin/*"
+        - "/*.pdf"
+        - "/cart/*"
+        - "/checkout/*"
+
+      follow_external_links: false
+      respect_robots_txt: true
+      respect_nofollow: false
+      check_external_links: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIT CHECKS - 200+ TECHNICAL FACTORS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  audit_checks:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 1: Crawlability & Indexation (40 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    crawlability:
+      checks:
+        # Robots.txt Checks
+        - id: "CRAWL-001"
+          name: "Robots.txt Exists"
+          description: "Check if robots.txt file exists at domain root"
+          severity: "high"
+          category: "robots_txt"
+
+        - id: "CRAWL-002"
+          name: "Robots.txt Valid Syntax"
+          description: "Validate robots.txt syntax against specifications"
+          severity: "high"
+          category: "robots_txt"
+
+        - id: "CRAWL-003"
+          name: "Robots.txt Not Blocking Important Pages"
+          description: "Ensure critical pages aren't blocked by robots.txt"
+          severity: "critical"
+          category: "robots_txt"
+
+        - id: "CRAWL-004"
+          name: "Robots.txt Not Blocking CSS/JS"
+          description: "Ensure CSS and JavaScript files are crawlable"
+          severity: "medium"
+          category: "robots_txt"
+
+        - id: "CRAWL-005"
+          name: "Robots.txt Crawl-Delay"
+          description: "Check for crawl-delay directive and its value"
+          severity: "low"
+          category: "robots_txt"
+
+        - id: "CRAWL-006"
+          name: "Robots.txt Sitemap Reference"
+          description: "Check if sitemap is referenced in robots.txt"
+          severity: "low"
+          category: "robots_txt"
+
+        # Sitemap Checks
+        - id: "CRAWL-010"
+          name: "XML Sitemap Exists"
+          description: "Check for XML sitemap at standard locations"
+          severity: "high"
+          category: "sitemap"
+
+        - id: "CRAWL-011"
+          name: "Sitemap Valid XML"
+          description: "Validate sitemap against XML schema"
+          severity: "high"
+          category: "sitemap"
+
+        - id: "CRAWL-012"
+          name: "Sitemap URL Count"
+          description: "Check sitemap doesn't exceed 50,000 URLs"
+          severity: "medium"
+          category: "sitemap"
+
+        - id: "CRAWL-013"
+          name: "Sitemap File Size"
+          description: "Check sitemap doesn't exceed 50MB uncompressed"
+          severity: "medium"
+          category: "sitemap"
+
+        - id: "CRAWL-014"
+          name: "Sitemap URLs Return 200"
+          description: "Validate all sitemap URLs return 200 status"
+          severity: "high"
+          category: "sitemap"
+
+        - id: "CRAWL-015"
+          name: "Sitemap Last Modified Accuracy"
+          description: "Check lastmod dates are accurate and recent"
+          severity: "low"
+          category: "sitemap"
+
+        - id: "CRAWL-016"
+          name: "Sitemap Index Proper Structure"
+          description: "Validate sitemap index references child sitemaps correctly"
+          severity: "medium"
+          category: "sitemap"
+
+        - id: "CRAWL-017"
+          name: "Image Sitemap Present"
+          description: "Check for image sitemap if site has significant images"
+          severity: "low"
+          category: "sitemap"
+
+        - id: "CRAWL-018"
+          name: "Video Sitemap Present"
+          description: "Check for video sitemap if site has video content"
+          severity: "low"
+          category: "sitemap"
+
+        - id: "CRAWL-019"
+          name: "News Sitemap Present"
+          description: "Check for news sitemap if site publishes news content"
+          severity: "medium"
+          category: "sitemap"
+
+        # Meta Robots Checks
+        - id: "CRAWL-020"
+          name: "Meta Robots Tag Present"
+          description: "Check for meta robots tag on each page"
+          severity: "info"
+          category: "meta_robots"
+
+        - id: "CRAWL-021"
+          name: "Unintentional Noindex"
+          description: "Detect pages with noindex that should be indexed"
+          severity: "critical"
+          category: "meta_robots"
+
+        - id: "CRAWL-022"
+          name: "X-Robots-Tag Header"
+          description: "Check for X-Robots-Tag in HTTP headers"
+          severity: "medium"
+          category: "meta_robots"
+
+        - id: "CRAWL-023"
+          name: "Nofollow on Internal Links"
+          description: "Detect excessive nofollow on internal links"
+          severity: "medium"
+          category: "meta_robots"
+
+        # Canonical Checks
+        - id: "CRAWL-030"
+          name: "Canonical Tag Present"
+          description: "Check all indexable pages have canonical tags"
+          severity: "high"
+          category: "canonical"
+
+        - id: "CRAWL-031"
+          name: "Self-Referencing Canonical"
+          description: "Verify pages have self-referencing canonicals"
+          severity: "medium"
+          category: "canonical"
+
+        - id: "CRAWL-032"
+          name: "Canonical Points to 200 Page"
+          description: "Ensure canonical targets return 200 status"
+          severity: "high"
+          category: "canonical"
+
+        - id: "CRAWL-033"
+          name: "Canonical Chain Detection"
+          description: "Detect canonicals pointing to pages with different canonicals"
+          severity: "medium"
+          category: "canonical"
+
+        - id: "CRAWL-034"
+          name: "HTTP vs HTTPS Canonical"
+          description: "Ensure canonical uses correct protocol"
+          severity: "high"
+          category: "canonical"
+
+        - id: "CRAWL-035"
+          name: "Paginated Canonical"
+          description: "Check canonical handling on paginated content"
+          severity: "medium"
+          category: "canonical"
+
+        # Indexation Status
+        - id: "CRAWL-040"
+          name: "Index Coverage Status"
+          description: "Monitor Google Search Console index coverage"
+          severity: "high"
+          category: "indexation"
+
+        - id: "CRAWL-041"
+          name: "Crawled Not Indexed Pages"
+          description: "Identify pages crawled but not indexed"
+          severity: "medium"
+          category: "indexation"
+
+        - id: "CRAWL-042"
+          name: "Discovered Not Indexed"
+          description: "Identify pages discovered but not crawled"
+          severity: "medium"
+          category: "indexation"
+
+        - id: "CRAWL-043"
+          name: "Index Bloat Detection"
+          description: "Identify low-value pages consuming crawl budget"
+          severity: "medium"
+          category: "indexation"
+
+        - id: "CRAWL-044"
+          name: "Orphan Pages"
+          description: "Detect pages with no internal links"
+          severity: "high"
+          category: "indexation"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 2: URL Structure & Architecture (30 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    url_architecture:
+      checks:
+        - id: "URL-001"
+          name: "URL Length"
+          description: "Check URLs don't exceed 2048 characters"
+          severity: "medium"
+          thresholds:
+            warning: 100
+            error: 200
+
+        - id: "URL-002"
+          name: "URL Depth"
+          description: "Check folder depth from root"
+          severity: "medium"
+          thresholds:
+            warning: 4
+            error: 6
+
+        - id: "URL-003"
+          name: "URL Contains Keywords"
+          description: "Check if URLs contain relevant keywords"
+          severity: "low"
+
+        - id: "URL-004"
+          name: "URL Special Characters"
+          description: "Detect problematic special characters in URLs"
+          severity: "medium"
+
+        - id: "URL-005"
+          name: "URL Parameters"
+          description: "Identify URLs with excessive parameters"
+          severity: "medium"
+          thresholds:
+            warning: 2
+            error: 5
+
+        - id: "URL-006"
+          name: "URL Case Consistency"
+          description: "Check for mixed case URLs causing duplicates"
+          severity: "medium"
+
+        - id: "URL-007"
+          name: "Trailing Slash Consistency"
+          description: "Ensure consistent trailing slash usage"
+          severity: "medium"
+
+        - id: "URL-008"
+          name: "Session IDs in URLs"
+          description: "Detect session IDs in URLs"
+          severity: "high"
+
+        - id: "URL-009"
+          name: "Underscores vs Hyphens"
+          description: "Check for underscores in URLs (prefer hyphens)"
+          severity: "low"
+
+        - id: "URL-010"
+          name: "Double Slashes"
+          description: "Detect double slashes in URL paths"
+          severity: "medium"
+
+        # Navigation & Structure
+        - id: "URL-020"
+          name: "Click Depth from Home"
+          description: "Check pages are reachable within 3 clicks"
+          severity: "medium"
+          thresholds:
+            warning: 4
+            error: 6
+
+        - id: "URL-021"
+          name: "Breadcrumb Implementation"
+          description: "Check for breadcrumb navigation"
+          severity: "medium"
+
+        - id: "URL-022"
+          name: "Breadcrumb Schema"
+          description: "Validate BreadcrumbList structured data"
+          severity: "medium"
+
+        - id: "URL-023"
+          name: "Pagination Implementation"
+          description: "Check pagination uses proper structure"
+          severity: "medium"
+
+        - id: "URL-024"
+          name: "Faceted Navigation"
+          description: "Check faceted navigation doesn't create crawl traps"
+          severity: "high"
+
+        - id: "URL-025"
+          name: "Internal Link Distribution"
+          description: "Analyze internal PageRank distribution"
+          severity: "medium"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 3: HTTP Status & Redirects (25 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    http_status:
+      checks:
+        - id: "HTTP-001"
+          name: "4xx Client Errors"
+          description: "Detect all 4xx error pages"
+          severity: "high"
+
+        - id: "HTTP-002"
+          name: "5xx Server Errors"
+          description: "Detect all 5xx error pages"
+          severity: "critical"
+
+        - id: "HTTP-003"
+          name: "Soft 404 Detection"
+          description: "Identify pages returning 200 but are error pages"
+          severity: "high"
+
+        - id: "HTTP-004"
+          name: "Redirect Chains"
+          description: "Detect redirect chains (>2 hops)"
+          severity: "high"
+          thresholds:
+            warning: 2
+            error: 4
+
+        - id: "HTTP-005"
+          name: "Redirect Loops"
+          description: "Detect infinite redirect loops"
+          severity: "critical"
+
+        - id: "HTTP-006"
+          name: "302 vs 301 Redirects"
+          description: "Identify 302 redirects that should be 301"
+          severity: "medium"
+
+        - id: "HTTP-007"
+          name: "Meta Refresh Redirects"
+          description: "Detect meta refresh redirects"
+          severity: "medium"
+
+        - id: "HTTP-008"
+          name: "JavaScript Redirects"
+          description: "Detect JavaScript-based redirects"
+          severity: "medium"
+
+        - id: "HTTP-009"
+          name: "HTTPS to HTTP Redirects"
+          description: "Detect redirects from HTTPS to HTTP"
+          severity: "high"
+
+        - id: "HTTP-010"
+          name: "Internal Links to Redirects"
+          description: "Find internal links pointing to redirect pages"
+          severity: "medium"
+
+        - id: "HTTP-011"
+          name: "Internal Links to 4xx"
+          description: "Find internal links pointing to 4xx pages"
+          severity: "high"
+
+        - id: "HTTP-012"
+          name: "External Broken Links"
+          description: "Detect broken external links"
+          severity: "low"
+
+        - id: "HTTP-013"
+          name: "Redirect Destination Valid"
+          description: "Verify redirect destinations return 200"
+          severity: "high"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 4: Page Speed & Performance (35 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    performance:
+      checks:
+        # Core Web Vitals
+        - id: "PERF-001"
+          name: "Largest Contentful Paint (LCP)"
+          description: "Measure LCP - should be under 2.5s"
+          severity: "high"
+          thresholds:
+            good: 2500
+            warning: 4000
+
+        - id: "PERF-002"
+          name: "First Input Delay (FID)"
+          description: "Measure FID - should be under 100ms"
+          severity: "high"
+          thresholds:
+            good: 100
+            warning: 300
+
+        - id: "PERF-003"
+          name: "Cumulative Layout Shift (CLS)"
+          description: "Measure CLS - should be under 0.1"
+          severity: "high"
+          thresholds:
+            good: 0.1
+            warning: 0.25
+
+        - id: "PERF-004"
+          name: "Interaction to Next Paint (INP)"
+          description: "Measure INP - should be under 200ms"
+          severity: "high"
+          thresholds:
+            good: 200
+            warning: 500
+
+        - id: "PERF-005"
+          name: "First Contentful Paint (FCP)"
+          description: "Measure FCP - should be under 1.8s"
+          severity: "medium"
+          thresholds:
+            good: 1800
+            warning: 3000
+
+        - id: "PERF-006"
+          name: "Time to First Byte (TTFB)"
+          description: "Measure TTFB - should be under 800ms"
+          severity: "medium"
+          thresholds:
+            good: 800
+            warning: 1800
+
+        # Resource Optimization
+        - id: "PERF-010"
+          name: "Page Size"
+          description: "Check total page weight"
+          severity: "medium"
+          thresholds:
+            warning: "3MB"
+            error: "5MB"
+
+        - id: "PERF-011"
+          name: "Request Count"
+          description: "Check total number of requests"
+          severity: "medium"
+          thresholds:
+            warning: 80
+            error: 150
+
+        - id: "PERF-012"
+          name: "Image Optimization"
+          description: "Check images are properly optimized"
+          severity: "medium"
+
+        - id: "PERF-013"
+          name: "Next-Gen Image Formats"
+          description: "Check for WebP/AVIF usage"
+          severity: "low"
+
+        - id: "PERF-014"
+          name: "Responsive Images"
+          description: "Check for srcset implementation"
+          severity: "medium"
+
+        - id: "PERF-015"
+          name: "Lazy Loading"
+          description: "Check for lazy loading on images"
+          severity: "medium"
+
+        - id: "PERF-016"
+          name: "CSS Minification"
+          description: "Check CSS files are minified"
+          severity: "low"
+
+        - id: "PERF-017"
+          name: "JavaScript Minification"
+          description: "Check JS files are minified"
+          severity: "low"
+
+        - id: "PERF-018"
+          name: "HTML Minification"
+          description: "Check HTML is minified"
+          severity: "low"
+
+        - id: "PERF-019"
+          name: "Gzip/Brotli Compression"
+          description: "Check server compression enabled"
+          severity: "high"
+
+        - id: "PERF-020"
+          name: "Browser Caching"
+          description: "Check cache headers are set"
+          severity: "medium"
+
+        - id: "PERF-021"
+          name: "Render-Blocking Resources"
+          description: "Identify render-blocking CSS/JS"
+          severity: "medium"
+
+        - id: "PERF-022"
+          name: "Third-Party Script Impact"
+          description: "Measure third-party script performance impact"
+          severity: "medium"
+
+        - id: "PERF-023"
+          name: "Unused CSS"
+          description: "Identify unused CSS code"
+          severity: "low"
+
+        - id: "PERF-024"
+          name: "Unused JavaScript"
+          description: "Identify unused JavaScript code"
+          severity: "low"
+
+        - id: "PERF-025"
+          name: "Critical CSS Inlined"
+          description: "Check for above-fold CSS inlining"
+          severity: "low"
+
+        - id: "PERF-026"
+          name: "Font Optimization"
+          description: "Check font loading strategy"
+          severity: "medium"
+
+        - id: "PERF-027"
+          name: "Preload Key Requests"
+          description: "Check for proper preload hints"
+          severity: "low"
+
+        - id: "PERF-028"
+          name: "DNS Prefetch"
+          description: "Check for DNS prefetch for external domains"
+          severity: "low"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 5: Mobile Optimization (20 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    mobile:
+      checks:
+        - id: "MOB-001"
+          name: "Mobile-Friendly"
+          description: "Google Mobile-Friendly test status"
+          severity: "critical"
+
+        - id: "MOB-002"
+          name: "Viewport Configuration"
+          description: "Check viewport meta tag"
+          severity: "high"
+
+        - id: "MOB-003"
+          name: "Responsive Design"
+          description: "Check for responsive design implementation"
+          severity: "high"
+
+        - id: "MOB-004"
+          name: "Touch Target Size"
+          description: "Check touch targets are at least 48x48px"
+          severity: "medium"
+
+        - id: "MOB-005"
+          name: "Font Size Legibility"
+          description: "Check font sizes are readable on mobile"
+          severity: "medium"
+
+        - id: "MOB-006"
+          name: "Content Width"
+          description: "Check content doesn't exceed viewport width"
+          severity: "medium"
+
+        - id: "MOB-007"
+          name: "Horizontal Scrolling"
+          description: "Detect pages requiring horizontal scroll"
+          severity: "medium"
+
+        - id: "MOB-008"
+          name: "Mobile Content Parity"
+          description: "Check mobile has same content as desktop"
+          severity: "high"
+
+        - id: "MOB-009"
+          name: "Intrusive Interstitials"
+          description: "Detect pop-ups blocking content on mobile"
+          severity: "high"
+
+        - id: "MOB-010"
+          name: "Mobile Page Speed"
+          description: "Check mobile-specific page speed"
+          severity: "high"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 6: Security & HTTPS (20 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    security:
+      checks:
+        - id: "SEC-001"
+          name: "HTTPS Implementation"
+          description: "Check site uses HTTPS"
+          severity: "critical"
+
+        - id: "SEC-002"
+          name: "SSL Certificate Valid"
+          description: "Check SSL certificate is valid and not expired"
+          severity: "critical"
+
+        - id: "SEC-003"
+          name: "SSL Certificate Expiry"
+          description: "Check SSL certificate expiry date"
+          severity: "high"
+          thresholds:
+            warning: "30_days"
+            error: "7_days"
+
+        - id: "SEC-004"
+          name: "Mixed Content"
+          description: "Detect HTTP resources on HTTPS pages"
+          severity: "high"
+
+        - id: "SEC-005"
+          name: "HSTS Implementation"
+          description: "Check for HSTS header"
+          severity: "medium"
+
+        - id: "SEC-006"
+          name: "TLS Version"
+          description: "Check TLS version (1.2 or higher)"
+          severity: "high"
+
+        - id: "SEC-007"
+          name: "Content Security Policy"
+          description: "Check for CSP header"
+          severity: "low"
+
+        - id: "SEC-008"
+          name: "X-Frame-Options"
+          description: "Check for X-Frame-Options header"
+          severity: "low"
+
+        - id: "SEC-009"
+          name: "X-Content-Type-Options"
+          description: "Check for X-Content-Type-Options header"
+          severity: "low"
+
+        - id: "SEC-010"
+          name: "Safe Browsing Status"
+          description: "Check Google Safe Browsing status"
+          severity: "critical"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 7: Structured Data (20 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    structured_data:
+      checks:
+        - id: "SD-001"
+          name: "Structured Data Present"
+          description: "Check for any structured data on page"
+          severity: "medium"
+
+        - id: "SD-002"
+          name: "JSON-LD Format"
+          description: "Check structured data uses JSON-LD"
+          severity: "low"
+
+        - id: "SD-003"
+          name: "Structured Data Valid"
+          description: "Validate structured data syntax"
+          severity: "high"
+
+        - id: "SD-004"
+          name: "Required Properties"
+          description: "Check all required properties present"
+          severity: "high"
+
+        - id: "SD-005"
+          name: "Recommended Properties"
+          description: "Check recommended properties present"
+          severity: "low"
+
+        - id: "SD-006"
+          name: "Organization Schema"
+          description: "Check for Organization markup on homepage"
+          severity: "medium"
+
+        - id: "SD-007"
+          name: "Breadcrumb Schema"
+          description: "Check for BreadcrumbList markup"
+          severity: "medium"
+
+        - id: "SD-008"
+          name: "Article Schema"
+          description: "Check for Article markup on blog posts"
+          severity: "medium"
+
+        - id: "SD-009"
+          name: "Product Schema"
+          description: "Check for Product markup on product pages"
+          severity: "high"
+
+        - id: "SD-010"
+          name: "FAQ Schema"
+          description: "Check for FAQPage markup where applicable"
+          severity: "medium"
+
+        - id: "SD-011"
+          name: "HowTo Schema"
+          description: "Check for HowTo markup on tutorial content"
+          severity: "low"
+
+        - id: "SD-012"
+          name: "Review Schema"
+          description: "Check for Review/AggregateRating markup"
+          severity: "medium"
+
+        - id: "SD-013"
+          name: "Local Business Schema"
+          description: "Check for LocalBusiness markup"
+          severity: "high"
+
+        - id: "SD-014"
+          name: "Event Schema"
+          description: "Check for Event markup on event pages"
+          severity: "medium"
+
+        - id: "SD-015"
+          name: "Video Schema"
+          description: "Check for VideoObject markup"
+          severity: "medium"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category 8: International SEO (15 checks)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    international:
+      checks:
+        - id: "INT-001"
+          name: "Hreflang Tags Present"
+          description: "Check for hreflang implementation"
+          severity: "high"
+
+        - id: "INT-002"
+          name: "Hreflang Self-Reference"
+          description: "Check pages have self-referencing hreflang"
+          severity: "high"
+
+        - id: "INT-003"
+          name: "Hreflang Return Tags"
+          description: "Validate bidirectional hreflang tags"
+          severity: "high"
+
+        - id: "INT-004"
+          name: "Hreflang X-Default"
+          description: "Check for x-default hreflang"
+          severity: "medium"
+
+        - id: "INT-005"
+          name: "Hreflang Valid Codes"
+          description: "Validate language/region codes"
+          severity: "high"
+
+        - id: "INT-006"
+          name: "Hreflang Conflicts"
+          description: "Detect conflicting hreflang values"
+          severity: "high"
+
+        - id: "INT-007"
+          name: "Content Language Match"
+          description: "Check content matches declared language"
+          severity: "medium"
+
+        - id: "INT-008"
+          name: "HTML Lang Attribute"
+          description: "Check for lang attribute on HTML tag"
+          severity: "medium"
+
+        - id: "INT-009"
+          name: "Geotargeting in GSC"
+          description: "Check Search Console geotargeting"
+          severity: "medium"
+
+        - id: "INT-010"
+          name: "URL Structure Consistency"
+          description: "Check international URL structure"
+          severity: "medium"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIT SCORING MODEL
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  scoring:
+    overall_score:
+      method: "weighted_average"
+      weights:
+        crawlability: 0.20
+        url_architecture: 0.10
+        http_status: 0.15
+        performance: 0.20
+        mobile: 0.15
+        security: 0.10
+        structured_data: 0.05
+        international: 0.05
+
+    category_scoring:
+      method: "issue_based_deduction"
+      base_score: 100
+      deductions:
+        critical: 15
+        high: 8
+        medium: 3
+        low: 1
+
+    grade_scale:
+      A_plus: 95-100
+      A: 90-94
+      B: 80-89
+      C: 70-79
+      D: 60-69
+      F: 0-59
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIT OUTPUTS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+    report_sections:
+      - section: "Executive Summary"
+        contents:
+          - "Overall health score"
+          - "Score breakdown by category"
+          - "Critical issues count"
+          - "Top 5 priority actions"
+          - "Comparison to previous audit"
+
+      - section: "Crawlability & Indexation"
+        contents:
+          - "Robots.txt analysis"
+          - "Sitemap analysis"
+          - "Meta robots audit"
+          - "Canonical tag audit"
+          - "Index coverage summary"
+
+      - section: "URL & Architecture"
+        contents:
+          - "URL structure analysis"
+          - "Site depth analysis"
+          - "Navigation audit"
+          - "Internal linking summary"
+
+      - section: "HTTP & Redirects"
+        contents:
+          - "Status code distribution"
+          - "Redirect analysis"
+          - "Broken link report"
+
+      - section: "Performance"
+        contents:
+          - "Core Web Vitals report"
+          - "Page speed analysis"
+          - "Resource optimization opportunities"
+
+      - section: "Mobile"
+        contents:
+          - "Mobile usability report"
+          - "Mobile-first indexing readiness"
+
+      - section: "Security"
+        contents:
+          - "HTTPS implementation status"
+          - "Security header analysis"
+
+      - section: "Structured Data"
+        contents:
+          - "Schema coverage report"
+          - "Validation results"
+          - "Rich result eligibility"
+
+      - section: "Action Plan"
+        contents:
+          - "Prioritized issue list"
+          - "Effort estimation"
+          - "Expected impact"
+          - "Implementation guidance"
+
+    export_formats:
+      - "PDF"
+      - "HTML"
+      - "CSV"
+      - "JSON"
+      - "XLSX"
+
+    automation:
+      - type: "scheduled_reports"
+        frequency: "weekly"
+        recipients: ["cmo_agent", "seo_team"]
+
+      - type: "alert_on_critical"
+        trigger: "new_critical_issue"
+        recipients: ["cmo_agent"]
+
+      - type: "trend_report"
+        frequency: "monthly"
+        contents: "score_trends_and_changes"

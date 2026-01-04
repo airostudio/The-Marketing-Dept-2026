@@ -1,0 +1,761 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SEO AGENT - AUTONOMOUS DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This configuration defines the autonomous decision-making logic for the SEO
+# Agent, including prioritization algorithms, action triggers, and escalation
+# protocols. The agent operates within defined boundaries with clear authority
+# levels and safety guardrails.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  mode: "autonomous_with_oversight"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 1: PRIORITY SCORING MODEL
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  priority_scoring:
+    description: "Unified scoring model for prioritizing all SEO actions"
+
+    # Impact score calculation (0-100)
+    impact_factors:
+      - factor: "traffic_potential"
+        weight: 0.25
+        calculation: "estimated_traffic_gain / max_traffic_potential * 100"
+        data_sources: ["keyword_volume", "current_rankings", "ctr_models"]
+
+      - factor: "revenue_impact"
+        weight: 0.20
+        calculation: "traffic_potential * conversion_rate * average_order_value"
+        data_sources: ["analytics", "ecommerce_data"]
+
+      - factor: "strategic_alignment"
+        weight: 0.15
+        values:
+          core_product_page: 100
+          high_intent_content: 85
+          mid_funnel_content: 70
+          top_funnel_content: 50
+          supporting_content: 30
+
+      - factor: "competitive_urgency"
+        weight: 0.15
+        calculation: "competitor_threat_level * time_sensitivity"
+        triggers:
+          - "Competitor gaining rapidly"
+          - "Market opportunity window"
+          - "Seasonal relevance"
+
+      - factor: "technical_risk"
+        weight: 0.10
+        values:
+          critical_issue: 100
+          high_risk: 75
+          medium_risk: 50
+          low_risk: 25
+          maintenance: 10
+
+      - factor: "quick_win_potential"
+        weight: 0.15
+        calculation: "impact / effort"
+        thresholds:
+          quick_win: "> 5.0"
+          moderate: "2.0 - 5.0"
+          investment: "< 2.0"
+
+    # Effort estimation (1-100)
+    effort_factors:
+      - factor: "implementation_complexity"
+        categories:
+          trivial: 5          # Auto-fix, one-click
+          simple: 15          # Single element change
+          moderate: 35        # Multiple element changes
+          complex: 60         # Significant content/code changes
+          major: 85           # Architecture/strategy changes
+          transformational: 100 # Complete overhaul
+
+      - factor: "dependencies"
+        multipliers:
+          no_dependencies: 1.0
+          internal_dependency: 1.2
+          external_dependency: 1.5
+          cross_team_dependency: 1.8
+          multi_stakeholder: 2.0
+
+      - factor: "technical_requirements"
+        categories:
+          content_only: 0.8
+          basic_technical: 1.0
+          advanced_technical: 1.3
+          development_required: 1.6
+          infrastructure_change: 2.0
+
+    # Final priority score
+    priority_formula: "impact_score * (1 / log(effort_score + 1)) * urgency_multiplier"
+
+    priority_tiers:
+      - tier: "P0 - Critical"
+        score_range: ">= 90"
+        response_time: "Immediate"
+        auto_escalate: true
+
+      - tier: "P1 - High"
+        score_range: "70-89"
+        response_time: "24 hours"
+        auto_escalate: false
+
+      - tier: "P2 - Medium"
+        score_range: "40-69"
+        response_time: "1 week"
+        auto_escalate: false
+
+      - tier: "P3 - Low"
+        score_range: "20-39"
+        response_time: "1 month"
+        auto_escalate: false
+
+      - tier: "P4 - Backlog"
+        score_range: "< 20"
+        response_time: "Opportunistic"
+        auto_escalate: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 2: AUTONOMOUS ACTION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  autonomous_actions:
+    description: "Actions the agent can take without human approval"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Data Collection & Analysis
+    # ─────────────────────────────────────────────────────────────────────────
+
+    data_collection:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Initiate site crawl"
+          frequency: "daily_incremental, weekly_full"
+          constraints: ["respect_crawl_budget", "honor_robots.txt"]
+
+        - action: "Fetch ranking data"
+          frequency: "daily"
+          constraints: ["rate_limit_compliance"]
+
+        - action: "Pull Search Console data"
+          frequency: "daily"
+          constraints: ["api_quota_management"]
+
+        - action: "Analyze competitors"
+          frequency: "weekly"
+          constraints: ["competitor_list_approved"]
+
+        - action: "Monitor backlinks"
+          frequency: "continuous"
+          constraints: []
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Alerting & Notifications
+    # ─────────────────────────────────────────────────────────────────────────
+
+    alerting:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate technical alerts"
+          triggers:
+            - condition: "critical_error_detected"
+              severity: "critical"
+              recipients: ["cmo_agent", "engineering_team"]
+            - condition: "warning_threshold_exceeded"
+              severity: "warning"
+              recipients: ["seo_team"]
+
+        - action: "Generate ranking alerts"
+          triggers:
+            - condition: "position_drop > 10 for priority_keyword"
+              severity: "high"
+              recipients: ["cmo_agent", "content_team"]
+            - condition: "position_gain > 10 for priority_keyword"
+              severity: "info"
+              recipients: ["seo_team"]
+
+        - action: "Generate competitor alerts"
+          triggers:
+            - condition: "competitor_gains_page_one"
+              severity: "medium"
+              recipients: ["competitive_intel_agent"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Report Generation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    reporting:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate scheduled reports"
+          schedules:
+            - type: "daily_snapshot"
+              time: "07:00 UTC"
+            - type: "weekly_summary"
+              time: "Monday 08:00 UTC"
+            - type: "monthly_comprehensive"
+              time: "1st of month 08:00 UTC"
+
+        - action: "Generate on-demand reports"
+          triggers:
+            - "agent_request"
+            - "scheduled_delivery"
+            - "threshold_breach"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Optimization Recommendations
+    # ─────────────────────────────────────────────────────────────────────────
+
+    recommendations:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate optimization briefs"
+          output_to: ["content_strategist_agent", "copywriting_agent"]
+          constraints: ["max_10_per_week"]
+
+        - action: "Suggest internal links"
+          output_to: ["content_team_queue"]
+          constraints: ["relevance_score > 0.7"]
+
+        - action: "Prioritize action items"
+          output_to: ["task_management_system"]
+          constraints: ["follow_priority_model"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Low-Risk Implementations
+    # ─────────────────────────────────────────────────────────────────────────
+
+    low_risk_implementations:
+      authority_level: "autonomous_with_logging"
+      actions:
+        - action: "Update meta descriptions"
+          conditions:
+            - "page_has_missing_or_duplicate_description"
+            - "improvement_confidence > 0.85"
+            - "page_priority < 'high'"
+          constraints:
+            - "max_100_per_day"
+            - "log_all_changes"
+            - "enable_rollback"
+
+        - action: "Add missing alt text"
+          conditions:
+            - "image_missing_alt"
+            - "context_available_for_generation"
+          constraints:
+            - "ai_generated_alt_review_queue"
+            - "log_all_changes"
+
+        - action: "Implement internal links"
+          conditions:
+            - "opportunity_score > 0.8"
+            - "target_page_indexed"
+            - "anchor_text_approved_pattern"
+          constraints:
+            - "max_3_links_per_page_per_day"
+            - "log_all_changes"
+
+        - action: "Fix simple redirects"
+          conditions:
+            - "404_with_clear_redirect_target"
+            - "confidence_score > 0.95"
+          constraints:
+            - "single_hop_only"
+            - "preserve_link_equity"
+            - "log_all_changes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 3: APPROVAL-REQUIRED ACTIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  approval_required_actions:
+    description: "Actions requiring human or higher-agent approval"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 1: Single Agent Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_1_approval:
+      approver: "cmo_agent"
+      timeout: "48_hours"
+      actions:
+        - action: "Major content changes"
+          criteria:
+            - "Word count change > 500 words"
+            - "Topic pivot"
+            - "Target keyword change"
+
+        - action: "URL structure modifications"
+          criteria:
+            - "Any URL change"
+            - "Redirect chain > 2 hops"
+
+        - action: "Large-scale redirect implementation"
+          criteria:
+            - "Affecting > 50 URLs"
+            - "Category-level changes"
+
+        - action: "Disavow file changes"
+          criteria:
+            - "Any disavow modification"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 2: Multiple Agent Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_2_approval:
+      approvers: ["cmo_agent", "head_of_growth_agent"]
+      timeout: "72_hours"
+      actions:
+        - action: "Site architecture changes"
+          criteria:
+            - "Navigation structure"
+            - "Category reorganization"
+            - "URL hierarchy changes"
+
+        - action: "International SEO changes"
+          criteria:
+            - "Hreflang modifications"
+            - "New language/region targeting"
+            - "Geotargeting changes"
+
+        - action: "Content removal/consolidation"
+          criteria:
+            - "Deleting indexed pages"
+            - "Merging content"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 3: Executive Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_3_approval:
+      approvers: ["cmo_agent", "head_of_growth_agent", "brand_agent"]
+      timeout: "1_week"
+      actions:
+        - action: "Domain changes"
+          criteria:
+            - "Domain migration"
+            - "Subdomain restructuring"
+            - "Protocol changes"
+
+        - action: "Brand-impacting SEO"
+          criteria:
+            - "Homepage optimization"
+            - "Brand keyword strategy"
+            - "Branded content changes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 4: ESCALATION PROTOCOLS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_protocols:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Automatic Escalation Triggers
+    # ─────────────────────────────────────────────────────────────────────────
+
+    automatic_triggers:
+      - trigger: "organic_traffic_drop"
+        thresholds:
+          warning: "-10% WoW"
+          critical: "-20% WoW"
+          emergency: "-40% WoW"
+        actions:
+          warning:
+            - "Log incident"
+            - "Begin investigation"
+            - "Notify seo_team"
+          critical:
+            - "Alert cmo_agent"
+            - "Pause non-critical optimization"
+            - "Deep dive analysis"
+          emergency:
+            - "Alert all executive agents"
+            - "Halt all changes"
+            - "Emergency protocol activation"
+
+      - trigger: "ranking_volatility"
+        thresholds:
+          warning: "> 20% keywords moved > 5 positions"
+          critical: "> 40% keywords moved > 10 positions"
+        actions:
+          warning:
+            - "Investigate algorithm update"
+            - "Compare to industry trends"
+          critical:
+            - "Alert cmo_agent"
+            - "Competitor impact analysis"
+            - "Recovery strategy initiation"
+
+      - trigger: "technical_emergency"
+        conditions:
+          - "Site down (5xx errors)"
+          - "Robots.txt blocking all"
+          - "Noindex on critical pages"
+          - "HTTPS certificate expired"
+        actions:
+          - "Immediate alert to all stakeholders"
+          - "Contact engineering team"
+          - "Log incident with timestamp"
+          - "Monitor until resolved"
+
+      - trigger: "google_manual_action"
+        conditions:
+          - "Manual action detected in GSC"
+        actions:
+          - "Emergency escalation to cmo_agent"
+          - "Halt all link building"
+          - "Begin remediation analysis"
+          - "Document all evidence"
+
+      - trigger: "security_breach"
+        conditions:
+          - "Malware detected"
+          - "Hacked pages found"
+          - "Spam injection detected"
+        actions:
+          - "Immediate security team alert"
+          - "Document affected pages"
+          - "Recommend noindex temporary"
+          - "Track cleanup progress"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Escalation Hierarchy
+    # ─────────────────────────────────────────────────────────────────────────
+
+    hierarchy:
+      level_1:
+        name: "SEO Team Queue"
+        response_time: "4 hours"
+        capabilities: ["investigation", "minor_fixes"]
+
+      level_2:
+        name: "SEO Agent Autonomous"
+        response_time: "1 hour"
+        capabilities: ["analysis", "recommendations", "safe_actions"]
+
+      level_3:
+        name: "CMO Agent"
+        response_time: "2 hours"
+        capabilities: ["approval", "resource_allocation", "strategy_decisions"]
+
+      level_4:
+        name: "Executive Council"
+        response_time: "4 hours"
+        capabilities: ["major_decisions", "budget_approval", "crisis_management"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 5: DECISION TREES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  decision_trees:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: New Page Optimization
+    # ─────────────────────────────────────────────────────────────────────────
+
+    new_page_optimization:
+      trigger: "new_page_published"
+      steps:
+        - step: 1
+          action: "Crawl new page"
+          next: 2
+
+        - step: 2
+          action: "Analyze content and technical factors"
+          next: 3
+
+        - step: 3
+          decision: "Is page SEO-ready?"
+          conditions:
+            yes:
+              next: 4
+            no:
+              action: "Generate optimization brief"
+              next: 5
+
+        - step: 4
+          action: "Add to sitemap"
+          next: 6
+
+        - step: 5
+          action: "Queue for content team"
+          wait_for: "content_updated"
+          next: 2
+
+        - step: 6
+          action: "Request indexing"
+          next: 7
+
+        - step: 7
+          action: "Add to rank tracking"
+          next: 8
+
+        - step: 8
+          action: "Identify internal link opportunities"
+          next: 9
+
+        - step: 9
+          decision: "Auto-link eligible?"
+          conditions:
+            yes:
+              action: "Implement internal links"
+              next: "complete"
+            no:
+              action: "Queue link suggestions"
+              next: "complete"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: Ranking Drop Response
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ranking_drop_response:
+      trigger: "significant_ranking_drop"
+      steps:
+        - step: 1
+          action: "Log incident with full context"
+          next: 2
+
+        - step: 2
+          action: "Check for algorithm update"
+          decision: "Algorithm update detected?"
+          conditions:
+            yes:
+              next: 3
+            no:
+              next: 4
+
+        - step: 3
+          action: "Analyze update impact patterns"
+          next: 5
+
+        - step: 4
+          action: "Check for technical issues"
+          decision: "Technical issue found?"
+          conditions:
+            yes:
+              action: "Initiate technical fix"
+              next: 10
+            no:
+              next: 6
+
+        - step: 5
+          action: "Compare to industry-wide impact"
+          decision: "Isolated to our site?"
+          conditions:
+            yes:
+              next: 6
+            no:
+              action: "Monitor recovery trend"
+              next: 11
+
+        - step: 6
+          action: "Analyze competitor movements"
+          decision: "Competitor content superior?"
+          conditions:
+            yes:
+              next: 7
+            no:
+              next: 8
+
+        - step: 7
+          action: "Generate content improvement brief"
+          next: 9
+
+        - step: 8
+          action: "Check for lost backlinks"
+          decision: "Significant link loss?"
+          conditions:
+            yes:
+              action: "Initiate link recovery"
+              next: 9
+            no:
+              next: 9
+
+        - step: 9
+          action: "Compile findings and recommendations"
+          next: 10
+
+        - step: 10
+          action: "Escalate to CMO Agent with action plan"
+          next: 11
+
+        - step: 11
+          action: "Set monitoring schedule"
+          next: "complete"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: Content Cannibalization Resolution
+    # ─────────────────────────────────────────────────────────────────────────
+
+    cannibalization_resolution:
+      trigger: "cannibalization_detected"
+      steps:
+        - step: 1
+          action: "Identify all cannibalized pages"
+          next: 2
+
+        - step: 2
+          action: "Analyze traffic and rankings for each"
+          next: 3
+
+        - step: 3
+          decision: "Clear winner page?"
+          conditions:
+            yes:
+              next: 4
+            no:
+              next: 5
+
+        - step: 4
+          action: "Recommend canonical to winner"
+          next: 6
+
+        - step: 5
+          decision: "Content sufficiently different?"
+          conditions:
+            yes:
+              action: "Recommend keyword differentiation"
+              next: 6
+            no:
+              action: "Recommend content merge"
+              next: 6
+
+        - step: 6
+          action: "Calculate potential traffic gain"
+          next: 7
+
+        - step: 7
+          action: "Generate resolution brief"
+          next: 8
+
+        - step: 8
+          decision: "Auto-resolvable?"
+          conditions:
+            yes:
+              action: "Implement canonical tag"
+              next: 9
+            no:
+              action: "Queue for content team"
+              next: 9
+
+        - step: 9
+          action: "Monitor post-resolution"
+          next: "complete"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 6: LEARNING & ADAPTATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  learning_system:
+
+    feedback_loops:
+      - loop: "recommendation_effectiveness"
+        inputs:
+          - "Recommendations made"
+          - "Recommendations implemented"
+          - "Pre/post performance data"
+        learning_targets:
+          - "Improve priority scoring accuracy"
+          - "Better effort estimation"
+          - "More accurate impact predictions"
+        frequency: "weekly_analysis"
+
+      - loop: "alert_accuracy"
+        inputs:
+          - "Alerts generated"
+          - "Alerts acknowledged vs dismissed"
+          - "Actual vs predicted severity"
+        learning_targets:
+          - "Reduce false positives"
+          - "Improve threshold calibration"
+          - "Better severity classification"
+        frequency: "monthly_analysis"
+
+      - loop: "decision_outcomes"
+        inputs:
+          - "Autonomous decisions made"
+          - "Outcomes achieved"
+          - "Rollbacks required"
+        learning_targets:
+          - "Expand autonomous action scope"
+          - "Refine decision criteria"
+          - "Improve confidence scoring"
+        frequency: "quarterly_analysis"
+
+    model_updates:
+      - model: "keyword_difficulty_predictor"
+        training_frequency: "monthly"
+        inputs: ["keyword_features", "ranking_outcomes"]
+
+      - model: "traffic_impact_estimator"
+        training_frequency: "monthly"
+        inputs: ["optimization_actions", "traffic_changes"]
+
+      - model: "content_quality_scorer"
+        training_frequency: "quarterly"
+        inputs: ["content_features", "ranking_performance"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 7: SAFETY GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  safety_guardrails:
+
+    hard_limits:
+      - limit: "max_changes_per_hour"
+        value: 50
+        scope: "all_autonomous_actions"
+        override: false
+
+      - limit: "max_pages_affected_per_action"
+        value: 100
+        scope: "single_batch_operation"
+        override: "tier_2_approval"
+
+      - limit: "rollback_window"
+        value: "72_hours"
+        scope: "all_changes"
+        override: false
+
+    prohibited_actions:
+      - "Delete indexed pages without approval"
+      - "Modify robots.txt to block crawlers"
+      - "Implement site-wide noindex"
+      - "Change canonical tags on high-traffic pages"
+      - "Submit disavow without review"
+      - "Modify homepage without approval"
+
+    rollback_triggers:
+      - trigger: "traffic_drop_post_change > 10%"
+        action: "automatic_rollback"
+        notification: ["cmo_agent", "seo_team"]
+
+      - trigger: "conversion_drop_post_change > 5%"
+        action: "automatic_rollback"
+        notification: ["head_of_growth_agent", "cmo_agent"]
+
+      - trigger: "manual_rollback_request"
+        action: "immediate_rollback"
+        notification: ["seo_team"]
+
+    audit_logging:
+      - log_type: "all_autonomous_actions"
+        retention: "permanent"
+        fields: ["timestamp", "action", "affected_urls", "before_state", "after_state", "agent_id"]
+
+      - log_type: "all_decisions"
+        retention: "1_year"
+        fields: ["timestamp", "decision_type", "inputs", "output", "confidence", "rationale"]
+
+      - log_type: "all_escalations"
+        retention: "permanent"
+        fields: ["timestamp", "trigger", "severity", "response", "resolution"]

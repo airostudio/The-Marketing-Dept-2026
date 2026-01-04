@@ -1,0 +1,550 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# OFF-PAGE SEO & BACKLINK ANALYSIS MODULE
+# The Marketing Department 2026 - SEO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "backlink-analyzer"
+  name: "Off-Page SEO & Backlink Intelligence Engine"
+  version: "1.0.0"
+  category: "off_page_seo"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BACKLINK PROFILE ANALYSIS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  backlink_profile:
+
+    inventory_metrics:
+      domain_level:
+        - metric: "Total Backlinks"
+          description: "All inbound links to the domain"
+          tracking: "historical_trend"
+
+        - metric: "Referring Domains"
+          description: "Unique domains linking to site"
+          tracking: "historical_trend"
+          deduplication: "root_domain"
+
+        - metric: "Referring IPs"
+          description: "Unique IP addresses of referring domains"
+          significance: "Network diversity"
+
+        - metric: "Referring Subnets"
+          description: "Class C subnet diversity"
+          significance: "Link network natural"
+
+        - metric: "Domain Rating (DR)"
+          description: "Proprietary domain strength score"
+          scale: "0-100"
+
+        - metric: "Domain Authority (DA)"
+          description: "Moz domain authority equivalent"
+          scale: "0-100"
+
+        - metric: "Trust Flow"
+          description: "Quality-based trust metric"
+          scale: "0-100"
+
+        - metric: "Citation Flow"
+          description: "Quantity-based link metric"
+          scale: "0-100"
+
+      page_level:
+        - metric: "Page Backlinks"
+          description: "Links to specific page"
+
+        - metric: "Page Referring Domains"
+          description: "Unique domains linking to page"
+
+        - metric: "Page Rating (PR)"
+          description: "Page-level strength score"
+          scale: "0-100"
+
+        - metric: "Page Authority (PA)"
+          description: "Moz page authority equivalent"
+
+    link_attributes:
+      follow_status:
+        - "Dofollow"
+        - "Nofollow"
+        - "UGC (user-generated content)"
+        - "Sponsored"
+        - "Unknown/default"
+
+      link_type:
+        - "Text link"
+        - "Image link"
+        - "Redirect link"
+        - "Frame link"
+        - "Form link"
+
+      link_position:
+        - "In content"
+        - "Sidebar"
+        - "Footer"
+        - "Header/Navigation"
+        - "Comment"
+        - "Author bio"
+
+      link_context:
+        - "Surrounding text"
+        - "Paragraph content"
+        - "Page topic"
+        - "Section heading"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ANCHOR TEXT ANALYSIS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  anchor_text:
+
+    classification:
+      categories:
+        - category: "Exact Match"
+          description: "Anchor text exactly matches target keyword"
+          risk_level: "High if over-used"
+          healthy_range: "1-5%"
+
+        - category: "Partial Match"
+          description: "Contains target keyword with other words"
+          risk_level: "Low"
+          healthy_range: "10-20%"
+
+        - category: "Branded"
+          description: "Brand name or variations"
+          risk_level: "None"
+          healthy_range: "30-50%"
+
+        - category: "URL/Naked Link"
+          description: "Raw URL as anchor"
+          risk_level: "None"
+          healthy_range: "10-20%"
+
+        - category: "Generic"
+          description: "'Click here', 'Learn more', 'Website'"
+          risk_level: "None"
+          healthy_range: "5-15%"
+
+        - category: "Other/Miscellaneous"
+          description: "Image alt text, complex phrases"
+          healthy_range: "5-15%"
+
+    analysis:
+      distribution_check:
+        description: "Compare against healthy profile"
+        alerts:
+          - "Over-optimized exact match (>10%)"
+          - "Low branded anchor diversity"
+          - "Unusual pattern spikes"
+
+      velocity_tracking:
+        description: "Monitor anchor text changes over time"
+        alerts:
+          - "Sudden spike in exact match anchors"
+          - "Anchor pattern anomalies"
+
+      competitor_comparison:
+        description: "Benchmark against competitor anchor profiles"
+        insights:
+          - "Anchor gap opportunities"
+          - "Safe anchor ratios"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINK QUALITY SCORING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  link_quality:
+
+    quality_score:
+      name: "Link Power Score (LPS)"
+      scale: "0-100"
+
+      scoring_factors:
+        - factor: "Referring domain authority"
+          weight: 0.25
+          measurement: "DR/DA score"
+
+        - factor: "Referring page authority"
+          weight: 0.15
+          measurement: "PR/PA score"
+
+        - factor: "Relevance"
+          weight: 0.20
+          measurement: "Topic similarity"
+          categories:
+            highly_relevant: 1.0
+            somewhat_relevant: 0.6
+            tangentially_relevant: 0.3
+            not_relevant: 0.1
+
+        - factor: "Traffic value"
+          weight: 0.15
+          measurement: "Referring page organic traffic"
+
+        - factor: "Link placement"
+          weight: 0.10
+          values:
+            in_content: 1.0
+            author_bio: 0.7
+            sidebar: 0.4
+            footer: 0.2
+            comment: 0.1
+
+        - factor: "Follow status"
+          weight: 0.10
+          values:
+            dofollow: 1.0
+            nofollow: 0.3
+            ugc: 0.2
+            sponsored: 0.2
+
+        - factor: "Link freshness"
+          weight: 0.05
+          decay: "Gradual decay over time"
+
+    quality_tiers:
+      - tier: "Premium"
+        score: "80-100"
+        characteristics: ["High DR sites", "Relevant", "Editorial placement"]
+
+      - tier: "High Quality"
+        score: "60-79"
+        characteristics: ["Good authority", "Contextual", "Natural"]
+
+      - tier: "Medium Quality"
+        score: "40-59"
+        characteristics: ["Moderate authority", "Some relevance"]
+
+      - tier: "Low Quality"
+        score: "20-39"
+        characteristics: ["Low authority", "Limited value"]
+
+      - tier: "Toxic/Spam"
+        score: "0-19"
+        characteristics: ["Spam signals", "Link farms", "PBN indicators"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TOXIC LINK DETECTION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  toxic_detection:
+
+    toxicity_score:
+      name: "Spam Risk Score"
+      scale: "0-100"
+      threshold_high_risk: 60
+      threshold_moderate_risk: 30
+
+    toxicity_signals:
+      domain_signals:
+        - signal: "Spam domain patterns"
+          indicators:
+            - "Keyword-stuffed domain names"
+            - "Excessive hyphens"
+            - "Random character strings"
+            - "Known spam TLDs"
+          weight: "high"
+
+        - signal: "Link farm characteristics"
+          indicators:
+            - "Excessive outbound links (>100)"
+            - "Low content-to-link ratio"
+            - "Reciprocal link networks"
+            - "Site-wide linking patterns"
+          weight: "high"
+
+        - signal: "PBN indicators"
+          indicators:
+            - "Same hosting/IP as other linking sites"
+            - "Similar site templates"
+            - "Same ownership signals"
+            - "Unnatural interlinking"
+          weight: "high"
+
+        - signal: "Content quality"
+          indicators:
+            - "Thin/scraped content"
+            - "Auto-generated text"
+            - "Hidden text/links"
+            - "Doorway pages"
+          weight: "medium"
+
+        - signal: "Penalty indicators"
+          indicators:
+            - "Deindexed domains"
+            - "Massive traffic drops"
+            - "Known penalized sites"
+          weight: "critical"
+
+      link_signals:
+        - signal: "Paid link indicators"
+          indicators:
+            - "Sponsored post without disclosure"
+            - "Paid directory submissions"
+            - "Link broker patterns"
+          weight: "high"
+
+        - signal: "Unnatural patterns"
+          indicators:
+            - "Sudden spike in links"
+            - "Same anchor text repeatedly"
+            - "Irrelevant site topics"
+          weight: "medium"
+
+        - signal: "Foreign language spam"
+          indicators:
+            - "Links from unrelated language sites"
+            - "Casino/pharma/adult spam"
+          weight: "high"
+
+    remediation:
+      disavow_workflow:
+        - step: "Identify toxic links"
+          threshold: "Spam Risk Score > 60"
+
+        - step: "Attempt removal"
+          actions:
+            - "Contact webmaster"
+            - "Use removal request templates"
+            - "Track outreach attempts"
+
+        - step: "Generate disavow file"
+          format: "Google Disavow format"
+          levels:
+            - "Domain-level disavow"
+            - "URL-level disavow"
+
+        - step: "Submit to Google"
+          approval_required: true
+          approver: "cmo_agent"
+
+        - step: "Monitor impact"
+          tracking: "Ranking changes post-disavow"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINK VELOCITY & TRENDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  velocity_monitoring:
+
+    metrics:
+      - metric: "New Links (Daily/Weekly/Monthly)"
+        tracking: "Count and quality distribution"
+
+      - metric: "Lost Links (Daily/Weekly/Monthly)"
+        tracking: "Count and reason analysis"
+
+      - metric: "Net Link Velocity"
+        calculation: "New - Lost"
+        trend: "Moving average"
+
+      - metric: "Referring Domain Velocity"
+        tracking: "New unique domains"
+
+    alerts:
+      positive_alerts:
+        - alert: "Link spike detected"
+          trigger: "> 3x average daily links"
+          action: "Investigate source"
+
+        - alert: "High-quality link acquired"
+          trigger: "LPS > 80"
+          action: "Log and celebrate"
+
+        - alert: "New high-DR domain linking"
+          trigger: "DR > 70"
+          action: "Monitor relationship"
+
+      negative_alerts:
+        - alert: "Link loss spike"
+          trigger: "> 3x average daily lost"
+          action: "Investigate and recover"
+
+        - alert: "High-quality link lost"
+          trigger: "LPS > 70 link removed"
+          action: "Attempt recovery"
+
+        - alert: "Toxic link spike"
+          trigger: "> 10 toxic links in week"
+          action: "Investigate attack"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINK BUILDING OPPORTUNITIES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  opportunities:
+
+    discovery_methods:
+      - method: "Competitor Backlink Mining"
+        description: "Find sites linking to competitors but not you"
+        process:
+          - "Analyze top 10 competitors' backlinks"
+          - "Filter for quality (DR > 30)"
+          - "Remove sites already linking to you"
+          - "Score by relevance and feasibility"
+
+      - method: "Link Intersect"
+        description: "Find sites linking to multiple competitors"
+        significance: "Higher likelihood of linking"
+        output: "Prioritized prospect list"
+
+      - method: "Broken Link Building"
+        description: "Find broken links on relevant sites"
+        process:
+          - "Crawl target sites for broken outbound links"
+          - "Match broken destinations to your content"
+          - "Prepare outreach with replacement offer"
+
+      - method: "Unlinked Mentions"
+        description: "Find brand mentions without links"
+        sources:
+          - "News articles"
+          - "Blog posts"
+          - "Forums"
+          - "Social media"
+        outreach: "Request link addition"
+
+      - method: "Resource Page Opportunities"
+        description: "Find resource/link pages in niche"
+        queries:
+          - "keyword + 'resources'"
+          - "keyword + 'useful links'"
+          - "keyword + 'recommended sites'"
+
+      - method: "Guest Posting Opportunities"
+        description: "Identify blogs accepting guest posts"
+        evaluation:
+          - "Domain authority"
+          - "Relevance"
+          - "Traffic"
+          - "Audience engagement"
+
+      - method: "Skyscraper Technique"
+        description: "Find linkable content to improve upon"
+        process:
+          - "Find popular content with many backlinks"
+          - "Create significantly better version"
+          - "Outreach to original linkers"
+
+    prospect_scoring:
+      name: "Link Opportunity Score"
+      factors:
+        - factor: "Domain authority"
+          weight: 0.25
+
+        - factor: "Relevance"
+          weight: 0.25
+
+        - factor: "Link likelihood"
+          weight: 0.20
+          signals: ["Links to competitors", "Accepts guest posts", "Resource page"]
+
+        - factor: "Traffic value"
+          weight: 0.15
+
+        - factor: "Contact availability"
+          weight: 0.15
+
+    outreach_management:
+      prospect_tracking:
+        - "Prospect identification"
+        - "Contact information"
+        - "Outreach status"
+        - "Follow-up schedule"
+        - "Response tracking"
+        - "Link acquisition status"
+
+      templates:
+        - template: "Broken Link Outreach"
+        - template: "Resource Addition Request"
+        - template: "Guest Post Pitch"
+        - template: "Unlinked Mention Request"
+        - template: "Content Collaboration"
+
+      analytics:
+        - "Response rate by template"
+        - "Success rate by approach"
+        - "Time to link acquisition"
+        - "Cost per link (if applicable)"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITOR BACKLINK INTELLIGENCE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  competitor_analysis:
+
+    comparison_metrics:
+      - "Total referring domains"
+      - "Domain authority comparison"
+      - "Link velocity comparison"
+      - "Link quality distribution"
+      - "Anchor text comparison"
+      - "Top linking domains"
+      - "New links (last 30/60/90 days)"
+
+    gap_analysis:
+      - analysis: "Domain Gap"
+        description: "Domains linking to competitors but not you"
+        prioritization: "By authority and relevance"
+
+      - analysis: "Page Gap"
+        description: "Specific pages earning links you could replicate"
+        output: "Content opportunities"
+
+      - analysis: "Anchor Gap"
+        description: "Anchor text patterns competitors use"
+        output: "Anchor strategy insights"
+
+    monitoring:
+      - "New competitor backlinks (daily)"
+      - "Competitor link velocity trends"
+      - "High-impact link acquisitions"
+      - "Competitor link building tactics"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    reports:
+      - report: "Backlink Profile Overview"
+        frequency: "Monthly"
+        contents:
+          - "Profile health summary"
+          - "Key metrics and trends"
+          - "Quality distribution"
+          - "New and lost links"
+          - "Toxic link alerts"
+
+      - report: "Link Building Progress"
+        frequency: "Weekly"
+        contents:
+          - "Links acquired"
+          - "Outreach activity"
+          - "Pipeline status"
+          - "Success rates"
+
+      - report: "Competitor Link Intel"
+        frequency: "Monthly"
+        contents:
+          - "Competitor comparison"
+          - "Gap analysis"
+          - "Opportunity identification"
+
+    alerts:
+      - "New high-quality link"
+      - "Important link lost"
+      - "Toxic link spike"
+      - "Competitor gaining links"
+
+    integrations:
+      - agent: "Partnerships Agent"
+        data: "Link building targets and priorities"
+
+      - agent: "Content Strategist Agent"
+        data: "Linkable content opportunities"
+
+      - agent: "CMO Agent"
+        data: "Strategic link building recommendations"

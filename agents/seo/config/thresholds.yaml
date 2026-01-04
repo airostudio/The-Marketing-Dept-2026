@@ -1,0 +1,368 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SEO ALERT THRESHOLDS & ACTION TRIGGERS
+# The Marketing Department 2026 - SEO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+thresholds:
+  version: "1.0.0"
+  last_updated: "2026-01-04"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RANKING THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  rankings:
+    position_change_alerts:
+      significant_drop:
+        threshold: 10
+        severity: "high"
+        description: "Single keyword drops 10+ positions"
+
+      major_drop:
+        threshold: 20
+        severity: "critical"
+        description: "Single keyword drops 20+ positions"
+
+      significant_gain:
+        threshold: 10
+        severity: "info"
+        description: "Single keyword gains 10+ positions"
+
+      first_page_lost:
+        from: 10
+        to: 11
+        severity: "high"
+        description: "Keyword leaves first page"
+
+      top_3_lost:
+        from: 3
+        to: 4
+        severity: "high"
+        description: "Keyword leaves top 3"
+
+    portfolio_volatility:
+      warning:
+        percentage: 20
+        scope: "% of keywords moving 5+ positions"
+        severity: "medium"
+
+      elevated:
+        percentage: 40
+        scope: "% of keywords moving 5+ positions"
+        severity: "high"
+
+      extreme:
+        percentage: 60
+        scope: "% of keywords moving 5+ positions"
+        severity: "critical"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRAFFIC THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  traffic:
+    daily_anomaly:
+      warning:
+        deviation: 15
+        unit: "percent_below_average"
+        severity: "medium"
+
+      alert:
+        deviation: 25
+        unit: "percent_below_average"
+        severity: "high"
+
+      critical:
+        deviation: 40
+        unit: "percent_below_average"
+        severity: "critical"
+
+    weekly_change:
+      concerning:
+        change: -10
+        unit: "percent_wow"
+        severity: "medium"
+
+      significant:
+        change: -20
+        unit: "percent_wow"
+        severity: "high"
+
+      critical:
+        change: -40
+        unit: "percent_wow"
+        severity: "critical"
+
+    page_level:
+      high_value_page_drop:
+        threshold: 30
+        unit: "percent_below_average"
+        scope: "Pages with >1000 monthly sessions"
+        severity: "high"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TECHNICAL THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  technical:
+    core_web_vitals:
+      lcp:
+        good: 2500
+        needs_improvement: 4000
+        unit: "milliseconds"
+
+      fid:
+        good: 100
+        needs_improvement: 300
+        unit: "milliseconds"
+
+      inp:
+        good: 200
+        needs_improvement: 500
+        unit: "milliseconds"
+
+      cls:
+        good: 0.1
+        needs_improvement: 0.25
+        unit: "score"
+
+    page_speed:
+      load_time:
+        good: 3000
+        warning: 5000
+        poor: 8000
+        unit: "milliseconds"
+
+      page_size:
+        good: 2000
+        warning: 4000
+        poor: 6000
+        unit: "kilobytes"
+
+      requests:
+        good: 50
+        warning: 100
+        poor: 150
+        unit: "count"
+
+    crawl_errors:
+      critical:
+        type: "5xx_errors"
+        threshold: 1
+        scope: "any"
+        severity: "critical"
+
+      high:
+        type: "4xx_errors"
+        threshold: 5
+        scope: "new_in_24h"
+        severity: "high"
+
+      warning:
+        type: "redirect_chains"
+        threshold: 10
+        scope: "affecting_priority_pages"
+        severity: "medium"
+
+    index_coverage:
+      pages_dropped:
+        threshold: 10
+        unit: "percent"
+        severity: "high"
+
+      error_spike:
+        threshold: 50
+        unit: "new_errors"
+        severity: "high"
+
+    ssl:
+      expiry_warning:
+        days: 30
+        severity: "high"
+
+      expiry_critical:
+        days: 7
+        severity: "critical"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BACKLINK THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  backlinks:
+    link_velocity:
+      unusual_gain:
+        multiplier: 3
+        scope: "vs_weekly_average"
+        severity: "medium"
+        action: "investigate"
+
+      unusual_loss:
+        multiplier: 3
+        scope: "vs_weekly_average"
+        severity: "high"
+        action: "investigate_and_recover"
+
+    quality:
+      high_value_link_lost:
+        lps_threshold: 70
+        severity: "medium"
+
+      premium_link_lost:
+        lps_threshold: 85
+        severity: "high"
+
+    toxic:
+      daily_toxic_links:
+        threshold: 5
+        severity: "medium"
+
+      weekly_toxic_links:
+        threshold: 20
+        severity: "high"
+
+      toxic_ratio:
+        threshold: 5
+        unit: "percent_of_profile"
+        severity: "high"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content:
+    freshness:
+      needs_review:
+        age: 180
+        unit: "days"
+        scope: "no_updates"
+
+      stale:
+        age: 365
+        unit: "days"
+        scope: "no_updates"
+
+      urgent_refresh:
+        age: 90
+        unit: "days"
+        condition: "traffic_declining"
+
+    performance:
+      underperforming:
+        threshold: 50
+        unit: "percent_below_potential"
+        based_on: "similar_content_benchmark"
+
+      decay_alert:
+        change: -30
+        unit: "percent_yoy"
+        severity: "high"
+
+    cannibalization:
+      moderate:
+        ranking_url_changes: 3
+        period: "30_days"
+        severity: "medium"
+
+      severe:
+        pages_competing: 3
+        same_keyword: true
+        severity: "high"
+
+    thin_content:
+      threshold: 300
+      unit: "words"
+      exceptions: ["product_pages", "contact", "category_pages"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITOR THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  competitive:
+    position_alerts:
+      competitor_overtakes:
+        scope: "priority_keywords"
+        severity: "medium"
+
+      competitor_enters_top_3:
+        scope: "your_keywords"
+        severity: "high"
+
+    visibility:
+      market_share_drop:
+        threshold: 5
+        unit: "percentage_points"
+        severity: "high"
+
+      competitor_surge:
+        threshold: 20
+        unit: "percent_gain"
+        period: "30_days"
+        severity: "medium"
+
+    content:
+      competitor_targets_your_keywords:
+        severity: "medium"
+        action: "analyze_and_respond"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOCAL SEO THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  local:
+    reviews:
+      negative_review:
+        stars: 2
+        severity: "high"
+        response_sla: "24_hours"
+
+      rating_drop:
+        threshold: 0.3
+        period: "30_days"
+        severity: "medium"
+
+      review_velocity_drop:
+        threshold: 50
+        unit: "percent_mom"
+        severity: "low"
+
+    rankings:
+      local_pack_lost:
+        severity: "high"
+
+      local_pack_position_drop:
+        threshold: 2
+        severity: "medium"
+
+    citations:
+      inconsistency_rate:
+        threshold: 10
+        unit: "percent"
+        severity: "medium"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTOMATION THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  automation:
+    safe_action_limits:
+      meta_updates_per_day: 100
+      internal_links_per_page_per_day: 3
+      redirects_per_day: 50
+      changes_per_hour: 50
+
+    confidence_requirements:
+      auto_meta_update: 0.85
+      auto_internal_link: 0.80
+      auto_redirect: 0.95
+      auto_schema: 0.90
+
+    rollback_triggers:
+      traffic_drop_post_change:
+        threshold: 10
+        unit: "percent"
+        period: "48_hours"
+
+      conversion_drop_post_change:
+        threshold: 5
+        unit: "percent"
+        period: "48_hours"

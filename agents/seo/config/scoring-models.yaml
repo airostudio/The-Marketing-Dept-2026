@@ -1,0 +1,357 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SEO SCORING MODELS CONFIGURATION
+# The Marketing Department 2026 - SEO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+scoring_models:
+  version: "1.0.0"
+  last_calibrated: "2026-01-04"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TECHNICAL SEO HEALTH SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  technical_health_score:
+    name: "Technical SEO Health Score"
+    scale: "0-100"
+    method: "Weighted category scoring with issue deductions"
+
+    category_weights:
+      crawlability: 0.20
+      indexation: 0.15
+      page_speed: 0.20
+      mobile: 0.15
+      security: 0.10
+      structured_data: 0.10
+      url_structure: 0.10
+
+    issue_deductions:
+      critical:
+        deduction: 15
+        examples:
+          - "Site not accessible"
+          - "Robots.txt blocking entire site"
+          - "SSL certificate expired"
+          - "Manual action detected"
+
+      high:
+        deduction: 8
+        examples:
+          - "Important pages noindexed"
+          - "Redirect chains >3 hops"
+          - "Core Web Vitals failing"
+          - "Mixed content issues"
+
+      medium:
+        deduction: 3
+        examples:
+          - "Duplicate titles"
+          - "Missing meta descriptions"
+          - "Slow page speed"
+          - "Missing structured data"
+
+      low:
+        deduction: 1
+        examples:
+          - "Minor URL issues"
+          - "Optional improvements"
+          - "Best practice recommendations"
+
+    grade_scale:
+      A_plus: { min: 95, max: 100, status: "Excellent" }
+      A: { min: 90, max: 94, status: "Very Good" }
+      B: { min: 80, max: 89, status: "Good" }
+      C: { min: 70, max: 79, status: "Fair" }
+      D: { min: 60, max: 69, status: "Poor" }
+      F: { min: 0, max: 59, status: "Critical" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT SEO SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_seo_score:
+    name: "Content SEO Optimization Score"
+    scale: "0-100"
+    method: "Additive scoring with component weights"
+
+    components:
+      keyword_optimization:
+        weight: 0.25
+        factors:
+          primary_in_title: { max_points: 15, required: true }
+          primary_in_h1: { max_points: 10, required: true }
+          primary_in_first_100_words: { max_points: 8 }
+          primary_in_url: { max_points: 7 }
+          primary_in_meta: { max_points: 5 }
+          secondary_in_headings: { max_points: 10 }
+          keyword_density: { max_points: 8, optimal: "1-2%" }
+          lsi_terms: { max_points: 12 }
+          tfidf_optimization: { max_points: 15 }
+          entity_coverage: { max_points: 10 }
+
+      content_quality:
+        weight: 0.25
+        factors:
+          word_count: { max_points: 15, benchmark: "110% of top 10" }
+          readability: { max_points: 12, optimal: "Flesch 60-70" }
+          sentence_variety: { max_points: 8 }
+          paragraph_structure: { max_points: 8 }
+          active_voice: { max_points: 8, optimal: ">80%" }
+          uniqueness: { max_points: 20, required: ">90%" }
+          depth: { max_points: 12 }
+          freshness: { max_points: 10 }
+
+      structure:
+        weight: 0.20
+        factors:
+          heading_hierarchy: { max_points: 15 }
+          table_of_contents: { max_points: 8, when: ">1500 words" }
+          logical_flow: { max_points: 12 }
+          scannable_formatting: { max_points: 10 }
+          visual_content: { max_points: 10 }
+          sections: { max_points: 8 }
+          intro_conclusion: { max_points: 7 }
+          faq_section: { max_points: 8, bonus: true }
+          key_takeaways: { max_points: 7 }
+          cta: { max_points: 15 }
+
+      technical_onpage:
+        weight: 0.15
+        factors:
+          title_length: { max_points: 12, optimal: "50-60 chars" }
+          title_compelling: { max_points: 8 }
+          meta_length: { max_points: 10, optimal: "150-160 chars" }
+          meta_compelling: { max_points: 7 }
+          url_structure: { max_points: 8 }
+          image_alt: { max_points: 10 }
+          internal_links: { max_points: 15, optimal: "3-10" }
+          external_links: { max_points: 8, optimal: "2-5" }
+          schema_markup: { max_points: 10 }
+
+      eeat_signals:
+        weight: 0.15
+        factors:
+          author_byline: { max_points: 12 }
+          author_bio: { max_points: 10 }
+          source_citations: { max_points: 12 }
+          data_statistics: { max_points: 10 }
+          expert_quotes: { max_points: 8 }
+          original_research: { max_points: 12, bonus: true }
+          credentials: { max_points: 8 }
+          trust_signals: { max_points: 10 }
+          updated_date: { max_points: 5 }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD DIFFICULTY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  keyword_difficulty:
+    name: "Keyword Difficulty Score"
+    scale: "0-100"
+    method: "Machine learning model with weighted features"
+
+    features:
+      domain_metrics:
+        top_10_average_dr:
+          weight: 0.20
+          normalization: "0-100 scale"
+        top_10_median_dr:
+          weight: 0.10
+        min_dr_in_top_10:
+          weight: 0.05
+
+      page_metrics:
+        top_10_average_ur:
+          weight: 0.15
+        top_10_backlinks:
+          weight: 0.15
+
+      serp_features:
+        feature_saturation:
+          weight: 0.10
+          factors: ["featured_snippet", "knowledge_panel", "shopping"]
+        brand_dominance:
+          weight: 0.10
+
+      content_signals:
+        content_depth_top_10:
+          weight: 0.10
+        content_quality_top_10:
+          weight: 0.05
+
+    interpretation:
+      0-29:
+        label: "Easy"
+        description: "New sites with basic SEO can rank"
+        requirements: "Good content, basic on-page"
+      30-49:
+        label: "Moderate"
+        description: "Need some authority to compete"
+        requirements: "Quality content, some backlinks"
+      50-69:
+        label: "Difficult"
+        description: "Established sites have advantage"
+        requirements: "Strong content, solid link profile"
+      70-84:
+        label: "Hard"
+        description: "Only authoritative sites rank"
+        requirements: "Exceptional content, strong links, time"
+      85-100:
+        label: "Very Hard"
+        description: "Top brands dominate"
+        requirements: "Major investment, long timeline"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINK QUALITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  link_power_score:
+    name: "Link Power Score (LPS)"
+    scale: "0-100"
+    method: "Weighted factor combination"
+
+    factors:
+      referring_domain_authority:
+        weight: 0.25
+        source: "Domain Rating/Authority"
+        scaling: "Logarithmic, max at DR 90+"
+
+      referring_page_authority:
+        weight: 0.15
+        source: "Page Rating/Authority"
+
+      relevance:
+        weight: 0.20
+        scoring:
+          highly_relevant: 100
+          somewhat_relevant: 60
+          tangentially_relevant: 30
+          not_relevant: 10
+
+      traffic_value:
+        weight: 0.15
+        source: "Referring page organic traffic"
+        scaling: "Logarithmic"
+
+      link_placement:
+        weight: 0.10
+        scoring:
+          in_content: 100
+          author_bio: 70
+          sidebar: 40
+          footer: 20
+          comment: 10
+
+      follow_status:
+        weight: 0.10
+        scoring:
+          dofollow: 100
+          nofollow: 30
+          ugc: 20
+          sponsored: 20
+
+      freshness:
+        weight: 0.05
+        decay: "5% per year"
+
+    quality_tiers:
+      premium: { min: 80, max: 100 }
+      high: { min: 60, max: 79 }
+      medium: { min: 40, max: 59 }
+      low: { min: 20, max: 39 }
+      toxic: { min: 0, max: 19 }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VISIBILITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  visibility_score:
+    name: "Organic Visibility Score"
+    scale: "0-100 (normalized)"
+    method: "Weighted position and volume scoring"
+
+    position_weights:
+      position_1: 1.00
+      position_2: 0.85
+      position_3: 0.75
+      position_4: 0.60
+      position_5: 0.50
+      position_6: 0.40
+      position_7: 0.30
+      position_8: 0.25
+      position_9: 0.20
+      position_10: 0.15
+      position_11_20: 0.08
+      position_21_30: 0.04
+      position_31_plus: 0.02
+
+    modifiers:
+      featured_snippet: 1.5
+      local_pack_1: 1.3
+      local_pack_2_3: 1.1
+      rich_result: 1.2
+
+    calculation: |
+      For each keyword:
+        base_score = search_volume * position_weight
+        modified_score = base_score * feature_modifiers
+
+      visibility = sum(all_modified_scores) / max_possible_score * 100
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRIORITY SCORING (ACTION ITEMS)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  priority_score:
+    name: "SEO Action Priority Score"
+    scale: "0-100"
+    method: "Impact/Effort ratio with urgency modifier"
+
+    impact_factors:
+      traffic_potential:
+        weight: 0.25
+        calculation: "Estimated traffic gain"
+
+      revenue_impact:
+        weight: 0.20
+        calculation: "Traffic * conversion_rate * value"
+
+      strategic_alignment:
+        weight: 0.15
+        scoring:
+          core_product: 100
+          high_intent: 85
+          mid_funnel: 70
+          top_funnel: 50
+          supporting: 30
+
+      competitive_urgency:
+        weight: 0.15
+        factors: ["competitor_threat", "time_sensitivity"]
+
+      technical_risk:
+        weight: 0.10
+        scoring:
+          critical: 100
+          high: 75
+          medium: 50
+          low: 25
+
+      quick_win:
+        weight: 0.15
+        calculation: "impact / effort"
+
+    effort_levels:
+      trivial: 5
+      simple: 15
+      moderate: 35
+      complex: 60
+      major: 85
+      transformational: 100
+
+    priority_tiers:
+      P0: { min: 90, max: 100, response: "Immediate" }
+      P1: { min: 70, max: 89, response: "24 hours" }
+      P2: { min: 40, max: 69, response: "1 week" }
+      P3: { min: 20, max: 39, response: "1 month" }
+      P4: { min: 0, max: 19, response: "Backlog" }

@@ -1,0 +1,626 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ON-PAGE SEO CONTENT OPTIMIZER
+# The Marketing Department 2026 - SEO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "on-page-content-optimizer"
+  name: "On-Page SEO Content Optimization Engine"
+  version: "1.0.0"
+  category: "on_page_seo"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT SCORING ENGINE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_scoring:
+
+    overall_seo_score:
+      description: "Comprehensive SEO content quality score"
+      scale: "0-100"
+      grade_mapping:
+        A: 90-100
+        B: 80-89
+        C: 70-79
+        D: 60-69
+        F: 0-59
+
+    scoring_components:
+
+      keyword_optimization:
+        weight: 0.25
+        factors:
+          - factor: "Primary keyword in title"
+            points: 15
+            requirement: "Exact or close variant"
+
+          - factor: "Primary keyword in H1"
+            points: 10
+            requirement: "Exact or close variant"
+
+          - factor: "Primary keyword in first 100 words"
+            points: 8
+            requirement: "Natural placement"
+
+          - factor: "Primary keyword in URL"
+            points: 7
+            requirement: "Slug contains keyword"
+
+          - factor: "Primary keyword in meta description"
+            points: 5
+            requirement: "Compelling inclusion"
+
+          - factor: "Secondary keywords in headings"
+            points: 10
+            requirement: "H2-H4 coverage"
+
+          - factor: "Keyword density"
+            points: 8
+            optimal_range: "1-2%"
+            penalty: "Over-optimization detected"
+
+          - factor: "LSI/Related terms"
+            points: 12
+            requirement: "Natural semantic coverage"
+
+          - factor: "TF-IDF optimization"
+            points: 15
+            benchmark: "Top 10 competitor average"
+
+          - factor: "Entity coverage"
+            points: 10
+            requirement: "Relevant entities mentioned"
+
+      content_quality:
+        weight: 0.25
+        factors:
+          - factor: "Content length"
+            points: 15
+            benchmarks:
+              minimum: 300
+              optimal: "110% of top 10 average"
+              maximum_bonus: 3000
+
+          - factor: "Readability score"
+            points: 12
+            optimal: "Flesch-Kincaid 60-70"
+            adjustment: "Industry-specific"
+
+          - factor: "Sentence variety"
+            points: 8
+            requirement: "Mix of short and long sentences"
+
+          - factor: "Paragraph structure"
+            points: 8
+            requirement: "2-4 sentences per paragraph"
+
+          - factor: "Transition words"
+            points: 7
+            optimal: "30%+ sentences with transitions"
+
+          - factor: "Active voice"
+            points: 8
+            optimal: "80%+ active voice"
+
+          - factor: "Content uniqueness"
+            points: 20
+            requirement: ">90% unique content"
+            penalty: "Duplicate/thin content"
+
+          - factor: "Content depth"
+            points: 12
+            measurement: "Topic coverage vs competitors"
+
+          - factor: "Freshness signals"
+            points: 10
+            factors: ["Last updated", "References current", "No outdated info"]
+
+      structure_organization:
+        weight: 0.20
+        factors:
+          - factor: "Heading hierarchy"
+            points: 15
+            requirement: "Proper H1->H2->H3 flow"
+
+          - factor: "Table of contents"
+            points: 8
+            requirement: "For content >1500 words"
+
+          - factor: "Logical flow"
+            points: 12
+            measurement: "Topic coherence analysis"
+
+          - factor: "Scannable formatting"
+            points: 10
+            elements: ["Lists", "Bold key points", "Short paragraphs"]
+
+          - factor: "Visual content"
+            points: 10
+            requirement: "Images, videos, infographics"
+
+          - factor: "Content sections"
+            points: 8
+            requirement: "Clear section breaks"
+
+          - factor: "Intro and conclusion"
+            points: 7
+            requirement: "Clear opening and closing"
+
+          - factor: "FAQ section"
+            points: 8
+            when: "Applicable to content type"
+            bonus: "FAQ schema implemented"
+
+          - factor: "Key takeaways"
+            points: 7
+            requirement: "Summary for long content"
+
+          - factor: "Call to action"
+            points: 15
+            requirement: "Clear next steps for reader"
+
+      technical_on_page:
+        weight: 0.15
+        factors:
+          - factor: "Title tag length"
+            points: 12
+            optimal: "50-60 characters"
+            max_pixels: 600
+
+          - factor: "Title tag compelling"
+            points: 8
+            measurement: "CTR prediction model"
+
+          - factor: "Meta description length"
+            points: 10
+            optimal: "150-160 characters"
+            max_pixels: 920
+
+          - factor: "Meta description compelling"
+            points: 7
+            measurement: "CTR prediction model"
+
+          - factor: "URL structure"
+            points: 8
+            requirements: ["Short", "Descriptive", "Keyword included"]
+
+          - factor: "Image alt text"
+            points: 10
+            requirement: "All images have descriptive alt text"
+
+          - factor: "Image file names"
+            points: 5
+            requirement: "Descriptive, keyword-relevant names"
+
+          - factor: "Internal links"
+            points: 15
+            optimal: "3-10 relevant internal links"
+
+          - factor: "External links"
+            points: 8
+            optimal: "2-5 authoritative external links"
+
+          - factor: "Canonical tag"
+            points: 7
+            requirement: "Self-referencing canonical"
+
+          - factor: "Schema markup"
+            points: 10
+            requirement: "Appropriate schema for content type"
+
+      eeat_signals:
+        weight: 0.15
+        description: "Experience, Expertise, Authoritativeness, Trustworthiness"
+        factors:
+          - factor: "Author byline"
+            points: 12
+            requirement: "Named author with credentials"
+
+          - factor: "Author bio/page"
+            points: 10
+            requirement: "Linked author page with expertise"
+
+          - factor: "Source citations"
+            points: 12
+            requirement: "Authoritative sources cited"
+
+          - factor: "Data and statistics"
+            points: 10
+            requirement: "Claims backed by data"
+
+          - factor: "Expert quotes"
+            points: 8
+            when: "Applicable to content"
+
+          - factor: "Original research"
+            points: 12
+            bonus: "First-party data/studies"
+
+          - factor: "Credentials display"
+            points: 8
+            requirement: "Relevant qualifications shown"
+
+          - factor: "Trust signals"
+            points: 10
+            elements: ["Reviews", "Testimonials", "Certifications"]
+
+          - factor: "Contact information"
+            points: 8
+            requirement: "Clear contact/about page"
+
+          - factor: "Privacy policy"
+            points: 5
+            requirement: "Accessible privacy policy"
+
+          - factor: "Last updated date"
+            points: 5
+            requirement: "Visible publication/update date"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # META TAG OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  meta_optimization:
+
+    title_tag:
+      rules:
+        - rule: "Include primary keyword"
+          placement: "Front-loaded when possible"
+
+        - rule: "Character length"
+          optimal: "50-60 characters"
+          max_pixels: 600
+          truncation_handling: "Ensure meaning preserved"
+
+        - rule: "Branding"
+          format: "Title | Brand Name"
+          exception: "Homepage: Brand Name | Tagline"
+
+        - rule: "Uniqueness"
+          requirement: "No duplicate titles across site"
+
+        - rule: "Action/value oriented"
+          examples:
+            - "How to [Achieve X]: Complete Guide"
+            - "[Number] Best [Things] for [Outcome]"
+            - "[Topic]: Everything You Need to Know"
+
+      templates:
+        blog_post: "[Primary Keyword]: [Value Proposition] | [Brand]"
+        product: "[Product Name] - [Key Benefit] | [Brand]"
+        category: "[Category] - [Unique Value] | [Brand]"
+        comparison: "[Product A] vs [Product B]: [Year] Comparison"
+        guide: "Complete Guide to [Topic] ([Year]) | [Brand]"
+        listicle: "[Number] Best [Items] for [Use Case] ([Year])"
+
+    meta_description:
+      rules:
+        - rule: "Include primary keyword"
+          requirement: "Natural inclusion"
+
+        - rule: "Character length"
+          optimal: "150-160 characters"
+          max_pixels: 920
+
+        - rule: "Call to action"
+          examples: ["Learn more", "Discover", "Find out", "Get started"]
+
+        - rule: "Unique value proposition"
+          requirement: "Why click this result?"
+
+        - rule: "Match search intent"
+          requirement: "Preview what page delivers"
+
+      templates:
+        informational: "Learn [topic] with our comprehensive guide. Discover [benefits] and [outcomes]. [CTA] today!"
+        commercial: "Compare [products/options] and find the best [solution] for [need]. Detailed reviews, pros & cons. [CTA]"
+        transactional: "Shop [product] with [benefit]. [Feature]. [Trust signal]. [CTA]!"
+        local: "[Service] in [Location]. [Trust signal]. [Differentiator]. [CTA] today!"
+
+    open_graph:
+      required_tags:
+        - tag: "og:title"
+          source: "Title tag or custom"
+          max_length: 60
+
+        - tag: "og:description"
+          source: "Meta description or custom"
+          max_length: 200
+
+        - tag: "og:image"
+          requirements:
+            dimensions: "1200x630 px minimum"
+            format: "JPG or PNG"
+            size: "<1MB"
+
+        - tag: "og:type"
+          values: ["website", "article", "product"]
+
+        - tag: "og:url"
+          source: "Canonical URL"
+
+    twitter_cards:
+      card_type: "summary_large_image"
+      required_tags:
+        - "twitter:card"
+        - "twitter:title"
+        - "twitter:description"
+        - "twitter:image"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # HEADING OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  heading_optimization:
+
+    h1_rules:
+      - "Exactly one H1 per page"
+      - "Contains primary keyword or close variant"
+      - "Compelling and descriptive"
+      - "Different from title tag (adds context)"
+      - "Length: 20-70 characters optimal"
+
+    heading_hierarchy:
+      structure:
+        - level: "H1"
+          count: 1
+          purpose: "Main page topic"
+
+        - level: "H2"
+          count: "3-8 typical"
+          purpose: "Major sections"
+          keyword_usage: "Secondary keywords, questions"
+
+        - level: "H3"
+          count: "As needed"
+          purpose: "Subsections under H2"
+          keyword_usage: "Long-tail variations"
+
+        - level: "H4-H6"
+          purpose: "Deep subsections"
+          usage: "Complex, long-form content"
+
+      rules:
+        - "Never skip heading levels (H1->H3)"
+        - "Use headings for structure, not styling"
+        - "Front-load keywords when natural"
+        - "Make headings scannable"
+        - "Answer questions in headings"
+
+    heading_templates:
+      question_format:
+        - "What is [Topic]?"
+        - "How to [Achieve Outcome]"
+        - "Why [Topic] Matters"
+        - "When to [Action]"
+
+      statement_format:
+        - "[Number] Ways to [Outcome]"
+        - "The [Adjective] Guide to [Topic]"
+        - "[Topic] Best Practices"
+        - "Understanding [Concept]"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INTERNAL LINKING OPTIMIZER
+  # ═══════════════════════════════════════════────────────────────────────────
+
+  internal_linking:
+
+    optimization_rules:
+      link_quantity:
+        minimum: 3
+        optimal: "5-10 for average page"
+        maximum: "No hard limit, but natural"
+        calculation: "Based on content length and topic breadth"
+
+      link_quality:
+        requirements:
+          - "Contextually relevant"
+          - "Natural placement in content"
+          - "Value-adding for reader"
+          - "Supporting topic comprehension"
+
+      anchor_text:
+        guidelines:
+          - guideline: "Descriptive anchors"
+            good: "learn about keyword research"
+            bad: "click here"
+
+          - guideline: "Keyword-rich but natural"
+            good: "our comprehensive SEO guide"
+            bad: "SEO guide SEO tips SEO help"
+
+          - guideline: "Variety"
+            requirement: "Mix of anchor types"
+            types:
+              - "Exact match keyword"
+              - "Partial match"
+              - "Branded"
+              - "Generic"
+              - "Natural phrase"
+
+      link_placement:
+        optimal_locations:
+          - "Introduction (set context)"
+          - "Within relevant paragraphs"
+          - "Related content sections"
+          - "Conclusion (next steps)"
+        avoid:
+          - "Excessive sidebar links"
+          - "Footer link farms"
+          - "Unrelated content links"
+
+    link_opportunity_detection:
+      methods:
+        - method: "Keyword matching"
+          description: "Find text matching target page keywords"
+          confidence: 0.85
+
+        - method: "Topic relevance"
+          description: "Identify topically related content"
+          using: "Semantic similarity"
+
+        - method: "User journey"
+          description: "Link based on user path logic"
+          patterns: ["Problem -> Solution", "Overview -> Detail"]
+
+        - method: "Orphan page rescue"
+          description: "Add links to pages with no internal links"
+          priority: "high"
+
+    link_audit:
+      checks:
+        - "Broken internal links"
+        - "Links to redirects"
+        - "Orphan pages"
+        - "Dead-end pages"
+        - "Over-linked pages"
+        - "Under-linked priority pages"
+        - "Anchor text distribution"
+        - "PageRank flow analysis"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IMAGE SEO OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  image_optimization:
+
+    file_optimization:
+      naming:
+        format: "descriptive-keyword-phrase.jpg"
+        rules:
+          - "Use hyphens between words"
+          - "Include relevant keywords"
+          - "Keep concise but descriptive"
+          - "Avoid generic names (IMG_001.jpg)"
+
+      formats:
+        recommended:
+          - format: "WebP"
+            use_case: "All web images"
+            fallback: "JPG/PNG"
+          - format: "AVIF"
+            use_case: "Maximum compression"
+            support: "Modern browsers"
+          - format: "SVG"
+            use_case: "Logos, icons, illustrations"
+
+      compression:
+        quality_target: "80-85% quality"
+        max_file_size: "200KB for most images"
+        tools: ["ImageOptim", "Squoosh", "TinyPNG"]
+
+    alt_text:
+      guidelines:
+        - "Describe image content accurately"
+        - "Include keywords naturally"
+        - "Keep under 125 characters"
+        - "Don't start with 'Image of' or 'Picture of'"
+        - "Be specific and descriptive"
+
+      examples:
+        good: "Golden retriever puppy playing fetch in park"
+        bad: "Dog"
+        over_optimized: "Best golden retriever puppy dog breed pet animal"
+
+    additional_attributes:
+      - attribute: "title"
+        usage: "Additional context (optional)"
+
+      - attribute: "loading='lazy'"
+        usage: "Below-fold images"
+
+      - attribute: "srcset"
+        usage: "Responsive images"
+        breakpoints: [480, 768, 1024, 1200]
+
+      - attribute: "width/height"
+        usage: "Prevent CLS"
+        requirement: "Always specify"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT BRIEF GENERATOR
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_briefs:
+
+    brief_components:
+      target_keyword:
+        includes:
+          - "Primary keyword"
+          - "Secondary keywords (3-5)"
+          - "LSI terms (10-20)"
+          - "Questions to answer (5-10)"
+
+      competitive_analysis:
+        includes:
+          - "Top 10 rankers summary"
+          - "Average content length"
+          - "Common topics covered"
+          - "Content gaps/opportunities"
+          - "Unique angles to explore"
+
+      content_requirements:
+        includes:
+          - "Recommended word count"
+          - "Content type/format"
+          - "Heading structure template"
+          - "Required sections"
+          - "Internal link suggestions"
+          - "External source suggestions"
+
+      serp_analysis:
+        includes:
+          - "Current SERP features"
+          - "Featured snippet opportunities"
+          - "People Also Ask questions"
+          - "Related searches"
+
+      intent_guidance:
+        includes:
+          - "Primary search intent"
+          - "User expectations"
+          - "Content angle recommendations"
+          - "CTA suggestions"
+
+    automation:
+      generation_trigger:
+        - "New keyword target assigned"
+        - "Content refresh triggered"
+        - "Gap analysis identifies opportunity"
+        - "Manual request"
+
+      delivery:
+        - "Content Strategist Agent"
+        - "Copywriting Agent"
+        - "Content management system"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+    page_optimization_report:
+      - "Overall SEO score"
+      - "Component scores breakdown"
+      - "Specific improvements needed"
+      - "Priority-ranked action items"
+      - "Before/after score projection"
+
+    bulk_optimization_report:
+      - "Site-wide scoring summary"
+      - "Pages by score tier"
+      - "Common issues across pages"
+      - "High-impact quick wins"
+
+    content_briefs:
+      - "Complete keyword targeting guide"
+      - "Competitive landscape summary"
+      - "Content structure template"
+      - "Optimization checklist"
+
+    automation_outputs:
+      - "Meta tag suggestions"
+      - "Heading structure recommendations"
+      - "Internal link opportunities"
+      - "Image alt text suggestions"

@@ -1,0 +1,528 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# KEYWORD INTELLIGENCE MODULE
+# The Marketing Department 2026 - SEO Agent
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "keyword-intelligence"
+  name: "Keyword Intelligence & Research Engine"
+  version: "1.0.0"
+  category: "keyword_research"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD DISCOVERY ENGINE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  keyword_discovery:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Discovery Methods
+    # ─────────────────────────────────────────────────────────────────────────
+
+    discovery_methods:
+      - method: "seed_expansion"
+        description: "Expand seed keywords into comprehensive lists"
+        sources:
+          - "Search suggest (autocomplete)"
+          - "Related searches"
+          - "People Also Ask"
+          - "Alphabet soup variations"
+          - "Modifier combinations"
+          - "Question expansions"
+          - "Location modifiers"
+          - "Intent modifiers"
+
+      - method: "competitor_mining"
+        description: "Extract keywords from competitor rankings"
+        data_points:
+          - "Competitor organic keywords"
+          - "Competitor paid keywords"
+          - "New keywords competitors gained"
+          - "Keywords competitors lost"
+          - "Shared keywords comparison"
+
+      - method: "gap_analysis"
+        description: "Find keywords competitors rank for that you don't"
+        analysis_types:
+          - "Pure gap (they rank, you don't)"
+          - "Weak position gap (they top 10, you page 2+)"
+          - "Opportunity gap (they page 1, you positions 11-20)"
+
+      - method: "question_discovery"
+        description: "Find question-based keywords"
+        sources:
+          - "People Also Ask scraping"
+          - "Question modifiers (how, what, why, when, where)"
+          - "Answer sites (Quora, Reddit, StackExchange)"
+          - "Forum mining"
+          - "Review analysis"
+
+      - method: "entity_based"
+        description: "Discover keywords through entity relationships"
+        entities:
+          - "Brand entities"
+          - "Product entities"
+          - "Topic entities"
+          - "Person entities"
+          - "Location entities"
+
+      - method: "trending_discovery"
+        description: "Find emerging and trending keywords"
+        sources:
+          - "Google Trends"
+          - "Social media trends"
+          - "News trends"
+          - "Industry publications"
+          - "Search volume velocity"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Keyword Metrics
+    # ─────────────────────────────────────────────────────────────────────────
+
+    keyword_metrics:
+
+      search_volume:
+        description: "Monthly search volume data"
+        granularity:
+          - "Monthly average"
+          - "12-month trend"
+          - "Year-over-year change"
+          - "Seasonal patterns"
+        geographic_breakdown:
+          - "Global"
+          - "Country-specific"
+          - "Region/State"
+          - "City (where available)"
+        accuracy_indicators:
+          - "Confidence interval"
+          - "Data freshness"
+          - "Estimation method"
+
+      keyword_difficulty:
+        description: "Ranking difficulty assessment"
+        scoring_model:
+          factors:
+            - factor: "Domain authority of top 10"
+              weight: 0.25
+            - factor: "Page authority of top 10"
+              weight: 0.20
+            - factor: "Backlink profiles of top 10"
+              weight: 0.20
+            - factor: "Content depth of top 10"
+              weight: 0.15
+            - factor: "Brand presence in top 10"
+              weight: 0.10
+            - factor: "SERP feature saturation"
+              weight: 0.10
+          scale: "0-100"
+          interpretation:
+            0-29: "Easy - New sites can rank"
+            30-49: "Moderate - Some authority needed"
+            50-69: "Difficult - Strong content + links needed"
+            70-84: "Hard - Established sites only"
+            85-100: "Very Hard - Top brands dominate"
+
+      click_metrics:
+        description: "Click behavior analysis"
+        metrics:
+          - "Organic CTR estimate"
+          - "Clicks per search"
+          - "No-click searches %"
+          - "SERP feature click share"
+          - "Paid click share"
+
+      commercial_metrics:
+        description: "Commercial value indicators"
+        metrics:
+          - "CPC (Cost Per Click)"
+          - "Competition level (0-1)"
+          - "Commercial intent score"
+          - "Conversion potential"
+          - "Revenue potential estimate"
+
+      serp_features:
+        description: "SERP feature presence"
+        features_tracked:
+          - "Featured snippet"
+          - "People Also Ask"
+          - "Knowledge panel"
+          - "Local pack"
+          - "Image pack"
+          - "Video carousel"
+          - "Top stories"
+          - "Shopping results"
+          - "Sitelinks"
+          - "Reviews"
+          - "FAQ rich results"
+          - "How-to results"
+          - "Recipes"
+          - "Events"
+          - "Jobs"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SEARCH INTENT ANALYSIS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  search_intent:
+
+    intent_classification:
+      primary_intents:
+        - intent: "informational"
+          description: "User wants to learn something"
+          signals:
+            modifiers: ["how to", "what is", "why", "guide", "tutorial", "tips"]
+            serp_signals: ["featured snippets", "PAA boxes", "knowledge panels"]
+          content_recommendations:
+            types: ["blog posts", "guides", "tutorials", "explainers", "videos"]
+            length: "1500-3000 words"
+            format: "educational, step-by-step"
+
+        - intent: "navigational"
+          description: "User looking for specific website/page"
+          signals:
+            modifiers: ["login", "official", brand_names, product_names]
+            serp_signals: ["sitelinks", "knowledge panels", "branded results"]
+          content_recommendations:
+            types: ["homepage", "product pages", "login pages"]
+            focus: "brand clarity, easy navigation"
+
+        - intent: "commercial_investigation"
+          description: "User researching before purchase"
+          signals:
+            modifiers: ["best", "top", "review", "vs", "comparison", "alternative"]
+            serp_signals: ["product listings", "review snippets", "comparison results"]
+          content_recommendations:
+            types: ["comparison posts", "reviews", "buying guides", "listicles"]
+            length: "2000-4000 words"
+            format: "comparative, detailed analysis"
+
+        - intent: "transactional"
+          description: "User ready to take action/purchase"
+          signals:
+            modifiers: ["buy", "order", "price", "discount", "coupon", "near me"]
+            serp_signals: ["shopping ads", "product results", "local pack"]
+          content_recommendations:
+            types: ["product pages", "pricing pages", "landing pages"]
+            focus: "conversion optimization, trust signals, clear CTAs"
+
+        - intent: "local"
+          description: "User looking for local business/service"
+          signals:
+            modifiers: ["near me", "in [city]", "[city] + service", "open now"]
+            serp_signals: ["local pack", "maps", "local business results"]
+          content_recommendations:
+            types: ["location pages", "GMB optimization", "local landing pages"]
+            focus: "NAP consistency, reviews, directions"
+
+    intent_scoring:
+      model: "multi-label_classification"
+      outputs:
+        - "Primary intent (highest probability)"
+        - "Secondary intent (if applicable)"
+        - "Intent confidence score (0-100)"
+        - "Mixed intent indicator"
+
+    intent_to_funnel_mapping:
+      top_of_funnel:
+        intents: ["informational"]
+        content_goals: ["awareness", "education", "brand discovery"]
+      middle_of_funnel:
+        intents: ["commercial_investigation"]
+        content_goals: ["consideration", "comparison", "trust building"]
+      bottom_of_funnel:
+        intents: ["transactional", "local"]
+        content_goals: ["conversion", "purchase", "lead generation"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD CLUSTERING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  keyword_clustering:
+
+    clustering_methods:
+      - method: "semantic_clustering"
+        description: "Group keywords by semantic similarity"
+        algorithm: "embeddings_cosine_similarity"
+        parameters:
+          similarity_threshold: 0.75
+          min_cluster_size: 3
+          max_cluster_size: 50
+
+      - method: "serp_overlap_clustering"
+        description: "Group keywords with similar SERP results"
+        algorithm: "serp_similarity"
+        parameters:
+          overlap_threshold: 0.40
+          top_n_results: 10
+
+      - method: "intent_clustering"
+        description: "Group keywords by search intent"
+        groupings:
+          - "Informational cluster"
+          - "Commercial cluster"
+          - "Transactional cluster"
+          - "Navigational cluster"
+
+      - method: "topic_modeling"
+        description: "Statistical topic extraction"
+        algorithm: "LDA_based"
+        outputs:
+          - "Topic clusters"
+          - "Topic labels"
+          - "Keyword-topic probability"
+
+    cluster_hierarchy:
+      levels:
+        - level: "pillar"
+          description: "Main topic/category level"
+          typical_volume: ">10,000 monthly"
+          content_type: "Pillar page / Hub page"
+
+        - level: "cluster"
+          description: "Subtopic level"
+          typical_volume: "1,000-10,000 monthly"
+          content_type: "Cluster content / Supporting articles"
+
+        - level: "long_tail"
+          description: "Specific variations"
+          typical_volume: "<1,000 monthly"
+          content_type: "Targeted content / FAQ sections"
+
+    cluster_outputs:
+      - output: "cluster_map"
+        format: "hierarchical_json"
+        includes:
+          - "Cluster ID and name"
+          - "Primary keyword"
+          - "Supporting keywords"
+          - "Total cluster volume"
+          - "Average difficulty"
+          - "Content recommendations"
+
+      - output: "internal_linking_map"
+        description: "Recommended internal link structure"
+        format: "directed_graph"
+
+      - output: "content_calendar"
+        description: "Prioritized content creation schedule"
+        format: "timeline_with_dependencies"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD PRIORITIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  prioritization:
+
+    scoring_model:
+      name: "Keyword Opportunity Score (KOS)"
+      formula: "((volume * ctr_estimate * conversion_value) / difficulty) * strategic_weight"
+
+      components:
+        traffic_potential:
+          weight: 0.30
+          calculation: "volume * position_ctr_curve[expected_position]"
+
+        business_value:
+          weight: 0.25
+          factors:
+            - "Revenue potential"
+            - "Conversion rate"
+            - "Customer LTV"
+            - "Strategic importance"
+
+        ranking_feasibility:
+          weight: 0.25
+          factors:
+            - "Current position (if ranking)"
+            - "Content gap vs competitors"
+            - "Backlink gap vs competitors"
+            - "Domain authority comparison"
+
+        quick_win_potential:
+          weight: 0.20
+          criteria:
+            - "Already ranking 11-20"
+            - "Weak competitor content"
+            - "Low difficulty"
+            - "Existing relevant content"
+
+    priority_tiers:
+      - tier: "P1 - Immediate Priority"
+        criteria:
+          - "KOS score > 80"
+          - "Quick win potential"
+          - "High business impact"
+        action: "Create/optimize content immediately"
+
+      - tier: "P2 - Near-Term Priority"
+        criteria:
+          - "KOS score 60-79"
+          - "Moderate difficulty"
+          - "Clear opportunity"
+        action: "Schedule for next content sprint"
+
+      - tier: "P3 - Medium-Term"
+        criteria:
+          - "KOS score 40-59"
+          - "Requires link building"
+          - "Competitive landscape"
+        action: "Plan for Q+1"
+
+      - tier: "P4 - Long-Term / Monitor"
+        criteria:
+          - "KOS score < 40"
+          - "Very competitive"
+          - "Lower volume"
+        action: "Track and revisit quarterly"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD-CONTENT MAPPING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_mapping:
+
+    mapping_rules:
+      one_to_one:
+        description: "One primary keyword per page"
+        enforcement: "strict"
+        exceptions:
+          - "Closely related variants (singular/plural)"
+          - "Same intent, same SERP overlap > 70%"
+
+      cannibalization_prevention:
+        detection: "continuous"
+        indicators:
+          - "Multiple pages ranking for same keyword"
+          - "Ranking URL fluctuations"
+          - "Position instability"
+        resolution_options:
+          - "Consolidate content"
+          - "Differentiate targeting"
+          - "Canonical implementation"
+          - "noindex secondary pages"
+
+      content_type_matching:
+        mapping:
+          informational: ["blog_post", "guide", "tutorial", "faq"]
+          commercial: ["comparison", "review", "listicle", "buying_guide"]
+          transactional: ["product_page", "landing_page", "pricing_page"]
+          local: ["location_page", "service_area_page"]
+
+    keyword_assignment_workflow:
+      steps:
+        - step: 1
+          action: "Identify primary keyword for page"
+          criteria: ["highest volume", "best intent match", "no cannibalization"]
+
+        - step: 2
+          action: "Assign secondary keywords"
+          criteria: ["same intent", "same cluster", "natural content fit"]
+
+        - step: 3
+          action: "Define LSI/supporting terms"
+          source: "top 10 rankers content analysis"
+
+        - step: 4
+          action: "Map to content elements"
+          elements:
+            title: "Primary keyword"
+            h1: "Primary keyword variation"
+            headings: "Secondary keywords, questions"
+            body: "LSI terms, natural mentions"
+            meta: "Primary + compelling copy"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD TRACKING & MONITORING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  tracking:
+
+    tracking_configuration:
+      default_settings:
+        frequency: "daily"
+        search_engines: ["google", "bing"]
+        devices: ["desktop", "mobile"]
+        locations: "configurable_per_keyword"
+        language: "configurable_per_keyword"
+
+      tracking_limits:
+        keywords_per_project: "unlimited"
+        locations_per_keyword: 5
+        historical_data_retention: "24_months"
+
+    tracked_metrics:
+      - metric: "Position"
+        granularity: "keyword + location + device"
+        history: "full_historical"
+
+      - metric: "SERP Features"
+        tracked_features: "all_detected"
+        ownership_status: "yes/no/competitor"
+
+      - metric: "Ranking URL"
+        tracking: "which_url_ranks"
+        change_alerts: true
+
+      - metric: "Visibility Score"
+        calculation: "weighted_position_score"
+        scope: "keyword_group_and_overall"
+
+      - metric: "Search Volume Changes"
+        tracking: "monthly_updates"
+        alerts: "significant_changes"
+
+    reporting:
+      automated_reports:
+        - report: "Daily Ranking Summary"
+          contents: ["Winners", "Losers", "New rankings", "Lost rankings"]
+          delivery: "email_and_dashboard"
+
+        - report: "Weekly Performance Report"
+          contents: ["Position trends", "Visibility changes", "SERP feature wins/losses"]
+          delivery: "email_to_stakeholders"
+
+        - report: "Monthly Strategic Review"
+          contents: ["Full portfolio analysis", "Opportunity identification", "Strategy recommendations"]
+          delivery: "cmo_agent"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_content_strategist:
+      - "Keyword-topic clusters"
+      - "Content briefs with keyword targets"
+      - "Editorial calendar priorities"
+      - "Gap analysis reports"
+
+    to_copywriting_agent:
+      - "Primary/secondary keyword assignments"
+      - "LSI term lists"
+      - "Competitor content analysis"
+      - "SERP feature requirements"
+
+    to_analytics_agent:
+      - "Keyword portfolio performance"
+      - "Traffic attribution by keyword"
+      - "Conversion tracking by keyword"
+
+    to_cmo_agent:
+      - "Strategic keyword opportunities"
+      - "Market share analysis"
+      - "Competitive positioning"
+
+  integrations:
+    data_sources:
+      - "Google Search Console API"
+      - "Google Ads Keyword Planner"
+      - "Third-party keyword databases"
+      - "SERP APIs"
+      - "Competitor intelligence feeds"
+
+    export_formats:
+      - "CSV"
+      - "JSON"
+      - "XLSX"
+      - "API access"
