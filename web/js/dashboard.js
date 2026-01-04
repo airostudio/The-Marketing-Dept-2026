@@ -71,8 +71,30 @@
         initTooltips();
         initKeyboardShortcuts();
         initAutoRefresh();
+        initAuditButton();
         loadDashboardData();
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RUN AUDIT BUTTON
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initAuditButton() {
+        const runAuditBtn = document.getElementById('runAuditBtn');
+        if (runAuditBtn) {
+            runAuditBtn.addEventListener('click', function() {
+                // Check if project exists
+                const projectId = localStorage.getItem('seo-current-project');
+                if (!projectId) {
+                    // Redirect to project wizard
+                    window.location.href = 'project-wizard.html';
+                } else {
+                    // Redirect to automated audits page to run audit
+                    window.location.href = 'technical-seo/automated-audits.html';
+                }
+            });
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // GLOBAL SETTINGS APPLICATION
