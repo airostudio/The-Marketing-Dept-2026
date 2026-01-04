@@ -761,6 +761,365 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // SUPABASE CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initSupabaseSettings() {
+        // Load saved Supabase config
+        const supabaseUrl = localStorage.getItem('supabase-url') || '';
+        const supabaseAnonKey = localStorage.getItem('supabase-anon-key') || '';
+
+        const urlInput = document.getElementById('supabaseUrl');
+        const anonKeyInput = document.getElementById('supabaseAnonKey');
+
+        if (urlInput) urlInput.value = supabaseUrl;
+        if (anonKeyInput) anonKeyInput.value = supabaseAnonKey;
+
+        // Update connection status
+        updateSupabaseConnectionStatus();
+
+        // Setup event listeners
+        setupSupabaseEventListeners();
+
+        // Check auth state
+        checkAuthState();
+    }
+
+    function setupSupabaseEventListeners() {
+        // Test connection button
+        const testBtn = document.getElementById('testSupabaseConnection');
+        if (testBtn) {
+            testBtn.addEventListener('click', testSupabaseConnection);
+        }
+
+        // Save config button
+        const saveBtn = document.getElementById('saveSupabaseConfig');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveSupabaseConfig);
+        }
+
+        // Password visibility toggles
+        document.querySelectorAll('.toggle-visibility').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.dataset.target;
+                const input = document.getElementById(targetId);
+                if (input) {
+                    const isPassword = input.type === 'password';
+                    input.type = isPassword ? 'text' : 'password';
+
+                    const showIcon = this.querySelector('.icon-show');
+                    const hideIcon = this.querySelector('.icon-hide');
+                    if (showIcon && hideIcon) {
+                        showIcon.style.display = isPassword ? 'none' : 'block';
+                        hideIcon.style.display = isPassword ? 'block' : 'none';
+                    }
+                }
+            });
+        });
+
+        // Auth tab switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const targetTab = this.dataset.tab;
+
+                // Update tabs
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // Show/hide forms
+                const signInForm = document.getElementById('signInForm');
+                const signUpForm = document.getElementById('signUpForm');
+
+                if (signInForm && signUpForm) {
+                    signInForm.style.display = targetTab === 'signin' ? 'block' : 'none';
+                    signUpForm.style.display = targetTab === 'signup' ? 'block' : 'none';
+                }
+            });
+        });
+
+        // Sign in form
+        const signInForm = document.getElementById('signInForm');
+        if (signInForm) {
+            signInForm.addEventListener('submit', handleSignIn);
+        }
+
+        // Sign up form
+        const signUpForm = document.getElementById('signUpForm');
+        if (signUpForm) {
+            signUpForm.addEventListener('submit', handleSignUp);
+        }
+
+        // Sign out button
+        const signOutBtn = document.getElementById('signOutBtn');
+        if (signOutBtn) {
+            signOutBtn.addEventListener('click', handleSignOut);
+        }
+
+        // OAuth buttons
+        const googleOAuthBtn = document.getElementById('googleOAuth');
+        if (googleOAuthBtn) {
+            googleOAuthBtn.addEventListener('click', () => handleOAuth('google'));
+        }
+
+        const githubOAuthBtn = document.getElementById('githubOAuth');
+        if (githubOAuthBtn) {
+            githubOAuthBtn.addEventListener('click', () => handleOAuth('github'));
+        }
+    }
+
+    async function testSupabaseConnection() {
+        const btn = document.getElementById('testSupabaseConnection');
+        const urlInput = document.getElementById('supabaseUrl');
+        const anonKeyInput = document.getElementById('supabaseAnonKey');
+
+        if (!urlInput || !anonKeyInput) return;
+
+        const url = urlInput.value.trim();
+        const anonKey = anonKeyInput.value.trim();
+
+        if (!url || !anonKey) {
+            showToast('error', 'Missing Configuration', 'Please enter both URL and Anon Key');
+            return;
+        }
+
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Testing...';
+
+        try {
+            // Try to initialize Supabase with the new credentials
+            if (typeof window.Supabase !== 'undefined') {
+                const client = window.Supabase.setConfig(url, anonKey);
+
+                if (client) {
+                    // Try a simple query to test connection
+                    const { error } = await client.auth.getSession();
+
+                    if (!error) {
+                        showToast('success', 'Connection Successful', 'Successfully connected to Supabase');
+                        updateSupabaseConnectionStatus(true);
+                    } else {
+                        throw new Error(error.message);
+                    }
+                } else {
+                    throw new Error('Failed to initialize Supabase client');
+                }
+            } else {
+                throw new Error('Supabase library not loaded');
+            }
+        } catch (error) {
+            showToast('error', 'Connection Failed', error.message);
+            updateSupabaseConnectionStatus(false, error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Test Connection
+            `;
+        }
+    }
+
+    function saveSupabaseConfig() {
+        const urlInput = document.getElementById('supabaseUrl');
+        const anonKeyInput = document.getElementById('supabaseAnonKey');
+
+        if (!urlInput || !anonKeyInput) return;
+
+        const url = urlInput.value.trim();
+        const anonKey = anonKeyInput.value.trim();
+
+        localStorage.setItem('supabase-url', url);
+        localStorage.setItem('supabase-anon-key', anonKey);
+
+        if (typeof window.Supabase !== 'undefined') {
+            window.Supabase.setConfig(url, anonKey);
+        }
+
+        showToast('success', 'Configuration Saved', 'Supabase configuration has been saved');
+        updateSupabaseConnectionStatus();
+    }
+
+    function updateSupabaseConnectionStatus(connected = null, errorMsg = null) {
+        const statusEl = document.getElementById('supabaseStatus');
+        if (!statusEl) return;
+
+        const indicator = statusEl.querySelector('.status-indicator');
+        const text = statusEl.querySelector('span:last-child');
+
+        if (connected === true) {
+            indicator.className = 'status-indicator connected';
+            text.textContent = 'Connected';
+        } else if (connected === false) {
+            indicator.className = 'status-indicator error';
+            text.textContent = errorMsg || 'Connection failed';
+        } else {
+            // Check current config
+            const url = localStorage.getItem('supabase-url');
+            const anonKey = localStorage.getItem('supabase-anon-key');
+
+            if (url && anonKey) {
+                indicator.className = 'status-indicator neutral';
+                text.textContent = 'Configured - not tested';
+            } else {
+                indicator.className = 'status-indicator neutral';
+                text.textContent = 'Not configured';
+            }
+        }
+    }
+
+    async function checkAuthState() {
+        if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
+            return;
+        }
+
+        try {
+            const user = await window.Supabase.Auth.getUser();
+            if (user) {
+                showAuthenticatedState(user);
+            }
+        } catch (error) {
+            console.log('Not authenticated');
+        }
+    }
+
+    function showAuthenticatedState(user) {
+        const authSection = document.getElementById('authSection');
+        const authForms = document.getElementById('authForms');
+
+        if (authSection) {
+            authSection.style.display = 'block';
+
+            const avatar = document.getElementById('userAvatarLarge');
+            const emailDisplay = document.getElementById('userEmailDisplay');
+            const userSince = document.getElementById('userSince');
+
+            if (avatar && user.email) {
+                avatar.textContent = user.email.substring(0, 2).toUpperCase();
+            }
+
+            if (emailDisplay) {
+                emailDisplay.textContent = user.email;
+            }
+
+            if (userSince && user.created_at) {
+                const date = new Date(user.created_at);
+                userSince.textContent = 'Member since ' + date.toLocaleDateString();
+            }
+        }
+
+        if (authForms) {
+            authForms.style.display = 'none';
+        }
+    }
+
+    function showUnauthenticatedState() {
+        const authSection = document.getElementById('authSection');
+        const authForms = document.getElementById('authForms');
+
+        if (authSection) {
+            authSection.style.display = 'none';
+        }
+
+        if (authForms) {
+            authForms.style.display = 'block';
+        }
+    }
+
+    async function handleSignIn(e) {
+        e.preventDefault();
+
+        const email = document.getElementById('signInEmail').value.trim();
+        const password = document.getElementById('signInPassword').value;
+
+        if (!email || !password) {
+            showToast('error', 'Missing Fields', 'Please enter email and password');
+            return;
+        }
+
+        if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
+            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            return;
+        }
+
+        try {
+            const data = await window.Supabase.Auth.signIn(email, password);
+            showToast('success', 'Welcome Back!', 'Successfully signed in');
+            showAuthenticatedState(data.user);
+        } catch (error) {
+            showToast('error', 'Sign In Failed', error.message);
+        }
+    }
+
+    async function handleSignUp(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('signUpName').value.trim();
+        const email = document.getElementById('signUpEmail').value.trim();
+        const password = document.getElementById('signUpPassword').value;
+        const passwordConfirm = document.getElementById('signUpPasswordConfirm').value;
+
+        if (!name || !email || !password || !passwordConfirm) {
+            showToast('error', 'Missing Fields', 'Please fill in all fields');
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            showToast('error', 'Password Mismatch', 'Passwords do not match');
+            return;
+        }
+
+        if (password.length < 8) {
+            showToast('error', 'Weak Password', 'Password must be at least 8 characters');
+            return;
+        }
+
+        if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
+            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            return;
+        }
+
+        try {
+            await window.Supabase.Auth.signUp(email, password, { full_name: name });
+            showToast('success', 'Account Created', 'Please check your email to verify your account');
+        } catch (error) {
+            showToast('error', 'Sign Up Failed', error.message);
+        }
+    }
+
+    async function handleSignOut() {
+        if (typeof window.Supabase === 'undefined') return;
+
+        try {
+            await window.Supabase.Auth.signOut();
+            showToast('success', 'Signed Out', 'You have been signed out');
+            showUnauthenticatedState();
+        } catch (error) {
+            showToast('error', 'Sign Out Failed', error.message);
+        }
+    }
+
+    async function handleOAuth(provider) {
+        if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
+            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            return;
+        }
+
+        try {
+            await window.Supabase.Auth.signInWithOAuth(provider);
+        } catch (error) {
+            showToast('error', 'OAuth Failed', error.message);
+        }
+    }
+
+    // Initialize Supabase settings when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Small delay to ensure Supabase library is loaded
+        setTimeout(initSupabaseSettings, 100);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EXPORT FOR GLOBAL ACCESS
     // ═══════════════════════════════════════════════════════════════════════════
 
