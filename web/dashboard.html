@@ -58,7 +58,7 @@
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                         <span>Alerts</span>
-                        <span class="badge">12</span>
+                        <span class="badge" data-metric="alert-count">0</span>
                     </a>
                     <a href="history.html" class="nav-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -317,10 +317,10 @@
                     <span>Settings</span>
                 </a>
                 <div class="user-menu">
-                    <div class="user-avatar">JD</div>
+                    <div class="user-avatar" data-metric="user-initials">--</div>
                     <div class="user-info">
-                        <span class="user-name">John Doe</span>
-                        <span class="user-plan">Pro Plan</span>
+                        <span class="user-name" data-metric="user-name">Not logged in</span>
+                        <span class="user-plan" data-metric="user-plan">Free Plan</span>
                     </div>
                     <button class="user-menu-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -363,21 +363,14 @@
                                     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                                 </svg>
                             </div>
-                            <span>example.com</span>
+                            <span data-metric="current-domain">No project selected</span>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="6 9 12 15 18 9"/>
                             </svg>
                         </button>
                         <div class="domain-dropdown" id="domainDropdown">
-                            <div class="dropdown-item active">
-                                <span>example.com</span>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
-                            <div class="dropdown-item">
-                                <span>mysite.io</span>
-                            </div>
-                            <div class="dropdown-item">
-                                <span>business.co</span>
+                            <div class="dropdown-item empty-state" id="noDomains">
+                                <span>No projects configured</span>
                             </div>
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-item add-project">
@@ -417,8 +410,8 @@
                 <!-- Welcome Section -->
                 <section class="welcome-section">
                     <div class="welcome-text">
-                        <h1>Good morning, John</h1>
-                        <p>Here's what's happening with your SEO today.</p>
+                        <h1 data-metric="welcome-message">Welcome to SEO Agent</h1>
+                        <p>Configure your API connection in Settings to start tracking SEO data.</p>
                     </div>
                     <div class="welcome-actions">
                         <button class="btn btn-outline" id="runAuditBtn">
@@ -429,7 +422,7 @@
                             </svg>
                             Run Full Audit
                         </button>
-                        <button class="btn btn-ghost">Last audit: 2 hours ago</button>
+                        <button class="btn btn-ghost" data-metric="last-audit">No audits yet</button>
                     </div>
                 </section>
 
@@ -438,15 +431,15 @@
                     <div class="score-card main-score">
                         <div class="score-header">
                             <h3>SEO Health Score</h3>
-                            <span class="tag tag-green">Excellent</span>
+                            <span class="tag tag-neutral" data-metric="health-status">Not analyzed</span>
                         </div>
                         <div class="score-display">
                             <div class="score-ring-large">
                                 <svg viewBox="0 0 160 160">
                                     <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12"/>
                                     <circle cx="80" cy="80" r="70" fill="none" stroke="url(#health-gradient)" stroke-width="12"
-                                            stroke-dasharray="440" stroke-dashoffset="66" stroke-linecap="round"
-                                            transform="rotate(-90 80 80)"/>
+                                            stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round"
+                                            transform="rotate(-90 80 80)" data-metric="health-ring"/>
                                     <defs>
                                         <linearGradient id="health-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
                                             <stop offset="0%" stop-color="#10B981"/>
@@ -455,7 +448,7 @@
                                     </defs>
                                 </svg>
                                 <div class="score-value-large">
-                                    <span class="value">85</span>
+                                    <span class="value" data-metric="health-score">--</span>
                                     <span class="label">/ 100</span>
                                 </div>
                             </div>
@@ -463,40 +456,36 @@
                                 <div class="breakdown-item">
                                     <span class="breakdown-label">Technical</span>
                                     <div class="breakdown-bar">
-                                        <div class="breakdown-fill" style="width: 92%"></div>
+                                        <div class="breakdown-fill" style="width: 0%" data-metric="technical-bar"></div>
                                     </div>
-                                    <span class="breakdown-value">92</span>
+                                    <span class="breakdown-value" data-metric="technical-score">--</span>
                                 </div>
                                 <div class="breakdown-item">
                                     <span class="breakdown-label">Content</span>
                                     <div class="breakdown-bar">
-                                        <div class="breakdown-fill" style="width: 78%"></div>
+                                        <div class="breakdown-fill" style="width: 0%" data-metric="content-bar"></div>
                                     </div>
-                                    <span class="breakdown-value">78</span>
+                                    <span class="breakdown-value" data-metric="content-score">--</span>
                                 </div>
                                 <div class="breakdown-item">
                                     <span class="breakdown-label">Backlinks</span>
                                     <div class="breakdown-bar">
-                                        <div class="breakdown-fill" style="width: 85%"></div>
+                                        <div class="breakdown-fill" style="width: 0%" data-metric="backlinks-bar"></div>
                                     </div>
-                                    <span class="breakdown-value">85</span>
+                                    <span class="breakdown-value" data-metric="backlinks-score">--</span>
                                 </div>
                                 <div class="breakdown-item">
                                     <span class="breakdown-label">UX</span>
                                     <div class="breakdown-bar">
-                                        <div class="breakdown-fill" style="width: 88%"></div>
+                                        <div class="breakdown-fill" style="width: 0%" data-metric="ux-bar"></div>
                                     </div>
-                                    <span class="breakdown-value">88</span>
+                                    <span class="breakdown-value" data-metric="ux-score">--</span>
                                 </div>
                             </div>
                         </div>
                         <div class="score-trend">
-                            <span class="trend trend-up">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                                    <polyline points="17 6 23 6 23 12"/>
-                                </svg>
-                                +3.2%
+                            <span class="trend trend-neutral" data-metric="health-trend">
+                                --
                             </span>
                             <span class="trend-label">vs last month</span>
                         </div>
@@ -510,8 +499,8 @@
                         </div>
                         <div class="score-content">
                             <span class="score-label">Organic Traffic</span>
-                            <span class="score-number">24,847</span>
-                            <span class="trend trend-up">+12.4% <span class="muted">vs last week</span></span>
+                            <span class="score-number" data-metric="organic-traffic">0</span>
+                            <span class="trend trend-neutral" data-metric="traffic-trend">No data</span>
                         </div>
                     </div>
 
@@ -524,8 +513,8 @@
                         </div>
                         <div class="score-content">
                             <span class="score-label">Keywords Tracked</span>
-                            <span class="score-number">1,247</span>
-                            <span class="trend trend-up">847 in Top 10</span>
+                            <span class="score-number" data-metric="keywords-total">0</span>
+                            <span class="trend trend-neutral" data-metric="keywords-top10">0 in Top 10</span>
                         </div>
                     </div>
 
@@ -538,8 +527,8 @@
                         </div>
                         <div class="score-content">
                             <span class="score-label">Backlinks</span>
-                            <span class="score-number">12,483</span>
-                            <span class="trend trend-up">+127 this week</span>
+                            <span class="score-number" data-metric="backlinks-total">0</span>
+                            <span class="trend trend-neutral" data-metric="backlinks-new">+0 this week</span>
                         </div>
                     </div>
 
@@ -552,8 +541,8 @@
                         </div>
                         <div class="score-content">
                             <span class="score-label">Indexed Pages</span>
-                            <span class="score-number">2,847</span>
-                            <span class="trend trend-neutral">98.2% coverage</span>
+                            <span class="score-number" data-metric="indexed-pages">0</span>
+                            <span class="trend trend-neutral" data-metric="indexed-coverage">0% coverage</span>
                         </div>
                     </div>
                 </section>
@@ -578,19 +567,19 @@
                         </div>
                         <div class="traffic-stats">
                             <div class="traffic-stat">
-                                <span class="stat-value">24,847</span>
+                                <span class="stat-value" data-metric="traffic-sessions">0</span>
                                 <span class="stat-label">Sessions</span>
                             </div>
                             <div class="traffic-stat">
-                                <span class="stat-value">18,392</span>
+                                <span class="stat-value" data-metric="traffic-users">0</span>
                                 <span class="stat-label">Users</span>
                             </div>
                             <div class="traffic-stat">
-                                <span class="stat-value">3.2%</span>
+                                <span class="stat-value" data-metric="traffic-bounce">--</span>
                                 <span class="stat-label">Bounce Rate</span>
                             </div>
                             <div class="traffic-stat">
-                                <span class="stat-value">4:32</span>
+                                <span class="stat-value" data-metric="traffic-duration">--</span>
                                 <span class="stat-label">Avg. Duration</span>
                             </div>
                         </div>
@@ -608,16 +597,16 @@
                                 </svg>
                                 Core Web Vitals
                             </div>
-                            <span class="tag tag-green">All Passing</span>
+                            <span class="tag tag-neutral" data-metric="cwv-status">Not measured</span>
                         </div>
                         <div class="cwv-metrics">
                             <div class="cwv-metric">
                                 <div class="metric-header">
                                     <span class="metric-name">LCP</span>
-                                    <span class="metric-value good">1.8s</span>
+                                    <span class="metric-value neutral" data-metric="cwv-lcp">--</span>
                                 </div>
                                 <div class="metric-bar">
-                                    <div class="metric-fill good" style="width: 72%"></div>
+                                    <div class="metric-fill neutral" style="width: 0%" data-metric="cwv-lcp-bar"></div>
                                     <div class="metric-threshold" style="left: 62.5%"></div>
                                 </div>
                                 <span class="metric-label">Largest Contentful Paint</span>
@@ -625,10 +614,10 @@
                             <div class="cwv-metric">
                                 <div class="metric-header">
                                     <span class="metric-name">FID</span>
-                                    <span class="metric-value good">45ms</span>
+                                    <span class="metric-value neutral" data-metric="cwv-fid">--</span>
                                 </div>
                                 <div class="metric-bar">
-                                    <div class="metric-fill good" style="width: 45%"></div>
+                                    <div class="metric-fill neutral" style="width: 0%" data-metric="cwv-fid-bar"></div>
                                     <div class="metric-threshold" style="left: 33%"></div>
                                 </div>
                                 <span class="metric-label">First Input Delay</span>
@@ -636,10 +625,10 @@
                             <div class="cwv-metric">
                                 <div class="metric-header">
                                     <span class="metric-name">CLS</span>
-                                    <span class="metric-value good">0.05</span>
+                                    <span class="metric-value neutral" data-metric="cwv-cls">--</span>
                                 </div>
                                 <div class="metric-bar">
-                                    <div class="metric-fill good" style="width: 50%"></div>
+                                    <div class="metric-fill neutral" style="width: 0%" data-metric="cwv-cls-bar"></div>
                                     <div class="metric-threshold" style="left: 40%"></div>
                                 </div>
                                 <span class="metric-label">Cumulative Layout Shift</span>
@@ -647,10 +636,10 @@
                             <div class="cwv-metric">
                                 <div class="metric-header">
                                     <span class="metric-name">INP</span>
-                                    <span class="metric-value good">120ms</span>
+                                    <span class="metric-value neutral" data-metric="cwv-inp">--</span>
                                 </div>
                                 <div class="metric-bar">
-                                    <div class="metric-fill good" style="width: 60%"></div>
+                                    <div class="metric-fill neutral" style="width: 0%" data-metric="cwv-inp-bar"></div>
                                     <div class="metric-threshold" style="left: 40%"></div>
                                 </div>
                                 <span class="metric-label">Interaction to Next Paint</span>
@@ -670,56 +659,21 @@
                                 Issues to Fix
                             </div>
                             <div class="issue-counts">
-                                <span class="issue-count critical">3 Critical</span>
-                                <span class="issue-count high">8 High</span>
-                                <span class="issue-count medium">24 Medium</span>
+                                <span class="issue-count" data-metric="issues-critical">0 Critical</span>
+                                <span class="issue-count" data-metric="issues-high">0 High</span>
+                                <span class="issue-count" data-metric="issues-medium">0 Medium</span>
                             </div>
                         </div>
-                        <div class="issues-list">
-                            <div class="issue-item critical">
-                                <div class="issue-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <line x1="15" y1="9" x2="9" y2="15"/>
-                                        <line x1="9" y1="9" x2="15" y2="15"/>
-                                    </svg>
-                                </div>
-                                <div class="issue-content">
-                                    <span class="issue-title">SSL Certificate Expires in 7 Days</span>
-                                    <span class="issue-desc">Your SSL certificate needs renewal</span>
-                                </div>
-                                <button class="btn btn-sm btn-outline">Fix Now</button>
-                            </div>
-                            <div class="issue-item high">
-                                <div class="issue-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                        <line x1="12" y1="9" x2="12" y2="13"/>
-                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                    </svg>
-                                </div>
-                                <div class="issue-content">
-                                    <span class="issue-title">47 Pages Have Slow LCP</span>
-                                    <span class="issue-desc">LCP > 4s affects Core Web Vitals</span>
-                                </div>
-                                <button class="btn btn-sm btn-outline">View</button>
-                            </div>
-                            <div class="issue-item high">
-                                <div class="issue-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                        <line x1="12" y1="9" x2="12" y2="13"/>
-                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                    </svg>
-                                </div>
-                                <div class="issue-content">
-                                    <span class="issue-title">23 Broken Internal Links</span>
-                                    <span class="issue-desc">404 errors detected on internal pages</span>
-                                </div>
-                                <button class="btn btn-sm btn-outline">View</button>
+                        <div class="issues-list" id="issuesList">
+                            <div class="empty-state-inline">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                                <span>No issues detected. Run an audit to check your site.</span>
                             </div>
                         </div>
-                        <a href="alerts.html" class="view-all-link">View all 35 issues →</a>
+                        <a href="alerts.html" class="view-all-link" data-metric="view-all-issues">View all issues →</a>
                     </div>
 
                     <!-- Quick Actions -->
@@ -786,52 +740,13 @@
                             </div>
                             <a href="history.html" class="card-link">View All</a>
                         </div>
-                        <div class="activity-timeline">
-                            <div class="activity-item">
-                                <div class="activity-icon green">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="18 15 12 9 6 15"/>
-                                    </svg>
-                                </div>
-                                <div class="activity-content">
-                                    <span class="activity-text"><strong>"seo optimization tips"</strong> moved to position #3</span>
-                                    <span class="activity-time">2 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon blue">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                                    </svg>
-                                </div>
-                                <div class="activity-content">
-                                    <span class="activity-text">New backlink from <strong>techcrunch.com</strong> (DR 92)</span>
-                                    <span class="activity-time">15 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon purple">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                        <polyline points="22 4 12 14.01 9 11.01"/>
-                                    </svg>
-                                </div>
-                                <div class="activity-content">
-                                    <span class="activity-text">Audit completed: <strong>35 issues found</strong></span>
-                                    <span class="activity-time">1 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon red">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="6 9 12 15 18 9"/>
-                                    </svg>
-                                </div>
-                                <div class="activity-content">
-                                    <span class="activity-text"><strong>"email marketing"</strong> dropped from #5 to #8</span>
-                                    <span class="activity-time">3 hours ago</span>
-                                </div>
+                        <div class="activity-timeline" id="activityTimeline">
+                            <div class="empty-state-inline">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                <span>No activity yet. Start tracking to see updates here.</span>
                             </div>
                         </div>
                     </div>
@@ -850,39 +765,25 @@
                         </div>
                         <div class="backlink-stats">
                             <div class="bl-stat">
-                                <span class="bl-value green">+127</span>
+                                <span class="bl-value" data-metric="bl-new">+0</span>
                                 <span class="bl-label">New Links</span>
                             </div>
                             <div class="bl-stat">
-                                <span class="bl-value red">-23</span>
+                                <span class="bl-value" data-metric="bl-lost">-0</span>
                                 <span class="bl-label">Lost Links</span>
                             </div>
                             <div class="bl-stat">
-                                <span class="bl-value">+18</span>
+                                <span class="bl-value" data-metric="bl-domains">+0</span>
                                 <span class="bl-label">New Domains</span>
                             </div>
                         </div>
-                        <div class="backlink-list">
-                            <div class="bl-item">
-                                <div class="bl-domain">
-                                    <span class="domain-name">techcrunch.com</span>
-                                    <span class="domain-dr">DR 92</span>
-                                </div>
-                                <span class="bl-date">Today</span>
-                            </div>
-                            <div class="bl-item">
-                                <div class="bl-domain">
-                                    <span class="domain-name">forbes.com</span>
-                                    <span class="domain-dr">DR 95</span>
-                                </div>
-                                <span class="bl-date">Yesterday</span>
-                            </div>
-                            <div class="bl-item">
-                                <div class="bl-domain">
-                                    <span class="domain-name">searchenginejournal.com</span>
-                                    <span class="domain-dr">DR 88</span>
-                                </div>
-                                <span class="bl-date">2 days ago</span>
+                        <div class="backlink-list" id="backlinkList">
+                            <div class="empty-state-inline">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                </svg>
+                                <span>No backlinks detected yet.</span>
                             </div>
                         </div>
                     </div>
@@ -985,61 +886,19 @@
             <h3>Notifications</h3>
             <button class="mark-all-read">Mark all read</button>
         </div>
-        <div class="notifications-list">
-            <div class="notification-item unread">
-                <div class="notification-item-icon critical">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="15" y1="9" x2="9" y2="15"/>
-                        <line x1="9" y1="9" x2="15" y2="15"/>
-                    </svg>
-                </div>
-                <div class="notification-item-content">
-                    <p><strong>Critical:</strong> SSL certificate expires in 7 days</p>
-                    <span>2 minutes ago</span>
-                </div>
-            </div>
-            <div class="notification-item unread">
-                <div class="notification-item-icon success">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                </div>
-                <div class="notification-item-content">
-                    <p>Technical audit completed successfully</p>
-                    <span>1 hour ago</span>
-                </div>
-            </div>
-            <div class="notification-item">
-                <div class="notification-item-icon warning">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                </div>
-                <div class="notification-item-content">
-                    <p>3 keywords dropped in rankings</p>
-                    <span>3 hours ago</span>
-                </div>
-            </div>
-            <div class="notification-item">
-                <div class="notification-item-icon info">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                    </svg>
-                </div>
-                <div class="notification-item-content">
-                    <p>Weekly report is ready for review</p>
-                    <span>Yesterday</span>
-                </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="empty-state-inline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span>No notifications yet.</span>
             </div>
         </div>
         <a href="alerts.html" class="notifications-view-all">View all notifications →</a>
     </div>
 
+    <script src="js/api.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

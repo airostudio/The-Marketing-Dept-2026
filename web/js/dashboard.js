@@ -37,13 +37,14 @@
             device: 'all'
         },
         data: {
-            healthScore: 87,
-            organicTraffic: 124589,
+            healthScore: 0,
+            organicTraffic: 0,
             rankings: [],
             issues: [],
             backlinks: [],
             competitors: []
-        }
+        },
+        apiConfigured: false
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -52,13 +53,15 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         applyGlobalSettings(); // Apply settings first
+        loadUserInfo();        // Load user info from settings
+        checkApiConfiguration(); // Check if API is configured
         initSidebar();
         initExpandableNavigation();
         initHeader();
         initDropdowns();
         initDomainSelector();
         initTabs();
-        initCharts();
+        initEmptyChartStates(); // Show empty states for charts
         initHealthScore();
         initDataTables();
         initSearch();
@@ -101,6 +104,81 @@
 
         } catch (e) {
             console.warn('Could not apply global settings:', e);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // USER INFO & API CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function loadUserInfo() {
+        try {
+            const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+
+            // Update user name display
+            const userNameEl = document.querySelector('[data-metric="user-name"]');
+            const userInitialsEl = document.querySelector('[data-metric="user-initials"]');
+            const welcomeEl = document.querySelector('[data-metric="welcome-message"]');
+
+            if (settings.projectName) {
+                if (userNameEl) userNameEl.textContent = settings.projectName;
+                if (welcomeEl) {
+                    const hour = new Date().getHours();
+                    let greeting = 'Good morning';
+                    if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+                    else if (hour >= 17) greeting = 'Good evening';
+                    welcomeEl.textContent = greeting;
+                }
+            }
+
+            if (settings.projectName && userInitialsEl) {
+                const words = settings.projectName.split(' ');
+                const initials = words.length >= 2
+                    ? words[0][0] + words[1][0]
+                    : words[0].substring(0, 2);
+                userInitialsEl.textContent = initials.toUpperCase();
+            }
+
+            // Update current domain display
+            const domainEl = document.querySelector('[data-metric="current-domain"]');
+            if (domainEl && settings.websiteUrl) {
+                try {
+                    const url = new URL(settings.websiteUrl);
+                    domainEl.textContent = url.hostname;
+                } catch (e) {
+                    domainEl.textContent = settings.websiteUrl;
+                }
+            }
+
+        } catch (e) {
+            console.warn('Could not load user info:', e);
+        }
+    }
+
+    function checkApiConfiguration() {
+        // Check if API is configured via the api.js module
+        if (typeof API !== 'undefined' && API.isConfigured()) {
+            state.apiConfigured = true;
+        } else {
+            state.apiConfigured = false;
+        }
+    }
+
+    function initEmptyChartStates() {
+        // If API is not configured, show empty state for chart
+        const chartArea = document.querySelector('.chart-area');
+        if (chartArea && !state.apiConfigured) {
+            chartArea.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                    </div>
+                    <h3>No Traffic Data</h3>
+                    <p>Configure your API connection in Settings to see traffic trends.</p>
+                </div>
+            `;
         }
     }
 
@@ -1280,18 +1358,74 @@
     // DATA LOADING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function loadDashboardData() {
-        // Simulate API call
-        // In production, this would fetch from actual API endpoints
+    async function loadDashboardData() {
+        // Check if API service is available and configured
+        if (typeof SEODataService !== 'undefined' && state.apiConfigured) {
+            try {
+                // Fetch real data from API
+                const data = await SEODataService.fetchAllDashboardData();
+                updateDashboardWithData(data);
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                // Keep showing empty states
+            }
+        } else {
+            // API not configured - empty states are already shown
+            console.log('API not configured. Configure in Settings to load data.');
+        }
+    }
+
+    function updateDashboardWithData(data) {
+        // Update health score
+        if (data.siteHealth) {
+            const scoreEl = document.querySelector('[data-metric="health-score"]');
+            if (scoreEl) scoreEl.textContent = data.siteHealth.score || '--';
+
+            const statusEl = document.querySelector('[data-metric="health-status"]');
+            if (statusEl) {
+                const score = data.siteHealth.score || 0;
+                if (score >= 80) {
+                    statusEl.textContent = 'Excellent';
+                    statusEl.className = 'tag tag-green';
+                } else if (score >= 60) {
+                    statusEl.textContent = 'Good';
+                    statusEl.className = 'tag tag-yellow';
+                } else if (score > 0) {
+                    statusEl.textContent = 'Needs Work';
+                    statusEl.className = 'tag tag-orange';
+                }
+            }
+        }
+
+        // Update traffic
+        if (data.traffic) {
+            const trafficEl = document.querySelector('[data-metric="organic-traffic"]');
+            if (trafficEl) trafficEl.textContent = formatNumber(data.traffic.organic || 0);
+
+            const sessionsEl = document.querySelector('[data-metric="traffic-sessions"]');
+            if (sessionsEl) sessionsEl.textContent = formatNumber(data.traffic.total || 0);
+        }
+
+        // Update keywords
+        if (data.keywords) {
+            const keywordsEl = document.querySelector('[data-metric="keywords-total"]');
+            if (keywordsEl) keywordsEl.textContent = formatNumber(data.keywords.total || 0);
+
+            const top10El = document.querySelector('[data-metric="keywords-top10"]');
+            if (top10El) top10El.textContent = `${data.keywords.ranking || 0} in Top 10`;
+        }
+
+        // Update backlinks
+        if (data.backlinks) {
+            const backlinksEl = document.querySelector('[data-metric="backlinks-total"]');
+            if (backlinksEl) backlinksEl.textContent = formatNumber(data.backlinks.total || 0);
+
+            const newEl = document.querySelector('[data-metric="backlinks-new"]');
+            if (newEl) newEl.textContent = `+${data.backlinks.newThisMonth || 0} this week`;
+        }
 
         // Update stat cards with animations
         updateStatCards();
-
-        // Update charts
-        updateCharts();
-
-        // Update activity feed
-        updateActivityFeed();
     }
 
     function updateStatCards() {

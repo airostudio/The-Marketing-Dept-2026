@@ -146,21 +146,21 @@
                 </div>
 
                 <!-- Audit Progress -->
-                <div class="audit-progress">
+                <div class="audit-progress" id="auditProgress">
                     <div class="audit-progress-header">
                         <h3>Last Audit Progress</h3>
                         <div class="audit-status">
-                            <span class="status-indicator"></span>
-                            <span>Completed</span>
+                            <span class="status-indicator neutral"></span>
+                            <span data-metric="audit-status">No audits run</span>
                         </div>
                     </div>
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: 100%"></div>
+                        <div class="progress-fill" style="width: 0%" data-metric="progress-bar"></div>
                     </div>
                     <div class="progress-stats">
-                        <span class="progress-stat"><strong>2,847</strong> pages crawled</span>
-                        <span class="progress-stat"><strong>35</strong> issues found</span>
-                        <span class="progress-stat">Completed in <strong>58 seconds</strong></span>
+                        <span class="progress-stat"><strong data-metric="pages-crawled">0</strong> pages crawled</span>
+                        <span class="progress-stat"><strong data-metric="issues-found">0</strong> issues found</span>
+                        <span class="progress-stat">Not run yet</span>
                     </div>
                 </div>
 
@@ -175,7 +175,7 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">3</span>
+                            <span class="alert-stat-number" data-metric="critical-issues">0</span>
                             <span class="alert-stat-label">Critical Issues</span>
                         </div>
                     </div>
@@ -186,7 +186,7 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">8</span>
+                            <span class="alert-stat-number" data-metric="high-issues">0</span>
                             <span class="alert-stat-label">High Priority</span>
                         </div>
                     </div>
@@ -199,7 +199,7 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">24</span>
+                            <span class="alert-stat-number" data-metric="medium-issues">0</span>
                             <span class="alert-stat-label">Medium Priority</span>
                         </div>
                     </div>
@@ -212,7 +212,7 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">0</span>
+                            <span class="alert-stat-number" data-metric="low-issues">0</span>
                             <span class="alert-stat-label">Low Priority</span>
                         </div>
                     </div>
@@ -223,120 +223,24 @@
                     <div class="data-table-header">
                         <h3 class="data-table-title">Issues Found</h3>
                         <div class="filter-tabs">
-                            <button class="filter-tab active">All (35)</button>
-                            <button class="filter-tab">Critical (3)</button>
-                            <button class="filter-tab">High (8)</button>
-                            <button class="filter-tab">Medium (24)</button>
+                            <button class="filter-tab active" data-filter="all">All (0)</button>
+                            <button class="filter-tab" data-filter="critical">Critical (0)</button>
+                            <button class="filter-tab" data-filter="high">High (0)</button>
+                            <button class="filter-tab" data-filter="medium">Medium (0)</button>
                         </div>
                     </div>
-                    <table class="issues-table">
-                        <thead>
-                            <tr>
-                                <th>Issue</th>
-                                <th>Severity</th>
-                                <th>Pages Affected</th>
-                                <th>Impact</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>
-                                    <strong>SSL Certificate Expiring Soon</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Certificate expires in 7 days</small>
-                                </td>
-                                <td><span class="severity-badge critical">Critical</span></td>
-                                <td>All pages</td>
-                                <td>Security, Rankings</td>
-                                <td><button class="btn btn-sm btn-outline">Fix</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Slow Server Response Time</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">TTFB exceeds 3 seconds</small>
-                                </td>
-                                <td><span class="severity-badge critical">Critical</span></td>
-                                <td>847 pages</td>
-                                <td>UX, Core Web Vitals</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Missing Canonical Tags</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Pages without canonical URL</small>
-                                </td>
-                                <td><span class="severity-badge critical">Critical</span></td>
-                                <td>156 pages</td>
-                                <td>Duplicate Content</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Pages with Slow LCP</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">LCP > 4 seconds</small>
-                                </td>
-                                <td><span class="severity-badge high">High</span></td>
-                                <td>47 pages</td>
-                                <td>Core Web Vitals</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Broken Internal Links</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Links returning 404 errors</small>
-                                </td>
-                                <td><span class="severity-badge high">High</span></td>
-                                <td>23 links</td>
-                                <td>Crawl Budget, UX</td>
-                                <td><a href="broken-links.html" class="btn btn-sm btn-outline">View</a></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Missing Meta Descriptions</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Pages without meta description</small>
-                                </td>
-                                <td><span class="severity-badge medium">Medium</span></td>
-                                <td>156 pages</td>
-                                <td>CTR, Rankings</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Missing H1 Tags</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Pages without H1 heading</small>
-                                </td>
-                                <td><span class="severity-badge medium">Medium</span></td>
-                                <td>34 pages</td>
-                                <td>SEO, Accessibility</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <strong>Images Missing Alt Text</strong>
-                                    <br><small style="color: var(--color-text-tertiary);">Images without alt attributes</small>
-                                </td>
-                                <td><span class="severity-badge medium">Medium</span></td>
-                                <td>89 images</td>
-                                <td>Accessibility, Image SEO</td>
-                                <td><button class="btn btn-sm btn-outline">View</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                <div class="pagination">
-                    <button class="pagination-btn" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="15 18 9 12 15 6"/>
-                        </svg>
-                    </button>
-                    <span class="pagination-info">Page 1 of 4</span>
-                    <button class="pagination-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                    </button>
+                    <div id="issuesTableContent">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                            </div>
+                            <h3>No Issues Found</h3>
+                            <p>Run an audit to scan your website for technical SEO issues. Click "Run New Audit" above to get started.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

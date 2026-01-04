@@ -2369,3 +2369,156 @@ body.light-mode .breadcrumb .current {
     opacity: 1;
     visibility: visible;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   EMPTY STATES & LOADING STATES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.empty-state-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border-radius: 16px;
+    margin-bottom: 16px;
+}
+
+.empty-state-icon svg,
+.empty-state-icon i {
+    width: 32px;
+    height: 32px;
+    color: var(--color-text-tertiary);
+}
+
+.empty-state h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    max-width: 280px;
+}
+
+.empty-state-hint {
+    margin-top: 8px;
+    font-size: 0.8125rem !important;
+    color: var(--color-text-muted) !important;
+}
+
+.empty-state-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+}
+
+.empty-state-inline svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
+/* Loading State */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+}
+
+/* Card loading state */
+.score-card.loading,
+.metric-card.loading,
+.stat-card.loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.score-card.loading::after,
+.metric-card.loading::after,
+.stat-card.loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.05),
+        transparent
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   NEUTRAL STATUS STYLES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.tag-neutral {
+    background: rgba(113, 113, 122, 0.2);
+    color: var(--color-text-tertiary);
+}
+
+.metric-value.neutral,
+.metric-fill.neutral {
+    color: var(--color-text-tertiary);
+    background: var(--color-text-tertiary);
+}
+
+.trend-neutral {
+    color: var(--color-text-tertiary);
+}
+
+/* Dropdown empty state */
+.dropdown-item.empty-state {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    cursor: default;
+}
+
+.dropdown-item.empty-state:hover {
+    background: transparent;
+}
