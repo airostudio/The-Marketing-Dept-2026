@@ -51,6 +51,7 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     document.addEventListener('DOMContentLoaded', function() {
+        applyGlobalSettings(); // Apply settings first
         initSidebar();
         initExpandableNavigation();
         initHeader();
@@ -69,6 +70,39 @@
         initAutoRefresh();
         loadDashboardData();
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GLOBAL SETTINGS APPLICATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function applyGlobalSettings() {
+        try {
+            const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+
+            // Apply dark/light mode
+            if (settings.darkMode === false) {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+            } else {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+            }
+
+            // Apply compact sidebar
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && settings.compactSidebar) {
+                sidebar.classList.add('compact');
+            }
+
+            // Apply language
+            if (settings.language) {
+                document.documentElement.lang = settings.language;
+            }
+
+        } catch (e) {
+            console.warn('Could not apply global settings:', e);
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SIDEBAR
@@ -1178,13 +1212,42 @@
     // AUTO REFRESH
     // ═══════════════════════════════════════════════════════════════════════════
 
+    let autoRefreshInterval = null;
+
     function initAutoRefresh() {
-        // Auto refresh every 30 seconds
-        setInterval(() => {
+        // Check settings for auto-refresh preference
+        const autoRefreshEnabled = localStorage.getItem('seo-dashboard-auto-refresh') !== 'false';
+
+        if (autoRefreshEnabled) {
+            startAutoRefresh();
+        }
+
+        // Listen for settings changes
+        window.addEventListener('settingsUpdated', function(e) {
+            const settings = e.detail;
+            if (settings.autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        });
+    }
+
+    function startAutoRefresh() {
+        if (autoRefreshInterval) return; // Already running
+
+        autoRefreshInterval = setInterval(() => {
             if (document.visibilityState === 'visible') {
                 silentRefresh();
             }
         }, CONFIG.refreshInterval);
+    }
+
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
     }
 
     function refreshDashboard() {
