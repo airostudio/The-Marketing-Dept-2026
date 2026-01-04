@@ -52,14 +52,18 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         initSidebar();
+        initExpandableNavigation();
         initHeader();
         initDropdowns();
+        initDomainSelector();
         initTabs();
         initCharts();
         initHealthScore();
         initDataTables();
         initSearch();
         initNotifications();
+        initNotificationsPanel();
+        initExportModal();
         initTooltips();
         initKeyboardShortcuts();
         initAutoRefresh();
@@ -114,6 +118,234 @@
         overlay.addEventListener('click', () => {
             sidebar.classList.remove('open');
             overlay.classList.remove('visible');
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPANDABLE NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initExpandableNavigation() {
+        const navHeaders = document.querySelectorAll('.nav-section-header[data-module]');
+        const STORAGE_KEY = 'seo-dashboard-expanded-modules';
+
+        // Load saved state from localStorage
+        const savedState = getSavedExpandedState();
+
+        navHeaders.forEach(header => {
+            const moduleName = header.dataset.module;
+            const content = document.querySelector(`[data-module-content="${moduleName}"]`);
+
+            if (!content) return;
+
+            // Restore saved state or default to collapsed
+            if (savedState[moduleName]) {
+                header.classList.add('expanded');
+                content.classList.add('expanded');
+            }
+
+            // Click handler
+            header.addEventListener('click', () => {
+                const isExpanded = header.classList.contains('expanded');
+
+                if (isExpanded) {
+                    header.classList.remove('expanded');
+                    content.classList.remove('expanded');
+                } else {
+                    header.classList.add('expanded');
+                    content.classList.add('expanded');
+                }
+
+                // Save state to localStorage
+                saveExpandedState();
+            });
+        });
+
+        function getSavedExpandedState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? JSON.parse(saved) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveExpandedState() {
+            const expandedModules = {};
+            navHeaders.forEach(header => {
+                const moduleName = header.dataset.module;
+                expandedModules[moduleName] = header.classList.contains('expanded');
+            });
+
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedModules));
+            } catch (e) {
+                console.warn('Could not save navigation state:', e);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOMAIN SELECTOR
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initDomainSelector() {
+        const selector = document.querySelector('.domain-selector');
+        const btn = document.getElementById('domainSelector');
+        const dropdown = document.getElementById('domainDropdown');
+
+        if (!selector || !btn || !dropdown) return;
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selector.classList.toggle('open');
+        });
+
+        // Handle item selection
+        dropdown.querySelectorAll('.dropdown-item:not(.add-project)').forEach(item => {
+            item.addEventListener('click', function() {
+                const domain = this.querySelector('span').textContent;
+
+                // Update button text
+                btn.querySelector('span').textContent = domain;
+
+                // Update active state
+                dropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+
+                // Add checkmark
+                this.innerHTML = `<span>${domain}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+                selector.classList.remove('open');
+
+                // Trigger data refresh for new domain
+                showNotification('Domain Changed', `Now viewing data for ${domain}`, 'info');
+                refreshDashboard();
+            });
+        });
+
+        // Handle add project
+        dropdown.querySelector('.add-project')?.addEventListener('click', () => {
+            selector.classList.remove('open');
+            showNotification('Add Project', 'Project creation coming soon.', 'info');
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!selector.contains(e.target)) {
+                selector.classList.remove('open');
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NOTIFICATIONS PANEL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initNotificationsPanel() {
+        const notificationBtn = document.getElementById('notificationBtn');
+        const notificationsPanel = document.getElementById('notificationsPanel');
+
+        if (!notificationBtn || !notificationsPanel) return;
+
+        notificationBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notificationsPanel.classList.toggle('visible');
+
+            // Remove notification badge on open
+            if (notificationsPanel.classList.contains('visible')) {
+                notificationBtn.classList.remove('has-notification');
+            }
+        });
+
+        // Mark all read
+        notificationsPanel.querySelector('.mark-all-read')?.addEventListener('click', () => {
+            notificationsPanel.querySelectorAll('.notification-item.unread').forEach(item => {
+                item.classList.remove('unread');
+            });
+            showNotification('Notifications', 'All notifications marked as read.', 'success');
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!notificationsPanel.contains(e.target) && e.target !== notificationBtn) {
+                notificationsPanel.classList.remove('visible');
+            }
+        });
+
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && notificationsPanel.classList.contains('visible')) {
+                notificationsPanel.classList.remove('visible');
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initExportModal() {
+        const exportBtn = document.getElementById('exportBtn');
+        const modal = document.getElementById('exportModal');
+        const closeBtn = document.getElementById('closeExportModal');
+        const cancelBtn = document.getElementById('cancelExport');
+        const confirmBtn = document.getElementById('confirmExport');
+
+        if (!exportBtn || !modal) return;
+
+        // Open modal
+        exportBtn.addEventListener('click', () => {
+            modal.classList.add('visible');
+        });
+
+        // Close modal functions
+        const closeModal = () => {
+            modal.classList.remove('visible');
+        };
+
+        closeBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('visible')) {
+                closeModal();
+            }
+        });
+
+        // Handle export
+        confirmBtn?.addEventListener('click', () => {
+            const format = modal.querySelector('input[name="export-format"]:checked')?.value || 'pdf';
+            const sections = [];
+
+            modal.querySelectorAll('.export-sections input[type="checkbox"]:checked').forEach(cb => {
+                const label = cb.parentElement.querySelector('span')?.textContent;
+                if (label) sections.push(label);
+            });
+
+            // Simulate export
+            confirmBtn.innerHTML = '<span class="spinner"></span> Generating...';
+            confirmBtn.disabled = true;
+
+            setTimeout(() => {
+                closeModal();
+                confirmBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg> Export Report`;
+                confirmBtn.disabled = false;
+
+                showNotification('Export Complete', `Your ${format.toUpperCase()} report has been generated.`, 'success');
+            }, 2000);
         });
     }
 

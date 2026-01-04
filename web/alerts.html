@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts | SEO Agent Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/dashboard.css">
+    <link rel="stylesheet" href="styles/pages.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="index.html" class="sidebar-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 40 40" fill="none">
+                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
+                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M14.5 24H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                            <defs>
+                                <linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40">
+                                    <stop stop-color="#6366F1"/>
+                                    <stop offset="1" stop-color="#8B5CF6"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">SEO Agent</span>
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Overview</span>
+                    <a href="dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="alerts.html" class="nav-item active has-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span>Alerts</span>
+                        <span class="badge">12</span>
+                    </a>
+                    <a href="history.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <span>Project History</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="settings.html" class="nav-item settings-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+                <div class="user-menu">
+                    <div class="user-avatar">JD</div>
+                    <div class="user-info">
+                        <span class="user-name">John Doe</span>
+                        <span class="user-plan">Pro Plan</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"/>
+                            <line x1="3" y1="6" x2="21" y2="6"/>
+                            <line x1="3" y1="18" x2="21" y2="18"/>
+                        </svg>
+                    </button>
+                    <div class="breadcrumb">
+                        <a href="dashboard.html">Dashboard</a>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                        <span class="current">Alerts</span>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-outline btn-sm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Mark All Read
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h1>Alerts</h1>
+                        <p>Monitor and manage SEO alerts for your project</p>
+                    </div>
+                </div>
+
+                <!-- Alert Stats -->
+                <div class="alert-stats">
+                    <div class="alert-stat critical">
+                        <div class="alert-stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
+                        <div class="alert-stat-content">
+                            <span class="alert-stat-number">3</span>
+                            <span class="alert-stat-label">Critical</span>
+                        </div>
+                    </div>
+                    <div class="alert-stat high">
+                        <div class="alert-stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <div class="alert-stat-content">
+                            <span class="alert-stat-number">8</span>
+                            <span class="alert-stat-label">High</span>
+                        </div>
+                    </div>
+                    <div class="alert-stat medium">
+                        <div class="alert-stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        </div>
+                        <div class="alert-stat-content">
+                            <span class="alert-stat-number">24</span>
+                            <span class="alert-stat-label">Medium</span>
+                        </div>
+                    </div>
+                    <div class="alert-stat low">
+                        <div class="alert-stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4"/>
+                                <path d="M12 8h.01"/>
+                            </svg>
+                        </div>
+                        <div class="alert-stat-content">
+                            <span class="alert-stat-number">45</span>
+                            <span class="alert-stat-label">Low</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters-bar">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active">All (80)</button>
+                        <button class="filter-tab">Critical (3)</button>
+                        <button class="filter-tab">High (8)</button>
+                        <button class="filter-tab">Medium (24)</button>
+                        <button class="filter-tab">Low (45)</button>
+                    </div>
+                    <div class="filter-search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input type="text" placeholder="Search alerts..." class="form-input" />
+                    </div>
+                </div>
+
+                <!-- Alerts List -->
+                <div class="alerts-list">
+                    <!-- Critical Alert -->
+                    <div class="alert-card critical">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                <span>Critical</span>
+                            </div>
+                            <span class="alert-time">2 hours ago</span>
+                        </div>
+                        <h3 class="alert-title">SSL Certificate Expires in 7 Days</h3>
+                        <p class="alert-desc">Your SSL certificate for example.com will expire on January 11, 2026. An expired SSL certificate will cause security warnings and can significantly impact your SEO rankings.</p>
+                        <div class="alert-actions">
+                            <button class="btn btn-primary btn-sm">Fix Now</button>
+                            <button class="btn btn-ghost btn-sm">Remind Me Later</button>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- Critical Alert -->
+                    <div class="alert-card critical">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                <span>Critical</span>
+                            </div>
+                            <span class="alert-time">6 hours ago</span>
+                        </div>
+                        <h3 class="alert-title">Server Response Time Exceeds 3 Seconds</h3>
+                        <p class="alert-desc">Your server response time has increased to 3.2s, which exceeds Google's recommended threshold. This can negatively impact your Core Web Vitals and search rankings.</p>
+                        <div class="alert-meta">
+                            <span class="meta-item">Affected: Homepage, /products, /about</span>
+                        </div>
+                        <div class="alert-actions">
+                            <button class="btn btn-primary btn-sm">View Details</button>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- High Alert -->
+                    <div class="alert-card high">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span>High</span>
+                            </div>
+                            <span class="alert-time">1 day ago</span>
+                        </div>
+                        <h3 class="alert-title">47 Pages Have Slow LCP (> 4s)</h3>
+                        <p class="alert-desc">47 pages on your site have Largest Contentful Paint times exceeding 4 seconds. This fails Core Web Vitals thresholds and can impact your search visibility.</p>
+                        <div class="alert-meta">
+                            <span class="meta-item">Categories: Blog, Products</span>
+                            <span class="meta-item">Average LCP: 5.2s</span>
+                        </div>
+                        <div class="alert-actions">
+                            <button class="btn btn-primary btn-sm">View Pages</button>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- High Alert -->
+                    <div class="alert-card high">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span>High</span>
+                            </div>
+                            <span class="alert-time">1 day ago</span>
+                        </div>
+                        <h3 class="alert-title">23 Broken Internal Links Detected</h3>
+                        <p class="alert-desc">We found 23 internal links pointing to pages that return 404 errors. Broken links hurt user experience and waste crawl budget.</p>
+                        <div class="alert-actions">
+                            <a href="technical-seo/broken-links.html" class="btn btn-primary btn-sm">View Broken Links</a>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- Medium Alert -->
+                    <div class="alert-card medium">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                <span>Medium</span>
+                            </div>
+                            <span class="alert-time">2 days ago</span>
+                        </div>
+                        <h3 class="alert-title">Missing Meta Descriptions on 156 Pages</h3>
+                        <p class="alert-desc">156 pages are missing meta descriptions. While not a direct ranking factor, meta descriptions influence click-through rates in search results.</p>
+                        <div class="alert-actions">
+                            <button class="btn btn-outline btn-sm">View Pages</button>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- Low Alert -->
+                    <div class="alert-card low">
+                        <div class="alert-card-header">
+                            <div class="alert-severity">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 16v-4"/>
+                                    <path d="M12 8h.01"/>
+                                </svg>
+                                <span>Low</span>
+                            </div>
+                            <span class="alert-time">3 days ago</span>
+                        </div>
+                        <h3 class="alert-title">Images Missing Alt Text (89 images)</h3>
+                        <p class="alert-desc">89 images across your site are missing alt text. Adding descriptive alt text improves accessibility and helps search engines understand your images.</p>
+                        <div class="alert-actions">
+                            <button class="btn btn-outline btn-sm">View Images</button>
+                            <button class="btn btn-ghost btn-sm">Dismiss</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="pagination-btn" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"/>
+                        </svg>
+                    </button>
+                    <span class="pagination-info">Page 1 of 8</span>
+                    <button class="pagination-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+    <script>
+        // Filter tabs functionality
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
