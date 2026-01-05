@@ -878,7 +878,7 @@
         const anonKey = anonKeyInput.value.trim();
 
         if (!url || !anonKey) {
-            showToast('error', 'Missing Configuration', 'Please enter both URL and Anon Key');
+            showNotification('Missing Configuration', 'Please enter both URL and Anon Key', 'error');
             return;
         }
 
@@ -896,7 +896,7 @@
                     const { error } = await client.auth.getSession();
 
                     if (!error) {
-                        showToast('success', 'Connection Successful', 'Successfully connected to Supabase');
+                        showNotification('Connection Successful', 'Successfully connected to Supabase', 'success');
                         updateSupabaseConnectionStatus(true);
                     } else {
                         throw new Error(error.message);
@@ -908,7 +908,7 @@
                 throw new Error('Supabase library not loaded');
             }
         } catch (error) {
-            showToast('error', 'Connection Failed', error.message);
+            showNotification('Connection Failed', error.message, 'error');
             updateSupabaseConnectionStatus(false, error.message);
         } finally {
             btn.disabled = false;
@@ -937,7 +937,7 @@
             window.Supabase.setConfig(url, anonKey);
         }
 
-        showToast('success', 'Configuration Saved', 'Supabase configuration has been saved');
+        showNotification('Configuration Saved', 'Supabase configuration has been saved', 'success');
         updateSupabaseConnectionStatus();
     }
 
@@ -1034,21 +1034,21 @@
         const password = document.getElementById('signInPassword').value;
 
         if (!email || !password) {
-            showToast('error', 'Missing Fields', 'Please enter email and password');
+            showNotification('Missing Fields', 'Please enter email and password', 'error');
             return;
         }
 
         if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
-            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            showNotification('Not Configured', 'Please configure Supabase first', 'error');
             return;
         }
 
         try {
             const data = await window.Supabase.Auth.signIn(email, password);
-            showToast('success', 'Welcome Back!', 'Successfully signed in');
+            showNotification('Welcome Back!', 'Successfully signed in', 'success');
             showAuthenticatedState(data.user);
         } catch (error) {
-            showToast('error', 'Sign In Failed', error.message);
+            showNotification('Sign In Failed', error.message, 'error');
         }
     }
 
@@ -1061,30 +1061,30 @@
         const passwordConfirm = document.getElementById('signUpPasswordConfirm').value;
 
         if (!name || !email || !password || !passwordConfirm) {
-            showToast('error', 'Missing Fields', 'Please fill in all fields');
+            showNotification('Missing Fields', 'Please fill in all fields', 'error');
             return;
         }
 
         if (password !== passwordConfirm) {
-            showToast('error', 'Password Mismatch', 'Passwords do not match');
+            showNotification('Password Mismatch', 'Passwords do not match', 'error');
             return;
         }
 
         if (password.length < 8) {
-            showToast('error', 'Weak Password', 'Password must be at least 8 characters');
+            showNotification('Weak Password', 'Password must be at least 8 characters', 'error');
             return;
         }
 
         if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
-            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            showNotification('Not Configured', 'Please configure Supabase first', 'error');
             return;
         }
 
         try {
             await window.Supabase.Auth.signUp(email, password, { full_name: name });
-            showToast('success', 'Account Created', 'Please check your email to verify your account');
+            showNotification('Account Created', 'Please check your email to verify your account', 'success');
         } catch (error) {
-            showToast('error', 'Sign Up Failed', error.message);
+            showNotification('Sign Up Failed', error.message, 'error');
         }
     }
 
@@ -1093,23 +1093,23 @@
 
         try {
             await window.Supabase.Auth.signOut();
-            showToast('success', 'Signed Out', 'You have been signed out');
+            showNotification('Signed Out', 'You have been signed out', 'success');
             showUnauthenticatedState();
         } catch (error) {
-            showToast('error', 'Sign Out Failed', error.message);
+            showNotification('Sign Out Failed', error.message, 'error');
         }
     }
 
     async function handleOAuth(provider) {
         if (typeof window.Supabase === 'undefined' || !window.Supabase.isConfigured()) {
-            showToast('error', 'Not Configured', 'Please configure Supabase first');
+            showNotification('Not Configured', 'Please configure Supabase first', 'error');
             return;
         }
 
         try {
             await window.Supabase.Auth.signInWithOAuth(provider);
         } catch (error) {
-            showToast('error', 'OAuth Failed', error.message);
+            showNotification('OAuth Failed', error.message, 'error');
         }
     }
 
