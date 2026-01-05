@@ -775,8 +775,43 @@
         if (urlInput) urlInput.value = supabaseUrl;
         if (anonKeyInput) anonKeyInput.value = supabaseAnonKey;
 
-        // Update connection status
-        updateSupabaseConnectionStatus();
+        // Update connection status based on current state
+        if (typeof window.Supabase !== 'undefined') {
+            const state = window.Supabase.getConnectionState();
+            if (state === window.Supabase.ConnectionState.CONNECTED) {
+                updateSupabaseConnectionStatus(true);
+            } else if (state === window.Supabase.ConnectionState.ERROR) {
+                updateSupabaseConnectionStatus(false, 'Connection error');
+            } else {
+                updateSupabaseConnectionStatus();
+            }
+        } else {
+            updateSupabaseConnectionStatus();
+        }
+
+        // Listen for connection state changes
+        window.addEventListener('supabaseConnectionChange', function(e) {
+            const { state, error } = e.detail;
+            if (state === 'connected') {
+                updateSupabaseConnectionStatus(true);
+            } else if (state === 'error') {
+                updateSupabaseConnectionStatus(false, error);
+            } else if (state === 'connecting') {
+                updateSupabaseConnectionStatus(null, 'Connecting...');
+            } else {
+                updateSupabaseConnectionStatus();
+            }
+        });
+
+        // Listen for auth state changes
+        window.addEventListener('supabaseAuthChange', function(e) {
+            const { event, user } = e.detail;
+            if (event === 'SIGNED_IN' && user) {
+                showAuthenticatedState(user);
+            } else if (event === 'SIGNED_OUT') {
+                showUnauthenticatedState();
+            }
+        });
 
         // Setup event listeners
         setupSupabaseEventListeners();
@@ -941,7 +976,7 @@
         updateSupabaseConnectionStatus();
     }
 
-    function updateSupabaseConnectionStatus(connected = null, errorMsg = null) {
+    function updateSupabaseConnectionStatus(connected = null, statusMsg = null) {
         const statusEl = document.getElementById('supabaseStatus');
         if (!statusEl) return;
 
@@ -953,15 +988,24 @@
             text.textContent = 'Connected';
         } else if (connected === false) {
             indicator.className = 'status-indicator error';
-            text.textContent = errorMsg || 'Connection failed';
+            text.textContent = statusMsg || 'Connection failed';
+        } else if (statusMsg === 'Connecting...') {
+            indicator.className = 'status-indicator connecting';
+            text.textContent = 'Connecting...';
         } else {
-            // Check current config
+            // Check current config and connection state
             const url = localStorage.getItem('supabase-url');
             const anonKey = localStorage.getItem('supabase-anon-key');
 
             if (url && anonKey) {
-                indicator.className = 'status-indicator neutral';
-                text.textContent = 'Configured - not tested';
+                // Check if already connected
+                if (typeof window.Supabase !== 'undefined' && window.Supabase.isConnected()) {
+                    indicator.className = 'status-indicator connected';
+                    text.textContent = 'Connected';
+                } else {
+                    indicator.className = 'status-indicator neutral';
+                    text.textContent = 'Configured - click Test to verify';
+                }
             } else {
                 indicator.className = 'status-indicator neutral';
                 text.textContent = 'Not configured';

@@ -9,47 +9,245 @@
 (function() {
     'use strict';
 
-    // Supabase Configuration
-    // These can be set via the Settings page or hardcoded for production
-    const SUPABASE_CONFIG = {
-        url: localStorage.getItem('supabase-url') || '',
-        anonKey: localStorage.getItem('supabase-anon-key') || ''
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONNECTION STATE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const ConnectionState = {
+        DISCONNECTED: 'disconnected',
+        CONNECTING: 'connecting',
+        CONNECTED: 'connected',
+        ERROR: 'error'
     };
 
-    // Supabase Client Instance
+    // Supabase Configuration - reactive to localStorage changes
+    let supabaseConfig = {
+        url: '',
+        anonKey: ''
+    };
+
+    // Connection state
+    let connectionState = ConnectionState.DISCONNECTED;
     let supabaseClient = null;
+    let connectionRetryCount = 0;
+    let connectionRetryTimeout = null;
+    let authStateListener = null;
+    let lastConnectionCheck = null;
+
+    const MAX_RETRY_ATTEMPTS = 3;
+    const RETRY_DELAY_BASE = 1000; // 1 second
+    const CONNECTION_CHECK_INTERVAL = 30000; // 30 seconds
+
+    // Load config from localStorage
+    function loadConfig() {
+        supabaseConfig.url = localStorage.getItem('supabase-url') || '';
+        supabaseConfig.anonKey = localStorage.getItem('supabase-anon-key') || '';
+    }
+
+    // Initial load
+    loadConfig();
+
+    // Listen for storage changes (from other tabs/windows)
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'supabase-url' || e.key === 'supabase-anon-key') {
+            const oldUrl = supabaseConfig.url;
+            const oldKey = supabaseConfig.anonKey;
+            loadConfig();
+
+            // Reinitialize if config changed
+            if (oldUrl !== supabaseConfig.url || oldKey !== supabaseConfig.anonKey) {
+                console.log('Supabase config changed in another tab, reinitializing...');
+                supabaseClient = null;
+                initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+            }
+        }
+    });
 
     /**
-     * Initialize the Supabase client
+     * Get current connection state
      */
-    function initSupabase(url, anonKey) {
+    function getConnectionState() {
+        return connectionState;
+    }
+
+    /**
+     * Set connection state and dispatch event
+     */
+    function setConnectionState(state, error = null) {
+        const oldState = connectionState;
+        connectionState = state;
+
+        // Dispatch custom event for UI updates
+        window.dispatchEvent(new CustomEvent('supabaseConnectionChange', {
+            detail: { state, previousState: oldState, error }
+        }));
+
+        // Log state changes
+        if (state === ConnectionState.CONNECTED) {
+            console.log('Supabase: Connected successfully');
+        } else if (state === ConnectionState.ERROR) {
+            console.error('Supabase: Connection error -', error);
+        }
+    }
+
+    /**
+     * Initialize the Supabase client with retry logic
+     */
+    async function initSupabase(url, anonKey, retryAttempt = 0) {
+        // Clear any pending retry
+        if (connectionRetryTimeout) {
+            clearTimeout(connectionRetryTimeout);
+            connectionRetryTimeout = null;
+        }
+
         if (!url || !anonKey) {
             console.warn('Supabase not configured. Please set URL and anon key in Settings.');
+            setConnectionState(ConnectionState.DISCONNECTED);
             return null;
         }
+
+        setConnectionState(ConnectionState.CONNECTING);
 
         try {
             // Check if Supabase JS library is loaded
             if (typeof supabase === 'undefined') {
-                console.error('Supabase JS library not loaded. Add the CDN script to your HTML.');
-                return null;
+                throw new Error('Supabase JS library not loaded');
             }
 
-            supabaseClient = supabase.createClient(url, anonKey);
-            console.log('Supabase client initialized successfully');
+            // Create the client
+            supabaseClient = supabase.createClient(url, anonKey, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true
+                }
+            });
+
+            // Verify connection by getting session
+            const { error } = await supabaseClient.auth.getSession();
+
+            if (error) {
+                throw error;
+            }
+
+            // Setup auth state listener
+            setupAuthStateListener();
+
+            // Reset retry count on success
+            connectionRetryCount = 0;
+            setConnectionState(ConnectionState.CONNECTED);
+            lastConnectionCheck = Date.now();
+
+            // Start periodic health checks
+            startConnectionHealthCheck();
+
             return supabaseClient;
         } catch (error) {
             console.error('Failed to initialize Supabase:', error);
+
+            // Retry logic
+            if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+                connectionRetryCount = retryAttempt + 1;
+                const retryDelay = RETRY_DELAY_BASE * Math.pow(2, retryAttempt);
+
+                console.log(`Supabase: Retrying connection in ${retryDelay}ms (attempt ${connectionRetryCount}/${MAX_RETRY_ATTEMPTS})`);
+
+                connectionRetryTimeout = setTimeout(() => {
+                    initSupabase(url, anonKey, connectionRetryCount);
+                }, retryDelay);
+
+                return null;
+            }
+
+            setConnectionState(ConnectionState.ERROR, error.message);
             return null;
         }
+    }
+
+    /**
+     * Setup auth state change listener for persistence
+     */
+    function setupAuthStateListener() {
+        if (authStateListener) {
+            authStateListener.subscription?.unsubscribe();
+        }
+
+        if (!supabaseClient) return;
+
+        const { data } = supabaseClient.auth.onAuthStateChange((event, session) => {
+            console.log('Supabase auth state changed:', event);
+
+            // Dispatch event for UI updates
+            window.dispatchEvent(new CustomEvent('supabaseAuthChange', {
+                detail: { event, session, user: session?.user || null }
+            }));
+
+            // Handle specific events
+            switch (event) {
+                case 'SIGNED_IN':
+                case 'TOKEN_REFRESHED':
+                    setConnectionState(ConnectionState.CONNECTED);
+                    break;
+                case 'SIGNED_OUT':
+                    // Keep connected state, just no user
+                    break;
+                case 'USER_UPDATED':
+                    // Refresh user data in UI
+                    break;
+            }
+        });
+
+        authStateListener = data;
+    }
+
+    /**
+     * Periodic connection health check
+     */
+    let healthCheckInterval = null;
+
+    function startConnectionHealthCheck() {
+        if (healthCheckInterval) {
+            clearInterval(healthCheckInterval);
+        }
+
+        healthCheckInterval = setInterval(async () => {
+            if (connectionState !== ConnectionState.CONNECTED) return;
+            if (!supabaseClient) return;
+
+            try {
+                const { error } = await supabaseClient.auth.getSession();
+                if (error) {
+                    throw error;
+                }
+                lastConnectionCheck = Date.now();
+            } catch (error) {
+                console.warn('Supabase health check failed:', error);
+                setConnectionState(ConnectionState.ERROR, error.message);
+
+                // Try to reconnect
+                reconnect();
+            }
+        }, CONNECTION_CHECK_INTERVAL);
+    }
+
+    /**
+     * Reconnect to Supabase
+     */
+    async function reconnect() {
+        if (connectionState === ConnectionState.CONNECTING) return;
+
+        console.log('Supabase: Attempting to reconnect...');
+        loadConfig(); // Reload config in case it changed
+        connectionRetryCount = 0;
+        return initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
     }
 
     /**
      * Get the Supabase client instance
      */
     function getClient() {
-        if (!supabaseClient && SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
-            return initSupabase(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        if (!supabaseClient && supabaseConfig.url && supabaseConfig.anonKey) {
+            initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
         }
         return supabaseClient;
     }
@@ -58,21 +256,54 @@
      * Check if Supabase is configured
      */
     function isConfigured() {
-        return !!(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey);
+        // Always check localStorage for latest values
+        loadConfig();
+        return !!(supabaseConfig.url && supabaseConfig.anonKey);
+    }
+
+    /**
+     * Check if connected
+     */
+    function isConnected() {
+        return connectionState === ConnectionState.CONNECTED && supabaseClient !== null;
     }
 
     /**
      * Update Supabase configuration
      */
     function setConfig(url, anonKey) {
-        SUPABASE_CONFIG.url = url;
-        SUPABASE_CONFIG.anonKey = anonKey;
+        supabaseConfig.url = url;
+        supabaseConfig.anonKey = anonKey;
         localStorage.setItem('supabase-url', url);
         localStorage.setItem('supabase-anon-key', anonKey);
 
         // Reinitialize client with new config
         supabaseClient = null;
+        connectionRetryCount = 0;
         return initSupabase(url, anonKey);
+    }
+
+    /**
+     * Disconnect and cleanup
+     */
+    function disconnect() {
+        if (healthCheckInterval) {
+            clearInterval(healthCheckInterval);
+            healthCheckInterval = null;
+        }
+
+        if (connectionRetryTimeout) {
+            clearTimeout(connectionRetryTimeout);
+            connectionRetryTimeout = null;
+        }
+
+        if (authStateListener) {
+            authStateListener.subscription?.unsubscribe();
+            authStateListener = null;
+        }
+
+        supabaseClient = null;
+        setConnectionState(ConnectionState.DISCONNECTED);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -798,10 +1029,20 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     window.Supabase = {
+        // Core functions
         init: initSupabase,
         getClient,
         isConfigured,
         setConfig,
+        disconnect,
+        reconnect,
+
+        // Connection state
+        isConnected,
+        getConnectionState,
+        ConnectionState,
+
+        // Services
         Auth,
         DB,
         Realtime,
@@ -809,15 +1050,36 @@
     };
 
     // Auto-initialize if configured
-    if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
-        // Wait for Supabase library to load
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(() => initSupabase(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey), 100);
-            });
-        } else {
-            setTimeout(() => initSupabase(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey), 100);
+    function autoInit() {
+        loadConfig();
+        if (supabaseConfig.url && supabaseConfig.anonKey) {
+            // Check if Supabase library is available
+            if (typeof supabase !== 'undefined') {
+                initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+            } else {
+                // Wait for library to load
+                console.log('Supabase: Waiting for library to load...');
+                let attempts = 0;
+                const checkLibrary = setInterval(() => {
+                    attempts++;
+                    if (typeof supabase !== 'undefined') {
+                        clearInterval(checkLibrary);
+                        initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+                    } else if (attempts > 50) { // 5 seconds max
+                        clearInterval(checkLibrary);
+                        console.error('Supabase: Library failed to load after 5 seconds');
+                    }
+                }, 100);
+            }
         }
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', autoInit);
+    } else {
+        // Small delay to ensure other scripts are loaded
+        setTimeout(autoInit, 50);
     }
 
 })();
