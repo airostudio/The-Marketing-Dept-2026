@@ -521,46 +521,35 @@
                         <div class="settings-panel" data-panel="integrations">
                             <div class="settings-section">
                                 <h3>Google Search Console</h3>
-                                <p class="section-desc">Connect your Google Search Console to import search performance data.</p>
+                                <p class="section-desc">Enter your Search Console site URL for reference.</p>
 
                                 <div class="integration-config" data-integration="google-search-console">
                                     <div class="connection-status" id="gscStatus">
                                         <span class="status-indicator neutral"></span>
-                                        <span>Not connected</span>
+                                        <span>Not configured</span>
                                     </div>
 
                                     <div class="form-group">
                                         <label>Site URL</label>
                                         <input type="url" class="form-input" id="gscSiteUrl" placeholder="https://yourdomain.com">
-                                        <span class="form-hint">The exact URL as it appears in Google Search Console</span>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label>Service Account JSON</label>
-                                        <textarea class="form-input" id="gscServiceAccount" rows="4" placeholder='{"type": "service_account", "project_id": "...", ...}'></textarea>
-                                        <span class="form-hint">Paste your Google Cloud service account credentials JSON. <a href="https://developers.google.com/webmaster-tools/search-console-api-original/v3/prereqs" target="_blank">Learn how to create one</a></span>
+                                        <span class="form-hint">The URL as it appears in Google Search Console</span>
                                     </div>
 
                                     <div class="button-group">
-                                        <button class="btn btn-primary" id="connectGSC">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/>
-                                            </svg>
-                                            Connect
-                                        </button>
-                                        <button class="btn btn-outline" id="disconnectGSC" style="display:none;">Disconnect</button>
+                                        <button class="btn btn-primary" id="connectGSC">Save</button>
+                                        <button class="btn btn-outline" id="disconnectGSC" style="display:none;">Remove</button>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="settings-section">
                                 <h3>Google Analytics 4</h3>
-                                <p class="section-desc">Connect your GA4 property to import traffic and engagement data.</p>
+                                <p class="section-desc">Enter your GA4 property details for reference.</p>
 
                                 <div class="integration-config" data-integration="google-analytics">
                                     <div class="connection-status" id="gaStatus">
                                         <span class="status-indicator neutral"></span>
-                                        <span>Not connected</span>
+                                        <span>Not configured</span>
                                     </div>
 
                                     <div class="form-group">
@@ -575,67 +564,37 @@
                                         <span class="form-hint">Find this in GA4 Admin → Data Streams → Web</span>
                                     </div>
 
-                                    <div class="form-group">
-                                        <label>Service Account JSON</label>
-                                        <textarea class="form-input" id="gaServiceAccount" rows="4" placeholder='{"type": "service_account", "project_id": "...", ...}'></textarea>
-                                        <span class="form-hint">Paste your Google Cloud service account credentials JSON</span>
-                                    </div>
-
                                     <div class="button-group">
-                                        <button class="btn btn-primary" id="connectGA">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/>
-                                            </svg>
-                                            Connect
-                                        </button>
-                                        <button class="btn btn-outline" id="disconnectGA" style="display:none;">Disconnect</button>
+                                        <button class="btn btn-primary" id="connectGA">Save</button>
+                                        <button class="btn btn-outline" id="disconnectGA" style="display:none;">Remove</button>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="settings-section">
                                 <h3>Slack Notifications</h3>
-                                <p class="section-desc">Send SEO alerts and reports to your Slack workspace.</p>
+                                <p class="section-desc">Enter your Slack webhook to receive SEO alerts.</p>
 
                                 <div class="integration-config" data-integration="slack">
                                     <div class="connection-status" id="slackStatus">
                                         <span class="status-indicator neutral"></span>
-                                        <span>Not connected</span>
+                                        <span>Not configured</span>
                                     </div>
 
                                     <div class="form-group">
                                         <label>Webhook URL</label>
-                                        <div class="input-with-toggle">
-                                            <input type="password" class="form-input" id="slackWebhook" placeholder="https://hooks.slack.com/services/...">
-                                            <button type="button" class="toggle-visibility" data-target="slackWebhook">
-                                                <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                                    <circle cx="12" cy="12" r="3"/>
-                                                </svg>
-                                                <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
-                                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                                    <line x1="1" y1="1" x2="23" y2="23"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <span class="form-hint">Create an incoming webhook in your Slack workspace. <a href="https://api.slack.com/messaging/webhooks" target="_blank">Learn how</a></span>
+                                        <input type="text" class="form-input" id="slackWebhook" placeholder="https://hooks.slack.com/services/...">
+                                        <span class="form-hint"><a href="https://api.slack.com/messaging/webhooks" target="_blank">Create a webhook</a> in your Slack workspace</span>
                                     </div>
 
                                     <div class="form-group">
-                                        <label>Channel Name (optional)</label>
+                                        <label>Channel (optional)</label>
                                         <input type="text" class="form-input" id="slackChannel" placeholder="#seo-alerts">
-                                        <span class="form-hint">Override the default channel set in the webhook</span>
                                     </div>
 
                                     <div class="button-group">
-                                        <button class="btn btn-primary" id="connectSlack">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/>
-                                            </svg>
-                                            Connect
-                                        </button>
-                                        <button class="btn btn-outline" id="testSlack" style="display:none;">Send Test Message</button>
-                                        <button class="btn btn-outline" id="disconnectSlack" style="display:none;">Disconnect</button>
+                                        <button class="btn btn-primary" id="connectSlack">Save</button>
+                                        <button class="btn btn-outline" id="disconnectSlack" style="display:none;">Remove</button>
                                     </div>
                                 </div>
                             </div>
