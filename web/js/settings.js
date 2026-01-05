@@ -512,12 +512,36 @@
     // INTEGRATIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    const INTEGRATIONS_STORAGE_KEY = 'seo-dashboard-integrations';
+
+    function getIntegrationSettings() {
+        try {
+            const saved = localStorage.getItem(INTEGRATIONS_STORAGE_KEY);
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveIntegrationSettings(settings) {
+        localStorage.setItem(INTEGRATIONS_STORAGE_KEY, JSON.stringify(settings));
+    }
+
     function initIntegrationButtons() {
+        // Load saved integration states
+        const savedIntegrations = getIntegrationSettings();
+
         const integrationItems = document.querySelectorAll('.integration-item');
 
         integrationItems.forEach(item => {
+            const integrationId = item.dataset.integration;
             const btn = item.querySelector('.btn');
-            if (!btn) return;
+            if (!btn || !integrationId) return;
+
+            // Apply saved state
+            if (savedIntegrations[integrationId]) {
+                applyIntegrationConnectedState(item, true);
+            }
 
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -528,107 +552,98 @@
                 if (isConnected) {
                     // Disconnect
                     if (confirm(`Disconnect from ${integrationName}?`)) {
-                        disconnectIntegration(item, integrationName);
+                        disconnectIntegration(item, integrationId, integrationName);
                     }
                 } else {
-                    // Connect - show OAuth simulation
-                    connectIntegration(item, integrationName);
+                    // Connect
+                    connectIntegration(item, integrationId, integrationName);
                 }
             });
         });
     }
 
-    function connectIntegration(item, name) {
+    function applyIntegrationConnectedState(item, isConnected) {
         const btn = item.querySelector('.btn');
-        btn.textContent = 'Connecting...';
-        btn.disabled = true;
+        const statusEl = item.querySelector('.integration-status');
 
-        // Simulate OAuth flow
-        setTimeout(() => {
+        if (isConnected) {
             item.classList.add('connected');
-            btn.textContent = 'Disconnect';
-            btn.disabled = false;
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-outline');
-
-            const statusEl = item.querySelector('.integration-status');
+            if (btn) {
+                btn.textContent = 'Disconnect';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline');
+            }
             if (statusEl) {
                 statusEl.textContent = 'Connected';
                 statusEl.classList.remove('not-connected');
             }
-
-            // Mark as unsaved
-            hasUnsavedChanges = true;
-            updateSaveButton(true);
-
-            showNotification('Connected', `Successfully connected to ${name}.`, 'success');
-        }, 1500);
+        } else {
+            item.classList.remove('connected');
+            if (btn) {
+                btn.textContent = 'Connect';
+                btn.classList.remove('btn-outline');
+                btn.classList.add('btn-primary');
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Not connected';
+                statusEl.classList.add('not-connected');
+            }
+        }
     }
 
-    function disconnectIntegration(item, name) {
-        item.classList.remove('connected');
-
+    function connectIntegration(item, integrationId, name) {
         const btn = item.querySelector('.btn');
-        btn.textContent = 'Connect';
-        btn.classList.remove('btn-outline');
-        btn.classList.add('btn-primary');
+        btn.textContent = 'Connecting...';
+        btn.disabled = true;
 
-        const statusEl = item.querySelector('.integration-status');
-        if (statusEl) {
-            statusEl.textContent = 'Not connected';
-            statusEl.classList.add('not-connected');
-        }
+        // In a real implementation, this would open OAuth flow
+        // For now, we simulate a connection after a short delay
+        setTimeout(() => {
+            // Save to storage
+            const settings = getIntegrationSettings();
+            settings[integrationId] = {
+                connected: true,
+                connectedAt: new Date().toISOString()
+            };
+            saveIntegrationSettings(settings);
 
-        // Mark as unsaved
-        hasUnsavedChanges = true;
-        updateSaveButton(true);
+            // Update UI
+            applyIntegrationConnectedState(item, true);
+            btn.disabled = false;
+
+            showNotification('Connected', `Successfully connected to ${name}.`, 'success');
+        }, 1000);
+    }
+
+    function disconnectIntegration(item, integrationId, name) {
+        // Remove from storage
+        const settings = getIntegrationSettings();
+        delete settings[integrationId];
+        saveIntegrationSettings(settings);
+
+        // Update UI
+        applyIntegrationConnectedState(item, false);
 
         showNotification('Disconnected', `Disconnected from ${name}.`, 'info');
     }
 
     function updateIntegrationStatus(integrationId, isConnected) {
-        // Map integration IDs to display names for finding the correct item
-        const integrationMap = {
-            'googleSearchConsole': 'Google Search Console',
-            'googleAnalytics': 'Google Analytics 4',
-            'slack': 'Slack'
-        };
+        const item = document.querySelector(`[data-integration="${integrationId}"]`);
+        if (!item) return;
 
-        const name = integrationMap[integrationId];
-        if (!name) return;
+        applyIntegrationConnectedState(item, isConnected);
 
-        const items = document.querySelectorAll('.integration-item');
-        items.forEach(item => {
-            const nameEl = item.querySelector('.integration-name');
-            if (nameEl && nameEl.textContent === name) {
-                const btn = item.querySelector('.btn');
-                const statusEl = item.querySelector('.integration-status');
-
-                if (isConnected) {
-                    item.classList.add('connected');
-                    if (btn) {
-                        btn.textContent = 'Disconnect';
-                        btn.classList.remove('btn-primary');
-                        btn.classList.add('btn-outline');
-                    }
-                    if (statusEl) {
-                        statusEl.textContent = 'Connected';
-                        statusEl.classList.remove('not-connected');
-                    }
-                } else {
-                    item.classList.remove('connected');
-                    if (btn) {
-                        btn.textContent = 'Connect';
-                        btn.classList.remove('btn-outline');
-                        btn.classList.add('btn-primary');
-                    }
-                    if (statusEl) {
-                        statusEl.textContent = 'Not connected';
-                        statusEl.classList.add('not-connected');
-                    }
-                }
-            }
-        });
+        // Update storage
+        const settings = getIntegrationSettings();
+        if (isConnected) {
+            settings[integrationId] = {
+                connected: true,
+                connectedAt: new Date().toISOString()
+            };
+        } else {
+            delete settings[integrationId];
+        }
+        saveIntegrationSettings(settings);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
