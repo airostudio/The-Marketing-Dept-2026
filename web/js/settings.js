@@ -924,9 +924,10 @@
         try {
             // Try to initialize Supabase with the new credentials
             if (typeof window.Supabase !== 'undefined') {
-                const client = window.Supabase.setConfig(url, anonKey);
+                // setConfig is async, so we need to await it
+                const client = await window.Supabase.setConfig(url, anonKey);
 
-                if (client) {
+                if (client && client.auth) {
                     // Try a simple query to test connection
                     const { error } = await client.auth.getSession();
 
@@ -937,7 +938,13 @@
                         throw new Error(error.message);
                     }
                 } else {
-                    throw new Error('Failed to initialize Supabase client');
+                    // Client might still be initializing via retry, check connection state
+                    const state = window.Supabase.getConnectionState();
+                    if (state === 'connecting') {
+                        showNotification('Connecting', 'Connection in progress, please wait...', 'info');
+                    } else {
+                        throw new Error('Failed to initialize Supabase client');
+                    }
                 }
             } else {
                 throw new Error('Supabase library not loaded');
