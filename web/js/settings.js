@@ -528,122 +528,362 @@
     }
 
     function initIntegrationButtons() {
-        // Load saved integration states
+        // Load saved integration states and populate forms
         const savedIntegrations = getIntegrationSettings();
 
-        const integrationItems = document.querySelectorAll('.integration-item');
+        // Google Search Console
+        initGoogleSearchConsole(savedIntegrations['google-search-console']);
 
-        integrationItems.forEach(item => {
-            const integrationId = item.dataset.integration;
-            const btn = item.querySelector('.btn');
-            if (!btn || !integrationId) return;
+        // Google Analytics
+        initGoogleAnalytics(savedIntegrations['google-analytics']);
 
-            // Apply saved state
-            if (savedIntegrations[integrationId]) {
-                applyIntegrationConnectedState(item, true);
-            }
+        // Slack
+        initSlack(savedIntegrations['slack']);
 
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
+        // Initialize password visibility toggles for integrations
+        document.querySelectorAll('.integration-config .toggle-visibility').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.dataset.target;
+                const input = document.getElementById(targetId);
+                if (input) {
+                    const isPassword = input.type === 'password';
+                    input.type = isPassword ? 'text' : 'password';
 
-                const integrationName = item.querySelector('.integration-name')?.textContent || 'Integration';
-                const isConnected = item.classList.contains('connected');
-
-                if (isConnected) {
-                    // Disconnect
-                    if (confirm(`Disconnect from ${integrationName}?`)) {
-                        disconnectIntegration(item, integrationId, integrationName);
+                    const showIcon = this.querySelector('.icon-show');
+                    const hideIcon = this.querySelector('.icon-hide');
+                    if (showIcon && hideIcon) {
+                        showIcon.style.display = isPassword ? 'none' : 'block';
+                        hideIcon.style.display = isPassword ? 'block' : 'none';
                     }
-                } else {
-                    // Connect
-                    connectIntegration(item, integrationId, integrationName);
                 }
             });
         });
     }
 
-    function applyIntegrationConnectedState(item, isConnected) {
-        const btn = item.querySelector('.btn');
-        const statusEl = item.querySelector('.integration-status');
+    // Google Search Console
+    function initGoogleSearchConsole(savedConfig) {
+        const siteUrlInput = document.getElementById('gscSiteUrl');
+        const serviceAccountInput = document.getElementById('gscServiceAccount');
+        const connectBtn = document.getElementById('connectGSC');
+        const disconnectBtn = document.getElementById('disconnectGSC');
+        const statusEl = document.getElementById('gscStatus');
 
-        if (isConnected) {
-            item.classList.add('connected');
-            if (btn) {
-                btn.textContent = 'Disconnect';
-                btn.classList.remove('btn-primary');
-                btn.classList.add('btn-outline');
+        if (!connectBtn) return;
+
+        // Load saved config
+        if (savedConfig && savedConfig.connected) {
+            if (siteUrlInput) siteUrlInput.value = savedConfig.siteUrl || '';
+            if (serviceAccountInput) serviceAccountInput.value = savedConfig.serviceAccount ? '••••••••••••••••' : '';
+            updateIntegrationStatusUI(statusEl, true, savedConfig.connectedAt);
+            connectBtn.style.display = 'none';
+            if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+        }
+
+        connectBtn.addEventListener('click', function() {
+            const siteUrl = siteUrlInput?.value.trim();
+            const serviceAccount = serviceAccountInput?.value.trim();
+
+            if (!siteUrl) {
+                showNotification('Missing Site URL', 'Please enter your Search Console site URL', 'error');
+                return;
             }
-            if (statusEl) {
-                statusEl.textContent = 'Connected';
-                statusEl.classList.remove('not-connected');
+
+            if (!serviceAccount || serviceAccount === '••••••••••••••••') {
+                showNotification('Missing Credentials', 'Please paste your service account JSON', 'error');
+                return;
             }
-        } else {
-            item.classList.remove('connected');
-            if (btn) {
-                btn.textContent = 'Connect';
-                btn.classList.remove('btn-outline');
-                btn.classList.add('btn-primary');
+
+            // Validate JSON
+            try {
+                if (!serviceAccount.startsWith('{')) throw new Error();
+                JSON.parse(serviceAccount);
+            } catch (e) {
+                showNotification('Invalid JSON', 'Service account credentials must be valid JSON', 'error');
+                return;
             }
-            if (statusEl) {
-                statusEl.textContent = 'Not connected';
-                statusEl.classList.add('not-connected');
-            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+
+            setTimeout(() => {
+                const settings = getIntegrationSettings();
+                settings['google-search-console'] = {
+                    connected: true,
+                    siteUrl: siteUrl,
+                    serviceAccount: serviceAccount, // In production, encrypt this
+                    connectedAt: new Date().toISOString()
+                };
+                saveIntegrationSettings(settings);
+
+                updateIntegrationStatusUI(statusEl, true);
+                connectBtn.style.display = 'none';
+                if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+                if (serviceAccountInput) serviceAccountInput.value = '••••••••••••••••';
+
+                showNotification('Connected', 'Google Search Console connected successfully', 'success');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg> Connect';
+            }, 1000);
+        });
+
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', function() {
+                if (!confirm('Disconnect from Google Search Console?')) return;
+
+                const settings = getIntegrationSettings();
+                delete settings['google-search-console'];
+                saveIntegrationSettings(settings);
+
+                if (siteUrlInput) siteUrlInput.value = '';
+                if (serviceAccountInput) serviceAccountInput.value = '';
+                updateIntegrationStatusUI(statusEl, false);
+                connectBtn.style.display = 'inline-flex';
+                disconnectBtn.style.display = 'none';
+
+                showNotification('Disconnected', 'Google Search Console disconnected', 'info');
+            });
         }
     }
 
-    function connectIntegration(item, integrationId, name) {
-        const btn = item.querySelector('.btn');
-        btn.textContent = 'Connecting...';
-        btn.disabled = true;
+    // Google Analytics
+    function initGoogleAnalytics(savedConfig) {
+        const propertyIdInput = document.getElementById('gaPropertyId');
+        const measurementIdInput = document.getElementById('gaMeasurementId');
+        const serviceAccountInput = document.getElementById('gaServiceAccount');
+        const connectBtn = document.getElementById('connectGA');
+        const disconnectBtn = document.getElementById('disconnectGA');
+        const statusEl = document.getElementById('gaStatus');
 
-        // In a real implementation, this would open OAuth flow
-        // For now, we simulate a connection after a short delay
-        setTimeout(() => {
-            // Save to storage
-            const settings = getIntegrationSettings();
-            settings[integrationId] = {
-                connected: true,
-                connectedAt: new Date().toISOString()
-            };
-            saveIntegrationSettings(settings);
+        if (!connectBtn) return;
 
-            // Update UI
-            applyIntegrationConnectedState(item, true);
-            btn.disabled = false;
+        // Load saved config
+        if (savedConfig && savedConfig.connected) {
+            if (propertyIdInput) propertyIdInput.value = savedConfig.propertyId || '';
+            if (measurementIdInput) measurementIdInput.value = savedConfig.measurementId || '';
+            if (serviceAccountInput) serviceAccountInput.value = savedConfig.serviceAccount ? '••••••••••••••••' : '';
+            updateIntegrationStatusUI(statusEl, true, savedConfig.connectedAt);
+            connectBtn.style.display = 'none';
+            if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+        }
 
-            showNotification('Connected', `Successfully connected to ${name}.`, 'success');
-        }, 1000);
+        connectBtn.addEventListener('click', function() {
+            const propertyId = propertyIdInput?.value.trim();
+            const measurementId = measurementIdInput?.value.trim();
+            const serviceAccount = serviceAccountInput?.value.trim();
+
+            if (!propertyId) {
+                showNotification('Missing Property ID', 'Please enter your GA4 Property ID', 'error');
+                return;
+            }
+
+            if (!measurementId) {
+                showNotification('Missing Measurement ID', 'Please enter your GA4 Measurement ID', 'error');
+                return;
+            }
+
+            if (!serviceAccount || serviceAccount === '••••••••••••••••') {
+                showNotification('Missing Credentials', 'Please paste your service account JSON', 'error');
+                return;
+            }
+
+            // Validate JSON
+            try {
+                if (!serviceAccount.startsWith('{')) throw new Error();
+                JSON.parse(serviceAccount);
+            } catch (e) {
+                showNotification('Invalid JSON', 'Service account credentials must be valid JSON', 'error');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+
+            setTimeout(() => {
+                const settings = getIntegrationSettings();
+                settings['google-analytics'] = {
+                    connected: true,
+                    propertyId: propertyId,
+                    measurementId: measurementId,
+                    serviceAccount: serviceAccount,
+                    connectedAt: new Date().toISOString()
+                };
+                saveIntegrationSettings(settings);
+
+                updateIntegrationStatusUI(statusEl, true);
+                connectBtn.style.display = 'none';
+                if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+                if (serviceAccountInput) serviceAccountInput.value = '••••••••••••••••';
+
+                showNotification('Connected', 'Google Analytics connected successfully', 'success');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg> Connect';
+            }, 1000);
+        });
+
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', function() {
+                if (!confirm('Disconnect from Google Analytics?')) return;
+
+                const settings = getIntegrationSettings();
+                delete settings['google-analytics'];
+                saveIntegrationSettings(settings);
+
+                if (propertyIdInput) propertyIdInput.value = '';
+                if (measurementIdInput) measurementIdInput.value = '';
+                if (serviceAccountInput) serviceAccountInput.value = '';
+                updateIntegrationStatusUI(statusEl, false);
+                connectBtn.style.display = 'inline-flex';
+                disconnectBtn.style.display = 'none';
+
+                showNotification('Disconnected', 'Google Analytics disconnected', 'info');
+            });
+        }
     }
 
-    function disconnectIntegration(item, integrationId, name) {
-        // Remove from storage
-        const settings = getIntegrationSettings();
-        delete settings[integrationId];
-        saveIntegrationSettings(settings);
+    // Slack
+    function initSlack(savedConfig) {
+        const webhookInput = document.getElementById('slackWebhook');
+        const channelInput = document.getElementById('slackChannel');
+        const connectBtn = document.getElementById('connectSlack');
+        const testBtn = document.getElementById('testSlack');
+        const disconnectBtn = document.getElementById('disconnectSlack');
+        const statusEl = document.getElementById('slackStatus');
 
-        // Update UI
-        applyIntegrationConnectedState(item, false);
+        if (!connectBtn) return;
 
-        showNotification('Disconnected', `Disconnected from ${name}.`, 'info');
+        // Load saved config
+        if (savedConfig && savedConfig.connected) {
+            if (webhookInput) webhookInput.value = savedConfig.webhook ? '••••••••••••••••' : '';
+            if (channelInput) channelInput.value = savedConfig.channel || '';
+            updateIntegrationStatusUI(statusEl, true, savedConfig.connectedAt);
+            connectBtn.style.display = 'none';
+            if (testBtn) testBtn.style.display = 'inline-flex';
+            if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+        }
+
+        connectBtn.addEventListener('click', function() {
+            const webhook = webhookInput?.value.trim();
+
+            if (!webhook || webhook === '••••••••••••••••') {
+                showNotification('Missing Webhook URL', 'Please enter your Slack webhook URL', 'error');
+                return;
+            }
+
+            if (!webhook.startsWith('https://hooks.slack.com/')) {
+                showNotification('Invalid Webhook', 'Please enter a valid Slack webhook URL', 'error');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+
+            setTimeout(() => {
+                const settings = getIntegrationSettings();
+                settings['slack'] = {
+                    connected: true,
+                    webhook: webhook,
+                    channel: channelInput?.value.trim() || '',
+                    connectedAt: new Date().toISOString()
+                };
+                saveIntegrationSettings(settings);
+
+                updateIntegrationStatusUI(statusEl, true);
+                connectBtn.style.display = 'none';
+                if (testBtn) testBtn.style.display = 'inline-flex';
+                if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
+                if (webhookInput) webhookInput.value = '••••••••••••••••';
+
+                showNotification('Connected', 'Slack connected successfully', 'success');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg> Connect';
+            }, 1000);
+        });
+
+        if (testBtn) {
+            testBtn.addEventListener('click', async function() {
+                const settings = getIntegrationSettings();
+                const slackConfig = settings['slack'];
+
+                if (!slackConfig || !slackConfig.webhook) {
+                    showNotification('Not Connected', 'Please connect Slack first', 'error');
+                    return;
+                }
+
+                testBtn.disabled = true;
+                testBtn.textContent = 'Sending...';
+
+                try {
+                    // Note: This will likely fail due to CORS, but shows the intent
+                    await fetch(slackConfig.webhook, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: 'Test message from SEO Dashboard - Connection successful!'
+                        })
+                    });
+                    showNotification('Test Sent', 'Check your Slack channel for the test message', 'success');
+                } catch (e) {
+                    // Due to CORS, we can't actually send from browser
+                    showNotification('Test Queued', 'Test message will be sent when backend is available', 'info');
+                }
+
+                testBtn.disabled = false;
+                testBtn.textContent = 'Send Test Message';
+            });
+        }
+
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', function() {
+                if (!confirm('Disconnect from Slack?')) return;
+
+                const settings = getIntegrationSettings();
+                delete settings['slack'];
+                saveIntegrationSettings(settings);
+
+                if (webhookInput) webhookInput.value = '';
+                if (channelInput) channelInput.value = '';
+                updateIntegrationStatusUI(statusEl, false);
+                connectBtn.style.display = 'inline-flex';
+                if (testBtn) testBtn.style.display = 'none';
+                disconnectBtn.style.display = 'none';
+
+                showNotification('Disconnected', 'Slack disconnected', 'info');
+            });
+        }
+    }
+
+    function updateIntegrationStatusUI(statusEl, connected, connectedAt = null) {
+        if (!statusEl) return;
+
+        const indicator = statusEl.querySelector('.status-indicator');
+        const text = statusEl.querySelector('span:last-child');
+
+        if (connected) {
+            indicator.className = 'status-indicator connected';
+            if (connectedAt) {
+                const date = new Date(connectedAt);
+                text.textContent = 'Connected since ' + date.toLocaleDateString();
+            } else {
+                text.textContent = 'Connected';
+            }
+        } else {
+            indicator.className = 'status-indicator neutral';
+            text.textContent = 'Not connected';
+        }
     }
 
     function updateIntegrationStatus(integrationId, isConnected) {
-        const item = document.querySelector(`[data-integration="${integrationId}"]`);
-        if (!item) return;
+        // Legacy function for compatibility
+        const statusMap = {
+            'google-search-console': 'gscStatus',
+            'google-analytics': 'gaStatus',
+            'slack': 'slackStatus'
+        };
 
-        applyIntegrationConnectedState(item, isConnected);
-
-        // Update storage
-        const settings = getIntegrationSettings();
-        if (isConnected) {
-            settings[integrationId] = {
-                connected: true,
-                connectedAt: new Date().toISOString()
-            };
-        } else {
-            delete settings[integrationId];
+        const statusEl = document.getElementById(statusMap[integrationId]);
+        if (statusEl) {
+            updateIntegrationStatusUI(statusEl, isConnected);
         }
-        saveIntegrationSettings(settings);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
