@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>.htaccess Generator - Marketing Department</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/pages.css">
+    <style>
+        .tool-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .tool-header {
+            margin-bottom: 32px;
+        }
+
+        .tool-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .tool-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .preset-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .preset-card {
+            padding: 16px;
+            border: 2px solid var(--border-primary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            background: var(--bg-primary);
+        }
+
+        .preset-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .preset-card.selected {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .preset-card-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 8px;
+            color: var(--accent-primary);
+        }
+
+        .preset-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .preset-card-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .tool-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 1024px) {
+            .tool-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-panel, .output-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Accordion Sections */
+        .config-section {
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .config-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .config-section-header:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .config-section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .config-section-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--accent-primary);
+        }
+
+        .config-section-toggle {
+            width: 20px;
+            height: 20px;
+            color: var(--text-tertiary);
+            transition: transform 0.2s;
+        }
+
+        .config-section.expanded .config-section-toggle {
+            transform: rotate(180deg);
+        }
+
+        .config-section-content {
+            display: none;
+            padding: 16px;
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .config-section.expanded .config-section-content {
+            display: block;
+        }
+
+        /* Toggle Switch */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .toggle-group:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-info {
+            flex: 1;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .toggle-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-primary);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background-color: var(--accent-primary);
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .form-group .helper-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+        }
+
+        /* Code Output */
+        .code-output {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .code-output pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #cdd6f4;
+            white-space: pre-wrap;
+        }
+
+        .code-output .comment {
+            color: #6c7086;
+        }
+
+        .code-output .directive {
+            color: #89b4fa;
+        }
+
+        .code-output .condition {
+            color: #f9e2af;
+        }
+
+        .code-output .value {
+            color: #a6e3a1;
+        }
+
+        .code-output .section {
+            color: #fab387;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Warning Box */
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .warning-box-icon {
+            width: 20px;
+            height: 20px;
+            color: #F59E0B;
+            flex-shrink: 0;
+        }
+
+        .warning-box-content {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .warning-box-content strong {
+            color: #F59E0B;
+        }
+
+        /* Input with units */
+        .input-with-unit {
+            display: flex;
+            align-items: center;
+        }
+
+        .input-with-unit input {
+            border-radius: 6px 0 0 6px;
+        }
+
+        .input-unit {
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            font-size: 14px;
+            color: var(--text-tertiary);
+        }
+    </style>
+</head>
+<body>
+    <div class="tool-container">
+        <a href="../dashboard.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Dashboard
+        </a>
+
+        <div class="tool-header">
+            <h1>.htaccess Generator</h1>
+            <p>Generate Apache .htaccess configuration for security, performance, and SEO</p>
+        </div>
+
+        <!-- Preset Cards -->
+        <div class="preset-cards">
+            <div class="preset-card selected" data-preset="seo">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <div class="preset-card-title">SEO Optimized</div>
+                <div class="preset-card-desc">Best for marketing sites</div>
+            </div>
+            <div class="preset-card" data-preset="security">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <div class="preset-card-title">Security Focused</div>
+                <div class="preset-card-desc">Maximum protection</div>
+            </div>
+            <div class="preset-card" data-preset="performance">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                <div class="preset-card-title">Performance</div>
+                <div class="preset-card-desc">Speed optimization</div>
+            </div>
+            <div class="preset-card" data-preset="wordpress">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                </svg>
+                <div class="preset-card-title">WordPress</div>
+                <div class="preset-card-desc">WP specific rules</div>
+            </div>
+            <div class="preset-card" data-preset="custom">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+                <div class="preset-card-title">Custom</div>
+                <div class="preset-card-desc">Start from scratch</div>
+            </div>
+        </div>
+
+        <div class="tool-layout">
+            <!-- Input Panel -->
+            <div class="input-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Configuration</span>
+                </div>
+
+                <!-- SSL/HTTPS Section -->
+                <div class="config-section expanded">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            SSL / HTTPS
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Force HTTPS</div>
+                                <div class="toggle-desc">Redirect all HTTP to HTTPS</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="forceHttps" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">HSTS Header</div>
+                                <div class="toggle-desc">HTTP Strict Transport Security</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="hstsHeader" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WWW Redirect Section -->
+                <div class="config-section expanded">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                                <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                            </svg>
+                            WWW Redirect
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="form-group">
+                            <label for="wwwRedirect">WWW Preference</label>
+                            <select id="wwwRedirect">
+                                <option value="none">No preference</option>
+                                <option value="www">Force www (www.example.com)</option>
+                                <option value="non-www" selected>Force non-www (example.com)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compression Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                <rect x="9" y="9" width="6" height="6"/>
+                                <line x1="9" y1="1" x2="9" y2="4"/>
+                                <line x1="15" y1="1" x2="15" y2="4"/>
+                                <line x1="9" y1="20" x2="9" y2="23"/>
+                                <line x1="15" y1="20" x2="15" y2="23"/>
+                                <line x1="20" y1="9" x2="23" y2="9"/>
+                                <line x1="20" y1="14" x2="23" y2="14"/>
+                                <line x1="1" y1="9" x2="4" y2="9"/>
+                                <line x1="1" y1="14" x2="4" y2="14"/>
+                            </svg>
+                            Compression
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Enable GZIP</div>
+                                <div class="toggle-desc">Compress text-based files</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="enableGzip" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Enable Brotli</div>
+                                <div class="toggle-desc">Modern compression (if supported)</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="enableBrotli">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Caching Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            Browser Caching
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Enable Browser Caching</div>
+                                <div class="toggle-desc">Set cache headers for static files</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="enableCaching" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" id="cacheDurationGroup">
+                            <label for="cacheDuration">Cache Duration (days)</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="cacheDuration" value="30" min="1" max="365">
+                                <span class="input-unit">days</span>
+                            </div>
+                            <div class="helper-text">For images, CSS, JS, and fonts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Headers Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            Security Headers
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">X-Content-Type-Options</div>
+                                <div class="toggle-desc">Prevent MIME type sniffing</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="xContentType" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">X-Frame-Options</div>
+                                <div class="toggle-desc">Prevent clickjacking attacks</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="xFrameOptions" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">X-XSS-Protection</div>
+                                <div class="toggle-desc">XSS filter in browsers</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="xXssProtection" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Referrer-Policy</div>
+                                <div class="toggle-desc">Control referrer information</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="referrerPolicy" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Protection Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            File Protection
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Protect .htaccess</div>
+                                <div class="toggle-desc">Prevent access to .htaccess file</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="protectHtaccess" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Block Sensitive Files</div>
+                                <div class="toggle-desc">.env, .git, composer.json, etc.</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="blockSensitive" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Disable Directory Listing</div>
+                                <div class="toggle-desc">Prevent browsing directories</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="disableListing" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEO Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            SEO
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Remove Trailing Slash</div>
+                                <div class="toggle-desc">Redirect /page/ to /page</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="removeTrailingSlash">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Remove .html Extension</div>
+                                <div class="toggle-desc">Clean URLs for HTML files</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="removeHtmlExt">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WordPress Section -->
+                <div class="config-section" id="wordpressSection">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                            </svg>
+                            WordPress
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">WordPress Permalinks</div>
+                                <div class="toggle-desc">Standard WP rewrite rules</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="wpPermalinks">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Block wp-config.php</div>
+                                <div class="toggle-desc">Protect configuration file</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="wpBlockConfig">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-group">
+                            <div class="toggle-info">
+                                <div class="toggle-label">Block XML-RPC</div>
+                                <div class="toggle-desc">Disable xmlrpc.php access</div>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="wpBlockXmlrpc">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Rules Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <div class="config-section-title">
+                            <svg class="config-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"/>
+                                <polyline points="8 6 2 12 8 18"/>
+                            </svg>
+                            Custom Rules
+                        </div>
+                        <svg class="config-section-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                    <div class="config-section-content">
+                        <div class="form-group">
+                            <label for="customRules">Additional Rules</label>
+                            <textarea id="customRules" placeholder="# Add your custom rules here"></textarea>
+                            <div class="helper-text">These rules will be added at the end of the file</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Generated .htaccess</span>
+                </div>
+
+                <div class="warning-box">
+                    <svg class="warning-box-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <div class="warning-box-content">
+                        <strong>Important:</strong> Always backup your existing .htaccess before making changes. Test on a staging environment first.
+                    </div>
+                </div>
+
+                <div class="code-output">
+                    <pre id="codeOutput"># .htaccess</pre>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="copyCode">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy Code
+                    </button>
+                    <button class="btn btn-secondary" id="downloadFile">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download
+                    </button>
+                    <button class="btn btn-secondary" id="resetConfig">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+                            <path d="M21 3v5h-5"/>
+                        </svg>
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const presets = {
+            seo: {
+                forceHttps: true,
+                hstsHeader: true,
+                wwwRedirect: 'non-www',
+                enableGzip: true,
+                enableBrotli: false,
+                enableCaching: true,
+                cacheDuration: 30,
+                xContentType: true,
+                xFrameOptions: true,
+                xXssProtection: true,
+                referrerPolicy: true,
+                protectHtaccess: true,
+                blockSensitive: true,
+                disableListing: true,
+                removeTrailingSlash: false,
+                removeHtmlExt: false,
+                wpPermalinks: false,
+                wpBlockConfig: false,
+                wpBlockXmlrpc: false
+            },
+            security: {
+                forceHttps: true,
+                hstsHeader: true,
+                wwwRedirect: 'none',
+                enableGzip: true,
+                enableBrotli: false,
+                enableCaching: true,
+                cacheDuration: 30,
+                xContentType: true,
+                xFrameOptions: true,
+                xXssProtection: true,
+                referrerPolicy: true,
+                protectHtaccess: true,
+                blockSensitive: true,
+                disableListing: true,
+                removeTrailingSlash: false,
+                removeHtmlExt: false,
+                wpPermalinks: false,
+                wpBlockConfig: false,
+                wpBlockXmlrpc: false
+            },
+            performance: {
+                forceHttps: true,
+                hstsHeader: false,
+                wwwRedirect: 'none',
+                enableGzip: true,
+                enableBrotli: true,
+                enableCaching: true,
+                cacheDuration: 365,
+                xContentType: false,
+                xFrameOptions: false,
+                xXssProtection: false,
+                referrerPolicy: false,
+                protectHtaccess: false,
+                blockSensitive: false,
+                disableListing: true,
+                removeTrailingSlash: false,
+                removeHtmlExt: false,
+                wpPermalinks: false,
+                wpBlockConfig: false,
+                wpBlockXmlrpc: false
+            },
+            wordpress: {
+                forceHttps: true,
+                hstsHeader: true,
+                wwwRedirect: 'non-www',
+                enableGzip: true,
+                enableBrotli: false,
+                enableCaching: true,
+                cacheDuration: 30,
+                xContentType: true,
+                xFrameOptions: true,
+                xXssProtection: true,
+                referrerPolicy: true,
+                protectHtaccess: true,
+                blockSensitive: true,
+                disableListing: true,
+                removeTrailingSlash: false,
+                removeHtmlExt: false,
+                wpPermalinks: true,
+                wpBlockConfig: true,
+                wpBlockXmlrpc: true
+            },
+            custom: {
+                forceHttps: false,
+                hstsHeader: false,
+                wwwRedirect: 'none',
+                enableGzip: false,
+                enableBrotli: false,
+                enableCaching: false,
+                cacheDuration: 30,
+                xContentType: false,
+                xFrameOptions: false,
+                xXssProtection: false,
+                referrerPolicy: false,
+                protectHtaccess: false,
+                blockSensitive: false,
+                disableListing: false,
+                removeTrailingSlash: false,
+                removeHtmlExt: false,
+                wpPermalinks: false,
+                wpBlockConfig: false,
+                wpBlockXmlrpc: false
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initPresetSelection();
+            initSectionToggles();
+            initEventListeners();
+            generateHtaccess();
+        });
+
+        /**
+         * Initialize preset selection
+         */
+        function initPresetSelection() {
+            document.querySelectorAll('.preset-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    const preset = this.dataset.preset;
+                    applyPreset(preset);
+                    generateHtaccess();
+                });
+            });
+        }
+
+        /**
+         * Apply preset settings
+         */
+        function applyPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+
+            document.getElementById('forceHttps').checked = preset.forceHttps;
+            document.getElementById('hstsHeader').checked = preset.hstsHeader;
+            document.getElementById('wwwRedirect').value = preset.wwwRedirect;
+            document.getElementById('enableGzip').checked = preset.enableGzip;
+            document.getElementById('enableBrotli').checked = preset.enableBrotli;
+            document.getElementById('enableCaching').checked = preset.enableCaching;
+            document.getElementById('cacheDuration').value = preset.cacheDuration;
+            document.getElementById('xContentType').checked = preset.xContentType;
+            document.getElementById('xFrameOptions').checked = preset.xFrameOptions;
+            document.getElementById('xXssProtection').checked = preset.xXssProtection;
+            document.getElementById('referrerPolicy').checked = preset.referrerPolicy;
+            document.getElementById('protectHtaccess').checked = preset.protectHtaccess;
+            document.getElementById('blockSensitive').checked = preset.blockSensitive;
+            document.getElementById('disableListing').checked = preset.disableListing;
+            document.getElementById('removeTrailingSlash').checked = preset.removeTrailingSlash;
+            document.getElementById('removeHtmlExt').checked = preset.removeHtmlExt;
+            document.getElementById('wpPermalinks').checked = preset.wpPermalinks;
+            document.getElementById('wpBlockConfig').checked = preset.wpBlockConfig;
+            document.getElementById('wpBlockXmlrpc').checked = preset.wpBlockXmlrpc;
+        }
+
+        /**
+         * Initialize section toggles
+         */
+        function initSectionToggles() {
+            document.querySelectorAll('.config-section-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const section = this.closest('.config-section');
+                    section.classList.toggle('expanded');
+                });
+            });
+        }
+
+        /**
+         * Initialize event listeners
+         */
+        function initEventListeners() {
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                el.addEventListener('input', generateHtaccess);
+                el.addEventListener('change', generateHtaccess);
+            });
+
+            document.getElementById('copyCode').addEventListener('click', copyCode);
+            document.getElementById('downloadFile').addEventListener('click', downloadFile);
+            document.getElementById('resetConfig').addEventListener('click', resetConfig);
+        }
+
+        /**
+         * Generate .htaccess code
+         */
+        function generateHtaccess() {
+            let code = '';
+
+            // Header
+            code += '<span class="comment"># .htaccess generated by Marketing Department Tools</span>\n';
+            code += '<span class="comment"># Generated: ' + new Date().toLocaleDateString() + '</span>\n\n';
+
+            // SSL/HTTPS
+            if (document.getElementById('forceHttps').checked) {
+                code += '<span class="section"># Force HTTPS</span>\n';
+                code += '<span class="directive">RewriteEngine On</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{HTTPS}</span> <span class="value">off</span>\n';
+                code += '<span class="directive">RewriteRule</span> <span class="condition">^(.*)$</span> <span class="value">https://%{HTTP_HOST}%{REQUEST_URI}</span> <span class="directive">[L,R=301]</span>\n\n';
+            }
+
+            // HSTS
+            if (document.getElementById('hstsHeader').checked) {
+                code += '<span class="section"># HSTS (HTTP Strict Transport Security)</span>\n';
+                code += '<span class="directive">&lt;IfModule mod_headers.c&gt;</span>\n';
+                code += '    <span class="directive">Header always set</span> <span class="condition">Strict-Transport-Security</span> <span class="value">"max-age=31536000; includeSubDomains"</span>\n';
+                code += '<span class="directive">&lt;/IfModule&gt;</span>\n\n';
+            }
+
+            // WWW Redirect
+            const wwwPref = document.getElementById('wwwRedirect').value;
+            if (wwwPref === 'www') {
+                code += '<span class="section"># Force www</span>\n';
+                code += '<span class="directive">RewriteEngine On</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{HTTP_HOST}</span> <span class="value">!^www\\.</span> <span class="directive">[NC]</span>\n';
+                code += '<span class="directive">RewriteRule</span> <span class="condition">^(.*)$</span> <span class="value">https://www.%{HTTP_HOST}%{REQUEST_URI}</span> <span class="directive">[L,R=301]</span>\n\n';
+            } else if (wwwPref === 'non-www') {
+                code += '<span class="section"># Force non-www</span>\n';
+                code += '<span class="directive">RewriteEngine On</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{HTTP_HOST}</span> <span class="value">^www\\.(.*)$</span> <span class="directive">[NC]</span>\n';
+                code += '<span class="directive">RewriteRule</span> <span class="condition">^(.*)$</span> <span class="value">https://%1%{REQUEST_URI}</span> <span class="directive">[L,R=301]</span>\n\n';
+            }
+
+            // GZIP Compression
+            if (document.getElementById('enableGzip').checked) {
+                code += '<span class="section"># GZIP Compression</span>\n';
+                code += '<span class="directive">&lt;IfModule mod_deflate.c&gt;</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">text/plain</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">text/html</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">text/xml</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">text/css</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/xml</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/xhtml+xml</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/rss+xml</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/javascript</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/x-javascript</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">application/json</span>\n';
+                code += '    <span class="directive">AddOutputFilterByType DEFLATE</span> <span class="value">image/svg+xml</span>\n';
+                code += '<span class="directive">&lt;/IfModule&gt;</span>\n\n';
+            }
+
+            // Browser Caching
+            if (document.getElementById('enableCaching').checked) {
+                const days = document.getElementById('cacheDuration').value || 30;
+                const seconds = days * 24 * 60 * 60;
+
+                code += '<span class="section"># Browser Caching</span>\n';
+                code += '<span class="directive">&lt;IfModule mod_expires.c&gt;</span>\n';
+                code += '    <span class="directive">ExpiresActive On</span>\n';
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">image/jpeg</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">image/png</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">image/gif</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">image/webp</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">image/svg+xml</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">text/css</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">application/javascript</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">font/woff2</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += `    <span class="directive">ExpiresByType</span> <span class="condition">font/woff</span> <span class="value">"access plus ${days} days"</span>\n`;
+                code += '<span class="directive">&lt;/IfModule&gt;</span>\n\n';
+            }
+
+            // Security Headers
+            const hasSecurityHeaders = document.getElementById('xContentType').checked ||
+                                       document.getElementById('xFrameOptions').checked ||
+                                       document.getElementById('xXssProtection').checked ||
+                                       document.getElementById('referrerPolicy').checked;
+
+            if (hasSecurityHeaders) {
+                code += '<span class="section"># Security Headers</span>\n';
+                code += '<span class="directive">&lt;IfModule mod_headers.c&gt;</span>\n';
+
+                if (document.getElementById('xContentType').checked) {
+                    code += '    <span class="directive">Header set</span> <span class="condition">X-Content-Type-Options</span> <span class="value">"nosniff"</span>\n';
+                }
+                if (document.getElementById('xFrameOptions').checked) {
+                    code += '    <span class="directive">Header set</span> <span class="condition">X-Frame-Options</span> <span class="value">"SAMEORIGIN"</span>\n';
+                }
+                if (document.getElementById('xXssProtection').checked) {
+                    code += '    <span class="directive">Header set</span> <span class="condition">X-XSS-Protection</span> <span class="value">"1; mode=block"</span>\n';
+                }
+                if (document.getElementById('referrerPolicy').checked) {
+                    code += '    <span class="directive">Header set</span> <span class="condition">Referrer-Policy</span> <span class="value">"strict-origin-when-cross-origin"</span>\n';
+                }
+
+                code += '<span class="directive">&lt;/IfModule&gt;</span>\n\n';
+            }
+
+            // File Protection
+            if (document.getElementById('protectHtaccess').checked) {
+                code += '<span class="section"># Protect .htaccess</span>\n';
+                code += '<span class="directive">&lt;Files .htaccess&gt;</span>\n';
+                code += '    <span class="directive">Order allow,deny</span>\n';
+                code += '    <span class="directive">Deny from all</span>\n';
+                code += '<span class="directive">&lt;/Files&gt;</span>\n\n';
+            }
+
+            if (document.getElementById('blockSensitive').checked) {
+                code += '<span class="section"># Block Sensitive Files</span>\n';
+                code += '<span class="directive">&lt;FilesMatch "(^\\.env|\\.git|composer\\.json|composer\\.lock|package\\.json|package-lock\\.json|\\.sql)$"&gt;</span>\n';
+                code += '    <span class="directive">Order allow,deny</span>\n';
+                code += '    <span class="directive">Deny from all</span>\n';
+                code += '<span class="directive">&lt;/FilesMatch&gt;</span>\n\n';
+            }
+
+            if (document.getElementById('disableListing').checked) {
+                code += '<span class="section"># Disable Directory Listing</span>\n';
+                code += '<span class="directive">Options -Indexes</span>\n\n';
+            }
+
+            // SEO
+            if (document.getElementById('removeTrailingSlash').checked) {
+                code += '<span class="section"># Remove Trailing Slash</span>\n';
+                code += '<span class="directive">RewriteEngine On</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_FILENAME}</span> <span class="value">!-d</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_URI}</span> <span class="value">(.+)/$</span>\n';
+                code += '<span class="directive">RewriteRule</span> <span class="condition">^</span> <span class="value">%1</span> <span class="directive">[L,R=301]</span>\n\n';
+            }
+
+            if (document.getElementById('removeHtmlExt').checked) {
+                code += '<span class="section"># Remove .html Extension</span>\n';
+                code += '<span class="directive">RewriteEngine On</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_FILENAME}</span> <span class="value">!-d</span>\n';
+                code += '<span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_FILENAME}\\.html</span> <span class="value">-f</span>\n';
+                code += '<span class="directive">RewriteRule</span> <span class="condition">^(.*)$</span> <span class="value">$1.html</span> <span class="directive">[L]</span>\n\n';
+            }
+
+            // WordPress
+            if (document.getElementById('wpPermalinks').checked) {
+                code += '<span class="section"># WordPress Permalinks</span>\n';
+                code += '<span class="directive">&lt;IfModule mod_rewrite.c&gt;</span>\n';
+                code += '    <span class="directive">RewriteEngine On</span>\n';
+                code += '    <span class="directive">RewriteBase /</span>\n';
+                code += '    <span class="directive">RewriteRule</span> <span class="condition">^index\\.php$</span> <span class="value">-</span> <span class="directive">[L]</span>\n';
+                code += '    <span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_FILENAME}</span> <span class="value">!-f</span>\n';
+                code += '    <span class="directive">RewriteCond</span> <span class="condition">%{REQUEST_FILENAME}</span> <span class="value">!-d</span>\n';
+                code += '    <span class="directive">RewriteRule</span> <span class="condition">.</span> <span class="value">/index.php</span> <span class="directive">[L]</span>\n';
+                code += '<span class="directive">&lt;/IfModule&gt;</span>\n\n';
+            }
+
+            if (document.getElementById('wpBlockConfig').checked) {
+                code += '<span class="section"># Block wp-config.php</span>\n';
+                code += '<span class="directive">&lt;Files wp-config.php&gt;</span>\n';
+                code += '    <span class="directive">Order allow,deny</span>\n';
+                code += '    <span class="directive">Deny from all</span>\n';
+                code += '<span class="directive">&lt;/Files&gt;</span>\n\n';
+            }
+
+            if (document.getElementById('wpBlockXmlrpc').checked) {
+                code += '<span class="section"># Block XML-RPC</span>\n';
+                code += '<span class="directive">&lt;Files xmlrpc.php&gt;</span>\n';
+                code += '    <span class="directive">Order allow,deny</span>\n';
+                code += '    <span class="directive">Deny from all</span>\n';
+                code += '<span class="directive">&lt;/Files&gt;</span>\n\n';
+            }
+
+            // Custom Rules
+            const customRules = document.getElementById('customRules').value.trim();
+            if (customRules) {
+                code += '<span class="section"># Custom Rules</span>\n';
+                code += '<span class="comment">' + escapeHtml(customRules).replace(/\n/g, '</span>\n<span class="comment">') + '</span>\n';
+            }
+
+            document.getElementById('codeOutput').innerHTML = code || '<span class="comment"># No rules configured</span>';
+        }
+
+        /**
+         * Get plain text code
+         */
+        function getPlainCode() {
+            let code = '';
+
+            code += '# .htaccess generated by Marketing Department Tools\n';
+            code += '# Generated: ' + new Date().toLocaleDateString() + '\n\n';
+
+            if (document.getElementById('forceHttps').checked) {
+                code += '# Force HTTPS\n';
+                code += 'RewriteEngine On\n';
+                code += 'RewriteCond %{HTTPS} off\n';
+                code += 'RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]\n\n';
+            }
+
+            if (document.getElementById('hstsHeader').checked) {
+                code += '# HSTS\n';
+                code += '<IfModule mod_headers.c>\n';
+                code += '    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"\n';
+                code += '</IfModule>\n\n';
+            }
+
+            const wwwPref = document.getElementById('wwwRedirect').value;
+            if (wwwPref === 'www') {
+                code += '# Force www\n';
+                code += 'RewriteEngine On\n';
+                code += 'RewriteCond %{HTTP_HOST} !^www\\. [NC]\n';
+                code += 'RewriteRule ^(.*)$ https://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]\n\n';
+            } else if (wwwPref === 'non-www') {
+                code += '# Force non-www\n';
+                code += 'RewriteEngine On\n';
+                code += 'RewriteCond %{HTTP_HOST} ^www\\.(.*)$ [NC]\n';
+                code += 'RewriteRule ^(.*)$ https://%1%{REQUEST_URI} [L,R=301]\n\n';
+            }
+
+            if (document.getElementById('enableGzip').checked) {
+                code += '# GZIP Compression\n';
+                code += '<IfModule mod_deflate.c>\n';
+                code += '    AddOutputFilterByType DEFLATE text/plain\n';
+                code += '    AddOutputFilterByType DEFLATE text/html\n';
+                code += '    AddOutputFilterByType DEFLATE text/xml\n';
+                code += '    AddOutputFilterByType DEFLATE text/css\n';
+                code += '    AddOutputFilterByType DEFLATE application/xml\n';
+                code += '    AddOutputFilterByType DEFLATE application/xhtml+xml\n';
+                code += '    AddOutputFilterByType DEFLATE application/rss+xml\n';
+                code += '    AddOutputFilterByType DEFLATE application/javascript\n';
+                code += '    AddOutputFilterByType DEFLATE application/x-javascript\n';
+                code += '    AddOutputFilterByType DEFLATE application/json\n';
+                code += '    AddOutputFilterByType DEFLATE image/svg+xml\n';
+                code += '</IfModule>\n\n';
+            }
+
+            if (document.getElementById('enableCaching').checked) {
+                const days = document.getElementById('cacheDuration').value || 30;
+                code += '# Browser Caching\n';
+                code += '<IfModule mod_expires.c>\n';
+                code += '    ExpiresActive On\n';
+                code += `    ExpiresByType image/jpeg "access plus ${days} days"\n`;
+                code += `    ExpiresByType image/png "access plus ${days} days"\n`;
+                code += `    ExpiresByType image/gif "access plus ${days} days"\n`;
+                code += `    ExpiresByType image/webp "access plus ${days} days"\n`;
+                code += `    ExpiresByType image/svg+xml "access plus ${days} days"\n`;
+                code += `    ExpiresByType text/css "access plus ${days} days"\n`;
+                code += `    ExpiresByType application/javascript "access plus ${days} days"\n`;
+                code += `    ExpiresByType font/woff2 "access plus ${days} days"\n`;
+                code += `    ExpiresByType font/woff "access plus ${days} days"\n`;
+                code += '</IfModule>\n\n';
+            }
+
+            const hasSecurityHeaders = document.getElementById('xContentType').checked ||
+                                       document.getElementById('xFrameOptions').checked ||
+                                       document.getElementById('xXssProtection').checked ||
+                                       document.getElementById('referrerPolicy').checked;
+
+            if (hasSecurityHeaders) {
+                code += '# Security Headers\n';
+                code += '<IfModule mod_headers.c>\n';
+                if (document.getElementById('xContentType').checked) {
+                    code += '    Header set X-Content-Type-Options "nosniff"\n';
+                }
+                if (document.getElementById('xFrameOptions').checked) {
+                    code += '    Header set X-Frame-Options "SAMEORIGIN"\n';
+                }
+                if (document.getElementById('xXssProtection').checked) {
+                    code += '    Header set X-XSS-Protection "1; mode=block"\n';
+                }
+                if (document.getElementById('referrerPolicy').checked) {
+                    code += '    Header set Referrer-Policy "strict-origin-when-cross-origin"\n';
+                }
+                code += '</IfModule>\n\n';
+            }
+
+            if (document.getElementById('protectHtaccess').checked) {
+                code += '# Protect .htaccess\n';
+                code += '<Files .htaccess>\n';
+                code += '    Order allow,deny\n';
+                code += '    Deny from all\n';
+                code += '</Files>\n\n';
+            }
+
+            if (document.getElementById('blockSensitive').checked) {
+                code += '# Block Sensitive Files\n';
+                code += '<FilesMatch "(^\\.env|\\.git|composer\\.json|composer\\.lock|package\\.json|package-lock\\.json|\\.sql)$">\n';
+                code += '    Order allow,deny\n';
+                code += '    Deny from all\n';
+                code += '</FilesMatch>\n\n';
+            }
+
+            if (document.getElementById('disableListing').checked) {
+                code += '# Disable Directory Listing\n';
+                code += 'Options -Indexes\n\n';
+            }
+
+            if (document.getElementById('removeTrailingSlash').checked) {
+                code += '# Remove Trailing Slash\n';
+                code += 'RewriteEngine On\n';
+                code += 'RewriteCond %{REQUEST_FILENAME} !-d\n';
+                code += 'RewriteCond %{REQUEST_URI} (.+)/$\n';
+                code += 'RewriteRule ^ %1 [L,R=301]\n\n';
+            }
+
+            if (document.getElementById('removeHtmlExt').checked) {
+                code += '# Remove .html Extension\n';
+                code += 'RewriteEngine On\n';
+                code += 'RewriteCond %{REQUEST_FILENAME} !-d\n';
+                code += 'RewriteCond %{REQUEST_FILENAME}\\.html -f\n';
+                code += 'RewriteRule ^(.*)$ $1.html [L]\n\n';
+            }
+
+            if (document.getElementById('wpPermalinks').checked) {
+                code += '# WordPress Permalinks\n';
+                code += '<IfModule mod_rewrite.c>\n';
+                code += '    RewriteEngine On\n';
+                code += '    RewriteBase /\n';
+                code += '    RewriteRule ^index\\.php$ - [L]\n';
+                code += '    RewriteCond %{REQUEST_FILENAME} !-f\n';
+                code += '    RewriteCond %{REQUEST_FILENAME} !-d\n';
+                code += '    RewriteRule . /index.php [L]\n';
+                code += '</IfModule>\n\n';
+            }
+
+            if (document.getElementById('wpBlockConfig').checked) {
+                code += '# Block wp-config.php\n';
+                code += '<Files wp-config.php>\n';
+                code += '    Order allow,deny\n';
+                code += '    Deny from all\n';
+                code += '</Files>\n\n';
+            }
+
+            if (document.getElementById('wpBlockXmlrpc').checked) {
+                code += '# Block XML-RPC\n';
+                code += '<Files xmlrpc.php>\n';
+                code += '    Order allow,deny\n';
+                code += '    Deny from all\n';
+                code += '</Files>\n\n';
+            }
+
+            const customRules = document.getElementById('customRules').value.trim();
+            if (customRules) {
+                code += '# Custom Rules\n';
+                code += customRules + '\n';
+            }
+
+            return code;
+        }
+
+        /**
+         * Copy code
+         */
+        function copyCode() {
+            const code = getPlainCode();
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Copied to clipboard!');
+            });
+        }
+
+        /**
+         * Download file
+         */
+        function downloadFile() {
+            const code = getPlainCode();
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '.htaccess';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('File downloaded!');
+        }
+
+        /**
+         * Reset configuration
+         */
+        function resetConfig() {
+            if (confirm('Reset all settings to defaults?')) {
+                applyPreset('seo');
+                document.getElementById('customRules').value = '';
+                document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+                document.querySelector('[data-preset="seo"]').classList.add('selected');
+                generateHtaccess();
+                showToast('Settings reset');
+            }
+        }
+
+        /**
+         * Escape HTML
+         */
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /**
+         * Show toast
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10B981' : '#EF4444'};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 9999;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    })();
+    </script>
+</body>
+</html>

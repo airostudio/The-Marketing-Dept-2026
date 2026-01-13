@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect Mapper - Marketing Department</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/pages.css">
+    <style>
+        .tool-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .tool-header {
+            margin-bottom: 32px;
+        }
+
+        .tool-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .tool-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .tool-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: #EF4444;
+            border: 1px solid #EF4444;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 16px 24px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: white;
+        }
+
+        .stat-icon.total { background: var(--accent-primary); }
+        .stat-icon.valid { background: #10B981; }
+        .stat-icon.invalid { background: #EF4444; }
+        .stat-icon.permanent { background: #3B82F6; }
+        .stat-icon.temporary { background: #F59E0B; }
+
+        .stat-info .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-info .stat-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Table Container */
+        .table-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-primary);
+            background: var(--bg-secondary);
+        }
+
+        .table-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 13px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            width: 200px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        /* Redirect Table */
+        .redirect-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .redirect-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .redirect-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-primary);
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        .redirect-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .redirect-table tbody tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .redirect-table input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 13px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .redirect-table input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .redirect-table input.invalid {
+            border-color: #EF4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .redirect-table select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 13px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.valid {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+        }
+
+        .status-badge.invalid {
+            background: rgba(239, 68, 68, 0.1);
+            color: #EF4444;
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .row-actions button {
+            padding: 6px;
+            background: transparent;
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            transition: all 0.2s;
+        }
+
+        .row-actions button:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .row-actions button.delete:hover {
+            color: #EF4444;
+            border-color: #EF4444;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-tertiary);
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            color: var(--border-primary);
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state-desc {
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        /* Export Panel */
+        .export-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .export-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .export-panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .export-format-selector {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-secondary);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .export-format-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .export-format-btn.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .code-output {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .code-output pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #cdd6f4;
+            white-space: pre-wrap;
+        }
+
+        .code-output .comment {
+            color: #6c7086;
+        }
+
+        .code-output .directive {
+            color: #89b4fa;
+        }
+
+        .code-output .condition {
+            color: #f9e2af;
+        }
+
+        .code-output .value {
+            color: #a6e3a1;
+        }
+
+        .export-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        /* Import Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            padding: 8px;
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: 60vh;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-primary);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        .form-group .helper-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .import-example {
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 12px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        /* Drag handle */
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-tertiary);
+            padding: 4px;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        @media (max-width: 1024px) {
+            .stats-bar {
+                flex-wrap: wrap;
+            }
+
+            .redirect-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .tool-actions {
+                flex-direction: column;
+            }
+
+            .tool-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tool-container">
+        <a href="../dashboard.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Dashboard
+        </a>
+
+        <div class="tool-header">
+            <h1>Redirect Mapper</h1>
+            <p>Map old URLs to new URLs and export redirect rules in multiple formats</p>
+        </div>
+
+        <div class="tool-actions">
+            <button class="btn btn-success" id="addRedirect">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Redirect
+            </button>
+            <button class="btn btn-secondary" id="importBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Import CSV
+            </button>
+            <button class="btn btn-secondary" id="exportCsv">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export CSV
+            </button>
+            <button class="btn btn-danger" id="clearAll">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                Clear All
+            </button>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-icon total">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/>
+                        <polyline points="13 2 13 9 20 9"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total Redirects</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon valid">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statValid">0</div>
+                    <div class="stat-label">Valid</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon invalid">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statInvalid">0</div>
+                    <div class="stat-label">Invalid</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon permanent">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value" id="stat301">0</div>
+                    <div class="stat-label">301 Permanent</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon temporary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value" id="stat302">0</div>
+                    <div class="stat-label">302 Temporary</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Redirect Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <span class="table-title">Redirect Rules</span>
+                <div class="table-actions">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search URLs...">
+                </div>
+            </div>
+
+            <table class="redirect-table" id="redirectTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>From URL (Old)</th>
+                        <th>To URL (New)</th>
+                        <th style="width: 120px;">Type</th>
+                        <th style="width: 100px;">Status</th>
+                        <th style="width: 80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="redirectTableBody">
+                    <!-- Rows will be added dynamically -->
+                </tbody>
+            </table>
+
+            <div class="empty-state" id="emptyState">
+                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"/>
+                    <path d="M15 18l6-6-6-6" opacity="0.5"/>
+                </svg>
+                <div class="empty-state-title">No redirects yet</div>
+                <div class="empty-state-desc">Add a redirect or import a CSV file to get started</div>
+                <button class="btn btn-primary" onclick="document.getElementById('addRedirect').click()">
+                    Add Your First Redirect
+                </button>
+            </div>
+        </div>
+
+        <!-- Export Panel -->
+        <div class="export-panel">
+            <div class="export-panel-header">
+                <span class="export-panel-title">Export Code</span>
+                <div class="export-format-selector">
+                    <button class="export-format-btn active" data-format="htaccess">.htaccess</button>
+                    <button class="export-format-btn" data-format="nginx">Nginx</button>
+                    <button class="export-format-btn" data-format="vercel">Vercel</button>
+                    <button class="export-format-btn" data-format="netlify">Netlify</button>
+                    <button class="export-format-btn" data-format="cloudflare">Cloudflare</button>
+                </div>
+            </div>
+
+            <div class="code-output">
+                <pre id="exportCode"># No redirects to export</pre>
+            </div>
+
+            <div class="export-actions">
+                <button class="btn btn-primary" id="copyExport">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>
+                    Copy Code
+                </button>
+                <button class="btn btn-secondary" id="downloadExport">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Import Redirects</span>
+                <button class="modal-close" id="closeModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Paste CSV Data</label>
+                    <textarea id="importData" placeholder="from_url,to_url,type&#10;/old-page,/new-page,301&#10;/blog/old-post,/blog/new-post,301"></textarea>
+                    <div class="helper-text">Format: from_url,to_url,type (type is optional, defaults to 301)</div>
+                    <div class="import-example">
+                        Example:<br>
+                        /old-page,/new-page,301<br>
+                        /blog/old-post,/blog/new-post<br>
+                        /products/old,/shop/new,302
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelImport">Cancel</button>
+                <button class="btn btn-primary" id="confirmImport">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const STORAGE_KEY = 'redirect-mapper-data';
+        let redirects = [];
+        let currentFormat = 'htaccess';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            initEventListeners();
+            renderTable();
+            updateStats();
+            generateExport();
+        });
+
+        /**
+         * Initialize event listeners
+         */
+        function initEventListeners() {
+            document.getElementById('addRedirect').addEventListener('click', addRedirect);
+            document.getElementById('importBtn').addEventListener('click', showImportModal);
+            document.getElementById('exportCsv').addEventListener('click', exportCsv);
+            document.getElementById('clearAll').addEventListener('click', clearAll);
+            document.getElementById('searchInput').addEventListener('input', filterTable);
+
+            // Modal
+            document.getElementById('closeModal').addEventListener('click', hideImportModal);
+            document.getElementById('cancelImport').addEventListener('click', hideImportModal);
+            document.getElementById('confirmImport').addEventListener('click', importData);
+
+            // Export format
+            document.querySelectorAll('.export-format-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.export-format-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFormat = this.dataset.format;
+                    generateExport();
+                });
+            });
+
+            // Export actions
+            document.getElementById('copyExport').addEventListener('click', copyExport);
+            document.getElementById('downloadExport').addEventListener('click', downloadExport);
+        }
+
+        /**
+         * Load data from localStorage
+         */
+        function loadData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                redirects = saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                redirects = [];
+            }
+        }
+
+        /**
+         * Save data to localStorage
+         */
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(redirects));
+        }
+
+        /**
+         * Add new redirect
+         */
+        function addRedirect() {
+            redirects.push({
+                id: Date.now(),
+                from: '',
+                to: '',
+                type: '301'
+            });
+            saveData();
+            renderTable();
+            updateStats();
+            generateExport();
+
+            // Focus on the new row's from input
+            setTimeout(() => {
+                const inputs = document.querySelectorAll('.from-input');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) lastInput.focus();
+            }, 50);
+        }
+
+        /**
+         * Delete redirect
+         */
+        function deleteRedirect(id) {
+            redirects = redirects.filter(r => r.id !== id);
+            saveData();
+            renderTable();
+            updateStats();
+            generateExport();
+        }
+
+        /**
+         * Update redirect
+         */
+        function updateRedirect(id, field, value) {
+            const redirect = redirects.find(r => r.id === id);
+            if (redirect) {
+                redirect[field] = value;
+                saveData();
+                updateStats();
+                generateExport();
+                validateRow(id);
+            }
+        }
+
+        /**
+         * Validate a row
+         */
+        function validateRow(id) {
+            const redirect = redirects.find(r => r.id === id);
+            if (!redirect) return;
+
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (!row) return;
+
+            const fromInput = row.querySelector('.from-input');
+            const toInput = row.querySelector('.to-input');
+            const statusBadge = row.querySelector('.status-badge');
+
+            const isValid = redirect.from.trim() !== '' && redirect.to.trim() !== '';
+
+            fromInput.classList.toggle('invalid', redirect.from.trim() === '');
+            toInput.classList.toggle('invalid', redirect.to.trim() === '');
+
+            statusBadge.className = `status-badge ${isValid ? 'valid' : 'invalid'}`;
+            statusBadge.innerHTML = isValid ?
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Valid' :
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Invalid';
+        }
+
+        /**
+         * Render table
+         */
+        function renderTable() {
+            const tbody = document.getElementById('redirectTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (redirects.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = redirects.map(redirect => {
+                const isValid = redirect.from.trim() !== '' && redirect.to.trim() !== '';
+                return `
+                    <tr data-id="${redirect.id}">
+                        <td>
+                            <span class="drag-handle">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="8" y1="6" x2="8" y2="6.01"/>
+                                    <line x1="8" y1="12" x2="8" y2="12.01"/>
+                                    <line x1="8" y1="18" x2="8" y2="18.01"/>
+                                    <line x1="16" y1="6" x2="16" y2="6.01"/>
+                                    <line x1="16" y1="12" x2="16" y2="12.01"/>
+                                    <line x1="16" y1="18" x2="16" y2="18.01"/>
+                                </svg>
+                            </span>
+                        </td>
+                        <td>
+                            <input type="text" class="from-input ${redirect.from.trim() === '' ? 'invalid' : ''}"
+                                   value="${escapeHtml(redirect.from)}"
+                                   placeholder="/old-page"
+                                   data-field="from">
+                        </td>
+                        <td>
+                            <input type="text" class="to-input ${redirect.to.trim() === '' ? 'invalid' : ''}"
+                                   value="${escapeHtml(redirect.to)}"
+                                   placeholder="/new-page"
+                                   data-field="to">
+                        </td>
+                        <td>
+                            <select class="type-select" data-field="type">
+                                <option value="301" ${redirect.type === '301' ? 'selected' : ''}>301 Permanent</option>
+                                <option value="302" ${redirect.type === '302' ? 'selected' : ''}>302 Temporary</option>
+                                <option value="307" ${redirect.type === '307' ? 'selected' : ''}>307 Temporary</option>
+                                <option value="308" ${redirect.type === '308' ? 'selected' : ''}>308 Permanent</option>
+                            </select>
+                        </td>
+                        <td>
+                            <span class="status-badge ${isValid ? 'valid' : 'invalid'}">
+                                ${isValid ?
+                                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Valid' :
+                                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Invalid'
+                                }
+                            </span>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="delete" title="Delete" onclick="deleteRedirectHandler(${redirect.id})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Add event listeners to inputs
+            tbody.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', function() {
+                    const row = this.closest('tr');
+                    const id = parseInt(row.dataset.id);
+                    const field = this.dataset.field;
+                    updateRedirect(id, field, this.value);
+                });
+            });
+        }
+
+        // Global handler for delete button
+        window.deleteRedirectHandler = function(id) {
+            deleteRedirect(id);
+        };
+
+        /**
+         * Update statistics
+         */
+        function updateStats() {
+            const total = redirects.length;
+            const valid = redirects.filter(r => r.from.trim() !== '' && r.to.trim() !== '').length;
+            const invalid = total - valid;
+            const permanent = redirects.filter(r => r.type === '301' || r.type === '308').length;
+            const temporary = redirects.filter(r => r.type === '302' || r.type === '307').length;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statValid').textContent = valid;
+            document.getElementById('statInvalid').textContent = invalid;
+            document.getElementById('stat301').textContent = permanent;
+            document.getElementById('stat302').textContent = temporary;
+        }
+
+        /**
+         * Filter table
+         */
+        function filterTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#redirectTableBody tr');
+
+            rows.forEach(row => {
+                const from = row.querySelector('.from-input').value.toLowerCase();
+                const to = row.querySelector('.to-input').value.toLowerCase();
+                const matches = from.includes(search) || to.includes(search);
+                row.style.display = matches ? '' : 'none';
+            });
+        }
+
+        /**
+         * Generate export code
+         */
+        function generateExport() {
+            const validRedirects = redirects.filter(r => r.from.trim() !== '' && r.to.trim() !== '');
+            let code = '';
+
+            if (validRedirects.length === 0) {
+                document.getElementById('exportCode').innerHTML = '<span class="comment"># No valid redirects to export</span>';
+                return;
+            }
+
+            switch (currentFormat) {
+                case 'htaccess':
+                    code = generateHtaccess(validRedirects);
+                    break;
+                case 'nginx':
+                    code = generateNginx(validRedirects);
+                    break;
+                case 'vercel':
+                    code = generateVercel(validRedirects);
+                    break;
+                case 'netlify':
+                    code = generateNetlify(validRedirects);
+                    break;
+                case 'cloudflare':
+                    code = generateCloudflare(validRedirects);
+                    break;
+            }
+
+            document.getElementById('exportCode').innerHTML = code;
+        }
+
+        /**
+         * Generate .htaccess format
+         */
+        function generateHtaccess(redirects) {
+            let code = '<span class="comment"># Redirect rules for Apache .htaccess</span>\n';
+            code += '<span class="comment"># Add these rules to your .htaccess file</span>\n\n';
+            code += '<span class="directive">RewriteEngine On</span>\n\n';
+
+            redirects.forEach(r => {
+                const flag = r.type === '301' ? 'R=301,L' : `R=${r.type},L`;
+                code += `<span class="directive">RewriteRule</span> <span class="condition">^${escapeHtml(r.from.replace(/^\//, ''))}$</span> <span class="value">${escapeHtml(r.to)}</span> <span class="directive">[${flag}]</span>\n`;
+            });
+
+            return code;
+        }
+
+        /**
+         * Generate Nginx format
+         */
+        function generateNginx(redirects) {
+            let code = '<span class="comment"># Redirect rules for Nginx</span>\n';
+            code += '<span class="comment"># Add these rules to your nginx.conf or site configuration</span>\n\n';
+
+            redirects.forEach(r => {
+                const permanent = r.type === '301' || r.type === '308' ? 'permanent' : 'redirect';
+                code += `<span class="directive">rewrite</span> <span class="condition">^${escapeHtml(r.from)}$</span> <span class="value">${escapeHtml(r.to)}</span> <span class="directive">${permanent}</span>;\n`;
+            });
+
+            return code;
+        }
+
+        /**
+         * Generate Vercel format
+         */
+        function generateVercel(redirects) {
+            let code = '<span class="comment">// vercel.json redirects configuration</span>\n\n';
+            code += '<span class="directive">{</span>\n';
+            code += '  <span class="condition">"redirects"</span>: [\n';
+
+            redirects.forEach((r, i) => {
+                const permanent = r.type === '301' || r.type === '308';
+                code += `    {\n`;
+                code += `      <span class="condition">"source"</span>: <span class="value">"${escapeHtml(r.from)}"</span>,\n`;
+                code += `      <span class="condition">"destination"</span>: <span class="value">"${escapeHtml(r.to)}"</span>,\n`;
+                code += `      <span class="condition">"permanent"</span>: <span class="value">${permanent}</span>\n`;
+                code += `    }${i < redirects.length - 1 ? ',' : ''}\n`;
+            });
+
+            code += '  ]\n';
+            code += '<span class="directive">}</span>';
+
+            return code;
+        }
+
+        /**
+         * Generate Netlify format
+         */
+        function generateNetlify(redirects) {
+            let code = '<span class="comment"># _redirects file for Netlify</span>\n';
+            code += '<span class="comment"># Place this file in your publish directory</span>\n\n';
+
+            redirects.forEach(r => {
+                code += `<span class="condition">${escapeHtml(r.from)}</span>  <span class="value">${escapeHtml(r.to)}</span>  <span class="directive">${r.type}</span>\n`;
+            });
+
+            return code;
+        }
+
+        /**
+         * Generate Cloudflare format
+         */
+        function generateCloudflare(redirects) {
+            let code = '<span class="comment">// Cloudflare Workers redirect rules</span>\n\n';
+            code += '<span class="directive">const redirects = {</span>\n';
+
+            redirects.forEach((r, i) => {
+                code += `  <span class="condition">"${escapeHtml(r.from)}"</span>: { <span class="condition">url</span>: <span class="value">"${escapeHtml(r.to)}"</span>, <span class="condition">status</span>: <span class="value">${r.type}</span> }${i < redirects.length - 1 ? ',' : ''}\n`;
+            });
+
+            code += '<span class="directive">};</span>\n\n';
+            code += '<span class="comment">// In your worker:</span>\n';
+            code += '<span class="directive">const redirect = redirects[request.url.pathname];</span>\n';
+            code += '<span class="directive">if (redirect) {</span>\n';
+            code += '  <span class="directive">return Response.redirect(redirect.url, redirect.status);</span>\n';
+            code += '<span class="directive">}</span>';
+
+            return code;
+        }
+
+        /**
+         * Get plain export code
+         */
+        function getPlainExport() {
+            const validRedirects = redirects.filter(r => r.from.trim() !== '' && r.to.trim() !== '');
+            if (validRedirects.length === 0) return '# No valid redirects';
+
+            switch (currentFormat) {
+                case 'htaccess':
+                    let htaccess = '# Redirect rules for Apache .htaccess\nRewriteEngine On\n\n';
+                    validRedirects.forEach(r => {
+                        const flag = r.type === '301' ? 'R=301,L' : `R=${r.type},L`;
+                        htaccess += `RewriteRule ^${r.from.replace(/^\//, '')}$ ${r.to} [${flag}]\n`;
+                    });
+                    return htaccess;
+
+                case 'nginx':
+                    let nginx = '# Redirect rules for Nginx\n\n';
+                    validRedirects.forEach(r => {
+                        const permanent = r.type === '301' || r.type === '308' ? 'permanent' : 'redirect';
+                        nginx += `rewrite ^${r.from}$ ${r.to} ${permanent};\n`;
+                    });
+                    return nginx;
+
+                case 'vercel':
+                    const vercelObj = {
+                        redirects: validRedirects.map(r => ({
+                            source: r.from,
+                            destination: r.to,
+                            permanent: r.type === '301' || r.type === '308'
+                        }))
+                    };
+                    return JSON.stringify(vercelObj, null, 2);
+
+                case 'netlify':
+                    let netlify = '# _redirects file for Netlify\n\n';
+                    validRedirects.forEach(r => {
+                        netlify += `${r.from}  ${r.to}  ${r.type}\n`;
+                    });
+                    return netlify;
+
+                case 'cloudflare':
+                    let cf = 'const redirects = {\n';
+                    validRedirects.forEach((r, i) => {
+                        cf += `  "${r.from}": { url: "${r.to}", status: ${r.type} }${i < validRedirects.length - 1 ? ',' : ''}\n`;
+                    });
+                    cf += '};\n';
+                    return cf;
+
+                default:
+                    return '';
+            }
+        }
+
+        /**
+         * Copy export
+         */
+        function copyExport() {
+            const code = getPlainExport();
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Copied to clipboard!');
+            });
+        }
+
+        /**
+         * Download export
+         */
+        function downloadExport() {
+            const code = getPlainExport();
+            let filename, mimeType;
+
+            switch (currentFormat) {
+                case 'htaccess':
+                    filename = '.htaccess';
+                    mimeType = 'text/plain';
+                    break;
+                case 'nginx':
+                    filename = 'nginx-redirects.conf';
+                    mimeType = 'text/plain';
+                    break;
+                case 'vercel':
+                    filename = 'vercel.json';
+                    mimeType = 'application/json';
+                    break;
+                case 'netlify':
+                    filename = '_redirects';
+                    mimeType = 'text/plain';
+                    break;
+                case 'cloudflare':
+                    filename = 'cloudflare-redirects.js';
+                    mimeType = 'text/javascript';
+                    break;
+            }
+
+            const blob = new Blob([code], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('File downloaded!');
+        }
+
+        /**
+         * Export as CSV
+         */
+        function exportCsv() {
+            if (redirects.length === 0) {
+                showToast('No redirects to export', 'error');
+                return;
+            }
+
+            let csv = 'from_url,to_url,type\n';
+            redirects.forEach(r => {
+                csv += `"${r.from.replace(/"/g, '""')}","${r.to.replace(/"/g, '""')}",${r.type}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'redirects.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('CSV exported!');
+        }
+
+        /**
+         * Show import modal
+         */
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('show');
+            document.getElementById('importData').value = '';
+        }
+
+        /**
+         * Hide import modal
+         */
+        function hideImportModal() {
+            document.getElementById('importModal').classList.remove('show');
+        }
+
+        /**
+         * Import data
+         */
+        function importData() {
+            const data = document.getElementById('importData').value.trim();
+            if (!data) {
+                showToast('Please enter data to import', 'error');
+                return;
+            }
+
+            const lines = data.split('\n');
+            let imported = 0;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.toLowerCase().startsWith('from')) return; // Skip header
+
+                const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+                if (parts.length >= 2) {
+                    redirects.push({
+                        id: Date.now() + imported,
+                        from: parts[0],
+                        to: parts[1],
+                        type: parts[2] || '301'
+                    });
+                    imported++;
+                }
+            });
+
+            if (imported > 0) {
+                saveData();
+                renderTable();
+                updateStats();
+                generateExport();
+                hideImportModal();
+                showToast(`Imported ${imported} redirects!`);
+            } else {
+                showToast('No valid redirects found', 'error');
+            }
+        }
+
+        /**
+         * Clear all redirects
+         */
+        function clearAll() {
+            if (redirects.length === 0) return;
+            if (!confirm('Are you sure you want to clear all redirects? This cannot be undone.')) return;
+
+            redirects = [];
+            saveData();
+            renderTable();
+            updateStats();
+            generateExport();
+            showToast('All redirects cleared');
+        }
+
+        /**
+         * Escape HTML
+         */
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /**
+         * Show toast
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10B981' : '#EF4444'};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 9999;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    })();
+    </script>
+</body>
+</html>

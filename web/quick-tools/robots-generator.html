@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robots.txt Generator - Marketing Department</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/pages.css">
+    <style>
+        .tool-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .tool-header {
+            margin-bottom: 32px;
+        }
+
+        .tool-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .tool-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .tool-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 1024px) {
+            .tool-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-panel, .output-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .preset-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) {
+            .preset-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .preset-card {
+            padding: 16px;
+            border: 2px solid var(--border-primary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            background: var(--bg-primary);
+        }
+
+        .preset-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .preset-card.selected {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .preset-card-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 8px;
+            color: var(--accent-primary);
+        }
+
+        .preset-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .preset-card-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .form-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .form-group .helper-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        /* Toggle Switch */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .toggle-group:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .toggle-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-primary);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background-color: var(--accent-primary);
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        /* User Agent Rules */
+        .user-agent-rules {
+            margin-top: 16px;
+        }
+
+        .user-agent-rule {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .user-agent-rule-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .user-agent-rule-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .btn-remove {
+            padding: 6px;
+            background: transparent;
+            color: var(--text-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-remove:hover {
+            color: #EF4444;
+            border-color: #EF4444;
+        }
+
+        .rule-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .rule-row select {
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .rule-row input {
+            flex: 1;
+        }
+
+        .btn-add-rule {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--accent-primary);
+            background: transparent;
+            border: 1px dashed var(--accent-primary);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-add-rule:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .btn-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: var(--accent-primary);
+            background: transparent;
+            border: 1px dashed var(--accent-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .btn-add:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        /* Code Output */
+        .code-output {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .code-output pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #cdd6f4;
+            white-space: pre-wrap;
+        }
+
+        .code-output .comment {
+            color: #6c7086;
+        }
+
+        .code-output .directive {
+            color: #89b4fa;
+        }
+
+        .code-output .value {
+            color: #a6e3a1;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Tips Section */
+        .tips-section {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .tips-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 8px;
+        }
+
+        .tips-list {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .tips-list li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tool-container">
+        <a href="../dashboard.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Dashboard
+        </a>
+
+        <div class="tool-header">
+            <h1>Robots.txt Generator</h1>
+            <p>Create a robots.txt file to control how search engines crawl your website</p>
+        </div>
+
+        <!-- Preset Selection -->
+        <div class="preset-selector">
+            <div class="preset-card selected" data-preset="standard">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div class="preset-card-title">Standard</div>
+                <div class="preset-card-desc">Allow all crawling</div>
+            </div>
+            <div class="preset-card" data-preset="ecommerce">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+                </svg>
+                <div class="preset-card-title">E-commerce</div>
+                <div class="preset-card-desc">Optimized for stores</div>
+            </div>
+            <div class="preset-card" data-preset="blog">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <div class="preset-card-title">Blog</div>
+                <div class="preset-card-desc">Content-focused</div>
+            </div>
+            <div class="preset-card" data-preset="wordpress">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                </svg>
+                <div class="preset-card-title">WordPress</div>
+                <div class="preset-card-desc">WP optimized</div>
+            </div>
+            <div class="preset-card" data-preset="restrictive">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+                <div class="preset-card-title">Restrictive</div>
+                <div class="preset-card-desc">Block most bots</div>
+            </div>
+            <div class="preset-card" data-preset="custom">
+                <svg class="preset-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+                <div class="preset-card-title">Custom</div>
+                <div class="preset-card-desc">Start from scratch</div>
+            </div>
+        </div>
+
+        <div class="tool-layout">
+            <!-- Input Panel -->
+            <div class="input-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Configuration</span>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">Website Settings</div>
+                    <div class="form-group">
+                        <label for="siteUrl">Website URL</label>
+                        <input type="url" id="siteUrl" placeholder="https://www.example.com">
+                        <div class="helper-text">Your website's base URL for the sitemap reference</div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">Sitemap</div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Include Sitemap</div>
+                            <div class="toggle-desc">Add sitemap URL to robots.txt</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="includeSitemap" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" id="sitemapUrlGroup">
+                        <label for="sitemapUrl">Sitemap URL</label>
+                        <input type="url" id="sitemapUrl" placeholder="https://www.example.com/sitemap.xml">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">Common Blocks</div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block Admin Areas</div>
+                            <div class="toggle-desc">/admin/, /wp-admin/, /dashboard/</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockAdmin" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block Login Pages</div>
+                            <div class="toggle-desc">/login/, /signin/, /register/</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockLogin" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block Cart/Checkout</div>
+                            <div class="toggle-desc">/cart/, /checkout/, /basket/</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockCart">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block Search Results</div>
+                            <div class="toggle-desc">/search/, ?s=, ?q=</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockSearch">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block API Endpoints</div>
+                            <div class="toggle-desc">/api/, /rest/, /graphql/</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockApi" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Block Private/Thank You</div>
+                            <div class="toggle-desc">/private/, /thank-you/, /confirmation/</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="blockPrivate" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">User Agent Rules</div>
+                    <div class="user-agent-rules" id="userAgentRules">
+                        <div class="user-agent-rule" data-agent="*">
+                            <div class="user-agent-rule-header">
+                                <span class="user-agent-rule-title">All Bots (*)</span>
+                            </div>
+                            <div class="rule-list">
+                                <div class="rule-row">
+                                    <select class="rule-type">
+                                        <option value="Allow">Allow</option>
+                                        <option value="Disallow">Disallow</option>
+                                    </select>
+                                    <input type="text" class="rule-path" placeholder="/" value="/">
+                                    <button class="btn-remove rule-remove" style="display: none;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="btn-add-rule" onclick="addRule(this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                Add Rule
+                            </button>
+                        </div>
+                    </div>
+                    <button class="btn-add" id="addUserAgent">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add User Agent
+                    </button>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">Crawl Delay</div>
+                    <div class="toggle-group">
+                        <div>
+                            <div class="toggle-label">Enable Crawl Delay</div>
+                            <div class="toggle-desc">Slow down bot crawling</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="enableCrawlDelay">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" id="crawlDelayGroup" style="display: none;">
+                        <label for="crawlDelay">Delay (seconds)</label>
+                        <input type="number" id="crawlDelay" placeholder="10" value="10" min="1" max="60">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">Additional Disallowed Paths</div>
+                    <div class="form-group">
+                        <textarea id="additionalDisallow" placeholder="/private/&#10;/temp/&#10;/old/"></textarea>
+                        <div class="helper-text">One path per line</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Generated robots.txt</span>
+                </div>
+
+                <div class="code-output">
+                    <pre id="codeOutput"># robots.txt</pre>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="copyCode">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy Code
+                    </button>
+                    <button class="btn btn-secondary" id="downloadFile">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download
+                    </button>
+                    <button class="btn btn-secondary" id="testRobots">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Test URL
+                    </button>
+                </div>
+
+                <div class="tips-section">
+                    <div class="tips-title">Best Practices</div>
+                    <ul class="tips-list">
+                        <li>Place robots.txt in your root directory (e.g., example.com/robots.txt)</li>
+                        <li>robots.txt is publicly accessible - don't list sensitive paths</li>
+                        <li>Use Disallow: / to block all crawling (for staging sites)</li>
+                        <li>Always include a sitemap reference for better indexing</li>
+                        <li>Test your robots.txt in Google Search Console</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const presets = {
+            standard: {
+                includeSitemap: true,
+                blockAdmin: true,
+                blockLogin: true,
+                blockCart: false,
+                blockSearch: false,
+                blockApi: true,
+                blockPrivate: true,
+                enableCrawlDelay: false
+            },
+            ecommerce: {
+                includeSitemap: true,
+                blockAdmin: true,
+                blockLogin: true,
+                blockCart: true,
+                blockSearch: true,
+                blockApi: true,
+                blockPrivate: true,
+                enableCrawlDelay: false
+            },
+            blog: {
+                includeSitemap: true,
+                blockAdmin: true,
+                blockLogin: true,
+                blockCart: false,
+                blockSearch: false,
+                blockApi: true,
+                blockPrivate: true,
+                enableCrawlDelay: false
+            },
+            wordpress: {
+                includeSitemap: true,
+                blockAdmin: true,
+                blockLogin: true,
+                blockCart: false,
+                blockSearch: true,
+                blockApi: true,
+                blockPrivate: true,
+                enableCrawlDelay: false,
+                wpSpecific: true
+            },
+            restrictive: {
+                includeSitemap: true,
+                blockAdmin: true,
+                blockLogin: true,
+                blockCart: true,
+                blockSearch: true,
+                blockApi: true,
+                blockPrivate: true,
+                enableCrawlDelay: true
+            },
+            custom: {
+                includeSitemap: false,
+                blockAdmin: false,
+                blockLogin: false,
+                blockCart: false,
+                blockSearch: false,
+                blockApi: false,
+                blockPrivate: false,
+                enableCrawlDelay: false
+            }
+        };
+
+        let currentPreset = 'standard';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initPresetSelection();
+            initEventListeners();
+            initUserAgentHandlers();
+            generateRobotsTxt();
+        });
+
+        /**
+         * Initialize preset selection
+         */
+        function initPresetSelection() {
+            document.querySelectorAll('.preset-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const preset = this.dataset.preset;
+
+                    // Update selection UI
+                    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    currentPreset = preset;
+                    applyPreset(preset);
+                    generateRobotsTxt();
+                });
+            });
+        }
+
+        /**
+         * Apply preset settings
+         */
+        function applyPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+
+            document.getElementById('includeSitemap').checked = preset.includeSitemap;
+            document.getElementById('blockAdmin').checked = preset.blockAdmin;
+            document.getElementById('blockLogin').checked = preset.blockLogin;
+            document.getElementById('blockCart').checked = preset.blockCart;
+            document.getElementById('blockSearch').checked = preset.blockSearch;
+            document.getElementById('blockApi').checked = preset.blockApi;
+            document.getElementById('blockPrivate').checked = preset.blockPrivate;
+            document.getElementById('enableCrawlDelay').checked = preset.enableCrawlDelay;
+
+            // Toggle crawl delay visibility
+            document.getElementById('crawlDelayGroup').style.display =
+                preset.enableCrawlDelay ? 'block' : 'none';
+
+            // Toggle sitemap URL visibility
+            document.getElementById('sitemapUrlGroup').style.display =
+                preset.includeSitemap ? 'block' : 'none';
+        }
+
+        /**
+         * Initialize event listeners
+         */
+        function initEventListeners() {
+            // All form inputs
+            document.querySelectorAll('input, textarea, select').forEach(el => {
+                el.addEventListener('input', generateRobotsTxt);
+                el.addEventListener('change', generateRobotsTxt);
+            });
+
+            // Include sitemap toggle
+            document.getElementById('includeSitemap').addEventListener('change', function() {
+                document.getElementById('sitemapUrlGroup').style.display =
+                    this.checked ? 'block' : 'none';
+                generateRobotsTxt();
+            });
+
+            // Crawl delay toggle
+            document.getElementById('enableCrawlDelay').addEventListener('change', function() {
+                document.getElementById('crawlDelayGroup').style.display =
+                    this.checked ? 'block' : 'none';
+                generateRobotsTxt();
+            });
+
+            // Site URL auto-fills sitemap
+            document.getElementById('siteUrl').addEventListener('input', function() {
+                const siteUrl = this.value.trim();
+                if (siteUrl && !document.getElementById('sitemapUrl').value) {
+                    try {
+                        const url = new URL(siteUrl);
+                        document.getElementById('sitemapUrl').value = `${url.origin}/sitemap.xml`;
+                    } catch (e) {}
+                }
+                generateRobotsTxt();
+            });
+
+            // Buttons
+            document.getElementById('copyCode').addEventListener('click', copyCode);
+            document.getElementById('downloadFile').addEventListener('click', downloadFile);
+            document.getElementById('testRobots').addEventListener('click', testRobots);
+        }
+
+        /**
+         * Initialize user agent handlers
+         */
+        function initUserAgentHandlers() {
+            document.getElementById('addUserAgent').addEventListener('click', addUserAgent);
+        }
+
+        /**
+         * Add user agent block
+         */
+        function addUserAgent() {
+            const container = document.getElementById('userAgentRules');
+            const agentName = prompt('Enter user agent name (e.g., Googlebot, Bingbot, GPTBot):');
+            if (!agentName) return;
+
+            const rule = document.createElement('div');
+            rule.className = 'user-agent-rule';
+            rule.dataset.agent = agentName;
+            rule.innerHTML = `
+                <div class="user-agent-rule-header">
+                    <span class="user-agent-rule-title">${agentName}</span>
+                    <button class="btn-remove" onclick="removeUserAgent(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="rule-list">
+                    <div class="rule-row">
+                        <select class="rule-type">
+                            <option value="Allow">Allow</option>
+                            <option value="Disallow" selected>Disallow</option>
+                        </select>
+                        <input type="text" class="rule-path" placeholder="/" value="/">
+                        <button class="btn-remove rule-remove" style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button class="btn-add-rule" onclick="addRule(this)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add Rule
+                </button>
+            `;
+
+            container.appendChild(rule);
+
+            // Add listeners to new inputs
+            rule.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', generateRobotsTxt);
+                el.addEventListener('change', generateRobotsTxt);
+            });
+
+            generateRobotsTxt();
+        }
+
+        /**
+         * Remove user agent
+         */
+        window.removeUserAgent = function(btn) {
+            const rule = btn.closest('.user-agent-rule');
+            rule.remove();
+            generateRobotsTxt();
+        };
+
+        /**
+         * Add rule to user agent
+         */
+        window.addRule = function(btn) {
+            const ruleList = btn.previousElementSibling;
+            const ruleRow = document.createElement('div');
+            ruleRow.className = 'rule-row';
+            ruleRow.innerHTML = `
+                <select class="rule-type">
+                    <option value="Allow">Allow</option>
+                    <option value="Disallow">Disallow</option>
+                </select>
+                <input type="text" class="rule-path" placeholder="/path/">
+                <button class="btn-remove rule-remove" onclick="removeRule(this)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            `;
+
+            ruleList.appendChild(ruleRow);
+
+            // Add listeners
+            ruleRow.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', generateRobotsTxt);
+                el.addEventListener('change', generateRobotsTxt);
+            });
+
+            // Update remove button visibility
+            updateRuleRemoveButtons(ruleList);
+            generateRobotsTxt();
+        };
+
+        /**
+         * Remove rule
+         */
+        window.removeRule = function(btn) {
+            const ruleRow = btn.closest('.rule-row');
+            const ruleList = ruleRow.parentElement;
+            ruleRow.remove();
+            updateRuleRemoveButtons(ruleList);
+            generateRobotsTxt();
+        };
+
+        /**
+         * Update rule remove button visibility
+         */
+        function updateRuleRemoveButtons(ruleList) {
+            const rows = ruleList.querySelectorAll('.rule-row');
+            rows.forEach(row => {
+                const removeBtn = row.querySelector('.rule-remove');
+                if (removeBtn) {
+                    removeBtn.style.display = rows.length > 1 ? 'block' : 'none';
+                }
+            });
+        }
+
+        /**
+         * Generate robots.txt content
+         */
+        function generateRobotsTxt() {
+            let output = '';
+
+            // Header comment
+            output += '<span class="comment"># robots.txt generated by Marketing Department Tools</span>\n';
+            output += '<span class="comment"># https://example.com/robots.txt</span>\n\n';
+
+            // Collect all disallowed paths from toggles
+            const commonBlocks = [];
+
+            if (document.getElementById('blockAdmin').checked) {
+                commonBlocks.push('/admin/', '/wp-admin/', '/dashboard/', '/administrator/');
+            }
+            if (document.getElementById('blockLogin').checked) {
+                commonBlocks.push('/login/', '/signin/', '/signup/', '/register/', '/logout/');
+            }
+            if (document.getElementById('blockCart').checked) {
+                commonBlocks.push('/cart/', '/checkout/', '/basket/', '/my-account/');
+            }
+            if (document.getElementById('blockSearch').checked) {
+                commonBlocks.push('/search/', '/*?s=', '/*?q=', '/*?search=');
+            }
+            if (document.getElementById('blockApi').checked) {
+                commonBlocks.push('/api/', '/rest/', '/graphql/', '/wp-json/');
+            }
+            if (document.getElementById('blockPrivate').checked) {
+                commonBlocks.push('/private/', '/thank-you/', '/confirmation/', '/order-confirmation/');
+            }
+
+            // WordPress specific
+            if (currentPreset === 'wordpress') {
+                commonBlocks.push(
+                    '/wp-includes/',
+                    '/wp-content/plugins/',
+                    '/wp-content/cache/',
+                    '/wp-content/themes/*/assets/',
+                    '/trackback/',
+                    '/feed/',
+                    '/comments/feed/'
+                );
+            }
+
+            // Additional disallowed paths
+            const additionalPaths = document.getElementById('additionalDisallow').value
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => p);
+
+            // Generate user agent blocks
+            document.querySelectorAll('.user-agent-rule').forEach(agentBlock => {
+                const agentName = agentBlock.dataset.agent;
+                output += `<span class="directive">User-agent:</span> <span class="value">${agentName}</span>\n`;
+
+                // Add rules from this block
+                agentBlock.querySelectorAll('.rule-row').forEach(row => {
+                    const type = row.querySelector('.rule-type').value;
+                    const path = row.querySelector('.rule-path').value.trim();
+                    if (path) {
+                        output += `<span class="directive">${type}:</span> <span class="value">${path}</span>\n`;
+                    }
+                });
+
+                // For the wildcard agent, add common blocks
+                if (agentName === '*') {
+                    commonBlocks.forEach(path => {
+                        output += `<span class="directive">Disallow:</span> <span class="value">${path}</span>\n`;
+                    });
+
+                    additionalPaths.forEach(path => {
+                        output += `<span class="directive">Disallow:</span> <span class="value">${path}</span>\n`;
+                    });
+                }
+
+                // Crawl delay
+                if (document.getElementById('enableCrawlDelay').checked) {
+                    const delay = document.getElementById('crawlDelay').value || 10;
+                    output += `<span class="directive">Crawl-delay:</span> <span class="value">${delay}</span>\n`;
+                }
+
+                output += '\n';
+            });
+
+            // Sitemap
+            if (document.getElementById('includeSitemap').checked) {
+                let sitemapUrl = document.getElementById('sitemapUrl').value.trim();
+                if (!sitemapUrl) {
+                    const siteUrl = document.getElementById('siteUrl').value.trim();
+                    if (siteUrl) {
+                        try {
+                            const url = new URL(siteUrl);
+                            sitemapUrl = `${url.origin}/sitemap.xml`;
+                        } catch (e) {
+                            sitemapUrl = 'https://www.example.com/sitemap.xml';
+                        }
+                    } else {
+                        sitemapUrl = 'https://www.example.com/sitemap.xml';
+                    }
+                }
+                output += `<span class="directive">Sitemap:</span> <span class="value">${sitemapUrl}</span>\n`;
+            }
+
+            document.getElementById('codeOutput').innerHTML = output;
+        }
+
+        /**
+         * Get plain text content
+         */
+        function getPlainText() {
+            let output = '';
+
+            output += '# robots.txt generated by Marketing Department Tools\n';
+            const siteUrl = document.getElementById('siteUrl').value.trim();
+            if (siteUrl) {
+                output += `# ${siteUrl}/robots.txt\n`;
+            }
+            output += '\n';
+
+            // Collect common blocks
+            const commonBlocks = [];
+
+            if (document.getElementById('blockAdmin').checked) {
+                commonBlocks.push('/admin/', '/wp-admin/', '/dashboard/', '/administrator/');
+            }
+            if (document.getElementById('blockLogin').checked) {
+                commonBlocks.push('/login/', '/signin/', '/signup/', '/register/', '/logout/');
+            }
+            if (document.getElementById('blockCart').checked) {
+                commonBlocks.push('/cart/', '/checkout/', '/basket/', '/my-account/');
+            }
+            if (document.getElementById('blockSearch').checked) {
+                commonBlocks.push('/search/', '/*?s=', '/*?q=', '/*?search=');
+            }
+            if (document.getElementById('blockApi').checked) {
+                commonBlocks.push('/api/', '/rest/', '/graphql/', '/wp-json/');
+            }
+            if (document.getElementById('blockPrivate').checked) {
+                commonBlocks.push('/private/', '/thank-you/', '/confirmation/', '/order-confirmation/');
+            }
+
+            if (currentPreset === 'wordpress') {
+                commonBlocks.push(
+                    '/wp-includes/',
+                    '/wp-content/plugins/',
+                    '/wp-content/cache/',
+                    '/wp-content/themes/*/assets/',
+                    '/trackback/',
+                    '/feed/',
+                    '/comments/feed/'
+                );
+            }
+
+            const additionalPaths = document.getElementById('additionalDisallow').value
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => p);
+
+            // Generate user agent blocks
+            document.querySelectorAll('.user-agent-rule').forEach(agentBlock => {
+                const agentName = agentBlock.dataset.agent;
+                output += `User-agent: ${agentName}\n`;
+
+                agentBlock.querySelectorAll('.rule-row').forEach(row => {
+                    const type = row.querySelector('.rule-type').value;
+                    const path = row.querySelector('.rule-path').value.trim();
+                    if (path) {
+                        output += `${type}: ${path}\n`;
+                    }
+                });
+
+                if (agentName === '*') {
+                    commonBlocks.forEach(path => {
+                        output += `Disallow: ${path}\n`;
+                    });
+                    additionalPaths.forEach(path => {
+                        output += `Disallow: ${path}\n`;
+                    });
+                }
+
+                if (document.getElementById('enableCrawlDelay').checked) {
+                    const delay = document.getElementById('crawlDelay').value || 10;
+                    output += `Crawl-delay: ${delay}\n`;
+                }
+
+                output += '\n';
+            });
+
+            // Sitemap
+            if (document.getElementById('includeSitemap').checked) {
+                let sitemapUrl = document.getElementById('sitemapUrl').value.trim();
+                if (!sitemapUrl && siteUrl) {
+                    try {
+                        const url = new URL(siteUrl);
+                        sitemapUrl = `${url.origin}/sitemap.xml`;
+                    } catch (e) {
+                        sitemapUrl = 'https://www.example.com/sitemap.xml';
+                    }
+                }
+                if (sitemapUrl) {
+                    output += `Sitemap: ${sitemapUrl}\n`;
+                }
+            }
+
+            return output;
+        }
+
+        /**
+         * Copy to clipboard
+         */
+        function copyCode() {
+            const code = getPlainText();
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Copied to clipboard!');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+
+        /**
+         * Download file
+         */
+        function downloadFile() {
+            const code = getPlainText();
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'robots.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('File downloaded!');
+        }
+
+        /**
+         * Test robots.txt
+         */
+        function testRobots() {
+            const siteUrl = document.getElementById('siteUrl').value.trim();
+            if (siteUrl) {
+                window.open(`https://www.google.com/webmasters/tools/robots-testing-tool?siteUrl=${encodeURIComponent(siteUrl)}`, '_blank');
+            } else {
+                window.open('https://www.google.com/webmasters/tools/robots-testing-tool', '_blank');
+            }
+        }
+
+        /**
+         * Show toast
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10B981' : '#EF4444'};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 9999;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    })();
+    </script>
+</body>
+</html>

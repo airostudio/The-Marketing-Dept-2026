@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta Tag Generator - Marketing Department</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/pages.css">
+    <style>
+        .tool-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .tool-header {
+            margin-bottom: 32px;
+        }
+
+        .tool-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .tool-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .tool-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 1024px) {
+            .tool-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-panel, .output-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .form-group .helper-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .char-count {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .char-count .count {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .char-count .count.good {
+            color: #10B981;
+        }
+
+        .char-count .count.warning {
+            color: #F59E0B;
+        }
+
+        .char-count .count.danger {
+            color: #EF4444;
+        }
+
+        .char-bar {
+            height: 4px;
+            background: var(--border-primary);
+            border-radius: 2px;
+            flex: 1;
+            margin-left: 12px;
+            overflow: hidden;
+        }
+
+        .char-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.2s, background-color 0.2s;
+        }
+
+        .preview-section {
+            margin-bottom: 24px;
+        }
+
+        .preview-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        /* Google Preview */
+        .google-preview {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: Arial, sans-serif;
+        }
+
+        .google-preview .title {
+            color: #1a0dab;
+            font-size: 20px;
+            line-height: 1.3;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .google-preview .url {
+            color: #006621;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .google-preview .description {
+            color: #545454;
+            font-size: 14px;
+            line-height: 1.58;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Facebook/OG Preview */
+        .og-preview {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dddfe2;
+        }
+
+        .og-preview .og-image {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .og-preview .og-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .og-preview .og-content {
+            padding: 12px;
+            background: #f2f3f5;
+        }
+
+        .og-preview .og-site {
+            color: #606770;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .og-preview .og-title {
+            color: #1d2129;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.38;
+            margin-bottom: 4px;
+        }
+
+        .og-preview .og-desc {
+            color: #606770;
+            font-size: 14px;
+            line-height: 1.38;
+        }
+
+        /* Twitter Preview */
+        .twitter-preview {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #e1e8ed;
+        }
+
+        .twitter-preview .twitter-image {
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(135deg, #1DA1F2 0%, #0d8bd9 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .twitter-preview .twitter-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .twitter-preview .twitter-content {
+            padding: 12px;
+        }
+
+        .twitter-preview .twitter-title {
+            color: #14171a;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .twitter-preview .twitter-desc {
+            color: #657786;
+            font-size: 15px;
+            line-height: 1.3;
+        }
+
+        .twitter-preview .twitter-site {
+            color: #657786;
+            font-size: 15px;
+            margin-top: 4px;
+        }
+
+        /* Code Output */
+        .code-output {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .code-output pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #cdd6f4;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .code-output .tag {
+            color: #89b4fa;
+        }
+
+        .code-output .attr {
+            color: #f9e2af;
+        }
+
+        .code-output .value {
+            color: #a6e3a1;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-secondary);
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .image-upload {
+            border: 2px dashed var(--border-primary);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .image-upload:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .image-upload.has-image {
+            border-style: solid;
+            border-color: var(--accent-primary);
+        }
+
+        .image-upload input {
+            display: none;
+        }
+
+        .image-upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            color: var(--text-tertiary);
+        }
+
+        .image-upload-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .image-upload-hint {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .image-preview {
+            max-width: 200px;
+            max-height: 120px;
+            margin: 0 auto;
+            border-radius: 4px;
+        }
+
+        .template-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) {
+            .template-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .template-card {
+            padding: 16px;
+            border: 2px solid var(--border-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .template-card:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .template-card.selected {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .template-card-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 8px;
+            color: var(--accent-primary);
+        }
+
+        .template-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .template-card-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tool-container">
+        <a href="../dashboard.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Dashboard
+        </a>
+
+        <div class="tool-header">
+            <h1>Meta Tag Generator</h1>
+            <p>Generate optimized meta tags for better SEO and social media sharing</p>
+        </div>
+
+        <!-- Template Selection -->
+        <div class="template-selector">
+            <div class="template-card selected" data-template="general">
+                <svg class="template-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M3 9h18M9 21V9"/>
+                </svg>
+                <div class="template-card-title">General Page</div>
+                <div class="template-card-desc">Blog posts, articles, landing pages</div>
+            </div>
+            <div class="template-card" data-template="product">
+                <svg class="template-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+                <div class="template-card-title">Product Page</div>
+                <div class="template-card-desc">E-commerce product listings</div>
+            </div>
+            <div class="template-card" data-template="local">
+                <svg class="template-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <div class="template-card-title">Local Business</div>
+                <div class="template-card-desc">Location-based pages</div>
+            </div>
+        </div>
+
+        <div class="tool-layout">
+            <!-- Input Panel -->
+            <div class="input-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Page Information</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="pageUrl">Page URL</label>
+                    <input type="url" id="pageUrl" placeholder="https://example.com/page">
+                    <div class="helper-text">The canonical URL of the page</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="pageTitle">Page Title</label>
+                    <input type="text" id="pageTitle" placeholder="Your Page Title | Brand Name" maxlength="70">
+                    <div class="char-count">
+                        <span class="count good" id="titleCount">0/60</span>
+                        <div class="char-bar">
+                            <div class="char-bar-fill" id="titleBar" style="width: 0%; background: #10B981;"></div>
+                        </div>
+                    </div>
+                    <div class="helper-text">Optimal: 50-60 characters. Max: 70 characters</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="pageDescription">Meta Description</label>
+                    <textarea id="pageDescription" placeholder="A compelling description of your page content..." maxlength="170"></textarea>
+                    <div class="char-count">
+                        <span class="count good" id="descCount">0/160</span>
+                        <div class="char-bar">
+                            <div class="char-bar-fill" id="descBar" style="width: 0%; background: #10B981;"></div>
+                        </div>
+                    </div>
+                    <div class="helper-text">Optimal: 150-160 characters. Max: 170 characters</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="keywords">Focus Keywords</label>
+                    <input type="text" id="keywords" placeholder="keyword1, keyword2, keyword3">
+                    <div class="helper-text">Comma-separated keywords (optional, mainly for reference)</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="siteName">Site Name</label>
+                        <input type="text" id="siteName" placeholder="Your Brand">
+                    </div>
+                    <div class="form-group">
+                        <label for="author">Author</label>
+                        <input type="text" id="author" placeholder="Author name">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="ogImage">Social Media Image</label>
+                    <div class="image-upload" id="imageUpload">
+                        <input type="file" id="ogImageFile" accept="image/*">
+                        <input type="hidden" id="ogImage">
+                        <svg class="image-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <div class="image-upload-text">Click to upload or drag and drop</div>
+                        <div class="image-upload-hint">Recommended: 1200x630px (PNG, JPG)</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="ogImageUrl">Or Image URL</label>
+                    <input type="url" id="ogImageUrl" placeholder="https://example.com/image.jpg">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="twitterCard">Twitter Card Type</label>
+                        <select id="twitterCard">
+                            <option value="summary_large_image">Summary Large Image</option>
+                            <option value="summary">Summary</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="twitterHandle">Twitter Handle</label>
+                        <input type="text" id="twitterHandle" placeholder="@yourhandle">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="robots">Robots</label>
+                        <select id="robots">
+                            <option value="index, follow">Index, Follow</option>
+                            <option value="noindex, follow">No Index, Follow</option>
+                            <option value="index, nofollow">Index, No Follow</option>
+                            <option value="noindex, nofollow">No Index, No Follow</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="language">Language</label>
+                        <select id="language">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="it">Italian</option>
+                            <option value="pt">Portuguese</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="ko">Korean</option>
+                            <option value="ar">Arabic</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Preview & Output</span>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="google">Google</button>
+                    <button class="tab" data-tab="facebook">Facebook</button>
+                    <button class="tab" data-tab="twitter">Twitter</button>
+                    <button class="tab" data-tab="code">Code</button>
+                </div>
+
+                <!-- Google Preview -->
+                <div class="tab-content active" data-tab="google">
+                    <div class="preview-section">
+                        <div class="preview-label">Search Result Preview</div>
+                        <div class="google-preview">
+                            <div class="title" id="googleTitle">Your Page Title | Brand Name</div>
+                            <div class="url" id="googleUrl">https://example.com/page</div>
+                            <div class="description" id="googleDesc">A compelling description of your page content that will appear in search results...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Facebook Preview -->
+                <div class="tab-content" data-tab="facebook">
+                    <div class="preview-section">
+                        <div class="preview-label">Facebook Share Preview</div>
+                        <div class="og-preview">
+                            <div class="og-image" id="ogImagePreview">
+                                <span>1200 × 630 recommended</span>
+                            </div>
+                            <div class="og-content">
+                                <div class="og-site" id="ogSite">EXAMPLE.COM</div>
+                                <div class="og-title" id="ogTitle">Your Page Title</div>
+                                <div class="og-desc" id="ogDesc">A compelling description of your page content...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Twitter Preview -->
+                <div class="tab-content" data-tab="twitter">
+                    <div class="preview-section">
+                        <div class="preview-label">Twitter Card Preview</div>
+                        <div class="twitter-preview">
+                            <div class="twitter-image" id="twitterImagePreview">
+                                <span>1200 × 628 recommended</span>
+                            </div>
+                            <div class="twitter-content">
+                                <div class="twitter-title" id="twitterTitle">Your Page Title</div>
+                                <div class="twitter-desc" id="twitterDesc">A compelling description of your page content...</div>
+                                <div class="twitter-site" id="twitterSite">example.com</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Output -->
+                <div class="tab-content" data-tab="code">
+                    <div class="preview-section">
+                        <div class="preview-label">Generated Meta Tags</div>
+                        <div class="code-output">
+                            <pre id="codeOutput"><!-- Meta tags will appear here --></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="copyCode">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy Code
+                    </button>
+                    <button class="btn btn-secondary" id="downloadHtml">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download
+                    </button>
+                    <button class="btn btn-secondary" id="resetForm">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+                            <path d="M21 3v5h-5"/>
+                            <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/>
+                            <path d="M8 16H3v5"/>
+                        </svg>
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // DOM Elements
+        const elements = {
+            pageUrl: document.getElementById('pageUrl'),
+            pageTitle: document.getElementById('pageTitle'),
+            pageDescription: document.getElementById('pageDescription'),
+            keywords: document.getElementById('keywords'),
+            siteName: document.getElementById('siteName'),
+            author: document.getElementById('author'),
+            ogImage: document.getElementById('ogImage'),
+            ogImageFile: document.getElementById('ogImageFile'),
+            ogImageUrl: document.getElementById('ogImageUrl'),
+            imageUpload: document.getElementById('imageUpload'),
+            twitterCard: document.getElementById('twitterCard'),
+            twitterHandle: document.getElementById('twitterHandle'),
+            robots: document.getElementById('robots'),
+            language: document.getElementById('language'),
+            // Counters
+            titleCount: document.getElementById('titleCount'),
+            titleBar: document.getElementById('titleBar'),
+            descCount: document.getElementById('descCount'),
+            descBar: document.getElementById('descBar'),
+            // Previews
+            googleTitle: document.getElementById('googleTitle'),
+            googleUrl: document.getElementById('googleUrl'),
+            googleDesc: document.getElementById('googleDesc'),
+            ogImagePreview: document.getElementById('ogImagePreview'),
+            ogSite: document.getElementById('ogSite'),
+            ogTitle: document.getElementById('ogTitle'),
+            ogDesc: document.getElementById('ogDesc'),
+            twitterImagePreview: document.getElementById('twitterImagePreview'),
+            twitterTitle: document.getElementById('twitterTitle'),
+            twitterDesc: document.getElementById('twitterDesc'),
+            twitterSite: document.getElementById('twitterSite'),
+            codeOutput: document.getElementById('codeOutput')
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initEventListeners();
+            initTabs();
+            initTemplates();
+            initImageUpload();
+            loadSavedData();
+            updatePreviews();
+        });
+
+        /**
+         * Initialize event listeners
+         */
+        function initEventListeners() {
+            // Input listeners
+            const inputs = ['pageUrl', 'pageTitle', 'pageDescription', 'keywords',
+                           'siteName', 'author', 'ogImageUrl', 'twitterHandle'];
+
+            inputs.forEach(id => {
+                const el = elements[id];
+                if (el) {
+                    el.addEventListener('input', () => {
+                        updatePreviews();
+                        saveData();
+                    });
+                }
+            });
+
+            // Select listeners
+            ['twitterCard', 'robots', 'language'].forEach(id => {
+                const el = elements[id];
+                if (el) {
+                    el.addEventListener('change', () => {
+                        updatePreviews();
+                        saveData();
+                    });
+                }
+            });
+
+            // Character counters
+            elements.pageTitle.addEventListener('input', updateTitleCounter);
+            elements.pageDescription.addEventListener('input', updateDescCounter);
+
+            // Buttons
+            document.getElementById('copyCode').addEventListener('click', copyCode);
+            document.getElementById('downloadHtml').addEventListener('click', downloadHtml);
+            document.getElementById('resetForm').addEventListener('click', resetForm);
+        }
+
+        /**
+         * Initialize tabs
+         */
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.dataset.tab;
+
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                    this.classList.add('active');
+                    document.querySelector(`.tab-content[data-tab="${tabName}"]`).classList.add('active');
+                });
+            });
+        }
+
+        /**
+         * Initialize template selection
+         */
+        function initTemplates() {
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    const template = this.dataset.template;
+                    applyTemplate(template);
+                });
+            });
+        }
+
+        /**
+         * Apply template presets
+         */
+        function applyTemplate(template) {
+            const templates = {
+                general: {
+                    titleSuffix: ' | Your Brand',
+                    descPrefix: ''
+                },
+                product: {
+                    titleSuffix: ' - Buy Now | Your Store',
+                    descPrefix: 'Shop '
+                },
+                local: {
+                    titleSuffix: ' | Your Business - City',
+                    descPrefix: 'Visit '
+                }
+            };
+
+            // Templates provide guidance, not auto-fill
+            // Could be expanded to show template-specific tips
+        }
+
+        /**
+         * Initialize image upload
+         */
+        function initImageUpload() {
+            const upload = elements.imageUpload;
+            const fileInput = elements.ogImageFile;
+
+            upload.addEventListener('click', () => fileInput.click());
+
+            upload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                upload.style.borderColor = 'var(--accent-primary)';
+                upload.style.background = 'var(--bg-tertiary)';
+            });
+
+            upload.addEventListener('dragleave', () => {
+                upload.style.borderColor = '';
+                upload.style.background = '';
+            });
+
+            upload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                upload.style.borderColor = '';
+                upload.style.background = '';
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    handleImageFile(file);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleImageFile(file);
+                }
+            });
+
+            // URL input
+            elements.ogImageUrl.addEventListener('input', function() {
+                if (this.value) {
+                    updateImagePreviews(this.value);
+                    saveData();
+                }
+            });
+        }
+
+        /**
+         * Handle uploaded image file
+         */
+        function handleImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                elements.ogImage.value = dataUrl;
+                elements.ogImageUrl.value = '';
+
+                // Show preview in upload area
+                elements.imageUpload.innerHTML = `
+                    <img src="${dataUrl}" class="image-preview" alt="Preview">
+                    <div class="image-upload-text">Click to change image</div>
+                `;
+                elements.imageUpload.classList.add('has-image');
+
+                updateImagePreviews(dataUrl);
+                saveData();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Update image previews
+         */
+        function updateImagePreviews(imageUrl) {
+            if (imageUrl) {
+                elements.ogImagePreview.innerHTML = `<img src="${imageUrl}" alt="OG Preview">`;
+                elements.twitterImagePreview.innerHTML = `<img src="${imageUrl}" alt="Twitter Preview">`;
+            } else {
+                elements.ogImagePreview.innerHTML = '<span>1200 × 630 recommended</span>';
+                elements.twitterImagePreview.innerHTML = '<span>1200 × 628 recommended</span>';
+            }
+        }
+
+        /**
+         * Update title character counter
+         */
+        function updateTitleCounter() {
+            const length = elements.pageTitle.value.length;
+            const optimal = 60;
+            const max = 70;
+
+            let status = 'good';
+            if (length > max) status = 'danger';
+            else if (length > optimal) status = 'warning';
+            else if (length < 30 && length > 0) status = 'warning';
+
+            elements.titleCount.textContent = `${length}/${optimal}`;
+            elements.titleCount.className = `count ${status}`;
+
+            const percentage = Math.min((length / max) * 100, 100);
+            elements.titleBar.style.width = `${percentage}%`;
+            elements.titleBar.style.background = status === 'good' ? '#10B981' :
+                                                  status === 'warning' ? '#F59E0B' : '#EF4444';
+        }
+
+        /**
+         * Update description character counter
+         */
+        function updateDescCounter() {
+            const length = elements.pageDescription.value.length;
+            const optimal = 160;
+            const max = 170;
+
+            let status = 'good';
+            if (length > max) status = 'danger';
+            else if (length > optimal) status = 'warning';
+            else if (length < 120 && length > 0) status = 'warning';
+
+            elements.descCount.textContent = `${length}/${optimal}`;
+            elements.descCount.className = `count ${status}`;
+
+            const percentage = Math.min((length / max) * 100, 100);
+            elements.descBar.style.width = `${percentage}%`;
+            elements.descBar.style.background = status === 'good' ? '#10B981' :
+                                                 status === 'warning' ? '#F59E0B' : '#EF4444';
+        }
+
+        /**
+         * Update all previews
+         */
+        function updatePreviews() {
+            const data = getFormData();
+
+            // Google Preview
+            elements.googleTitle.textContent = data.title || 'Your Page Title | Brand Name';
+            elements.googleUrl.textContent = data.url || 'https://example.com/page';
+            elements.googleDesc.textContent = data.description || 'A compelling description of your page content...';
+
+            // Facebook Preview
+            elements.ogTitle.textContent = data.title || 'Your Page Title';
+            elements.ogDesc.textContent = data.description || 'A compelling description...';
+            if (data.url) {
+                try {
+                    const url = new URL(data.url);
+                    elements.ogSite.textContent = url.hostname.toUpperCase();
+                } catch (e) {
+                    elements.ogSite.textContent = 'EXAMPLE.COM';
+                }
+            }
+
+            // Twitter Preview
+            elements.twitterTitle.textContent = data.title || 'Your Page Title';
+            elements.twitterDesc.textContent = data.description || 'A compelling description...';
+            if (data.url) {
+                try {
+                    const url = new URL(data.url);
+                    elements.twitterSite.textContent = url.hostname;
+                } catch (e) {
+                    elements.twitterSite.textContent = 'example.com';
+                }
+            }
+
+            // Update image previews
+            const imageUrl = data.imageUrl || data.image;
+            if (imageUrl) {
+                updateImagePreviews(imageUrl);
+            }
+
+            // Code Output
+            updateCodeOutput(data);
+
+            // Update counters
+            updateTitleCounter();
+            updateDescCounter();
+        }
+
+        /**
+         * Get form data
+         */
+        function getFormData() {
+            return {
+                url: elements.pageUrl.value.trim(),
+                title: elements.pageTitle.value.trim(),
+                description: elements.pageDescription.value.trim(),
+                keywords: elements.keywords.value.trim(),
+                siteName: elements.siteName.value.trim(),
+                author: elements.author.value.trim(),
+                image: elements.ogImage.value,
+                imageUrl: elements.ogImageUrl.value.trim(),
+                twitterCard: elements.twitterCard.value,
+                twitterHandle: elements.twitterHandle.value.trim(),
+                robots: elements.robots.value,
+                language: elements.language.value
+            };
+        }
+
+        /**
+         * Update code output
+         */
+        function updateCodeOutput(data) {
+            let code = '';
+
+            // Basic meta tags
+            code += `<span class="tag">&lt;meta</span> <span class="attr">charset</span>=<span class="value">"UTF-8"</span><span class="tag">&gt;</span>\n`;
+            code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"viewport"</span> <span class="attr">content</span>=<span class="value">"width=device-width, initial-scale=1.0"</span><span class="tag">&gt;</span>\n\n`;
+
+            // Title
+            if (data.title) {
+                code += `<span class="tag">&lt;title&gt;</span>${escapeHtml(data.title)}<span class="tag">&lt;/title&gt;</span>\n`;
+            }
+
+            // Description
+            if (data.description) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"description"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.description)}"</span><span class="tag">&gt;</span>\n`;
+            }
+
+            // Keywords (optional)
+            if (data.keywords) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"keywords"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.keywords)}"</span><span class="tag">&gt;</span>\n`;
+            }
+
+            // Author
+            if (data.author) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"author"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.author)}"</span><span class="tag">&gt;</span>\n`;
+            }
+
+            // Robots
+            code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"robots"</span> <span class="attr">content</span>=<span class="value">"${data.robots}"</span><span class="tag">&gt;</span>\n`;
+
+            // Language
+            code += `<span class="tag">&lt;meta</span> <span class="attr">http-equiv</span>=<span class="value">"content-language"</span> <span class="attr">content</span>=<span class="value">"${data.language}"</span><span class="tag">&gt;</span>\n\n`;
+
+            // Canonical URL
+            if (data.url) {
+                code += `<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="value">"canonical"</span> <span class="attr">href</span>=<span class="value">"${escapeHtml(data.url)}"</span><span class="tag">&gt;</span>\n\n`;
+            }
+
+            // Open Graph
+            code += `<span class="comment">&lt;!-- Open Graph / Facebook --&gt;</span>\n`;
+            code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:type"</span> <span class="attr">content</span>=<span class="value">"website"</span><span class="tag">&gt;</span>\n`;
+
+            if (data.url) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:url"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.url)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.title) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:title"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.title)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.description) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:description"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.description)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.imageUrl || data.image) {
+                const imgUrl = data.imageUrl || '[YOUR_IMAGE_URL]';
+                code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:image"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(imgUrl)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.siteName) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="value">"og:site_name"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.siteName)}"</span><span class="tag">&gt;</span>\n`;
+            }
+
+            code += `\n<span class="comment">&lt;!-- Twitter --&gt;</span>\n`;
+            code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:card"</span> <span class="attr">content</span>=<span class="value">"${data.twitterCard}"</span><span class="tag">&gt;</span>\n`;
+
+            if (data.url) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:url"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.url)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.title) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:title"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.title)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.description) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:description"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.description)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.imageUrl || data.image) {
+                const imgUrl = data.imageUrl || '[YOUR_IMAGE_URL]';
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:image"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(imgUrl)}"</span><span class="tag">&gt;</span>\n`;
+            }
+            if (data.twitterHandle) {
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:site"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.twitterHandle)}"</span><span class="tag">&gt;</span>\n`;
+                code += `<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="value">"twitter:creator"</span> <span class="attr">content</span>=<span class="value">"${escapeHtml(data.twitterHandle)}"</span><span class="tag">&gt;</span>\n`;
+            }
+
+            elements.codeOutput.innerHTML = code;
+        }
+
+        /**
+         * Escape HTML characters
+         */
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /**
+         * Get plain code (without HTML formatting)
+         */
+        function getPlainCode() {
+            const data = getFormData();
+            let code = '';
+
+            code += `<meta charset="UTF-8">\n`;
+            code += `<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\n`;
+
+            if (data.title) {
+                code += `<title>${data.title}</title>\n`;
+            }
+            if (data.description) {
+                code += `<meta name="description" content="${data.description}">\n`;
+            }
+            if (data.keywords) {
+                code += `<meta name="keywords" content="${data.keywords}">\n`;
+            }
+            if (data.author) {
+                code += `<meta name="author" content="${data.author}">\n`;
+            }
+            code += `<meta name="robots" content="${data.robots}">\n`;
+            code += `<meta http-equiv="content-language" content="${data.language}">\n\n`;
+
+            if (data.url) {
+                code += `<link rel="canonical" href="${data.url}">\n\n`;
+            }
+
+            code += `<!-- Open Graph / Facebook -->\n`;
+            code += `<meta property="og:type" content="website">\n`;
+            if (data.url) code += `<meta property="og:url" content="${data.url}">\n`;
+            if (data.title) code += `<meta property="og:title" content="${data.title}">\n`;
+            if (data.description) code += `<meta property="og:description" content="${data.description}">\n`;
+            if (data.imageUrl) code += `<meta property="og:image" content="${data.imageUrl}">\n`;
+            if (data.siteName) code += `<meta property="og:site_name" content="${data.siteName}">\n`;
+
+            code += `\n<!-- Twitter -->\n`;
+            code += `<meta name="twitter:card" content="${data.twitterCard}">\n`;
+            if (data.url) code += `<meta name="twitter:url" content="${data.url}">\n`;
+            if (data.title) code += `<meta name="twitter:title" content="${data.title}">\n`;
+            if (data.description) code += `<meta name="twitter:description" content="${data.description}">\n`;
+            if (data.imageUrl) code += `<meta name="twitter:image" content="${data.imageUrl}">\n`;
+            if (data.twitterHandle) {
+                code += `<meta name="twitter:site" content="${data.twitterHandle}">\n`;
+                code += `<meta name="twitter:creator" content="${data.twitterHandle}">\n`;
+            }
+
+            return code;
+        }
+
+        /**
+         * Copy code to clipboard
+         */
+        function copyCode() {
+            const code = getPlainCode();
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Code copied to clipboard!');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+
+        /**
+         * Download as HTML file
+         */
+        function downloadHtml() {
+            const code = getPlainCode();
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'meta-tags.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('File downloaded!');
+        }
+
+        /**
+         * Reset form
+         */
+        function resetForm() {
+            if (confirm('Reset all fields? This cannot be undone.')) {
+                document.querySelectorAll('input, textarea').forEach(el => {
+                    if (el.type !== 'file') el.value = '';
+                });
+                document.querySelectorAll('select').forEach(el => {
+                    el.selectedIndex = 0;
+                });
+
+                // Reset image upload
+                elements.imageUpload.innerHTML = `
+                    <input type="file" id="ogImageFile" accept="image/*">
+                    <svg class="image-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <div class="image-upload-text">Click to upload or drag and drop</div>
+                    <div class="image-upload-hint">Recommended: 1200x630px (PNG, JPG)</div>
+                `;
+                elements.imageUpload.classList.remove('has-image');
+                initImageUpload();
+
+                updateImagePreviews(null);
+                localStorage.removeItem('meta-generator-data');
+                updatePreviews();
+                showToast('Form reset');
+            }
+        }
+
+        /**
+         * Save data to localStorage
+         */
+        function saveData() {
+            const data = getFormData();
+            localStorage.setItem('meta-generator-data', JSON.stringify(data));
+        }
+
+        /**
+         * Load saved data from localStorage
+         */
+        function loadSavedData() {
+            try {
+                const saved = localStorage.getItem('meta-generator-data');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data.url) elements.pageUrl.value = data.url;
+                    if (data.title) elements.pageTitle.value = data.title;
+                    if (data.description) elements.pageDescription.value = data.description;
+                    if (data.keywords) elements.keywords.value = data.keywords;
+                    if (data.siteName) elements.siteName.value = data.siteName;
+                    if (data.author) elements.author.value = data.author;
+                    if (data.imageUrl) elements.ogImageUrl.value = data.imageUrl;
+                    if (data.twitterCard) elements.twitterCard.value = data.twitterCard;
+                    if (data.twitterHandle) elements.twitterHandle.value = data.twitterHandle;
+                    if (data.robots) elements.robots.value = data.robots;
+                    if (data.language) elements.language.value = data.language;
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        }
+
+        /**
+         * Show toast notification
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10B981' : '#EF4444'};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    })();
+    </script>
+</body>
+</html>
