@@ -529,3 +529,288 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SITE DETECTION / URL ANALYSIS STYLES
+   Styles for the site detection panel in project wizard
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* URL Input with Analyze Button */
+.url-input-wrapper {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.url-input-wrapper .input-with-icon {
+    flex: 1;
+}
+
+.btn-analyze {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+.btn-analyze svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-analyze .icon-loading {
+    animation: spin 1s linear infinite;
+}
+
+.btn-analyze:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Site Detection Panel */
+.site-detection-panel {
+    margin-top: 1rem;
+    padding: 1.25rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.detection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.detection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detection-status .status-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--color-success);
+}
+
+.detection-status .status-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-success);
+}
+
+.detection-status.warning .status-icon,
+.detection-status.warning .status-text {
+    color: var(--color-warning);
+}
+
+.detection-status.error .status-icon,
+.detection-status.error .status-text {
+    color: var(--color-error);
+}
+
+.btn-close-detection {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+    transition: all 0.2s;
+}
+
+.btn-close-detection:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.btn-close-detection svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Detection Grid */
+.detection-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .detection-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.detection-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detection-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detection-value {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.detection-value.success {
+    color: var(--color-success);
+}
+
+.detection-value.warning {
+    color: var(--color-warning);
+}
+
+.detection-value.error {
+    color: var(--color-error);
+}
+
+/* Detection Suggestions */
+.detection-suggestions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.suggestions-title {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    font-size: 0.8125rem;
+    color: var(--color-text-primary);
+}
+
+.suggestion-chip svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-primary);
+}
+
+.suggestion-chip.applied {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--color-primary);
+}
+
+.suggestion-chip.applied svg {
+    color: var(--color-success);
+}
+
+#applyDetection {
+    margin-top: 1rem;
+}
+
+/* Site Detection Error */
+.site-detection-error {
+    margin-top: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.site-detection-error svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-error);
+    flex-shrink: 0;
+}
+
+.site-detection-error span {
+    font-size: 0.875rem;
+    color: var(--color-error);
+}
+
+/* Competitor URL Validation */
+.competitor-inputs {
+    position: relative;
+}
+
+.competitor-url-status {
+    position: absolute;
+    right: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+}
+
+.competitor-url-status svg {
+    width: 100%;
+    height: 100%;
+}
+
+.competitor-url-status.valid svg {
+    color: var(--color-success);
+}
+
+.competitor-url-status.invalid svg {
+    color: var(--color-error);
+}
+
+.competitor-url-status.loading svg {
+    color: var(--color-text-tertiary);
+    animation: spin 1s linear infinite;
+}

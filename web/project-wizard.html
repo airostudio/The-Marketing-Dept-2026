@@ -8,8 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
     <div class="wizard-layout">
@@ -96,15 +94,81 @@
 
                     <div class="form-group">
                         <label for="websiteUrl" class="form-label required">Website URL</label>
-                        <div class="input-with-icon">
+                        <div class="url-input-wrapper">
+                            <div class="input-with-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="2" y1="12" x2="22" y2="12"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                </svg>
+                                <input type="url" id="websiteUrl" class="form-input" placeholder="https://example.com" required>
+                            </div>
+                            <button type="button" id="analyzeUrlBtn" class="btn btn-outline btn-analyze" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-default">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="m21 21-4.35-4.35"/>
+                                </svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-loading" style="display:none;">
+                                    <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-linecap="round"/>
+                                </svg>
+                                <span>Analyze</span>
+                            </button>
+                        </div>
+                        <span class="form-hint">Enter URL and click Analyze to detect site type</span>
+
+                        <!-- Site Detection Results -->
+                        <div id="siteDetectionResults" class="site-detection-panel" style="display:none;">
+                            <div class="detection-header">
+                                <div class="detection-status" id="detectionStatus">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="status-icon">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                        <polyline points="22 4 12 14.01 9 11.01"/>
+                                    </svg>
+                                    <span class="status-text">Site Verified</span>
+                                </div>
+                                <button type="button" class="btn-icon btn-close-detection" id="closeDetection">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="detection-grid">
+                                <div class="detection-item">
+                                    <span class="detection-label">Site Type</span>
+                                    <span class="detection-value" id="detectedSiteType">--</span>
+                                </div>
+                                <div class="detection-item">
+                                    <span class="detection-label">Platform</span>
+                                    <span class="detection-value" id="detectedPlatform">--</span>
+                                </div>
+                                <div class="detection-item">
+                                    <span class="detection-label">SSL</span>
+                                    <span class="detection-value" id="detectedSSL">--</span>
+                                </div>
+                                <div class="detection-item">
+                                    <span class="detection-label">Response Time</span>
+                                    <span class="detection-value" id="detectedResponseTime">--</span>
+                                </div>
+                            </div>
+                            <div class="detection-suggestions" id="detectionSuggestions" style="display:none;">
+                                <p class="suggestions-title">Based on detection, we suggest:</p>
+                                <div class="suggestion-chips" id="suggestionChips"></div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" id="applyDetection" style="display:none;">
+                                Apply Suggestions
+                            </button>
+                        </div>
+
+                        <!-- Error state -->
+                        <div id="siteDetectionError" class="site-detection-error" style="display:none;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"/>
-                                <line x1="2" y1="12" x2="22" y2="12"/>
-                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
                             </svg>
-                            <input type="url" id="websiteUrl" class="form-input" placeholder="https://example.com" required>
+                            <span id="siteErrorMessage">Unable to connect to website</span>
                         </div>
-                        <span class="form-hint">The main URL of the website you want to track</span>
                     </div>
 
                     <div class="form-row">
