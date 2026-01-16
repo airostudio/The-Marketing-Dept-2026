@@ -14,6 +14,63 @@
 @import url('wizard.css');         /* Project wizard styles */
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY STYLES
+   Skip links, focus indicators, and screen reader utilities
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Skip link - visible only on focus for keyboard users */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--color-primary);
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    font-weight: 500;
+    z-index: 10000;
+    border-radius: 0 0 8px 0;
+    transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Screen reader only text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus visible styles for better keyboard navigation */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    QUICK TOOLS SHARED STYLES
    Styles shared across all tool pages (meta generator, schema generator, etc.)
    ═══════════════════════════════════════════════════════════════════════════════ */
