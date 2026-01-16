@@ -64,12 +64,6 @@
                         <span class="current">Keyword Research</span>
                     </div>
                 </div>
-                <div class="topbar-right">
-                    <button class="btn btn-primary">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        Research Keywords
-                    </button>
-                </div>
             </header>
 
             <div class="dashboard-content">
@@ -89,16 +83,89 @@
                         <div class="form-group">
                             <label class="form-label">Seed Keywords</label>
                             <div style="display: flex; gap: 12px;">
-                                <input type="text" class="form-input" placeholder="Enter keywords separated by commas..." style="flex: 1;">
-                                <button class="btn btn-primary">Analyze</button>
+                                <input type="text" id="seedKeywords" class="form-input" placeholder="Enter keywords separated by commas (e.g., seo tools, marketing software)" style="flex: 1;">
+                                <button class="btn btn-primary" id="analyzeBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;margin-right:6px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                    Research
+                                </button>
                             </div>
-                            <span class="form-hint">Enter up to 10 seed keywords to discover related terms</span>
+                            <span class="form-hint">Enter up to 10 seed keywords to discover related terms with search volume, difficulty, and intent data</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Results placeholder -->
-                <div class="empty-state-card">
+                <!-- Research Stats -->
+                <div class="metrics-grid" id="researchStats" style="display: none; margin-bottom: 24px;">
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon info">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            </div>
+                            <span class="metric-card-title">Keywords Found</span>
+                        </div>
+                        <div class="metric-card-value" id="keywordsFound">0</div>
+                        <p class="metric-card-desc">Related keywords discovered</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon success">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                            </div>
+                            <span class="metric-card-title">Low Competition</span>
+                        </div>
+                        <div class="metric-card-value good" id="lowCompetition">0</div>
+                        <p class="metric-card-desc">Difficulty under 40</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon warning">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                            </div>
+                            <span class="metric-card-title">Total Monthly Volume</span>
+                        </div>
+                        <div class="metric-card-value" id="totalVolume">0</div>
+                        <p class="metric-card-desc">Combined search volume</p>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="data-table-card" id="resultsCard" style="display: none;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title">Research Results</h3>
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" data-filter="all">All</button>
+                            <button class="filter-tab" data-filter="informational">Informational</button>
+                            <button class="filter-tab" data-filter="commercial">Commercial</button>
+                            <button class="filter-tab" data-filter="transactional">Transactional</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>Keyword</th>
+                                <th>Search Volume</th>
+                                <th>Difficulty</th>
+                                <th>CPC</th>
+                                <th>Intent</th>
+                                <th>Opportunity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                        </tbody>
+                    </table>
+                    <div style="padding: 16px; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
+                        <span id="selectedCount" style="color: var(--color-text-secondary);">0 keywords selected</span>
+                        <button class="btn btn-primary" id="addSelectedBtn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;margin-right:6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add Selected to Tracking
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state-card" id="emptyState">
                     <div class="empty-state-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"/>
@@ -108,9 +175,241 @@
                     <h3>Ready to Research</h3>
                     <p>Enter seed keywords above to discover new keyword opportunities with search volume, difficulty, and intent data.</p>
                 </div>
+
+                <!-- Loading State -->
+                <div class="loading-state" id="loadingState" style="display: none; text-align: center; padding: 60px;">
+                    <svg viewBox="0 0 50 50" style="width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 16px;">
+                        <circle cx="25" cy="25" r="20" fill="none" stroke="var(--color-primary)" stroke-width="4" stroke-dasharray="80, 200" stroke-linecap="round"/>
+                    </svg>
+                    <p style="color: var(--color-text-secondary);">Researching keywords...</p>
+                </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/keyword-service.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        let researchResults = [];
+        let selectedKeywords = new Set();
+        let currentFilter = 'all';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadPreviousResults();
+        });
+
+        function setupEventListeners() {
+            // Research button
+            document.getElementById('analyzeBtn').addEventListener('click', runResearch);
+
+            // Enter key in input
+            document.getElementById('seedKeywords').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') runResearch();
+            });
+
+            // Select all checkbox
+            document.getElementById('selectAll').addEventListener('change', (e) => {
+                const checkboxes = document.querySelectorAll('#resultsTableBody input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = e.target.checked;
+                    const keyword = cb.dataset.keyword;
+                    if (e.target.checked) {
+                        selectedKeywords.add(keyword);
+                    } else {
+                        selectedKeywords.delete(keyword);
+                    }
+                });
+                updateSelectedCount();
+            });
+
+            // Add selected button
+            document.getElementById('addSelectedBtn').addEventListener('click', addSelectedKeywords);
+
+            // Filter tabs
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentFilter = tab.dataset.filter;
+                    renderResults();
+                });
+            });
+        }
+
+        function loadPreviousResults() {
+            const stored = window.KeywordService.KeywordResearch.getResearchResults();
+            if (stored.results && stored.results.length > 0) {
+                researchResults = stored.results;
+                showResults();
+            }
+        }
+
+        async function runResearch() {
+            const input = document.getElementById('seedKeywords').value.trim();
+            if (!input) return;
+
+            // Show loading state
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsCard').style.display = 'none';
+            document.getElementById('researchStats').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+
+            try {
+                researchResults = await window.KeywordService.researchKeywords(input);
+                showResults();
+            } catch (e) {
+                console.error('Research error:', e);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        function showResults() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+
+            if (researchResults.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            // Update stats
+            document.getElementById('keywordsFound').textContent = researchResults.length;
+            document.getElementById('lowCompetition').textContent = researchResults.filter(k => k.difficulty < 40).length;
+            document.getElementById('totalVolume').textContent = formatNumber(
+                researchResults.reduce((sum, k) => sum + k.searchVolume, 0)
+            );
+
+            document.getElementById('researchStats').style.display = 'grid';
+            document.getElementById('resultsCard').style.display = 'block';
+
+            renderResults();
+        }
+
+        function renderResults() {
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            let filtered = researchResults;
+            if (currentFilter !== 'all') {
+                filtered = researchResults.filter(k => k.intent === currentFilter);
+            }
+
+            filtered.slice(0, 100).forEach(kw => {
+                const row = document.createElement('tr');
+                const isSelected = selectedKeywords.has(kw.keyword);
+
+                const intentColors = {
+                    informational: 'tag-blue',
+                    commercial: 'tag-warning',
+                    transactional: 'tag-success'
+                };
+
+                const opportunityColors = {
+                    excellent: 'tag-success',
+                    good: 'tag-info',
+                    moderate: 'tag-warning',
+                    low: 'tag-gray'
+                };
+
+                row.innerHTML = `
+                    <td><input type="checkbox" data-keyword="${escapeHtml(kw.keyword)}" ${isSelected ? 'checked' : ''}></td>
+                    <td><strong>${escapeHtml(kw.keyword)}</strong></td>
+                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
+                            <span>${kw.difficulty}</span>
+                        </div>
+                    </td>
+                    <td>$${kw.cpc}</td>
+                    <td><span class="tag ${intentColors[kw.intent] || 'tag-gray'}">${kw.intent}</span></td>
+                    <td><span class="tag ${opportunityColors[kw.opportunity] || 'tag-gray'}">${kw.opportunity}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="addSingleKeyword('${escapeHtml(kw.keyword).replace(/'/g, "\\'")}')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                    </td>
+                `;
+
+                // Checkbox listener
+                row.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedKeywords.add(kw.keyword);
+                    } else {
+                        selectedKeywords.delete(kw.keyword);
+                    }
+                    updateSelectedCount();
+                });
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateSelectedCount() {
+            const count = selectedKeywords.size;
+            document.getElementById('selectedCount').textContent = `${count} keyword${count !== 1 ? 's' : ''} selected`;
+            document.getElementById('addSelectedBtn').disabled = count === 0;
+        }
+
+        function addSelectedKeywords() {
+            if (selectedKeywords.size === 0) return;
+
+            const toAdd = Array.from(selectedKeywords).map(keyword => {
+                const kw = researchResults.find(r => r.keyword === keyword);
+                return kw || { keyword };
+            });
+
+            window.KeywordService.addKeywords(toAdd);
+            selectedKeywords.clear();
+            updateSelectedCount();
+
+            // Show success message
+            alert(`Added ${toAdd.length} keyword(s) to tracking!`);
+        }
+
+        window.addSingleKeyword = function(keyword) {
+            const kw = researchResults.find(r => r.keyword === keyword) || { keyword };
+            window.KeywordService.addKeywords([kw]);
+            alert(`Added "${keyword}" to tracking!`);
+        };
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function getDifficultyColor(difficulty) {
+            if (difficulty >= 70) return 'var(--color-error)';
+            if (difficulty >= 40) return 'var(--color-warning)';
+            return 'var(--color-success)';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .tag-blue { background: rgba(99, 102, 241, 0.15); color: var(--color-primary); }
+        .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .tag-success { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .tag-info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .tag-gray { background: rgba(156, 163, 175, 0.15); color: var(--color-text-secondary); }
+        .card { background: var(--color-bg-secondary); border-radius: 12px; border: 1px solid var(--color-border); }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
+        .card-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .card-body { padding: 20px; }
+    </style>
 </body>
 </html>

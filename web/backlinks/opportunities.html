@@ -81,9 +81,9 @@
                             <div class="metric-card-icon success">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                             </div>
-                            <span class="metric-card-title">Opportunities Found</span>
+                            <span class="metric-card-title">Total Opportunities</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="totalOpportunities">0</div>
                         <p class="metric-card-desc">Potential link sources</p>
                     </div>
                     <div class="metric-card">
@@ -93,8 +93,8 @@
                             </div>
                             <span class="metric-card-title">High Priority</span>
                         </div>
-                        <div class="metric-card-value">--</div>
-                        <p class="metric-card-desc">High DA opportunities</p>
+                        <div class="metric-card-value" id="highPriority">0</div>
+                        <p class="metric-card-desc">DA 60+ opportunities</p>
                     </div>
                     <div class="metric-card">
                         <div class="metric-card-header">
@@ -103,27 +103,257 @@
                             </div>
                             <span class="metric-card-title">Competitor Links</span>
                         </div>
-                        <div class="metric-card-value">--</div>
-                        <p class="metric-card-desc">Competitor-only links</p>
+                        <div class="metric-card-value" id="competitorLinks">0</div>
+                        <p class="metric-card-desc">Competitor-only sources</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon primary">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                            </div>
+                            <span class="metric-card-title">Avg. DA</span>
+                        </div>
+                        <div class="metric-card-value" id="avgDA">0</div>
+                        <p class="metric-card-desc">Average domain authority</p>
                     </div>
                 </div>
 
-                <!-- Empty state -->
-                <div class="empty-state-card" style="margin-top: 24px;">
-                    <div class="empty-state-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="16"/>
-                            <line x1="8" y1="12" x2="16" y2="12"/>
-                        </svg>
+                <!-- Competitor Link Opportunities -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-primary);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            Competitor Backlink Opportunities
+                        </h3>
+                        <span class="tag tag-info">Sites linking to competitors</span>
                     </div>
-                    <h3>No Data Yet</h3>
-                    <p>Configure your API connection and add competitors to discover link building opportunities.</p>
-                    <a href="../settings.html" class="btn btn-primary" style="margin-top: 16px;">Configure API</a>
+                    <p style="padding: 0 20px 12px; color: var(--color-text-secondary); font-size: 14px;">These sites link to your competitors but not to you - they're likely to be interested in your content.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>DA</th>
+                                <th>Priority</th>
+                                <th>Competitor</th>
+                                <th>Suggested Approach</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="competitorOpportunitiesTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Guest Post Opportunities -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-success);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Guest Post Opportunities
+                        </h3>
+                        <span class="tag tag-success">Write for them</span>
+                    </div>
+                    <p style="padding: 0 20px 12px; color: var(--color-text-secondary); font-size: 14px;">Sites that accept guest posts in your industry.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>DA</th>
+                                <th>Priority</th>
+                                <th>Topics Accepted</th>
+                                <th>Suggestion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guestPostTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Broken Link Opportunities -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-warning);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                            Broken Link Opportunities
+                        </h3>
+                        <span class="tag tag-warning">Replace broken links</span>
+                    </div>
+                    <p style="padding: 0 20px 12px; color: var(--color-text-secondary); font-size: 14px;">Sites with broken links that you can offer to replace with your content.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>DA</th>
+                                <th>Priority</th>
+                                <th>Broken URL</th>
+                                <th>Suggestion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brokenLinkTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Resource Page Opportunities -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                            Resource Page Opportunities
+                        </h3>
+                    </div>
+                    <p style="padding: 0 20px 12px; color: var(--color-text-secondary); font-size: 14px;">Resource pages, directories, and lists where you can get featured.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>DA</th>
+                                <th>Priority</th>
+                                <th>Type</th>
+                                <th>Suggestion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resourcePageTable">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/backlink-service.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            window.BacklinkService.initializeSampleData();
+            loadOpportunities();
+        });
+
+        function loadOpportunities() {
+            const opportunities = window.BacklinkService.getOpportunities();
+
+            document.getElementById('totalOpportunities').textContent = opportunities.stats.total;
+            document.getElementById('highPriority').textContent = opportunities.stats.highPriority;
+            document.getElementById('competitorLinks').textContent = opportunities.competitor.length;
+            document.getElementById('avgDA').textContent = opportunities.stats.avgDA;
+
+            renderCompetitorOpportunities(opportunities.competitor);
+            renderGuestPostOpportunities(opportunities.guestPost);
+            renderBrokenLinkOpportunities(opportunities.brokenLink);
+            renderResourcePageOpportunities(opportunities.resource);
+        }
+
+        function renderCompetitorOpportunities(opportunities) {
+            const tbody = document.getElementById('competitorOpportunitiesTable');
+            if (opportunities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No competitor opportunities found yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = opportunities.slice(0, 15).map(o => `
+                <tr>
+                    <td><strong>${escapeHtml(o.sourceDomain)}</strong></td>
+                    <td><span class="da-badge ${getDAClass(o.domainAuthority)}">${o.domainAuthority}</span></td>
+                    <td><span class="priority-badge ${o.priority}">${o.priority}</span></td>
+                    <td style="color: var(--color-text-secondary);">${o.competitor || 'Multiple'}</td>
+                    <td style="font-size: 13px; color: var(--color-text-secondary);">${o.suggestedOutreach}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="window.open('https://${escapeHtml(o.sourceDomain)}/contact', '_blank')">Contact</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderGuestPostOpportunities(opportunities) {
+            const tbody = document.getElementById('guestPostTable');
+            if (opportunities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No guest post opportunities found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = opportunities.map(o => `
+                <tr>
+                    <td><strong>${escapeHtml(o.sourceDomain)}</strong></td>
+                    <td><span class="da-badge ${getDAClass(o.domainAuthority)}">${o.domainAuthority}</span></td>
+                    <td><span class="priority-badge ${o.priority}">${o.priority}</span></td>
+                    <td style="color: var(--color-text-secondary);">${o.accepts || 'Various'}</td>
+                    <td style="font-size: 13px; color: var(--color-text-secondary);">${o.suggestedOutreach}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBrokenLinkOpportunities(opportunities) {
+            const tbody = document.getElementById('brokenLinkTable');
+            if (opportunities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No broken link opportunities found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = opportunities.map(o => `
+                <tr>
+                    <td><strong>${escapeHtml(o.sourceDomain)}</strong></td>
+                    <td><span class="da-badge ${getDAClass(o.domainAuthority)}">${o.domainAuthority}</span></td>
+                    <td><span class="priority-badge ${o.priority}">${o.priority}</span></td>
+                    <td style="font-size: 12px; color: var(--color-error);" title="${escapeHtml(o.brokenUrl || '')}">${truncateUrl(o.brokenUrl || 'Broken page')}</td>
+                    <td style="font-size: 13px; color: var(--color-text-secondary);">${o.suggestedOutreach}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderResourcePageOpportunities(opportunities) {
+            const tbody = document.getElementById('resourcePageTable');
+            if (opportunities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No resource page opportunities found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = opportunities.map(o => `
+                <tr>
+                    <td><strong>${escapeHtml(o.sourceDomain)}</strong></td>
+                    <td><span class="da-badge ${getDAClass(o.domainAuthority)}">${o.domainAuthority}</span></td>
+                    <td><span class="priority-badge ${o.priority}">${o.priority}</span></td>
+                    <td><span class="tag tag-gray">${o.type || 'Resource'}</span></td>
+                    <td style="font-size: 13px; color: var(--color-text-secondary);">${o.suggestedOutreach}</td>
+                </tr>
+            `).join('');
+        }
+
+        function truncateUrl(url) {
+            if (!url) return '--';
+            if (url.length > 35) return url.substring(0, 32) + '...';
+            return url;
+        }
+
+        function getDAClass(da) {
+            if (da >= 70) return 'high';
+            if (da >= 40) return 'medium';
+            return 'low';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
+    <style>
+        .da-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 24px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .da-badge.high { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .da-badge.medium { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .da-badge.low { background: rgba(239, 68, 68, 0.15); color: var(--color-error); }
+        .priority-badge { display: inline-flex; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .priority-badge.high { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .priority-badge.medium { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .priority-badge.low { background: rgba(156, 163, 175, 0.15); color: var(--color-text-secondary); }
+        .tag-info { background: rgba(99, 102, 241, 0.15); color: var(--color-primary); }
+        .tag-success { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .tag-gray { background: rgba(156, 163, 175, 0.15); color: var(--color-text-secondary); }
+        .metric-card-icon.primary { background: rgba(99, 102, 241, 0.1); color: var(--color-primary); }
+    </style>
 </body>
 </html>

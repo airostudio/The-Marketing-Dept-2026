@@ -64,6 +64,13 @@
                         <span class="current">New & Lost</span>
                     </div>
                 </div>
+                <div class="topbar-right">
+                    <select id="periodSelect" class="form-input" style="width: auto; padding: 8px 12px;">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
             </header>
 
             <div class="dashboard-content">
@@ -81,9 +88,9 @@
                             <div class="metric-card-icon success">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             </div>
-                            <span class="metric-card-title">New This Week</span>
+                            <span class="metric-card-title">New Backlinks</span>
                         </div>
-                        <div class="metric-card-value good">--</div>
+                        <div class="metric-card-value good" id="newCount">0</div>
                         <p class="metric-card-desc">Backlinks acquired</p>
                     </div>
                     <div class="metric-card">
@@ -91,9 +98,9 @@
                             <div class="metric-card-icon error">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             </div>
-                            <span class="metric-card-title">Lost This Week</span>
+                            <span class="metric-card-title">Lost Backlinks</span>
                         </div>
-                        <div class="metric-card-value critical">--</div>
+                        <div class="metric-card-value critical" id="lostCount">0</div>
                         <p class="metric-card-desc">Backlinks lost</p>
                     </div>
                     <div class="metric-card">
@@ -103,25 +110,182 @@
                             </div>
                             <span class="metric-card-title">Net Change</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="netChange">0</div>
                         <p class="metric-card-desc">New minus lost</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon warning">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </div>
+                            <span class="metric-card-title">High DA New</span>
+                        </div>
+                        <div class="metric-card-value" id="highDANew">0</div>
+                        <p class="metric-card-desc">DA 60+ new links</p>
                     </div>
                 </div>
 
-                <!-- Empty state -->
-                <div class="empty-state-card" style="margin-top: 24px;">
-                    <div class="empty-state-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                        </svg>
+                <!-- New Backlinks Section -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-success);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            New Backlinks
+                        </h3>
                     </div>
-                    <h3>No Data Yet</h3>
-                    <p>Configure your API connection in Settings to track backlink changes.</p>
-                    <a href="../settings.html" class="btn btn-primary" style="margin-top: 16px;">Configure API</a>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Source Domain</th>
+                                <th>Source URL</th>
+                                <th>Target Page</th>
+                                <th>DA</th>
+                                <th>Link Type</th>
+                                <th>Anchor Text</th>
+                                <th>Date Found</th>
+                            </tr>
+                        </thead>
+                        <tbody id="newBacklinksTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Lost Backlinks Section -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-error);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Lost Backlinks
+                        </h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Source Domain</th>
+                                <th>Source URL</th>
+                                <th>Target Page</th>
+                                <th>DA</th>
+                                <th>Reason</th>
+                                <th>Date Lost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lostBacklinksTable">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/backlink-service.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        let currentPeriod = 30;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            window.BacklinkService.initializeSampleData();
+            setupEventListeners();
+            loadData();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('periodSelect').addEventListener('change', (e) => {
+                currentPeriod = parseInt(e.target.value);
+                loadData();
+            });
+        }
+
+        function loadData() {
+            const data = window.BacklinkService.getNewAndLost(currentPeriod);
+            const stats = window.BacklinkService.getStats();
+
+            document.getElementById('newCount').textContent = data.new.length;
+            document.getElementById('lostCount').textContent = data.lost.length;
+
+            const netChange = data.new.length - data.lost.length;
+            document.getElementById('netChange').textContent = netChange >= 0 ? '+' + netChange : netChange;
+            document.getElementById('netChange').className = 'metric-card-value ' + (netChange >= 0 ? 'good' : 'poor');
+
+            const highDANew = data.new.filter(b => b.domainAuthority >= 60).length;
+            document.getElementById('highDANew').textContent = highDANew;
+
+            renderNewBacklinks(data.new);
+            renderLostBacklinks(data.lost);
+        }
+
+        function renderNewBacklinks(backlinks) {
+            const tbody = document.getElementById('newBacklinksTable');
+            if (backlinks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No new backlinks in this period</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = backlinks.map(b => `
+                <tr>
+                    <td><strong>${escapeHtml(b.sourceDomain)}</strong></td>
+                    <td><a href="${escapeHtml(b.sourceUrl)}" target="_blank" style="color: var(--color-primary);" title="${escapeHtml(b.sourceUrl)}">${truncateUrl(b.sourceUrl)}</a></td>
+                    <td>${b.targetUrl || '/'}</td>
+                    <td><span class="da-badge ${getDAClass(b.domainAuthority)}">${b.domainAuthority}</span></td>
+                    <td>${b.linkType === 'dofollow' ? '<span class="tag tag-green">Dofollow</span>' : '<span class="tag tag-gray">Nofollow</span>'}</td>
+                    <td>${escapeHtml(b.anchorText || 'N/A')}</td>
+                    <td>${formatDate(b.firstSeen)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderLostBacklinks(backlinks) {
+            const tbody = document.getElementById('lostBacklinksTable');
+            if (backlinks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No lost backlinks in this period</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = backlinks.map(b => `
+                <tr>
+                    <td><strong>${escapeHtml(b.sourceDomain)}</strong></td>
+                    <td><span style="color: var(--color-text-tertiary);" title="${escapeHtml(b.sourceUrl)}">${truncateUrl(b.sourceUrl)}</span></td>
+                    <td>${b.targetUrl || '/'}</td>
+                    <td><span class="da-badge ${getDAClass(b.domainAuthority)}">${b.domainAuthority}</span></td>
+                    <td><span class="tag tag-gray">${b.lostReason || 'Unknown'}</span></td>
+                    <td>${formatDate(b.lostDate)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function truncateUrl(url) {
+            if (!url) return '--';
+            if (url.length > 40) return url.substring(0, 37) + '...';
+            return url;
+        }
+
+        function getDAClass(da) {
+            if (da >= 70) return 'high';
+            if (da >= 40) return 'medium';
+            return 'low';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
+    <style>
+        .da-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 24px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .da-badge.high { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .da-badge.medium { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .da-badge.low { background: rgba(239, 68, 68, 0.15); color: var(--color-error); }
+        .tag-green { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .tag-gray { background: rgba(156, 163, 175, 0.15); color: var(--color-text-secondary); }
+    </style>
 </body>
 </html>
