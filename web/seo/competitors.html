@@ -417,6 +417,89 @@
             </div>
         </main>
     </div>
+
+    <!-- Add Competitor Modal -->
+    <div class="modal-overlay" id="addCompetitorModal">
+        <div class="modal" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Competitor</h2>
+                <button class="modal-close" id="closeModal" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-section">
+                    <label for="businessSearch" class="search-label">Search for a business</label>
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input type="text" id="businessSearch" class="search-input" placeholder="Enter business name (e.g., Nike, Shopify, HubSpot)" autocomplete="off">
+                        <div class="search-spinner" id="searchSpinner">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="search-hint">We'll find the domain and SEO metrics for this business</p>
+                </div>
+
+                <!-- Search Results -->
+                <div class="search-results" id="searchResults">
+                    <!-- Results will be populated by JavaScript -->
+                </div>
+
+                <!-- Selected Competitor Preview -->
+                <div class="selected-competitor" id="selectedCompetitor" style="display: none;">
+                    <div class="selected-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <span>Competitor Selected</span>
+                    </div>
+                    <div class="selected-details">
+                        <div class="selected-domain">
+                            <div class="domain-icon" id="selectedIcon">N</div>
+                            <div class="domain-info">
+                                <strong id="selectedDomain">nike.com</strong>
+                                <span id="selectedIndustry">Apparel & Footwear</span>
+                            </div>
+                        </div>
+                        <div class="selected-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Domain Authority</span>
+                                <span class="metric-value" id="selectedDA">92</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Est. Traffic</span>
+                                <span class="metric-value" id="selectedTraffic">45.2M</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Keywords</span>
+                                <span class="metric-value" id="selectedKeywords">1.2M</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline btn-sm" id="clearSelection">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Change Selection
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelAdd">Cancel</button>
+                <button class="btn btn-primary" id="confirmAdd" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add Competitor
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="../js/dashboard.js"></script>
     <style>
         .highlight-row {
@@ -530,6 +613,688 @@
             background: rgba(99, 102, 241, 0.15);
             color: var(--color-primary);
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: var(--color-bg-secondary);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 560px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: modalSlideIn 0.2s ease-out;
+        }
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        .modal-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--color-bg-tertiary);
+            border-radius: 8px;
+            font-size: 20px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .modal-close:hover {
+            background: var(--color-bg-hover);
+            color: var(--color-text-primary);
+        }
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: calc(90vh - 140px);
+        }
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding: 16px 24px;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-tertiary);
+        }
+
+        /* Search Section */
+        .search-section {
+            margin-bottom: 20px;
+        }
+        .search-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+        .search-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .search-input-wrapper .search-icon {
+            position: absolute;
+            left: 14px;
+            width: 18px;
+            height: 18px;
+            color: var(--color-text-tertiary);
+            pointer-events: none;
+        }
+        .search-input {
+            width: 100%;
+            padding: 14px 44px;
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 15px;
+            transition: all 0.15s ease;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        .search-input::placeholder {
+            color: var(--color-text-tertiary);
+        }
+        .search-spinner {
+            position: absolute;
+            right: 14px;
+            width: 20px;
+            height: 20px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .search-spinner.active {
+            opacity: 1;
+        }
+        .search-spinner svg {
+            width: 100%;
+            height: 100%;
+            color: var(--color-primary);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .search-hint {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-top: 8px;
+        }
+
+        /* Search Results */
+        .search-results {
+            margin-top: 16px;
+        }
+        .search-results-header {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .result-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .result-item:hover {
+            background: var(--color-bg-hover);
+            border-color: var(--color-primary);
+            transform: translateX(4px);
+        }
+        .result-item.selected {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--color-primary);
+        }
+        .result-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary, #8B5CF6));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+        .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .result-domain {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 2px;
+        }
+        .result-meta {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+        .result-metrics {
+            display: flex;
+            gap: 16px;
+        }
+        .result-metric {
+            text-align: right;
+        }
+        .result-metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+        .result-metric-label {
+            font-size: 10px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+        }
+        .no-results {
+            text-align: center;
+            padding: 32px;
+            color: var(--color-text-tertiary);
+        }
+        .no-results svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        /* Selected Competitor */
+        .selected-competitor {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .selected-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-success);
+            margin-bottom: 16px;
+        }
+        .selected-header svg {
+            width: 18px;
+            height: 18px;
+        }
+        .selected-details {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .selected-domain {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .domain-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+        .domain-info strong {
+            display: block;
+            font-size: 16px;
+            color: var(--color-text-primary);
+        }
+        .domain-info span {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+        .selected-metrics {
+            display: flex;
+            gap: 20px;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric-label {
+            display: block;
+            font-size: 10px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
     </style>
+
+    <script>
+    (function() {
+        // Business domain database (simulated - in production this would be an API)
+        const businessDatabase = {
+            'nike': { domain: 'nike.com', industry: 'Apparel & Footwear', da: 92, traffic: '45.2M', keywords: '1.2M' },
+            'adidas': { domain: 'adidas.com', industry: 'Apparel & Footwear', da: 89, traffic: '32.1M', keywords: '980K' },
+            'puma': { domain: 'puma.com', industry: 'Apparel & Footwear', da: 82, traffic: '12.4M', keywords: '420K' },
+            'reebok': { domain: 'reebok.com', industry: 'Apparel & Footwear', da: 78, traffic: '8.9M', keywords: '310K' },
+            'shopify': { domain: 'shopify.com', industry: 'E-commerce Platform', da: 93, traffic: '89.5M', keywords: '2.1M' },
+            'woocommerce': { domain: 'woocommerce.com', industry: 'E-commerce Platform', da: 85, traffic: '15.2M', keywords: '890K' },
+            'bigcommerce': { domain: 'bigcommerce.com', industry: 'E-commerce Platform', da: 81, traffic: '4.8M', keywords: '245K' },
+            'hubspot': { domain: 'hubspot.com', industry: 'Marketing Software', da: 93, traffic: '42.1M', keywords: '1.8M' },
+            'salesforce': { domain: 'salesforce.com', industry: 'CRM Software', da: 94, traffic: '65.3M', keywords: '2.4M' },
+            'mailchimp': { domain: 'mailchimp.com', industry: 'Email Marketing', da: 91, traffic: '28.7M', keywords: '920K' },
+            'constant contact': { domain: 'constantcontact.com', industry: 'Email Marketing', da: 84, traffic: '9.2M', keywords: '380K' },
+            'amazon': { domain: 'amazon.com', industry: 'E-commerce', da: 96, traffic: '2.4B', keywords: '45M' },
+            'ebay': { domain: 'ebay.com', industry: 'E-commerce', da: 94, traffic: '890M', keywords: '18M' },
+            'walmart': { domain: 'walmart.com', industry: 'Retail', da: 92, traffic: '420M', keywords: '8.5M' },
+            'target': { domain: 'target.com', industry: 'Retail', da: 89, traffic: '180M', keywords: '4.2M' },
+            'stripe': { domain: 'stripe.com', industry: 'Payment Processing', da: 91, traffic: '18.5M', keywords: '560K' },
+            'paypal': { domain: 'paypal.com', industry: 'Payment Processing', da: 93, traffic: '125M', keywords: '2.8M' },
+            'square': { domain: 'squareup.com', industry: 'Payment Processing', da: 87, traffic: '12.1M', keywords: '420K' },
+            'zoom': { domain: 'zoom.us', industry: 'Video Conferencing', da: 91, traffic: '95M', keywords: '1.5M' },
+            'slack': { domain: 'slack.com', industry: 'Team Communication', da: 92, traffic: '45M', keywords: '890K' },
+            'notion': { domain: 'notion.so', industry: 'Productivity', da: 88, traffic: '32M', keywords: '620K' },
+            'asana': { domain: 'asana.com', industry: 'Project Management', da: 86, traffic: '18M', keywords: '450K' },
+            'trello': { domain: 'trello.com', industry: 'Project Management', da: 89, traffic: '28M', keywords: '580K' },
+            'monday': { domain: 'monday.com', industry: 'Project Management', da: 84, traffic: '15M', keywords: '380K' },
+            'canva': { domain: 'canva.com', industry: 'Design Tools', da: 93, traffic: '180M', keywords: '3.2M' },
+            'figma': { domain: 'figma.com', industry: 'Design Tools', da: 88, traffic: '25M', keywords: '420K' },
+            'adobe': { domain: 'adobe.com', industry: 'Creative Software', da: 96, traffic: '290M', keywords: '5.8M' },
+            'dropbox': { domain: 'dropbox.com', industry: 'Cloud Storage', da: 93, traffic: '85M', keywords: '1.2M' },
+            'google drive': { domain: 'google.com/drive', industry: 'Cloud Storage', da: 98, traffic: '1.2B', keywords: '8M' },
+            'microsoft': { domain: 'microsoft.com', industry: 'Technology', da: 97, traffic: '1.8B', keywords: '12M' },
+            'apple': { domain: 'apple.com', industry: 'Technology', da: 97, traffic: '890M', keywords: '6.5M' },
+            'netflix': { domain: 'netflix.com', industry: 'Streaming', da: 94, traffic: '420M', keywords: '2.8M' },
+            'spotify': { domain: 'spotify.com', industry: 'Music Streaming', da: 93, traffic: '320M', keywords: '1.9M' },
+            'airbnb': { domain: 'airbnb.com', industry: 'Travel & Hospitality', da: 93, traffic: '210M', keywords: '4.2M' },
+            'booking': { domain: 'booking.com', industry: 'Travel & Hospitality', da: 94, traffic: '380M', keywords: '6.8M' },
+            'expedia': { domain: 'expedia.com', industry: 'Travel & Hospitality', da: 91, traffic: '145M', keywords: '3.2M' },
+            'uber': { domain: 'uber.com', industry: 'Transportation', da: 92, traffic: '125M', keywords: '1.8M' },
+            'lyft': { domain: 'lyft.com', industry: 'Transportation', da: 85, traffic: '32M', keywords: '420K' },
+            'doordash': { domain: 'doordash.com', industry: 'Food Delivery', da: 87, traffic: '65M', keywords: '890K' },
+            'grubhub': { domain: 'grubhub.com', industry: 'Food Delivery', da: 83, traffic: '28M', keywords: '520K' },
+            'instacart': { domain: 'instacart.com', industry: 'Grocery Delivery', da: 85, traffic: '42M', keywords: '680K' },
+            'linkedin': { domain: 'linkedin.com', industry: 'Professional Network', da: 98, traffic: '1.5B', keywords: '15M' },
+            'twitter': { domain: 'twitter.com', industry: 'Social Media', da: 97, traffic: '2.1B', keywords: '18M' },
+            'facebook': { domain: 'facebook.com', industry: 'Social Media', da: 98, traffic: '3.2B', keywords: '25M' },
+            'instagram': { domain: 'instagram.com', industry: 'Social Media', da: 97, traffic: '2.8B', keywords: '12M' },
+            'tiktok': { domain: 'tiktok.com', industry: 'Social Media', da: 94, traffic: '1.8B', keywords: '8M' },
+            'pinterest': { domain: 'pinterest.com', industry: 'Social Media', da: 94, traffic: '890M', keywords: '5.2M' },
+            'reddit': { domain: 'reddit.com', industry: 'Social Media', da: 96, traffic: '1.2B', keywords: '9.5M' },
+            'wordpress': { domain: 'wordpress.com', industry: 'CMS', da: 95, traffic: '420M', keywords: '4.8M' },
+            'wix': { domain: 'wix.com', industry: 'Website Builder', da: 93, traffic: '180M', keywords: '2.1M' },
+            'squarespace': { domain: 'squarespace.com', industry: 'Website Builder', da: 89, traffic: '45M', keywords: '890K' },
+            'godaddy': { domain: 'godaddy.com', industry: 'Domain & Hosting', da: 93, traffic: '125M', keywords: '1.8M' },
+            'bluehost': { domain: 'bluehost.com', industry: 'Web Hosting', da: 87, traffic: '18M', keywords: '420K' },
+            'siteground': { domain: 'siteground.com', industry: 'Web Hosting', da: 84, traffic: '12M', keywords: '320K' },
+            'cloudflare': { domain: 'cloudflare.com', industry: 'CDN & Security', da: 91, traffic: '32M', keywords: '680K' },
+            'zendesk': { domain: 'zendesk.com', industry: 'Customer Support', da: 90, traffic: '25M', keywords: '580K' },
+            'intercom': { domain: 'intercom.com', industry: 'Customer Support', da: 87, traffic: '12M', keywords: '320K' },
+            'freshdesk': { domain: 'freshworks.com', industry: 'Customer Support', da: 84, traffic: '8M', keywords: '245K' },
+            'twilio': { domain: 'twilio.com', industry: 'Communication APIs', da: 89, traffic: '18M', keywords: '420K' },
+            'sendgrid': { domain: 'sendgrid.com', industry: 'Email API', da: 85, traffic: '9M', keywords: '280K' },
+            'datadog': { domain: 'datadoghq.com', industry: 'Monitoring', da: 86, traffic: '8M', keywords: '320K' },
+            'newrelic': { domain: 'newrelic.com', industry: 'Monitoring', da: 85, traffic: '6M', keywords: '245K' },
+            'github': { domain: 'github.com', industry: 'Developer Tools', da: 97, traffic: '890M', keywords: '8.5M' },
+            'gitlab': { domain: 'gitlab.com', industry: 'Developer Tools', da: 91, traffic: '45M', keywords: '920K' },
+            'bitbucket': { domain: 'bitbucket.org', industry: 'Developer Tools', da: 90, traffic: '32M', keywords: '580K' },
+            'atlassian': { domain: 'atlassian.com', industry: 'Software Tools', da: 92, traffic: '65M', keywords: '1.2M' },
+            'jira': { domain: 'atlassian.com/jira', industry: 'Project Management', da: 92, traffic: '42M', keywords: '680K' },
+            'confluence': { domain: 'atlassian.com/confluence', industry: 'Documentation', da: 92, traffic: '28M', keywords: '420K' }
+        };
+
+        // Elements
+        const modal = document.getElementById('addCompetitorModal');
+        const addBtn = document.querySelector('.topbar-right .btn-primary');
+        const closeBtn = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelAdd');
+        const confirmBtn = document.getElementById('confirmAdd');
+        const searchInput = document.getElementById('businessSearch');
+        const searchSpinner = document.getElementById('searchSpinner');
+        const searchResults = document.getElementById('searchResults');
+        const selectedCompetitor = document.getElementById('selectedCompetitor');
+        const clearSelectionBtn = document.getElementById('clearSelection');
+
+        let selectedBusiness = null;
+        let searchTimeout = null;
+
+        // Open modal
+        addBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+            searchInput.focus();
+            document.body.style.overflow = 'hidden';
+        });
+
+        // Close modal functions
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            resetModal();
+        }
+
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Reset modal state
+        function resetModal() {
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            selectedCompetitor.style.display = 'none';
+            selectedBusiness = null;
+            confirmBtn.disabled = true;
+        }
+
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toLowerCase();
+
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            if (query.length < 2) {
+                searchResults.innerHTML = '';
+                searchSpinner.classList.remove('active');
+                return;
+            }
+
+            searchSpinner.classList.add('active');
+
+            // Simulate API delay
+            searchTimeout = setTimeout(() => {
+                const results = searchBusinesses(query);
+                displayResults(results, query);
+                searchSpinner.classList.remove('active');
+            }, 400);
+        });
+
+        // Search businesses
+        function searchBusinesses(query) {
+            const results = [];
+
+            for (const [name, data] of Object.entries(businessDatabase)) {
+                if (name.includes(query) || data.domain.includes(query) || data.industry.toLowerCase().includes(query)) {
+                    results.push({ name, ...data });
+                }
+            }
+
+            // Sort by DA (highest first)
+            results.sort((a, b) => b.da - a.da);
+
+            return results.slice(0, 5);
+        }
+
+        // Display search results
+        function displayResults(results, query) {
+            if (results.length === 0) {
+                searchResults.innerHTML = `
+                    <div class="no-results">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <p>No businesses found for "${query}"</p>
+                        <p style="font-size: 12px; margin-top: 8px;">Try searching for a different business name</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="search-results-header">Search Results</div>';
+
+            results.forEach(result => {
+                const initial = result.domain.charAt(0).toUpperCase();
+                html += `
+                    <div class="result-item" data-domain="${result.domain}" data-name="${result.name}">
+                        <div class="result-icon">${initial}</div>
+                        <div class="result-info">
+                            <div class="result-domain">${result.domain}</div>
+                            <div class="result-meta">${result.industry}</div>
+                        </div>
+                        <div class="result-metrics">
+                            <div class="result-metric">
+                                <div class="result-metric-value">${result.da}</div>
+                                <div class="result-metric-label">DA</div>
+                            </div>
+                            <div class="result-metric">
+                                <div class="result-metric-value">${result.traffic}</div>
+                                <div class="result-metric-label">Traffic</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            searchResults.innerHTML = html;
+
+            // Add click listeners to results
+            searchResults.querySelectorAll('.result-item').forEach(item => {
+                item.addEventListener('click', () => selectCompetitor(item.dataset.name));
+            });
+        }
+
+        // Select competitor
+        function selectCompetitor(name) {
+            const business = businessDatabase[name];
+            if (!business) return;
+
+            selectedBusiness = { name, ...business };
+
+            // Update selected display
+            document.getElementById('selectedIcon').textContent = business.domain.charAt(0).toUpperCase();
+            document.getElementById('selectedDomain').textContent = business.domain;
+            document.getElementById('selectedIndustry').textContent = business.industry;
+            document.getElementById('selectedDA').textContent = business.da;
+            document.getElementById('selectedTraffic').textContent = business.traffic;
+            document.getElementById('selectedKeywords').textContent = business.keywords;
+
+            // Hide search results, show selection
+            searchResults.innerHTML = '';
+            selectedCompetitor.style.display = 'block';
+            confirmBtn.disabled = false;
+
+            // Mark as selected
+            searchResults.querySelectorAll('.result-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.name === name);
+            });
+        }
+
+        // Clear selection
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedBusiness = null;
+            selectedCompetitor.style.display = 'none';
+            confirmBtn.disabled = true;
+            searchInput.focus();
+            // Re-trigger search
+            if (searchInput.value.trim().length >= 2) {
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+
+        // Confirm add competitor
+        confirmBtn.addEventListener('click', () => {
+            if (!selectedBusiness) return;
+
+            // Add to table
+            addCompetitorToTable(selectedBusiness);
+
+            // Close modal
+            closeModal();
+
+            // Show success notification
+            showNotification(`Added ${selectedBusiness.domain} to competitors`);
+        });
+
+        // Add competitor to table
+        function addCompetitorToTable(business) {
+            const tbody = document.querySelector('.data-table tbody');
+            const initial = business.domain.charAt(0).toUpperCase();
+
+            // Create new row
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="competitor-icon">${initial}</div>
+                        <strong>${business.domain}</strong>
+                    </div>
+                </td>
+                <td><span class="da-badge ${business.da >= 80 ? 'high' : 'medium'}">${business.da}</span></td>
+                <td>${business.traffic}</td>
+                <td>${business.keywords}</td>
+                <td>—</td>
+                <td><span class="gap-badge">Analyzing...</span></td>
+            `;
+
+            // Add animation
+            newRow.style.animation = 'fadeIn 0.3s ease-out';
+
+            // Insert after the "You" row
+            const youRow = tbody.querySelector('.highlight-row');
+            if (youRow && youRow.nextSibling) {
+                tbody.insertBefore(newRow, youRow.nextSibling);
+            } else {
+                tbody.appendChild(newRow);
+            }
+
+            // Update competitor count
+            const countTag = document.querySelector('.tag-purple');
+            if (countTag) {
+                const currentCount = parseInt(countTag.textContent.match(/\d+/)[0]) || 5;
+                countTag.textContent = `Tracking ${currentCount + 1} Competitors`;
+            }
+
+            // Simulate analysis completion
+            setTimeout(() => {
+                const gapCell = newRow.querySelector('.gap-badge');
+                if (gapCell) {
+                    const gap = Math.floor(Math.random() * 2000) + 200;
+                    gapCell.textContent = `+${gap} keywords`;
+                }
+            }, 2000);
+        }
+
+        // Show notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: var(--color-success);
+                color: white;
+                padding: 14px 20px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 500;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                animation: slideUp 0.3s ease-out;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+            notification.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                ${message}
+            `;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideDown 0.3s ease-out forwards';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes slideDown {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(20px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                closeModal();
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
