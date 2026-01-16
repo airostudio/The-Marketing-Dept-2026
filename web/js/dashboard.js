@@ -90,7 +90,7 @@
                     window.location.href = 'project-wizard.html';
                 } else {
                     // Redirect to automated audits page to run audit
-                    window.location.href = 'technical-seo/automated-audits.html';
+                    window.location.href = '/seo/audits.html';
                 }
             });
         }
