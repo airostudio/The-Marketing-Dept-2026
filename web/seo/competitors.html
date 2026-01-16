@@ -1225,6 +1225,9 @@
                 countTag.textContent = `Tracking ${currentCount + 1} Competitors`;
             }
 
+            // Save competitor to localStorage for use in keyword suggestions
+            saveCompetitorToStorage(business);
+
             // Simulate analysis completion
             setTimeout(() => {
                 const gapCell = newRow.querySelector('.gap-badge');
@@ -1234,6 +1237,56 @@
                 }
             }, 2000);
         }
+
+        // Save competitor to localStorage
+        function saveCompetitorToStorage(business) {
+            try {
+                const stored = localStorage.getItem('seo-competitors');
+                const competitors = stored ? JSON.parse(stored) : [];
+
+                // Check if already exists
+                if (!competitors.find(c => c.domain === business.domain)) {
+                    competitors.push({
+                        domain: business.domain,
+                        name: business.name,
+                        industry: business.industry,
+                        da: business.da,
+                        traffic: business.traffic,
+                        keywords: business.keywords,
+                        addedAt: new Date().toISOString()
+                    });
+
+                    localStorage.setItem('seo-competitors', JSON.stringify(competitors));
+                    console.log('Competitor saved:', business.domain);
+                }
+            } catch (e) {
+                console.error('Error saving competitor:', e);
+            }
+        }
+
+        // Load and display stored competitors on page load
+        function loadStoredCompetitors() {
+            try {
+                const stored = localStorage.getItem('seo-competitors');
+                if (stored) {
+                    const competitors = JSON.parse(stored);
+                    competitors.forEach(comp => {
+                        // Check if already in table
+                        const existingDomains = Array.from(document.querySelectorAll('.data-table tbody td strong'))
+                            .map(el => el.textContent);
+
+                        if (!existingDomains.includes(comp.domain)) {
+                            addCompetitorToTable(comp);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading competitors:', e);
+            }
+        }
+
+        // Initialize stored competitors
+        loadStoredCompetitors();
 
         // Show notification
         function showNotification(message) {

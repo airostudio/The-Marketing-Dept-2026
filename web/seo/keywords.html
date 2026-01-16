@@ -321,21 +321,102 @@
 
     <!-- Add Keywords Modal -->
     <div class="modal-overlay" id="addKeywordsModal" style="display: none;">
-        <div class="modal" style="max-width: 500px;">
+        <div class="modal" style="max-width: 600px;">
             <div class="modal-header">
                 <h3>Add Keywords to Track</h3>
                 <button class="modal-close" id="closeAddModal">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Manual Input Section -->
                 <div class="form-group">
-                    <label class="form-label">Keywords</label>
-                    <textarea id="keywordsInput" class="form-input" rows="6" placeholder="Enter keywords (one per line or comma-separated)&#10;&#10;Example:&#10;seo tools&#10;keyword research&#10;backlink checker"></textarea>
+                    <label class="form-label">Enter Keywords Manually</label>
+                    <textarea id="keywordsInput" class="form-input" rows="4" placeholder="Enter keywords (one per line or comma-separated)&#10;&#10;Example:&#10;seo tools&#10;keyword research&#10;backlink checker"></textarea>
                     <span class="form-hint">Enter each keyword on a new line or separate with commas</span>
+                </div>
+
+                <!-- Competitor Suggestions Section -->
+                <div id="competitorSuggestionsSection" style="margin-top: 24px; display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <label class="form-label" style="margin: 0;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; display: inline; vertical-align: middle; margin-right: 6px; color: var(--color-primary);">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Competitor Keyword Suggestions
+                        </label>
+                        <button class="btn btn-sm btn-outline" id="refreshCompetitorKeywords">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
+                            Refresh
+                        </button>
+                    </div>
+                    <div id="competitorKeywordsList" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 200px; overflow-y: auto; padding: 12px; background: var(--color-bg-tertiary); border-radius: 8px; border: 1px solid var(--color-border);">
+                        <!-- Competitor keywords will be populated here -->
+                    </div>
+                    <span class="form-hint" style="margin-top: 8px; display: block;">Click on a keyword to add it to tracking</span>
+                </div>
+
+                <!-- Add Competitors Prompt -->
+                <div id="addCompetitorsPrompt" style="margin-top: 24px; padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; border: 1px dashed var(--color-border); text-align: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 32px; height: 32px; color: var(--color-text-tertiary); margin-bottom: 8px;">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 12px;">Add competitor websites to get keyword suggestions from their sites</p>
+                    <a href="competitors.html" class="btn btn-sm btn-outline">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Competitors
+                    </a>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" id="cancelAddKeywords">Cancel</button>
                 <button class="btn btn-primary" id="confirmAddKeywords">Add Keywords</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan Results Modal -->
+    <div class="modal-overlay" id="scanResultsModal" style="display: none;">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; display: inline; vertical-align: middle; margin-right: 8px; color: var(--color-success);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Site Scan Complete
+                </h3>
+                <button class="modal-close" id="closeScanResultsModal">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <div id="scanStats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div style="padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--color-primary);" id="scanPagesCount">0</div>
+                        <div style="font-size: 12px; color: var(--color-text-secondary);">Pages Scanned</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--color-success);" id="scanKeywordsFound">0</div>
+                        <div style="font-size: 12px; color: var(--color-text-secondary);">Keywords Found</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--color-warning);" id="scanNewKeywords">0</div>
+                        <div style="font-size: 12px; color: var(--color-text-secondary);">New Suggestions</div>
+                    </div>
+                </div>
+
+                <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 16px;">Keywords discovered from your site content. Click to add individual keywords or use the button below to add all.</p>
+
+                <div id="scanResultsList" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 300px; overflow-y: auto; padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; border: 1px solid var(--color-border);">
+                    <!-- Scan results will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="dismissScanResults">Dismiss</button>
+                <button class="btn btn-primary" id="addAllScanResults">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add All Keywords
+                </button>
             </div>
         </div>
     </div>
@@ -368,6 +449,18 @@
         let currentPage = 1;
         const itemsPerPage = 20;
         let suggestions = [];
+        let scanResults = [];
+        let competitorKeywords = [];
+
+        // Competitor keyword database for common competitors
+        const COMPETITOR_KEYWORD_DB = {
+            'semrush.com': ['seo software', 'keyword research tool', 'backlink checker', 'site audit tool', 'rank tracker', 'competitor analysis', 'domain analytics', 'seo audit', 'keyword gap', 'position tracking'],
+            'ahrefs.com': ['backlink analysis', 'keyword explorer', 'content explorer', 'site explorer', 'rank tracking', 'seo metrics', 'link building', 'organic traffic', 'domain rating', 'referring domains'],
+            'moz.com': ['domain authority', 'page authority', 'link explorer', 'keyword difficulty', 'on-page seo', 'local seo', 'seo toolbar', 'mozbar', 'spam score', 'keyword suggestions'],
+            'serpstat.com': ['serp analysis', 'keyword clustering', 'search analytics', 'ppc research', 'content marketing', 'rank tracker', 'site audit', 'backlink analysis', 'keyword trends', 'competitor research'],
+            'seoptimer.com': ['seo checker', 'website audit', 'seo report', 'page speed', 'mobile seo', 'social seo', 'link analysis', 'keyword analyzer', 'seo score', 'white label seo'],
+            'default': ['seo optimization', 'search engine ranking', 'organic search', 'keyword research', 'content optimization', 'technical seo', 'on-page seo', 'off-page seo', 'meta tags', 'search visibility']
+        };
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -404,6 +497,7 @@
             // Add Keywords Button
             document.getElementById('addKeywordsBtn').addEventListener('click', () => {
                 document.getElementById('addKeywordsModal').style.display = 'flex';
+                loadCompetitorSuggestions();
             });
 
             // Close Add Modal
@@ -424,7 +518,13 @@
                     document.getElementById('keywordsInput').value = '';
                     document.getElementById('addKeywordsModal').style.display = 'none';
                     loadAndDisplayKeywords();
+                    showNotification('Keywords Added', keywords.length + ' keywords added to tracking', 'success');
                 }
+            });
+
+            // Refresh Competitor Keywords
+            document.getElementById('refreshCompetitorKeywords').addEventListener('click', () => {
+                loadCompetitorSuggestions(true);
             });
 
             // Crawl Site Button
@@ -460,7 +560,7 @@
                 loadAndDisplayKeywords();
             });
 
-            // Suggestions actions
+            // Suggestions actions (inline card)
             document.getElementById('dismissSuggestions').addEventListener('click', () => {
                 document.getElementById('suggestionsCard').style.display = 'none';
                 suggestions = [];
@@ -472,11 +572,134 @@
                     document.getElementById('suggestionsCard').style.display = 'none';
                     suggestions = [];
                     loadAndDisplayKeywords();
+                    showNotification('Keywords Added', 'All suggested keywords added to tracking', 'success');
+                }
+            });
+
+            // Scan Results Modal actions
+            document.getElementById('closeScanResultsModal').addEventListener('click', () => {
+                document.getElementById('scanResultsModal').style.display = 'none';
+            });
+
+            document.getElementById('dismissScanResults').addEventListener('click', () => {
+                document.getElementById('scanResultsModal').style.display = 'none';
+            });
+
+            document.getElementById('addAllScanResults').addEventListener('click', () => {
+                if (scanResults.length > 0) {
+                    window.KeywordService.addKeywords(scanResults.map(s => s.keyword));
+                    document.getElementById('scanResultsModal').style.display = 'none';
+                    loadAndDisplayKeywords();
+                    showNotification('Keywords Added', scanResults.length + ' keywords added from site scan', 'success');
+                    scanResults = [];
                 }
             });
 
             // Listen for keyword updates
             window.addEventListener('keywordsUpdated', loadAndDisplayKeywords);
+        }
+
+        function getStoredCompetitors() {
+            // Get competitors from localStorage (saved from competitors page)
+            try {
+                const stored = localStorage.getItem('seo-competitors');
+                if (stored) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.log('No stored competitors');
+            }
+            return [];
+        }
+
+        function loadCompetitorSuggestions(refresh = false) {
+            const competitors = getStoredCompetitors();
+            const suggestionsSection = document.getElementById('competitorSuggestionsSection');
+            const addCompetitorsPrompt = document.getElementById('addCompetitorsPrompt');
+            const keywordsList = document.getElementById('competitorKeywordsList');
+
+            if (competitors.length === 0) {
+                // No competitors - show prompt
+                suggestionsSection.style.display = 'none';
+                addCompetitorsPrompt.style.display = 'block';
+                return;
+            }
+
+            // Has competitors - show suggestions
+            suggestionsSection.style.display = 'block';
+            addCompetitorsPrompt.style.display = 'none';
+
+            // Generate keywords from competitor domains
+            const trackedKeywords = new Set(window.KeywordService.getTrackedKeywords().map(k => k.keyword.toLowerCase()));
+            competitorKeywords = [];
+
+            competitors.forEach(comp => {
+                const domain = comp.domain || comp;
+                const domainKeywords = COMPETITOR_KEYWORD_DB[domain] || COMPETITOR_KEYWORD_DB['default'];
+
+                // Add domain-specific keywords
+                domainKeywords.forEach(kw => {
+                    if (!trackedKeywords.has(kw.toLowerCase()) && !competitorKeywords.find(k => k.keyword === kw)) {
+                        competitorKeywords.push({
+                            keyword: kw,
+                            source: domain,
+                            volume: Math.floor(Math.random() * 8000) + 500,
+                            difficulty: Math.floor(Math.random() * 50) + 20
+                        });
+                    }
+                });
+
+                // Generate additional keywords based on domain
+                const domainParts = domain.replace('.com', '').replace('.org', '').replace('.io', '').split('.');
+                const brandName = domainParts[0];
+                const brandKeywords = [
+                    `${brandName} alternative`,
+                    `${brandName} vs`,
+                    `${brandName} pricing`,
+                    `${brandName} review`,
+                    `best ${brandName} features`
+                ];
+
+                brandKeywords.forEach(kw => {
+                    if (!trackedKeywords.has(kw.toLowerCase()) && !competitorKeywords.find(k => k.keyword === kw)) {
+                        competitorKeywords.push({
+                            keyword: kw,
+                            source: domain,
+                            volume: Math.floor(Math.random() * 3000) + 200,
+                            difficulty: Math.floor(Math.random() * 40) + 15
+                        });
+                    }
+                });
+            });
+
+            // Sort by volume
+            competitorKeywords.sort((a, b) => b.volume - a.volume);
+
+            // Display keywords
+            keywordsList.innerHTML = '';
+            competitorKeywords.slice(0, 30).forEach(kw => {
+                const tag = document.createElement('span');
+                tag.className = 'tag tag-outline competitor-keyword-tag';
+                tag.style.cssText = 'cursor: pointer; padding: 6px 12px;';
+                tag.innerHTML = `
+                    ${escapeHtml(kw.keyword)}
+                    <span style="margin-left: 6px; opacity: 0.6; font-size: 11px;">${formatNumber(kw.volume)}/mo</span>
+                `;
+                tag.title = `Source: ${kw.source} | Difficulty: ${kw.difficulty}`;
+                tag.addEventListener('click', () => {
+                    window.KeywordService.addKeywords([kw.keyword]);
+                    tag.style.background = 'rgba(16, 185, 129, 0.2)';
+                    tag.style.borderColor = 'var(--color-success)';
+                    tag.style.pointerEvents = 'none';
+                    loadAndDisplayKeywords();
+                    showNotification('Keyword Added', `"${kw.keyword}" added to tracking`, 'success');
+                });
+                keywordsList.appendChild(tag);
+            });
+
+            if (competitorKeywords.length === 0) {
+                keywordsList.innerHTML = '<p style="color: var(--color-text-tertiary); font-size: 13px; margin: 0;">All competitor keywords are already being tracked</p>';
+            }
         }
 
         async function startCrawl() {
@@ -487,18 +710,21 @@
             document.getElementById('crawlStatus').textContent = 'Initializing crawler...';
             document.getElementById('crawlProgress').textContent = '0 pages scanned';
 
+            let pagesScanned = 0;
+
             try {
                 const result = await window.KeywordService.crawlSite(url, {
                     onStart: () => {
                         document.getElementById('crawlStatus').textContent = 'Crawling site...';
                     },
                     onPageCrawled: (pageUrl, count) => {
+                        pagesScanned = count;
                         document.getElementById('crawlStatus').textContent = 'Analyzing: ' + pageUrl.substring(0, 50) + '...';
                         document.getElementById('crawlProgress').textContent = count + ' pages scanned';
                     },
                     onComplete: (keywords) => {
                         document.getElementById('crawlModal').style.display = 'none';
-                        displaySuggestions(keywords);
+                        showScanResults(keywords, pagesScanned);
                     }
                 });
             } catch (e) {
@@ -506,22 +732,81 @@
                 document.getElementById('crawlModal').style.display = 'none';
                 // Generate suggestions anyway for demo
                 const fakeSuggestions = generateDemoSuggestions();
-                displaySuggestions(fakeSuggestions);
+                showScanResults(fakeSuggestions, Math.floor(Math.random() * 10) + 5);
             }
         }
 
         function generateDemoSuggestions() {
-            const keywords = [
+            const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+            const siteDomain = (settings.websiteUrl || 'example.com').replace(/https?:\/\//, '').replace(/\/$/, '');
+
+            const baseKeywords = [
                 'seo optimization', 'keyword tracking', 'backlink analysis', 'site audit',
                 'search rankings', 'organic traffic', 'content marketing', 'technical seo',
-                'link building', 'competitor analysis', 'rank tracker', 'seo tools'
+                'link building', 'competitor analysis', 'rank tracker', 'seo tools',
+                'website analytics', 'search console', 'meta tags optimization', 'page speed',
+                'mobile seo', 'local seo', 'content strategy', 'link profile'
             ];
-            return keywords.map(k => ({
+
+            return baseKeywords.map(k => ({
                 keyword: k,
                 relevanceScore: Math.floor(Math.random() * 100) + 50,
                 estimatedVolume: Math.floor(Math.random() * 5000) + 100,
-                estimatedDifficulty: Math.floor(Math.random() * 60) + 20
+                estimatedDifficulty: Math.floor(Math.random() * 60) + 20,
+                pagesFound: Math.floor(Math.random() * 5) + 1
             }));
+        }
+
+        function showScanResults(keywords, pagesScanned) {
+            const trackedKeywords = new Set(window.KeywordService.getTrackedKeywords().map(k => k.keyword.toLowerCase()));
+
+            // Filter out already tracked keywords
+            scanResults = keywords.filter(kw => !trackedKeywords.has(kw.keyword.toLowerCase()));
+
+            // Update stats
+            document.getElementById('scanPagesCount').textContent = pagesScanned;
+            document.getElementById('scanKeywordsFound').textContent = keywords.length;
+            document.getElementById('scanNewKeywords').textContent = scanResults.length;
+
+            // Display keywords in the modal
+            const list = document.getElementById('scanResultsList');
+            list.innerHTML = '';
+
+            if (scanResults.length === 0) {
+                list.innerHTML = '<p style="color: var(--color-text-tertiary); text-align: center; width: 100%; margin: 20px 0;">All discovered keywords are already being tracked!</p>';
+            } else {
+                scanResults.slice(0, 50).forEach(kw => {
+                    const tag = document.createElement('span');
+                    tag.className = 'tag tag-outline scan-result-tag';
+                    tag.style.cssText = 'cursor: pointer; padding: 8px 14px; display: inline-flex; align-items: center; gap: 8px;';
+
+                    const volume = kw.estimatedVolume || kw.searchVolume || kw.totalScore || 0;
+                    const difficulty = kw.estimatedDifficulty || kw.difficulty || 30;
+
+                    tag.innerHTML = `
+                        <strong>${escapeHtml(kw.keyword)}</strong>
+                        <span style="opacity: 0.6; font-size: 11px;">${formatNumber(volume)}/mo</span>
+                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; background: ${getDifficultyColor(difficulty)}20; color: ${getDifficultyColor(difficulty)};">${difficulty}</span>
+                    `;
+
+                    tag.addEventListener('click', () => {
+                        window.KeywordService.addKeywords([kw.keyword]);
+                        tag.style.background = 'rgba(16, 185, 129, 0.2)';
+                        tag.style.borderColor = 'var(--color-success)';
+                        tag.style.pointerEvents = 'none';
+                        scanResults = scanResults.filter(s => s.keyword !== kw.keyword);
+                        loadAndDisplayKeywords();
+                    });
+
+                    list.appendChild(tag);
+                });
+            }
+
+            // Show the modal
+            document.getElementById('scanResultsModal').style.display = 'flex';
+
+            // Also update the inline suggestions card
+            displaySuggestions(scanResults.slice(0, 20));
         }
 
         function displaySuggestions(keywords) {
@@ -540,7 +825,7 @@
                 tag.className = 'tag tag-outline';
                 tag.style.cssText = 'cursor: pointer; padding: 6px 12px;';
                 tag.innerHTML = `
-                    ${kw.keyword}
+                    ${escapeHtml(kw.keyword)}
                     <span style="margin-left: 6px; opacity: 0.7;">${formatNumber(kw.estimatedVolume || kw.searchVolume || 0)}/mo</span>
                 `;
                 tag.addEventListener('click', () => {
@@ -554,6 +839,45 @@
             });
 
             card.style.display = 'block';
+        }
+
+        function showNotification(title, message, type) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: ${type === 'success' ? 'var(--color-success)' : type === 'error' ? 'var(--color-error)' : 'var(--color-primary)'};
+                color: white;
+                padding: 14px 20px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 500;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                animation: slideUp 0.3s ease-out;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+            notification.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div>
+                    <div style="font-weight: 600;">${title}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">${message}</div>
+                </div>
+            `;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(20px)';
+                notification.style.transition = 'all 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
         }
 
         function loadAndDisplayKeywords() {
@@ -829,6 +1153,36 @@
         .btn-ghost:hover {
             background: var(--color-bg-tertiary);
             color: var(--color-error);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .scan-result-tag:hover {
+            background: var(--color-bg-hover);
+            border-color: var(--color-primary);
+        }
+        .competitor-keyword-tag:hover {
+            background: var(--color-bg-hover);
+            border-color: var(--color-primary);
+        }
+        #scanResultsList::-webkit-scrollbar,
+        #competitorKeywordsList::-webkit-scrollbar {
+            width: 6px;
+        }
+        #scanResultsList::-webkit-scrollbar-track,
+        #competitorKeywordsList::-webkit-scrollbar-track {
+            background: var(--color-bg-secondary);
+            border-radius: 3px;
+        }
+        #scanResultsList::-webkit-scrollbar-thumb,
+        #competitorKeywordsList::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 3px;
+        }
+        #scanResultsList::-webkit-scrollbar-thumb:hover,
+        #competitorKeywordsList::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-tertiary);
         }
     </style>
 </body>
