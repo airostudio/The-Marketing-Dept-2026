@@ -131,6 +131,12 @@
                     </div>
                 </div>
                 <div class="topbar-right">
+                    <button class="btn btn-outline" id="fixIssues" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                        Fix Issues
+                    </button>
                     <button class="btn btn-primary" id="runAudit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
                             <polygon points="5 3 19 12 5 21 5 3"/>
@@ -249,7 +255,59 @@
         </main>
     </div>
 
+    <!-- Fix Issues Modal -->
+    <div class="modal-overlay" id="fixModal">
+        <div class="modal fix-modal">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;margin-right:8px;">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    Fix SEO Issues
+                </h3>
+                <button class="modal-close" id="closeFixModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="fix-progress-container" id="fixProgress">
+                    <div class="fix-status">
+                        <span class="status-text" id="fixStatusText">Ready to analyze and fix issues...</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="fixProgressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="fix-stats">
+                        <span><strong id="fixedCount">0</strong> fixed</span>
+                        <span><strong id="pendingCount">0</strong> pending</span>
+                        <span><strong id="manualCount">0</strong> need review</span>
+                    </div>
+                </div>
+
+                <div class="fix-results" id="fixResults">
+                    <!-- Fix results will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelFix">Cancel</button>
+                <button class="btn btn-primary" id="startFix">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    Start Fixing
+                </button>
+                <button class="btn btn-primary" id="downloadFixes" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download All Fixes
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="../js/dashboard.js"></script>
     <script src="../js/seo-audit.js"></script>
+    <script src="../js/seo-fixer.js"></script>
 </body>
 </html>

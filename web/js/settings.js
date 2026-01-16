@@ -537,6 +537,9 @@
         // Google Analytics
         initGoogleAnalytics(savedIntegrations['google-analytics']);
 
+        // Google PageSpeed Insights
+        initPageSpeedInsights(savedIntegrations['pagespeed']);
+
         // Slack
         initSlack(savedIntegrations['slack']);
     }
@@ -657,6 +660,133 @@
 
                 showNotification('Removed', 'Configuration removed', 'info');
             });
+        }
+    }
+
+    // Google PageSpeed Insights
+    function initPageSpeedInsights(savedConfig) {
+        const apiKeyInput = document.getElementById('pagespeedApiKey');
+        const testBtn = document.getElementById('testPagespeed');
+        const saveBtn = document.getElementById('savePagespeed');
+        const removeBtn = document.getElementById('removePagespeed');
+        const statusEl = document.getElementById('pagespeedStatus');
+
+        if (!saveBtn) return;
+
+        // Load saved config
+        if (savedConfig && savedConfig.apiKey) {
+            if (apiKeyInput) apiKeyInput.value = savedConfig.apiKey;
+            updatePagespeedStatusUI(statusEl, true, savedConfig.savedAt);
+            saveBtn.textContent = 'Update';
+            if (removeBtn) removeBtn.style.display = 'inline-flex';
+        }
+
+        // Test API key
+        if (testBtn) {
+            testBtn.addEventListener('click', async function() {
+                const apiKey = apiKeyInput?.value.trim();
+
+                if (!apiKey) {
+                    showNotification('Missing API Key', 'Please enter your PageSpeed Insights API key', 'error');
+                    return;
+                }
+
+                // Show loading state
+                testBtn.disabled = true;
+                testBtn.innerHTML = '<span class="spinner"></span> Testing...';
+
+                try {
+                    // Test the API key with a simple request
+                    const testUrl = 'https://www.google.com';
+                    const response = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(testUrl)}&key=${apiKey}&strategy=mobile&category=performance`);
+
+                    if (response.ok) {
+                        showNotification('API Key Valid', 'PageSpeed Insights API key is working correctly', 'success');
+                        updatePagespeedStatusUI(statusEl, true);
+                    } else if (response.status === 400 || response.status === 403) {
+                        throw new Error('Invalid API key or API not enabled');
+                    } else {
+                        throw new Error(`API returned status ${response.status}`);
+                    }
+                } catch (error) {
+                    showNotification('API Key Invalid', error.message || 'Could not verify API key', 'error');
+                    updatePagespeedStatusUI(statusEl, false);
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                        Test API Key
+                    `;
+                }
+            });
+        }
+
+        // Save API key
+        saveBtn.addEventListener('click', function() {
+            const apiKey = apiKeyInput?.value.trim();
+
+            if (!apiKey) {
+                showNotification('Missing API Key', 'Please enter your PageSpeed Insights API key', 'error');
+                return;
+            }
+
+            const settings = getIntegrationSettings();
+            settings['pagespeed'] = {
+                apiKey: apiKey,
+                savedAt: new Date().toISOString()
+            };
+            saveIntegrationSettings(settings);
+
+            // Also save to a separate key for easy access by other modules
+            localStorage.setItem('pagespeed-api-key', apiKey);
+
+            updatePagespeedStatusUI(statusEl, true);
+            saveBtn.textContent = 'Update';
+            if (removeBtn) removeBtn.style.display = 'inline-flex';
+
+            showNotification('Saved', 'PageSpeed Insights API key saved', 'success');
+        });
+
+        // Remove API key
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if (!confirm('Remove PageSpeed Insights API key?')) return;
+
+                const settings = getIntegrationSettings();
+                delete settings['pagespeed'];
+                saveIntegrationSettings(settings);
+
+                localStorage.removeItem('pagespeed-api-key');
+
+                if (apiKeyInput) apiKeyInput.value = '';
+                updatePagespeedStatusUI(statusEl, false);
+                saveBtn.textContent = 'Save';
+                removeBtn.style.display = 'none';
+
+                showNotification('Removed', 'API key removed. Using free tier.', 'info');
+            });
+        }
+    }
+
+    function updatePagespeedStatusUI(statusEl, configured, savedAt = null) {
+        if (!statusEl) return;
+
+        const indicator = statusEl.querySelector('.status-indicator');
+        const text = statusEl.querySelector('span:last-child');
+
+        if (configured) {
+            indicator.className = 'status-indicator connected';
+            if (savedAt) {
+                const date = new Date(savedAt);
+                text.textContent = 'Configured on ' + date.toLocaleDateString();
+            } else {
+                text.textContent = 'Configured';
+            }
+        } else {
+            indicator.className = 'status-indicator neutral';
+            text.textContent = 'Not configured (using free tier)';
         }
     }
 

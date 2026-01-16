@@ -78,7 +78,14 @@
          * Fetch PageSpeed Insights data
          */
         async fetchPageSpeedData(url, strategy = 'mobile') {
-            const apiUrl = `${CONFIG.pageSpeedApi}?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&category=accessibility&category=seo`;
+            // Check for saved API key (from Settings/Integrations)
+            const apiKey = localStorage.getItem('pagespeed-api-key');
+            let apiUrl = `${CONFIG.pageSpeedApi}?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&category=accessibility&category=seo`;
+
+            // Add API key if configured (enables higher rate limits)
+            if (apiKey) {
+                apiUrl += `&key=${apiKey}`;
+            }
 
             try {
                 const response = await fetch(apiUrl, {

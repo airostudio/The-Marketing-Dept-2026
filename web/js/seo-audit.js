@@ -1436,10 +1436,37 @@
                     <p>Your website passed all technical SEO checks. Great job!</p>
                 </div>
             `;
+            hideFixButton();
             return;
         }
 
         renderIssuesTable(AuditState.issues);
+        showFixButton();
+
+        // Dispatch event for fixer module
+        window.dispatchEvent(new CustomEvent('audit-complete', {
+            detail: { issues: AuditState.issues }
+        }));
+    }
+
+    /**
+     * Show the fix issues button
+     */
+    function showFixButton() {
+        const fixButton = document.getElementById('fixIssues');
+        if (fixButton) {
+            fixButton.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Hide the fix issues button
+     */
+    function hideFixButton() {
+        const fixButton = document.getElementById('fixIssues');
+        if (fixButton) {
+            fixButton.style.display = 'none';
+        }
     }
 
     /**
