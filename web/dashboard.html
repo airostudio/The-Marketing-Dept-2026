@@ -402,13 +402,38 @@
                         <span class="user-name" data-metric="user-name">Not logged in</span>
                         <span class="user-plan" data-metric="user-plan">Free Plan</span>
                     </div>
-                    <button class="user-menu-btn">
+                    <button class="user-menu-btn" id="userMenuBtn" aria-label="User menu">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="1"/>
                             <circle cx="12" cy="5" r="1"/>
                             <circle cx="12" cy="19" r="1"/>
                         </svg>
                     </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="settings.html" class="user-dropdown-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                            </svg>
+                            <span>Settings</span>
+                        </a>
+                        <a href="#" class="user-dropdown-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4m0-4h.01"/>
+                            </svg>
+                            <span>Help & Support</span>
+                        </a>
+                        <div class="user-dropdown-divider"></div>
+                        <button class="user-dropdown-item logout-btn" id="logoutBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                <polyline points="16 17 21 12 16 7"/>
+                                <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -985,7 +1010,66 @@
         <a href="alerts.html" class="notifications-view-all">View all notifications →</a>
     </div>
 
+    <script src="/js/auth.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/dashboard.js"></script>
+    <script>
+        // Dashboard Protection - Redirect if not authenticated
+        (function() {
+            if (!Auth.isAuthenticated()) {
+                // Redirect to landing page with message
+                sessionStorage.setItem('auth_redirect', 'true');
+                window.location.href = '/index.html';
+                return;
+            }
+
+            // Update user info in sidebar
+            const user = Auth.getUser();
+            if (user) {
+                const userName = document.querySelector('[data-metric="user-name"]');
+                const userInitials = document.querySelector('[data-metric="user-initials"]');
+                const welcomeMessage = document.querySelector('[data-metric="welcome-message"]');
+
+                if (userName) {
+                    userName.textContent = user.firstname + ' ' + user.lastname;
+                }
+
+                if (userInitials) {
+                    userInitials.textContent = (user.firstname[0] + user.lastname[0]).toUpperCase();
+                }
+
+                if (welcomeMessage) {
+                    welcomeMessage.textContent = 'Welcome back, ' + user.firstname;
+                }
+            }
+
+            // User dropdown toggle
+            const userMenuBtn = document.getElementById('userMenuBtn');
+            const userDropdown = document.getElementById('userDropdown');
+
+            if (userMenuBtn && userDropdown) {
+                userMenuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('active');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!userDropdown.contains(e.target) && !userMenuBtn.contains(e.target)) {
+                        userDropdown.classList.remove('active');
+                    }
+                });
+            }
+
+            // Logout functionality
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    Auth.logout();
+                    window.location.href = '/index.html';
+                });
+            }
+        })();
+    </script>
 </body>
 </html>
