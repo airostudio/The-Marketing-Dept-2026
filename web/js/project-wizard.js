@@ -687,17 +687,16 @@
             <svg class="spinner" viewBox="0 0 24 24" style="width:20px;height:20px;">
                 <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-linecap="round"/>
             </svg>
-            Starting Audit...
+            Starting Analysis...
         `;
 
-        // Simulate audit start (in production, this would call the API)
-        setTimeout(() => {
-            // Store audit request
-            localStorage.setItem('seo-pending-audit', 'true');
+        // Store project data for analysis engine
+        localStorage.setItem('seo-pending-audit', 'true');
 
-            // Redirect to dashboard
-            window.location.href = 'dashboard.html?audit=started';
-        }, 1500);
+        // Redirect to analysis page
+        setTimeout(() => {
+            window.location.href = 'analyzing.html';
+        }, 1000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════

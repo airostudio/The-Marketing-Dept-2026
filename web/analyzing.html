@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyzing Your Site | SEO Agent</title>
+    <meta name="description" content="SEO Agent is analyzing your website. Please wait while we gather insights.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        :root {
+            --color-bg-primary: #0a0a0f;
+            --color-bg-secondary: #12121a;
+            --color-bg-tertiary: #1a1a25;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-text-primary: #ffffff;
+            --color-text-secondary: #a1a1aa;
+            --color-text-tertiary: #71717a;
+            --color-primary: #6366f1;
+            --color-primary-light: #818cf8;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background Animation */
+        .background-animation {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .background-animation::before {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            top: -25%;
+            left: -25%;
+            background:
+                radial-gradient(ellipse at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+            animation: backgroundPulse 8s ease-in-out infinite;
+        }
+
+        @keyframes backgroundPulse {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.1) rotate(5deg); opacity: 0.8; }
+        }
+
+        /* Grid Pattern */
+        .grid-pattern {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1;
+        }
+
+        /* Main Container */
+        .analysis-container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        .analysis-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .analysis-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, #e4e4e7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .analysis-subtitle {
+            font-size: 16px;
+            color: var(--color-text-secondary);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Main Progress Card */
+        .progress-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 680px;
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        }
+
+        /* Site Info */
+        .site-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: var(--color-bg-tertiary);
+            border-radius: 16px;
+            margin-bottom: 32px;
+        }
+
+        .site-favicon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .site-details {
+            flex: 1;
+        }
+
+        .site-url {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .site-meta {
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+        }
+
+        .site-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-success);
+        }
+
+        .site-status svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Overall Progress */
+        .overall-progress {
+            margin-bottom: 32px;
+        }
+
+        .progress-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .progress-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        .progress-percentage {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .progress-bar-container {
+            height: 8px;
+            background: var(--color-bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), #8B5CF6);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255,255,255,0.3) 50%,
+                transparent 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-time {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+        }
+
+        .progress-time svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Tasks List */
+        .tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: var(--color-bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .task-item.active {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .task-item.completed {
+            background: rgba(16, 185, 129, 0.05);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .task-item.error {
+            background: rgba(239, 68, 68, 0.05);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .task-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-tertiary);
+            transition: all 0.3s ease;
+        }
+
+        .task-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .task-item.active .task-icon {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--color-primary);
+        }
+
+        .task-item.completed .task-icon {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--color-success);
+        }
+
+        .task-item.error .task-icon {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-error);
+        }
+
+        .task-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .task-description {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-item.active .task-description {
+            color: var(--color-text-secondary);
+        }
+
+        .task-status {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .task-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .task-check {
+            width: 20px;
+            height: 20px;
+            background: var(--color-success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            animation: scaleIn 0.3s ease;
+        }
+
+        .task-check svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        .task-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .task-item.completed .task-count {
+            color: var(--color-success);
+        }
+
+        /* Live Stats */
+        .live-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 16px;
+            background: var(--color-bg-tertiary);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item.updated {
+            animation: statPulse 0.5s ease;
+        }
+
+        @keyframes statPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); background: rgba(99, 102, 241, 0.1); }
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Live Log */
+        .live-log {
+            margin-top: 24px;
+            padding: 16px;
+            background: var(--color-bg-primary);
+            border-radius: 12px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--color-text-tertiary);
+            padding: 4px 0;
+            display: flex;
+            gap: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-time {
+            color: var(--color-text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .log-message {
+            color: var(--color-text-secondary);
+        }
+
+        .log-entry.success .log-message {
+            color: var(--color-success);
+        }
+
+        .log-entry.warning .log-message {
+            color: var(--color-warning);
+        }
+
+        .log-entry.error .log-message {
+            color: var(--color-error);
+        }
+
+        /* Completion State */
+        .completion-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .completion-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .completion-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            padding: 48px;
+            text-align: center;
+            max-width: 520px;
+            transform: scale(0.9) translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .completion-overlay.visible .completion-card {
+            transform: scale(1) translateY(0);
+        }
+
+        .completion-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(16, 185, 129, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            animation: successPulse 2s ease infinite;
+        }
+
+        @keyframes successPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+        }
+
+        .completion-icon svg {
+            width: 40px;
+            height: 40px;
+            color: var(--color-success);
+        }
+
+        .completion-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .completion-subtitle {
+            font-size: 15px;
+            color: var(--color-text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .completion-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .completion-stat {
+            padding: 16px;
+            background: var(--color-bg-tertiary);
+            border-radius: 12px;
+        }
+
+        .completion-stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 4px;
+        }
+
+        .completion-stat-label {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+        }
+
+        .completion-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .completion-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.4);
+        }
+
+        .completion-cta svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .progress-card {
+                padding: 24px;
+            }
+
+            .live-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .completion-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .site-info {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .site-status {
+                margin-top: 12px;
+            }
+        }
+
+        /* Particle effect for completion */
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 101;
+        }
+
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            animation: particleFly 1s ease-out forwards;
+        }
+
+        @keyframes particleFly {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation"></div>
+    <div class="grid-pattern"></div>
+
+    <div class="analysis-container">
+        <header class="analysis-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 48 48" fill="none">
+                    <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
+                    <path d="M14 34L24 14L34 34" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M17 29H31" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="24" cy="24" r="4" fill="white"/>
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+                            <stop stop-color="#6366F1"/>
+                            <stop offset="1" stop-color="#8B5CF6"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span class="logo-text">SEO Agent</span>
+            </div>
+            <h1 class="analysis-title">Analyzing Your Website</h1>
+            <p class="analysis-subtitle">We're gathering SEO insights, technical data, and competitive intelligence. This usually takes 2-5 minutes.</p>
+        </header>
+
+        <div class="progress-card">
+            <!-- Site Info -->
+            <div class="site-info">
+                <div class="site-favicon" id="siteFavicon">S</div>
+                <div class="site-details">
+                    <div class="site-url" id="siteUrl">example.com</div>
+                    <div class="site-meta" id="siteMeta">Analyzing site structure...</div>
+                </div>
+                <div class="site-status" id="siteStatus">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <span>In Progress</span>
+                </div>
+            </div>
+
+            <!-- Overall Progress -->
+            <div class="overall-progress">
+                <div class="progress-header">
+                    <span class="progress-label">Overall Progress</span>
+                    <span class="progress-percentage" id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-time">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span id="timeRemaining">Estimated time: ~3 minutes</span>
+                </div>
+            </div>
+
+            <!-- Tasks -->
+            <div class="tasks-list" id="tasksList">
+                <div class="task-item" data-task="crawl">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Site Crawl</div>
+                        <div class="task-description">Discovering pages and site structure...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="crawlCount">0 pages</span>
+                    </div>
+                </div>
+
+                <div class="task-item" data-task="audit">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <path d="M9 15l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Technical Audit</div>
+                        <div class="task-description">Waiting to start...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="auditCount">0 issues</span>
+                    </div>
+                </div>
+
+                <div class="task-item" data-task="keywords">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Keyword Analysis</div>
+                        <div class="task-description">Waiting to start...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="keywordCount">0 keywords</span>
+                    </div>
+                </div>
+
+                <div class="task-item" data-task="backlinks">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Backlink Analysis</div>
+                        <div class="task-description">Waiting to start...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="backlinkCount">0 links</span>
+                    </div>
+                </div>
+
+                <div class="task-item" data-task="competitors">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Competitor Analysis</div>
+                        <div class="task-description">Waiting to start...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="competitorCount">0 competitors</span>
+                    </div>
+                </div>
+
+                <div class="task-item" data-task="report">
+                    <div class="task-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20V10"/>
+                            <path d="M18 20V4"/>
+                            <path d="M6 20v-4"/>
+                        </svg>
+                    </div>
+                    <div class="task-content">
+                        <div class="task-name">Generating Report</div>
+                        <div class="task-description">Waiting for analysis to complete...</div>
+                    </div>
+                    <div class="task-status">
+                        <span class="task-count" id="reportStatus">Pending</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Stats -->
+            <div class="live-stats">
+                <div class="stat-item" id="statPages">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Pages Found</div>
+                </div>
+                <div class="stat-item" id="statIssues">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Issues Found</div>
+                </div>
+                <div class="stat-item" id="statScore">
+                    <div class="stat-value">--</div>
+                    <div class="stat-label">Health Score</div>
+                </div>
+                <div class="stat-item" id="statKeywords">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Keywords</div>
+                </div>
+            </div>
+
+            <!-- Live Log -->
+            <div class="live-log" id="liveLog">
+                <div class="log-entry">
+                    <span class="log-time">00:00</span>
+                    <span class="log-message">Starting analysis...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completion Overlay -->
+    <div class="completion-overlay" id="completionOverlay">
+        <div class="completion-card">
+            <div class="completion-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <h2 class="completion-title">Analysis Complete!</h2>
+            <p class="completion-subtitle">We've gathered comprehensive SEO data for your website. Your dashboard is ready.</p>
+
+            <div class="completion-stats">
+                <div class="completion-stat">
+                    <div class="completion-stat-value" id="finalScore">85</div>
+                    <div class="completion-stat-label">Health Score</div>
+                </div>
+                <div class="completion-stat">
+                    <div class="completion-stat-value" id="finalIssues">23</div>
+                    <div class="completion-stat-label">Issues Found</div>
+                </div>
+                <div class="completion-stat">
+                    <div class="completion-stat-value" id="finalPages">156</div>
+                    <div class="completion-stat-label">Pages Analyzed</div>
+                </div>
+            </div>
+
+            <a href="dashboard.html" class="completion-cta" id="goToDashboard">
+                View Your Dashboard
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <div class="particles" id="particles"></div>
+
+    <script src="/js/analysis-engine.js"></script>
+</body>
+</html>
