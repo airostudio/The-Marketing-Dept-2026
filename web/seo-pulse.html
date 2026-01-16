@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Pulse | Instant Website Health Check</title>
+    <meta name="description" content="Get an instant SEO health check for any website. Free, fast, and comprehensive analysis in under 60 seconds.">
+    <link rel="canonical" href="/seo-pulse.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg-primary: #0a0a0f;
+            --color-bg-secondary: #12121a;
+            --color-bg-tertiary: #1a1a25;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-text-primary: #ffffff;
+            --color-text-secondary: #a1a1aa;
+            --color-text-tertiary: #71717a;
+            --color-primary: #6366f1;
+            --color-primary-light: #818cf8;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background */
+        .background {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .background::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
+            animation: bgRotate 30s linear infinite;
+        }
+
+        @keyframes bgRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 10;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-link {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .header-link:hover {
+            color: var(--color-text-primary);
+        }
+
+        .header-cta {
+            padding: 10px 20px;
+            background: var(--color-primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .header-cta:hover {
+            background: var(--color-primary-light);
+            transform: translateY(-1px);
+        }
+
+        /* Main Container */
+        .main-container {
+            position: relative;
+            z-index: 10;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px 100px;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-primary-light);
+            margin-bottom: 24px;
+        }
+
+        .badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .hero-title {
+            font-size: 56px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-title span {
+            background: linear-gradient(135deg, var(--color-primary) 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            color: var(--color-text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Input Section */
+        .input-section {
+            margin-bottom: 32px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .url-input-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 18px 20px 18px 52px;
+            background: var(--color-bg-secondary);
+            border: 2px solid var(--color-border);
+            border-radius: 14px;
+            color: var(--color-text-primary);
+            font-size: 16px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+
+        .url-input::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+        .url-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            color: var(--color-text-tertiary);
+        }
+
+        .scan-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 32px;
+            background: linear-gradient(135deg, var(--color-primary) 0%, #8B5CF6 100%);
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .scan-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.4);
+        }
+
+        .scan-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .scan-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .scan-btn .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .input-hint {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Features */
+        .features {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--color-text-secondary);
+        }
+
+        .feature svg {
+            width: 18px;
+            height: 18px;
+            color: var(--color-success);
+        }
+
+        /* Scanning State */
+        .scanning-state {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            margin-bottom: 32px;
+        }
+
+        .scanning-state.active {
+            display: block;
+        }
+
+        .pulse-ring {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 32px;
+            position: relative;
+        }
+
+        .pulse-ring::before,
+        .pulse-ring::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 3px solid var(--color-primary);
+        }
+
+        .pulse-ring::before {
+            animation: pulse 2s ease-out infinite;
+        }
+
+        .pulse-ring::after {
+            animation: pulse 2s ease-out infinite 1s;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .pulse-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pulse-center svg {
+            width: 28px;
+            height: 28px;
+            color: white;
+            animation: heartbeat 1s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .scanning-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .scanning-url {
+            font-size: 15px;
+            color: var(--color-text-secondary);
+            margin-bottom: 24px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .scanning-progress {
+            max-width: 400px;
+            margin: 0 auto 16px;
+        }
+
+        .progress-bar-bg {
+            height: 6px;
+            background: var(--color-bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), #ec4899);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .scanning-status {
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+        }
+
+        .scanning-checks {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--color-bg-tertiary);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            transition: all 0.3s;
+        }
+
+        .check-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--color-primary-light);
+        }
+
+        .check-item.complete {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--color-success);
+        }
+
+        .check-item svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Results Section */
+        .results-section {
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Score Card */
+        .score-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .score-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--color-primary), #ec4899, var(--color-primary));
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .score-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .score-domain {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-favicon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+        }
+
+        .score-url {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .score-ring {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 24px;
+            position: relative;
+        }
+
+        .score-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .score-ring-bg {
+            fill: none;
+            stroke: var(--color-bg-tertiary);
+            stroke-width: 12;
+        }
+
+        .score-ring-fill {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            stroke-dasharray: 565;
+            stroke-dashoffset: 565;
+            transition: stroke-dashoffset 1.5s ease;
+        }
+
+        .score-ring-fill.excellent { stroke: url(#scoreGradientGreen); }
+        .score-ring-fill.good { stroke: url(#scoreGradientYellow); }
+        .score-ring-fill.poor { stroke: url(#scoreGradientRed); }
+
+        .score-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .score-number {
+            font-size: 56px;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, #fff, #a1a1aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-label {
+            font-size: 14px;
+            color: var(--color-text-tertiary);
+            margin-top: 4px;
+        }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .score-badge.excellent {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--color-success);
+        }
+
+        .score-badge.good {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+
+        .score-badge.poor {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-error);
+        }
+
+        .score-badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .metric-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+        }
+
+        .metric-icon {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 12px;
+            background: var(--color-bg-tertiary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .metric-icon svg {
+            width: 22px;
+            height: 22px;
+            color: var(--color-text-secondary);
+        }
+
+        .metric-icon.success { background: rgba(16, 185, 129, 0.15); }
+        .metric-icon.success svg { color: var(--color-success); }
+        .metric-icon.warning { background: rgba(245, 158, 11, 0.15); }
+        .metric-icon.warning svg { color: var(--color-warning); }
+        .metric-icon.error { background: rgba(239, 68, 68, 0.15); }
+        .metric-icon.error svg { color: var(--color-error); }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Issues Section */
+        .issues-section {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .issues-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .issues-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .issues-count {
+            display: flex;
+            gap: 12px;
+        }
+
+        .issue-count-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .issue-count-badge.critical {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-error);
+        }
+
+        .issue-count-badge.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+
+        .issue-count-badge.notice {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .issues-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .issue-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            background: var(--color-bg-tertiary);
+            border-radius: 12px;
+            border-left: 3px solid transparent;
+        }
+
+        .issue-item.critical { border-left-color: var(--color-error); }
+        .issue-item.warning { border-left-color: var(--color-warning); }
+        .issue-item.notice { border-left-color: #3b82f6; }
+
+        .issue-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .issue-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .issue-item.critical .issue-icon {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-error);
+        }
+
+        .issue-item.warning .issue-icon {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+
+        .issue-item.notice .issue-icon {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .issue-content {
+            flex: 1;
+        }
+
+        .issue-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 2px;
+        }
+
+        .issue-desc {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+        }
+
+        .issue-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .issue-item.critical .issue-badge {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-error);
+        }
+
+        .issue-item.warning .issue-badge {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+
+        .issue-item.notice .issue-badge {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .cta-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .cta-subtitle {
+            font-size: 15px;
+            color: var(--color-text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .cta-btn.primary {
+            background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+            color: white;
+        }
+
+        .cta-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
+        }
+
+        .cta-btn.secondary {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+        }
+
+        .cta-btn.secondary:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-primary);
+        }
+
+        .cta-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 36px;
+            }
+
+            .input-wrapper {
+                flex-direction: column;
+            }
+
+            .scan-btn {
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .features {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 16px 20px;
+            }
+
+            .header-nav {
+                display: none;
+            }
+
+            .main-container {
+                padding: 40px 16px 80px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <a href="index.html" class="logo">
+            <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+                <rect width="40" height="40" rx="10" fill="url(#logoGrad)"/>
+                <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M14 24H26" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="20" cy="20" r="3" fill="white"/>
+                <defs>
+                    <linearGradient id="logoGrad" x1="0" y1="0" x2="40" y2="40">
+                        <stop stop-color="#6366F1"/>
+                        <stop offset="1" stop-color="#8B5CF6"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <span class="logo-text">SEO Agent</span>
+        </a>
+        <nav class="header-nav">
+            <a href="index.html" class="header-link">Home</a>
+            <a href="dashboard.html" class="header-link">Dashboard</a>
+            <a href="project-wizard.html" class="header-cta">Start Full Project</a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Hero Section -->
+        <section class="hero" id="heroSection">
+            <div class="badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+                Instant Results in 60 Seconds
+            </div>
+            <h1 class="hero-title">
+                <span>SEO Pulse</span><br>
+                Quick Health Check
+            </h1>
+            <p class="hero-subtitle">
+                Get an instant SEO health assessment for any website. No signup required - just enter a URL and discover critical issues in under a minute.
+            </p>
+        </section>
+
+        <!-- Input Section -->
+        <section class="input-section" id="inputSection">
+            <div class="input-wrapper">
+                <div class="url-input-container">
+                    <svg class="url-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <input type="url" class="url-input" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" autocomplete="off">
+                </div>
+                <button class="scan-btn" id="scanBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    Check Pulse
+                </button>
+            </div>
+            <p class="input-hint">Free instant analysis - No account required</p>
+        </section>
+
+        <!-- Features -->
+        <div class="features" id="featuresSection">
+            <div class="feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Technical SEO Audit
+            </div>
+            <div class="feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Performance Analysis
+            </div>
+            <div class="feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Mobile Friendliness
+            </div>
+            <div class="feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Security Check
+            </div>
+        </div>
+
+        <!-- Scanning State -->
+        <section class="scanning-state" id="scanningState">
+            <div class="pulse-ring">
+                <div class="pulse-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+            </div>
+            <h2 class="scanning-title">Checking Pulse...</h2>
+            <p class="scanning-url" id="scanningUrl">example.com</p>
+            <div class="scanning-progress">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progressFill"></div>
+                </div>
+            </div>
+            <p class="scanning-status" id="scanningStatus">Initializing scan...</p>
+            <div class="scanning-checks">
+                <div class="check-item" data-check="ssl">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    SSL/Security
+                </div>
+                <div class="check-item" data-check="meta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    Meta Tags
+                </div>
+                <div class="check-item" data-check="performance">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    Performance
+                </div>
+                <div class="check-item" data-check="mobile">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                        <line x1="12" y1="18" x2="12.01" y2="18"/>
+                    </svg>
+                    Mobile
+                </div>
+                <div class="check-item" data-check="content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                    Content
+                </div>
+                <div class="check-item" data-check="links">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    Links
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection">
+            <!-- SVG Gradients -->
+            <svg width="0" height="0">
+                <defs>
+                    <linearGradient id="scoreGradientGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#10b981"/>
+                        <stop offset="100%" stop-color="#34d399"/>
+                    </linearGradient>
+                    <linearGradient id="scoreGradientYellow" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#fbbf24"/>
+                    </linearGradient>
+                    <linearGradient id="scoreGradientRed" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#ef4444"/>
+                        <stop offset="100%" stop-color="#f87171"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            <!-- Score Card -->
+            <div class="score-card">
+                <div class="score-header">
+                    <div class="score-domain">
+                        <div class="score-favicon" id="resultFavicon">E</div>
+                        <span class="score-url" id="resultUrl">example.com</span>
+                    </div>
+                </div>
+
+                <div class="score-ring">
+                    <svg viewBox="0 0 200 200">
+                        <circle class="score-ring-bg" cx="100" cy="100" r="90"/>
+                        <circle class="score-ring-fill excellent" id="scoreRingFill" cx="100" cy="100" r="90"/>
+                    </svg>
+                    <div class="score-value">
+                        <div class="score-number" id="scoreNumber">0</div>
+                        <div class="score-label">SEO Score</div>
+                    </div>
+                </div>
+
+                <div class="score-badge excellent" id="scoreBadge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <span id="scoreBadgeText">Excellent Health</span>
+                </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="metrics-grid" id="metricsGrid">
+                <!-- Metrics will be populated by JS -->
+            </div>
+
+            <!-- Issues Section -->
+            <div class="issues-section">
+                <div class="issues-header">
+                    <h3 class="issues-title">Issues Found</h3>
+                    <div class="issues-count" id="issuesCounts">
+                        <!-- Counts will be populated by JS -->
+                    </div>
+                </div>
+                <div class="issues-list" id="issuesList">
+                    <!-- Issues will be populated by JS -->
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="cta-section">
+                <h3 class="cta-title">Want the Full Picture?</h3>
+                <p class="cta-subtitle">Start a comprehensive SEO project to track keywords, backlinks, competitors, and get ongoing monitoring.</p>
+                <div class="cta-buttons">
+                    <a href="project-wizard.html" class="cta-btn primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Start Full Project
+                    </a>
+                    <button class="cta-btn secondary" id="scanAnotherBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        Scan Another Site
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // Elements
+        const urlInput = document.getElementById('urlInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const heroSection = document.getElementById('heroSection');
+        const inputSection = document.getElementById('inputSection');
+        const featuresSection = document.getElementById('featuresSection');
+        const scanningState = document.getElementById('scanningState');
+        const resultsSection = document.getElementById('resultsSection');
+        const scanAnotherBtn = document.getElementById('scanAnotherBtn');
+
+        // Scanning elements
+        const scanningUrl = document.getElementById('scanningUrl');
+        const progressFill = document.getElementById('progressFill');
+        const scanningStatus = document.getElementById('scanningStatus');
+        const checkItems = document.querySelectorAll('.check-item');
+
+        // Results elements
+        const resultFavicon = document.getElementById('resultFavicon');
+        const resultUrl = document.getElementById('resultUrl');
+        const scoreNumber = document.getElementById('scoreNumber');
+        const scoreRingFill = document.getElementById('scoreRingFill');
+        const scoreBadge = document.getElementById('scoreBadge');
+        const scoreBadgeText = document.getElementById('scoreBadgeText');
+        const metricsGrid = document.getElementById('metricsGrid');
+        const issuesCounts = document.getElementById('issuesCounts');
+        const issuesList = document.getElementById('issuesList');
+
+        // State
+        let isScanning = false;
+
+        // Initialize
+        urlInput.addEventListener('input', validateUrl);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') startScan();
+        });
+        scanBtn.addEventListener('click', startScan);
+        scanAnotherBtn.addEventListener('click', resetToInput);
+
+        // Validate URL
+        function validateUrl() {
+            const url = urlInput.value.trim();
+            scanBtn.disabled = !isValidUrl(url);
+        }
+
+        function isValidUrl(string) {
+            try {
+                const url = new URL(string.startsWith('http') ? string : `https://${string}`);
+                return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch {
+                return false;
+            }
+        }
+
+        // Start Scan
+        function startScan() {
+            let url = urlInput.value.trim();
+            if (!url) return;
+
+            // Add protocol if missing
+            if (!url.startsWith('http')) {
+                url = 'https://' + url;
+            }
+
+            if (!isValidUrl(url)) return;
+            if (isScanning) return;
+
+            isScanning = true;
+
+            // Get domain
+            const urlObj = new URL(url);
+            const domain = urlObj.hostname;
+
+            // Update UI
+            scanningUrl.textContent = domain;
+            scanBtn.innerHTML = '<div class="spinner"></div> Scanning...';
+            scanBtn.disabled = true;
+
+            // Show scanning state
+            heroSection.style.display = 'none';
+            inputSection.style.display = 'none';
+            featuresSection.style.display = 'none';
+            resultsSection.classList.remove('active');
+            scanningState.classList.add('active');
+
+            // Reset checks
+            checkItems.forEach(item => {
+                item.classList.remove('active', 'complete');
+            });
+            progressFill.style.width = '0%';
+
+            // Run scan
+            runScan(domain, url);
+        }
+
+        // Run Scan
+        async function runScan(domain, url) {
+            const checks = ['ssl', 'meta', 'performance', 'mobile', 'content', 'links'];
+            const statuses = [
+                'Checking SSL certificate...',
+                'Analyzing meta tags...',
+                'Testing page performance...',
+                'Checking mobile friendliness...',
+                'Analyzing content structure...',
+                'Checking internal links...',
+                'Compiling results...'
+            ];
+
+            let progress = 0;
+            const progressStep = 100 / checks.length;
+
+            for (let i = 0; i < checks.length; i++) {
+                // Update status
+                scanningStatus.textContent = statuses[i];
+
+                // Activate check
+                const checkItem = document.querySelector(`[data-check="${checks[i]}"]`);
+                if (checkItem) {
+                    checkItem.classList.add('active');
+                }
+
+                // Simulate check duration
+                await sleep(randomInt(600, 1200));
+
+                // Complete check
+                if (checkItem) {
+                    checkItem.classList.remove('active');
+                    checkItem.classList.add('complete');
+                }
+
+                // Update progress
+                progress += progressStep;
+                progressFill.style.width = `${Math.min(progress, 100)}%`;
+            }
+
+            // Final status
+            scanningStatus.textContent = 'Analysis complete!';
+            progressFill.style.width = '100%';
+
+            await sleep(500);
+
+            // Generate and show results
+            const results = generateResults(domain, url);
+            showResults(results);
+        }
+
+        // Generate Results
+        function generateResults(domain, url) {
+            const urlObj = new URL(url);
+            const isHttps = urlObj.protocol === 'https:';
+
+            // Base score
+            let score = randomInt(55, 92);
+
+            // Adjust based on HTTPS
+            if (!isHttps) score -= 15;
+
+            // Generate issues
+            const allIssues = [
+                { name: 'Missing Meta Description', desc: 'Homepage lacks a meta description tag', severity: 'critical', category: 'meta' },
+                { name: 'Slow Page Load', desc: 'Page takes over 3 seconds to load', severity: 'critical', category: 'performance' },
+                { name: 'No SSL Certificate', desc: 'Site is not secured with HTTPS', severity: 'critical', category: 'security' },
+                { name: 'Missing H1 Tag', desc: 'Primary heading tag not found', severity: 'warning', category: 'content' },
+                { name: 'Images Without Alt Text', desc: '5 images missing alt attributes', severity: 'warning', category: 'accessibility' },
+                { name: 'Duplicate Title Tags', desc: 'Multiple pages share the same title', severity: 'warning', category: 'meta' },
+                { name: 'Large Image Files', desc: '3 images over 500KB detected', severity: 'warning', category: 'performance' },
+                { name: 'Missing Canonical URL', desc: 'No canonical tag specified', severity: 'notice', category: 'technical' },
+                { name: 'No Sitemap Found', desc: 'XML sitemap not detected', severity: 'notice', category: 'technical' },
+                { name: 'Missing Robots.txt', desc: 'Robots.txt file not found', severity: 'notice', category: 'technical' },
+                { name: 'Low Text-to-HTML Ratio', desc: 'Content ratio below recommended level', severity: 'notice', category: 'content' },
+                { name: 'No Schema Markup', desc: 'Structured data not implemented', severity: 'notice', category: 'technical' }
+            ];
+
+            // Select random issues
+            const issueCount = randomInt(4, 8);
+            const shuffled = allIssues.sort(() => 0.5 - Math.random());
+            let issues = shuffled.slice(0, issueCount);
+
+            // If HTTPS, remove SSL issue
+            if (isHttps) {
+                issues = issues.filter(i => i.name !== 'No SSL Certificate');
+            } else {
+                // Ensure SSL issue is included
+                if (!issues.find(i => i.name === 'No SSL Certificate')) {
+                    issues.unshift(allIssues.find(i => i.name === 'No SSL Certificate'));
+                }
+            }
+
+            // Adjust score based on issues
+            const criticalCount = issues.filter(i => i.severity === 'critical').length;
+            const warningCount = issues.filter(i => i.severity === 'warning').length;
+            score -= criticalCount * 8;
+            score -= warningCount * 3;
+            score = Math.max(25, Math.min(98, score));
+
+            // Generate metrics
+            const metrics = {
+                performance: randomInt(40, 95),
+                seo: randomInt(50, 90),
+                mobile: randomInt(60, 100),
+                security: isHttps ? randomInt(80, 100) : randomInt(20, 50)
+            };
+
+            return {
+                domain,
+                url,
+                score,
+                metrics,
+                issues,
+                isHttps
+            };
+        }
+
+        // Show Results
+        function showResults(results) {
+            // Hide scanning, show results
+            scanningState.classList.remove('active');
+            resultsSection.classList.add('active');
+
+            // Reset button
+            scanBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                Check Pulse
+            `;
+            scanBtn.disabled = false;
+            isScanning = false;
+
+            // Update domain info
+            resultFavicon.textContent = results.domain.charAt(0).toUpperCase();
+            resultUrl.textContent = results.domain;
+
+            // Animate score
+            animateScore(results.score);
+
+            // Update score badge
+            updateScoreBadge(results.score);
+
+            // Update metrics
+            updateMetrics(results.metrics);
+
+            // Update issues
+            updateIssues(results.issues);
+        }
+
+        // Animate Score
+        function animateScore(targetScore) {
+            const duration = 1500;
+            const startTime = performance.now();
+
+            // Update ring class based on score
+            scoreRingFill.classList.remove('excellent', 'good', 'poor');
+            if (targetScore >= 80) {
+                scoreRingFill.classList.add('excellent');
+            } else if (targetScore >= 50) {
+                scoreRingFill.classList.add('good');
+            } else {
+                scoreRingFill.classList.add('poor');
+            }
+
+            // Animate
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Easing
+                const eased = 1 - Math.pow(1 - progress, 4);
+
+                // Update number
+                const currentScore = Math.round(targetScore * eased);
+                scoreNumber.textContent = currentScore;
+
+                // Update ring (circumference = 2 * PI * 90 ≈ 565)
+                const offset = 565 - (565 * (targetScore / 100) * eased);
+                scoreRingFill.style.strokeDashoffset = offset;
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Update Score Badge
+        function updateScoreBadge(score) {
+            scoreBadge.classList.remove('excellent', 'good', 'poor');
+
+            if (score >= 80) {
+                scoreBadge.classList.add('excellent');
+                scoreBadgeText.textContent = 'Excellent Health';
+                scoreBadge.querySelector('svg').innerHTML = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
+            } else if (score >= 50) {
+                scoreBadge.classList.add('good');
+                scoreBadgeText.textContent = 'Needs Improvement';
+                scoreBadge.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+            } else {
+                scoreBadge.classList.add('poor');
+                scoreBadgeText.textContent = 'Critical Issues';
+                scoreBadge.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>';
+            }
+        }
+
+        // Update Metrics
+        function updateMetrics(metrics) {
+            const metricConfigs = [
+                { key: 'performance', label: 'Performance', icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
+                { key: 'seo', label: 'SEO Score', icon: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>' },
+                { key: 'mobile', label: 'Mobile', icon: '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>' },
+                { key: 'security', label: 'Security', icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' }
+            ];
+
+            metricsGrid.innerHTML = metricConfigs.map(config => {
+                const value = metrics[config.key];
+                let statusClass = 'success';
+                if (value < 50) statusClass = 'error';
+                else if (value < 70) statusClass = 'warning';
+
+                return `
+                    <div class="metric-card">
+                        <div class="metric-icon ${statusClass}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                ${config.icon}
+                            </svg>
+                        </div>
+                        <div class="metric-value">${value}</div>
+                        <div class="metric-label">${config.label}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update Issues
+        function updateIssues(issues) {
+            const critical = issues.filter(i => i.severity === 'critical');
+            const warning = issues.filter(i => i.severity === 'warning');
+            const notice = issues.filter(i => i.severity === 'notice');
+
+            // Update counts
+            issuesCounts.innerHTML = `
+                ${critical.length > 0 ? `<span class="issue-count-badge critical">${critical.length} Critical</span>` : ''}
+                ${warning.length > 0 ? `<span class="issue-count-badge warning">${warning.length} Warning</span>` : ''}
+                ${notice.length > 0 ? `<span class="issue-count-badge notice">${notice.length} Notice</span>` : ''}
+            `;
+
+            // Sort issues by severity
+            const sortedIssues = [...critical, ...warning, ...notice];
+
+            // Update list
+            issuesList.innerHTML = sortedIssues.map(issue => {
+                const icons = {
+                    critical: '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+                    warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+                    notice: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+                };
+
+                return `
+                    <div class="issue-item ${issue.severity}">
+                        <div class="issue-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                ${icons[issue.severity]}
+                            </svg>
+                        </div>
+                        <div class="issue-content">
+                            <div class="issue-name">${issue.name}</div>
+                            <div class="issue-desc">${issue.desc}</div>
+                        </div>
+                        <span class="issue-badge">${issue.severity}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Reset to Input
+        function resetToInput() {
+            resultsSection.classList.remove('active');
+            heroSection.style.display = 'block';
+            inputSection.style.display = 'block';
+            featuresSection.style.display = 'flex';
+            urlInput.value = '';
+            urlInput.focus();
+            validateUrl();
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Utilities
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+    })();
+    </script>
+</body>
+</html>
