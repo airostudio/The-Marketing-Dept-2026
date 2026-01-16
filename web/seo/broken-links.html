@@ -114,7 +114,15 @@
                 <div class="page-header">
                     <div class="page-header-content">
                         <h1>Broken Links (404s)</h1>
-                        <p>Find broken pages that have backlinks pointing to them</p>
+                        <p>Find and fix broken links discovered during site audits</p>
+                    </div>
+                    <div class="page-header-actions">
+                        <button class="btn btn-primary" id="runLinkCheck">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                            Run Full Audit
+                        </button>
                     </div>
                 </div>
 
@@ -128,8 +136,8 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">23</span>
-                            <span class="alert-stat-label">Broken Internal Links</span>
+                            <span class="alert-stat-number" data-metric="total-broken">0</span>
+                            <span class="alert-stat-label">Broken Links Found</span>
                         </div>
                     </div>
                     <div class="alert-stat high">
@@ -140,8 +148,8 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">8</span>
-                            <span class="alert-stat-label">With External Backlinks</span>
+                            <span class="alert-stat-number" data-metric="404-errors">0</span>
+                            <span class="alert-stat-label">404 Errors</span>
                         </div>
                     </div>
                     <div class="alert-stat medium">
@@ -152,8 +160,8 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">142</span>
-                            <span class="alert-stat-label">Total Lost Link Equity</span>
+                            <span class="alert-stat-number" data-metric="links-checked">0</span>
+                            <span class="alert-stat-label">Links Checked</span>
                         </div>
                     </div>
                     <div class="alert-stat low">
@@ -164,20 +172,49 @@
                             </svg>
                         </div>
                         <div class="alert-stat-content">
-                            <span class="alert-stat-number">2h</span>
+                            <span class="alert-stat-number" data-metric="last-checked">Never</span>
                             <span class="alert-stat-label">Last Checked</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- No Data State -->
+                <div id="noDataState" class="data-table-card" style="display: none;">
+                    <div class="empty-state" style="padding: 48px; text-align: center;">
+                        <div class="empty-state-icon" style="margin-bottom: 16px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;color:var(--color-text-tertiary);">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                                <line x1="12" y1="2" x2="12" y2="12"/>
+                            </svg>
+                        </div>
+                        <h3 style="margin-bottom: 8px;">No Broken Links Data</h3>
+                        <p style="color: var(--color-text-secondary); margin-bottom: 16px;">Run a full site audit from the Automated Audits page to discover broken links on your website.</p>
+                        <a href="audits.html" class="btn btn-primary">Go to Automated Audits</a>
+                    </div>
+                </div>
+
+                <!-- Success State -->
+                <div id="successState" class="data-table-card" style="display: none;">
+                    <div class="success-state" style="padding: 48px; text-align: center;">
+                        <div style="margin-bottom: 16px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;color:var(--color-success);">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                        <h3 style="margin-bottom: 8px; color: var(--color-success);">No Broken Links Found!</h3>
+                        <p style="color: var(--color-text-secondary);">Great news! All the links we checked on your site are working properly.</p>
+                    </div>
+                </div>
+
                 <!-- Broken Links Table -->
-                <div class="data-table-card">
+                <div class="data-table-card" id="brokenLinksTable" style="display: none;">
                     <div class="data-table-header">
-                        <h3 class="data-table-title">Broken Links with Backlinks</h3>
-                        <div class="filter-tabs">
-                            <button class="filter-tab active">All (23)</button>
-                            <button class="filter-tab">With Backlinks (8)</button>
-                            <button class="filter-tab">Internal Only (15)</button>
+                        <h3 class="data-table-title">Broken Links Detected</h3>
+                        <div class="filter-tabs" id="filterTabs">
+                            <button class="filter-tab active" data-filter="all">All (<span data-count="all">0</span>)</button>
+                            <button class="filter-tab" data-filter="404">404 Errors (<span data-count="404">0</span>)</button>
+                            <button class="filter-tab" data-filter="other">Other Errors (<span data-count="other">0</span>)</button>
                         </div>
                     </div>
                     <table class="data-table">
@@ -185,79 +222,213 @@
                             <tr>
                                 <th>Broken URL</th>
                                 <th>Status</th>
-                                <th>Backlinks</th>
-                                <th>Link Equity</th>
                                 <th>Found On</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr>
-                                <td class="url-cell">/blog/old-seo-guide-2024</td>
-                                <td><span class="severity-badge critical">404</span></td>
-                                <td>12</td>
-                                <td>High</td>
-                                <td>/blog, /resources</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Add Redirect</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/products/discontinued-item</td>
-                                <td><span class="severity-badge critical">404</span></td>
-                                <td>8</td>
-                                <td>Medium</td>
-                                <td>/shop, /deals</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Add Redirect</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/team/former-employee</td>
-                                <td><span class="severity-badge critical">404</span></td>
-                                <td>3</td>
-                                <td>Low</td>
-                                <td>/about</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Add Redirect</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/services/old-service</td>
-                                <td><span class="severity-badge critical">404</span></td>
-                                <td>5</td>
-                                <td>Medium</td>
-                                <td>/services</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Add Redirect</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/resources/deleted-whitepaper</td>
-                                <td><span class="severity-badge critical">404</span></td>
-                                <td>0</td>
-                                <td>None</td>
-                                <td>/resources</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline">Fix Link</button>
-                                </td>
-                            </tr>
+                        <tbody id="brokenLinksBody">
                         </tbody>
                     </table>
-                </div>
-
-                <div class="pagination">
-                    <button class="pagination-btn" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                    </button>
-                    <span class="pagination-info">Page 1 of 3</span>
-                    <button class="pagination-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                    </button>
                 </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/seo-modules.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        let allBrokenLinks = [];
+        let currentFilter = 'all';
+
+        function init() {
+            loadBrokenLinksData();
+            setupEventListeners();
+        }
+
+        function loadBrokenLinksData() {
+            const data = localStorage.getItem('seo-broken-links');
+
+            if (!data) {
+                showNoDataState();
+                return;
+            }
+
+            const parsed = JSON.parse(data);
+            allBrokenLinks = parsed.links || [];
+
+            // Update stats
+            updateStats(parsed);
+
+            if (allBrokenLinks.length === 0) {
+                showSuccessState();
+            } else {
+                showBrokenLinksTable();
+                renderBrokenLinks(allBrokenLinks);
+            }
+        }
+
+        function updateStats(data) {
+            const totalEl = document.querySelector('[data-metric="total-broken"]');
+            const count404El = document.querySelector('[data-metric="404-errors"]');
+            const linksCheckedEl = document.querySelector('[data-metric="links-checked"]');
+            const lastCheckedEl = document.querySelector('[data-metric="last-checked"]');
+
+            const count404 = allBrokenLinks.filter(l => l.status === 404).length;
+            const countOther = allBrokenLinks.length - count404;
+
+            if (totalEl) totalEl.textContent = allBrokenLinks.length;
+            if (count404El) count404El.textContent = count404;
+            if (linksCheckedEl) linksCheckedEl.textContent = data.totalLinksChecked || 0;
+
+            if (lastCheckedEl && data.timestamp) {
+                const date = new Date(data.timestamp);
+                const now = new Date();
+                const diff = Math.floor((now - date) / 1000);
+
+                if (diff < 60) lastCheckedEl.textContent = 'Just now';
+                else if (diff < 3600) lastCheckedEl.textContent = Math.floor(diff / 60) + 'm ago';
+                else if (diff < 86400) lastCheckedEl.textContent = Math.floor(diff / 3600) + 'h ago';
+                else lastCheckedEl.textContent = Math.floor(diff / 86400) + 'd ago';
+            }
+
+            // Update filter counts
+            document.querySelector('[data-count="all"]').textContent = allBrokenLinks.length;
+            document.querySelector('[data-count="404"]').textContent = count404;
+            document.querySelector('[data-count="other"]').textContent = countOther;
+        }
+
+        function showNoDataState() {
+            document.getElementById('noDataState').style.display = 'block';
+            document.getElementById('successState').style.display = 'none';
+            document.getElementById('brokenLinksTable').style.display = 'none';
+        }
+
+        function showSuccessState() {
+            document.getElementById('noDataState').style.display = 'none';
+            document.getElementById('successState').style.display = 'block';
+            document.getElementById('brokenLinksTable').style.display = 'none';
+        }
+
+        function showBrokenLinksTable() {
+            document.getElementById('noDataState').style.display = 'none';
+            document.getElementById('successState').style.display = 'none';
+            document.getElementById('brokenLinksTable').style.display = 'block';
+        }
+
+        function renderBrokenLinks(links) {
+            const tbody = document.getElementById('brokenLinksBody');
+            if (!tbody) return;
+
+            if (links.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 24px; color: var(--color-text-tertiary);">
+                            No broken links found for this filter.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = links.map(link => `
+                <tr>
+                    <td class="url-cell" title="${escapeHtml(link.url)}">${truncateUrl(link.url, 50)}</td>
+                    <td>
+                        <span class="severity-badge ${link.status === 404 ? 'critical' : 'high'}">${link.status || 'Error'}</span>
+                    </td>
+                    <td class="url-cell">
+                        ${link.foundOn ? link.foundOn.slice(0, 2).map(u => truncatePath(u)).join(', ') : 'Unknown'}
+                        ${link.foundOn && link.foundOn.length > 2 ? ` +${link.foundOn.length - 2} more` : ''}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="copyToClipboard('${escapeHtml(link.url)}')">
+                            Copy URL
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterLinks(filter) {
+            currentFilter = filter;
+
+            // Update active tab
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.filter === filter);
+            });
+
+            // Filter and render
+            let filtered = allBrokenLinks;
+            if (filter === '404') {
+                filtered = allBrokenLinks.filter(l => l.status === 404);
+            } else if (filter === 'other') {
+                filtered = allBrokenLinks.filter(l => l.status !== 404);
+            }
+
+            renderBrokenLinks(filtered);
+        }
+
+        function setupEventListeners() {
+            // Filter tabs
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => filterLinks(tab.dataset.filter));
+            });
+
+            // Run audit button
+            const runBtn = document.getElementById('runLinkCheck');
+            if (runBtn) {
+                runBtn.addEventListener('click', () => {
+                    window.location.href = 'audits.html';
+                });
+            }
+        }
+
+        function truncateUrl(url, maxLen) {
+            if (!url) return '';
+            if (url.length <= maxLen) return url;
+            return url.substring(0, maxLen - 3) + '...';
+        }
+
+        function truncatePath(url) {
+            try {
+                const urlObj = new URL(url);
+                let path = urlObj.pathname;
+                if (path.length > 25) {
+                    path = '...' + path.slice(-22);
+                }
+                return path;
+            } catch (e) {
+                return url.slice(0, 25);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Global function for copy button
+        window.copyToClipboard = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Brief visual feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = originalText, 1500);
+            });
+        };
+
+        // Initialize
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
 </body>
 </html>

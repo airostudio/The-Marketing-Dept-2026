@@ -76,7 +76,26 @@
                 <div class="page-header">
                     <div class="page-header-content">
                         <h1>Indexing Status</h1>
-                        <p>Track your site's indexability and coverage in search engines</p>
+                        <p>Track your site's indexability by checking robots.txt and sitemap</p>
+                    </div>
+                    <div class="page-header-actions">
+                        <button class="btn btn-primary" id="runIndexCheck">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                            Analyze Indexing
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Indicator -->
+                <div id="indexingProgress" class="audit-progress" style="display: none; margin-bottom: 24px;">
+                    <div class="audit-progress-header">
+                        <h3>Analyzing Indexing</h3>
+                    </div>
+                    <p id="indexingProgressText" style="color: var(--color-text-secondary); margin-bottom: 16px;">Checking robots.txt...</p>
+                    <div class="progress-bar" style="height: 4px; background: var(--color-border);">
+                        <div id="indexingProgressBar" style="height: 100%; width: 0%; background: var(--color-primary); transition: width 0.3s;"></div>
                     </div>
                 </div>
 
@@ -84,148 +103,343 @@
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-card-header">
-                            <div class="metric-card-icon success">
+                            <div class="metric-card-icon" id="crawledIcon">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                             </div>
-                            <span class="metric-card-title">Indexed Pages</span>
+                            <span class="metric-card-title">Pages Crawled</span>
                         </div>
-                        <div class="metric-card-value good">2,847</div>
-                        <p class="metric-card-desc">Pages indexed by Google</p>
-                        <div class="metric-card-threshold">
-                            <span>Coverage: 98.2%</span>
-                            <div class="threshold-bar"><div class="threshold-fill good" style="width: 98%"></div></div>
-                        </div>
+                        <div class="metric-card-value" data-metric="crawled-pages">--</div>
+                        <p class="metric-card-desc">Pages discovered during audit</p>
                     </div>
 
                     <div class="metric-card">
                         <div class="metric-card-header">
-                            <div class="metric-card-icon warning">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                            <div class="metric-card-icon" id="robotsIcon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
                             </div>
-                            <span class="metric-card-title">Excluded Pages</span>
+                            <span class="metric-card-title">robots.txt</span>
                         </div>
-                        <div class="metric-card-value needs-improvement">52</div>
-                        <p class="metric-card-desc">Pages intentionally not indexed</p>
+                        <div class="metric-card-value" data-metric="robots-status">--</div>
+                        <p class="metric-card-desc">Crawling instructions file</p>
                     </div>
 
                     <div class="metric-card">
                         <div class="metric-card-header">
-                            <div class="metric-card-icon error">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <div class="metric-card-icon" id="sitemapIcon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
                             </div>
-                            <span class="metric-card-title">Errors</span>
+                            <span class="metric-card-title">Sitemap</span>
                         </div>
-                        <div class="metric-card-value poor">3</div>
-                        <p class="metric-card-desc">Pages with indexing errors</p>
+                        <div class="metric-card-value" data-metric="sitemap-status">--</div>
+                        <p class="metric-card-desc">XML sitemap status</p>
                     </div>
                 </div>
 
-                <!-- Index Coverage -->
-                <div class="data-table-card">
-                    <div class="data-table-header">
-                        <h3 class="data-table-title">Index Coverage Details</h3>
+                <!-- No Data State -->
+                <div id="noDataState" class="data-table-card" style="display: none;">
+                    <div class="empty-state" style="padding: 48px; text-align: center;">
+                        <div style="margin-bottom: 16px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;color:var(--color-text-tertiary);">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                            </svg>
+                        </div>
+                        <h3 style="margin-bottom: 8px;">No Indexing Data</h3>
+                        <p style="color: var(--color-text-secondary); margin-bottom: 16px;">Click "Analyze Indexing" to check your site's robots.txt and sitemap.</p>
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Type</th>
-                                <th>Pages</th>
-                                <th>Trend</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot success"></span> Indexed</span></td>
-                                <td>Submitted and indexed</td>
-                                <td>2,456</td>
-                                <td style="color: var(--color-success);">+12</td>
-                            </tr>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot success"></span> Indexed</span></td>
-                                <td>Indexed, not submitted in sitemap</td>
-                                <td>391</td>
-                                <td style="color: var(--color-success);">+3</td>
-                            </tr>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot warning"></span> Excluded</span></td>
-                                <td>Excluded by 'noindex' tag</td>
-                                <td>34</td>
-                                <td style="color: var(--color-text-tertiary);">0</td>
-                            </tr>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot warning"></span> Excluded</span></td>
-                                <td>Blocked by robots.txt</td>
-                                <td>18</td>
-                                <td style="color: var(--color-text-tertiary);">0</td>
-                            </tr>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot error"></span> Error</span></td>
-                                <td>Server error (5xx)</td>
-                                <td>2</td>
-                                <td style="color: var(--color-error);">+2</td>
-                            </tr>
-                            <tr>
-                                <td><span class="status-cell"><span class="status-dot error"></span> Error</span></td>
-                                <td>Redirect error</td>
-                                <td>1</td>
-                                <td style="color: var(--color-text-tertiary);">0</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                </div>
+
+                <!-- robots.txt Status -->
+                <div class="data-table-card" id="robotsCard" style="display: none;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title">robots.txt Analysis</h3>
+                        <a id="robotsUrl" href="#" target="_blank" class="card-link">View File</a>
+                    </div>
+                    <div id="robotsContent">
+                        <div class="robots-rules" style="padding: 16px;">
+                            <h4 style="margin-bottom: 12px;">Rules Found</h4>
+                            <div id="robotsRulesList"></div>
+                        </div>
+                        <div id="robotsIssues" style="padding: 16px; border-top: 1px solid var(--color-border);"></div>
+                    </div>
                 </div>
 
                 <!-- Sitemap Status -->
-                <div class="data-table-card" style="margin-top: 24px;">
+                <div class="data-table-card" id="sitemapCard" style="margin-top: 24px; display: none;">
                     <div class="data-table-header">
-                        <h3 class="data-table-title">Sitemap Status</h3>
-                        <button class="btn btn-sm btn-outline">Submit New Sitemap</button>
+                        <h3 class="data-table-title">Sitemap Analysis</h3>
+                        <a id="sitemapUrl" href="#" target="_blank" class="card-link">View Sitemap</a>
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Sitemap URL</th>
-                                <th>Type</th>
-                                <th>Submitted</th>
-                                <th>Indexed</th>
-                                <th>Last Read</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="url-cell">/sitemap.xml</td>
-                                <td>Index</td>
-                                <td>2,900</td>
-                                <td>2,847</td>
-                                <td>2 hours ago</td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/sitemap-posts.xml</td>
-                                <td>Posts</td>
-                                <td>847</td>
-                                <td>832</td>
-                                <td>2 hours ago</td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/sitemap-pages.xml</td>
-                                <td>Pages</td>
-                                <td>156</td>
-                                <td>156</td>
-                                <td>2 hours ago</td>
-                            </tr>
-                            <tr>
-                                <td class="url-cell">/sitemap-products.xml</td>
-                                <td>Products</td>
-                                <td>1,897</td>
-                                <td>1,859</td>
-                                <td>2 hours ago</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div id="sitemapContent" style="padding: 16px;">
+                        <div class="sitemap-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                            <div>
+                                <span style="color: var(--color-text-tertiary); font-size: 12px;">Type</span>
+                                <p style="font-weight: 600;" data-metric="sitemap-type">--</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--color-text-tertiary); font-size: 12px;">URLs in Sitemap</span>
+                                <p style="font-weight: 600;" data-metric="sitemap-urls">--</p>
+                            </div>
+                            <div>
+                                <span style="color: var(--color-text-tertiary); font-size: 12px;">Child Sitemaps</span>
+                                <p style="font-weight: 600;" data-metric="sitemap-children">--</p>
+                            </div>
+                        </div>
+                        <div id="sitemapIssues"></div>
+                    </div>
+                </div>
+
+                <!-- Indexing Issues -->
+                <div class="data-table-card" id="indexingIssuesCard" style="margin-top: 24px; display: none;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title">Indexing Issues</h3>
+                    </div>
+                    <div id="indexingIssuesList" style="padding: 16px;"></div>
                 </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/seo-modules.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        function init() {
+            loadCachedData();
+            setupEventListeners();
+        }
+
+        function loadCachedData() {
+            const cached = localStorage.getItem('seo-indexing-data');
+            if (cached) {
+                displayResults(JSON.parse(cached));
+            } else {
+                document.getElementById('noDataState').style.display = 'block';
+            }
+
+            // Also load crawled pages from last audit
+            const lastAudit = localStorage.getItem('seo-last-audit');
+            if (lastAudit) {
+                const audit = JSON.parse(lastAudit);
+                const crawledEl = document.querySelector('[data-metric="crawled-pages"]');
+                if (crawledEl) {
+                    crawledEl.textContent = audit.pagesCrawled || 0;
+                }
+            }
+        }
+
+        async function runAnalysis() {
+            const project = SEOModules.getCurrentProject();
+            if (!project || !project.websiteUrl) {
+                alert('Please create a project first to analyze indexing.');
+                return;
+            }
+
+            const progressDiv = document.getElementById('indexingProgress');
+            const progressBar = document.getElementById('indexingProgressBar');
+            const progressText = document.getElementById('indexingProgressText');
+            const runBtn = document.getElementById('runIndexCheck');
+
+            progressDiv.style.display = 'block';
+            runBtn.disabled = true;
+
+            try {
+                progressBar.style.width = '20%';
+                progressText.textContent = 'Checking robots.txt...';
+
+                const data = await SEOModules.Indexing.analyze(project.websiteUrl);
+
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Complete!';
+
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                    displayResults(data);
+                }, 500);
+
+            } catch (error) {
+                progressText.textContent = 'Error: ' + error.message;
+                progressBar.style.background = 'var(--color-error)';
+            }
+
+            runBtn.disabled = false;
+        }
+
+        function displayResults(data) {
+            if (!data) return;
+
+            document.getElementById('noDataState').style.display = 'none';
+
+            // Update stats
+            const crawledEl = document.querySelector('[data-metric="crawled-pages"]');
+            const robotsEl = document.querySelector('[data-metric="robots-status"]');
+            const sitemapEl = document.querySelector('[data-metric="sitemap-status"]');
+
+            if (crawledEl && data.crawledPages) crawledEl.textContent = data.crawledPages;
+
+            if (robotsEl) {
+                robotsEl.textContent = data.robotsTxt?.exists ? 'Found' : 'Not Found';
+                robotsEl.className = 'metric-card-value ' + (data.robotsTxt?.exists ? 'good' : 'poor');
+                updateIconColor('robotsIcon', data.robotsTxt?.exists);
+            }
+
+            if (sitemapEl) {
+                sitemapEl.textContent = data.sitemap?.exists ? 'Found' : 'Not Found';
+                sitemapEl.className = 'metric-card-value ' + (data.sitemap?.exists ? 'good' : 'poor');
+                updateIconColor('sitemapIcon', data.sitemap?.exists);
+            }
+
+            // Display robots.txt
+            if (data.robotsTxt) {
+                displayRobotsTxt(data.robotsTxt);
+            }
+
+            // Display sitemap
+            if (data.sitemap) {
+                displaySitemap(data.sitemap);
+            }
+
+            // Display issues
+            const allIssues = [
+                ...(data.robotsTxt?.issues || []),
+                ...(data.sitemap?.issues || [])
+            ];
+            displayIssues(allIssues);
+        }
+
+        function displayRobotsTxt(robotsData) {
+            const card = document.getElementById('robotsCard');
+            card.style.display = 'block';
+
+            document.getElementById('robotsUrl').href = robotsData.url;
+
+            const rulesList = document.getElementById('robotsRulesList');
+            if (robotsData.rules && robotsData.rules.length > 0) {
+                rulesList.innerHTML = robotsData.rules.slice(0, 10).map(rule => `
+                    <div style="display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--color-border);">
+                        <span style="color: var(--color-text-tertiary); min-width: 80px;">${rule.agent}</span>
+                        <span class="tag ${rule.type === 'disallow' ? 'tag-orange' : 'tag-green'}" style="font-size: 11px;">${rule.type}</span>
+                        <code style="color: var(--color-text-secondary);">${escapeHtml(rule.path || '(empty)')}</code>
+                    </div>
+                `).join('');
+
+                if (robotsData.rules.length > 10) {
+                    rulesList.innerHTML += `<p style="color: var(--color-text-tertiary); padding-top: 8px;">+ ${robotsData.rules.length - 10} more rules</p>`;
+                }
+            } else {
+                rulesList.innerHTML = '<p style="color: var(--color-text-tertiary);">No rules defined</p>';
+            }
+
+            // Sitemaps declared in robots.txt
+            if (robotsData.sitemaps && robotsData.sitemaps.length > 0) {
+                rulesList.innerHTML += `
+                    <h4 style="margin-top: 16px; margin-bottom: 8px;">Sitemaps declared</h4>
+                    ${robotsData.sitemaps.map(s => `<a href="${s}" target="_blank" style="display: block; color: var(--color-primary);">${s}</a>`).join('')}
+                `;
+            }
+
+            // Issues
+            const issuesDiv = document.getElementById('robotsIssues');
+            if (robotsData.issues && robotsData.issues.length > 0) {
+                issuesDiv.innerHTML = `
+                    <h4 style="margin-bottom: 8px; color: var(--color-warning);">Issues Found</h4>
+                    ${robotsData.issues.map(i => `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                            <span style="color: var(--color-warning);">⚠</span>
+                            <span>${escapeHtml(i)}</span>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                issuesDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--color-success);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>No robots.txt issues found</span>
+                    </div>
+                `;
+            }
+        }
+
+        function displaySitemap(sitemapData) {
+            const card = document.getElementById('sitemapCard');
+            card.style.display = 'block';
+
+            document.getElementById('sitemapUrl').href = sitemapData.url;
+
+            document.querySelector('[data-metric="sitemap-type"]').textContent =
+                sitemapData.type === 'index' ? 'Sitemap Index' :
+                sitemapData.type === 'urlset' ? 'URL Set' : 'Unknown';
+
+            document.querySelector('[data-metric="sitemap-urls"]').textContent =
+                sitemapData.urls?.length || 0;
+
+            document.querySelector('[data-metric="sitemap-children"]').textContent =
+                sitemapData.childSitemaps?.length || 0;
+
+            const issuesDiv = document.getElementById('sitemapIssues');
+            if (sitemapData.issues && sitemapData.issues.length > 0) {
+                issuesDiv.innerHTML = `
+                    <h4 style="margin-bottom: 8px; color: var(--color-warning);">Issues Found</h4>
+                    ${sitemapData.issues.map(i => `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                            <span style="color: var(--color-warning);">⚠</span>
+                            <span>${escapeHtml(i)}</span>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                issuesDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--color-success);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Sitemap is valid</span>
+                    </div>
+                `;
+            }
+        }
+
+        function displayIssues(issues) {
+            const card = document.getElementById('indexingIssuesCard');
+            const list = document.getElementById('indexingIssuesList');
+
+            if (issues.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+            list.innerHTML = issues.map(issue => `
+                <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--color-border);">
+                    <span style="color: var(--color-warning);">⚠</span>
+                    <span>${escapeHtml(issue)}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateIconColor(iconId, isGood) {
+            const icon = document.getElementById(iconId);
+            if (!icon) return;
+            icon.classList.remove('success', 'error');
+            icon.classList.add(isGood ? 'success' : 'error');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('runIndexCheck').addEventListener('click', runAnalysis);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
 </body>
 </html>
