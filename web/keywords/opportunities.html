@@ -75,7 +75,7 @@
                 </div>
 
                 <!-- Opportunity Stats -->
-                <div class="metrics-grid">
+                <div class="metrics-grid" id="opportunityStats">
                     <div class="metric-card">
                         <div class="metric-card-header">
                             <div class="metric-card-icon success">
@@ -83,7 +83,7 @@
                             </div>
                             <span class="metric-card-title">Quick Wins</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value good" id="quickWinsCount">0</div>
                         <p class="metric-card-desc">Low difficulty, high volume</p>
                     </div>
                     <div class="metric-card">
@@ -93,7 +93,7 @@
                             </div>
                             <span class="metric-card-title">Striking Distance</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="strikingDistanceCount">0</div>
                         <p class="metric-card-desc">Positions 11-20</p>
                     </div>
                     <div class="metric-card">
@@ -103,26 +103,336 @@
                             </div>
                             <span class="metric-card-title">Content Gaps</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="contentGapsCount">0</div>
                         <p class="metric-card-desc">Missing topics</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon primary">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </div>
+                            <span class="metric-card-title">High Potential</span>
+                        </div>
+                        <div class="metric-card-value" id="highPotentialCount">0</div>
+                        <p class="metric-card-desc">High volume, manageable difficulty</p>
                     </div>
                 </div>
 
-                <!-- Empty state -->
-                <div class="empty-state-card" style="margin-top: 24px;">
+                <!-- Quick Wins Section -->
+                <div class="data-table-card" id="quickWinsCard" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-success);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                            Quick Wins
+                        </h3>
+                        <span class="tag tag-success">Easy to rank</span>
+                    </div>
+                    <p style="padding: 0 20px; color: var(--color-text-secondary); font-size: 14px;">Keywords with low difficulty and good search volume - these are your best opportunities for fast results.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Position</th>
+                                <th>Search Volume</th>
+                                <th>Difficulty</th>
+                                <th>Potential Traffic</th>
+                                <th>Why It's a Win</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quickWinsTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Striking Distance Section -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-warning);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            Striking Distance Keywords
+                        </h3>
+                        <span class="tag tag-warning">Almost there</span>
+                    </div>
+                    <p style="padding: 0 20px; color: var(--color-text-secondary); font-size: 14px;">Keywords ranking 11-20 - with some optimization, these can move into the top 10 and drive significant traffic.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Current Position</th>
+                                <th>Search Volume</th>
+                                <th>Potential Traffic</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="strikingDistanceTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Content Gaps Section -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title" style="color: var(--color-primary);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px;"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                            Content Gaps
+                        </h3>
+                        <span class="tag tag-info">New content needed</span>
+                    </div>
+                    <p style="padding: 0 20px; color: var(--color-text-secondary); font-size: 14px;">Keywords from research that you're not targeting yet - create content for these to capture more traffic.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Search Volume</th>
+                                <th>Difficulty</th>
+                                <th>Intent</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contentGapsTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- High Potential Section -->
+                <div class="data-table-card" style="margin-top: 24px;">
+                    <div class="data-table-header">
+                        <h3 class="data-table-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: inline; vertical-align: middle; margin-right: 8px; color: var(--color-primary);"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            High Potential Keywords
+                        </h3>
+                    </div>
+                    <p style="padding: 0 20px; color: var(--color-text-secondary); font-size: 14px;">Keywords with high search volume and manageable difficulty - worth the investment to rank for.</p>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Position</th>
+                                <th>Search Volume</th>
+                                <th>Difficulty</th>
+                                <th>Est. Traffic if #1</th>
+                            </tr>
+                        </thead>
+                        <tbody id="highPotentialTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state-card" id="emptyState" style="display: none; margin-top: 24px;">
                     <div class="empty-state-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
                             <polyline points="17 6 23 6 23 12"/>
                         </svg>
                     </div>
-                    <h3>No Data Yet</h3>
-                    <p>Configure your API connection in Settings to discover keyword opportunities.</p>
-                    <a href="../settings.html" class="btn btn-primary" style="margin-top: 16px;">Configure API</a>
+                    <h3>No Opportunities Found</h3>
+                    <p>Start tracking keywords or run keyword research to discover opportunities.</p>
+                    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px;">
+                        <a href="../seo/keywords.html" class="btn btn-outline">Track Keywords</a>
+                        <a href="research.html" class="btn btn-primary">Research Keywords</a>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/keyword-service.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadOpportunities();
+        });
+
+        function loadOpportunities() {
+            const opportunities = window.KeywordService.getOpportunities();
+
+            // Update stats
+            document.getElementById('quickWinsCount').textContent = opportunities.quickWins.length;
+            document.getElementById('strikingDistanceCount').textContent = opportunities.strikingDistance.length;
+            document.getElementById('contentGapsCount').textContent = opportunities.contentGaps.length;
+            document.getElementById('highPotentialCount').textContent = opportunities.highPotential.length;
+
+            // Show empty state if no data
+            const hasData = opportunities.quickWins.length > 0 ||
+                           opportunities.strikingDistance.length > 0 ||
+                           opportunities.contentGaps.length > 0 ||
+                           opportunities.highPotential.length > 0;
+
+            if (!hasData) {
+                document.getElementById('emptyState').style.display = 'block';
+            }
+
+            // Render tables
+            renderQuickWins(opportunities.quickWins);
+            renderStrikingDistance(opportunities.strikingDistance);
+            renderContentGaps(opportunities.contentGaps);
+            renderHighPotential(opportunities.highPotential);
+        }
+
+        function renderQuickWins(keywords) {
+            const tbody = document.getElementById('quickWinsTable');
+            if (keywords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No quick wins found. Add more keywords to discover opportunities.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keywords.slice(0, 10).map(kw => `
+                <tr>
+                    <td><strong>${escapeHtml(kw.keyword)}</strong></td>
+                    <td><span class="position-badge">${kw.position}</span></td>
+                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: var(--color-success);"></div></div>
+                            <span style="color: var(--color-success);">${kw.difficulty}</span>
+                        </div>
+                    </td>
+                    <td>${formatNumber(Math.round(kw.searchVolume * 0.3))}</td>
+                    <td style="font-size: 13px; color: var(--color-text-secondary);">${kw.reason}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderStrikingDistance(keywords) {
+            const tbody = document.getElementById('strikingDistanceTable');
+            if (keywords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No striking distance keywords found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keywords.slice(0, 10).map(kw => {
+                const recommendations = [
+                    'Improve on-page SEO and add more content',
+                    'Build 2-3 quality backlinks',
+                    'Improve content depth and user engagement',
+                    'Optimize title and meta description',
+                    'Add internal links from high-authority pages'
+                ];
+                const recommendation = recommendations[Math.floor(Math.random() * recommendations.length)];
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(kw.keyword)}</strong></td>
+                        <td><span class="position-badge striking">${kw.position}</span></td>
+                        <td>${formatNumber(kw.searchVolume)}/mo</td>
+                        <td style="color: var(--color-success);">+${formatNumber(kw.potentialTraffic || Math.round(kw.searchVolume * 0.05))}/mo</td>
+                        <td style="font-size: 13px; color: var(--color-text-secondary);">${recommendation}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderContentGaps(keywords) {
+            const tbody = document.getElementById('contentGapsTable');
+            if (keywords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No content gaps found. Run keyword research to discover new topics.</td></tr>';
+                return;
+            }
+
+            const intentColors = {
+                informational: 'tag-blue',
+                commercial: 'tag-warning',
+                transactional: 'tag-success'
+            };
+
+            tbody.innerHTML = keywords.slice(0, 15).map(kw => `
+                <tr>
+                    <td><strong>${escapeHtml(kw.keyword)}</strong></td>
+                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
+                            <span>${kw.difficulty}</span>
+                        </div>
+                    </td>
+                    <td><span class="tag ${intentColors[kw.intent] || 'tag-gray'}">${kw.intent}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="addKeywordToTrack('${escapeHtml(kw.keyword).replace(/'/g, "\\'")}')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Track
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderHighPotential(keywords) {
+            const tbody = document.getElementById('highPotentialTable');
+            if (keywords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary); padding: 32px;">No high potential keywords found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keywords.slice(0, 10).map(kw => `
+                <tr>
+                    <td><strong>${escapeHtml(kw.keyword)}</strong></td>
+                    <td><span class="position-badge">${kw.position}</span></td>
+                    <td style="font-weight: 600;">${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
+                            <span>${kw.difficulty}</span>
+                        </div>
+                    </td>
+                    <td style="color: var(--color-success); font-weight: 600;">~${formatNumber(Math.round(kw.searchVolume * 0.316))}/mo</td>
+                </tr>
+            `).join('');
+        }
+
+        window.addKeywordToTrack = function(keyword) {
+            window.KeywordService.addKeywords([keyword]);
+            alert(`Added "${keyword}" to tracking!`);
+            loadOpportunities();
+        };
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function getDifficultyColor(difficulty) {
+            if (difficulty >= 70) return 'var(--color-error)';
+            if (difficulty >= 40) return 'var(--color-warning)';
+            return 'var(--color-success)';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
+    <style>
+        .tag-blue { background: rgba(99, 102, 241, 0.15); color: var(--color-primary); }
+        .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--color-warning); }
+        .tag-success { background: rgba(16, 185, 129, 0.15); color: var(--color-success); }
+        .tag-info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .tag-gray { background: rgba(156, 163, 175, 0.15); color: var(--color-text-secondary); }
+        .position-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 24px;
+            padding: 0 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--color-bg-tertiary);
+        }
+        .position-badge.striking {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+        .metric-card-icon.primary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--color-primary);
+        }
+    </style>
 </body>
 </html>
