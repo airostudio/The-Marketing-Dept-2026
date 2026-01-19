@@ -874,51 +874,230 @@
         },
 
         quickScan() {
-            // Fast scan for critical issues only
-            const issues = { critical: 0, high: 0 };
-
-            for (const issue of TECHNICAL_ISSUES.critical) {
-                if (Math.random() < 0.15) issues.critical++;
+            // Quick scan using cached data
+            const cachedResults = this.getCachedScanResults();
+            if (cachedResults) {
+                return {
+                    critical: cachedResults.issues.critical.length,
+                    high: cachedResults.issues.high.length
+                };
             }
-            for (const issue of TECHNICAL_ISSUES.high) {
-                if (Math.random() < 0.25) issues.high++;
-            }
-
-            return issues;
+            return { critical: 0, high: 0 };
         },
 
-        scanForIssues(results) {
-            // Simulate issue detection based on probability
-            // In production, this would actually scan the site
-
-            for (const [severity, issues] of Object.entries(TECHNICAL_ISSUES)) {
-                for (const issue of issues) {
-                    const probability = this.getIssueProbability(issue, severity);
-
-                    if (Math.random() < probability) {
-                        const detected = {
-                            ...issue,
-                            severity,
-                            detectedAt: new Date().toISOString(),
-                            affectedPages: Math.floor(Math.random() * 10) + 1
-                        };
-                        results.issues[severity].push(detected);
-                        results.healthScore -= issue.impact;
+        getCachedScanResults() {
+            try {
+                const cached = localStorage.getItem('technical-seo-scan');
+                if (cached) {
+                    const data = JSON.parse(cached);
+                    // Check if cache is less than 1 hour old
+                    if (Date.now() - data.timestamp < 3600000) {
+                        return data.results;
                     }
+                }
+            } catch (e) {}
+            return null;
+        },
+
+        saveScanResults(results) {
+            try {
+                localStorage.setItem('technical-seo-scan', JSON.stringify({
+                    timestamp: Date.now(),
+                    results
+                }));
+            } catch (e) {}
+        },
+
+        async scanForIssues(results) {
+            // Use real API integrations if available
+            const settings = AgentEngine.getSettings();
+            const siteUrl = settings.websiteUrl;
+
+            if (!siteUrl) {
+                // No site configured - use stored analysis data
+                this.useStoredAnalysisData(results);
+                return;
+            }
+
+            // Try to use PageSpeed API for real data
+            if (window.APIIntegrations?.PageSpeed) {
+                try {
+                    const pageSpeedData = await window.APIIntegrations.PageSpeed.analyze(siteUrl, 'mobile');
+                    this.processPageSpeedResults(pageSpeedData, results);
+                } catch (e) {
+                    console.warn('PageSpeed API unavailable:', e.message);
+                }
+            }
+
+            // Try to use Site Crawler for on-page analysis
+            if (window.APIIntegrations?.Crawler) {
+                try {
+                    const crawlData = await window.APIIntegrations.Crawler.analyzePage(siteUrl);
+                    if (crawlData.analyzed) {
+                        this.processCrawlResults(crawlData, results);
+                    }
+                } catch (e) {
+                    console.warn('Site crawl unavailable:', e.message);
+                }
+            }
+
+            // If no API data, use stored analysis
+            if (results.issues.critical.length === 0 && results.issues.high.length === 0) {
+                this.useStoredAnalysisData(results);
+            }
+
+            // Cache the results
+            this.saveScanResults(results);
+        },
+
+        processPageSpeedResults(data, results) {
+            // Core Web Vitals issues
+            if (data.coreWebVitals?.lcp?.rating === 'poor') {
+                results.issues.critical.push({
+                    id: 'slow-lcp',
+                    title: 'Poor LCP (Largest Contentful Paint)',
+                    description: `LCP is ${data.coreWebVitals.lcp.displayValue}. Target: under 2.5s`,
+                    impact: 15,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            } else if (data.coreWebVitals?.lcp?.rating === 'needs-improvement') {
+                results.issues.high.push({
+                    id: 'moderate-lcp',
+                    title: 'LCP Needs Improvement',
+                    description: `LCP is ${data.coreWebVitals.lcp.displayValue}. Target: under 2.5s`,
+                    impact: 8,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            }
+
+            if (data.coreWebVitals?.cls?.rating === 'poor') {
+                results.issues.high.push({
+                    id: 'high-cls',
+                    title: 'High Layout Shift (CLS)',
+                    description: `CLS is ${data.coreWebVitals.cls.displayValue}. Target: under 0.1`,
+                    impact: 10,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            }
+
+            // Performance score issues
+            if (data.scores.performance < 50) {
+                results.issues.critical.push({
+                    id: 'poor-performance',
+                    title: 'Critical Performance Score',
+                    description: `Performance score is ${data.scores.performance}/100`,
+                    impact: 20,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            } else if (data.scores.performance < 75) {
+                results.issues.high.push({
+                    id: 'low-performance',
+                    title: 'Performance Needs Improvement',
+                    description: `Performance score is ${data.scores.performance}/100`,
+                    impact: 10,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            }
+
+            // SEO score issues
+            if (data.scores.seo < 80) {
+                results.issues.medium.push({
+                    id: 'seo-score-low',
+                    title: 'SEO Score Below Optimal',
+                    description: `SEO score is ${data.scores.seo}/100`,
+                    impact: 5,
+                    detectedAt: new Date().toISOString(),
+                    source: 'PageSpeed Insights'
+                });
+            }
+
+            // Process specific issues from PageSpeed
+            for (const issue of data.issues || []) {
+                if (issue.impact === 'high') {
+                    results.issues.high.push({
+                        id: issue.id,
+                        title: issue.title,
+                        description: issue.displayValue || issue.description,
+                        impact: 8,
+                        detectedAt: new Date().toISOString(),
+                        source: 'PageSpeed Insights'
+                    });
+                } else if (issue.impact === 'medium') {
+                    results.issues.medium.push({
+                        id: issue.id,
+                        title: issue.title,
+                        description: issue.displayValue || issue.description,
+                        impact: 4,
+                        detectedAt: new Date().toISOString(),
+                        source: 'PageSpeed Insights'
+                    });
                 }
             }
         },
 
-        getIssueProbability(issue, severity) {
-            // Base probabilities by severity
-            const baseProbability = {
-                critical: 0.1,
-                high: 0.25,
-                medium: 0.35,
-                low: 0.4
-            };
+        processCrawlResults(data, results) {
+            // Process issues from site crawl
+            for (const issue of data.issues || []) {
+                const targetArray = results.issues[issue.severity] || results.issues.medium;
+                const impactMap = { critical: 15, high: 10, medium: 5, low: 2 };
 
-            return baseProbability[severity] || 0.2;
+                targetArray.push({
+                    id: issue.id,
+                    title: issue.message || issue.id.replace(/-/g, ' '),
+                    description: issue.message,
+                    impact: impactMap[issue.severity] || 5,
+                    detectedAt: new Date().toISOString(),
+                    source: 'Site Crawler',
+                    page: data.url
+                });
+            }
+        },
+
+        useStoredAnalysisData(results) {
+            // Use previously stored analysis data
+            const analysisData = AgentEngine.getAnalysisData();
+
+            if (analysisData.technicalIssues) {
+                for (const issue of analysisData.technicalIssues) {
+                    const severity = issue.severity || 'medium';
+                    results.issues[severity].push({
+                        ...issue,
+                        detectedAt: issue.detectedAt || new Date().toISOString(),
+                        source: 'Stored Analysis'
+                    });
+                }
+            }
+
+            // Check for common issues in stored page data
+            if (analysisData.pages) {
+                for (const page of analysisData.pages) {
+                    if (!page.title || page.title.length < 10) {
+                        results.issues.high.push({
+                            id: 'missing-title',
+                            title: 'Missing or Short Title',
+                            description: `Page ${page.url} has no proper title tag`,
+                            impact: 10,
+                            page: page.url,
+                            source: 'Stored Analysis'
+                        });
+                    }
+                    if (!page.metaDescription || page.metaLength < 50) {
+                        results.issues.medium.push({
+                            id: 'missing-meta',
+                            title: 'Missing Meta Description',
+                            description: `Page ${page.url} needs a meta description`,
+                            impact: 5,
+                            page: page.url,
+                            source: 'Stored Analysis'
+                        });
+                    }
+                }
+            }
         },
 
         calculateHealthScore(issues) {
@@ -1249,11 +1428,11 @@
             );
         },
 
-        analyzeCompetitor(competitor, ourKeywords) {
+        async analyzeCompetitor(competitor, ourKeywords) {
             const ourKeywordSet = new Set(ourKeywords.map(k => k.keyword.toLowerCase()));
 
-            // Simulate competitor keyword discovery
-            const competitorKeywords = this.estimateCompetitorKeywords(competitor);
+            // Get competitor keywords (real or estimated)
+            const competitorKeywords = await this.getCompetitorKeywords(competitor);
 
             // Find gaps
             const keywordGaps = competitorKeywords
@@ -1264,48 +1443,232 @@
                     opportunity: 'Competitor ranks for this keyword'
                 }));
 
-            // Estimate backlink opportunities
-            const backlinkOpportunities = this.estimateBacklinkOpportunities(competitor);
+            // Get backlink opportunities
+            const backlinkOpportunities = await this.getBacklinkOpportunities(competitor);
+
+            // Get real DA if available from API analysis
+            let domainAuthority = competitor.da || 50;
+            if (window.APIIntegrations?.Competitor) {
+                try {
+                    const analysis = await window.APIIntegrations.Competitor.analyzeCompetitor(competitor.domain);
+                    if (analysis.estimatedMetrics?.domainAuthority) {
+                        domainAuthority = analysis.estimatedMetrics.domainAuthority;
+                    }
+                } catch (e) {}
+            }
 
             return {
                 competitor: competitor.domain,
-                da: competitor.da || 50,
+                da: domainAuthority,
                 estimatedTraffic: competitor.traffic || '10K-50K',
                 keywordGaps: keywordGaps.slice(0, 20),
                 backlinkOpportunities,
-                threatLevel: this.calculateThreatLevel(competitor)
+                threatLevel: this.calculateThreatLevel({ ...competitor, da: domainAuthority })
             };
         },
 
-        estimateCompetitorKeywords(competitor) {
-            // Generate estimated keywords based on competitor domain
-            const domain = competitor.domain || '';
-            const brandName = domain.replace(/\.(com|org|io|net)$/, '').split('.')[0];
+        async getBacklinkOpportunities(competitor) {
+            const opportunities = [];
+            const da = competitor.da || 50;
+            const domain = competitor.domain;
 
-            const keywordTemplates = [
-                `${brandName} alternative`,
-                `${brandName} vs`,
-                `${brandName} pricing`,
-                `${brandName} review`,
-                `${brandName} features`,
-                'seo tools',
-                'keyword research',
-                'backlink checker',
-                'site audit',
-                'rank tracking',
-                'competitor analysis',
-                'content optimization',
-                'technical seo',
-                'local seo',
-                'link building'
+            // Try to get real backlink data
+            const backlinkData = JSON.parse(localStorage.getItem('seo-backlinks') || '{}');
+
+            // Check for competitor backlinks we could also get
+            if (backlinkData.referringDomains) {
+                backlinkData.referringDomains.forEach(rd => {
+                    if (rd.domainAuthority > 40) {
+                        opportunities.push({
+                            type: 'shared-link',
+                            domain: rd.domain,
+                            estimatedDA: rd.domainAuthority,
+                            recommendation: `This site links to competitors. Consider outreach.`
+                        });
+                    }
+                });
+            }
+
+            // Add standard opportunities
+            if (da > 60) {
+                opportunities.push({
+                    type: 'guest-post',
+                    domain,
+                    estimatedDA: da,
+                    recommendation: 'Research their backlink sources for guest post opportunities'
+                });
+            }
+
+            opportunities.push({
+                type: 'resource-page',
+                domain,
+                recommendation: 'Find resource pages linking to competitor'
+            });
+
+            return opportunities.slice(0, 10);
+        },
+
+        async getCompetitorKeywords(competitor) {
+            // Get real competitor data if available via API
+            if (window.APIIntegrations?.Competitor) {
+                try {
+                    const analysis = await window.APIIntegrations.Competitor.analyzeCompetitor(competitor.domain);
+                    if (analysis.seo) {
+                        return this.extractKeywordsFromAnalysis(analysis, competitor);
+                    }
+                } catch (e) {
+                    console.warn('Competitor API analysis failed:', e.message);
+                }
+            }
+
+            // Fallback: generate keyword opportunities based on competitor domain
+            return this.generateKeywordOpportunities(competitor);
+        },
+
+        extractKeywordsFromAnalysis(analysis, competitor) {
+            const keywords = [];
+            const domain = competitor.domain || '';
+
+            // Extract keywords from title and meta
+            if (analysis.seo?.title?.text) {
+                const titleWords = analysis.seo.title.text.toLowerCase()
+                    .split(/\s+/)
+                    .filter(w => w.length > 3);
+                titleWords.forEach(word => {
+                    keywords.push({
+                        keyword: word,
+                        searchVolume: this.estimateVolumeForKeyword(word),
+                        difficulty: this.estimateDifficultyForKeyword(word),
+                        source: 'competitor-title',
+                        competitor: domain
+                    });
+                });
+            }
+
+            // Extract from H1
+            if (analysis.seo?.h1?.length > 0) {
+                analysis.seo.h1.forEach(h1 => {
+                    keywords.push({
+                        keyword: h1.toLowerCase(),
+                        searchVolume: this.estimateVolumeForKeyword(h1),
+                        difficulty: this.estimateDifficultyForKeyword(h1),
+                        source: 'competitor-h1',
+                        competitor: domain
+                    });
+                });
+            }
+
+            // Add brand-based keywords
+            const brandKeywords = this.generateBrandKeywords(domain);
+            keywords.push(...brandKeywords);
+
+            return keywords;
+        },
+
+        generateKeywordOpportunities(competitor) {
+            const domain = competitor.domain || '';
+            const brandName = domain.replace(/\.(com|org|io|net|co)$/, '').split('.')[0];
+            const industry = competitor.industry || 'seo';
+
+            const keywords = [];
+
+            // Brand-related keywords with estimated metrics
+            const brandPatterns = [
+                { kw: `${brandName} alternative`, volume: 1200, difficulty: 35 },
+                { kw: `${brandName} vs`, volume: 800, difficulty: 30 },
+                { kw: `${brandName} pricing`, volume: 1500, difficulty: 25 },
+                { kw: `${brandName} review`, volume: 2000, difficulty: 40 },
+                { kw: `${brandName} features`, volume: 600, difficulty: 30 },
+                { kw: `best ${brandName} alternatives`, volume: 900, difficulty: 45 }
             ];
 
-            return keywordTemplates.map(kw => ({
-                keyword: kw,
-                searchVolume: Math.floor(Math.random() * 5000) + 500,
-                difficulty: Math.floor(Math.random() * 60) + 20,
-                competitorPosition: Math.floor(Math.random() * 20) + 1
-            }));
+            brandPatterns.forEach(p => {
+                keywords.push({
+                    keyword: p.kw,
+                    searchVolume: p.volume,
+                    difficulty: p.difficulty,
+                    source: 'brand-analysis',
+                    competitor: domain
+                });
+            });
+
+            // Industry keywords based on stored keyword data
+            const ourKeywords = AgentEngine.getKeywords();
+            if (ourKeywords.length > 0) {
+                // Find related keywords we might be missing
+                const ourKeywordSet = new Set(ourKeywords.map(k => k.keyword.toLowerCase()));
+                const industryKeywords = this.getIndustryKeywords(industry);
+
+                industryKeywords.forEach(ik => {
+                    if (!ourKeywordSet.has(ik.keyword.toLowerCase())) {
+                        keywords.push({
+                            ...ik,
+                            source: 'industry-gap',
+                            competitor: domain
+                        });
+                    }
+                });
+            }
+
+            return keywords;
+        },
+
+        generateBrandKeywords(domain) {
+            const brandName = domain.replace(/\.(com|org|io|net|co)$/, '').split('.')[0];
+            return [
+                { keyword: `${brandName} alternative`, searchVolume: 1200, difficulty: 35, source: 'brand' },
+                { keyword: `${brandName} vs`, searchVolume: 800, difficulty: 30, source: 'brand' },
+                { keyword: `${brandName} pricing`, searchVolume: 1500, difficulty: 25, source: 'brand' },
+                { keyword: `${brandName} review`, searchVolume: 2000, difficulty: 40, source: 'brand' }
+            ];
+        },
+
+        getIndustryKeywords(industry) {
+            // Industry-specific keyword opportunities
+            const industryKeywords = {
+                'seo': [
+                    { keyword: 'seo tools', searchVolume: 8000, difficulty: 65 },
+                    { keyword: 'keyword research tool', searchVolume: 5000, difficulty: 55 },
+                    { keyword: 'backlink checker', searchVolume: 4000, difficulty: 50 },
+                    { keyword: 'site audit tool', searchVolume: 2500, difficulty: 45 },
+                    { keyword: 'rank tracker', searchVolume: 3500, difficulty: 50 },
+                    { keyword: 'seo analysis', searchVolume: 6000, difficulty: 60 }
+                ],
+                'marketing': [
+                    { keyword: 'marketing automation', searchVolume: 7000, difficulty: 70 },
+                    { keyword: 'email marketing software', searchVolume: 9000, difficulty: 65 },
+                    { keyword: 'social media management', searchVolume: 8500, difficulty: 60 },
+                    { keyword: 'content marketing tools', searchVolume: 3000, difficulty: 55 }
+                ],
+                'default': [
+                    { keyword: 'best software', searchVolume: 5000, difficulty: 50 },
+                    { keyword: 'online tools', searchVolume: 4000, difficulty: 45 }
+                ]
+            };
+
+            return industryKeywords[industry] || industryKeywords['default'];
+        },
+
+        estimateVolumeForKeyword(keyword) {
+            // Estimate search volume based on keyword characteristics
+            const wordCount = keyword.split(/\s+/).length;
+            const baseVolume = 1000;
+
+            // Longer keywords typically have lower volume
+            const volumeMultiplier = Math.max(0.2, 1 - (wordCount - 1) * 0.2);
+
+            return Math.round(baseVolume * volumeMultiplier);
+        },
+
+        estimateDifficultyForKeyword(keyword) {
+            // Estimate difficulty based on keyword characteristics
+            const wordCount = keyword.split(/\s+/).length;
+
+            // Longer, more specific keywords are typically easier
+            const baseDifficulty = 50;
+            const difficultyReduction = Math.min(25, (wordCount - 1) * 8);
+
+            return Math.max(15, baseDifficulty - difficultyReduction);
         },
 
         estimateBacklinkOpportunities(competitor) {
@@ -1458,71 +1821,199 @@
                 return sum + (k.searchVolume || 0) * ctr;
             }, 0);
 
+            // Get stored DA or estimate from analysis
+            const storedDA = this.getStoredDomainAuthority();
+
             return {
                 totalKeywords: keywords.length,
                 top3Keywords: top3,
                 top10Keywords: top10,
                 avgPosition: Math.round(avgPosition * 10) / 10,
                 estimatedTraffic: Math.round(estimatedTraffic),
-                domainAuthority: 35 + Math.floor(Math.random() * 20)
+                domainAuthority: storedDA
             };
         },
 
+        getStoredDomainAuthority() {
+            // Check for stored DA from analysis
+            try {
+                const analysisData = AgentEngine.getAnalysisData();
+                if (analysisData.domainAuthority) {
+                    return analysisData.domainAuthority;
+                }
+
+                // Check backlink service data
+                const backlinkData = JSON.parse(localStorage.getItem('seo-backlinks') || '{}');
+                if (backlinkData.domainAuthority) {
+                    return backlinkData.domainAuthority;
+                }
+
+                // Estimate based on available data
+                const keywords = AgentEngine.getKeywords();
+                const top10Count = keywords.filter(k => k.position <= 10).length;
+                const backlinks = backlinkData.totalBacklinks || 0;
+
+                // Base estimate
+                let estimatedDA = 25;
+                if (top10Count > 10) estimatedDA += 10;
+                else if (top10Count > 5) estimatedDA += 5;
+
+                if (backlinks > 1000) estimatedDA += 15;
+                else if (backlinks > 100) estimatedDA += 8;
+                else if (backlinks > 10) estimatedDA += 3;
+
+                return Math.min(100, estimatedDA);
+            } catch (e) {
+                return 30; // Default fallback
+            }
+        },
+
+        getHistoricalData() {
+            // Get historical metrics for trend analysis
+            try {
+                const history = JSON.parse(localStorage.getItem('seo-metrics-history') || '[]');
+                return history;
+            } catch (e) {
+                return [];
+            }
+        },
+
+        saveMetricsSnapshot(metrics) {
+            try {
+                const history = this.getHistoricalData();
+                history.push({
+                    timestamp: Date.now(),
+                    ...metrics
+                });
+                // Keep last 90 days of data
+                const cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
+                const filtered = history.filter(h => h.timestamp > cutoff);
+                localStorage.setItem('seo-metrics-history', JSON.stringify(filtered.slice(-90)));
+            } catch (e) {}
+        },
+
+        calculateTrend(history, metric) {
+            if (history.length < 2) return 0;
+
+            // Get recent values (last 7 data points)
+            const recent = history.slice(-7);
+            if (recent.length < 2) return 0;
+
+            // Calculate linear regression slope
+            const values = recent.map(h => h[metric] || 0);
+            const n = values.length;
+            const sumX = (n * (n - 1)) / 2;
+            const sumY = values.reduce((a, b) => a + b, 0);
+            const sumXY = values.reduce((sum, v, i) => sum + (i * v), 0);
+            const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6;
+
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+            // Return percentage change per period
+            const avgValue = sumY / n;
+            return avgValue > 0 ? (slope / avgValue) : 0;
+        },
+
         predictTraffic(current) {
-            // Simulate ML prediction with trend analysis
+            const history = this.getHistoricalData();
+            this.saveMetricsSnapshot({ estimatedTraffic: current.estimatedTraffic, timestamp: Date.now() });
+
+            // Calculate trend from historical data
+            const trend = this.calculateTrend(history, 'estimatedTraffic');
+
+            // Growth factors based on real data
             const growthFactors = {
-                momentum: Math.random() * 0.1 + 0.02, // 2-12% base growth
-                seasonality: Math.sin(Date.now() / 86400000) * 0.05, // Seasonal variation
-                optimization: current.top10Keywords > 5 ? 0.05 : 0
+                historicalTrend: trend * 30, // Project trend over 30 days
+                optimizationPotential: current.top10Keywords > 5 ? 0.03 : 0.01,
+                keywordGrowth: current.totalKeywords > 0 ? 0.02 : 0
             };
 
-            const totalGrowth = Object.values(growthFactors).reduce((a, b) => a + b, 0);
+            // Base prediction on actual trend, not random
+            let totalGrowth = Object.values(growthFactors).reduce((a, b) => a + b, 0);
+            totalGrowth = Math.max(-0.2, Math.min(0.3, totalGrowth)); // Cap at -20% to +30%
+
             const predicted = Math.round(current.estimatedTraffic * (1 + totalGrowth));
-            const confidence = 70 + Math.floor(Math.random() * 15);
+
+            // Confidence based on data quality
+            let confidence = 50;
+            if (history.length >= 7) confidence += 15;
+            if (history.length >= 14) confidence += 10;
+            if (history.length >= 30) confidence += 10;
+            if (current.totalKeywords >= 10) confidence += 5;
 
             return {
                 metric: 'Organic Traffic',
                 current: current.estimatedTraffic,
                 predicted,
                 change: Math.round(totalGrowth * 100),
-                confidence,
+                confidence: Math.min(95, confidence),
                 timeframe: '30 days',
-                factors: growthFactors
+                factors: growthFactors,
+                dataPoints: history.length
             };
         },
 
         predictRankings(keywords) {
             const current = keywords.filter(k => k.position <= 10).length;
             const potential = keywords.filter(k => k.position > 10 && k.position <= 20).length;
+            const improving = keywords.filter(k => k.previousPosition && k.position < k.previousPosition).length;
 
-            // Estimate how many could move to top 10
-            const improvement = Math.floor(potential * (0.2 + Math.random() * 0.2));
+            // Calculate improvement rate from real data
+            const improvementRate = keywords.length > 0 ? improving / keywords.length : 0.15;
+
+            // Estimate how many striking distance keywords could move to top 10
+            const improvement = Math.round(potential * Math.min(0.4, improvementRate + 0.1));
             const predicted = current + improvement;
-            const confidence = 65 + Math.floor(Math.random() * 20);
+
+            // Confidence based on data quality
+            let confidence = 55;
+            if (keywords.some(k => k.previousPosition)) confidence += 15; // Has historical position data
+            if (potential > 5) confidence += 10; // Good sample of striking distance keywords
+            if (improving > 0) confidence += 10; // Has improvement data
 
             return {
                 metric: 'Top 10 Keywords',
                 current,
                 predicted,
-                change: current > 0 ? Math.round((improvement / current) * 100) : improvement * 100,
-                confidence,
-                timeframe: '30 days'
+                change: current > 0 ? Math.round((improvement / current) * 100) : (improvement > 0 ? 100 : 0),
+                confidence: Math.min(90, confidence),
+                timeframe: '30 days',
+                strikingDistance: potential,
+                improvementRate: Math.round(improvementRate * 100)
             };
         },
 
         predictDA(current) {
-            // DA typically grows slowly
-            const growth = Math.floor(Math.random() * 3) + 1;
-            const predicted = Math.min(100, current.domainAuthority + growth);
-            const confidence = 55 + Math.floor(Math.random() * 15);
+            const history = this.getHistoricalData();
+
+            // Calculate DA trend
+            const trend = this.calculateTrend(history, 'domainAuthority');
+
+            // DA typically grows slowly (1-3 points over 90 days for active sites)
+            const backlinks = JSON.parse(localStorage.getItem('seo-backlinks') || '{}');
+            const newBacklinksRate = backlinks.newBacklinksThisMonth || 0;
+
+            let expectedGrowth = 1; // Base growth
+            if (newBacklinksRate > 50) expectedGrowth += 2;
+            else if (newBacklinksRate > 20) expectedGrowth += 1;
+
+            if (trend > 0) expectedGrowth += 1;
+
+            const predicted = Math.min(100, current.domainAuthority + expectedGrowth);
+
+            // Confidence for DA prediction
+            let confidence = 45;
+            if (history.length >= 30) confidence += 15;
+            if (backlinks.totalBacklinks) confidence += 10;
 
             return {
                 metric: 'Domain Authority',
                 current: current.domainAuthority,
                 predicted,
-                change: Math.round((growth / current.domainAuthority) * 100),
-                confidence,
-                timeframe: '90 days'
+                change: current.domainAuthority > 0 ? Math.round((expectedGrowth / current.domainAuthority) * 100) : expectedGrowth,
+                confidence: Math.min(75, confidence),
+                timeframe: '90 days',
+                newBacklinksRate
             };
         },
 
@@ -1530,17 +2021,32 @@
             const current = keywords.filter(k => k.position <= 3).length;
             const striking = keywords.filter(k => k.position > 3 && k.position <= 10).length;
 
-            const improvement = Math.floor(striking * (0.1 + Math.random() * 0.15));
+            // Check for keywords that are improving toward top 3
+            const movingUp = keywords.filter(k =>
+                k.position > 3 && k.position <= 10 &&
+                k.previousPosition && k.position < k.previousPosition
+            ).length;
+
+            // Calculate improvement potential
+            const improvementRate = striking > 0 ? movingUp / striking : 0.1;
+            const improvement = Math.round(striking * Math.min(0.3, improvementRate + 0.05));
             const predicted = current + improvement;
-            const confidence = 60 + Math.floor(Math.random() * 15);
+
+            // Confidence
+            let confidence = 50;
+            if (movingUp > 0) confidence += 15;
+            if (striking > 3) confidence += 10;
+            if (keywords.some(k => k.previousPosition)) confidence += 10;
 
             return {
                 metric: 'Top 3 Keywords',
                 current,
                 predicted,
-                change: current > 0 ? Math.round((improvement / current) * 100) : improvement * 100,
-                confidence,
-                timeframe: '30 days'
+                change: current > 0 ? Math.round((improvement / current) * 100) : (improvement > 0 ? 100 : 0),
+                confidence: Math.min(85, confidence),
+                timeframe: '30 days',
+                strikingDistance: striking,
+                movingUp
             };
         },
 
