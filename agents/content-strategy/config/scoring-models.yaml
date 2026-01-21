@@ -1,0 +1,553 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT STRATEGY AGENT - SCORING MODELS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This configuration defines all scoring models used by the Content Strategy
+# Agent for evaluating opportunities, content health, and performance.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+scoring_models:
+  version: "1.0.0"
+  last_updated: "2026-01-21"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT OPPORTUNITY SCORE (COS)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_opportunity_score:
+    name: "Content Opportunity Score"
+    abbreviation: "COS"
+    max_score: 100
+    description: "Evaluates potential value of content opportunities"
+
+    components:
+      - component: "traffic_potential"
+        weight: 0.20
+        max_points: 20
+        scoring_tiers:
+          - range: "Very High (10K+ monthly searches)"
+            points: 20
+          - range: "High (5K-10K)"
+            points: 16
+          - range: "Medium (1K-5K)"
+            points: 12
+          - range: "Low (500-1K)"
+            points: 8
+          - range: "Very Low (<500)"
+            points: 4
+        modifiers:
+          - modifier: "Trending up"
+            adjustment: "+2"
+          - modifier: "Trending down"
+            adjustment: "-2"
+          - modifier: "High CTR potential"
+            adjustment: "+2"
+          - modifier: "Zero-click likely"
+            adjustment: "-3"
+
+      - component: "conversion_potential"
+        weight: 0.20
+        max_points: 20
+        scoring_tiers:
+          - intent: "Transactional"
+            points: 20
+          - intent: "Commercial investigation"
+            points: 16
+          - intent: "Mixed"
+            points: 12
+          - intent: "Informational (qualified)"
+            points: 8
+          - intent: "Informational (general)"
+            points: 4
+        modifiers:
+          - modifier: "Direct product alignment"
+            adjustment: "+3"
+          - modifier: "Clear conversion path"
+            adjustment: "+2"
+          - modifier: "Multiple touchpoint opportunity"
+            adjustment: "+2"
+
+      - component: "competitive_feasibility"
+        weight: 0.15
+        max_points: 15
+        scoring_tiers:
+          - condition: "Low competition/high gap"
+            points: 15
+          - condition: "Medium competition"
+            points: 10
+          - condition: "High competition"
+            points: 5
+        modifiers:
+          - modifier: "Domain authority advantage"
+            adjustment: "+3"
+          - modifier: "Unique expertise"
+            adjustment: "+3"
+          - modifier: "Content quality gap"
+            adjustment: "+2"
+          - modifier: "First-mover opportunity"
+            adjustment: "+2"
+
+      - component: "strategic_alignment"
+        weight: 0.20
+        max_points: 20
+        scoring_tiers:
+          - alignment: "Core product/service"
+            points: 20
+          - alignment: "Priority topic cluster"
+            points: 16
+          - alignment: "Supporting cluster"
+            points: 12
+          - alignment: "Brand awareness"
+            points: 8
+          - alignment: "Experimental"
+            points: 4
+        modifiers:
+          - modifier: "Campaign alignment"
+            adjustment: "+3"
+          - modifier: "Executive priority"
+            adjustment: "+2"
+          - modifier: "Cross-team value"
+            adjustment: "+2"
+
+      - component: "authority_contribution"
+        weight: 0.10
+        max_points: 10
+        scoring_tiers:
+          - contribution: "Pillar content for new cluster"
+            points: 10
+          - contribution: "Significant cluster expansion"
+            points: 8
+          - contribution: "Cluster strengthening"
+            points: 6
+          - contribution: "Supporting content"
+            points: 4
+          - contribution: "Standalone content"
+            points: 2
+
+      - component: "effort_efficiency"
+        weight: 0.15
+        max_points: 15
+        scoring_tiers:
+          - ratio: "Very High ROI (>5:1)"
+            points: 15
+          - ratio: "High ROI (3:1-5:1)"
+            points: 12
+          - ratio: "Medium ROI (2:1-3:1)"
+            points: 9
+          - ratio: "Low ROI (1:1-2:1)"
+            points: 6
+          - ratio: "Very Low ROI (<1:1)"
+            points: 3
+        modifiers:
+          - modifier: "Repurposing opportunity"
+            adjustment: "+2"
+          - modifier: "Existing assets available"
+            adjustment: "+2"
+          - modifier: "Expert available"
+            adjustment: "+2"
+
+    priority_thresholds:
+      - priority: "P0"
+        min_score: 85
+        response: "Immediate"
+      - priority: "P1"
+        min_score: 70
+        response: "This week"
+      - priority: "P2"
+        min_score: 50
+        response: "This month"
+      - priority: "P3"
+        min_score: 30
+        response: "This quarter"
+      - priority: "P4"
+        min_score: 0
+        response: "Backlog"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT HEALTH SCORE (CHS)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_health_score:
+    name: "Content Health Score"
+    abbreviation: "CHS"
+    max_score: 100
+    description: "Measures overall health and performance of content"
+
+    dimensions:
+      - dimension: "traffic_health"
+        weight: 0.25
+        components:
+          - component: "traffic_volume"
+            weight: 0.40
+            thresholds:
+              - range: ">= 1000 monthly visitors"
+                score: 100
+              - range: "500-999"
+                score: 75
+              - range: "200-499"
+                score: 50
+              - range: "50-199"
+                score: 25
+              - range: "< 50"
+                score: 10
+
+          - component: "traffic_trend"
+            weight: 0.40
+            thresholds:
+              - trend: "Growing > 20%"
+                score: 100
+              - trend: "Growing 5-20%"
+                score: 80
+              - trend: "Stable (-5% to +5%)"
+                score: 60
+              - trend: "Declining 5-20%"
+                score: 30
+              - trend: "Declining > 20%"
+                score: 10
+
+          - component: "traffic_vs_potential"
+            weight: 0.20
+            thresholds:
+              - ratio: ">= 80% of potential"
+                score: 100
+              - ratio: "50-79%"
+                score: 70
+              - ratio: "25-49%"
+                score: 40
+              - ratio: "< 25%"
+                score: 20
+
+      - dimension: "engagement_health"
+        weight: 0.20
+        components:
+          - component: "time_on_page"
+            weight: 0.35
+            benchmark_source: "content_type_benchmarks"
+
+          - component: "scroll_depth"
+            weight: 0.30
+            target: ">= 75% reaching 50% scroll"
+
+          - component: "bounce_rate"
+            weight: 0.20
+            benchmark_source: "content_type_benchmarks"
+
+          - component: "social_engagement"
+            weight: 0.15
+            calculation: "Normalized shares + comments"
+
+      - dimension: "seo_health"
+        weight: 0.25
+        components:
+          - component: "primary_keyword_ranking"
+            weight: 0.40
+            thresholds:
+              - position: "1-3"
+                score: 100
+              - position: "4-10"
+                score: 75
+              - position: "11-20"
+                score: 50
+              - position: "21-50"
+                score: 25
+              - position: "> 50 or not ranking"
+                score: 10
+
+          - component: "keyword_coverage"
+            weight: 0.25
+            calculation: "Total keywords ranking"
+
+          - component: "backlink_profile"
+            weight: 0.20
+            calculation: "Quality-weighted backlinks"
+
+          - component: "technical_seo"
+            weight: 0.15
+            calculation: "Technical SEO audit score"
+
+      - dimension: "conversion_health"
+        weight: 0.15
+        components:
+          - component: "conversion_rate"
+            weight: 0.50
+            benchmark_source: "content_type_benchmarks"
+
+          - component: "conversion_value"
+            weight: 0.30
+            calculation: "Revenue attributed"
+
+          - component: "funnel_progression"
+            weight: 0.20
+            calculation: "% moving to next stage"
+
+      - dimension: "freshness_health"
+        weight: 0.15
+        components:
+          - component: "content_age"
+            weight: 0.40
+            thresholds:
+              - age: "< 6 months"
+                score: 100
+              - age: "6-12 months"
+                score: 75
+              - age: "12-18 months"
+                score: 50
+              - age: "18-24 months"
+                score: 25
+              - age: "> 24 months"
+                score: 10
+
+          - component: "information_currency"
+            weight: 0.35
+            factors:
+              - "Data freshness"
+              - "Reference currency"
+              - "Example relevance"
+
+          - component: "link_health"
+            weight: 0.25
+            factors:
+              - "Broken links"
+              - "Outdated references"
+
+    health_thresholds:
+      - status: "Thriving"
+        min_score: 85
+        action: "Maintain, consider expansion"
+        color: "#22c55e"
+
+      - status: "Healthy"
+        min_score: 70
+        action: "Monitor, minor optimizations"
+        color: "#84cc16"
+
+      - status: "Needs Attention"
+        min_score: 55
+        action: "Schedule optimization"
+        color: "#eab308"
+
+      - status: "At Risk"
+        min_score: 40
+        action: "Priority refresh required"
+        color: "#f97316"
+
+      - status: "Critical"
+        min_score: 25
+        action: "Urgent intervention"
+        color: "#ef4444"
+
+      - status: "Retire Candidate"
+        min_score: 0
+        action: "Evaluate for retirement"
+        color: "#7f1d1d"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BRIEF QUALITY SCORE (BQS)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  brief_quality_score:
+    name: "Brief Quality Score"
+    abbreviation: "BQS"
+    max_score: 100
+    description: "Evaluates completeness and quality of content briefs"
+
+    dimensions:
+      - dimension: "completeness"
+        weight: 0.30
+        factors:
+          - "All required fields populated"
+          - "Sufficient detail in each section"
+          - "No missing critical information"
+
+      - dimension: "seo_alignment"
+        weight: 0.25
+        factors:
+          - "Clear keyword targeting"
+          - "Intent alignment"
+          - "Competitive positioning"
+          - "SERP feature optimization"
+
+      - dimension: "strategic_clarity"
+        weight: 0.20
+        factors:
+          - "Clear business objective"
+          - "Defined success metrics"
+          - "Audience alignment"
+          - "Funnel positioning"
+
+      - dimension: "actionability"
+        weight: 0.15
+        factors:
+          - "Clear structure provided"
+          - "Specific guidance"
+          - "Realistic requirements"
+          - "Effort estimation accuracy"
+
+      - dimension: "brand_alignment"
+        weight: 0.10
+        factors:
+          - "Voice and tone guidance"
+          - "Messaging consistency"
+          - "Visual requirements"
+
+    quality_thresholds:
+      - level: "Excellent"
+        min_score: 90
+        action: "Auto-approve for assignment"
+
+      - level: "Good"
+        min_score: 75
+        action: "Light review recommended"
+
+      - level: "Adequate"
+        min_score: 60
+        action: "Review required"
+
+      - level: "Needs Work"
+        min_score: 0
+        action: "Revision required"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TOPIC CLUSTER HEALTH SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cluster_health_score:
+    name: "Topic Cluster Health Score"
+    abbreviation: "TCHS"
+    max_score: 100
+    description: "Measures health and authority of topic clusters"
+
+    dimensions:
+      - dimension: "coverage_completeness"
+        weight: 0.25
+        metrics:
+          - metric: "Subtopic coverage rate"
+            target: ">= 80%"
+          - metric: "Content depth score"
+            target: ">= 75"
+          - metric: "Gap count"
+            target: "<= 3"
+
+      - dimension: "internal_linking"
+        weight: 0.20
+        metrics:
+          - metric: "Pillar connectivity"
+            target: "100%"
+          - metric: "Cross-cluster links"
+            target: ">= 50%"
+          - metric: "Link equity flow"
+            target: "Optimal"
+
+      - dimension: "performance"
+        weight: 0.30
+        metrics:
+          - metric: "Cluster traffic"
+            target: "Growing trend"
+          - metric: "Keywords ranking top 10"
+            target: ">= 60%"
+          - metric: "Featured snippet capture"
+            target: ">= 30%"
+
+      - dimension: "freshness"
+        weight: 0.15
+        metrics:
+          - metric: "Average content age"
+            target: "<= 365 days"
+          - metric: "Pillar freshness"
+            target: "<= 90 days"
+          - metric: "Stale content ratio"
+            target: "<= 20%"
+
+      - dimension: "authority"
+        weight: 0.10
+        metrics:
+          - metric: "Backlinks to cluster"
+            target: "Growing"
+          - metric: "E-E-A-T signals"
+            target: "Strong"
+
+    health_thresholds:
+      - status: "Excellent"
+        min_score: 85
+        action: "Maintain and expand"
+
+      - status: "Good"
+        min_score: 70
+        action: "Minor optimizations"
+
+      - status: "Needs Attention"
+        min_score: 55
+        action: "Focused improvements"
+
+      - status: "At Risk"
+        min_score: 40
+        action: "Priority intervention"
+
+      - status: "Critical"
+        min_score: 0
+        action: "Emergency action"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # REPURPOSING OPPORTUNITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  repurposing_score:
+    name: "Repurposing Opportunity Score"
+    abbreviation: "ROS"
+    max_score: 100
+    description: "Evaluates content repurposing potential"
+
+    factors:
+      - factor: "source_performance"
+        weight: 0.30
+        tiers:
+          - tier: "Top 10% performer"
+            score: 100
+          - tier: "Top 25% performer"
+            score: 75
+          - tier: "Average performer"
+            score: 50
+          - tier: "Below average"
+            score: 25
+
+      - factor: "content_richness"
+        weight: 0.20
+        indicators:
+          - "Data/statistics present"
+          - "Expert quotes"
+          - "Visual elements"
+          - "Step-by-step content"
+          - "Lists and frameworks"
+
+      - factor: "topic_demand"
+        weight: 0.20
+        indicators:
+          - "Search volume for topic"
+          - "Social interest signals"
+          - "Trend momentum"
+
+      - factor: "format_gap"
+        weight: 0.15
+        indicators:
+          - "No video version exists"
+          - "No visual assets"
+          - "No audio version"
+
+      - factor: "channel_opportunity"
+        weight: 0.15
+        indicators:
+          - "Untapped channel audience"
+          - "Platform-specific potential"
+          - "Campaign alignment"
+
+    priority_thresholds:
+      - priority: "High"
+        min_score: 75
+      - priority: "Medium"
+        min_score: 50
+      - priority: "Low"
+        min_score: 25
+      - priority: "Not recommended"
+        min_score: 0

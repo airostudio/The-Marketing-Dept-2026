@@ -1,0 +1,387 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT INTELLIGENCE MODULE - OPPORTUNITY SCORING ENGINE
+# Content Strategy Agent - The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: content-intelligence-opportunity-scoring
+  name: "Content Opportunity Scoring Engine"
+  version: "1.0.0"
+  category: "content_intelligence"
+
+  description: |
+    AI-powered content opportunity scoring system that evaluates and prioritizes
+    all content opportunities based on potential value, effort required, strategic
+    alignment, and competitive dynamics.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OPPORTUNITY SOURCES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  opportunity_sources:
+
+    seo_opportunities:
+      source: "SEO Agent"
+      types:
+        - "New keyword opportunities"
+        - "Content optimization opportunities"
+        - "Featured snippet opportunities"
+        - "Topic cluster expansion"
+        - "Competitor gap opportunities"
+
+    market_opportunities:
+      source: "Market Research Agent"
+      types:
+        - "Customer pain points"
+        - "Emerging trends"
+        - "Industry news hooks"
+        - "Seasonal opportunities"
+
+    performance_opportunities:
+      source: "Content Analytics"
+      types:
+        - "High-performing content expansion"
+        - "Underperforming content optimization"
+        - "Content refresh candidates"
+        - "Consolidation opportunities"
+
+    competitive_opportunities:
+      source: "Competitive Intelligence Agent"
+      types:
+        - "Competitor content gaps"
+        - "Competitive response content"
+        - "Market positioning opportunities"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SCORING MODEL
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  scoring_model:
+    name: "Content Opportunity Score (COS)"
+    version: "1.0.0"
+    max_score: 100
+
+    components:
+
+      traffic_potential:
+        weight: 0.20
+        max_points: 20
+        calculation: |
+          Base score from search volume:
+          - Very High (10K+ monthly): 20 points
+          - High (5K-10K): 16 points
+          - Medium (1K-5K): 12 points
+          - Low (500-1K): 8 points
+          - Very Low (<500): 4 points
+
+          Modifiers:
+          - Trending up (+2)
+          - Trending down (-2)
+          - High click potential (+2)
+          - Zero-click likely (-3)
+
+      conversion_potential:
+        weight: 0.20
+        max_points: 20
+        calculation: |
+          Based on intent and funnel position:
+          - Transactional intent: 20 points
+          - Commercial intent: 16 points
+          - Mixed intent: 12 points
+          - Informational (qualified): 8 points
+          - Informational (general): 4 points
+
+          Modifiers:
+          - Direct product alignment (+3)
+          - Clear conversion path (+2)
+          - Multiple touchpoint opportunity (+2)
+
+      competitive_feasibility:
+        weight: 0.15
+        max_points: 15
+        calculation: |
+          Based on competitive analysis:
+          - Low competition/high gap: 15 points
+          - Medium competition: 10 points
+          - High competition: 5 points
+
+          Modifiers:
+          - Domain authority advantage (+3)
+          - Unique expertise (+3)
+          - Content quality gap (+2)
+          - First-mover opportunity (+2)
+
+      strategic_alignment:
+        weight: 0.20
+        max_points: 20
+        calculation: |
+          Based on business priorities:
+          - Core product/service: 20 points
+          - Priority topic cluster: 16 points
+          - Supporting cluster: 12 points
+          - Brand awareness: 8 points
+          - Experimental: 4 points
+
+          Modifiers:
+          - Campaign alignment (+3)
+          - Executive priority (+2)
+          - Cross-team value (+2)
+
+      authority_contribution:
+        weight: 0.10
+        max_points: 10
+        calculation: |
+          Based on topic authority building:
+          - Pillar content for new cluster: 10 points
+          - Significant cluster expansion: 8 points
+          - Cluster strengthening: 6 points
+          - Supporting content: 4 points
+          - Standalone content: 2 points
+
+      effort_efficiency:
+        weight: 0.15
+        max_points: 15
+        calculation: |
+          Impact-to-effort ratio:
+          - Very High ROI (>5:1): 15 points
+          - High ROI (3:1-5:1): 12 points
+          - Medium ROI (2:1-3:1): 9 points
+          - Low ROI (1:1-2:1): 6 points
+          - Very Low ROI (<1:1): 3 points
+
+          Modifiers:
+          - Repurposing opportunity (+2)
+          - Existing assets (+2)
+          - Expert available (+2)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # EFFORT ESTIMATION
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  effort_estimation:
+    name: "Content Effort Score (CES)"
+    max_score: 100
+
+    factors:
+
+      content_complexity:
+        weight: 0.30
+        levels:
+          - level: "Quick update"
+            score: 10
+            description: "Minor edits, stat updates"
+
+          - level: "Minor refresh"
+            score: 25
+            description: "Section updates, link refresh"
+
+          - level: "Standard article"
+            score: 45
+            description: "1500-2500 word blog post"
+
+          - level: "In-depth article"
+            score: 65
+            description: "3000+ word comprehensive piece"
+
+          - level: "Pillar content"
+            score: 85
+            description: "5000+ word definitive guide"
+
+          - level: "Research content"
+            score: 100
+            description: "Original research, data collection"
+
+      research_requirements:
+        weight: 0.25
+        levels:
+          - level: "None required"
+            multiplier: 1.0
+
+          - level: "Basic research"
+            multiplier: 1.2
+
+          - level: "Moderate research"
+            multiplier: 1.4
+
+          - level: "Deep research"
+            multiplier: 1.6
+
+          - level: "Original research"
+            multiplier: 2.0
+
+      asset_requirements:
+        weight: 0.20
+        levels:
+          - level: "Text only"
+            multiplier: 1.0
+
+          - level: "Stock images"
+            multiplier: 1.1
+
+          - level: "Custom graphics"
+            multiplier: 1.3
+
+          - level: "Infographics"
+            multiplier: 1.5
+
+          - level: "Video content"
+            multiplier: 1.8
+
+          - level: "Interactive"
+            multiplier: 2.0
+
+      expertise_requirements:
+        weight: 0.15
+        levels:
+          - level: "General knowledge"
+            multiplier: 1.0
+
+          - level: "Industry knowledge"
+            multiplier: 1.2
+
+          - level: "Specialist knowledge"
+            multiplier: 1.4
+
+          - level: "Expert SME required"
+            multiplier: 1.7
+
+      review_requirements:
+        weight: 0.10
+        levels:
+          - level: "Standard editorial"
+            multiplier: 1.0
+
+          - level: "SME review"
+            multiplier: 1.2
+
+          - level: "Legal review"
+            multiplier: 1.4
+
+          - level: "Multi-stakeholder"
+            multiplier: 1.6
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PRIORITY CALCULATION
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  priority_calculation:
+    formula: "COS * (100 / (CES + 10)) * urgency_multiplier"
+
+    urgency_multipliers:
+      - condition: "Competitor launching similar content"
+        multiplier: 1.5
+
+      - condition: "Seasonal opportunity (30 days)"
+        multiplier: 1.4
+
+      - condition: "Campaign alignment"
+        multiplier: 1.3
+
+      - condition: "Trending topic"
+        multiplier: 1.2
+
+      - condition: "Standard opportunity"
+        multiplier: 1.0
+
+      - condition: "Evergreen (no urgency)"
+        multiplier: 0.9
+
+    priority_thresholds:
+      - priority: "P0 - Critical"
+        score: ">= 150"
+        action: "Immediate brief generation"
+        timeline: "This week"
+
+      - priority: "P1 - High"
+        score: "100-149"
+        action: "Fast-track to calendar"
+        timeline: "This month"
+
+      - priority: "P2 - Medium"
+        score: "60-99"
+        action: "Add to content backlog"
+        timeline: "This quarter"
+
+      - priority: "P3 - Low"
+        score: "30-59"
+        action: "Monitor and reassess"
+        timeline: "Next quarter"
+
+      - priority: "P4 - Backlog"
+        score: "< 30"
+        action: "Archive for review"
+        timeline: "Future consideration"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SCORING OUTPUTS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  outputs:
+
+    opportunity_scorecard:
+      fields:
+        - "Opportunity ID"
+        - "Title/Description"
+        - "Source"
+        - "Content Opportunity Score (COS)"
+        - "Content Effort Score (CES)"
+        - "Priority Score"
+        - "Priority Tier"
+        - "Key Factors"
+        - "Recommended Action"
+        - "Timeline"
+
+    priority_queue:
+      description: "Ranked list of all opportunities"
+      sorting: "Priority Score DESC"
+      filters:
+        - "By priority tier"
+        - "By source"
+        - "By topic cluster"
+        - "By content type"
+        - "By effort level"
+
+    opportunity_dashboard:
+      widgets:
+        - "Score distribution chart"
+        - "Priority tier breakdown"
+        - "Top 10 opportunities"
+        - "Recently added"
+        - "Effort vs impact matrix"
+        - "Source breakdown"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # AUTOMATION
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  automation:
+
+    auto_scoring:
+      trigger: "New opportunity added"
+      actions:
+        - "Calculate COS"
+        - "Estimate CES"
+        - "Calculate priority"
+        - "Assign to tier"
+        - "Queue for review if P0/P1"
+
+    re_scoring:
+      trigger: "Weekly"
+      actions:
+        - "Re-score all active opportunities"
+        - "Update priority rankings"
+        - "Flag significant changes"
+        - "Archive stale opportunities"
+
+    alerts:
+      - condition: "New P0 opportunity"
+        recipients: ["cmo_agent", "content_team"]
+        action: "Immediate notification"
+
+      - condition: "Opportunity score increased significantly"
+        recipients: ["content_team"]
+        action: "Priority review"
+
+      - condition: "High-value opportunity aging"
+        recipients: ["content_team"]
+        action: "Action reminder"

@@ -1,0 +1,556 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT STRATEGY AGENT - AUTOMATED WORKFLOWS
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This configuration defines all automated workflows for the Content Strategy
+# Agent, including content lifecycle automation, optimization triggers, and
+# cross-agent coordination workflows.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflows:
+  version: "1.0.0"
+  agent: "content-strategy-agent-v1"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT OPPORTUNITY WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  opportunity_workflows:
+
+    new_keyword_opportunity:
+      name: "New Keyword Opportunity Handler"
+      trigger:
+        type: "event"
+        source: "seo_agent"
+        event: "new_keyword_opportunity"
+        conditions:
+          - "opportunity_score >= 70"
+          - "not_cannibalization_risk"
+
+      steps:
+        - step: 1
+          name: "Receive and validate opportunity"
+          actions:
+            - "Parse opportunity data"
+            - "Validate against existing content"
+            - "Check for cannibalization"
+          outputs: ["validated_opportunity"]
+
+        - step: 2
+          name: "Score content opportunity"
+          actions:
+            - "Calculate Content Opportunity Score"
+            - "Estimate effort"
+            - "Calculate priority"
+          outputs: ["scored_opportunity"]
+
+        - step: 3
+          name: "Route by priority"
+          decision:
+            - condition: "priority == P0"
+              action: "fast_track_brief_generation"
+              next: 4
+            - condition: "priority == P1"
+              action: "queue_for_brief_generation"
+              next: 5
+            - condition: "priority >= P2"
+              action: "add_to_opportunity_backlog"
+              next: "complete"
+
+        - step: 4
+          name: "Fast-track brief generation"
+          actions:
+            - "Generate content brief immediately"
+            - "Notify content team"
+            - "Flag for priority scheduling"
+          outputs: ["content_brief"]
+          next: 6
+
+        - step: 5
+          name: "Standard brief generation"
+          actions:
+            - "Add to brief generation queue"
+            - "Schedule brief generation"
+          next: 6
+
+        - step: 6
+          name: "Update tracking"
+          actions:
+            - "Log opportunity processing"
+            - "Update opportunity database"
+            - "Notify stakeholders if P0/P1"
+
+    competitor_content_alert:
+      name: "Competitor Content Alert Handler"
+      trigger:
+        type: "event"
+        source: "competitive_intelligence_agent"
+        event: "competitor_content_published"
+        conditions:
+          - "topic_overlap >= 0.7"
+          - "estimated_impact >= medium"
+
+      steps:
+        - step: 1
+          name: "Analyze competitor content"
+          actions:
+            - "Fetch competitor content details"
+            - "Analyze topic coverage"
+            - "Compare to existing content"
+          outputs: ["competitive_analysis"]
+
+        - step: 2
+          name: "Assess response options"
+          decision:
+            - condition: "we_have_better_content"
+              action: "monitor_only"
+              next: "complete"
+            - condition: "we_have_similar_content"
+              action: "evaluate_optimization"
+              next: 3
+            - condition: "we_have_no_content"
+              action: "evaluate_new_opportunity"
+              next: 4
+
+        - step: 3
+          name: "Generate optimization brief"
+          actions:
+            - "Create competitive optimization brief"
+            - "Prioritize in update queue"
+            - "Notify content team"
+          outputs: ["optimization_brief"]
+          next: 5
+
+        - step: 4
+          name: "Create content opportunity"
+          actions:
+            - "Generate new content opportunity"
+            - "Score and prioritize"
+            - "Route through standard workflow"
+          outputs: ["new_opportunity"]
+          next: 5
+
+        - step: 5
+          name: "Alert stakeholders"
+          actions:
+            - "Send competitive alert"
+            - "Update competitive tracking"
+          notifications:
+            - recipient: "cmo_agent"
+              condition: "high_impact"
+            - recipient: "content_team"
+              condition: "always"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT LIFECYCLE WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  lifecycle_workflows:
+
+    content_published:
+      name: "Content Publication Handler"
+      trigger:
+        type: "event"
+        source: "cms"
+        event: "content_published"
+
+      steps:
+        - step: 1
+          name: "Confirm publication"
+          actions:
+            - "Verify content is live"
+            - "Capture publication metadata"
+            - "Update content inventory"
+          outputs: ["publication_record"]
+
+        - step: 2
+          name: "Initialize tracking"
+          actions:
+            - "Add to rank tracking (via SEO Agent)"
+            - "Set up performance monitoring"
+            - "Create baseline metrics"
+          outputs: ["tracking_setup"]
+
+        - step: 3
+          name: "Update calendar"
+          actions:
+            - "Mark content as published"
+            - "Update editorial calendar"
+            - "Close content pipeline item"
+
+        - step: 4
+          name: "Trigger distribution"
+          actions:
+            - "Notify Social Media Agent"
+            - "Queue for email inclusion"
+            - "Trigger internal linking suggestions (SEO Agent)"
+          notifications:
+            - recipient: "social_media_agent"
+              data: ["content_url", "promotion_brief"]
+            - recipient: "seo_agent"
+              data: ["content_url", "target_keywords"]
+
+        - step: 5
+          name: "Set review milestones"
+          actions:
+            - "Schedule 7-day performance check"
+            - "Schedule 30-day performance review"
+            - "Schedule 90-day content health check"
+
+    content_health_check:
+      name: "Scheduled Content Health Check"
+      trigger:
+        type: "schedule"
+        frequency: "daily"
+        time: "03:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Gather performance data"
+          actions:
+            - "Pull traffic metrics"
+            - "Pull ranking data from SEO Agent"
+            - "Pull engagement metrics"
+            - "Pull conversion data"
+          outputs: ["performance_data"]
+
+        - step: 2
+          name: "Calculate health scores"
+          actions:
+            - "Score all content"
+            - "Compare to previous scores"
+            - "Identify significant changes"
+          outputs: ["health_scores"]
+
+        - step: 3
+          name: "Identify at-risk content"
+          actions:
+            - "Filter content with declining health"
+            - "Identify critical issues"
+            - "Prioritize by impact"
+          outputs: ["at_risk_list"]
+
+        - step: 4
+          name: "Generate recommendations"
+          actions:
+            - "Create optimization briefs for at-risk content"
+            - "Generate refresh recommendations"
+            - "Identify consolidation candidates"
+          outputs: ["recommendations"]
+
+        - step: 5
+          name: "Alert and queue"
+          actions:
+            - "Queue optimization tasks"
+            - "Send alerts for critical items"
+            - "Update dashboards"
+          notifications:
+            - recipient: "content_team"
+              condition: "new_at_risk_content"
+            - recipient: "cmo_agent"
+              condition: "critical_content_issues"
+
+    content_refresh_cycle:
+      name: "Content Refresh Automation"
+      trigger:
+        type: "schedule"
+        frequency: "weekly"
+        time: "Monday 06:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Identify refresh candidates"
+          criteria:
+            - "Content older than 12 months"
+            - "Performance declining > 15%"
+            - "Information potentially outdated"
+            - "High-value content (top 25%)"
+          outputs: ["refresh_candidates"]
+
+        - step: 2
+          name: "Prioritize refresh list"
+          actions:
+            - "Score refresh priority"
+            - "Consider resource availability"
+            - "Factor in strategic importance"
+          outputs: ["prioritized_list"]
+
+        - step: 3
+          name: "Generate refresh briefs"
+          actions:
+            - "Create refresh brief for top candidates"
+            - "Specify update requirements"
+            - "Set deadlines"
+          outputs: ["refresh_briefs"]
+          constraints:
+            max_briefs_per_week: 5
+
+        - step: 4
+          name: "Assign and schedule"
+          actions:
+            - "Match to available writers"
+            - "Add to editorial calendar"
+            - "Notify assignees"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TOPIC CLUSTER WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cluster_workflows:
+
+    cluster_health_monitoring:
+      name: "Topic Cluster Health Monitor"
+      trigger:
+        type: "schedule"
+        frequency: "weekly"
+        time: "Sunday 20:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Calculate cluster health"
+          actions:
+            - "Score each cluster"
+            - "Track trend changes"
+            - "Compare to competitors"
+          outputs: ["cluster_health_scores"]
+
+        - step: 2
+          name: "Identify gaps"
+          actions:
+            - "Find missing subtopics"
+            - "Identify weak coverage areas"
+            - "Check internal linking completeness"
+          outputs: ["cluster_gaps"]
+
+        - step: 3
+          name: "Generate recommendations"
+          decision:
+            - condition: "cluster_health < 55"
+              action: "priority_intervention"
+              outputs: ["intervention_plan"]
+            - condition: "cluster_health < 70"
+              action: "scheduled_improvement"
+              outputs: ["improvement_plan"]
+            - condition: "cluster_health >= 70"
+              action: "maintenance_mode"
+
+        - step: 4
+          name: "Create content opportunities"
+          actions:
+            - "Generate opportunities from gaps"
+            - "Score and prioritize"
+            - "Route to brief generation"
+
+        - step: 5
+          name: "Report and alert"
+          actions:
+            - "Update cluster dashboard"
+            - "Generate weekly report"
+          notifications:
+            - recipient: "cmo_agent"
+              condition: "cluster_health_critical"
+            - recipient: "seo_agent"
+              data: ["cluster_status", "linking_needs"]
+
+    cluster_expansion:
+      name: "Topic Cluster Expansion Handler"
+      trigger:
+        type: "event"
+        source: "content_intelligence"
+        event: "cluster_expansion_opportunity"
+
+      steps:
+        - step: 1
+          name: "Validate expansion opportunity"
+          actions:
+            - "Confirm SEO value"
+            - "Check strategic alignment"
+            - "Assess resource requirements"
+          outputs: ["validated_expansion"]
+
+        - step: 2
+          name: "Plan expansion content"
+          actions:
+            - "Map new subtopics"
+            - "Design internal linking"
+            - "Sequence content creation"
+          outputs: ["expansion_plan"]
+
+        - step: 3
+          name: "Generate content briefs"
+          actions:
+            - "Create briefs for expansion content"
+            - "Set cluster relationship"
+            - "Define linking requirements"
+          outputs: ["expansion_briefs"]
+
+        - step: 4
+          name: "Schedule and track"
+          actions:
+            - "Add to editorial calendar"
+            - "Set expansion milestones"
+            - "Track completion progress"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-AGENT COORDINATION WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  coordination_workflows:
+
+    seo_content_sync:
+      name: "SEO Agent Content Synchronization"
+      trigger:
+        type: "schedule"
+        frequency: "daily"
+        time: "05:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Request SEO updates"
+          actions:
+            - "Request keyword ranking updates"
+            - "Request new opportunities"
+            - "Request optimization recommendations"
+          source: "seo_agent"
+
+        - step: 2
+          name: "Process SEO intelligence"
+          actions:
+            - "Update content-keyword mappings"
+            - "Process new opportunities"
+            - "Update content scores"
+
+        - step: 3
+          name: "Send content updates to SEO"
+          actions:
+            - "Share new content briefs"
+            - "Report upcoming content"
+            - "Share cluster updates"
+          destination: "seo_agent"
+
+    campaign_content_coordination:
+      name: "Campaign Content Coordinator"
+      trigger:
+        type: "event"
+        source: "campaign_architect_agent"
+        event: "campaign_content_request"
+
+      steps:
+        - step: 1
+          name: "Receive campaign requirements"
+          actions:
+            - "Parse content requirements"
+            - "Understand timeline"
+            - "Identify assets needed"
+          outputs: ["campaign_requirements"]
+
+        - step: 2
+          name: "Inventory existing content"
+          actions:
+            - "Find reusable content"
+            - "Identify content gaps"
+            - "Assess update needs"
+          outputs: ["content_inventory"]
+
+        - step: 3
+          name: "Plan campaign content"
+          actions:
+            - "Create campaign content plan"
+            - "Prioritize new vs existing"
+            - "Generate briefs"
+          outputs: ["campaign_content_plan"]
+
+        - step: 4
+          name: "Schedule and reserve"
+          actions:
+            - "Reserve calendar slots"
+            - "Assign resources"
+            - "Lock campaign deadlines"
+          outputs: ["campaign_schedule"]
+
+        - step: 5
+          name: "Coordinate delivery"
+          actions:
+            - "Track content completion"
+            - "Report status to Campaign Architect"
+            - "Escalate delays"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # REPORTING WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  reporting_workflows:
+
+    weekly_performance_report:
+      name: "Weekly Content Performance Report"
+      trigger:
+        type: "schedule"
+        frequency: "weekly"
+        time: "Monday 08:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Gather metrics"
+          actions:
+            - "Collect performance data"
+            - "Pull comparison data (WoW)"
+            - "Get SEO metrics"
+          outputs: ["weekly_metrics"]
+
+        - step: 2
+          name: "Generate report"
+          actions:
+            - "Create performance summary"
+            - "Identify top performers"
+            - "Flag concerning trends"
+            - "List recommendations"
+          outputs: ["weekly_report"]
+
+        - step: 3
+          name: "Distribute report"
+          notifications:
+            - recipient: "cmo_agent"
+              format: "executive_summary"
+            - recipient: "marketing_analytics_agent"
+              format: "full_data"
+            - recipient: "content_team"
+              format: "actionable_items"
+
+    monthly_content_analysis:
+      name: "Monthly Content Analysis"
+      trigger:
+        type: "schedule"
+        frequency: "monthly"
+        time: "1st of month 09:00 UTC"
+
+      steps:
+        - step: 1
+          name: "Comprehensive analysis"
+          actions:
+            - "Full portfolio analysis"
+            - "ROI calculations"
+            - "Trend analysis"
+            - "Competitive comparison"
+          outputs: ["monthly_analysis"]
+
+        - step: 2
+          name: "Strategic recommendations"
+          actions:
+            - "Generate strategic insights"
+            - "Propose content strategy adjustments"
+            - "Resource recommendations"
+          outputs: ["strategic_recommendations"]
+
+        - step: 3
+          name: "Generate and distribute"
+          actions:
+            - "Create monthly report"
+            - "Update dashboards"
+            - "Distribute to stakeholders"
+          notifications:
+            - recipient: "cmo_agent"
+              format: "strategic_report"
+            - recipient: "roi_budget_agent"
+              format: "roi_analysis"

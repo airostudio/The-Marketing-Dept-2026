@@ -1,0 +1,389 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT STRATEGY AGENT - THRESHOLDS & TRIGGERS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This configuration defines all operational thresholds, alert triggers,
+# and automation boundaries for the Content Strategy Agent.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+thresholds:
+  version: "1.0.0"
+  last_updated: "2026-01-21"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PERFORMANCE THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  performance:
+
+    traffic:
+      - threshold: "traffic_drop_warning"
+        value: -15
+        unit: "percent"
+        period: "week_over_week"
+        action: "flag_for_review"
+
+      - threshold: "traffic_drop_alert"
+        value: -30
+        unit: "percent"
+        period: "week_over_week"
+        action: "immediate_investigation"
+        escalate_to: "cmo_agent"
+
+      - threshold: "traffic_drop_critical"
+        value: -50
+        unit: "percent"
+        period: "week_over_week"
+        action: "emergency_protocol"
+        escalate_to: ["cmo_agent", "seo_agent"]
+
+      - threshold: "traffic_spike"
+        value: 100
+        unit: "percent"
+        period: "week_over_week"
+        action: "capitalize_opportunity"
+
+    engagement:
+      - threshold: "bounce_rate_warning"
+        value: 75
+        unit: "percent"
+        action: "flag_for_optimization"
+
+      - threshold: "bounce_rate_critical"
+        value: 85
+        unit: "percent"
+        action: "urgent_content_review"
+
+      - threshold: "time_on_page_minimum"
+        value: 30
+        unit: "seconds"
+        action: "engagement_optimization"
+
+      - threshold: "scroll_depth_minimum"
+        value: 25
+        unit: "percent"
+        action: "content_structure_review"
+
+    conversion:
+      - threshold: "conversion_rate_minimum"
+        value: 0.5
+        unit: "percent"
+        action: "conversion_optimization"
+        applies_to: "decision_stage_content"
+
+      - threshold: "conversion_drop_alert"
+        value: -20
+        unit: "percent"
+        period: "month_over_month"
+        action: "conversion_audit"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT HEALTH THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_health:
+
+    age:
+      - threshold: "refresh_recommended"
+        value: 12
+        unit: "months"
+        action: "add_to_refresh_queue"
+
+      - threshold: "refresh_required"
+        value: 18
+        unit: "months"
+        action: "priority_refresh"
+
+      - threshold: "retirement_evaluation"
+        value: 24
+        unit: "months"
+        condition: "and_underperforming"
+        action: "retirement_review"
+
+    health_score:
+      - threshold: "healthy_minimum"
+        value: 70
+        action: "monitor"
+
+      - threshold: "attention_needed"
+        value: 55
+        action: "schedule_optimization"
+
+      - threshold: "at_risk"
+        value: 40
+        action: "priority_intervention"
+
+      - threshold: "critical"
+        value: 25
+        action: "immediate_action"
+        escalate_to: "cmo_agent"
+
+      - threshold: "retire_candidate"
+        value: 15
+        action: "retirement_recommendation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PIPELINE THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  pipeline:
+
+    depth:
+      - threshold: "healthy_pipeline"
+        value: 6
+        unit: "weeks"
+        status: "green"
+
+      - threshold: "adequate_pipeline"
+        value: 4
+        unit: "weeks"
+        status: "yellow"
+
+      - threshold: "low_pipeline"
+        value: 3
+        unit: "weeks"
+        action: "pipeline_acceleration"
+        status: "orange"
+
+      - threshold: "critical_pipeline"
+        value: 2
+        unit: "weeks"
+        action: "emergency_content_sourcing"
+        escalate_to: "cmo_agent"
+        status: "red"
+
+    velocity:
+      - threshold: "below_target_velocity"
+        value: -20
+        unit: "percent"
+        period: "vs_target"
+        action: "velocity_review"
+
+      - threshold: "significantly_below_velocity"
+        value: -40
+        unit: "percent"
+        period: "vs_target"
+        action: "resource_review"
+        escalate_to: "cmo_agent"
+
+    delays:
+      - threshold: "deadline_at_risk"
+        value: 2
+        unit: "days_until_deadline"
+        action: "expedite_notification"
+
+      - threshold: "deadline_missed"
+        value: 0
+        unit: "days_past_deadline"
+        action: "escalation_protocol"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TOPIC CLUSTER THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  clusters:
+
+    coverage:
+      - threshold: "minimum_coverage"
+        value: 60
+        unit: "percent"
+        action: "gap_filling_priority"
+
+      - threshold: "healthy_coverage"
+        value: 80
+        unit: "percent"
+        status: "good"
+
+      - threshold: "comprehensive_coverage"
+        value: 95
+        unit: "percent"
+        status: "excellent"
+
+    health:
+      - threshold: "cluster_healthy"
+        value: 70
+        status: "maintain"
+
+      - threshold: "cluster_needs_attention"
+        value: 55
+        action: "improvement_plan"
+
+      - threshold: "cluster_at_risk"
+        value: 40
+        action: "priority_intervention"
+        escalate_to: "seo_agent"
+
+    pillar_freshness:
+      - threshold: "pillar_fresh"
+        value: 90
+        unit: "days"
+        status: "good"
+
+      - threshold: "pillar_update_due"
+        value: 120
+        unit: "days"
+        action: "schedule_pillar_update"
+
+      - threshold: "pillar_stale"
+        value: 180
+        unit: "days"
+        action: "priority_pillar_refresh"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTOMATION LIMITS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  automation_limits:
+
+    brief_generation:
+      - limit: "max_briefs_per_day"
+        value: 10
+        override: "tier_1_approval"
+
+      - limit: "max_briefs_per_week"
+        value: 40
+        override: "cmo_approval"
+
+    scheduling:
+      - limit: "max_content_per_day"
+        value: 3
+        type: "hard_limit"
+
+      - limit: "max_content_per_week"
+        value: 15
+        override: "campaign_exception"
+
+      - limit: "min_review_time"
+        value: 24
+        unit: "hours"
+        type: "hard_limit"
+
+    recommendations:
+      - limit: "max_optimization_recommendations_per_day"
+        value: 20
+        override: false
+
+      - limit: "max_retirement_recommendations_per_month"
+        value: 25
+        override: "tier_2_approval"
+
+    calendar_changes:
+      - limit: "calendar_change_notice"
+        value: 48
+        unit: "hours"
+        type: "minimum"
+        override: "tier_1_approval"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ALERT CONFIGURATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alerts:
+
+    severity_levels:
+      - level: "critical"
+        response_time: "1_hour"
+        notification_channels: ["slack", "email", "sms"]
+        auto_escalate: true
+
+      - level: "high"
+        response_time: "4_hours"
+        notification_channels: ["slack", "email"]
+        auto_escalate: false
+
+      - level: "medium"
+        response_time: "24_hours"
+        notification_channels: ["slack"]
+        auto_escalate: false
+
+      - level: "low"
+        response_time: "1_week"
+        notification_channels: ["dashboard"]
+        auto_escalate: false
+
+      - level: "info"
+        response_time: "none"
+        notification_channels: ["dashboard"]
+        auto_escalate: false
+
+    alert_rules:
+      - rule: "content_performance_drop"
+        condition: "traffic_drop > 30%"
+        severity: "high"
+        recipients: ["content_team", "cmo_agent"]
+
+      - rule: "pipeline_critical"
+        condition: "pipeline_depth < 2_weeks"
+        severity: "critical"
+        recipients: ["content_team", "cmo_agent"]
+
+      - rule: "cluster_health_critical"
+        condition: "cluster_health < 40"
+        severity: "high"
+        recipients: ["content_team", "seo_agent"]
+
+      - rule: "deadline_at_risk"
+        condition: "days_to_deadline <= 2 AND status != 'ready'"
+        severity: "medium"
+        recipients: ["assigned_owner", "content_lead"]
+
+      - rule: "competitor_content_alert"
+        condition: "competitor_publishes_in_cluster"
+        severity: "medium"
+        recipients: ["content_team", "competitive_intel_agent"]
+
+      - rule: "content_health_degradation"
+        condition: "health_score_drop > 20_points"
+        severity: "medium"
+        recipients: ["content_team"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BENCHMARK TARGETS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  benchmarks:
+
+    content_production:
+      - metric: "briefs_to_publication_days"
+        target: 10
+        good: 14
+        acceptable: 21
+
+      - metric: "refresh_cycle_days"
+        target: 5
+        good: 7
+        acceptable: 10
+
+      - metric: "calendar_adherence_percent"
+        target: 95
+        good: 90
+        acceptable: 85
+
+    content_performance:
+      - metric: "content_roi_minimum"
+        target: 300
+        unit: "percent"
+        timeframe: "12_months"
+
+      - metric: "topic_authority_top_ranking"
+        target: 3
+        description: "Top 3 in priority clusters"
+
+      - metric: "content_health_portfolio"
+        target: 80
+        unit: "percent_healthy"
+
+    efficiency:
+      - metric: "production_cost_per_piece"
+        target: "decrease_10_percent_yoy"
+
+      - metric: "repurposing_ratio"
+        target: 3
+        description: "Derivatives per pillar"
+
+      - metric: "utilization_rate"
+        target: 80
+        unit: "percent"
+        range: "70-90"

@@ -1,0 +1,379 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT INTELLIGENCE MODULE - GAP ANALYSIS ENGINE
+# Content Strategy Agent - The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: content-intelligence-gap-analysis
+  name: "Content Gap Analysis Engine"
+  version: "1.0.0"
+  category: "content_intelligence"
+
+  description: |
+    AI-powered content gap analysis that identifies missing content opportunities
+    across topics, keywords, funnel stages, formats, and competitive positioning.
+    Integrates with SEO Agent for keyword data and Market Research Agent for
+    audience insights.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GAP ANALYSIS TYPES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  analysis_types:
+
+    topic_gap_analysis:
+      description: "Identify missing topics in your content ecosystem"
+      data_sources:
+        - "seo_agent.keyword_data"
+        - "competitor_content_inventory"
+        - "industry_topic_map"
+        - "audience_interest_data"
+
+      analysis_dimensions:
+        - dimension: "Topic Coverage"
+          metrics:
+            - "Topics in industry vs topics covered"
+            - "Topic depth (articles per topic)"
+            - "Topic freshness (average age)"
+            - "Topic performance (traffic per topic)"
+
+        - dimension: "Competitor Comparison"
+          metrics:
+            - "Topics competitors cover that you don't"
+            - "Topics you cover that competitors don't"
+            - "Shared topic quality comparison"
+            - "Topic authority comparison"
+
+        - dimension: "Audience Alignment"
+          metrics:
+            - "Topics audience searches for"
+            - "Topics audience engages with"
+            - "Unmet audience topic needs"
+
+      outputs:
+        - "Topic gap matrix"
+        - "Prioritized topic opportunities"
+        - "Competitive topic positioning"
+        - "Topic authority roadmap"
+
+    keyword_content_gap:
+      description: "Map keywords to content and identify gaps"
+      data_sources:
+        - "seo_agent.keyword_opportunities"
+        - "content_keyword_mapping"
+        - "ranking_data"
+
+      analysis_dimensions:
+        - dimension: "Keyword Coverage"
+          metrics:
+            - "Keywords with no targeting content"
+            - "Keywords with weak content"
+            - "Keywords with cannibalization"
+            - "Keywords with outdated content"
+
+        - dimension: "Intent Coverage"
+          metrics:
+            - "Informational keywords covered"
+            - "Commercial keywords covered"
+            - "Transactional keywords covered"
+            - "Navigational keywords covered"
+
+        - dimension: "Long-tail Coverage"
+          metrics:
+            - "Question keywords covered"
+            - "Comparison keywords covered"
+            - "How-to keywords covered"
+            - "Review keywords covered"
+
+      outputs:
+        - "Keyword gap report"
+        - "Content-keyword mapping"
+        - "Priority keyword targets"
+        - "Content briefs for gaps"
+
+    funnel_gap_analysis:
+      description: "Identify content gaps across the customer journey"
+      data_sources:
+        - "customer_journey_data"
+        - "content_funnel_mapping"
+        - "conversion_attribution"
+
+      funnel_stages:
+        - stage: "Awareness"
+          content_types:
+            - "Educational blog posts"
+            - "Industry guides"
+            - "Infographics"
+            - "Videos"
+          gap_indicators:
+            - "Low organic traffic"
+            - "Missing top-funnel keywords"
+            - "Poor topic coverage"
+
+        - stage: "Consideration"
+          content_types:
+            - "Comparison guides"
+            - "Buying guides"
+            - "Case studies"
+            - "Webinars"
+          gap_indicators:
+            - "Low engagement"
+            - "Missing mid-funnel content"
+            - "Poor competitor differentiation"
+
+        - stage: "Decision"
+          content_types:
+            - "Product pages"
+            - "Pricing pages"
+            - "Demo content"
+            - "Testimonials"
+          gap_indicators:
+            - "Low conversion rate"
+            - "Missing bottom-funnel content"
+            - "Weak social proof"
+
+        - stage: "Retention"
+          content_types:
+            - "Onboarding guides"
+            - "Knowledge base"
+            - "Best practice content"
+            - "Success stories"
+          gap_indicators:
+            - "High support tickets"
+            - "Low feature adoption"
+            - "Missing education content"
+
+        - stage: "Advocacy"
+          content_types:
+            - "User community content"
+            - "Partner content"
+            - "Review content"
+            - "Referral content"
+          gap_indicators:
+            - "Low referrals"
+            - "Few reviews"
+            - "Missing advocacy content"
+
+      outputs:
+        - "Funnel content map"
+        - "Stage gap analysis"
+        - "Journey optimization recommendations"
+        - "Content priority by stage"
+
+    format_gap_analysis:
+      description: "Identify underutilized content formats"
+      data_sources:
+        - "content_format_inventory"
+        - "format_performance_data"
+        - "competitor_format_analysis"
+        - "audience_format_preferences"
+
+      format_categories:
+        - category: "Written Content"
+          formats: ["Blog posts", "Guides", "Whitepapers", "eBooks", "Reports"]
+
+        - category: "Visual Content"
+          formats: ["Infographics", "Slideshares", "Data visualizations", "Comics"]
+
+        - category: "Video Content"
+          formats: ["Explainer videos", "Tutorials", "Webinars", "Interviews"]
+
+        - category: "Audio Content"
+          formats: ["Podcasts", "Audio articles", "Interviews"]
+
+        - category: "Interactive Content"
+          formats: ["Tools", "Calculators", "Quizzes", "Assessments"]
+
+      analysis_metrics:
+        - "Format distribution vs industry benchmark"
+        - "Format performance comparison"
+        - "Format gap vs competitors"
+        - "Audience format preferences"
+        - "Format opportunity scoring"
+
+      outputs:
+        - "Format gap report"
+        - "Format opportunity matrix"
+        - "Format diversification recommendations"
+
+    competitive_content_gap:
+      description: "Deep competitive content gap analysis"
+      data_sources:
+        - "competitor_content_database"
+        - "competitor_performance_estimates"
+        - "shared_keyword_analysis"
+
+      competitive_dimensions:
+        - dimension: "Content Volume"
+          metrics:
+            - "Total content comparison"
+            - "Publishing velocity comparison"
+            - "Content type distribution"
+
+        - dimension: "Content Quality"
+          metrics:
+            - "Average content length"
+            - "Content depth scoring"
+            - "Media richness"
+            - "E-E-A-T signals"
+
+        - dimension: "Content Performance"
+          metrics:
+            - "Estimated traffic comparison"
+            - "Ranking comparison"
+            - "Social engagement comparison"
+            - "Backlink acquisition comparison"
+
+        - dimension: "Content Strategy"
+          metrics:
+            - "Topic focus areas"
+            - "Format preferences"
+            - "Publishing patterns"
+            - "Targeting strategy"
+
+      outputs:
+        - "Competitive content scorecard"
+        - "Gap opportunity matrix"
+        - "Competitive advantage areas"
+        - "Threat assessment"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GAP SCORING MODEL
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  gap_scoring:
+    description: "Unified scoring model for prioritizing content gaps"
+
+    scoring_factors:
+      - factor: "opportunity_size"
+        weight: 0.30
+        inputs:
+          - "Search volume potential"
+          - "Traffic opportunity"
+          - "Conversion potential"
+
+      - factor: "competitive_intensity"
+        weight: 0.20
+        inputs:
+          - "Competitor coverage"
+          - "Difficulty to compete"
+          - "First-mover advantage"
+
+      - factor: "strategic_fit"
+        weight: 0.25
+        inputs:
+          - "Business alignment"
+          - "Audience relevance"
+          - "Brand fit"
+
+      - factor: "effort_to_fill"
+        weight: 0.15
+        inputs:
+          - "Content complexity"
+          - "Resource requirements"
+          - "Expertise availability"
+
+      - factor: "urgency"
+        weight: 0.10
+        inputs:
+          - "Competitor momentum"
+          - "Market timing"
+          - "Seasonal relevance"
+
+    priority_tiers:
+      - tier: "Immediate Action"
+        score: ">= 80"
+        action: "Create content brief within 1 week"
+
+      - tier: "High Priority"
+        score: "60-79"
+        action: "Schedule for next month"
+
+      - tier: "Medium Priority"
+        score: "40-59"
+        action: "Add to quarterly plan"
+
+      - tier: "Low Priority"
+        score: "20-39"
+        action: "Monitor and reassess"
+
+      - tier: "Backlog"
+        score: "< 20"
+        action: "Archive for future consideration"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # AUTOMATION & WORKFLOWS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  automation:
+
+    scheduled_analysis:
+      - analysis: "Full gap analysis"
+        frequency: "Monthly"
+        trigger: "1st of month"
+
+      - analysis: "Competitive gap scan"
+        frequency: "Weekly"
+        trigger: "Monday 06:00 UTC"
+
+      - analysis: "Keyword gap sync"
+        frequency: "Daily"
+        trigger: "SEO Agent keyword update"
+
+    event_triggered:
+      - trigger: "New competitor content published"
+        action: "Quick gap assessment"
+
+      - trigger: "Significant ranking change"
+        action: "Affected topic gap analysis"
+
+      - trigger: "New keyword opportunity from SEO Agent"
+        action: "Content mapping check"
+
+    outputs:
+      - "Gap analysis dashboard"
+      - "Priority opportunity queue"
+      - "Automated content briefs"
+      - "Stakeholder alerts"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # INTEGRATIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  integrations:
+
+    receives_from:
+      - agent: "SEO Agent"
+        data:
+          - "Keyword opportunities"
+          - "Search intent data"
+          - "Competitor keyword analysis"
+          - "Ranking data"
+
+      - agent: "Competitive Intelligence Agent"
+        data:
+          - "Competitor content inventory"
+          - "Competitor performance estimates"
+          - "Market positioning data"
+
+      - agent: "Market Research Agent"
+        data:
+          - "Audience interests"
+          - "Customer pain points"
+          - "Industry trends"
+
+    sends_to:
+      - agent: "Content Brief Generator"
+        data:
+          - "Prioritized gap opportunities"
+          - "Gap context and requirements"
+
+      - agent: "Editorial Calendar"
+        data:
+          - "Recommended content additions"
+          - "Priority sequencing"
+
+      - agent: "CMO Agent"
+        data:
+          - "Gap analysis reports"
+          - "Strategic recommendations"

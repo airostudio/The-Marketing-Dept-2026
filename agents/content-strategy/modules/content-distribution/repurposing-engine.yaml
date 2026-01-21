@@ -1,0 +1,461 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT DISTRIBUTION MODULE - REPURPOSING ENGINE
+# Content Strategy Agent - The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: content-distribution-repurposing
+  name: "Content Repurposing Engine"
+  version: "1.0.0"
+  category: "content_distribution"
+
+  description: |
+    AI-powered content repurposing system that maximizes content ROI by
+    identifying repurposing opportunities, generating derivative content
+    plans, and tracking the performance of repurposed content.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPURPOSING STRATEGIES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  repurposing_strategies:
+
+    format_transformation:
+      description: "Transform content into different formats"
+
+      transformations:
+        - from: "Blog Post"
+          to:
+            - format: "Video Script"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Visual learners, YouTube SEO"
+
+            - format: "Infographic"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Social sharing, backlinks"
+
+            - format: "Podcast Episode"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "Audio audience, commuters"
+
+            - format: "Social Carousel"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "LinkedIn, Instagram"
+
+            - format: "Email Series"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "Nurture campaigns"
+
+            - format: "Slide Deck"
+              effort: "Medium"
+              potential: "Medium"
+              use_case: "SlideShare, presentations"
+
+        - from: "Pillar Page"
+          to:
+            - format: "eBook/PDF Guide"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Lead generation"
+
+            - format: "Blog Series"
+              effort: "Low"
+              potential: "High"
+              use_case: "SEO, traffic distribution"
+
+            - format: "Webinar Content"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Lead generation, engagement"
+
+            - format: "Course/Tutorial"
+              effort: "High"
+              potential: "High"
+              use_case: "Education, authority"
+
+        - from: "Case Study"
+          to:
+            - format: "Social Proof Snippets"
+              effort: "Low"
+              potential: "High"
+              use_case: "Sales enablement"
+
+            - format: "Quote Graphics"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "Social media"
+
+            - format: "Sales One-Pager"
+              effort: "Low"
+              potential: "High"
+              use_case: "Sales collateral"
+
+            - format: "Video Testimonial"
+              effort: "High"
+              potential: "High"
+              use_case: "Website, ads"
+
+        - from: "Webinar"
+          to:
+            - format: "Blog Post"
+              effort: "Low"
+              potential: "High"
+              use_case: "SEO, content library"
+
+            - format: "Short Video Clips"
+              effort: "Low"
+              potential: "High"
+              use_case: "Social media"
+
+            - format: "Podcast Episode"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "Audio repurposing"
+
+            - format: "Key Takeaways Doc"
+              effort: "Low"
+              potential: "Medium"
+              use_case: "Lead magnet"
+
+        - from: "Research/Report"
+          to:
+            - format: "Data Visualizations"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Social, press"
+
+            - format: "Blog Series"
+              effort: "Low"
+              potential: "High"
+              use_case: "SEO, engagement"
+
+            - format: "Press Release"
+              effort: "Low"
+              potential: "High"
+              use_case: "PR, backlinks"
+
+            - format: "Infographic"
+              effort: "Medium"
+              potential: "High"
+              use_case: "Viral potential"
+
+    content_atomization:
+      description: "Break content into smaller, shareable pieces"
+
+      atomization_rules:
+        - source_type: "Long-form Article"
+          atoms:
+            - "Key statistics (individual posts)"
+            - "Quote graphics"
+            - "Tip lists"
+            - "Quick takeaways"
+            - "Thread content"
+
+        - source_type: "Video Content"
+          atoms:
+            - "Short clips (15-60 seconds)"
+            - "GIFs"
+            - "Screenshots"
+            - "Audio clips"
+            - "Quote cards"
+
+        - source_type: "Podcast"
+          atoms:
+            - "Audiograms"
+            - "Quote graphics"
+            - "Key moments clips"
+            - "Show notes blog"
+            - "Thread summaries"
+
+    content_compilation:
+      description: "Combine related content into larger pieces"
+
+      compilation_types:
+        - type: "Blog Series to eBook"
+          trigger: "3+ related blog posts"
+          output: "Comprehensive downloadable guide"
+          value: "Lead generation"
+
+        - type: "FAQ to Knowledge Base"
+          trigger: "10+ answered questions"
+          output: "Structured help center"
+          value: "Support deflection"
+
+        - type: "Tips Collection"
+          trigger: "Social tips content"
+          output: "Ultimate tips checklist"
+          value: "Lead magnet"
+
+        - type: "Expert Roundup"
+          trigger: "Multiple expert contributions"
+          output: "Industry insights report"
+          value: "Authority building"
+
+        - type: "Annual Review"
+          trigger: "Year of content on topic"
+          output: "Year in review compilation"
+          value: "Traffic, engagement"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPURPOSING OPPORTUNITY DETECTION
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  opportunity_detection:
+
+    scoring_model:
+      name: "Repurposing Opportunity Score (ROS)"
+      max_score: 100
+
+      factors:
+        - factor: "Source Performance"
+          weight: 0.30
+          scoring:
+            - condition: "Top 10% performer"
+              score: 100
+            - condition: "Top 25% performer"
+              score: 75
+            - condition: "Average performer"
+              score: 50
+            - condition: "Below average"
+              score: 25
+
+        - factor: "Content Richness"
+          weight: 0.20
+          indicators:
+            - "Data/statistics present"
+            - "Expert quotes"
+            - "Visual elements"
+            - "Step-by-step content"
+            - "Lists and frameworks"
+
+        - factor: "Topic Demand"
+          weight: 0.20
+          indicators:
+            - "Search volume for topic"
+            - "Social interest signals"
+            - "Trend momentum"
+
+        - factor: "Format Gap"
+          weight: 0.15
+          indicators:
+            - "No video version exists"
+            - "No visual assets"
+            - "No audio version"
+
+        - factor: "Channel Opportunity"
+          weight: 0.15
+          indicators:
+            - "Untapped channel audience"
+            - "Platform-specific potential"
+            - "Campaign alignment"
+
+    auto_detection:
+      triggers:
+        - trigger: "New high-performing content"
+          action: "Analyze repurposing potential"
+          threshold: "Top 25% in 30 days"
+
+        - trigger: "Content reaches age milestone"
+          action: "Evaluate evergreen repurposing"
+          threshold: "6 months old, still performing"
+
+        - trigger: "Format gap detected"
+          action: "Suggest transformation"
+          condition: "No video/audio version"
+
+        - trigger: "Compilation threshold met"
+          action: "Suggest content compilation"
+          condition: "3+ related pieces available"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPURPOSING WORKFLOW
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  workflow:
+
+    stages:
+      - stage: "Opportunity Identified"
+        actions:
+          - "Score opportunity"
+          - "Identify target formats"
+          - "Estimate effort and ROI"
+
+      - stage: "Planning"
+        actions:
+          - "Select transformation type"
+          - "Create derivative brief"
+          - "Assign resources"
+          - "Set timeline"
+
+      - stage: "Production"
+        actions:
+          - "Create derivative content"
+          - "Quality review"
+          - "Asset optimization"
+
+      - stage: "Distribution"
+        actions:
+          - "Publish to target channels"
+          - "Cross-promote"
+          - "Link to source"
+
+      - stage: "Tracking"
+        actions:
+          - "Monitor performance"
+          - "Track ROI"
+          - "Update source attribution"
+
+    automation:
+      - auto_task: "Brief generation"
+        trigger: "Repurposing approved"
+        output: "Derivative content brief"
+
+      - auto_task: "Distribution planning"
+        trigger: "Derivative created"
+        output: "Channel distribution plan"
+
+      - auto_task: "Performance tracking"
+        trigger: "Derivative published"
+        output: "Linked performance tracking"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DERIVATIVE CONTENT TRACKING
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  tracking:
+
+    content_lineage:
+      description: "Track parent-child relationships between content"
+      structure:
+        - "Source content (parent)"
+        - "Derivative content (children)"
+        - "Transformation type"
+        - "Creation date"
+        - "Performance metrics"
+
+    roi_measurement:
+      metrics:
+        - metric: "Derivative Traffic"
+          description: "Traffic to repurposed content"
+
+        - metric: "Incremental Reach"
+          description: "New audience reached"
+
+        - metric: "Conversion Contribution"
+          description: "Conversions from derivatives"
+
+        - metric: "Production Cost"
+          description: "Cost to create derivative"
+
+        - metric: "Repurposing ROI"
+          calculation: "(Derivative Value - Cost) / Cost"
+
+    portfolio_view:
+      features:
+        - "All source content with derivatives"
+        - "Derivative count by source"
+        - "Performance aggregation"
+        - "Gap identification"
+        - "ROI analysis"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CHANNEL OPTIMIZATION
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  channel_optimization:
+
+    channel_strategies:
+      - channel: "LinkedIn"
+        best_formats:
+          - "Carousel posts"
+          - "Document posts"
+          - "Native video"
+          - "Text posts with insights"
+        optimal_timing: "Tuesday-Thursday, 8-10 AM"
+        repurposing_notes: "Professional tone, data-driven"
+
+      - channel: "Twitter/X"
+        best_formats:
+          - "Thread content"
+          - "Quote graphics"
+          - "Short video clips"
+          - "GIFs"
+        optimal_timing: "Weekdays, 9 AM and 5 PM"
+        repurposing_notes: "Punchy, conversational"
+
+      - channel: "YouTube"
+        best_formats:
+          - "Long-form video"
+          - "Shorts"
+          - "Tutorial format"
+        optimal_timing: "Thursday-Saturday, 2-4 PM"
+        repurposing_notes: "SEO-optimized titles, thumbnails"
+
+      - channel: "Instagram"
+        best_formats:
+          - "Carousel posts"
+          - "Reels"
+          - "Stories"
+          - "Infographics"
+        optimal_timing: "Tuesday, Thursday, Friday, 11 AM"
+        repurposing_notes: "Visual-first, lifestyle"
+
+      - channel: "Email"
+        best_formats:
+          - "Newsletter digest"
+          - "Exclusive insights"
+          - "Curated content"
+        optimal_timing: "Tuesday-Thursday, 10 AM"
+        repurposing_notes: "Personalized, value-added"
+
+      - channel: "Podcast"
+        best_formats:
+          - "Interview episodes"
+          - "Solo deep-dives"
+          - "Roundtable discussions"
+        optimal_timing: "Weekly consistency"
+        repurposing_notes: "Conversational, story-driven"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPORTING
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  reporting:
+
+    dashboards:
+      - name: "Repurposing Overview"
+        widgets:
+          - "Repurposing opportunities queue"
+          - "Active derivative projects"
+          - "Performance by format"
+          - "ROI summary"
+
+      - name: "Content Lineage"
+        widgets:
+          - "Parent-child visualization"
+          - "Derivative count trends"
+          - "Top performing derivatives"
+
+    reports:
+      - report: "Monthly Repurposing Report"
+        frequency: "Monthly"
+        contents:
+          - "Derivatives created"
+          - "Performance analysis"
+          - "ROI breakdown"
+          - "Recommendations"
+
+    alerts:
+      - trigger: "High-performing content without derivatives"
+        action: "Suggest repurposing"
+
+      - trigger: "Derivative outperforming source"
+        action: "Investigate and learn"
+
+      - trigger: "Low ROI on repurposing effort"
+        action: "Review strategy"
