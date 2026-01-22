@@ -1024,7 +1024,7 @@
     <script>
         // Dashboard Protection - Redirect if not authenticated
         (function() {
-            if (!Auth.isAuthenticated()) {
+            if (!Auth.isAuthenticatedSync()) {
                 // Redirect to landing page with message
                 sessionStorage.setItem('auth_redirect', 'true');
                 window.location.href = '/index.html';
@@ -1032,7 +1032,7 @@
             }
 
             // Update user info in sidebar
-            const user = Auth.getUser();
+            const user = Auth.getUserSync();
             if (user) {
                 const userName = document.querySelector('[data-metric="user-name"]');
                 const userInitials = document.querySelector('[data-metric="user-initials"]');
@@ -1072,8 +1072,8 @@
             // Logout functionality
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
-                logoutBtn.addEventListener('click', () => {
-                    Auth.logout();
+                logoutBtn.addEventListener('click', async () => {
+                    await Auth.logout();
                     window.location.href = '/index.html';
                 });
             }
