@@ -1,0 +1,225 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL MEDIA AGENT - AUTONOMOUS DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  mode: "autonomous_with_community_oversight"
+  cycle_interval: "15_minutes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 1: CONTENT POSTING DECISIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_decisions:
+
+    optimal_timing:
+      enabled: true
+      factors:
+        - "Historical engagement patterns"
+        - "Audience online activity"
+        - "Competitor posting gaps"
+        - "Content type optimization"
+        - "Platform algorithm preferences"
+
+      rules:
+        - rule: "High-value content"
+          condition: "Strategic pillar content"
+          action: "Schedule at peak engagement time"
+
+        - rule: "Time-sensitive content"
+          condition: "News or trending topic"
+          action: "Publish immediately"
+
+        - rule: "Evergreen content"
+          condition: "Reusable content"
+          action: "Schedule in low-competition slots"
+
+    content_boost_decisions:
+      autonomous: true
+      conditions:
+        - condition: "Organic reach > 2x average"
+          action: "Recommend for paid boost"
+          budget_limit: "$50"
+
+        - condition: "Engagement rate > 3x average within 2 hours"
+          action: "Auto-boost with daily budget"
+          budget_limit: "$100"
+
+      guardrails:
+        max_daily_boost_spend: "$500"
+        min_organic_reach_first: "1000"
+        approval_required_above: "$200"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 2: ENGAGEMENT AUTOMATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  engagement_automation:
+
+    response_rules:
+      positive_mentions:
+        action: "Like and respond with gratitude"
+        response_time: "Within 1 hour"
+        approval: "autonomous"
+        templates: true
+
+      questions:
+        action: "Route to appropriate response"
+        response_time: "Within 2 hours"
+        approval: "autonomous for FAQ, review for complex"
+
+      complaints:
+        action: "Acknowledge and escalate"
+        response_time: "Within 30 minutes"
+        approval: "review required"
+        escalation: "Customer success + CMO alert"
+
+      negative_sentiment:
+        action: "Flag and assess"
+        response_time: "Within 15 minutes"
+        approval: "human required for response"
+
+      spam_trolling:
+        action: "Hide/report"
+        approval: "autonomous"
+
+    engagement_scoring:
+      factors:
+        - factor: "Account influence"
+          weight: 0.30
+        - factor: "Sentiment"
+          weight: 0.25
+        - factor: "Content relevance"
+          weight: 0.25
+        - factor: "Engagement potential"
+          weight: 0.20
+
+      priority_tiers:
+        high: "score >= 80"
+        medium: "score 50-79"
+        low: "score < 50"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 3: CRISIS DETECTION & RESPONSE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  crisis_detection:
+
+    triggers:
+      - trigger: "Negative mention spike"
+        threshold: "5x normal volume within 1 hour"
+        severity: "High"
+        action: "Pause scheduled content, escalate"
+
+      - trigger: "Viral negative content"
+        threshold: "Share velocity > 100/hour"
+        severity: "Critical"
+        action: "Immediate escalation to CMO"
+
+      - trigger: "Influencer criticism"
+        threshold: "Negative mention from 10k+ follower"
+        severity: "Medium"
+        action: "Alert and assess"
+
+      - trigger: "Competitor attack"
+        threshold: "Direct negative comparison"
+        severity: "Medium"
+        action: "Alert CMO for response strategy"
+
+    automatic_responses:
+      - response: "Pause all scheduled content"
+        trigger_severity: ["Critical", "High"]
+
+      - response: "Alert crisis team"
+        trigger_severity: ["Critical"]
+
+      - response: "Prepare response options"
+        trigger_severity: ["High", "Medium"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 4: COMMUNITY HEALTH
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  community_health:
+
+    monitoring:
+      frequency: "Continuous"
+      metrics:
+        - "Sentiment ratio (positive/negative)"
+        - "Response rate"
+        - "Response time"
+        - "Community growth rate"
+        - "Engagement rate trends"
+
+    health_score:
+      calculation: "Weighted composite of metrics"
+      thresholds:
+        healthy: ">= 80"
+        warning: "60-79"
+        critical: "< 60"
+
+    automated_actions:
+      - condition: "Health score drops to warning"
+        action: "Increase engagement activities"
+
+      - condition: "Health score drops to critical"
+        action: "Alert CMO, review strategy"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 5: ESCALATION PROTOCOLS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_protocols:
+
+    to_cmo_agent:
+      triggers:
+        - "Crisis situation detected"
+        - "Budget approval needed > $200"
+        - "Strategy decision required"
+        - "Influencer partnership opportunity"
+        - "Brand safety concern"
+
+    to_brand_agent:
+      triggers:
+        - "Voice/tone question"
+        - "Messaging alignment needed"
+        - "Visual brand question"
+
+    to_content_strategy_agent:
+      triggers:
+        - "Content gap identified"
+        - "High-performing topic discovered"
+        - "Repurposing opportunity"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 6: SAFETY GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  safety_guardrails:
+
+    content_safety:
+      - "All content must pass brand guidelines check"
+      - "No political or controversial content without approval"
+      - "No competitor disparagement"
+      - "Verify facts before posting"
+
+    engagement_safety:
+      - "Never respond to trolls aggressively"
+      - "Escalate legal/PR matters immediately"
+      - "No customer data in public responses"
+      - "Route complaints to proper channels"
+
+    automation_limits:
+      - "Max 20 automated responses per hour"
+      - "Max 50 scheduled posts per day"
+      - "Max $500 boost spend per day without approval"
+      - "Human review for all crisis responses"
+
+    audit_logging:
+      - "All posts scheduled and published"
+      - "All automated responses sent"
+      - "All escalations"
+      - "All budget spend"
+      - "All crisis detections"
