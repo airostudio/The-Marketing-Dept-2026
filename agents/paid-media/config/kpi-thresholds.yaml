@@ -1,0 +1,332 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - KPI THRESHOLDS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+kpi_thresholds:
+  version: "1.0.0"
+  last_calibrated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRIMARY KPI THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  primary_kpis:
+
+    roas:
+      name: "Return on Ad Spend"
+      calculation: "Revenue / Ad Spend"
+
+      thresholds:
+        excellent: { min: 600, action: "Scale aggressively" }
+        good: { min: 400, max: 599, action: "Scale moderately" }
+        acceptable: { min: 200, max: 399, action: "Optimize" }
+        warning: { min: 100, max: 199, action: "Review and optimize urgently" }
+        critical: { max: 99, action: "Pause or restructure" }
+
+      by_campaign_type:
+        brand_awareness:
+          target: 150
+          floor: 50
+        prospecting:
+          target: 300
+          floor: 150
+        retargeting:
+          target: 600
+          floor: 300
+        search_brand:
+          target: 800
+          floor: 400
+        search_non_brand:
+          target: 300
+          floor: 150
+
+    cpa:
+      name: "Cost Per Acquisition"
+      calculation: "Ad Spend / Conversions"
+
+      thresholds:
+        excellent: { max: 25, action: "Scale" }
+        good: { min: 26, max: 50, action: "Maintain" }
+        acceptable: { min: 51, max: 75, action: "Optimize" }
+        warning: { min: 76, max: 100, action: "Review urgently" }
+        critical: { min: 101, action: "Pause or restructure" }
+
+      by_industry:
+        b2b_saas:
+          lead_cpa: { target: 75, ceiling: 150 }
+          demo_cpa: { target: 150, ceiling: 300 }
+          trial_cpa: { target: 100, ceiling: 200 }
+
+        ecommerce:
+          purchase_cpa: { target: 30, ceiling: 60 }
+          add_to_cart_cpa: { target: 5, ceiling: 15 }
+
+        lead_gen:
+          lead_cpa: { target: 50, ceiling: 100 }
+          qualified_lead_cpa: { target: 100, ceiling: 200 }
+
+    conversion_rate:
+      name: "Conversion Rate"
+      calculation: "Conversions / Clicks * 100"
+
+      thresholds:
+        excellent: { min: 5.0, action: "Scale" }
+        good: { min: 3.0, max: 4.9, action: "Maintain" }
+        acceptable: { min: 2.0, max: 2.9, action: "Optimize" }
+        warning: { min: 1.0, max: 1.9, action: "Review" }
+        critical: { max: 0.9, action: "Investigate" }
+
+      by_platform:
+        google_search:
+          excellent: 6.0
+          benchmark: 3.75
+        google_display:
+          excellent: 1.5
+          benchmark: 0.77
+        meta:
+          excellent: 3.0
+          benchmark: 1.85
+        linkedin:
+          excellent: 4.0
+          benchmark: 2.0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECONDARY KPI THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  secondary_kpis:
+
+    ctr:
+      name: "Click-Through Rate"
+      calculation: "Clicks / Impressions * 100"
+
+      thresholds:
+        search:
+          excellent: { min: 6.0 }
+          good: { min: 4.0, max: 5.9 }
+          acceptable: { min: 2.0, max: 3.9 }
+          warning: { min: 1.0, max: 1.9 }
+          critical: { max: 0.9 }
+
+        display:
+          excellent: { min: 0.8 }
+          good: { min: 0.5, max: 0.79 }
+          acceptable: { min: 0.3, max: 0.49 }
+          warning: { min: 0.1, max: 0.29 }
+          critical: { max: 0.09 }
+
+        social:
+          excellent: { min: 2.0 }
+          good: { min: 1.0, max: 1.9 }
+          acceptable: { min: 0.5, max: 0.9 }
+          warning: { min: 0.2, max: 0.49 }
+          critical: { max: 0.19 }
+
+        video:
+          excellent: { min: 1.5 }
+          good: { min: 0.8, max: 1.49 }
+          acceptable: { min: 0.4, max: 0.79 }
+          warning: { min: 0.2, max: 0.39 }
+          critical: { max: 0.19 }
+
+    cpc:
+      name: "Cost Per Click"
+      note: "Varies significantly by industry and keyword"
+
+      benchmarks:
+        google_search:
+          b2b: { average: 3.33, range: [1.50, 8.00] }
+          ecommerce: { average: 1.16, range: [0.50, 3.00] }
+          finance: { average: 3.77, range: [2.00, 10.00] }
+          technology: { average: 3.80, range: [2.00, 8.00] }
+
+        meta:
+          average: 0.97
+          range: [0.30, 2.50]
+
+        linkedin:
+          average: 5.26
+          range: [2.00, 12.00]
+
+    cpm:
+      name: "Cost Per Thousand Impressions"
+
+      thresholds:
+        google_display:
+          low: { max: 3.00 }
+          average: { min: 3.01, max: 6.00 }
+          high: { min: 6.01, max: 10.00 }
+          very_high: { min: 10.01 }
+
+        meta:
+          low: { max: 6.00 }
+          average: { min: 6.01, max: 12.00 }
+          high: { min: 12.01, max: 20.00 }
+          very_high: { min: 20.01 }
+
+        linkedin:
+          low: { max: 8.00 }
+          average: { min: 8.01, max: 15.00 }
+          high: { min: 15.01, max: 25.00 }
+          very_high: { min: 25.01 }
+
+    impression_share:
+      name: "Search Impression Share"
+      applies_to: ["Google Search", "Microsoft Search"]
+
+      thresholds:
+        brand_campaigns:
+          target: 95
+          minimum: 80
+          action_if_below: "Increase bids or budget"
+
+        non_brand_campaigns:
+          target: 70
+          minimum: 50
+          action_if_below: "Evaluate opportunity vs cost"
+
+      lost_impression_share:
+        budget_lost:
+          warning: 10
+          critical: 25
+          action: "Increase budget or reduce targeting"
+
+        rank_lost:
+          warning: 20
+          critical: 40
+          action: "Improve Quality Score or increase bids"
+
+    quality_score:
+      name: "Google Ads Quality Score"
+      applies_to: ["Google Search", "Microsoft Search"]
+
+      thresholds:
+        excellent: { min: 8, action: "Maintain" }
+        good: { min: 6, max: 7, action: "Optimize for improvement" }
+        acceptable: { min: 5, max: 5, action: "Review ad relevance and landing page" }
+        warning: { min: 3, max: 4, action: "Major optimization needed" }
+        critical: { max: 2, action: "Restructure or pause" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EFFICIENCY METRICS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  efficiency_metrics:
+
+    budget_utilization:
+      name: "Budget Utilization Rate"
+      calculation: "Actual Spend / Budget * 100"
+
+      thresholds:
+        optimal: { min: 90, max: 100 }
+        underspend_warning: { min: 70, max: 89 }
+        underspend_critical: { max: 69 }
+        overspend_warning: { min: 101, max: 110 }
+        overspend_critical: { min: 111 }
+
+    cost_efficiency:
+      name: "Cost Efficiency Index"
+      calculation: "Target CPA / Actual CPA * 100"
+
+      thresholds:
+        excellent: { min: 150 }
+        good: { min: 100, max: 149 }
+        acceptable: { min: 80, max: 99 }
+        warning: { min: 60, max: 79 }
+        critical: { max: 59 }
+
+    spend_velocity:
+      name: "Daily Spend Velocity"
+      note: "Pace of spend relative to target"
+
+      thresholds:
+        on_pace: { min: 90, max: 110 }
+        slow: { min: 70, max: 89 }
+        very_slow: { max: 69 }
+        fast: { min: 111, max: 130 }
+        very_fast: { min: 131 }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ALERT TRIGGERS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alert_triggers:
+
+    performance_alerts:
+      - name: "ROAS Collapse"
+        condition: "ROAS drops > 50% vs 7-day average"
+        severity: "critical"
+        action: "Immediate review + potential pause"
+
+      - name: "CPA Spike"
+        condition: "CPA increases > 100% vs target"
+        severity: "high"
+        action: "Review and optimize"
+
+      - name: "CTR Drop"
+        condition: "CTR drops > 30% vs 7-day average"
+        severity: "medium"
+        action: "Review ad creative and targeting"
+
+      - name: "Conversion Volume Drop"
+        condition: "Conversions drop > 40% vs same day last week"
+        severity: "high"
+        action: "Investigate tracking and campaign health"
+
+    budget_alerts:
+      - name: "Budget Exhaustion"
+        condition: "Budget > 90% spent before midday"
+        severity: "high"
+        action: "Review pacing settings"
+
+      - name: "Underspend"
+        condition: "Budget utilization < 70%"
+        severity: "medium"
+        action: "Identify delivery issues"
+
+    quality_alerts:
+      - name: "Quality Score Drop"
+        condition: "QS drops by 2+ points"
+        severity: "medium"
+        action: "Review ad relevance and landing page"
+
+      - name: "Ad Disapproval"
+        condition: "Ad disapproved"
+        severity: "high"
+        action: "Review and fix policy violation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OPTIMIZATION TRIGGERS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  optimization_triggers:
+
+    scale_up:
+      conditions:
+        - "ROAS > 150% of target for 7+ days"
+        - "CPA < 70% of target for 7+ days"
+        - "Conversion volume stable or growing"
+      actions:
+        - "Increase budget by 20%"
+        - "Expand targeting"
+        - "Test new ad formats"
+
+    scale_down:
+      conditions:
+        - "ROAS < 75% of target for 14+ days"
+        - "CPA > 150% of target for 14+ days"
+      actions:
+        - "Reduce budget by 25%"
+        - "Narrow targeting"
+        - "Pause underperformers"
+
+    pause:
+      conditions:
+        - "ROAS < 50% of target for 21+ days"
+        - "CPA > 200% of target for 21+ days"
+        - "Conversion rate < 0.5%"
+      actions:
+        - "Pause campaign"
+        - "Review strategy"
+        - "Request approval for restart"

@@ -1,0 +1,411 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - PLATFORM SETTINGS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+platform_settings:
+  version: "1.0.0"
+  last_updated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GOOGLE ADS CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  google_ads:
+    platform_id: "GOOGLE"
+    api_version: "v16"
+
+    campaign_types:
+      search:
+        enabled: true
+        default_bid_strategy: "target_cpa"
+        ad_rotation: "optimize"
+        network_settings:
+          search_network: true
+          display_network: false
+          search_partners: true
+
+      performance_max:
+        enabled: true
+        default_bid_strategy: "maximize_conversions"
+        asset_requirements:
+          headlines: { min: 3, max: 15 }
+          descriptions: { min: 2, max: 4 }
+          images: { min: 1, max: 20 }
+          videos: { min: 0, max: 5 }
+
+      display:
+        enabled: true
+        default_bid_strategy: "target_cpa"
+        targeting_expansion: "conservative"
+
+      video:
+        enabled: true
+        default_bid_strategy: "target_cpv"
+        formats: ["in_stream", "bumper", "discovery"]
+
+      shopping:
+        enabled: true
+        default_bid_strategy: "target_roas"
+        feed_requirements: "merchant_center_connected"
+
+    bidding_settings:
+      strategies:
+        target_roas:
+          default_target: 400
+          learning_period_days: 14
+          min_conversions: 30
+
+        target_cpa:
+          default_target: 50
+          learning_period_days: 14
+          min_conversions: 30
+
+        maximize_conversions:
+          budget_cap: true
+
+      modifiers:
+        device:
+          range: [-100, 300]
+          optimization_frequency: "weekly"
+        location:
+          range: [-90, 300]
+          optimization_frequency: "weekly"
+        schedule:
+          range: [-90, 300]
+          optimization_frequency: "weekly"
+
+    quality_thresholds:
+      quality_score_min: 5
+      expected_ctr_min: "average"
+      ad_relevance_min: "average"
+      landing_page_min: "average"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # META ADS CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  meta_ads:
+    platform_id: "META"
+    api_version: "v18.0"
+
+    campaign_objectives:
+      awareness:
+        enabled: true
+        optimization: "reach"
+        billing: "impressions"
+
+      traffic:
+        enabled: true
+        optimization: "link_clicks"
+        billing: "impressions"
+
+      engagement:
+        enabled: true
+        optimization: "post_engagement"
+        billing: "impressions"
+
+      leads:
+        enabled: true
+        optimization: "leads"
+        billing: "impressions"
+        lead_form_integration: true
+
+      sales:
+        enabled: true
+        optimization: "conversions"
+        billing: "impressions"
+        pixel_required: true
+
+    bidding_settings:
+      strategies:
+        lowest_cost:
+          description: "Maximize results within budget"
+          default: true
+
+        cost_cap:
+          description: "Control cost per result"
+          default_cap: 50
+
+        bid_cap:
+          description: "Maximum bid per auction"
+
+        minimum_roas:
+          description: "Target return on ad spend"
+          default_target: 400
+
+    audience_settings:
+      custom_audiences:
+        website_visitors:
+          max_lookback: 180
+          refresh: "automatic"
+        customer_list:
+          hashing: "sha256"
+          refresh: "manual"
+
+      lookalike_audiences:
+        sizes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        default_size: 2
+        source_requirements: { min_size: 100, optimal_size: 1000 }
+
+      advantage_plus:
+        enabled: true
+        expansion_level: "balanced"
+
+    placement_settings:
+      automatic_placements: true
+      manual_placements:
+        facebook:
+          - "feed"
+          - "marketplace"
+          - "video_feeds"
+          - "right_column"
+          - "stories"
+          - "reels"
+        instagram:
+          - "feed"
+          - "stories"
+          - "reels"
+          - "explore"
+        audience_network:
+          - "native"
+          - "banner"
+          - "interstitial"
+        messenger:
+          - "inbox"
+          - "stories"
+
+    creative_settings:
+      formats:
+        single_image:
+          recommended_size: "1080x1080"
+          max_file_size: "30MB"
+        carousel:
+          cards: { min: 2, max: 10 }
+          image_size: "1080x1080"
+        video:
+          aspect_ratios: ["1:1", "4:5", "9:16", "16:9"]
+          max_duration: 240
+        collection:
+          instant_experience_required: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINKEDIN ADS CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  linkedin_ads:
+    platform_id: "LINKEDIN"
+    api_version: "202401"
+
+    campaign_objectives:
+      brand_awareness:
+        enabled: true
+        optimization: "impressions"
+
+      website_visits:
+        enabled: true
+        optimization: "landing_page_clicks"
+
+      engagement:
+        enabled: true
+        optimization: "social_actions"
+
+      video_views:
+        enabled: true
+        optimization: "video_views"
+
+      lead_generation:
+        enabled: true
+        optimization: "leads"
+        lead_gen_forms: true
+
+      website_conversions:
+        enabled: true
+        optimization: "conversions"
+        insight_tag_required: true
+
+    targeting_settings:
+      professional_targeting:
+        job_titles: true
+        job_functions: true
+        seniority_levels: true
+        industries: true
+        company_sizes: true
+        company_names: true
+        member_skills: true
+        member_groups: true
+
+      audience_sizes:
+        minimum: 300
+        recommended: 50000
+        maximum: 500000
+
+      matched_audiences:
+        website_retargeting: true
+        contact_targeting: true
+        account_targeting: true
+        lookalike_audiences: true
+
+    bidding_settings:
+      strategies:
+        maximum_delivery:
+          description: "Maximize results"
+          default: true
+        manual_bidding:
+          description: "Control bids manually"
+        target_cost:
+          description: "Target cost per result"
+
+      bid_types:
+        cpc: true
+        cpm: true
+        cpv: true
+
+    ad_formats:
+      sponsored_content:
+        single_image: true
+        carousel: true
+        video: true
+        document: true
+      message_ads: true
+      text_ads: true
+      dynamic_ads: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIKTOK ADS CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  tiktok_ads:
+    platform_id: "TIKTOK"
+    api_version: "v1.3"
+
+    campaign_objectives:
+      reach:
+        enabled: true
+        optimization: "reach"
+
+      traffic:
+        enabled: true
+        optimization: "clicks"
+
+      video_views:
+        enabled: true
+        optimization: "video_views"
+
+      lead_generation:
+        enabled: true
+        optimization: "leads"
+
+      app_promotion:
+        enabled: true
+        optimization: "app_installs"
+
+      conversions:
+        enabled: true
+        optimization: "conversions"
+        pixel_required: true
+
+    targeting_settings:
+      demographics:
+        age: ["13-17", "18-24", "25-34", "35-44", "45-54", "55+"]
+        gender: ["male", "female"]
+        location: true
+        language: true
+
+      interests_behaviors:
+        interest_categories: true
+        behavior_categories: true
+        video_interactions: true
+        creator_interactions: true
+        hashtag_interactions: true
+
+      custom_audiences:
+        customer_file: true
+        engagement: true
+        app_activity: true
+        website_traffic: true
+        lead_generation: true
+
+      lookalike_audiences:
+        sizes: ["narrow", "balanced", "broad"]
+        default: "balanced"
+
+    creative_settings:
+      formats:
+        in_feed_ads:
+          aspect_ratio: "9:16"
+          duration: { min: 5, max: 60, recommended: 21 }
+        top_view:
+          aspect_ratio: "9:16"
+          duration: { max: 60 }
+        spark_ads:
+          organic_post_boost: true
+
+      creative_tools:
+        smart_video: true
+        automated_creative_optimization: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MICROSOFT ADS CONFIGURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  microsoft_ads:
+    platform_id: "MICROSOFT"
+    api_version: "v13"
+
+    campaign_types:
+      search:
+        enabled: true
+        networks: ["bing", "aol", "yahoo", "duckduckgo"]
+
+      shopping:
+        enabled: true
+        merchant_center_required: true
+
+      audience:
+        enabled: true
+        placements: ["microsoft_audience_network"]
+
+    bidding_settings:
+      strategies:
+        enhanced_cpc: true
+        manual_cpc: true
+        target_cpa: true
+        maximize_conversions: true
+        target_roas: true
+
+    import_settings:
+      google_import:
+        enabled: true
+        schedule: "weekly"
+        sync_options:
+          - "campaigns"
+          - "ad_groups"
+          - "keywords"
+          - "ads"
+          - "extensions"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-PLATFORM SETTINGS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cross_platform:
+    default_currency: "USD"
+    default_timezone: "America/New_York"
+
+    budget_management:
+      pacing: "even"
+      overspend_protection: true
+      max_daily_overspend: "10%"
+
+    conversion_tracking:
+      attribution_window:
+        click: 30
+        view: 1
+      counting: "every"
+      deduplication: true
+
+    naming_conventions:
+      campaign: "{platform}_{objective}_{audience}_{geo}_{date}"
+      ad_group: "{platform}_{targeting}_{creative}"
+      ad: "{format}_{message}_{version}"

@@ -1,0 +1,504 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPETITIVE INTELLIGENCE AGENT - SCORING MODELS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+scoring_models:
+  version: "1.0.0"
+  last_calibrated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITOR THREAT SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  competitor_threat_score:
+    name: "Competitor Threat Index (CTI)"
+    scale: "0-100"
+    method: "Weighted multi-factor scoring"
+
+    components:
+      market_position:
+        weight: 0.25
+        factors:
+          market_share:
+            weight: 0.40
+            scoring:
+              leader: { min: 25, score: 100 }
+              strong: { min: 15, max: 24, score: 75 }
+              moderate: { min: 5, max: 14, score: 50 }
+              small: { max: 4, score: 25 }
+
+          brand_strength:
+            weight: 0.30
+            scoring:
+              dominant: 100
+              strong: 75
+              moderate: 50
+              weak: 25
+
+          customer_base:
+            weight: 0.30
+            scoring:
+              extensive_overlap: 100
+              significant_overlap: 75
+              some_overlap: 50
+              minimal_overlap: 25
+
+      competitive_capability:
+        weight: 0.25
+        factors:
+          product_strength:
+            weight: 0.35
+            scoring:
+              superior: 100
+              comparable: 70
+              somewhat_behind: 40
+              significantly_behind: 20
+
+          technology:
+            weight: 0.25
+            scoring:
+              leading_edge: 100
+              current: 70
+              lagging: 40
+              outdated: 20
+
+          resources:
+            weight: 0.25
+            scoring:
+              well_funded: 100
+              adequately_funded: 70
+              resource_constrained: 40
+              struggling: 20
+
+          talent:
+            weight: 0.15
+            scoring:
+              top_tier: 100
+              strong: 70
+              average: 45
+              weak: 20
+
+      strategic_intent:
+        weight: 0.25
+        factors:
+          stated_priorities:
+            weight: 0.30
+            scoring:
+              directly_targeting_our_market: 100
+              expanding_toward_us: 75
+              stable_positioning: 45
+              retreating: 20
+
+          investment_signals:
+            weight: 0.35
+            scoring:
+              heavy_investment: 100
+              moderate_investment: 70
+              maintenance_mode: 40
+              cutting_back: 20
+
+          hiring_patterns:
+            weight: 0.35
+            scoring:
+              aggressive_hiring_in_our_space: 100
+              steady_growth: 70
+              stable: 40
+              reducing: 20
+
+      competitive_momentum:
+        weight: 0.25
+        factors:
+          growth_trajectory:
+            weight: 0.40
+            scoring:
+              accelerating: 100
+              growing: 75
+              stable: 45
+              declining: 20
+
+          win_rate_trend:
+            weight: 0.35
+            scoring:
+              winning_more: 100
+              stable: 60
+              losing_more: 30
+
+          market_buzz:
+            weight: 0.25
+            scoring:
+              high_visibility: 100
+              moderate_visibility: 65
+              low_visibility: 35
+
+    threat_tiers:
+      critical: { min: 80, status: "Critical threat - active counter-strategy needed" }
+      high: { min: 60, max: 79, status: "High threat - close monitoring required" }
+      moderate: { min: 40, max: 59, status: "Moderate threat - standard vigilance" }
+      low: { min: 20, max: 39, status: "Low threat - periodic review" }
+      minimal: { max: 19, status: "Minimal threat - awareness only" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BATTLECARD EFFECTIVENESS SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  battlecard_effectiveness_score:
+    name: "Battlecard Effectiveness Index (BEI)"
+    scale: "0-100"
+    method: "Weighted usage and outcome scoring"
+
+    components:
+      adoption:
+        weight: 0.25
+        metrics:
+          view_rate:
+            weight: 0.40
+            scoring:
+              excellent: { min: 80, score: 100 }
+              good: { min: 60, max: 79, score: 75 }
+              fair: { min: 40, max: 59, score: 50 }
+              poor: { max: 39, score: 25 }
+
+          download_rate:
+            weight: 0.30
+            scoring:
+              excellent: { min: 50, score: 100 }
+              good: { min: 30, max: 49, score: 75 }
+              fair: { min: 15, max: 29, score: 50 }
+              poor: { max: 14, score: 25 }
+
+          deal_association:
+            weight: 0.30
+            scoring:
+              excellent: { min: 70, score: 100 }
+              good: { min: 50, max: 69, score: 75 }
+              fair: { min: 30, max: 49, score: 50 }
+              poor: { max: 29, score: 25 }
+
+      quality:
+        weight: 0.25
+        metrics:
+          accuracy_rating:
+            weight: 0.35
+            scoring:
+              excellent: { min: 90, score: 100 }
+              good: { min: 75, max: 89, score: 75 }
+              fair: { min: 60, max: 74, score: 50 }
+              poor: { max: 59, score: 25 }
+
+          usefulness_rating:
+            weight: 0.35
+            scoring:
+              excellent: { min: 4.5, score: 100 }
+              good: { min: 4.0, max: 4.4, score: 75 }
+              fair: { min: 3.5, max: 3.9, score: 50 }
+              poor: { max: 3.4, score: 25 }
+
+          freshness:
+            weight: 0.30
+            scoring:
+              current: { max_days: 30, score: 100 }
+              recent: { max_days: 60, score: 75 }
+              aging: { max_days: 90, score: 50 }
+              stale: { min_days: 91, score: 25 }
+
+      impact:
+        weight: 0.50
+        metrics:
+          win_rate_correlation:
+            weight: 0.50
+            scoring:
+              strong_positive: { min: 65, score: 100 }
+              positive: { min: 55, max: 64, score: 75 }
+              neutral: { min: 45, max: 54, score: 50 }
+              negative: { max: 44, score: 25 }
+
+          sales_confidence:
+            weight: 0.25
+            scoring:
+              high: { min: 4.5, score: 100 }
+              good: { min: 4.0, max: 4.4, score: 75 }
+              moderate: { min: 3.5, max: 3.9, score: 50 }
+              low: { max: 3.4, score: 25 }
+
+          deal_influence:
+            weight: 0.25
+            scoring:
+              high_influence: 100
+              moderate_influence: 70
+              some_influence: 40
+              limited_influence: 20
+
+    effectiveness_tiers:
+      highly_effective: { min: 85, action: "Maintain and replicate approach" }
+      effective: { min: 70, max: 84, action: "Continue with enhancements" }
+      needs_improvement: { min: 50, max: 69, action: "Review and update content" }
+      ineffective: { max: 49, action: "Major overhaul required" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INTELLIGENCE QUALITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  intelligence_quality_score:
+    name: "Intelligence Quality Index (IQI)"
+    scale: "0-100"
+    method: "Multi-dimensional quality assessment"
+
+    components:
+      accuracy:
+        weight: 0.30
+        metrics:
+          verification_rate:
+            weight: 0.50
+            scoring:
+              excellent: { min: 95, score: 100 }
+              good: { min: 85, max: 94, score: 75 }
+              fair: { min: 70, max: 84, score: 50 }
+              poor: { max: 69, score: 25 }
+
+          correction_rate:
+            weight: 0.50
+            scoring:
+              excellent: { max: 2, score: 100 }
+              good: { max: 5, score: 75 }
+              fair: { max: 10, score: 50 }
+              poor: { min: 11, score: 25 }
+
+      timeliness:
+        weight: 0.25
+        metrics:
+          alert_speed:
+            weight: 0.50
+            scoring:
+              immediate: { max_minutes: 30, score: 100 }
+              fast: { max_minutes: 120, score: 75 }
+              acceptable: { max_minutes: 480, score: 50 }
+              slow: { min_minutes: 481, score: 25 }
+
+          freshness:
+            weight: 0.50
+            scoring:
+              current: { max_days: 7, score: 100 }
+              recent: { max_days: 30, score: 75 }
+              dated: { max_days: 60, score: 50 }
+              stale: { min_days: 61, score: 25 }
+
+      actionability:
+        weight: 0.25
+        metrics:
+          actionability_rating:
+            weight: 0.60
+            scoring:
+              highly_actionable: { min: 4.5, score: 100 }
+              actionable: { min: 4.0, max: 4.4, score: 75 }
+              somewhat_actionable: { min: 3.0, max: 3.9, score: 50 }
+              not_actionable: { max: 2.9, score: 25 }
+
+          action_taken_rate:
+            weight: 0.40
+            scoring:
+              excellent: { min: 70, score: 100 }
+              good: { min: 50, max: 69, score: 75 }
+              fair: { min: 30, max: 49, score: 50 }
+              poor: { max: 29, score: 25 }
+
+      coverage:
+        weight: 0.20
+        metrics:
+          competitor_coverage:
+            weight: 0.50
+            scoring:
+              comprehensive: { min: 95, score: 100 }
+              good: { min: 85, max: 94, score: 75 }
+              adequate: { min: 70, max: 84, score: 50 }
+              gaps: { max: 69, score: 25 }
+
+          topic_coverage:
+            weight: 0.50
+            scoring:
+              comprehensive: { min: 90, score: 100 }
+              good: { min: 75, max: 89, score: 75 }
+              adequate: { min: 60, max: 74, score: 50 }
+              gaps: { max: 59, score: 25 }
+
+    quality_tiers:
+      exceptional: { min: 90, status: "Intelligence excellence" }
+      strong: { min: 75, max: 89, status: "High-quality intelligence" }
+      adequate: { min: 60, max: 74, status: "Acceptable quality" }
+      needs_improvement: { max: 59, status: "Quality improvement needed" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MARKET OPPORTUNITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  market_opportunity_score:
+    name: "Market Opportunity Index (MOI)"
+    scale: "0-100"
+    method: "Weighted opportunity assessment"
+
+    components:
+      market_attractiveness:
+        weight: 0.30
+        factors:
+          market_size:
+            weight: 0.35
+            scoring:
+              large: { min_millions: 500, score: 100 }
+              medium: { min_millions: 100, score: 75 }
+              small: { min_millions: 25, score: 50 }
+              niche: { max_millions: 24, score: 25 }
+
+          growth_rate:
+            weight: 0.35
+            scoring:
+              high_growth: { min: 20, score: 100 }
+              growing: { min: 10, max: 19, score: 75 }
+              stable: { min: 5, max: 9, score: 50 }
+              slow: { max: 4, score: 25 }
+
+          profitability:
+            weight: 0.30
+            scoring:
+              highly_profitable: 100
+              profitable: 75
+              moderate: 50
+              low: 25
+
+      competitive_position:
+        weight: 0.30
+        factors:
+          competitive_intensity:
+            weight: 0.35
+            scoring:
+              low: 100
+              moderate: 70
+              high: 40
+              intense: 20
+
+          our_advantage:
+            weight: 0.35
+            scoring:
+              strong: 100
+              moderate: 70
+              limited: 40
+              disadvantage: 20
+
+          barriers_to_entry:
+            weight: 0.30
+            scoring:
+              high_for_others: 100
+              moderate: 65
+              low: 35
+
+      strategic_fit:
+        weight: 0.25
+        factors:
+          capability_fit:
+            weight: 0.50
+            scoring:
+              strong_fit: 100
+              moderate_fit: 70
+              stretch: 40
+              poor_fit: 15
+
+          strategic_alignment:
+            weight: 0.50
+            scoring:
+              core_strategic: 100
+              aligned: 75
+              adjacent: 45
+              tangential: 20
+
+      feasibility:
+        weight: 0.15
+        factors:
+          resource_requirements:
+            weight: 0.50
+            scoring:
+              minimal: 100
+              moderate: 70
+              significant: 40
+              extensive: 20
+
+          time_to_value:
+            weight: 0.50
+            scoring:
+              quick: { max_months: 6, score: 100 }
+              medium: { max_months: 12, score: 75 }
+              long: { max_months: 24, score: 45 }
+              extended: { min_months: 25, score: 20 }
+
+    opportunity_tiers:
+      high_priority: { min: 80, recommendation: "Pursue aggressively" }
+      attractive: { min: 60, max: 79, recommendation: "Evaluate further" }
+      moderate: { min: 40, max: 59, recommendation: "Consider if resources permit" }
+      low_priority: { max: 39, recommendation: "Deprioritize" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITOR PROFILE COMPLETENESS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  profile_completeness_score:
+    name: "Profile Completeness Index (PCI)"
+    scale: "0-100"
+    method: "Section completion assessment"
+
+    sections:
+      company_overview:
+        weight: 0.15
+        required_elements:
+          - "Company name and description"
+          - "Founded date and location"
+          - "Size metrics"
+          - "Leadership team"
+
+      financial_profile:
+        weight: 0.15
+        required_elements:
+          - "Funding history"
+          - "Revenue estimates"
+          - "Financial health indicators"
+
+      product_portfolio:
+        weight: 0.20
+        required_elements:
+          - "Product catalog"
+          - "Feature comparison"
+          - "Pricing information"
+          - "Technology platform"
+
+      go_to_market:
+        weight: 0.15
+        required_elements:
+          - "Target market"
+          - "Sales model"
+          - "Channel strategy"
+          - "Marketing approach"
+
+      swot_analysis:
+        weight: 0.15
+        required_elements:
+          - "Strengths"
+          - "Weaknesses"
+          - "Opportunities"
+          - "Threats"
+
+      competitive_positioning:
+        weight: 0.10
+        required_elements:
+          - "Positioning statement"
+          - "Key differentiators"
+          - "Head-to-head comparison"
+
+      recent_intelligence:
+        weight: 0.10
+        required_elements:
+          - "Recent news/announcements"
+          - "Product updates"
+          - "Strategic moves"
+
+    scoring:
+      complete: { min: 90, status: "Profile complete" }
+      mostly_complete: { min: 75, max: 89, status: "Minor gaps" }
+      incomplete: { min: 50, max: 74, status: "Significant gaps" }
+      sparse: { max: 49, status: "Major update needed" }

@@ -1,0 +1,448 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPETITIVE INTELLIGENCE AGENT - DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  description: "Rules and logic for competitive intelligence decisions"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITOR PRIORITIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  competitor_prioritization:
+
+    tier_classification:
+      tier_1_primary:
+        criteria:
+          - "Direct competitors in core markets"
+          - "Frequently encountered in deals"
+          - "Significant market share overlap"
+          - "Similar target customer profile"
+        monitoring_level: "High - continuous monitoring"
+        analysis_depth: "Comprehensive profiling"
+        update_frequency: "Weekly minimum"
+        resource_allocation: "40% of CI effort"
+
+      tier_2_secondary:
+        criteria:
+          - "Indirect competitors"
+          - "Adjacent market players"
+          - "Occasional deal encounters"
+          - "Emerging competitive threat"
+        monitoring_level: "Medium - regular monitoring"
+        analysis_depth: "Standard profiling"
+        update_frequency: "Monthly"
+        resource_allocation: "30% of CI effort"
+
+      tier_3_emerging:
+        criteria:
+          - "New market entrants"
+          - "Startups with potential"
+          - "Companies expanding into our space"
+          - "Disruptive threats"
+        monitoring_level: "Watch list"
+        analysis_depth: "Basic profiling"
+        update_frequency: "Quarterly"
+        resource_allocation: "20% of CI effort"
+
+      tier_4_peripheral:
+        criteria:
+          - "Minimal competitive overlap"
+          - "Substitute products"
+          - "Potential future competitors"
+        monitoring_level: "Periodic review"
+        analysis_depth: "Minimal"
+        update_frequency: "Semi-annually"
+        resource_allocation: "10% of CI effort"
+
+    promotion_triggers:
+      from_tier_3_to_tier_2:
+        - "Wins deal against us"
+        - "Launches competitive product"
+        - "Raises significant funding"
+        - "Hires key talent from market leaders"
+
+      from_tier_2_to_tier_1:
+        - "Multiple competitive encounters"
+        - "Significant market share gains"
+        - "Strategic initiative in our core market"
+        - "Major customer wins in our base"
+
+    demotion_triggers:
+      from_tier_1_to_tier_2:
+        - "Strategic pivot away from our market"
+        - "Significant market share loss"
+        - "Financial distress signals"
+        - "No competitive encounters for 6 months"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ALERT DECISION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alert_decisions:
+
+    critical_alerts:
+      triggers:
+        - condition: "Major product launch by Tier 1 competitor"
+          action: "Immediate alert to CMO, product, and sales"
+          response_time: "< 1 hour"
+
+        - condition: "Significant pricing change (>20%)"
+          action: "Urgent analysis and stakeholder notification"
+          response_time: "< 2 hours"
+
+        - condition: "Major acquisition announcement"
+          action: "Strategic impact assessment and leadership briefing"
+          response_time: "< 2 hours"
+
+        - condition: "Tier 1 competitor targeting our key account"
+          action: "Alert sales team with competitive brief"
+          response_time: "< 30 minutes"
+
+        - condition: "Competitive crisis/PR issue"
+          action: "Opportunity assessment and recommendations"
+          response_time: "< 4 hours"
+
+    high_priority_alerts:
+      triggers:
+        - condition: "New messaging or positioning change"
+          action: "Analysis and brand team notification"
+          response_time: "< 24 hours"
+
+        - condition: "Major funding round announced"
+          action: "Strategic implication assessment"
+          response_time: "< 24 hours"
+
+        - condition: "Leadership change (C-level)"
+          action: "Profile update and strategy assessment"
+          response_time: "< 24 hours"
+
+        - condition: "Major partnership announcement"
+          action: "Ecosystem impact analysis"
+          response_time: "< 24 hours"
+
+    medium_priority_alerts:
+      triggers:
+        - condition: "New feature release"
+          action: "Feature comparison update"
+          response_time: "< 1 week"
+
+        - condition: "Marketing campaign launch"
+          action: "Campaign analysis and tracking"
+          response_time: "< 1 week"
+
+        - condition: "Content strategy shift"
+          action: "Content team notification"
+          response_time: "< 1 week"
+
+    alert_suppression:
+      rules:
+        - "Suppress duplicate alerts within 24 hours"
+        - "Aggregate minor updates into weekly summary"
+        - "Filter noise from automated monitoring"
+        - "Require confirmation for automated critical alerts"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # THREAT ASSESSMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  threat_assessment:
+
+    threat_scoring:
+      dimensions:
+        capability:
+          weight: 0.30
+          factors:
+            - "Product strength"
+            - "Technical capabilities"
+            - "Innovation rate"
+            - "Resources/funding"
+          scoring:
+            high: 3
+            medium: 2
+            low: 1
+
+        intent:
+          weight: 0.25
+          factors:
+            - "Stated strategic priorities"
+            - "Market expansion signals"
+            - "Investment patterns"
+            - "Hiring patterns"
+          scoring:
+            aggressive: 3
+            moderate: 2
+            passive: 1
+
+        reach:
+          weight: 0.25
+          factors:
+            - "Market presence"
+            - "Customer overlap"
+            - "Channel strength"
+            - "Brand recognition"
+          scoring:
+            extensive: 3
+            moderate: 2
+            limited: 1
+
+        momentum:
+          weight: 0.20
+          factors:
+            - "Growth trajectory"
+            - "Win rate trends"
+            - "Market share changes"
+            - "Buzz/mindshare"
+          scoring:
+            accelerating: 3
+            stable: 2
+            declining: 1
+
+    threat_levels:
+      critical:
+        score_range: "2.5-3.0"
+        response: "Urgent strategic response required"
+        monitoring: "Daily"
+        escalation: "CMO and leadership immediately"
+
+      high:
+        score_range: "2.0-2.4"
+        response: "Active countermeasures needed"
+        monitoring: "Twice weekly"
+        escalation: "CMO within 24 hours"
+
+      moderate:
+        score_range: "1.5-1.9"
+        response: "Monitor and prepare"
+        monitoring: "Weekly"
+        escalation: "Weekly summary"
+
+      low:
+        score_range: "1.0-1.4"
+        response: "Standard monitoring"
+        monitoring: "Monthly"
+        escalation: "Quarterly review"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OPPORTUNITY IDENTIFICATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  opportunity_identification:
+
+    opportunity_types:
+      competitive_weakness:
+        signals:
+          - "Negative customer reviews"
+          - "Product issues or outages"
+          - "Customer churn indicators"
+          - "Support complaints"
+        assessment:
+          - "Validate the weakness"
+          - "Assess our advantage"
+          - "Recommend exploitation strategy"
+        notification: "Sales and marketing teams"
+
+      market_gap:
+        signals:
+          - "Underserved customer segment"
+          - "Unmet feature needs"
+          - "Geographic whitespace"
+          - "Pricing tier opportunity"
+        assessment:
+          - "Size the opportunity"
+          - "Assess competitive position"
+          - "Recommend go-to-market"
+        notification: "Product and marketing teams"
+
+      positioning_opportunity:
+        signals:
+          - "Competitor repositioning creates gap"
+          - "Category perception shift"
+          - "New differentiator possibility"
+          - "First-mover advantage"
+        assessment:
+          - "Validate positioning opportunity"
+          - "Recommend positioning approach"
+          - "Identify proof points"
+        notification: "Brand team"
+
+      thought_leadership:
+        signals:
+          - "Topic whitespace"
+          - "Expert gap in market"
+          - "Emerging trend ownership"
+          - "Conversation vacuum"
+        assessment:
+          - "Assess topic relevance"
+          - "Recommend content approach"
+          - "Identify speakers/authors"
+        notification: "Content team"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BATTLECARD DECISIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  battlecard_management:
+
+    update_triggers:
+      immediate_update:
+        - "Major product launch"
+        - "Pricing change"
+        - "New messaging"
+        - "Significant win/loss pattern"
+        - "Major strategic shift"
+
+      scheduled_update:
+        - "Monthly refresh for Tier 1"
+        - "Quarterly refresh for Tier 2"
+        - "Semi-annual refresh for Tier 3"
+
+    content_decisions:
+      must_include:
+        - "Company overview"
+        - "Product comparison"
+        - "Pricing comparison"
+        - "Strengths and weaknesses"
+        - "Win themes"
+        - "Objection handling"
+        - "Landmine questions"
+
+      conditional_include:
+        - "Recent news/announcements"
+        - "Customer references"
+        - "Technical deep-dives"
+        - "Deal-specific intelligence"
+
+    distribution_rules:
+      full_access:
+        - "Sales team"
+        - "Sales leadership"
+        - "Product marketing"
+
+      summary_access:
+        - "Marketing team"
+        - "Product team"
+        - "Customer success"
+
+      restricted:
+        - "Sensitive financial data"
+        - "Unverified intelligence"
+        - "Source-protected information"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INTELLIGENCE QUALITY
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  intelligence_quality:
+
+    confidence_scoring:
+      high_confidence:
+        requirements:
+          - "Multiple independent sources"
+          - "Primary source verification"
+          - "Recent information (<30 days)"
+        label: "High confidence"
+        usage: "Can be used for strategic decisions"
+
+      medium_confidence:
+        requirements:
+          - "Single reliable source"
+          - "Reasonable inference"
+          - "Information <90 days old"
+        label: "Medium confidence"
+        usage: "Use with appropriate caveats"
+
+      low_confidence:
+        requirements:
+          - "Single source"
+          - "Indirect indicators"
+          - "Older information"
+        label: "Low confidence - requires validation"
+        usage: "Directional only, flag for validation"
+
+    verification_rules:
+      critical_intelligence:
+        - "Require 2+ independent sources"
+        - "Document source credibility"
+        - "Flag assumptions explicitly"
+        - "Update confidence as new data arrives"
+
+      standard_intelligence:
+        - "Single credible source acceptable"
+        - "Note source and date"
+        - "Review quarterly for accuracy"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RESOURCE ALLOCATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  resource_allocation:
+
+    time_allocation:
+      monitoring: "30%"
+      analysis: "35%"
+      reporting: "20%"
+      sales_enablement: "15%"
+
+    prioritization_rules:
+      always_prioritize:
+        - "Critical competitor alerts"
+        - "Active deal support requests"
+        - "CMO strategic questions"
+        - "Crisis response"
+
+      schedule_based:
+        - "Regular monitoring routines"
+        - "Scheduled report generation"
+        - "Battlecard maintenance"
+        - "Profile updates"
+
+      capacity_dependent:
+        - "Deep-dive research projects"
+        - "Exploratory analysis"
+        - "Process improvements"
+        - "Tool evaluations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ESCALATION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation:
+
+    to_cmo_agent:
+      automatic:
+        - "Critical threat detection"
+        - "Major competitive development"
+        - "Strategic opportunity identified"
+        - "Intelligence accuracy concerns"
+
+      judgment_based:
+        - "Significant market shift"
+        - "Competitive pattern changes"
+        - "Resource constraint issues"
+
+    to_leadership:
+      via_cmo_agent:
+        - "Board-level competitive intelligence"
+        - "M&A-related intelligence"
+        - "Major strategic recommendations"
+
+      direct:
+        - "Never - always through CMO Agent"
+
+    to_other_agents:
+      brand_positioning_agent:
+        - "Competitive positioning shifts"
+        - "Messaging opportunities"
+        - "Differentiation threats"
+
+      content_strategy_agent:
+        - "Content gap opportunities"
+        - "Competitive content strategies"
+
+      sales_team:
+        - "Deal-specific intelligence"
+        - "Urgent competitive updates"
+        - "Battlecard refreshes"

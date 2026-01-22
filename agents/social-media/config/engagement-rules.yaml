@@ -1,0 +1,353 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL MEDIA AGENT - ENGAGEMENT RULES CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+engagement_rules:
+  version: "1.0.0"
+  last_updated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RESPONSE TIME SLAS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  response_slas:
+    priority_levels:
+      critical:
+        description: "Crisis, legal issues, safety concerns"
+        response_time: "30 minutes"
+        escalation_time: "15 minutes"
+        notify: ["Manager", "CMO Agent", "PR"]
+
+      high:
+        description: "Complaints, negative sentiment, influencers"
+        response_time: "2 hours"
+        escalation_time: "1 hour"
+        notify: ["Manager"]
+
+      medium:
+        description: "Questions, support requests"
+        response_time: "4 hours"
+        escalation_time: "4 hours"
+        notify: []
+
+      low:
+        description: "General comments, praise, mentions"
+        response_time: "24 hours"
+        escalation_time: "48 hours"
+        notify: []
+
+    platform_adjustments:
+      twitter:
+        modifier: 0.5
+        note: "Faster response expected"
+
+      linkedin:
+        modifier: 1.5
+        note: "Business hours focus"
+
+      tiktok:
+        modifier: 0.75
+        note: "Quick, casual responses"
+
+    business_hours:
+      enabled: true
+      hours: "09:00-18:00"
+      timezone: "America/New_York"
+      weekend_coverage: "limited"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RESPONSE TEMPLATES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  response_templates:
+
+    positive_engagement:
+      thank_you_general:
+        templates:
+          - "Thank you so much for your kind words! 🙏"
+          - "We really appreciate your support!"
+          - "Thanks for being part of our community!"
+        use_when: "Positive comment, no specific topic"
+
+      thank_you_review:
+        templates:
+          - "Thank you for taking the time to share your experience with us! We're so glad you enjoyed it."
+          - "Your feedback means the world to us. Thank you for sharing!"
+        use_when: "Positive review or detailed feedback"
+
+      congratulations_response:
+        templates:
+          - "Congratulations! 🎉 We're thrilled to hear this!"
+          - "Amazing news! Thanks for sharing with us!"
+        use_when: "User shares achievement related to brand"
+
+    questions:
+      general_inquiry:
+        templates:
+          - "Great question! [Answer]. Let us know if you need anything else!"
+          - "Thanks for reaching out! [Answer]. Feel free to DM us if you have more questions."
+        use_when: "General product/service question"
+
+      pricing_inquiry:
+        templates:
+          - "Thanks for your interest! You can find our pricing at [link]. Let us know if you have any questions!"
+          - "Great question! Our pricing varies based on [factors]. Check out [link] for details, or DM us for a personalized quote."
+        use_when: "Pricing question"
+
+      availability_inquiry:
+        templates:
+          - "Thanks for checking! [Product/Service] is available at [location/link]. Let us know if you need help!"
+        use_when: "Availability question"
+
+      redirect_to_dm:
+        templates:
+          - "Thanks for reaching out! To help you better, please send us a DM with your details."
+          - "We'd love to help! Please DM us so we can assist you privately."
+        use_when: "Need private information"
+
+    complaints:
+      acknowledge_issue:
+        templates:
+          - "We're sorry to hear about your experience. This isn't the standard we hold ourselves to. Please DM us your details so we can make this right."
+          - "Thank you for bringing this to our attention. We apologize for the inconvenience and want to resolve this. Please DM us."
+        use_when: "Customer complaint"
+
+      product_issue:
+        templates:
+          - "We're sorry you're experiencing this issue. Please DM us your order number and we'll get this sorted out right away."
+        use_when: "Product-related complaint"
+
+      service_issue:
+        templates:
+          - "We apologize for the inconvenience. This isn't the experience we want for you. Please DM us so we can help resolve this."
+        use_when: "Service-related complaint"
+
+    negative_feedback:
+      constructive_criticism:
+        templates:
+          - "Thank you for your feedback. We're always looking to improve and appreciate you sharing this with us."
+          - "We appreciate your honest feedback. We'll take this into consideration as we continue to improve."
+        use_when: "Constructive negative feedback"
+
+      misinformation:
+        templates:
+          - "Thanks for your comment. We'd like to clarify that [correct information]. Happy to answer any questions!"
+        use_when: "Incorrect information shared"
+
+    support:
+      troubleshooting:
+        templates:
+          - "Thanks for reaching out! Let's try these steps: [steps]. If that doesn't work, please DM us and we'll dig deeper."
+        use_when: "Technical support needed"
+
+      escalation:
+        templates:
+          - "We understand your frustration and want to help. Our support team will reach out to you directly within [timeframe]."
+        use_when: "Complex issue requiring escalation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTO-RESPONSE RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  auto_responses:
+    enabled: true
+
+    eligible_scenarios:
+      faq_responses:
+        enabled: true
+        confidence_threshold: 0.95
+        topics:
+          - "Business hours"
+          - "Location/address"
+          - "Website URL"
+          - "Basic pricing"
+          - "Return policy"
+
+      greeting_responses:
+        enabled: true
+        triggers: ["Hi", "Hello", "Hey", "Good morning"]
+        response: "Hi there! 👋 Thanks for reaching out. How can we help you today?"
+
+      thank_you_responses:
+        enabled: true
+        triggers: ["Thank you", "Thanks", "Appreciate"]
+        response: "You're welcome! Let us know if there's anything else we can help with."
+
+    excluded_scenarios:
+      - "Complaints"
+      - "Negative sentiment"
+      - "Complex questions"
+      - "Influencer accounts"
+      - "VIP customers"
+      - "Media inquiries"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SENTIMENT-BASED ROUTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  sentiment_routing:
+    enabled: true
+
+    routing_rules:
+      very_negative:
+        sentiment_score: [-1.0, -0.6]
+        priority: "critical"
+        routing: "Senior team member"
+        actions:
+          - "Flag for immediate attention"
+          - "Notify manager"
+          - "Prepare escalation path"
+
+      negative:
+        sentiment_score: [-0.6, -0.2]
+        priority: "high"
+        routing: "Experienced team member"
+        actions:
+          - "Prioritize in queue"
+          - "Prepare empathetic response"
+
+      neutral:
+        sentiment_score: [-0.2, 0.2]
+        priority: "medium"
+        routing: "Any team member"
+        actions:
+          - "Standard handling"
+
+      positive:
+        sentiment_score: [0.2, 0.6]
+        priority: "low"
+        routing: "Any team member"
+        actions:
+          - "Encourage engagement"
+          - "Consider for UGC"
+
+      very_positive:
+        sentiment_score: [0.6, 1.0]
+        priority: "low"
+        routing: "Any team member"
+        actions:
+          - "Thank and engage"
+          - "Flag for advocacy program"
+          - "Consider for testimonial"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INFLUENCER HANDLING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  influencer_handling:
+    identification:
+      criteria:
+        - "Follower count > 10,000"
+        - "Verified account"
+        - "High engagement rate"
+        - "Industry relevance"
+
+    handling_rules:
+      priority: "high"
+      response_style: "Personalized"
+      escalation: "Always to manager"
+      actions:
+        positive_mention:
+          - "Personal thank you"
+          - "Share/repost consideration"
+          - "Flag for partnership"
+        negative_mention:
+          - "Immediate escalation"
+          - "Senior team response"
+          - "Consider direct outreach"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CRISIS RESPONSE RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  crisis_response:
+    triggers:
+      - "Mention volume spike > 3x normal"
+      - "Negative sentiment spike > 50%"
+      - "Viral negative content"
+      - "Media inquiry"
+      - "Legal threat mention"
+      - "Safety/health concern"
+
+    immediate_actions:
+      - "Pause scheduled content"
+      - "Escalate to CMO Agent"
+      - "Activate crisis protocol"
+      - "Prepare holding statement"
+      - "Monitor closely"
+
+    holding_statements:
+      general:
+        template: "We're aware of this situation and are looking into it. We'll share an update as soon as we have more information."
+        use_when: "Need time to investigate"
+
+      known_issue:
+        template: "We're aware of [issue] and our team is actively working to resolve it. We apologize for any inconvenience and appreciate your patience."
+        use_when: "Acknowledged issue"
+
+    do_not:
+      - "Delete negative comments (unless policy violation)"
+      - "Argue with users"
+      - "Make promises without approval"
+      - "Share unverified information"
+      - "Ignore the situation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MODERATION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  moderation:
+    auto_hide:
+      enabled: true
+      triggers:
+        - "Profanity (severe)"
+        - "Hate speech"
+        - "Spam links"
+        - "Competitor promotions"
+        - "Personal attacks"
+
+    flag_for_review:
+      triggers:
+        - "Profanity (mild)"
+        - "Potential misinformation"
+        - "Controversial topics"
+        - "Competitor mentions"
+
+    ban_criteria:
+      - "Repeated policy violations (3+)"
+      - "Severe harassment"
+      - "Threats"
+      - "Doxxing attempts"
+
+    appeal_process:
+      enabled: true
+      review_by: "Manager"
+      timeframe: "48 hours"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ENGAGEMENT LIMITS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  engagement_limits:
+    daily_limits:
+      comments: 100
+      likes: 500
+      follows: 50
+      dms: 50
+
+    rate_limiting:
+      comments_per_hour: 30
+      likes_per_hour: 100
+      follows_per_hour: 20
+
+    platform_specific:
+      instagram:
+        actions_per_hour: 60
+        daily_limit: 500
+      twitter:
+        tweets_per_day: 2400
+        dms_per_day: 1000
+      linkedin:
+        connection_requests: 100
+        messages_per_day: 150

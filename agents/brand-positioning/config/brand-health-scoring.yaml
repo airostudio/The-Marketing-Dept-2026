@@ -1,0 +1,291 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# BRAND & POSITIONING AGENT - BRAND HEALTH SCORING CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+brand_health_scoring:
+  version: "1.0.0"
+  last_calibrated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BRAND HEALTH INDEX
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  brand_health_index:
+    name: "Brand Health Index (BHI)"
+    scale: "0-100"
+    method: "Weighted component scoring"
+
+    components:
+      awareness:
+        weight: 0.20
+        metrics:
+          aided_awareness:
+            weight: 0.50
+            scoring:
+              excellent: { min: 80, score: 100 }
+              good: { min: 60, max: 79, score: 75 }
+              fair: { min: 40, max: 59, score: 50 }
+              poor: { max: 39, score: 25 }
+
+          unaided_awareness:
+            weight: 0.30
+            scoring:
+              excellent: { min: 30, score: 100 }
+              good: { min: 20, max: 29, score: 75 }
+              fair: { min: 10, max: 19, score: 50 }
+              poor: { max: 9, score: 25 }
+
+          top_of_mind:
+            weight: 0.20
+            scoring:
+              first: 100
+              top_3: 75
+              top_5: 50
+              not_mentioned: 25
+
+      consideration:
+        weight: 0.20
+        metrics:
+          consideration_rate:
+            weight: 0.50
+            scoring:
+              excellent: { min: 60, score: 100 }
+              good: { min: 45, max: 59, score: 75 }
+              fair: { min: 30, max: 44, score: 50 }
+              poor: { max: 29, score: 25 }
+
+          preference_rate:
+            weight: 0.30
+            scoring:
+              excellent: { min: 40, score: 100 }
+              good: { min: 25, max: 39, score: 75 }
+              fair: { min: 15, max: 24, score: 50 }
+              poor: { max: 14, score: 25 }
+
+          purchase_intent:
+            weight: 0.20
+            scoring:
+              high: 100
+              medium: 60
+              low: 30
+
+      perception:
+        weight: 0.25
+        metrics:
+          attribute_ownership:
+            weight: 0.40
+            scoring:
+              leader: 100
+              strong: 75
+              moderate: 50
+              weak: 25
+
+          differentiation:
+            weight: 0.35
+            scoring:
+              highly_differentiated: 100
+              somewhat_differentiated: 70
+              parity: 40
+              undifferentiated: 20
+
+          brand_personality_fit:
+            weight: 0.25
+            scoring:
+              strong_alignment: 100
+              moderate_alignment: 65
+              weak_alignment: 30
+
+      loyalty:
+        weight: 0.20
+        metrics:
+          nps:
+            weight: 0.40
+            scoring:
+              excellent: { min: 50, score: 100 }
+              good: { min: 30, max: 49, score: 75 }
+              fair: { min: 10, max: 29, score: 50 }
+              poor: { max: 9, score: 25 }
+
+          repeat_purchase:
+            weight: 0.35
+            scoring:
+              excellent: { min: 70, score: 100 }
+              good: { min: 50, max: 69, score: 75 }
+              fair: { min: 30, max: 49, score: 50 }
+              poor: { max: 29, score: 25 }
+
+          brand_love:
+            weight: 0.25
+            scoring:
+              lovers: 100
+              likers: 70
+              neutral: 40
+              dislikers: 10
+
+      reputation:
+        weight: 0.15
+        metrics:
+          sentiment_ratio:
+            weight: 0.40
+            scoring:
+              excellent: { min: 85, score: 100 }
+              good: { min: 70, max: 84, score: 75 }
+              fair: { min: 55, max: 69, score: 50 }
+              poor: { max: 54, score: 25 }
+
+          share_of_voice:
+            weight: 0.30
+            scoring:
+              leader: 100
+              strong: 75
+              average: 50
+              weak: 25
+
+          reputation_score:
+            weight: 0.30
+            scoring:
+              excellent: { min: 80, score: 100 }
+              good: { min: 60, max: 79, score: 75 }
+              fair: { min: 40, max: 59, score: 50 }
+              poor: { max: 39, score: 25 }
+
+    health_tiers:
+      exceptional: { min: 85, max: 100, status: "Exceptional brand health" }
+      strong: { min: 70, max: 84, status: "Strong brand health" }
+      moderate: { min: 55, max: 69, status: "Moderate brand health" }
+      at_risk: { min: 40, max: 54, status: "Brand health at risk" }
+      critical: { min: 0, max: 39, status: "Critical - immediate action needed" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BRAND CONSISTENCY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  brand_consistency_score:
+    name: "Brand Consistency Index (BCI)"
+    scale: "0-100"
+
+    components:
+      visual_consistency:
+        weight: 0.35
+        elements:
+          - "Logo usage compliance"
+          - "Color consistency"
+          - "Typography adherence"
+          - "Imagery alignment"
+        scoring:
+          compliant: 100
+          minor_issues: 75
+          moderate_issues: 50
+          major_issues: 25
+
+      verbal_consistency:
+        weight: 0.35
+        elements:
+          - "Messaging alignment"
+          - "Voice and tone"
+          - "Terminology consistency"
+          - "Claim accuracy"
+        scoring:
+          aligned: 100
+          mostly_aligned: 75
+          somewhat_aligned: 50
+          misaligned: 25
+
+      experience_consistency:
+        weight: 0.30
+        elements:
+          - "Cross-channel consistency"
+          - "Service delivery"
+          - "Brand promise delivery"
+        scoring:
+          consistent: 100
+          mostly_consistent: 70
+          inconsistent: 40
+
+    thresholds:
+      excellent: { min: 90, action: "Maintain standards" }
+      good: { min: 75, max: 89, action: "Minor improvements" }
+      needs_work: { min: 60, max: 74, action: "Focused remediation" }
+      poor: { max: 59, action: "Significant intervention needed" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BRAND EQUITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  brand_equity_score:
+    name: "Brand Equity Index (BEI)"
+    scale: "0-100"
+
+    components:
+      brand_salience:
+        weight: 0.25
+        definition: "Brand prominence in category"
+
+      brand_meaning:
+        weight: 0.25
+        sub_components:
+          performance: "Functional benefits delivery"
+          imagery: "Emotional and symbolic benefits"
+
+      brand_response:
+        weight: 0.25
+        sub_components:
+          judgments: "Opinions about brand"
+          feelings: "Emotional reactions"
+
+      brand_resonance:
+        weight: 0.25
+        sub_components:
+          loyalty: "Behavioral attachment"
+          attachment: "Emotional bond"
+          community: "Brand community"
+          engagement: "Active involvement"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ALERT THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alert_thresholds:
+    brand_health:
+      - trigger: "BHI drops > 10 points"
+        severity: "High"
+        action: "Immediate investigation"
+
+      - trigger: "BHI below 55"
+        severity: "Critical"
+        action: "Crisis assessment"
+
+    awareness:
+      - trigger: "Awareness drops > 5%"
+        severity: "Medium"
+        action: "Review media presence"
+
+    sentiment:
+      - trigger: "Sentiment < 60% positive"
+        severity: "High"
+        action: "Investigate drivers"
+
+    consistency:
+      - trigger: "BCI below 75"
+        severity: "Medium"
+        action: "Brand audit"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BENCHMARKING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  benchmarking:
+    internal:
+      - "Historical performance"
+      - "Quarter-over-quarter change"
+      - "Year-over-year change"
+
+    competitive:
+      - "vs. top competitor"
+      - "vs. category average"
+      - "vs. best in class"
+
+    industry:
+      - "Industry benchmarks"
+      - "Best practice standards"

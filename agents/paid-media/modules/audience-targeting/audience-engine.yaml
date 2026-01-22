@@ -1,0 +1,568 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - AUDIENCE TARGETING MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "audience-targeting"
+  name: "Intelligent Audience Targeting Engine"
+  version: "1.0.0"
+  category: "audience_management"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FIRST-PARTY AUDIENCE MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  first_party_audiences:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Customer List Management
+    # ─────────────────────────────────────────────────────────────────────────
+
+    customer_lists:
+      name: "Customer Data Platform Integration"
+
+      data_sources:
+        - source: "CRM"
+          fields: ["email", "phone", "name", "company", "ltv", "segment"]
+          sync_frequency: "daily"
+
+        - source: "Email Marketing Platform"
+          fields: ["email", "engagement_score", "list_membership"]
+          sync_frequency: "daily"
+
+        - source: "E-commerce Platform"
+          fields: ["email", "purchase_history", "order_value", "recency"]
+          sync_frequency: "real_time"
+
+        - source: "Marketing Automation"
+          fields: ["email", "lead_score", "lifecycle_stage"]
+          sync_frequency: "hourly"
+
+      audience_segments:
+        - segment: "High-Value Customers"
+          definition: "Top 20% by LTV"
+          platforms: ["Google", "Meta", "LinkedIn"]
+          use_cases: ["Lookalike seed", "Retention", "Upsell"]
+
+        - segment: "Recent Purchasers"
+          definition: "Purchase within 30 days"
+          platforms: ["All"]
+          use_cases: ["Exclusion", "Cross-sell", "Review request"]
+
+        - segment: "Churned Customers"
+          definition: "No purchase 90+ days, previously active"
+          platforms: ["All"]
+          use_cases: ["Win-back campaigns"]
+
+        - segment: "High-Intent Leads"
+          definition: "Lead score > 80, not converted"
+          platforms: ["All"]
+          use_cases: ["Conversion push", "Demo offers"]
+
+        - segment: "Newsletter Subscribers"
+          definition: "Email subscribers, not customers"
+          platforms: ["All"]
+          use_cases: ["Nurture", "First purchase"]
+
+      data_hygiene:
+        - "Remove bounced/invalid emails"
+        - "De-duplicate across sources"
+        - "Normalize phone formats"
+        - "Apply consent/opt-out flags"
+        - "Regular list refresh (30 days)"
+
+      match_rate_optimization:
+        strategies:
+          - "Collect multiple identifiers"
+          - "Use hashed emails + phone"
+          - "Clean data before upload"
+          - "Segment by recency"
+        target_match_rates:
+          google: 50%
+          meta: 65%
+          linkedin: 40%
+          tiktok: 35%
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Website Retargeting
+    # ─────────────────────────────────────────────────────────────────────────
+
+    website_retargeting:
+      name: "Pixel-Based Audience Builder"
+
+      audience_types:
+        - type: "All Visitors"
+          lookback_windows: [7, 14, 30, 60, 90, 180]
+          default: 30
+          use_case: "Broad retargeting"
+
+        - type: "Page Visitors"
+          logic: "Visited specific URL/URL contains"
+          examples:
+            - "Pricing page visitors"
+            - "Product category viewers"
+            - "Blog readers"
+            - "Case study readers"
+
+        - type: "Event-Based"
+          events:
+            - "Add to cart"
+            - "Initiate checkout"
+            - "Form start"
+            - "Video view (25%, 50%, 75%, 95%)"
+            - "Scroll depth"
+            - "Time on site > X"
+
+        - type: "Frequency-Based"
+          logic: "Visited X+ times in period"
+          tiers:
+            casual: "1-2 visits"
+            engaged: "3-5 visits"
+            highly_engaged: "6+ visits"
+
+        - type: "Recency-Based"
+          logic: "Visited within last X days"
+          segments:
+            hot: "1-3 days"
+            warm: "4-14 days"
+            cool: "15-30 days"
+            cold: "31-90 days"
+
+      funnel_audiences:
+        - stage: "Top Funnel"
+          audiences:
+            - "Blog visitors"
+            - "Resource page visitors"
+            - "Low engagement visitors"
+          messaging: "Educational, value-driven"
+
+        - stage: "Mid Funnel"
+          audiences:
+            - "Product page visitors"
+            - "Pricing page visitors"
+            - "Multiple page views"
+          messaging: "Product benefits, social proof"
+
+        - stage: "Bottom Funnel"
+          audiences:
+            - "Cart abandoners"
+            - "Checkout abandoners"
+            - "Demo page visitors"
+          messaging: "Urgency, incentives, overcome objections"
+
+      exclusion_strategies:
+        - "Exclude converters (configurable window)"
+        - "Exclude existing customers (for acquisition)"
+        - "Exclude recent purchasers (for consideration)"
+        - "Exclude bounced visitors (< 10s on site)"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # App User Targeting
+    # ─────────────────────────────────────────────────────────────────────────
+
+    app_audiences:
+      name: "App Event Audience Builder"
+
+      audience_types:
+        - type: "App Installers"
+          platforms: ["iOS", "Android"]
+          windows: [7, 14, 30, 90]
+
+        - type: "App Event Users"
+          events:
+            - "Registration"
+            - "First purchase"
+            - "Level completion"
+            - "Subscription start"
+            - "Feature usage"
+            - "In-app purchase"
+
+        - type: "Engagement Tiers"
+          daily_active: "Used app today"
+          weekly_active: "Used app in last 7 days"
+          monthly_active: "Used app in last 30 days"
+          dormant: "No activity 30+ days"
+
+        - type: "Value-Based"
+          high_value: "Top 20% by revenue"
+          medium_value: "Middle 60%"
+          low_value: "Bottom 20% or no purchases"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOOKALIKE / SIMILAR AUDIENCES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  lookalike_audiences:
+
+    seed_audience_strategy:
+      optimal_seed_sizes:
+        google: "1,000-50,000"
+        meta: "1,000-10,000 optimal, 100 minimum"
+        linkedin: "300-10,000"
+        tiktok: "1,000-10,000"
+
+      seed_quality_scoring:
+        factors:
+          - factor: "Conversion recency"
+            weight: 0.25
+            scoring: "More recent = higher score"
+
+          - factor: "Customer value"
+            weight: 0.30
+            scoring: "Higher LTV = higher score"
+
+          - factor: "Engagement depth"
+            weight: 0.20
+            scoring: "More touchpoints = higher score"
+
+          - factor: "Data completeness"
+            weight: 0.15
+            scoring: "More data fields = higher score"
+
+          - factor: "Match rate"
+            weight: 0.10
+            scoring: "Higher match = higher score"
+
+      recommended_seeds:
+        - "High-value customers (top 20%)"
+        - "Recent converters (last 90 days)"
+        - "Multi-purchasers"
+        - "High engagement leads"
+        - "Product-specific purchasers"
+
+    lookalike_configuration:
+      google_similar:
+        types:
+          - "Similar to converters"
+          - "Similar to high-value"
+          - "Similar to customer list"
+        automation: "Smart Bidding optimizes automatically"
+
+      meta_lookalike:
+        sizes:
+          - size: "1%"
+            description: "Most similar, smallest reach"
+            use_case: "Highest performance"
+          - size: "1-2%"
+            description: "Balanced similarity/reach"
+            use_case: "Scaling proven audiences"
+          - size: "2-5%"
+            description: "Broader reach"
+            use_case: "Prospecting, awareness"
+          - size: "5-10%"
+            description: "Wide reach"
+            use_case: "Maximum scale"
+        countries: "Create per country/region"
+        refresh: "Automatic, continuous"
+
+      linkedin_lookalike:
+        sizes:
+          - "1-3% (narrow)"
+          - "4-7% (balanced)"
+          - "8-10% (broad)"
+        minimum_seed: 300
+        recommended_seed: "1,000+"
+
+      tiktok_lookalike:
+        sizes: ["Narrow", "Balanced", "Broad"]
+        minimum_seed: 1000
+        refresh_frequency: "Weekly"
+
+    lookalike_testing:
+      test_framework:
+        - "Test multiple seed audiences"
+        - "Test multiple similarity levels"
+        - "Test cross-country expansion"
+        - "Compare to interest targeting"
+
+      performance_tracking:
+        - "CPA by lookalike source"
+        - "ROAS by similarity level"
+        - "Conversion rate comparison"
+        - "Audience overlap analysis"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INTEREST & BEHAVIOR TARGETING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  interest_behavior:
+
+    platform_targeting:
+      google:
+        audience_types:
+          - type: "In-Market"
+            description: "Actively researching/purchasing"
+            examples: ["Business Services", "Software", "Real Estate"]
+            use_case: "High intent, conversion campaigns"
+
+          - type: "Affinity"
+            description: "Long-term interests/lifestyles"
+            examples: ["Business Professionals", "Tech Enthusiasts"]
+            use_case: "Awareness, broader reach"
+
+          - type: "Custom Intent"
+            description: "Based on search queries/URLs"
+            inputs: ["Keywords", "URLs", "Apps"]
+            use_case: "Precise targeting"
+
+          - type: "Life Events"
+            description: "Major life milestones"
+            examples: ["Starting business", "New job", "Moving"]
+            use_case: "Timely relevance"
+
+      meta:
+        audience_types:
+          - type: "Detailed Targeting"
+            categories:
+              - "Demographics"
+              - "Interests"
+              - "Behaviors"
+            use_case: "Layered targeting"
+
+          - type: "Advantage+ Audience"
+            description: "AI-optimized targeting"
+            use_case: "Algorithmic optimization"
+
+      linkedin:
+        audience_types:
+          - type: "Professional Demographics"
+            options:
+              - "Job titles"
+              - "Job functions"
+              - "Seniority levels"
+              - "Industries"
+              - "Company size"
+              - "Company names"
+
+          - type: "Skills & Interests"
+            options:
+              - "Member skills"
+              - "Member interests"
+              - "Member groups"
+
+          - type: "Education"
+            options:
+              - "Schools"
+              - "Degrees"
+              - "Fields of study"
+
+      tiktok:
+        audience_types:
+          - type: "Interest Categories"
+            description: "Content consumption patterns"
+
+          - type: "Behavioral Targeting"
+            options:
+              - "Video interactions"
+              - "Creator interactions"
+              - "Hashtag interactions"
+
+    targeting_strategy:
+      layering_approach:
+        narrow: "Interest AND behavior AND demographic"
+        balanced: "Interest OR behavior, refined by demographic"
+        broad: "Single interest/behavior category"
+
+      testing_methodology:
+        - "Start broad, refine based on data"
+        - "Test individual interests vs combinations"
+        - "Compare to lookalike performance"
+        - "Monitor audience overlap"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEMOGRAPHIC TARGETING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  demographics:
+
+    available_options:
+      age:
+        ranges: ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"]
+        platform_availability: "All"
+
+      gender:
+        options: ["Male", "Female", "Unknown"]
+        platform_availability: "All"
+
+      household_income:
+        tiers: ["Top 10%", "11-20%", "21-30%", "31-40%", "41-50%", "Lower 50%"]
+        platform_availability: "Google, Meta (US)"
+
+      parental_status:
+        options: ["Parent", "Not a parent"]
+        children_ages: ["0-1", "1-2", "3-5", "6-8", "9-12", "13-17"]
+        platform_availability: "Google, Meta"
+
+      education:
+        levels: ["High school", "Some college", "Bachelor's", "Graduate"]
+        platform_availability: "Meta, LinkedIn"
+
+      relationship_status:
+        options: ["Single", "In relationship", "Engaged", "Married"]
+        platform_availability: "Meta"
+
+    demographic_optimization:
+      auto_adjustment: true
+      bid_modifier_range: "-90% to +300%"
+      optimization_frequency: "weekly"
+      minimum_data: "1000 impressions per segment"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIENCE INTELLIGENCE & OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  audience_intelligence:
+
+    audience_insights:
+      analysis_dimensions:
+        - "Demographics breakdown"
+        - "Interest affinity"
+        - "Device usage"
+        - "Geographic distribution"
+        - "Time of day patterns"
+        - "Conversion propensity"
+
+      reporting:
+        - report: "Audience Composition"
+          contents: ["Demographics", "Interests", "Behaviors"]
+          frequency: "Monthly"
+
+        - report: "Audience Performance"
+          contents: ["CPA by segment", "ROAS by segment", "Conversion rates"]
+          frequency: "Weekly"
+
+        - report: "Audience Overlap"
+          contents: ["Cross-audience overlap %", "Cannibalization risk"]
+          frequency: "Monthly"
+
+    audience_optimization:
+      strategies:
+        - strategy: "Performance-Based Expansion"
+          logic: "Find new interests correlated with converters"
+          automation: "semi_autonomous"
+
+        - strategy: "Negative Audience Management"
+          logic: "Exclude poor-performing segments"
+          automation: "autonomous"
+
+        - strategy: "Audience Consolidation"
+          logic: "Merge overlapping audiences > 50%"
+          automation: "semi_autonomous"
+
+    decay_monitoring:
+      tracking:
+        - "Audience size trends"
+        - "Match rate trends"
+        - "Performance decay"
+        - "Refresh requirements"
+
+      alerts:
+        - trigger: "Audience size dropped > 20%"
+          action: "Alert + refresh recommendation"
+
+        - trigger: "Match rate dropped > 15%"
+          action: "Alert + data quality check"
+
+        - trigger: "Performance declining 3+ weeks"
+          action: "Alert + refresh or replacement"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-PLATFORM AUDIENCE SYNC
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cross_platform_sync:
+
+    sync_capabilities:
+      - "Unified audience definitions"
+      - "Cross-platform activation"
+      - "Consistent exclusion lists"
+      - "Centralized seed management"
+
+    sync_process:
+      - step: "Create master audience definition"
+        action: "Define rules in central system"
+
+      - step: "Generate platform-specific audiences"
+        action: "Translate to platform requirements"
+
+      - step: "Upload/activate"
+        action: "Push to all platforms"
+
+      - step: "Monitor and maintain"
+        action: "Track sync status and match rates"
+
+    supported_platforms:
+      - "Google Ads"
+      - "Meta Ads"
+      - "LinkedIn Ads"
+      - "TikTok Ads"
+      - "Microsoft Ads"
+      - "Twitter Ads"
+      - "Pinterest Ads"
+      - "The Trade Desk"
+      - "DV360"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRIVACY & COMPLIANCE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  privacy_compliance:
+
+    data_handling:
+      - "Hash all PII before upload"
+      - "Respect consent preferences"
+      - "Honor opt-out requests"
+      - "Maintain data retention policies"
+      - "Document data sources"
+
+    platform_compliance:
+      - "Follow platform-specific policies"
+      - "Avoid sensitive categories"
+      - "Maintain required disclosures"
+      - "Regular policy review"
+
+    regional_requirements:
+      gdpr:
+        - "Consent-based targeting only"
+        - "Right to erasure compliance"
+        - "Data processing documentation"
+
+      ccpa:
+        - "Opt-out mechanism"
+        - "Do not sell compliance"
+        - "Disclosure requirements"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_campaign_management:
+      - "Audience recommendations"
+      - "Targeting configurations"
+      - "Exclusion lists"
+      - "Optimization suggestions"
+
+    to_creative_intelligence:
+      - "Audience personas"
+      - "Messaging recommendations"
+      - "Creative personalization data"
+
+    to_analytics_agent:
+      - "Audience performance data"
+      - "Segment conversion rates"
+      - "Customer journey attribution"
+
+  integrations:
+    data_platforms:
+      - "Customer Data Platforms (CDPs)"
+      - "CRM systems"
+      - "Data warehouses"
+      - "Marketing automation"
+
+    identity_resolution:
+      - "LiveRamp"
+      - "Unified ID solutions"
+      - "Platform-native matching"

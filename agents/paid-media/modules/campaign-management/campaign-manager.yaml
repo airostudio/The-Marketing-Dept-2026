@@ -1,0 +1,509 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - CAMPAIGN MANAGEMENT MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "campaign-management"
+  name: "Autonomous Campaign Management Engine"
+  version: "1.0.0"
+  category: "campaign_operations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CAMPAIGN LIFECYCLE MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  lifecycle:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Campaign Creation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    campaign_creation:
+      name: "Campaign Builder Engine"
+
+      creation_workflows:
+        - workflow: "standard_campaign"
+          description: "Create campaign from scratch"
+          steps:
+            - "Define campaign objective"
+            - "Set budget and schedule"
+            - "Configure targeting"
+            - "Create ad groups/sets"
+            - "Upload creatives"
+            - "Set conversion tracking"
+            - "Review and launch"
+
+        - workflow: "template_based"
+          description: "Create from proven templates"
+          templates:
+            - "Lead Generation - B2B"
+            - "Lead Generation - B2C"
+            - "E-commerce Sales"
+            - "Brand Awareness"
+            - "App Install"
+            - "Local Business"
+            - "Retargeting - Cart Abandonment"
+            - "Retargeting - Website Visitors"
+            - "Competitive Conquest"
+            - "Seasonal Campaign"
+
+        - workflow: "campaign_cloning"
+          description: "Clone existing campaign with modifications"
+          options:
+            - "Full clone"
+            - "Clone structure only"
+            - "Clone with budget adjustment"
+            - "Clone for A/B test"
+            - "Clone for new market"
+
+      campaign_structure:
+        google_ads:
+          hierarchy: ["Account", "Campaign", "Ad Group", "Ads/Keywords"]
+          best_practices:
+            - "Single theme ad groups (STAG)"
+            - "3-5 responsive search ads per ad group"
+            - "10-20 keywords per ad group"
+            - "Negative keyword lists at campaign level"
+
+        meta_ads:
+          hierarchy: ["Ad Account", "Campaign", "Ad Set", "Ads"]
+          best_practices:
+            - "Campaign Budget Optimization (CBO) where possible"
+            - "2-5 ad sets per campaign"
+            - "3-6 ads per ad set for learning"
+            - "Advantage+ audience when appropriate"
+
+        linkedin_ads:
+          hierarchy: ["Campaign Group", "Campaign", "Ads"]
+          best_practices:
+            - "Audience size 50,000-500,000"
+            - "2-4 ad variations per campaign"
+            - "Separate campaigns by objective"
+
+        tiktok_ads:
+          hierarchy: ["Campaign", "Ad Group", "Ads"]
+          best_practices:
+            - "Smart+ campaigns for automation"
+            - "Multiple creatives for testing"
+            - "Spark Ads for authenticity"
+
+      naming_conventions:
+        format: "{platform}_{objective}_{audience}_{geo}_{date}"
+        examples:
+          - "GADS_LEAD_B2B-Software_US_2026Q1"
+          - "META_CONV_Retarget-30d_US-CA_2026-01"
+          - "LI_AWARENESS_IT-Decision-Makers_EMEA_2026-01"
+        rules:
+          - "No spaces (use hyphens or underscores)"
+          - "Consistent capitalization"
+          - "Include date/quarter for tracking"
+          - "Use standard abbreviations"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Campaign Optimization
+    # ─────────────────────────────────────────────────────────────────────────
+
+    campaign_optimization:
+      name: "Continuous Optimization Engine"
+
+      optimization_dimensions:
+        - dimension: "budget"
+          optimizations:
+            - "Reallocate to top performers"
+            - "Pause underperformers"
+            - "Scale winners"
+            - "Seasonal adjustments"
+          frequency: "daily"
+
+        - dimension: "bidding"
+          optimizations:
+            - "Bid strategy selection"
+            - "Target adjustment"
+            - "Bid modifier optimization"
+            - "Portfolio rebalancing"
+          frequency: "continuous"
+
+        - dimension: "targeting"
+          optimizations:
+            - "Audience expansion/contraction"
+            - "Demographic refinement"
+            - "Placement optimization"
+            - "Dayparting optimization"
+          frequency: "weekly"
+
+        - dimension: "creative"
+          optimizations:
+            - "Ad rotation optimization"
+            - "Creative refresh triggers"
+            - "A/B test management"
+            - "Asset performance review"
+          frequency: "weekly"
+
+      optimization_rules:
+        performance_thresholds:
+          - rule: "scale_winner"
+            conditions:
+              - "ROAS > 1.5x target for 7+ days"
+              - "CPA < 0.7x target for 7+ days"
+              - "Statistical confidence > 95%"
+            action: "Increase budget 20-50%"
+            approval: "autonomous"
+
+          - rule: "pause_underperformer"
+            conditions:
+              - "ROAS < 0.5x target for 14+ days"
+              - "CPA > 2x target for 14+ days"
+              - "Spend > $500"
+            action: "Pause campaign"
+            approval: "semi_autonomous"
+
+          - rule: "optimization_alert"
+            conditions:
+              - "Performance declining 3+ consecutive days"
+              - "CPM spike > 30%"
+              - "CTR drop > 25%"
+            action: "Alert for review"
+            approval: "human_review"
+
+      learning_phase_management:
+        detection:
+          - "Track learning phase status per platform"
+          - "Monitor conversion volume"
+          - "Track time in learning"
+
+        protection:
+          - "Avoid budget changes during learning"
+          - "Limit targeting changes"
+          - "Maintain bid stability"
+
+        acceleration:
+          - "Consolidate similar ad sets"
+          - "Increase daily budget if needed"
+          - "Use broader targeting initially"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Campaign Scaling
+    # ─────────────────────────────────────────────────────────────────────────
+
+    campaign_scaling:
+      name: "Intelligent Scaling Engine"
+
+      scaling_strategies:
+        - strategy: "vertical_scaling"
+          description: "Increase budget on existing campaigns"
+          rules:
+            - "Max 20% budget increase per 3 days"
+            - "Monitor for efficiency decay"
+            - "Have rollback plan ready"
+          use_when:
+            - "Strong performance sustained"
+            - "Headroom in target CPA/ROAS"
+            - "Market not saturated"
+
+        - strategy: "horizontal_scaling"
+          description: "Expand to new audiences/placements"
+          tactics:
+            - "Lookalike expansion"
+            - "Interest expansion"
+            - "New placement testing"
+            - "Geographic expansion"
+          use_when:
+            - "Current audiences plateauing"
+            - "Need more reach"
+            - "Budget available for testing"
+
+        - strategy: "platform_expansion"
+          description: "Launch on new advertising platforms"
+          process:
+            - "Identify platform fit"
+            - "Adapt creative assets"
+            - "Set conservative initial budgets"
+            - "Test and validate"
+            - "Scale if successful"
+          use_when:
+            - "Primary platforms mature"
+            - "Audience present elsewhere"
+            - "Competitive advantage opportunity"
+
+      scaling_guardrails:
+        max_budget_increase_per_week: "50%"
+        min_performance_history: "14_days"
+        required_confidence_level: 0.90
+        rollback_triggers:
+          - "CPA increases > 30%"
+          - "ROAS drops > 25%"
+          - "Conversion rate drops > 20%"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # A/B TESTING FRAMEWORK
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  ab_testing:
+
+    test_types:
+      - type: "creative_test"
+        elements:
+          - "Headlines"
+          - "Descriptions"
+          - "Images/Videos"
+          - "CTAs"
+          - "Ad formats"
+        min_sample_size: 1000
+        min_conversions: 30
+
+      - type: "audience_test"
+        elements:
+          - "Audience segments"
+          - "Lookalike sizes"
+          - "Interest combinations"
+          - "Demographics"
+        min_sample_size: 5000
+        min_conversions: 50
+
+      - type: "landing_page_test"
+        elements:
+          - "Page variants"
+          - "Offer variations"
+          - "Form length"
+          - "Social proof"
+        min_sample_size: 2000
+        min_conversions: 40
+
+      - type: "bid_strategy_test"
+        elements:
+          - "Bidding strategies"
+          - "Target values"
+          - "Bid modifiers"
+        min_sample_size: 3000
+        min_conversions: 75
+
+    testing_methodology:
+      design: "Randomized controlled experiment"
+      traffic_split: "50/50 default, adjustable"
+      duration: "Minimum 7 days or statistical significance"
+
+      statistical_framework:
+        test_type: "Bayesian A/B testing"
+        confidence_threshold: 0.95
+        minimum_detectable_effect: 0.10
+        power: 0.80
+
+      winner_declaration:
+        criteria:
+          - "95%+ probability of being better"
+          - "Minimum sample size reached"
+          - "Performance difference > MDE"
+        actions:
+          - "Pause losing variant"
+          - "Scale winning variant"
+          - "Document learnings"
+          - "Plan next test"
+
+    test_prioritization:
+      framework: "PIE (Potential, Importance, Ease)"
+      scoring:
+        potential:
+          high: 10
+          medium: 5
+          low: 2
+        importance:
+          high: 10
+          medium: 5
+          low: 2
+        ease:
+          easy: 10
+          medium: 5
+          hard: 2
+      priority_score: "(potential + importance + ease) / 3"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CAMPAIGN HEALTH MONITORING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  health_monitoring:
+
+    health_score:
+      name: "Campaign Health Index (CHI)"
+      scale: "0-100"
+
+      components:
+        performance:
+          weight: 0.35
+          factors:
+            - "ROAS vs target"
+            - "CPA vs target"
+            - "Conversion rate trend"
+            - "CTR vs benchmark"
+
+        efficiency:
+          weight: 0.25
+          factors:
+            - "Quality Score (search)"
+            - "Relevance Score (social)"
+            - "CPM trend"
+            - "Impression share"
+
+        delivery:
+          weight: 0.20
+          factors:
+            - "Budget utilization"
+            - "Pacing accuracy"
+            - "Learning phase status"
+            - "Delivery issues"
+
+        creative_health:
+          weight: 0.20
+          factors:
+            - "Ad fatigue score"
+            - "Creative rotation"
+            - "Asset diversity"
+            - "Ad strength"
+
+    alert_system:
+      severity_levels:
+        critical:
+          color: "red"
+          response_time: "1_hour"
+          examples:
+            - "Campaign disapproved"
+            - "Account suspended"
+            - "Budget overspend"
+            - "Conversion tracking broken"
+
+        high:
+          color: "orange"
+          response_time: "4_hours"
+          examples:
+            - "ROAS < 50% target"
+            - "CPA > 200% target"
+            - "Significant delivery issues"
+            - "Creative disapproved"
+
+        medium:
+          color: "yellow"
+          response_time: "24_hours"
+          examples:
+            - "Performance declining"
+            - "Ad fatigue detected"
+            - "Budget underspend"
+            - "Learning phase extended"
+
+        low:
+          color: "blue"
+          response_time: "48_hours"
+          examples:
+            - "Optimization opportunity"
+            - "Test ready for review"
+            - "Minor policy warning"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SEASONAL & EVENT MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  seasonal_management:
+
+    calendar_events:
+      major_events:
+        - event: "Black Friday / Cyber Monday"
+          prep_start: "October 1"
+          actions:
+            - "Build audiences"
+            - "Prepare creative variants"
+            - "Set budget reserves"
+            - "Configure bid adjustments"
+
+        - event: "Holiday Season"
+          prep_start: "November 1"
+          actions:
+            - "Increase budgets 50-200%"
+            - "Aggressive remarketing"
+            - "Gift-focused messaging"
+            - "Shipping deadline campaigns"
+
+        - event: "Q1 Start"
+          prep_start: "December 15"
+          actions:
+            - "New year messaging"
+            - "Resolution-themed content"
+            - "B2B budget flush targeting"
+
+      industry_specific:
+        b2b_saas:
+          - "End of quarter pushes"
+          - "Budget season (October-December)"
+          - "Conference seasons"
+
+        ecommerce:
+          - "Prime Day"
+          - "Back to School"
+          - "Valentine's Day"
+          - "Mother's/Father's Day"
+
+        local_business:
+          - "Local events"
+          - "Seasonal peaks"
+          - "Weather-triggered"
+
+    automation_rules:
+      - rule: "seasonal_budget_increase"
+        trigger: "14 days before major event"
+        action: "Increase budget by configured %"
+        platforms: "all"
+
+      - rule: "seasonal_creative_swap"
+        trigger: "7 days before event"
+        action: "Activate seasonal creative"
+        platforms: "all"
+
+      - rule: "post_event_normalization"
+        trigger: "3 days after event"
+        action: "Return to baseline budgets"
+        platforms: "all"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_analytics_agent:
+      - "Campaign performance data"
+      - "Conversion attribution"
+      - "Spend data"
+      - "A/B test results"
+
+    to_cmo_agent:
+      - "Campaign health summaries"
+      - "Budget recommendations"
+      - "Strategic opportunities"
+      - "Risk alerts"
+
+    to_creative_intelligence:
+      - "Creative performance data"
+      - "Fatigue alerts"
+      - "Format recommendations"
+      - "Test results"
+
+    to_budget_allocation:
+      - "Campaign efficiency scores"
+      - "Scaling recommendations"
+      - "Opportunity costs"
+
+  integrations:
+    platforms:
+      - "Google Ads API"
+      - "Meta Marketing API"
+      - "LinkedIn Marketing API"
+      - "TikTok Marketing API"
+      - "Microsoft Advertising API"
+      - "DV360 API"
+      - "Twitter Ads API"
+      - "Pinterest Ads API"
+      - "Amazon Advertising API"
+
+    tools:
+      - "Google Analytics 4"
+      - "Conversion tracking systems"
+      - "CRM systems"
+      - "Tag management"

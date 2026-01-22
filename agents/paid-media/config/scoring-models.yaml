@@ -1,0 +1,372 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - SCORING MODELS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+scoring_models:
+  version: "1.0.0"
+  last_calibrated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CAMPAIGN HEALTH SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  campaign_health_score:
+    name: "Campaign Health Index (CHI)"
+    scale: "0-100"
+    method: "Weighted multi-factor scoring"
+
+    components:
+      performance:
+        weight: 0.35
+        factors:
+          roas_vs_target:
+            weight: 0.40
+            scoring:
+              above_150pct: 100
+              above_100pct: 80
+              above_75pct: 60
+              above_50pct: 40
+              below_50pct: 20
+
+          cpa_vs_target:
+            weight: 0.30
+            scoring:
+              below_70pct: 100
+              below_100pct: 80
+              below_125pct: 60
+              below_150pct: 40
+              above_150pct: 20
+
+          conversion_trend:
+            weight: 0.30
+            scoring:
+              growing_10pct: 100
+              stable: 70
+              declining_10pct: 40
+              declining_25pct: 20
+
+      efficiency:
+        weight: 0.25
+        factors:
+          quality_score:
+            weight: 0.35
+            scoring:
+              qs_8_plus: 100
+              qs_6_7: 70
+              qs_5: 50
+              qs_3_4: 30
+              qs_1_2: 10
+
+          ctr_vs_benchmark:
+            weight: 0.25
+            scoring:
+              above_150pct: 100
+              above_100pct: 70
+              above_75pct: 50
+              below_75pct: 30
+
+          impression_share:
+            weight: 0.25
+            scoring:
+              above_80pct: 100
+              above_60pct: 70
+              above_40pct: 50
+              below_40pct: 30
+
+          cpm_trend:
+            weight: 0.15
+            scoring:
+              decreasing: 100
+              stable: 70
+              increasing_10pct: 50
+              increasing_25pct: 30
+
+      delivery:
+        weight: 0.20
+        factors:
+          budget_utilization:
+            weight: 0.40
+            scoring:
+              90_100pct: 100
+              80_90pct: 70
+              70_80pct: 50
+              below_70pct: 30
+              above_100pct: 60
+
+          learning_status:
+            weight: 0.30
+            scoring:
+              learning_complete: 100
+              learning_in_progress: 70
+              learning_limited: 40
+              not_learning: 20
+
+          delivery_issues:
+            weight: 0.30
+            scoring:
+              no_issues: 100
+              minor_issues: 60
+              major_issues: 30
+              critical_issues: 10
+
+      creative_health:
+        weight: 0.20
+        factors:
+          ad_strength:
+            weight: 0.30
+            scoring:
+              excellent: 100
+              good: 75
+              average: 50
+              poor: 25
+
+          fatigue_score:
+            weight: 0.35
+            scoring:
+              fresh: 100
+              healthy: 75
+              warning: 50
+              fatigued: 25
+
+          asset_diversity:
+            weight: 0.20
+            scoring:
+              high: 100
+              medium: 60
+              low: 30
+
+          approval_status:
+            weight: 0.15
+            scoring:
+              all_approved: 100
+              some_disapproved: 50
+              many_disapproved: 20
+
+    grade_scale:
+      A_plus: { min: 95, max: 100, status: "Excellent", action: "Scale" }
+      A: { min: 85, max: 94, status: "Very Good", action: "Optimize & Scale" }
+      B: { min: 75, max: 84, status: "Good", action: "Maintain & Optimize" }
+      C: { min: 65, max: 74, status: "Fair", action: "Review & Improve" }
+      D: { min: 50, max: 64, status: "Poor", action: "Major Optimization Needed" }
+      F: { min: 0, max: 49, status: "Critical", action: "Pause & Restructure" }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIENCE QUALITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  audience_quality_score:
+    name: "Audience Quality Index (AQI)"
+    scale: "0-100"
+
+    components:
+      performance_metrics:
+        weight: 0.40
+        factors:
+          conversion_rate: 0.40
+          roas: 0.35
+          cpa: 0.25
+
+      engagement_metrics:
+        weight: 0.25
+        factors:
+          ctr: 0.50
+          time_on_site: 0.30
+          bounce_rate: 0.20
+
+      audience_characteristics:
+        weight: 0.20
+        factors:
+          size_adequacy: 0.40
+          match_rate: 0.35
+          freshness: 0.25
+
+      strategic_fit:
+        weight: 0.15
+        factors:
+          demographic_match: 0.50
+          interest_alignment: 0.50
+
+    quality_tiers:
+      premium: { min: 85, max: 100 }
+      high: { min: 70, max: 84 }
+      medium: { min: 50, max: 69 }
+      low: { min: 30, max: 49 }
+      poor: { min: 0, max: 29 }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CREATIVE PERFORMANCE SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  creative_performance_score:
+    name: "Creative Performance Index (CPI)"
+    scale: "0-100"
+
+    components:
+      engagement:
+        weight: 0.35
+        factors:
+          ctr_vs_account_avg:
+            weight: 0.50
+            scoring:
+              above_150pct: 100
+              above_100pct: 70
+              above_75pct: 50
+              below_75pct: 30
+
+          video_view_rate:
+            weight: 0.30
+            applies_to: "video_only"
+            scoring:
+              above_30pct: 100
+              above_20pct: 70
+              above_10pct: 50
+              below_10pct: 30
+
+          engagement_rate:
+            weight: 0.20
+            applies_to: "social"
+            scoring:
+              above_3pct: 100
+              above_2pct: 70
+              above_1pct: 50
+              below_1pct: 30
+
+      conversion:
+        weight: 0.40
+        factors:
+          conversion_rate_vs_avg:
+            weight: 0.60
+            scoring:
+              above_150pct: 100
+              above_100pct: 70
+              above_75pct: 50
+              below_75pct: 30
+
+          roas_contribution:
+            weight: 0.40
+            scoring:
+              above_target: 100
+              at_target: 70
+              below_target: 40
+
+      quality:
+        weight: 0.25
+        factors:
+          ad_strength:
+            weight: 0.40
+
+          relevance_score:
+            weight: 0.30
+
+          landing_page_experience:
+            weight: 0.30
+
+    fatigue_detection:
+      indicators:
+        ctr_decline:
+          threshold: "-20% over 7 days"
+          weight: 0.30
+
+        frequency_increase:
+          threshold: "frequency > 3"
+          weight: 0.25
+
+        cpm_increase:
+          threshold: "+25% over 14 days"
+          weight: 0.20
+
+        conversion_rate_decline:
+          threshold: "-15% over 7 days"
+          weight: 0.25
+
+      fatigue_scale:
+        fresh: { max: 30 }
+        healthy: { min: 31, max: 50 }
+        warning: { min: 51, max: 70 }
+        fatigued: { min: 71, max: 85 }
+        critical: { min: 86, max: 100 }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KEYWORD OPPORTUNITY SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  keyword_opportunity_score:
+    name: "Keyword Opportunity Index (KOI)"
+    scale: "0-100"
+
+    components:
+      performance_potential:
+        weight: 0.35
+        factors:
+          search_volume: 0.40
+          historical_conversion_rate: 0.35
+          competition_level: 0.25
+
+      current_performance:
+        weight: 0.30
+        factors:
+          quality_score: 0.35
+          current_position: 0.35
+          impression_share: 0.30
+
+      efficiency:
+        weight: 0.20
+        factors:
+          cpc_vs_value: 0.50
+          roas: 0.50
+
+      strategic_alignment:
+        weight: 0.15
+        factors:
+          brand_relevance: 0.50
+          funnel_stage_fit: 0.50
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUDGET ALLOCATION SCORE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  budget_allocation_score:
+    name: "Budget Efficiency Index (BEI)"
+    scale: "0-100"
+
+    components:
+      roi_contribution:
+        weight: 0.40
+        calculation: "Campaign ROAS / Portfolio ROAS * 100"
+
+      efficiency_trend:
+        weight: 0.25
+        factors:
+          improving: 100
+          stable: 70
+          declining: 40
+
+      scaling_potential:
+        weight: 0.20
+        factors:
+          impression_share_headroom: 0.50
+          audience_size_remaining: 0.50
+
+      strategic_priority:
+        weight: 0.15
+        factors:
+          business_priority_alignment: 0.60
+          market_opportunity: 0.40
+
+    allocation_recommendations:
+      increase:
+        criteria: "Score > 75 and scaling potential exists"
+        max_increase: "25% per week"
+
+      maintain:
+        criteria: "Score 50-75"
+        action: "Continue optimization"
+
+      decrease:
+        criteria: "Score < 50 for 2+ weeks"
+        max_decrease: "30% per week"
+
+      reallocate:
+        trigger: "Score < 30 for 3+ weeks"
+        action: "Move budget to higher-scoring campaigns"

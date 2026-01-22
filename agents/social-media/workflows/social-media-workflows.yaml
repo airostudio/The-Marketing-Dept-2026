@@ -1,0 +1,586 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL MEDIA AGENT WORKFLOWS
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflows:
+  version: "1.0.0"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 1: CONTENT PUBLISHING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_publishing:
+    name: "Content Publishing Workflow"
+    description: "End-to-end content publishing process"
+    trigger:
+      - "Content from Content Strategy Agent"
+      - "Scheduled content"
+      - "Ad-hoc content request"
+
+    steps:
+      - step: 1
+        name: "Content Receipt"
+        actions:
+          - "Receive content from Content Strategy Agent"
+          - "Log content in calendar"
+          - "Assign to queue"
+        outputs:
+          - "Content logged"
+
+      - step: 2
+        name: "Platform Adaptation"
+        actions:
+          - "Adapt content for each platform"
+          - "Adjust copy length"
+          - "Resize images/videos"
+          - "Add platform-specific elements"
+          - "Create hashtag sets"
+        outputs:
+          - "Platform-ready content"
+
+      - step: 3
+        name: "Quality Review"
+        actions:
+          - "Check brand guidelines"
+          - "Verify links"
+          - "Preview on all platforms"
+          - "Spell check"
+          - "Verify hashtags"
+        outputs:
+          - "QA checklist completed"
+
+      - step: 4
+        name: "Approval (if required)"
+        conditional: "If content type requires approval"
+        actions:
+          - "Submit for approval"
+          - "Address feedback"
+          - "Get final sign-off"
+        outputs:
+          - "Approval received"
+
+      - step: 5
+        name: "Schedule"
+        actions:
+          - "Select optimal posting time"
+          - "Queue content"
+          - "Set up first comment (if applicable)"
+          - "Configure notifications"
+        outputs:
+          - "Content scheduled"
+
+      - step: 6
+        name: "Publish"
+        actions:
+          - "Automated publishing at scheduled time"
+          - "Verify successful publishing"
+          - "Handle any errors"
+        outputs:
+          - "Content published"
+
+      - step: 7
+        name: "Initial Engagement"
+        actions:
+          - "Monitor first hour engagement"
+          - "Respond to early comments"
+          - "Boost if performance warrants"
+        timeline: "1-2 hours post-publish"
+        outputs:
+          - "Initial engagement logged"
+
+      - step: 8
+        name: "Performance Tracking"
+        actions:
+          - "Track metrics at 24h, 48h, 7 days"
+          - "Compare to benchmarks"
+          - "Log learnings"
+        outputs:
+          - "Performance recorded"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 2: DAILY ENGAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  daily_engagement:
+    name: "Daily Engagement Workflow"
+    description: "Structured daily community management"
+    trigger: "Daily schedule"
+    frequency: "Multiple times daily"
+
+    sessions:
+      morning:
+        time: "09:00"
+        duration: "1 hour"
+        tasks:
+          - "Review overnight mentions and messages"
+          - "Respond to priority items"
+          - "Check scheduled content"
+          - "Monitor competitor activity"
+
+      midday:
+        time: "12:00"
+        duration: "45 minutes"
+        tasks:
+          - "Clear inbox backlog"
+          - "Engage with industry content"
+          - "Respond to comments on recent posts"
+          - "Proactive community engagement"
+
+      afternoon:
+        time: "15:00"
+        duration: "45 minutes"
+        tasks:
+          - "Second engagement sweep"
+          - "Monitor real-time conversations"
+          - "Identify UGC opportunities"
+          - "Flag any issues"
+
+      evening:
+        time: "18:00"
+        duration: "30 minutes"
+        tasks:
+          - "Final engagement sweep"
+          - "Respond to remaining items"
+          - "Prepare overnight monitoring"
+          - "Document day's highlights"
+
+    priority_handling:
+      order:
+        - "Crisis/urgent items"
+        - "Negative sentiment"
+        - "Questions/support requests"
+        - "Influencer mentions"
+        - "Positive engagement"
+        - "General mentions"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 3: CRISIS RESPONSE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  crisis_response:
+    name: "Social Media Crisis Response"
+    description: "Rapid response protocol for social media crises"
+    trigger:
+      - "Negative mention spike"
+      - "Viral negative content"
+      - "Brand safety incident"
+      - "CMO Agent alert"
+    priority: "Critical"
+    response_time: "15 minutes"
+
+    steps:
+      - step: 1
+        name: "Detection & Alert"
+        time_limit: "5 minutes"
+        actions:
+          - "Confirm crisis (not false positive)"
+          - "Assess severity level"
+          - "Alert CMO Agent"
+          - "Alert Brand Agent"
+        outputs:
+          - "Crisis confirmed"
+          - "Severity assessment"
+
+      - step: 2
+        name: "Immediate Actions"
+        time_limit: "10 minutes"
+        actions:
+          - "Pause all scheduled content"
+          - "Activate monitoring mode"
+          - "Assign crisis team"
+          - "Prepare holding statement"
+        outputs:
+          - "Content paused"
+          - "Team activated"
+
+      - step: 3
+        name: "Situation Assessment"
+        time_limit: "30 minutes"
+        actions:
+          - "Gather all relevant information"
+          - "Identify source/cause"
+          - "Map spread and reach"
+          - "Identify key voices"
+          - "Assess potential impact"
+        outputs:
+          - "Situation report"
+
+      - step: 4
+        name: "Response Strategy"
+        actions:
+          - "Develop response approach"
+          - "Draft official response"
+          - "Get necessary approvals"
+          - "Prepare FAQ responses"
+        outputs:
+          - "Approved response strategy"
+        collaboration: "CMO Agent, Legal (if needed)"
+
+      - step: 5
+        name: "Response Execution"
+        actions:
+          - "Post official statement"
+          - "Respond to key mentions"
+          - "Monitor response reception"
+          - "Adjust approach if needed"
+        outputs:
+          - "Response deployed"
+
+      - step: 6
+        name: "Ongoing Management"
+        actions:
+          - "Continue monitoring"
+          - "Respond to ongoing conversations"
+          - "Track sentiment changes"
+          - "Provide regular updates"
+        timeline: "Until resolution"
+        outputs:
+          - "Status updates"
+
+      - step: 7
+        name: "Resolution & Recovery"
+        actions:
+          - "Confirm crisis resolved"
+          - "Resume normal operations"
+          - "Post-crisis communication (if needed)"
+          - "Document learnings"
+        outputs:
+          - "Crisis resolved"
+          - "Post-mortem report"
+
+      - step: 8
+        name: "Post-Crisis Review"
+        actions:
+          - "Conduct full debrief"
+          - "Analyze response effectiveness"
+          - "Update crisis protocols"
+          - "Share learnings"
+        timeline: "Within 48 hours"
+        outputs:
+          - "Post-crisis analysis"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 4: INFLUENCER COLLABORATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  influencer_collaboration:
+    name: "Influencer Partnership Workflow"
+    description: "End-to-end influencer collaboration process"
+    trigger:
+      - "Campaign requirement"
+      - "Partnership opportunity"
+
+    steps:
+      - step: 1
+        name: "Campaign Brief"
+        actions:
+          - "Define campaign objectives"
+          - "Set budget"
+          - "Identify influencer criteria"
+          - "Create deliverable requirements"
+        outputs:
+          - "Campaign brief"
+
+      - step: 2
+        name: "Influencer Discovery"
+        actions:
+          - "Search for relevant influencers"
+          - "Vet candidates"
+          - "Score and rank"
+          - "Create shortlist"
+        outputs:
+          - "Shortlisted influencers"
+
+      - step: 3
+        name: "Outreach"
+        actions:
+          - "Send personalized outreach"
+          - "Follow up as needed"
+          - "Negotiate terms"
+          - "Address questions"
+        outputs:
+          - "Interested influencers"
+
+      - step: 4
+        name: "Contract & Briefing"
+        actions:
+          - "Finalize terms"
+          - "Execute contract"
+          - "Provide creative brief"
+          - "Share brand guidelines"
+        outputs:
+          - "Signed contracts"
+          - "Briefed influencers"
+
+      - step: 5
+        name: "Content Creation"
+        actions:
+          - "Influencer creates content"
+          - "Submit for review"
+          - "Provide feedback"
+          - "Approve final content"
+        outputs:
+          - "Approved content"
+
+      - step: 6
+        name: "Publication"
+        actions:
+          - "Coordinate posting schedule"
+          - "Verify posts go live"
+          - "Confirm disclosures"
+          - "Engage with content"
+        outputs:
+          - "Content published"
+
+      - step: 7
+        name: "Performance Tracking"
+        actions:
+          - "Track engagement metrics"
+          - "Monitor conversions"
+          - "Calculate ROI"
+          - "Gather content assets"
+        outputs:
+          - "Performance data"
+
+      - step: 8
+        name: "Wrap-Up"
+        actions:
+          - "Process payment"
+          - "Send thank you"
+          - "Rate partnership"
+          - "Document learnings"
+          - "Consider future collaboration"
+        outputs:
+          - "Campaign completed"
+          - "Partnership evaluation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 5: SOCIAL LISTENING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  social_listening:
+    name: "Social Listening & Intelligence"
+    description: "Continuous social monitoring and intelligence"
+    trigger: "Continuous"
+
+    monitoring_streams:
+      brand_monitoring:
+        frequency: "Real-time"
+        tracked:
+          - "Brand mentions"
+          - "Product mentions"
+          - "Hashtag mentions"
+          - "Executive mentions"
+        alerts:
+          - "High-volume spikes"
+          - "Sentiment shifts"
+          - "Influencer mentions"
+
+      competitive_monitoring:
+        frequency: "Daily"
+        tracked:
+          - "Competitor posts"
+          - "Competitor mentions"
+          - "Competitor campaigns"
+        outputs:
+          - "Competitive intel report"
+
+      industry_monitoring:
+        frequency: "Daily"
+        tracked:
+          - "Industry keywords"
+          - "Trending topics"
+          - "News mentions"
+        outputs:
+          - "Industry trends report"
+
+    workflows:
+      daily_listening:
+        time: "08:00"
+        tasks:
+          - "Review overnight mentions"
+          - "Assess sentiment"
+          - "Identify opportunities"
+          - "Flag issues"
+          - "Update dashboards"
+
+      weekly_analysis:
+        time: "Monday 10:00"
+        tasks:
+          - "Compile week's data"
+          - "Analyze trends"
+          - "Competitive comparison"
+          - "Generate insights report"
+
+      monthly_intelligence:
+        time: "1st of month"
+        tasks:
+          - "Full month analysis"
+          - "Trend identification"
+          - "Strategic recommendations"
+          - "Report to CMO Agent"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 6: UGC CURATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  ugc_curation:
+    name: "User-Generated Content Curation"
+    description: "Discover, curate, and leverage UGC"
+    trigger: "Daily + event-based"
+
+    steps:
+      - step: 1
+        name: "Discovery"
+        frequency: "Daily"
+        actions:
+          - "Monitor branded hashtags"
+          - "Check mentions and tags"
+          - "Review location tags"
+          - "Search relevant keywords"
+        outputs:
+          - "UGC candidates"
+
+      - step: 2
+        name: "Evaluation"
+        actions:
+          - "Assess content quality"
+          - "Verify brand alignment"
+          - "Check creator profile"
+          - "Score potential"
+        outputs:
+          - "Qualified UGC"
+
+      - step: 3
+        name: "Permission Request"
+        actions:
+          - "Reach out to creator"
+          - "Request permission"
+          - "Explain usage"
+          - "Document approval"
+        outputs:
+          - "Permission granted"
+
+      - step: 4
+        name: "Curation"
+        actions:
+          - "Download/save content"
+          - "Add to UGC library"
+          - "Tag and categorize"
+          - "Plan usage"
+        outputs:
+          - "UGC in library"
+
+      - step: 5
+        name: "Utilization"
+        actions:
+          - "Share/repost content"
+          - "Credit creator"
+          - "Track performance"
+          - "Thank creator"
+        outputs:
+          - "UGC published"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 7: WEEKLY REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  weekly_reporting:
+    name: "Weekly Social Media Report"
+    description: "Comprehensive weekly performance reporting"
+    trigger: "Scheduled - Monday 09:00"
+
+    steps:
+      - step: 1
+        name: "Data Collection"
+        actions:
+          - "Pull metrics from all platforms"
+          - "Aggregate data"
+          - "Calculate KPIs"
+        outputs:
+          - "Raw data compiled"
+
+      - step: 2
+        name: "Analysis"
+        actions:
+          - "Compare to benchmarks"
+          - "Identify trends"
+          - "Analyze top/bottom content"
+          - "Review engagement quality"
+          - "Assess community health"
+        outputs:
+          - "Analysis complete"
+
+      - step: 3
+        name: "Insights Generation"
+        actions:
+          - "Identify key insights"
+          - "Develop recommendations"
+          - "Note learnings"
+          - "Plan optimizations"
+        outputs:
+          - "Insights documented"
+
+      - step: 4
+        name: "Report Creation"
+        actions:
+          - "Generate report"
+          - "Create visualizations"
+          - "Write executive summary"
+          - "Add recommendations"
+        outputs:
+          - "Weekly report"
+
+      - step: 5
+        name: "Distribution"
+        actions:
+          - "Send to stakeholders"
+          - "Send summary to CMO Agent"
+          - "Archive report"
+        outputs:
+          - "Report distributed"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 8: COMMUNITY HEALTH CHECK
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  community_health:
+    name: "Community Health Monitoring"
+    description: "Regular assessment of community health"
+    trigger: "Daily monitoring + weekly deep-dive"
+
+    daily_check:
+      time: "17:00"
+      duration: "15 minutes"
+      tasks:
+        - "Calculate daily sentiment"
+        - "Review response metrics"
+        - "Check engagement trends"
+        - "Flag any concerns"
+      outputs:
+        - "Daily health score"
+
+    weekly_analysis:
+      time: "Friday 15:00"
+      tasks:
+        - "Calculate community health score"
+        - "Analyze sentiment trends"
+        - "Review advocate activity"
+        - "Assess engagement quality"
+        - "Identify at-risk indicators"
+      outputs:
+        - "Weekly health report"
+
+    health_score_components:
+      engagement_health: 0.30
+      sentiment_health: 0.25
+      response_metrics: 0.20
+      growth_health: 0.15
+      advocate_activity: 0.10
+
+    action_triggers:
+      excellent: { min: 85, action: "Maintain and optimize" }
+      healthy: { min: 70, action: "Continue current approach" }
+      needs_attention: { min: 50, action: "Review and adjust strategy" }
+      at_risk: { min: 0, action: "Immediate intervention required" }

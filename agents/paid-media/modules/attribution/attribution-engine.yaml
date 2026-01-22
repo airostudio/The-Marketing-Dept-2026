@@ -1,0 +1,541 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - ATTRIBUTION & MEASUREMENT MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "attribution-measurement"
+  name: "Cross-Channel Attribution & Measurement Engine"
+  version: "1.0.0"
+  category: "measurement_analytics"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ATTRIBUTION MODELS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  attribution_models:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Rule-Based Models
+    # ─────────────────────────────────────────────────────────────────────────
+
+    rule_based:
+      - model: "Last Click"
+        description: "100% credit to last touchpoint"
+        logic: "full_credit_to_last"
+        use_cases:
+          - "Bottom-funnel optimization"
+          - "Direct response campaigns"
+        limitations:
+          - "Ignores awareness touchpoints"
+          - "Undervalues upper funnel"
+
+      - model: "First Click"
+        description: "100% credit to first touchpoint"
+        logic: "full_credit_to_first"
+        use_cases:
+          - "Prospecting analysis"
+          - "New customer acquisition"
+        limitations:
+          - "Ignores nurture touchpoints"
+          - "Overvalues discovery"
+
+      - model: "Linear"
+        description: "Equal credit across all touchpoints"
+        logic: "even_distribution"
+        use_cases:
+          - "Understanding full journey"
+          - "Balanced view"
+        limitations:
+          - "May undervalue key interactions"
+
+      - model: "Time Decay"
+        description: "More credit to recent touchpoints"
+        logic: "exponential_decay"
+        parameters:
+          half_life_days: 7
+        use_cases:
+          - "Short sales cycles"
+          - "Promotional campaigns"
+        limitations:
+          - "Undervalues early touchpoints"
+
+      - model: "Position-Based (U-Shaped)"
+        description: "40% first, 40% last, 20% middle"
+        logic: "position_weighted"
+        parameters:
+          first_touch_weight: 0.40
+          last_touch_weight: 0.40
+          middle_touches_weight: 0.20
+        use_cases:
+          - "Lead generation"
+          - "Balanced first/last emphasis"
+
+      - model: "W-Shaped"
+        description: "30% first, 30% lead creation, 30% last, 10% others"
+        logic: "position_weighted_with_lead_creation"
+        parameters:
+          first_touch_weight: 0.30
+          lead_creation_weight: 0.30
+          last_touch_weight: 0.30
+          other_touches_weight: 0.10
+        use_cases:
+          - "B2B lead generation"
+          - "Long sales cycles"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Data-Driven Models
+    # ─────────────────────────────────────────────────────────────────────────
+
+    data_driven:
+      - model: "Algorithmic Attribution"
+        description: "ML-based credit assignment"
+        methodology: "Shapley value calculation"
+        requirements:
+          - "Minimum 300 conversions/30 days"
+          - "15,000+ clicks/30 days"
+          - "600+ path variations"
+        benefits:
+          - "Accounts for actual impact"
+          - "Adapts to behavior changes"
+          - "Reduces bias"
+
+      - model: "Markov Chain Attribution"
+        description: "Probability-based path analysis"
+        methodology: "Transition probability modeling"
+        outputs:
+          - "Channel contribution scores"
+          - "Removal effect analysis"
+          - "Path probability"
+
+      - model: "Custom Hybrid Model"
+        description: "Configurable weighted approach"
+        configuration:
+          base_model: "position_based"
+          adjustments:
+            channel_weights:
+              paid_search: 1.0
+              paid_social: 0.9
+              display: 0.7
+              email: 0.8
+            time_decay_factor: 0.1
+            recency_bonus: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-CHANNEL MEASUREMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cross_channel_measurement:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Unified Tracking
+    # ─────────────────────────────────────────────────────────────────────────
+
+    unified_tracking:
+      name: "Cross-Platform Tracking Framework"
+
+      tracking_implementation:
+        - component: "UTM Parameters"
+          standard:
+            utm_source: "Platform/source"
+            utm_medium: "paid/organic/email/etc"
+            utm_campaign: "Campaign name"
+            utm_content: "Ad/creative variation"
+            utm_term: "Keyword (search)"
+          naming_convention: "Standardized across all channels"
+
+        - component: "Platform Pixels"
+          platforms:
+            google: ["Google Ads tag", "GA4 tag", "Floodlight"]
+            meta: ["Meta Pixel", "Conversions API"]
+            linkedin: ["Insight Tag"]
+            tiktok: ["TikTok Pixel", "Events API"]
+            microsoft: ["UET Tag"]
+          implementation: "Tag management system"
+
+        - component: "Server-Side Tracking"
+          purpose: "Privacy-compliant data collection"
+          methods:
+            - "Conversions APIs"
+            - "Server-side GTM"
+            - "First-party data collection"
+          benefits:
+            - "Improved accuracy"
+            - "Privacy compliance"
+            - "Browser blocking bypass"
+
+        - component: "Offline Conversion Import"
+          data_types:
+            - "CRM conversions"
+            - "Phone calls"
+            - "In-store visits"
+            - "Closed deals"
+          sync_frequency: "Daily"
+          matching_keys: ["GCLID", "FBCLID", "Email hash"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Customer Journey Tracking
+    # ─────────────────────────────────────────────────────────────────────────
+
+    journey_tracking:
+      name: "Multi-Touch Journey Analysis"
+
+      tracked_touchpoints:
+        paid_media:
+          - "Ad impressions"
+          - "Ad clicks"
+          - "Video views"
+          - "Engagement actions"
+
+        website:
+          - "Page views"
+          - "Content consumption"
+          - "Form interactions"
+          - "Chat interactions"
+
+        other_channels:
+          - "Email opens/clicks"
+          - "Organic search"
+          - "Direct traffic"
+          - "Referral traffic"
+
+      journey_analysis:
+        path_analysis:
+          - "Most common conversion paths"
+          - "Path length distribution"
+          - "Time to conversion"
+          - "Drop-off points"
+
+        segment_analysis:
+          - "Journey by audience segment"
+          - "Journey by product/service"
+          - "Journey by acquisition source"
+          - "Journey by device"
+
+      journey_optimization:
+        insights:
+          - "High-converting paths"
+          - "Underperforming sequences"
+          - "Channel synergies"
+          - "Optimal touchpoint count"
+        recommendations:
+          - "Increase investment in assist channels"
+          - "Reduce friction points"
+          - "Enhance cross-channel sequencing"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INCREMENTALITY MEASUREMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  incrementality:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Incrementality Testing
+    # ─────────────────────────────────────────────────────────────────────────
+
+    testing_methods:
+      - method: "Geo-Based Lift Testing"
+        description: "Compare performance in test vs holdout regions"
+        design:
+          test_markets: "70-80% of audience"
+          holdout_markets: "20-30% of audience"
+          duration: "4-8 weeks"
+        measurement:
+          - "Conversion lift"
+          - "Revenue lift"
+          - "iROAS (incremental ROAS)"
+        platforms: ["Google", "Meta", "All"]
+
+      - method: "Conversion Lift Studies"
+        description: "Platform-native incrementality measurement"
+        platforms:
+          meta:
+            name: "Conversion Lift"
+            methodology: "User-level holdout"
+            requirements: "Minimum 1M audience"
+          google:
+            name: "Conversion Lift"
+            methodology: "User-level holdout"
+            requirements: "Minimum conversions threshold"
+
+      - method: "Ghost Ads / PSA Testing"
+        description: "Serve PSAs to control group"
+        methodology: "Compare exposed vs PSA group"
+        measurement: "True lift from ad exposure"
+
+      - method: "Matched Market Testing"
+        description: "Statistically matched test/control markets"
+        design:
+          market_selection: "Propensity score matching"
+          test_duration: "6-12 weeks"
+          pre_period: "4 weeks baseline"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Incrementality Metrics
+    # ─────────────────────────────────────────────────────────────────────────
+
+    metrics:
+      - metric: "Incremental Conversions"
+        calculation: "Test conversions - Control conversions"
+        interpretation: "Conversions directly caused by ads"
+
+      - metric: "Incremental ROAS (iROAS)"
+        calculation: "Incremental revenue / Ad spend"
+        interpretation: "True return on ad investment"
+
+      - metric: "Incrementality Rate"
+        calculation: "Incremental conversions / Total conversions"
+        interpretation: "% of conversions that are incremental"
+
+      - metric: "Cost per Incremental Conversion"
+        calculation: "Ad spend / Incremental conversions"
+        interpretation: "True acquisition cost"
+
+    baseline_incrementality:
+      by_channel:
+        brand_search: "30-50%"
+        generic_search: "70-90%"
+        social_prospecting: "50-70%"
+        retargeting: "10-40%"
+        display_prospecting: "40-60%"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONVERSION TRACKING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  conversion_tracking:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Conversion Types
+    # ─────────────────────────────────────────────────────────────────────────
+
+    conversion_types:
+      macro_conversions:
+        - name: "Purchase"
+          value_type: "Dynamic (order value)"
+          counting: "Every"
+          window: "30-day click, 1-day view"
+
+        - name: "Lead Submission"
+          value_type: "Static or dynamic"
+          counting: "Every"
+          window: "30-day click, 1-day view"
+
+        - name: "Phone Call"
+          value_type: "Static or dynamic"
+          counting: "One"
+          window: "30-day click"
+
+        - name: "Demo Request"
+          value_type: "Static"
+          counting: "One"
+          window: "30-day click, 7-day view"
+
+      micro_conversions:
+        - name: "Add to Cart"
+          value_type: "Static"
+          purpose: "Funnel tracking, audience building"
+
+        - name: "Begin Checkout"
+          value_type: "Static"
+          purpose: "Funnel tracking, abandonment retargeting"
+
+        - name: "Content Download"
+          value_type: "Static"
+          purpose: "Lead magnet tracking"
+
+        - name: "Video Completion"
+          value_type: "Static"
+          purpose: "Engagement tracking"
+
+        - name: "Newsletter Signup"
+          value_type: "Static"
+          purpose: "List building"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Attribution Windows
+    # ─────────────────────────────────────────────────────────────────────────
+
+    attribution_windows:
+      recommended_settings:
+        ecommerce:
+          click_window: "7-day"
+          view_window: "1-day"
+          rationale: "Short purchase cycle"
+
+        b2b_lead_gen:
+          click_window: "30-day"
+          view_window: "7-day"
+          rationale: "Longer consideration"
+
+        b2b_enterprise:
+          click_window: "90-day"
+          view_window: "30-day"
+          rationale: "Extended sales cycle"
+
+        app_install:
+          click_window: "7-day"
+          view_window: "1-day"
+          rationale: "Quick decision"
+
+      window_comparison:
+        analysis: "Compare conversions across windows"
+        purpose: "Understand true impact"
+        outputs:
+          - "Conversions by window"
+          - "Optimal window recommendation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MARKETING MIX MODELING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  marketing_mix_modeling:
+
+    mmm_framework:
+      name: "Media Mix Modeling"
+      purpose: "Understand long-term channel impact"
+
+      inputs:
+        marketing_spend:
+          - "Spend by channel/tactic"
+          - "Creative/message changes"
+          - "Promotional activity"
+
+        external_factors:
+          - "Seasonality"
+          - "Economic indicators"
+          - "Competitive activity"
+          - "Weather"
+          - "Events"
+
+        base_factors:
+          - "Brand equity"
+          - "Distribution"
+          - "Pricing"
+
+      outputs:
+        - "Channel contribution to revenue"
+        - "Channel ROI"
+        - "Saturation curves"
+        - "Optimal budget allocation"
+        - "Scenario planning"
+
+      refresh_frequency: "Quarterly"
+
+      integration_with_mta:
+        approach: "Unified Measurement"
+        mta_for: "Tactical, short-term optimization"
+        mmm_for: "Strategic, long-term planning"
+        reconciliation: "Triangulate insights"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MEASUREMENT REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  reporting:
+
+    attribution_reports:
+      - report: "Multi-Touch Attribution Report"
+        frequency: "Weekly"
+        contents:
+          - "Conversion credit by channel"
+          - "Model comparison"
+          - "Path analysis"
+          - "Recommendations"
+
+      - report: "Incrementality Summary"
+        frequency: "After each test"
+        contents:
+          - "Test results"
+          - "Lift metrics"
+          - "iROAS"
+          - "Recommendations"
+
+      - report: "Cross-Channel Performance"
+        frequency: "Weekly"
+        contents:
+          - "Performance by channel"
+          - "Attribution comparison"
+          - "Synergy analysis"
+
+    dashboards:
+      - "Real-time conversion tracking"
+      - "Attribution model comparison"
+      - "Customer journey visualization"
+      - "Incrementality tracking"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DATA QUALITY & GOVERNANCE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  data_quality:
+
+    validation:
+      - "Cross-platform data reconciliation"
+      - "Conversion discrepancy monitoring"
+      - "Tracking coverage verification"
+      - "Tag health monitoring"
+
+    common_issues:
+      - issue: "Platform discrepancies"
+        cause: "Different attribution windows/methods"
+        solution: "Normalize to single source of truth"
+
+      - issue: "Missing conversions"
+        cause: "Tracking gaps, cookie blocking"
+        solution: "Server-side tracking, modeled conversions"
+
+      - issue: "Double counting"
+        cause: "Multiple platforms claiming same conversion"
+        solution: "Deduplicated attribution model"
+
+    governance:
+      - "Single source of truth definition"
+      - "Standardized definitions"
+      - "Documentation"
+      - "Regular audits"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_campaign_management:
+      - "Attributed conversions"
+      - "True CPA/ROAS"
+      - "Channel value"
+
+    to_budget_allocation:
+      - "Channel efficiency scores"
+      - "Incrementality data"
+      - "Optimal allocation inputs"
+
+    to_analytics_agent:
+      - "Attribution data"
+      - "Customer journey data"
+      - "Cross-channel insights"
+
+    to_cmo_agent:
+      - "Marketing effectiveness"
+      - "Channel ROI"
+      - "Strategic recommendations"
+
+  integrations:
+    analytics_platforms:
+      - "Google Analytics 4"
+      - "Adobe Analytics"
+      - "Amplitude"
+      - "Mixpanel"
+
+    attribution_tools:
+      - "Google Attribution"
+      - "Rockerbox"
+      - "Northbeam"
+      - "Triple Whale"
+      - "Measured"
+
+    data_infrastructure:
+      - "Data warehouses"
+      - "CDP platforms"
+      - "BI tools"

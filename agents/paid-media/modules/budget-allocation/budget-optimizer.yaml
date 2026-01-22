@@ -1,0 +1,514 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - BUDGET ALLOCATION MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "budget-allocation"
+  name: "Intelligent Budget Allocation Engine"
+  version: "1.0.0"
+  category: "budget_optimization"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUDGET STRUCTURE & PLANNING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  budget_structure:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Budget Hierarchy
+    # ─────────────────────────────────────────────────────────────────────────
+
+    hierarchy:
+      name: "Multi-Level Budget Management"
+
+      levels:
+        - level: "Total Marketing Budget"
+          owner: "CMO Agent"
+          allocation_to: ["Paid Media", "Content", "SEO", "Events", "Other"]
+          review_frequency: "Quarterly"
+
+        - level: "Paid Media Budget"
+          owner: "Paid Media Agent"
+          allocation_to: ["Platforms", "Campaigns", "Initiatives"]
+          review_frequency: "Monthly"
+
+        - level: "Platform Budget"
+          allocation_to: ["Google", "Meta", "LinkedIn", "TikTok", "Others"]
+          review_frequency: "Weekly"
+
+        - level: "Campaign Budget"
+          allocation_to: ["Individual campaigns"]
+          review_frequency: "Daily"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Budget Categories
+    # ─────────────────────────────────────────────────────────────────────────
+
+    budget_categories:
+      always_on:
+        description: "Continuous campaigns for core objectives"
+        percentage_of_total: "60-70%"
+        campaigns:
+          - "Brand awareness"
+          - "Retargeting"
+          - "Core product promotion"
+          - "Lead generation"
+
+      testing:
+        description: "Budget for experiments and new initiatives"
+        percentage_of_total: "10-15%"
+        campaigns:
+          - "New platform tests"
+          - "Audience experiments"
+          - "Creative testing"
+          - "New market pilots"
+
+      opportunistic:
+        description: "Reserve for timely opportunities"
+        percentage_of_total: "10-15%"
+        campaigns:
+          - "Competitive response"
+          - "Trending topics"
+          - "Flash sales"
+          - "PR amplification"
+
+      seasonal:
+        description: "Pre-allocated for known events"
+        percentage_of_total: "10-20%"
+        campaigns:
+          - "Holiday campaigns"
+          - "Industry events"
+          - "Product launches"
+          - "Seasonal peaks"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-CHANNEL ALLOCATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cross_channel_allocation:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Allocation Framework
+    # ─────────────────────────────────────────────────────────────────────────
+
+    allocation_framework:
+      name: "Performance-Based Channel Allocation"
+
+      allocation_factors:
+        - factor: "Historical ROAS"
+          weight: 0.30
+          calculation: "Revenue / Spend by channel"
+
+        - factor: "CPA Efficiency"
+          weight: 0.25
+          calculation: "Cost per acquisition by channel"
+
+        - factor: "Incremental Value"
+          weight: 0.20
+          calculation: "Incrementality-adjusted conversions"
+
+        - factor: "Strategic Importance"
+          weight: 0.15
+          inputs:
+            - "Brand building value"
+            - "New customer acquisition"
+            - "Market expansion"
+
+        - factor: "Growth Potential"
+          weight: 0.10
+          inputs:
+            - "Untapped audience"
+            - "Scaling headroom"
+            - "Competitive opportunity"
+
+      allocation_models:
+        - model: "Marginal Return Optimization"
+          description: "Allocate to maximize marginal ROAS"
+          algorithm: "Gradient-based optimization"
+          use_case: "Maximize short-term returns"
+
+        - model: "Portfolio Optimization"
+          description: "Balance risk and return across channels"
+          algorithm: "Mean-variance optimization"
+          use_case: "Balanced growth and stability"
+
+        - model: "Goal-Based Allocation"
+          description: "Allocate to hit specific goals per channel"
+          algorithm: "Constraint optimization"
+          use_case: "Multi-objective campaigns"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Platform Allocation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    platform_allocation:
+      recommended_splits:
+        b2b_saas:
+          google_search: "35-45%"
+          linkedin: "25-35%"
+          meta: "10-15%"
+          google_display: "5-10%"
+          other: "5-10%"
+
+        b2c_ecommerce:
+          meta: "30-40%"
+          google_shopping: "25-30%"
+          google_search: "15-20%"
+          tiktok: "5-15%"
+          other: "5-10%"
+
+        local_business:
+          google_search: "40-50%"
+          meta: "25-35%"
+          google_local: "15-20%"
+          other: "5-10%"
+
+        brand_awareness:
+          meta: "30-40%"
+          youtube: "20-30%"
+          tiktok: "15-25%"
+          display: "10-20%"
+          other: "5-10%"
+
+      reallocation_triggers:
+        - trigger: "Channel ROAS > 1.5x portfolio average"
+          action: "Increase allocation 10-20%"
+          frequency: "Weekly review"
+
+        - trigger: "Channel ROAS < 0.5x portfolio average"
+          action: "Decrease allocation 20-30%"
+          frequency: "Weekly review"
+
+        - trigger: "Channel hitting ceiling (frequency saturation)"
+          action: "Cap allocation, redistribute"
+          frequency: "Continuous monitoring"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DIMINISHING RETURNS DETECTION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  diminishing_returns:
+
+    detection_methods:
+      - method: "Efficiency Curve Analysis"
+        description: "Plot CPA/ROAS against spend levels"
+        signals:
+          - "CPA increasing with spend"
+          - "ROAS decreasing with spend"
+          - "Conversion rate declining"
+
+      - method: "Marginal Analysis"
+        description: "Track incremental return per dollar"
+        signals:
+          - "Marginal ROAS declining"
+          - "Incremental CPA rising"
+          - "Diminishing lift"
+
+      - method: "Frequency Analysis"
+        description: "Monitor audience saturation"
+        signals:
+          - "Rising frequency"
+          - "Declining reach"
+          - "Audience exhaustion"
+
+    efficiency_thresholds:
+      optimal_zone:
+        description: "Highest efficiency"
+        characteristics:
+          - "ROAS above target"
+          - "CPA below target"
+          - "Frequency < 2"
+
+      expansion_zone:
+        description: "Room to grow"
+        characteristics:
+          - "ROAS at or slightly above target"
+          - "CPA at or slightly below target"
+          - "Frequency 2-4"
+
+      saturation_zone:
+        description: "Diminishing returns"
+        characteristics:
+          - "ROAS declining"
+          - "CPA rising"
+          - "Frequency > 4"
+
+      over_saturation:
+        description: "Negative returns on incremental spend"
+        characteristics:
+          - "ROAS below floor"
+          - "CPA above ceiling"
+          - "Frequency > 6"
+
+    response_strategies:
+      saturation_detected:
+        - "Cap budget at current level"
+        - "Expand audience targeting"
+        - "Test new creative"
+        - "Explore new placements"
+        - "Consider new platforms"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SPEND PACING & FORECASTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  spend_pacing:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Pacing Management
+    # ─────────────────────────────────────────────────────────────────────────
+
+    pacing_rules:
+      daily_pacing:
+        target: "Even distribution"
+        tolerance: "+/- 10%"
+        adjustments:
+          underspend: "Increase bids/budgets gradually"
+          overspend: "Decrease bids/budgets"
+
+      weekly_pacing:
+        day_of_week_modifiers:
+          monday: 1.0
+          tuesday: 1.1
+          wednesday: 1.1
+          thursday: 1.0
+          friday: 0.9
+          saturday: 0.8
+          sunday: 0.8
+        customization: "Adjust based on conversion patterns"
+
+      monthly_pacing:
+        strategies:
+          - strategy: "Front-loaded"
+            description: "Spend more early for learning"
+            distribution: "40% week 1-2, 60% week 3-4"
+            use_case: "New campaigns"
+
+          - strategy: "Even"
+            description: "Consistent daily spend"
+            distribution: "25% per week"
+            use_case: "Mature campaigns"
+
+          - strategy: "Back-loaded"
+            description: "Ramp up toward end"
+            distribution: "30% week 1-2, 70% week 3-4"
+            use_case: "End-of-period goals"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Spend Forecasting
+    # ─────────────────────────────────────────────────────────────────────────
+
+    forecasting:
+      forecast_types:
+        - type: "Spend Forecast"
+          timeframes: ["Daily", "Weekly", "Monthly", "Quarterly"]
+          methodology: "Time series + seasonality"
+          outputs: ["Projected spend", "Confidence interval"]
+
+        - type: "Performance Forecast"
+          timeframes: ["Weekly", "Monthly", "Quarterly"]
+          methodology: "Regression + historical patterns"
+          outputs: ["Projected ROAS", "Projected conversions", "Projected CPA"]
+
+        - type: "Scenario Modeling"
+          scenarios:
+            - "Baseline (current trajectory)"
+            - "Optimistic (+20% performance)"
+            - "Pessimistic (-20% performance)"
+            - "Budget increase scenario"
+            - "Budget decrease scenario"
+
+      forecast_accuracy:
+        tracking: "Actual vs forecast variance"
+        target_accuracy: "< 10% variance"
+        calibration: "Weekly model updates"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUDGET OPTIMIZATION ALGORITHMS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  optimization_algorithms:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Real-Time Optimization
+    # ─────────────────────────────────────────────────────────────────────────
+
+    real_time_optimization:
+      name: "Continuous Budget Optimizer"
+
+      optimization_cycle:
+        frequency: "Every 4 hours"
+
+        steps:
+          - step: "Collect performance data"
+            data: ["Spend", "Conversions", "Revenue", "CPA", "ROAS"]
+
+          - step: "Calculate efficiency scores"
+            metrics: ["Marginal ROAS", "Efficiency index"]
+
+          - step: "Identify reallocation opportunities"
+            logic: "Move from low-efficiency to high-efficiency"
+
+          - step: "Execute adjustments"
+            constraints: ["Max 10% change per cycle", "Minimum spend thresholds"]
+
+          - step: "Log and monitor"
+            outputs: ["Change log", "Impact tracking"]
+
+      constraints:
+        minimum_campaign_budget: "$50/day"
+        maximum_single_adjustment: "20%"
+        daily_adjustment_limit: "30%"
+        protected_campaigns: ["Testing", "Learning phase"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Machine Learning Models
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ml_models:
+      budget_allocator:
+        name: "ML Budget Allocation Model"
+        type: "Gradient boosting regression"
+        features:
+          - "Historical performance"
+          - "Seasonality factors"
+          - "Competitive signals"
+          - "Audience characteristics"
+          - "Creative performance"
+        target: "Optimal budget allocation"
+        training: "Weekly retrain"
+        validation: "Holdout testing"
+
+      diminishing_returns_predictor:
+        name: "Saturation Prediction Model"
+        type: "Non-linear regression"
+        features:
+          - "Current spend level"
+          - "Audience size"
+          - "Frequency"
+          - "Competition"
+        target: "Predicted efficiency curve"
+        use_case: "Pre-emptive reallocation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUDGET ALERTS & GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alerts_guardrails:
+
+    alerts:
+      overspend_alerts:
+        - level: "Warning"
+          trigger: "Daily spend > 110% of daily budget"
+          action: "Alert + monitor"
+
+        - level: "Critical"
+          trigger: "Daily spend > 130% of daily budget"
+          action: "Alert + automatic reduction"
+
+      underspend_alerts:
+        - level: "Info"
+          trigger: "Daily spend < 80% of daily budget"
+          action: "Alert + investigate"
+
+        - level: "Warning"
+          trigger: "Daily spend < 60% of daily budget for 2+ days"
+          action: "Alert + recommended actions"
+
+      efficiency_alerts:
+        - level: "Warning"
+          trigger: "ROAS dropped > 20% week-over-week"
+          action: "Alert + pause recommendation"
+
+        - level: "Opportunity"
+          trigger: "ROAS increased > 30% with budget headroom"
+          action: "Alert + scale recommendation"
+
+    guardrails:
+      hard_limits:
+        - "Cannot exceed monthly budget cap"
+        - "Cannot spend on disapproved campaigns"
+        - "Cannot reallocate from protected campaigns"
+        - "Cannot exceed platform-level caps"
+
+      soft_limits:
+        - "Recommend approval for > 20% budget increase"
+        - "Recommend approval for new platform > $10K"
+        - "Flag testing budget > 15% of total"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUDGET REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  reporting:
+
+    standard_reports:
+      daily_budget_report:
+        contents:
+          - "Spend vs budget by platform"
+          - "Pacing status"
+          - "Efficiency metrics"
+          - "Alerts and issues"
+        delivery: "Automated, 07:00"
+
+      weekly_allocation_report:
+        contents:
+          - "Budget allocation summary"
+          - "Reallocation recommendations"
+          - "Performance by budget category"
+          - "Forecast vs actual"
+        delivery: "Automated, Monday 08:00"
+
+      monthly_budget_review:
+        contents:
+          - "Full budget analysis"
+          - "ROI by channel and campaign"
+          - "Budget utilization"
+          - "Next month recommendations"
+        delivery: "Automated, 1st of month"
+
+    executive_dashboards:
+      - "Real-time spend tracker"
+      - "Budget health scorecard"
+      - "Channel efficiency comparison"
+      - "Forecast vs actual tracker"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_campaign_management:
+      - "Budget allocations"
+      - "Pacing recommendations"
+      - "Scaling decisions"
+      - "Pause recommendations"
+
+    to_cmo_agent:
+      - "Budget health reports"
+      - "ROI analysis"
+      - "Investment recommendations"
+      - "Risk alerts"
+
+    to_analytics_agent:
+      - "Spend data"
+      - "Budget efficiency metrics"
+      - "Attribution inputs"
+
+    to_roi_budget_agent:
+      - "Paid media budget utilization"
+      - "ROAS by channel"
+      - "Forecast accuracy"
+
+  integrations:
+    financial_systems:
+      - "Accounting/ERP integration"
+      - "Invoice reconciliation"
+      - "PO management"
+
+    platform_apis:
+      - "Real-time spend data"
+      - "Budget management APIs"
+      - "Pacing data"
