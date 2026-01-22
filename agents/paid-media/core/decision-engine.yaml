@@ -1,0 +1,301 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - AUTONOMOUS DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  mode: "autonomous_with_guardrails"
+  cycle_interval: "15_minutes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 1: BIDDING DECISION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  bidding_rules:
+
+    real_time_optimization:
+      enabled: true
+      frequency: "Every 15 minutes"
+
+      bid_increase_triggers:
+        - trigger: "High conversion rate"
+          condition: "Conv rate > 2x campaign average"
+          action: "Increase bid up to 20%"
+          confidence_required: 0.8
+
+        - trigger: "Below target impression share"
+          condition: "IS < target AND ROAS > target"
+          action: "Increase bid up to 15%"
+          confidence_required: 0.7
+
+        - trigger: "Peak performance hours"
+          condition: "Historical data shows 50%+ higher performance"
+          action: "Apply dayparting modifier up to 30%"
+          confidence_required: 0.75
+
+      bid_decrease_triggers:
+        - trigger: "Poor conversion rate"
+          condition: "Conv rate < 0.5x campaign average for 24h"
+          action: "Decrease bid up to 25%"
+          confidence_required: 0.7
+
+        - trigger: "ROAS below floor"
+          condition: "ROAS < 50% of target for 48h"
+          action: "Decrease bid up to 30%"
+          confidence_required: 0.8
+
+        - trigger: "Budget pacing ahead"
+          condition: "Spend > 120% of expected pace"
+          action: "Reduce bids to normalize pacing"
+          confidence_required: 0.9
+
+      guardrails:
+        max_bid_increase_per_cycle: "10%"
+        max_bid_decrease_per_cycle: "15%"
+        max_daily_change: "30%"
+        minimum_data_points: 100
+        confidence_threshold: 0.7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 2: BUDGET ALLOCATION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  budget_rules:
+
+    reallocation_triggers:
+      - trigger: "Underperforming campaign"
+        condition: "ROAS < 50% target for 7 days"
+        action: "Reallocate up to 30% to better performers"
+        approval: "autonomous"
+
+      - trigger: "Scaling opportunity"
+        condition: "ROAS > 150% target AND impression share < 80%"
+        action: "Increase budget up to 20%"
+        approval: "autonomous"
+
+      - trigger: "Budget exhaustion risk"
+        condition: "Campaign will exhaust budget before month end"
+        action: "Redistribute from lower performers"
+        approval: "autonomous"
+
+    pacing_rules:
+      - rule: "Daily pacing"
+        target: "Even spend throughout day"
+        adjustment: "Reduce bids if >10% ahead of pace"
+
+      - rule: "Weekly pacing"
+        target: "Even spend throughout week"
+        adjustment: "Accelerate on high-performance days"
+
+      - rule: "Monthly pacing"
+        target: "95-100% budget utilization"
+        adjustment: "End-of-month acceleration if needed"
+
+    guardrails:
+      max_reallocation_per_week: "30%"
+      min_campaign_budget: "$50/day"
+      max_single_campaign_share: "40%"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 3: KEYWORD & AD MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  keyword_rules:
+
+    pause_triggers:
+      - trigger: "Zero conversions"
+        condition: "Spend > $100 AND 0 conversions"
+        action: "Pause keyword"
+        approval: "autonomous"
+
+      - trigger: "CPA too high"
+        condition: "CPA > 3x target for 14 days"
+        action: "Pause keyword"
+        approval: "autonomous"
+
+      - trigger: "Low Quality Score"
+        condition: "QS < 4 for 30 days"
+        action: "Flag for review, reduce bids"
+        approval: "autonomous"
+
+    negative_keyword_rules:
+      - rule: "Auto-negative from search queries"
+        condition: "Search query with 0% conversion rate AND >$50 spend"
+        action: "Add as campaign negative"
+        approval: "autonomous"
+
+      - rule: "Brand term protection"
+        condition: "Non-brand query in brand campaign"
+        action: "Add as exact match negative"
+        approval: "autonomous"
+
+    expansion_rules:
+      - rule: "Query promotion"
+        condition: "Search query with >3x average conversion rate"
+        action: "Add as keyword"
+        approval: "review_queue"
+
+  ad_rules:
+    pause_triggers:
+      - trigger: "Statistical loser"
+        condition: "95% confidence worse than control"
+        action: "Pause ad"
+        approval: "autonomous"
+
+      - trigger: "CTR floor"
+        condition: "CTR < 1% with >10k impressions"
+        action: "Pause ad"
+        approval: "autonomous"
+
+    rotation_rules:
+      - rule: "Winner promotion"
+        condition: "95% confidence better than others"
+        action: "Increase rotation weight"
+        approval: "autonomous"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 4: AUDIENCE OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  audience_rules:
+
+    bid_modifier_optimization:
+      frequency: "Weekly"
+      rules:
+        - rule: "High-value audience boost"
+          condition: "ROAS > 2x average"
+          action: "Increase modifier up to 50%"
+
+        - rule: "Low-value audience reduction"
+          condition: "ROAS < 0.5x average"
+          action: "Decrease modifier up to 30%"
+
+        - rule: "Exclusion recommendation"
+          condition: "ROAS < 0.25x average for 30 days"
+          action: "Recommend exclusion"
+          approval: "review_queue"
+
+    audience_expansion:
+      triggers:
+        - trigger: "Audience saturation"
+          condition: "Frequency > 8 AND declining performance"
+          action: "Recommend lookalike expansion"
+          approval: "review_queue"
+
+        - trigger: "High-performing seed"
+          condition: "Segment ROAS > 2x average"
+          action: "Recommend lookalike creation"
+          approval: "review_queue"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 5: ESCALATION PROTOCOLS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_protocols:
+
+    automatic_triggers:
+      - trigger: "Performance crisis"
+        condition: "Account ROAS < 50% target for 72h"
+        severity: "Critical"
+        action: "Escalate to CMO Agent"
+        auto_response: "Reduce spend by 30%"
+
+      - trigger: "Budget overspend"
+        condition: "Daily spend > 150% of budget"
+        severity: "High"
+        action: "Pause campaigns, escalate"
+
+      - trigger: "Conversion tracking failure"
+        condition: "Conversions drop >90% with stable traffic"
+        severity: "Critical"
+        action: "Alert, switch to manual bidding"
+
+      - trigger: "Account suspension"
+        condition: "Platform policy violation detected"
+        severity: "Critical"
+        action: "Immediate escalation"
+
+      - trigger: "Competitive threat"
+        condition: "Impression share drops >20% in 7 days"
+        severity: "Medium"
+        action: "Analysis and recommendation"
+
+    response_times:
+      critical: "Immediate automated response + human alert"
+      high: "Within 1 hour"
+      medium: "Within 4 hours"
+      low: "Next business day"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 6: SAFETY GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  safety_guardrails:
+
+    hard_limits:
+      - limit: "Max CPC"
+        value: "3x historical average"
+        override: "Tier 1 approval"
+
+      - limit: "Max daily spend"
+        value: "150% of daily budget"
+        override: "Not allowed"
+
+      - limit: "Min ROAS floor"
+        value: "100% (break-even)"
+        override: "Tier 2 approval"
+
+      - limit: "Max bid change per hour"
+        value: "15%"
+        override: "Not allowed"
+
+    prohibited_actions:
+      - "Launch campaigns without approval"
+      - "Pause entire account"
+      - "Change conversion tracking"
+      - "Modify billing settings"
+      - "Grant account access"
+
+    audit_logging:
+      - "All bid changes"
+      - "All budget changes"
+      - "All paused entities"
+      - "All automated decisions"
+      - "All escalations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 7: LEARNING SYSTEM
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  learning_system:
+
+    models:
+      - model: "Bid Optimizer"
+        training: "Continuous"
+        inputs: ["bid_changes", "performance_outcomes"]
+        output: "Optimal bid predictions"
+
+      - model: "Budget Allocator"
+        training: "Weekly"
+        inputs: ["allocation_decisions", "ROI_outcomes"]
+        output: "Optimal allocation recommendations"
+
+      - model: "Audience Scorer"
+        training: "Weekly"
+        inputs: ["audience_performance", "conversion_data"]
+        output: "Audience value predictions"
+
+      - model: "Creative Predictor"
+        training: "Weekly"
+        inputs: ["creative_features", "performance_outcomes"]
+        output: "Creative performance predictions"
+
+    feedback_loops:
+      - loop: "Bid accuracy"
+        metric: "Predicted vs actual CPA"
+        target: "< 15% variance"
+
+      - loop: "Budget efficiency"
+        metric: "Realized vs predicted ROAS"
+        target: "< 10% variance"
