@@ -189,7 +189,7 @@ window.APP_CONFIG = {
     // ═══════════════════════════════════════════════════════════════════════════
     // APP SETTINGS
     // ═══════════════════════════════════════════════════════════════════════════
-    APP_NAME: 'The Marketing Department',
+    APP_NAME: 'Aduma - The Marketing Department',
     APP_VERSION: '2026.1.0',
 
     // API rate limiting (requests per minute)
