@@ -576,13 +576,13 @@
     }
 
     // Create project
-    function createProject() {
+    async function createProject() {
         // Save final step data
         saveCurrentStepData();
 
         const data = WizardState.projectData;
 
-        // Generate project ID
+        // Generate project ID (may be replaced by Supabase UUID)
         const projectId = 'proj_' + Date.now();
 
         // Create project object
@@ -592,32 +592,40 @@
             ...data
         };
 
-        // Save project to localStorage
-        saveProject(project);
+        // Save project (to Supabase if available, localStorage fallback)
+        const savedProject = await saveProject(project);
 
         // Update dashboard settings
-        updateDashboardSettings(project);
+        updateDashboardSettings(savedProject || project);
 
         // Show completion step
-        showCompletionStep(project);
+        showCompletionStep(savedProject || project);
 
         // Clear draft
         localStorage.removeItem('wizard-draft');
     }
 
-    // Save project to storage
-    function saveProject(project) {
-        // Get existing projects
+    // Save project to storage (uses ProjectService for Supabase when available)
+    async function saveProject(project) {
+        // Use ProjectService if available (saves to Supabase)
+        if (window.ProjectService?.createProject) {
+            try {
+                const savedProject = await window.ProjectService.createProject(project);
+                await window.ProjectService.setCurrentProject(savedProject.id);
+                console.log('[ProjectWizard] Project saved via ProjectService:', savedProject.id);
+                return savedProject;
+            } catch (e) {
+                console.error('[ProjectWizard] ProjectService save failed, using localStorage:', e);
+            }
+        }
+
+        // Fallback to localStorage
         const projects = JSON.parse(localStorage.getItem('seo-projects') || '[]');
-
-        // Add new project
         projects.push(project);
-
-        // Save back
         localStorage.setItem('seo-projects', JSON.stringify(projects));
-
-        // Set as current project
         localStorage.setItem('seo-current-project', project.id);
+
+        return project;
     }
 
     // Update dashboard settings with project info

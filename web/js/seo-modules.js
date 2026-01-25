@@ -32,9 +32,15 @@
     }
 
     /**
-     * Get current project from localStorage
+     * Get current project - uses ProjectService if available, localStorage fallback
      */
     function getCurrentProject() {
+        // Use ProjectService if available (for Supabase-backed storage)
+        if (window.ProjectService?.getCurrentProjectSync) {
+            return window.ProjectService.getCurrentProjectSync();
+        }
+
+        // Fallback to localStorage
         const projectId = localStorage.getItem('seo-current-project');
         if (!projectId) return null;
 
