@@ -827,7 +827,7 @@
     // COMPLETION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function completeAnalysis() {
+    async function completeAnalysis() {
         state.isComplete = true;
         state.progress = 100;
 
@@ -852,8 +852,8 @@
             elements.siteMeta.textContent = `Analysis completed in ${Math.round((Date.now() - state.startTime) / 1000)} seconds`;
         }
 
-        // Save data
-        saveAnalysisData();
+        // Save data and generate AI insights
+        await saveAnalysisData();
 
         // Update completion overlay stats
         if (elements.finalScore) elements.finalScore.textContent = state.data.healthScore;
@@ -864,7 +864,7 @@
         setTimeout(showCompletion, 1000);
     }
 
-    function saveAnalysisData() {
+    async function saveAnalysisData() {
         try {
             const analysisData = {
                 url: state.projectData.url,
@@ -879,6 +879,41 @@
                 analyzedAt: new Date().toISOString(),
                 isRealData: !useMockData()
             };
+
+            // Generate AI-powered insights if available
+            if (window.AIService?.isAvailable() && window.APP_CONFIG?.FEATURES?.ENABLE_AI_INSIGHTS) {
+                addLog('Generating AI-powered recommendations...', 'info');
+
+                try {
+                    // Get AI recommendations for issues
+                    if (state.data.issues.length > 0) {
+                        const recommendations = await window.AIService.SEO.getIssueRecommendations(state.data.issues);
+                        analysisData.aiRecommendations = recommendations;
+                        addLog(`Generated ${recommendations.length} AI recommendations`, 'success');
+                    }
+
+                    // Generate executive summary
+                    if (window.APP_CONFIG?.FEATURES?.ENABLE_AI_REPORTS) {
+                        const summary = await window.AIService.Reports.generateExecutiveSummary(analysisData);
+                        analysisData.aiExecutiveSummary = summary;
+                        addLog('Generated AI executive summary', 'success');
+                    }
+
+                    // Suggest keywords based on content
+                    if (state.data.keywords.length > 0) {
+                        const topKeywords = state.data.keywords.slice(0, 5).map(k => k.keyword);
+                        const suggestions = await window.AIService.SEO.suggestKeywords(
+                            state.projectData.name || state.projectData.url,
+                            topKeywords
+                        );
+                        analysisData.aiKeywordSuggestions = suggestions;
+                        addLog(`Generated ${suggestions.length} keyword suggestions`, 'success');
+                    }
+                } catch (aiError) {
+                    console.warn('AI insights generation failed:', aiError);
+                    addLog('AI insights skipped (check API keys)', 'warning');
+                }
+            }
 
             localStorage.setItem('seo-analysis-results', JSON.stringify(analysisData));
             localStorage.setItem('seo-analysis-complete', 'true');

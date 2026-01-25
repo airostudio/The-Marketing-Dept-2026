@@ -140,18 +140,49 @@ window.APP_CONFIG = {
     // AI/LLM APIs (for content generation, analysis)
     // ═══════════════════════════════════════════════════════════════════════════
     AI: {
+        // Default provider: 'openai', 'gemini', or 'anthropic'
+        DEFAULT_PROVIDER: 'openai',
+
         // OpenAI - https://platform.openai.com/api-keys
+        // Best for: Complex analysis, content generation, strategic insights
         OPENAI: {
-            ENABLED: false,
-            API_KEY: '',
-            MODEL: 'gpt-4-turbo-preview'
+            ENABLED: true,
+            API_KEY: '',  // Add your key here
+            MODEL: 'gpt-4o',  // Latest model
+            FALLBACK_MODEL: 'gpt-4o-mini'  // Cost-effective fallback
+        },
+
+        // Google Gemini - https://aistudio.google.com/apikey
+        // Best for: High-volume tasks, multimodal analysis, Google ecosystem integration
+        GEMINI: {
+            ENABLED: true,
+            API_KEY: '',  // Add your key here
+            MODEL: 'gemini-1.5-flash',  // Fast and cost-effective
+            PRO_MODEL: 'gemini-1.5-pro'  // For complex tasks
         },
 
         // Anthropic Claude - https://console.anthropic.com/
+        // Best for: Long-form content, nuanced analysis
         ANTHROPIC: {
             ENABLED: false,
             API_KEY: '',
-            MODEL: 'claude-3-sonnet-20240229'
+            MODEL: 'claude-3-5-sonnet-20241022'
+        },
+
+        // AI Feature Settings
+        SETTINGS: {
+            // Max tokens for different task types
+            MAX_TOKENS: {
+                SHORT: 500,      // Quick suggestions
+                MEDIUM: 1500,    // Recommendations
+                LONG: 4000       // Full reports
+            },
+            // Temperature settings (0 = deterministic, 1 = creative)
+            TEMPERATURE: {
+                ANALYSIS: 0.3,   // Factual analysis
+                CREATIVE: 0.7,   // Content generation
+                BALANCED: 0.5    // General use
+            }
         }
     },
 
@@ -186,7 +217,9 @@ window.APP_CONFIG = {
         ENABLE_ANALYTICS: true,
         ENABLE_REALTIME: true,
         ENABLE_STORAGE: true,
-        ENABLE_AI_INSIGHTS: false,
+        ENABLE_AI_INSIGHTS: true,          // AI-powered recommendations
+        ENABLE_AI_CONTENT: true,           // AI content generation
+        ENABLE_AI_REPORTS: true,           // AI report summaries
         ENABLE_COMPETITOR_TRACKING: true,
         ENABLE_SOCIAL_PUBLISHING: false,
         USE_MOCK_DATA: false  // Set to true for demo mode
