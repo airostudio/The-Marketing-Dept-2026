@@ -9,8 +9,8 @@
 window.APP_CONFIG = {
     // Supabase Configuration
     // Get these from your Supabase project settings: https://app.supabase.com
-    SUPABASE_URL: '',      // e.g., 'https://xxxxxxxxxxxx.supabase.co'
-    SUPABASE_ANON_KEY: '', // Your project's anon/public key
+    SUPABASE_URL: 'https://gbitapjzewhkzljqfvyc.supabase.co',      // e.g., 'https://xxxxxxxxxxxx.supabase.co'
+    SUPABASE_ANON_KEY: 'sb_publishable_-dlc_CGlPW_gpLe6rsIluw_C77wSDuV', // Your project's anon/public key
 
     // App Settings
     APP_NAME: 'The Marketing Department',
