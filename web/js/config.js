@@ -19,11 +19,11 @@ window.APP_CONFIG = {
     GOOGLE: {
         // Google Cloud Console: https://console.cloud.google.com/apis/credentials
         // Enable: PageSpeed Insights API, Search Console API, Analytics API
-        API_KEY: '',  // For PageSpeed Insights (optional - works without key but with rate limits)
+        API_KEY: 'AIzaSyDvXzQ1p9Upy4kZmgFrQMhtkNUQ0poke1M',  // For PageSpeed Insights (optional - works without key but with rate limits)
 
         // OAuth 2.0 Client ID for Search Console & Analytics
         // Create at: https://console.cloud.google.com/apis/credentials
-        CLIENT_ID: '',
+        CLIENT_ID: 'airo-studios',
 
         // Search Console API
         SEARCH_CONSOLE: {
