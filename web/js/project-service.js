@@ -20,16 +20,35 @@
     let supabaseClient = null;
 
     /**
-     * Get or initialize Supabase client
+     * Get or initialize Supabase client.
+     * Prefers the centralized client from supabase-client.js (window.Supabase)
+     * so the auth session is shared across the entire app.
      */
     function getSupabase() {
+        // 1) Use centralized client from supabase-client.js if available
+        if (window.Supabase?.getClient) {
+            const centralClient = window.Supabase.getClient();
+            if (centralClient) {
+                supabaseClient = centralClient;
+                return supabaseClient;
+            }
+        }
+
+        // 2) Reuse previously created client
         if (supabaseClient) return supabaseClient;
 
+        // 3) Create own client as last resort (with proper auth options)
         const url = window.APP_CONFIG?.SUPABASE_URL;
         const key = window.APP_CONFIG?.SUPABASE_ANON_KEY;
 
         if (url && key && typeof supabase !== 'undefined') {
-            supabaseClient = supabase.createClient(url, key);
+            supabaseClient = supabase.createClient(url, key, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true
+                }
+            });
             return supabaseClient;
         }
 
@@ -508,6 +527,30 @@
         };
     }
 
+    /** Track whether we've already initialized with auth */
+    let _initializedWithAuth = false;
+
+    /**
+     * Run the authenticated initialization flow
+     */
+    async function _initWithAuth() {
+        if (_initializedWithAuth) return;
+        _initializedWithAuth = true;
+
+        console.log('[ProjectService] User authenticated, loading from Supabase');
+
+        // Load user settings (including current project preference)
+        await loadUserSettings();
+
+        // Sync any local-only projects to Supabase
+        await syncLocalProjectsToSupabase();
+
+        // Load fresh projects from Supabase
+        await getProjects();
+
+        window.dispatchEvent(new CustomEvent('projectsLoaded'));
+    }
+
     /**
      * Initialize service - call on page load
      */
@@ -516,35 +559,48 @@
 
         // Check if user is authenticated
         if (await isAuthenticated()) {
-            console.log('[ProjectService] User authenticated, loading from Supabase');
-
-            // Load user settings (including current project preference)
-            await loadUserSettings();
-
-            // Sync any local-only projects to Supabase
-            await syncLocalProjectsToSupabase();
-
-            // Load fresh projects from Supabase
-            await getProjects();
+            await _initWithAuth();
         } else {
             console.log('[ProjectService] User not authenticated, using localStorage');
         }
 
-        // Listen for auth state changes
+        // Listen for auth state changes from the centralized Supabase client
         const client = getSupabase();
         if (client) {
             client.auth.onAuthStateChange(async (event, session) => {
-                if (event === 'SIGNED_IN') {
-                    console.log('[ProjectService] User signed in, syncing projects');
-                    await loadUserSettings();
-                    await syncLocalProjectsToSupabase();
-                    await getProjects();
-
-                    window.dispatchEvent(new CustomEvent('projectsLoaded'));
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    console.log('[ProjectService] Auth event:', event, '- syncing projects');
+                    await _initWithAuth();
                 } else if (event === 'SIGNED_OUT') {
                     console.log('[ProjectService] User signed out');
-                    // Keep localStorage data but mark as needing sync
+                    _initializedWithAuth = false;
                     localStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
+                }
+            });
+        }
+
+        // Also listen for the centralized Supabase connection event
+        // (handles case where supabase-client.js finishes init after project-service.js)
+        window.addEventListener('supabaseAuthChange', async function handler(e) {
+            if (e.detail?.event === 'SIGNED_IN' || e.detail?.event === 'INITIAL_SESSION') {
+                if (e.detail?.session?.user && !_initializedWithAuth) {
+                    console.log('[ProjectService] Received supabaseAuthChange, re-initializing with auth');
+                    // Re-obtain client (centralized client may now be available)
+                    supabaseClient = null;
+                    await _initWithAuth();
+                }
+            }
+        });
+
+        // If we got no client at all, wait for supabase-client.js to become available
+        if (!client) {
+            window.addEventListener('supabaseConnectionChange', async function handler(e) {
+                if (e.detail?.state === 'connected' && !_initializedWithAuth) {
+                    console.log('[ProjectService] Supabase connected late, checking auth');
+                    supabaseClient = null; // Force re-fetch of centralized client
+                    if (await isAuthenticated()) {
+                        await _initWithAuth();
+                    }
                 }
             });
         }

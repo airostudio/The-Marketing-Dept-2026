@@ -430,6 +430,127 @@ CREATE POLICY "Users can update own settings" ON user_settings
     FOR UPDATE USING (auth.uid() = user_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
+-- MARKETING DATA STORE
+-- Generic key-value store for all marketing services (replaces localStorage)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS marketing_store (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    service TEXT NOT NULL,         -- e.g. 'cmo', 'content', 'social', 'paid-media', 'email', 'analytics', 'brand', 'product-marketing'
+    key TEXT NOT NULL,             -- e.g. 'campaigns', 'calendar', 'posts', 'settings'
+    data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, project_id, service, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketing_store_user ON marketing_store(user_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_project ON marketing_store(project_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_service ON marketing_store(service);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_lookup ON marketing_store(user_id, service, key);
+
+-- RLS for marketing_store
+ALTER TABLE marketing_store ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own marketing data" ON marketing_store
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own marketing data" ON marketing_store
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own marketing data" ON marketing_store
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own marketing data" ON marketing_store
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- MARKETING CAMPAIGNS (cross-department)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('content', 'social', 'paid', 'email', 'cross-channel', 'brand', 'product-launch')),
+    status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'planned', 'active', 'paused', 'completed', 'archived')),
+    channel TEXT,                  -- primary channel
+    channels TEXT[],               -- all channels involved
+    budget DECIMAL(12, 2),
+    spend DECIMAL(12, 2) DEFAULT 0,
+    start_date DATE,
+    end_date DATE,
+    goals JSONB DEFAULT '{}',
+    metrics JSONB DEFAULT '{}',
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaigns_user ON marketing_campaigns(user_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_project ON marketing_campaigns(project_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON marketing_campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_type ON marketing_campaigns(type);
+
+ALTER TABLE marketing_campaigns ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own campaigns" ON marketing_campaigns
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own campaigns" ON marketing_campaigns
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own campaigns" ON marketing_campaigns
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own campaigns" ON marketing_campaigns
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- CONTENT ITEMS (content strategy)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS content_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    campaign_id UUID REFERENCES marketing_campaigns(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('blog', 'article', 'video', 'social', 'email', 'landing-page', 'whitepaper', 'case-study', 'infographic', 'other')),
+    status TEXT DEFAULT 'idea' CHECK (status IN ('idea', 'planned', 'in-progress', 'review', 'approved', 'published', 'archived')),
+    author TEXT,
+    content TEXT,
+    brief JSONB DEFAULT '{}',
+    seo_data JSONB DEFAULT '{}',    -- target keywords, meta, etc.
+    metrics JSONB DEFAULT '{}',     -- views, shares, conversions
+    publish_date DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_user ON content_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_content_project ON content_items(project_id);
+CREATE INDEX IF NOT EXISTS idx_content_status ON content_items(status);
+CREATE INDEX IF NOT EXISTS idx_content_type ON content_items(type);
+
+ALTER TABLE content_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own content" ON content_items
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own content" ON content_items
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own content" ON content_items
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own content" ON content_items
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
 -- HELPER FUNCTIONS
 -- ═══════════════════════════════════════════════════════════════════════════════
 
