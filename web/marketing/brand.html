@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand &amp; Positioning | The Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        /* Brand page specific styles */
+        .brand-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 28px; }
+        .brand-kpi-card { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; }
+        .brand-kpi-card .kpi-label { font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 6px; }
+        .brand-kpi-card .kpi-value { font-size: 1.75rem; font-weight: 700; color: var(--color-text-primary); }
+        .brand-kpi-card .kpi-trend { font-size: 0.8125rem; margin-top: 4px; }
+        .brand-kpi-card .kpi-trend.up { color: var(--color-success, #22c55e); }
+        .brand-kpi-card .kpi-trend.down { color: var(--color-danger, #ef4444); }
+
+        .brand-section { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        .brand-section-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .brand-section-title svg { width: 20px; height: 20px; color: var(--color-primary); }
+
+        .brand-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+        @media (max-width: 900px) { .brand-grid-2 { grid-template-columns: 1fr; } }
+
+        /* Health gauge */
+        .health-gauge-wrap { display: flex; align-items: center; gap: 32px; }
+        .health-ring { position: relative; width: 160px; height: 160px; flex-shrink: 0; }
+        .health-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .health-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .health-ring-label .score { font-size: 2rem; font-weight: 800; color: var(--color-text-primary); }
+        .health-ring-label .score-label { font-size: 0.75rem; color: var(--color-text-secondary); }
+        .health-trend-chart { flex: 1; min-height: 140px; background: var(--color-bg-tertiary); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); font-size: 0.875rem; }
+
+        /* Guidelines */
+        .guideline-subsection { margin-bottom: 20px; }
+        .guideline-subsection:last-child { margin-bottom: 0; }
+        .guideline-subsection h4 { font-size: 0.9375rem; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary); }
+        .color-palette { display: flex; gap: 10px; flex-wrap: wrap; }
+        .color-swatch { width: 56px; height: 56px; border-radius: 10px; border: 2px solid var(--color-border); cursor: pointer; position: relative; transition: transform 0.15s; }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch-label { font-size: 0.6875rem; text-align: center; margin-top: 4px; color: var(--color-text-secondary); font-family: 'JetBrains Mono', monospace; }
+        .typography-sample { padding: 12px 16px; background: var(--color-bg-tertiary); border-radius: 8px; margin-bottom: 8px; }
+        .typography-sample .sample-name { font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 4px; }
+        .pillars-list { display: flex; flex-direction: column; gap: 8px; }
+        .pillar-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--color-bg-tertiary); border-radius: 8px; font-size: 0.875rem; }
+        .pillar-item .pillar-num { width: 24px; height: 24px; border-radius: 6px; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+
+        /* Messaging framework */
+        .framework-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); }
+        .framework-tab { padding: 10px 18px; font-size: 0.875rem; font-weight: 500; background: none; border: none; color: var(--color-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .framework-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+        .framework-panel { display: none; }
+        .framework-panel.active { display: block; }
+        .persona-card { background: var(--color-bg-tertiary); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+        .persona-card h5 { font-weight: 600; margin-bottom: 6px; }
+        .persona-card p { font-size: 0.8125rem; color: var(--color-text-secondary); line-height: 1.5; }
+
+        /* Competitor map */
+        .positioning-map-canvas { width: 100%; height: 320px; background: var(--color-bg-tertiary); border-radius: 10px; border: 1px solid var(--color-border); margin-bottom: 16px; }
+        .competitor-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .competitor-table th, .competitor-table td { padding: 10px 14px; text-align: left; font-size: 0.8125rem; border-bottom: 1px solid var(--color-border); }
+        .competitor-table th { color: var(--color-text-secondary); font-weight: 600; background: var(--color-bg-tertiary); }
+        .competitor-table th:first-child { border-radius: 8px 0 0 0; }
+        .competitor-table th:last-child { border-radius: 0 8px 0 0; }
+
+        /* AI generator */
+        .ai-gen-form { display: flex; gap: 12px; margin-bottom: 16px; }
+        .ai-gen-form .form-input { flex: 1; }
+        .ai-gen-output { min-height: 120px; padding: 16px; background: var(--color-bg-tertiary); border: 1px dashed var(--color-border); border-radius: 10px; font-size: 0.875rem; line-height: 1.7; color: var(--color-text-secondary); white-space: pre-wrap; }
+        .ai-gen-output.has-content { color: var(--color-text-primary); border-style: solid; }
+
+        /* Sentiment tracker */
+        .sentiment-chart-area { min-height: 200px; background: var(--color-bg-tertiary); border-radius: 10px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); font-size: 0.875rem; }
+        .sentiment-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .source-card { padding: 14px; background: var(--color-bg-tertiary); border-radius: 10px; text-align: center; }
+        .source-card .source-name { font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 4px; }
+        .source-card .source-score { font-size: 1.25rem; font-weight: 700; }
+        .source-card .source-score.positive { color: var(--color-success, #22c55e); }
+        .source-card .source-score.neutral { color: var(--color-warning, #eab308); }
+        .source-card .source-score.negative { color: var(--color-danger, #ef4444); }
+        .themes-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+        .theme-tag { padding: 6px 14px; background: var(--color-bg-tertiary); border: 1px solid var(--color-border); border-radius: 20px; font-size: 0.8125rem; }
+
+        /* Asset library */
+        .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+        .asset-card { background: var(--color-bg-tertiary); border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; transition: box-shadow 0.15s; cursor: pointer; }
+        .asset-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+        .asset-thumb { width: 100%; height: 120px; background: var(--color-bg-primary, #18181b); display: flex; align-items: center; justify-content: center; }
+        .asset-thumb svg { width: 36px; height: 36px; color: var(--color-text-secondary); }
+        .asset-info { padding: 12px; }
+        .asset-info .asset-name { font-size: 0.8125rem; font-weight: 600; margin-bottom: 2px; }
+        .asset-info .asset-type { font-size: 0.6875rem; color: var(--color-text-secondary); }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div class="dashboard-layout">
+        <!-- ═══ Sidebar ═══ -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main sidebar navigation">
+            <div class="sidebar-header">
+                <a href="/index.html" class="sidebar-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 40 40" fill="none">
+                            <rect width="40" height="40" rx="10" fill="url(#bLogo)"/>
+                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M14.5 24H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                            <defs><linearGradient id="bLogo" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">Marketing Dept</span>
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- Executive -->
+                <div class="nav-section">
+                    <span class="nav-section-title">Executive</span>
+                    <a href="/marketing/cmo-dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                        <span>CMO Dashboard</span>
+                    </a>
+                    <a href="/marketing/overview.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-6"/></svg>
+                        <span>Marketing Overview</span>
+                    </a>
+                </div>
+
+                <!-- Marketing Channels -->
+                <div class="nav-section">
+                    <button class="nav-section-header" data-module="marketing-channels">
+                        <span class="nav-section-title">Marketing Channels</span>
+                        <svg class="nav-section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="nav-section-content" data-module-content="marketing-channels">
+                        <a href="/marketing/content-strategy.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <span>Content Strategy</span>
+                        </a>
+                        <a href="/marketing/social-media.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><circle cx="17" cy="4" r="2"/></svg>
+                            <span>Social Media</span>
+                        </a>
+                        <a href="/marketing/paid-media.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v2m0 8v2"/></svg>
+                            <span>Paid Media</span>
+                        </a>
+                        <a href="/marketing/email-marketing.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                            <span>Email Marketing</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Intelligence -->
+                <div class="nav-section">
+                    <button class="nav-section-header" data-module="intelligence">
+                        <span class="nav-section-title">Intelligence</span>
+                        <svg class="nav-section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="nav-section-content" data-module-content="intelligence">
+                        <a href="/marketing/analytics.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                            <span>Marketing Analytics</span>
+                        </a>
+                        <a href="/marketing/brand.html" class="nav-item active">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                            <span>Brand &amp; Positioning</span>
+                        </a>
+                        <a href="/marketing/product-marketing.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                            <span>Product Marketing</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- SEO -->
+                <div class="nav-section">
+                    <span class="nav-section-title">SEO</span>
+                    <a href="/dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <span>SEO Dashboard</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="/settings.html" class="nav-item settings-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ═══ Main Content ═══ -->
+        <main class="main-content" id="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div class="breadcrumb">
+                        <span>Brand &amp; Positioning</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <span class="current">Overview</span>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-ghost" id="refreshBrandBtn" title="Refresh brand data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                    <button class="btn btn-primary" id="exportBrandBtn">Export Brand Kit</button>
+                </div>
+            </header>
+
+            <div class="content-area" style="padding:24px;">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div>
+                        <h1>Brand &amp; Positioning</h1>
+                        <p>Monitor brand health, manage guidelines, and generate on-brand content with AI.</p>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="brand-kpi-grid" id="brandKpiGrid">
+                    <div class="brand-kpi-card">
+                        <div class="kpi-label">Brand Awareness Score</div>
+                        <div class="kpi-value" id="kpiAwareness">--</div>
+                        <div class="kpi-trend up" id="kpiAwarenessTrend">Loading...</div>
+                    </div>
+                    <div class="brand-kpi-card">
+                        <div class="kpi-label">Brand Sentiment</div>
+                        <div class="kpi-value" id="kpiSentiment">--</div>
+                        <div class="kpi-trend up" id="kpiSentimentTrend">Loading...</div>
+                    </div>
+                    <div class="brand-kpi-card">
+                        <div class="kpi-label">Share of Voice</div>
+                        <div class="kpi-value" id="kpiSov">--</div>
+                        <div class="kpi-trend up" id="kpiSovTrend">Loading...</div>
+                    </div>
+                    <div class="brand-kpi-card">
+                        <div class="kpi-label">Brand Consistency Score</div>
+                        <div class="kpi-value" id="kpiConsistency">--</div>
+                        <div class="kpi-trend up" id="kpiConsistencyTrend">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Brand Health Monitor -->
+                <div class="brand-section" id="brandHealthSection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Brand Health Monitor
+                    </div>
+                    <div class="health-gauge-wrap">
+                        <div class="health-ring" id="healthRing">
+                            <svg viewBox="0 0 160 160">
+                                <circle cx="80" cy="80" r="70" fill="none" stroke="var(--color-border)" stroke-width="12"/>
+                                <circle cx="80" cy="80" r="70" fill="none" stroke="url(#healthGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="439.8" stroke-dashoffset="110" id="healthArc"/>
+                                <defs><linearGradient id="healthGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+                            </svg>
+                            <div class="health-ring-label">
+                                <span class="score" id="healthScore">75</span>
+                                <span class="score-label">Overall Health</span>
+                            </div>
+                        </div>
+                        <div class="health-trend-chart" id="healthTrendChart">
+                            <span>Brand health trend chart &mdash; loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brand Guidelines -->
+                <div class="brand-section" id="brandGuidelinesSection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        Brand Guidelines
+                    </div>
+
+                    <div class="guideline-subsection">
+                        <h4>Voice &amp; Tone</h4>
+                        <div id="voiceToneContent" style="padding:12px 16px;background:var(--color-bg-tertiary);border-radius:8px;font-size:0.875rem;line-height:1.7;color:var(--color-text-secondary);">
+                            Confident yet approachable. Data-driven without jargon. Empowering language that positions clients as the hero.
+                        </div>
+                    </div>
+
+                    <div class="guideline-subsection">
+                        <h4>Color Palette</h4>
+                        <div class="color-palette" id="colorPalette">
+                            <div><div class="color-swatch" style="background:#6366F1;" title="#6366F1"></div><div class="color-swatch-label">#6366F1</div></div>
+                            <div><div class="color-swatch" style="background:#8B5CF6;" title="#8B5CF6"></div><div class="color-swatch-label">#8B5CF6</div></div>
+                            <div><div class="color-swatch" style="background:#22C55E;" title="#22C55E"></div><div class="color-swatch-label">#22C55E</div></div>
+                            <div><div class="color-swatch" style="background:#F59E0B;" title="#F59E0B"></div><div class="color-swatch-label">#F59E0B</div></div>
+                            <div><div class="color-swatch" style="background:#18181B;" title="#18181B"></div><div class="color-swatch-label">#18181B</div></div>
+                            <div><div class="color-swatch" style="background:#FAFAFA;" title="#FAFAFA"></div><div class="color-swatch-label">#FAFAFA</div></div>
+                        </div>
+                    </div>
+
+                    <div class="guideline-subsection">
+                        <h4>Typography</h4>
+                        <div class="typography-sample"><div class="sample-name">Headings &mdash; Inter Bold</div><span style="font-weight:700;font-size:1.25rem;">The quick brown fox jumps over the lazy dog</span></div>
+                        <div class="typography-sample"><div class="sample-name">Body &mdash; Inter Regular</div><span style="font-weight:400;font-size:1rem;">The quick brown fox jumps over the lazy dog</span></div>
+                        <div class="typography-sample"><div class="sample-name">Code / Data &mdash; JetBrains Mono</div><span style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;">const brandScore = 92;</span></div>
+                    </div>
+
+                    <div class="guideline-subsection">
+                        <h4>Logo Usage</h4>
+                        <div style="padding:12px 16px;background:var(--color-bg-tertiary);border-radius:8px;font-size:0.875rem;line-height:1.7;color:var(--color-text-secondary);" id="logoUsageContent">
+                            Minimum clear space equal to the height of the logomark. Always use on solid backgrounds. Never stretch, rotate, or alter colors outside the approved palette.
+                        </div>
+                    </div>
+
+                    <div class="guideline-subsection">
+                        <h4>Key Messaging Pillars</h4>
+                        <div class="pillars-list" id="pillarsList">
+                            <div class="pillar-item"><span class="pillar-num">1</span> AI-Powered Marketing Intelligence</div>
+                            <div class="pillar-item"><span class="pillar-num">2</span> Data-Driven Decision Making</div>
+                            <div class="pillar-item"><span class="pillar-num">3</span> Unified Full-Funnel Strategy</div>
+                            <div class="pillar-item"><span class="pillar-num">4</span> Enterprise-Grade Automation</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messaging Framework + Competitive Analysis side-by-side on wide screens -->
+                <div class="brand-grid-2">
+                    <!-- Messaging Framework -->
+                    <div class="brand-section" id="messagingSection" style="margin-bottom:0;">
+                        <div class="brand-section-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Messaging Framework
+                        </div>
+                        <div class="framework-tabs">
+                            <button class="framework-tab active" data-tab="valueProps">Value Propositions</button>
+                            <button class="framework-tab" data-tab="differentiators">Differentiators</button>
+                            <button class="framework-tab" data-tab="personas">Personas</button>
+                            <button class="framework-tab" data-tab="brandStory">Brand Story</button>
+                        </div>
+                        <div class="framework-panel active" id="panel-valueProps">
+                            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+                                <li class="pillar-item">Automate 80% of routine marketing tasks with AI agents</li>
+                                <li class="pillar-item">Unified analytics across every channel in one dashboard</li>
+                                <li class="pillar-item">Real-time brand monitoring and competitive intelligence</li>
+                            </ul>
+                        </div>
+                        <div class="framework-panel" id="panel-differentiators">
+                            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+                                <li class="pillar-item">Full-stack marketing AI &mdash; not just a single channel</li>
+                                <li class="pillar-item">Autonomous agent network with human oversight</li>
+                                <li class="pillar-item">Built-in brand governance and compliance</li>
+                            </ul>
+                        </div>
+                        <div class="framework-panel" id="panel-personas">
+                            <div class="persona-card"><h5>VP of Marketing</h5><p>Needs cross-channel visibility, board-ready reporting, and confidence that brand guidelines are followed at scale.</p></div>
+                            <div class="persona-card"><h5>Growth Manager</h5><p>Wants rapid experimentation, automated campaign optimization, and clear attribution across paid and organic.</p></div>
+                            <div class="persona-card"><h5>Content Strategist</h5><p>Values editorial consistency, SEO-aligned content plans, and AI-assisted ideation that stays on brand.</p></div>
+                        </div>
+                        <div class="framework-panel" id="panel-brandStory">
+                            <div style="padding:12px 16px;background:var(--color-bg-tertiary);border-radius:8px;font-size:0.875rem;line-height:1.8;color:var(--color-text-secondary);" id="brandStoryContent">
+                                Marketing teams spend more time wrangling tools than building strategy. The Marketing Department 2026 replaces the patchwork of point solutions with a unified AI-powered platform where autonomous agents handle execution while humans focus on creative direction and strategic decisions.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Competitive Brand Analysis -->
+                    <div class="brand-section" id="competitiveSection" style="margin-bottom:0;">
+                        <div class="brand-section-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Competitive Brand Analysis
+                        </div>
+                        <canvas class="positioning-map-canvas" id="positioningMap"></canvas>
+                        <div style="overflow-x:auto;">
+                            <table class="competitor-table" id="competitorTable">
+                                <thead>
+                                    <tr><th>Brand</th><th>Awareness</th><th>Sentiment</th><th>Share of Voice</th><th>Positioning</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><strong>Our Brand</strong></td><td>72%</td><td>+84</td><td>28%</td><td>AI-first full-stack</td></tr>
+                                    <tr><td>Competitor A</td><td>68%</td><td>+71</td><td>24%</td><td>Enterprise analytics</td></tr>
+                                    <tr><td>Competitor B</td><td>55%</td><td>+62</td><td>18%</td><td>SMB content tools</td></tr>
+                                    <tr><td>Competitor C</td><td>61%</td><td>+59</td><td>16%</td><td>Social media focus</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Brand Voice Generator -->
+                <div class="brand-section" id="aiVoiceSection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                        AI Brand Voice Generator
+                    </div>
+                    <div class="ai-gen-form">
+                        <input type="text" class="form-input" id="aiVoiceInput" placeholder="Enter a topic or context (e.g., product launch announcement, social post about Q1 results)..." />
+                        <button class="btn btn-primary" id="generateVoiceBtn">Generate</button>
+                    </div>
+                    <div class="ai-gen-output" id="aiVoiceOutput">
+                        On-brand content suggestions will appear here after you enter a topic and click Generate.
+                    </div>
+                </div>
+
+                <!-- Brand Sentiment Tracker -->
+                <div class="brand-section" id="sentimentSection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                        Brand Sentiment Tracker
+                    </div>
+                    <div class="sentiment-chart-area" id="sentimentChart">
+                        <span>Sentiment over time &mdash; loading data...</span>
+                    </div>
+                    <h4 style="font-size:0.9375rem;font-weight:600;margin-bottom:10px;">Sentiment by Source</h4>
+                    <div class="sentiment-sources" id="sentimentSources">
+                        <div class="source-card"><div class="source-name">Social Media</div><div class="source-score positive" id="srcSocial">+82</div></div>
+                        <div class="source-card"><div class="source-name">Review Sites</div><div class="source-score positive" id="srcReviews">+74</div></div>
+                        <div class="source-card"><div class="source-name">News Mentions</div><div class="source-score neutral" id="srcNews">+58</div></div>
+                        <div class="source-card"><div class="source-name">Forums</div><div class="source-score positive" id="srcForums">+69</div></div>
+                    </div>
+                    <h4 style="font-size:0.9375rem;font-weight:600;margin:16px 0 10px;">Key Themes</h4>
+                    <div class="themes-wrap" id="keyThemes">
+                        <span class="theme-tag">Innovation</span>
+                        <span class="theme-tag">Ease of Use</span>
+                        <span class="theme-tag">AI Accuracy</span>
+                        <span class="theme-tag">Customer Support</span>
+                        <span class="theme-tag">Value for Money</span>
+                        <span class="theme-tag">Integrations</span>
+                    </div>
+                </div>
+
+                <!-- Brand Asset Library -->
+                <div class="brand-section" id="assetLibrarySection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        Brand Asset Library
+                    </div>
+                    <div class="asset-grid" id="assetGrid">
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Primary Logo (SVG)</div><div class="asset-type">Logo &middot; Vector</div></div>
+                        </div>
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Icon Set</div><div class="asset-type">Icons &middot; SVG Pack</div></div>
+                        </div>
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Brand Guidelines PDF</div><div class="asset-type">Document &middot; PDF</div></div>
+                        </div>
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Social Templates</div><div class="asset-type">Templates &middot; Figma</div></div>
+                        </div>
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Color Palette File</div><div class="asset-type">Colors &middot; ASE / JSON</div></div>
+                        </div>
+                        <div class="asset-card">
+                            <div class="asset-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+                            <div class="asset-info"><div class="asset-name">Typography Kit</div><div class="asset-type">Fonts &middot; WOFF2</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /content-area -->
+        </main>
+    </div><!-- /dashboard-layout -->
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/project-service.js"></script>
+    <script src="/js/ai-service.js"></script>
+    <script src="/js/brand-service.js"></script>
+    <script>
+    (function () {
+        'use strict';
+
+        /* ── Auth gate ── */
+        async function checkAuth() {
+            if (typeof Auth !== 'undefined') {
+                var ok = await Auth.isAuthenticated();
+                if (!ok) { window.location.href = '/login.html'; return false; }
+            }
+            return true;
+        }
+
+        /* ── Sidebar toggles ── */
+        function initSidebar() {
+            var toggle = document.getElementById('sidebarToggle');
+            var sidebar = document.getElementById('sidebar');
+            if (toggle && sidebar) {
+                toggle.addEventListener('click', function () { sidebar.classList.toggle('collapsed'); });
+            }
+            document.querySelectorAll('.nav-section-header').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var mod = btn.getAttribute('data-module');
+                    var content = document.querySelector('[data-module-content="' + mod + '"]');
+                    if (content) { content.classList.toggle('expanded'); btn.classList.toggle('open'); }
+                });
+                // Auto-expand section if it contains the active link
+                var mod = btn.getAttribute('data-module');
+                var content = document.querySelector('[data-module-content="' + mod + '"]');
+                if (content && content.querySelector('.nav-item.active')) {
+                    content.classList.add('expanded');
+                    btn.classList.add('open');
+                }
+            });
+        }
+
+        /* ── Framework tabs ── */
+        function initFrameworkTabs() {
+            document.querySelectorAll('.framework-tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    document.querySelectorAll('.framework-tab').forEach(function (t) { t.classList.remove('active'); });
+                    document.querySelectorAll('.framework-panel').forEach(function (p) { p.classList.remove('active'); });
+                    tab.classList.add('active');
+                    var panel = document.getElementById('panel-' + tab.getAttribute('data-tab'));
+                    if (panel) panel.classList.add('active');
+                });
+            });
+        }
+
+        /* ── KPI rendering ── */
+        function renderKpis(data) {
+            var fields = [
+                { id: 'kpiAwareness', trendId: 'kpiAwarenessTrend', key: 'awareness' },
+                { id: 'kpiSentiment', trendId: 'kpiSentimentTrend', key: 'sentiment' },
+                { id: 'kpiSov', trendId: 'kpiSovTrend', key: 'shareOfVoice' },
+                { id: 'kpiConsistency', trendId: 'kpiConsistencyTrend', key: 'consistency' }
+            ];
+            fields.forEach(function (f) {
+                var el = document.getElementById(f.id);
+                var trendEl = document.getElementById(f.trendId);
+                if (el && data[f.key] !== undefined) {
+                    el.textContent = typeof data[f.key].value === 'number' ? data[f.key].value + (data[f.key].unit || '') : data[f.key].value;
+                }
+                if (trendEl && data[f.key]) {
+                    var dir = data[f.key].trend >= 0 ? 'up' : 'down';
+                    trendEl.className = 'kpi-trend ' + dir;
+                    trendEl.textContent = (dir === 'up' ? '+' : '') + data[f.key].trend + '% vs last month';
+                }
+            });
+        }
+
+        /* ── Health ring ── */
+        function setHealthScore(score) {
+            var el = document.getElementById('healthScore');
+            var arc = document.getElementById('healthArc');
+            if (el) el.textContent = score;
+            if (arc) {
+                var circumference = 2 * Math.PI * 70; // ~439.8
+                var offset = circumference - (circumference * score / 100);
+                arc.setAttribute('stroke-dashoffset', offset.toFixed(1));
+            }
+        }
+
+        /* ── AI voice generator ── */
+        function initAiGenerator() {
+            var input = document.getElementById('aiVoiceInput');
+            var btn = document.getElementById('generateVoiceBtn');
+            var output = document.getElementById('aiVoiceOutput');
+            if (!btn) return;
+            btn.addEventListener('click', async function () {
+                var topic = input ? input.value.trim() : '';
+                if (!topic) { input && input.focus(); return; }
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+                output.classList.remove('has-content');
+                output.textContent = 'Generating on-brand content...';
+                try {
+                    var result = '';
+                    if (window.BrandService && window.BrandService.generateBrandVoice) {
+                        result = await window.BrandService.generateBrandVoice(topic);
+                    } else if (window.AIService && window.AIService.AI && window.AIService.AI.generate) {
+                        result = await window.AIService.AI.generate(
+                            'Write on-brand marketing content for the following topic. Use a confident, data-driven, empowering tone. Topic: ' + topic
+                        );
+                    } else {
+                        result = 'AI service is not available. Please check configuration and try again.';
+                    }
+                    output.textContent = result || 'No content generated. Try a different topic.';
+                    if (result) output.classList.add('has-content');
+                } catch (err) {
+                    output.textContent = 'Error generating content: ' + (err.message || err);
+                }
+                btn.disabled = false;
+                btn.textContent = 'Generate';
+            });
+        }
+
+        /* ── Positioning map (canvas) ── */
+        function drawPositioningMap() {
+            var canvas = document.getElementById('positioningMap');
+            if (!canvas || !canvas.getContext) return;
+            var ctx = canvas.getContext('2d');
+            var w = canvas.width = canvas.offsetWidth;
+            var h = canvas.height = canvas.offsetHeight;
+
+            // Axes
+            ctx.strokeStyle = 'rgba(161,161,170,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(w / 2, 16); ctx.lineTo(w / 2, h - 16); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(16, h / 2); ctx.lineTo(w - 16, h / 2); ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = 'rgba(161,161,170,0.7)';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('High Awareness', w / 2, 14);
+            ctx.fillText('Low Awareness', w / 2, h - 4);
+            ctx.save(); ctx.translate(12, h / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Low Sentiment', 0, 0); ctx.restore();
+            ctx.save(); ctx.translate(w - 4, h / 2); ctx.rotate(Math.PI / 2);
+            ctx.fillText('High Sentiment', 0, 0); ctx.restore();
+
+            // Brands as dots
+            var brands = [
+                { name: 'Us', x: 0.7, y: 0.25, color: '#6366F1' },
+                { name: 'Comp A', x: 0.62, y: 0.35, color: '#8B5CF6' },
+                { name: 'Comp B', x: 0.45, y: 0.55, color: '#F59E0B' },
+                { name: 'Comp C', x: 0.52, y: 0.6, color: '#EF4444' }
+            ];
+            brands.forEach(function (b) {
+                var bx = 32 + b.x * (w - 64);
+                var by = 32 + b.y * (h - 64);
+                ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI * 2);
+                ctx.fillStyle = b.color; ctx.fill();
+                ctx.fillStyle = '#e4e4e7'; ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.textAlign = 'center'; ctx.fillText(b.name, bx, by - 14);
+            });
+        }
+
+        /* ── Load brand data ── */
+        async function loadBrandData() {
+            // Defaults / demo data
+            var kpiData = {
+                awareness: { value: '72%', unit: '', trend: 4.2 },
+                sentiment: { value: '+84', unit: '', trend: 2.8 },
+                shareOfVoice: { value: '28%', unit: '', trend: 1.5 },
+                consistency: { value: '91', unit: '/100', trend: 3.1 }
+            };
+
+            try {
+                if (window.BrandService && window.BrandService.getBrandHealth) {
+                    var health = await window.BrandService.getBrandHealth();
+                    if (health) {
+                        if (health.awareness !== undefined) kpiData.awareness.value = health.awareness + '%';
+                        if (health.sentiment !== undefined) kpiData.sentiment.value = (health.sentiment >= 0 ? '+' : '') + health.sentiment;
+                        if (health.shareOfVoice !== undefined) kpiData.shareOfVoice.value = health.shareOfVoice + '%';
+                        if (health.consistency !== undefined) kpiData.consistency.value = health.consistency;
+                        if (health.overall !== undefined) setHealthScore(health.overall);
+                    }
+                }
+            } catch (err) {
+                console.warn('[Brand Page] Could not load live data, using defaults:', err);
+            }
+
+            renderKpis(kpiData);
+            setHealthScore(75);
+            drawPositioningMap();
+        }
+
+        /* ── Refresh button ── */
+        function initRefresh() {
+            var btn = document.getElementById('refreshBrandBtn');
+            if (btn) btn.addEventListener('click', function () { loadBrandData(); });
+        }
+
+        /* ── Export stub ── */
+        function initExport() {
+            var btn = document.getElementById('exportBrandBtn');
+            if (btn) btn.addEventListener('click', function () {
+                alert('Brand Kit export is being prepared. This feature will generate a downloadable ZIP containing guidelines, assets, and messaging documents.');
+            });
+        }
+
+        /* ── Init ── */
+        async function init() {
+            var authed = await checkAuth();
+            if (!authed) return;
+            initSidebar();
+            initFrameworkTabs();
+            initAiGenerator();
+            initRefresh();
+            initExport();
+            await loadBrandData();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+</body>
+</html>

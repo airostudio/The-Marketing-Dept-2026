@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paid Media Manager | The Marketing Department</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    :root {
+      --bg-primary: #0f1117;
+      --bg-secondary: #1a1d27;
+      --bg-card: #1e2130;
+      --bg-hover: #252839;
+      --border-color: #2a2d3e;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8b8fa3;
+      --text-muted: #5c6078;
+      --accent-blue: #4a7cff;
+      --accent-green: #34d399;
+      --accent-orange: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #a78bfa;
+      --accent-cyan: #22d3ee;
+      --google-color: #4285f4;
+      --meta-color: #1877f2;
+      --linkedin-color: #0a66c2;
+      --sidebar-width: 260px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+    /* Dashboard Layout */
+    .dashboard-layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width); background: var(--bg-secondary); border-right: 1px solid var(--border-color);
+      position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; z-index: 100;
+      display: flex; flex-direction: column; padding: 20px 0;
+    }
+    .sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; }
+    .sidebar-logo h2 { font-size: 15px; font-weight: 700; color: var(--accent-blue); letter-spacing: -0.3px; }
+    .sidebar-logo span { font-size: 11px; color: var(--text-muted); }
+    .nav-section { padding: 0 12px; margin-bottom: 8px; }
+    .nav-section-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted);
+      padding: 8px 12px 6px; font-weight: 600;
+    }
+    .nav-link {
+      display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 8px;
+      color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;
+      transition: all 0.15s ease; cursor: pointer;
+    }
+    .nav-link:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-link.active { background: var(--accent-blue); color: #fff; }
+    .nav-link .icon { width: 18px; text-align: center; font-size: 14px; }
+    .nav-expandable .nav-children { display: none; padding-left: 18px; }
+    .nav-expandable.open .nav-children { display: block; }
+    .nav-expandable .expand-arrow { margin-left: auto; font-size: 10px; transition: transform 0.2s; }
+    .nav-expandable.open .expand-arrow { transform: rotate(90deg); }
+
+    /* Main Content */
+    .main-content { margin-left: var(--sidebar-width); flex: 1; padding: 24px 32px; }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color);
+    }
+    .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+    .breadcrumb .current { color: var(--text-primary); font-weight: 600; }
+    .top-actions { display: flex; gap: 10px; }
+    .btn {
+      padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--bg-hover); }
+    .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* KPI Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .kpi-card {
+      background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;
+    }
+    .kpi-card .kpi-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-card .kpi-value { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .kpi-card .kpi-change { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+    .kpi-card .kpi-change.positive { color: var(--accent-green); }
+    .kpi-card .kpi-change.negative { color: var(--accent-red); }
+
+    /* Section */
+    .section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .section-title { font-size: 16px; font-weight: 700; }
+    .section-subtitle { font-size: 12px; color: var(--text-secondary); }
+
+    /* Campaign Table */
+    .campaign-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .campaign-table th {
+      text-align: left; padding: 10px 12px; color: var(--text-muted); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border-color);
+    }
+    .campaign-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .campaign-table tr:last-child td { border-bottom: none; }
+    .campaign-table tr:hover td { background: var(--bg-hover); }
+    .platform-icon {
+      display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+      border-radius: 6px; font-size: 11px; font-weight: 700; color: #fff;
+    }
+    .platform-icon.google { background: var(--google-color); }
+    .platform-icon.meta { background: var(--meta-color); }
+    .platform-icon.linkedin { background: var(--linkedin-color); }
+    .status-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .status-badge.active { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+    .status-badge.paused { background: rgba(245,158,11,0.15); color: var(--accent-orange); }
+    .status-badge.ended { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+    /* Platform Performance Cards */
+    .platform-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .platform-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; }
+    .platform-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .platform-card-header h4 { font-size: 14px; font-weight: 700; }
+    .platform-metric { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+    .platform-metric:last-child { border-bottom: none; }
+    .platform-metric .label { font-size: 12px; color: var(--text-secondary); }
+    .platform-metric .value { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+    /* AI Ad Copy Generator */
+    .generator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group select, .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border-color);
+      border-radius: 8px; color: var(--text-primary); font-size: 13px; font-family: 'Inter', sans-serif;
+    }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-group select option { background: var(--bg-primary); }
+    .ad-preview { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; }
+    .ad-preview-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-purple); margin-bottom: 12px; font-weight: 700; }
+    .ad-preview h3 { font-size: 17px; color: var(--accent-blue); margin-bottom: 8px; }
+    .ad-preview .ad-url { font-size: 12px; color: var(--accent-green); margin-bottom: 6px; }
+    .ad-preview .ad-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
+    .cta-variations { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cta-chip {
+      padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600;
+      background: rgba(74,124,255,0.12); color: var(--accent-blue); border: 1px solid rgba(74,124,255,0.25);
+    }
+
+    /* Budget Optimizer */
+    .budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 18px; }
+    .budget-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; }
+    .budget-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .budget-card-title { font-size: 13px; font-weight: 700; }
+    .budget-bar-container { background: var(--bg-secondary); border-radius: 6px; height: 8px; margin: 8px 0; overflow: hidden; }
+    .budget-bar { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+    .budget-bar.google { background: var(--google-color); }
+    .budget-bar.meta { background: var(--meta-color); }
+    .budget-bar.linkedin { background: var(--linkedin-color); }
+    .budget-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .ai-recommendation {
+      background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2); border-radius: 10px;
+      padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px;
+    }
+    .ai-recommendation .ai-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .ai-recommendation p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* Audience Targeting */
+    .audience-columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .audience-col-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+    .audience-tag {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+      font-size: 12px; font-weight: 500; margin: 0 6px 8px 0; background: var(--bg-primary); border: 1px solid var(--border-color);
+    }
+    .audience-tag .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .audience-tag .dot.green { background: var(--accent-green); }
+    .audience-tag .dot.blue { background: var(--accent-blue); }
+    .audience-tag .dot.purple { background: var(--accent-purple); }
+    .audience-tag .match { font-size: 10px; color: var(--accent-green); font-weight: 700; margin-left: 4px; }
+
+    /* A/B Test Results */
+    .test-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+    .test-card:last-child { margin-bottom: 0; }
+    .test-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .test-name { font-size: 14px; font-weight: 700; }
+    .test-status { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .test-status.running { background: rgba(34,211,238,0.12); color: var(--accent-cyan); }
+    .test-variants { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .variant-card {
+      padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card);
+    }
+    .variant-card.winner { border-color: var(--accent-green); }
+    .variant-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; font-weight: 700; }
+    .variant-metrics { display: flex; gap: 18px; }
+    .variant-metric .v-label { font-size: 10px; color: var(--text-muted); }
+    .variant-metric .v-value { font-size: 15px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .confidence-bar { margin-top: 10px; }
+    .confidence-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+    .confidence-track { background: var(--bg-secondary); border-radius: 4px; height: 6px; overflow: hidden; }
+    .confidence-fill { height: 100%; border-radius: 4px; background: var(--accent-green); }
+
+    @media (max-width: 1200px) {
+      .kpi-grid, .platform-grid, .budget-grid { grid-template-columns: repeat(2, 1fr); }
+      .generator-grid, .audience-columns { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main-content { margin-left: 0; padding: 16px; }
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h2>The Marketing Dept</h2>
+        <span>2026 Platform</span>
+      </div>
+
+      <nav>
+        <!-- Executive -->
+        <div class="nav-section">
+          <div class="nav-section-title">Executive</div>
+          <a href="/cmo-dashboard.html" class="nav-link"><span class="icon">&#9670;</span> CMO Dashboard</a>
+          <a href="/marketing-overview.html" class="nav-link"><span class="icon">&#9632;</span> Marketing Overview</a>
+        </div>
+
+        <!-- Marketing Channels -->
+        <div class="nav-section">
+          <div class="nav-section-title">Marketing Channels</div>
+          <div class="nav-expandable open">
+            <div class="nav-link" onclick="this.parentElement.classList.toggle('open')">
+              <span class="icon">&#9776;</span> Channels <span class="expand-arrow">&#9654;</span>
+            </div>
+            <div class="nav-children">
+              <a href="/marketing/content-strategy.html" class="nav-link"><span class="icon">&#9998;</span> Content Strategy</a>
+              <a href="/marketing/social-media.html" class="nav-link"><span class="icon">&#9733;</span> Social Media</a>
+              <a href="/marketing/paid-media.html" class="nav-link active"><span class="icon">&#9733;</span> Paid Media</a>
+              <a href="/marketing/email-marketing.html" class="nav-link"><span class="icon">&#9993;</span> Email Marketing</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intelligence -->
+        <div class="nav-section">
+          <div class="nav-section-title">Intelligence</div>
+          <div class="nav-expandable">
+            <div class="nav-link" onclick="this.parentElement.classList.toggle('open')">
+              <span class="icon">&#9881;</span> Intelligence <span class="expand-arrow">&#9654;</span>
+            </div>
+            <div class="nav-children">
+              <a href="/intelligence/analytics.html" class="nav-link"><span class="icon">&#9636;</span> Marketing Analytics</a>
+              <a href="/intelligence/brand.html" class="nav-link"><span class="icon">&#9673;</span> Brand &amp; Positioning</a>
+              <a href="/intelligence/product.html" class="nav-link"><span class="icon">&#9830;</span> Product Marketing</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEO -->
+        <div class="nav-section">
+          <div class="nav-section-title">SEO</div>
+          <a href="/dashboard.html" class="nav-link"><span class="icon">&#9650;</span> SEO Dashboard</a>
+        </div>
+
+        <!-- Settings -->
+        <div class="nav-section">
+          <div class="nav-section-title">System</div>
+          <a href="/settings.html" class="nav-link"><span class="icon">&#9881;</span> Settings</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="breadcrumb">
+          <span>Paid Media</span>
+          <span>&#8250;</span>
+          <span class="current">Campaign Dashboard</span>
+        </div>
+        <div class="top-actions">
+          <button class="btn" id="btn-sync-data">&#8635; Sync Platforms</button>
+          <button class="btn btn-primary" id="btn-new-campaign">+ New Campaign</button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Ad Spend</div>
+          <div class="kpi-value" id="kpi-spend">$24,850</div>
+          <div class="kpi-change positive">&#9650; 12.3% vs last month</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">ROAS (Return on Ad Spend)</div>
+          <div class="kpi-value" id="kpi-roas">4.2x</div>
+          <div class="kpi-change positive">&#9650; 0.8x improvement</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cost per Acquisition</div>
+          <div class="kpi-value" id="kpi-cpa">$18.40</div>
+          <div class="kpi-change positive">&#9660; 6.1% lower CPA</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Conversions</div>
+          <div class="kpi-value" id="kpi-conversions">1,351</div>
+          <div class="kpi-change positive">&#9650; 23.5% increase</div>
+        </div>
+      </div>
+
+      <!-- Campaign Overview -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Campaign Overview</div>
+            <div class="section-subtitle">All active and recent campaigns across platforms</div>
+          </div>
+          <button class="btn" id="btn-export-campaigns">Export CSV</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="campaign-table" id="campaign-table">
+            <thead>
+              <tr>
+                <th>Campaign</th><th>Platform</th><th>Status</th><th>Budget</th>
+                <th>Spend</th><th>Impressions</th><th>Clicks</th><th>CTR</th>
+                <th>Conv.</th><th>CPA</th><th>ROAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Brand Awareness Q1</strong></td>
+                <td><span class="platform-icon google">G</span></td>
+                <td><span class="status-badge active">Active</span></td>
+                <td class="mono">$8,000</td><td class="mono">$6,420</td>
+                <td class="mono">482,100</td><td class="mono">12,053</td><td class="mono">2.50%</td>
+                <td class="mono">389</td><td class="mono">$16.50</td><td class="mono">4.8x</td>
+              </tr>
+              <tr>
+                <td><strong>Product Launch - Spring</strong></td>
+                <td><span class="platform-icon meta">M</span></td>
+                <td><span class="status-badge active">Active</span></td>
+                <td class="mono">$6,500</td><td class="mono">$5,180</td>
+                <td class="mono">624,300</td><td class="mono">9,876</td><td class="mono">1.58%</td>
+                <td class="mono">312</td><td class="mono">$16.60</td><td class="mono">4.5x</td>
+              </tr>
+              <tr>
+                <td><strong>B2B Lead Gen</strong></td>
+                <td><span class="platform-icon linkedin">in</span></td>
+                <td><span class="status-badge active">Active</span></td>
+                <td class="mono">$5,000</td><td class="mono">$4,350</td>
+                <td class="mono">98,400</td><td class="mono">3,214</td><td class="mono">3.27%</td>
+                <td class="mono">186</td><td class="mono">$23.39</td><td class="mono">3.6x</td>
+              </tr>
+              <tr>
+                <td><strong>Retargeting - Cart Abandon</strong></td>
+                <td><span class="platform-icon google">G</span></td>
+                <td><span class="status-badge active">Active</span></td>
+                <td class="mono">$3,500</td><td class="mono">$3,120</td>
+                <td class="mono">215,600</td><td class="mono">8,624</td><td class="mono">4.00%</td>
+                <td class="mono">298</td><td class="mono">$10.47</td><td class="mono">6.2x</td>
+              </tr>
+              <tr>
+                <td><strong>Holiday Promo 2025</strong></td>
+                <td><span class="platform-icon meta">M</span></td>
+                <td><span class="status-badge ended">Ended</span></td>
+                <td class="mono">$4,000</td><td class="mono">$3,980</td>
+                <td class="mono">530,200</td><td class="mono">7,420</td><td class="mono">1.40%</td>
+                <td class="mono">166</td><td class="mono">$23.98</td><td class="mono">2.9x</td>
+              </tr>
+              <tr>
+                <td><strong>Webinar Registration</strong></td>
+                <td><span class="platform-icon linkedin">in</span></td>
+                <td><span class="status-badge paused">Paused</span></td>
+                <td class="mono">$2,000</td><td class="mono">$1,800</td>
+                <td class="mono">46,300</td><td class="mono">1,482</td><td class="mono">3.20%</td>
+                <td class="mono">64</td><td class="mono">$28.13</td><td class="mono">2.1x</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Platform Performance -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Platform Performance</div>
+            <div class="section-subtitle">Aggregated metrics per advertising platform</div>
+          </div>
+        </div>
+        <div class="platform-grid">
+          <div class="platform-card">
+            <div class="platform-card-header">
+              <span class="platform-icon google">G</span>
+              <h4>Google Ads</h4>
+            </div>
+            <div class="platform-metric"><span class="label">Total Spend</span><span class="value">$9,540</span></div>
+            <div class="platform-metric"><span class="label">Impressions</span><span class="value">697,700</span></div>
+            <div class="platform-metric"><span class="label">Clicks</span><span class="value">20,677</span></div>
+            <div class="platform-metric"><span class="label">Avg. CTR</span><span class="value">2.96%</span></div>
+            <div class="platform-metric"><span class="label">Conversions</span><span class="value">687</span></div>
+            <div class="platform-metric"><span class="label">Avg. ROAS</span><span class="value">5.1x</span></div>
+          </div>
+          <div class="platform-card">
+            <div class="platform-card-header">
+              <span class="platform-icon meta">M</span>
+              <h4>Meta Ads</h4>
+            </div>
+            <div class="platform-metric"><span class="label">Total Spend</span><span class="value">$9,160</span></div>
+            <div class="platform-metric"><span class="label">Impressions</span><span class="value">1,154,500</span></div>
+            <div class="platform-metric"><span class="label">Clicks</span><span class="value">17,296</span></div>
+            <div class="platform-metric"><span class="label">Avg. CTR</span><span class="value">1.50%</span></div>
+            <div class="platform-metric"><span class="label">Conversions</span><span class="value">478</span></div>
+            <div class="platform-metric"><span class="label">Avg. ROAS</span><span class="value">3.8x</span></div>
+          </div>
+          <div class="platform-card">
+            <div class="platform-card-header">
+              <span class="platform-icon linkedin">in</span>
+              <h4>LinkedIn Ads</h4>
+            </div>
+            <div class="platform-metric"><span class="label">Total Spend</span><span class="value">$6,150</span></div>
+            <div class="platform-metric"><span class="label">Impressions</span><span class="value">144,700</span></div>
+            <div class="platform-metric"><span class="label">Clicks</span><span class="value">4,696</span></div>
+            <div class="platform-metric"><span class="label">Avg. CTR</span><span class="value">3.24%</span></div>
+            <div class="platform-metric"><span class="label">Conversions</span><span class="value">250</span></div>
+            <div class="platform-metric"><span class="label">Avg. ROAS</span><span class="value">3.0x</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Ad Copy Generator -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">&#9733; AI Ad Copy Generator</div>
+            <div class="section-subtitle">Generate high-converting ad copy with AI assistance</div>
+          </div>
+        </div>
+        <div class="generator-grid">
+          <div class="generator-form">
+            <div class="form-group">
+              <label>Platform</label>
+              <select id="gen-platform">
+                <option value="google">Google Ads (Search)</option>
+                <option value="meta">Meta Ads (Facebook/Instagram)</option>
+                <option value="linkedin">LinkedIn Ads</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Campaign Type</label>
+              <select id="gen-campaign-type">
+                <option value="awareness">Brand Awareness</option>
+                <option value="consideration">Consideration / Traffic</option>
+                <option value="conversion">Conversion / Lead Gen</option>
+                <option value="retargeting">Retargeting</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Target Audience</label>
+              <input type="text" id="gen-audience" placeholder="e.g., SaaS decision makers, 25-45, US">
+            </div>
+            <div class="form-group">
+              <label>Product / Service</label>
+              <input type="text" id="gen-product" placeholder="e.g., Marketing automation platform">
+            </div>
+            <div class="form-group">
+              <label>Tone</label>
+              <select id="gen-tone">
+                <option value="professional">Professional</option>
+                <option value="conversational">Conversational</option>
+                <option value="urgent">Urgent / FOMO</option>
+                <option value="inspirational">Inspirational</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="btn-generate-ad" style="width:100%;margin-top:4px;">Generate Ad Copy</button>
+          </div>
+          <div>
+            <div class="ad-preview" id="ad-preview">
+              <div class="ad-preview-label">AI-Generated Preview</div>
+              <h3 id="ad-headline">Transform Your Marketing ROI Today</h3>
+              <div class="ad-url">www.example.com/marketing-platform</div>
+              <div class="ad-desc" id="ad-description">
+                Stop guessing. Start growing. Our AI-powered marketing platform delivers 4x ROAS with automated campaign optimization, real-time analytics, and smart budget allocation. Join 2,000+ brands already winning.
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;">CTA Variations</div>
+              <div class="cta-variations" id="ad-ctas">
+                <span class="cta-chip">Start Free Trial</span>
+                <span class="cta-chip">Get a Demo</span>
+                <span class="cta-chip">See Pricing</span>
+                <span class="cta-chip">Learn More</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget Optimizer -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">&#9733; Budget Optimizer</div>
+            <div class="section-subtitle">AI-driven budget allocation recommendations across platforms</div>
+          </div>
+          <button class="btn" id="btn-apply-budget">Apply Recommendations</button>
+        </div>
+        <div class="budget-grid">
+          <div class="budget-card">
+            <div class="budget-card-header">
+              <span class="budget-card-title">Google Ads</span>
+              <span class="mono" style="color:var(--accent-green);">+$1,200</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Current: $9,540 &rarr; Recommended: $10,740</div>
+            <div class="budget-bar-container"><div class="budget-bar google" style="width:72%;"></div></div>
+            <div class="budget-row"><span>Allocation</span><span>43% of total</span></div>
+            <div class="budget-row"><span>Expected ROAS</span><span style="color:var(--accent-green);">5.4x</span></div>
+          </div>
+          <div class="budget-card">
+            <div class="budget-card-header">
+              <span class="budget-card-title">Meta Ads</span>
+              <span class="mono" style="color:var(--accent-orange);">-$460</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Current: $9,160 &rarr; Recommended: $8,700</div>
+            <div class="budget-bar-container"><div class="budget-bar meta" style="width:58%;"></div></div>
+            <div class="budget-row"><span>Allocation</span><span>35% of total</span></div>
+            <div class="budget-row"><span>Expected ROAS</span><span style="color:var(--accent-green);">4.1x</span></div>
+          </div>
+          <div class="budget-card">
+            <div class="budget-card-header">
+              <span class="budget-card-title">LinkedIn Ads</span>
+              <span class="mono" style="color:var(--accent-orange);">-$740</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Current: $6,150 &rarr; Recommended: $5,410</div>
+            <div class="budget-bar-container"><div class="budget-bar linkedin" style="width:36%;"></div></div>
+            <div class="budget-row"><span>Allocation</span><span>22% of total</span></div>
+            <div class="budget-row"><span>Expected ROAS</span><span style="color:var(--accent-green);">3.3x</span></div>
+          </div>
+        </div>
+        <div class="ai-recommendation">
+          <span class="ai-icon">&#9733;</span>
+          <div>
+            <p><strong>AI Recommendation:</strong> Shift 8% of budget from LinkedIn and Meta to Google Ads search campaigns. Retargeting campaigns show the highest ROAS at 6.2x &mdash; consider increasing retargeting budget by 15%. Expected overall ROAS improvement: <strong>+0.4x</strong> with no increase in total spend.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audience Targeting -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Audience Targeting</div>
+            <div class="section-subtitle">Current segments, AI suggestions, and lookalike recommendations</div>
+          </div>
+        </div>
+        <div class="audience-columns">
+          <div>
+            <div class="audience-col-title">Current Audiences</div>
+            <span class="audience-tag"><span class="dot green"></span> Marketing Managers 25-45</span>
+            <span class="audience-tag"><span class="dot green"></span> SaaS Decision Makers</span>
+            <span class="audience-tag"><span class="dot green"></span> E-commerce Owners</span>
+            <span class="audience-tag"><span class="dot green"></span> Cart Abandoners (7d)</span>
+            <span class="audience-tag"><span class="dot green"></span> Website Visitors (30d)</span>
+            <span class="audience-tag"><span class="dot green"></span> Newsletter Subscribers</span>
+          </div>
+          <div>
+            <div class="audience-col-title">AI-Suggested Audiences</div>
+            <span class="audience-tag"><span class="dot blue"></span> Startup Founders <span class="match">92%</span></span>
+            <span class="audience-tag"><span class="dot blue"></span> Growth Marketers <span class="match">89%</span></span>
+            <span class="audience-tag"><span class="dot blue"></span> CMOs at Mid-Market <span class="match">87%</span></span>
+            <span class="audience-tag"><span class="dot blue"></span> Agency Owners <span class="match">84%</span></span>
+            <span class="audience-tag"><span class="dot blue"></span> Digital Consultants <span class="match">81%</span></span>
+          </div>
+          <div>
+            <div class="audience-col-title">Lookalike Recommendations</div>
+            <span class="audience-tag"><span class="dot purple"></span> 1% Lookalike &mdash; Top Converters</span>
+            <span class="audience-tag"><span class="dot purple"></span> 2% Lookalike &mdash; High LTV Customers</span>
+            <span class="audience-tag"><span class="dot purple"></span> 1% Lookalike &mdash; Repeat Buyers</span>
+            <span class="audience-tag"><span class="dot purple"></span> 3% Lookalike &mdash; Email Engagers</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- A/B Test Results -->
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">A/B Test Results</div>
+            <div class="section-subtitle">Active experiments with variant performance comparison</div>
+          </div>
+          <button class="btn" id="btn-new-test">+ New Test</button>
+        </div>
+
+        <div class="test-card">
+          <div class="test-header">
+            <span class="test-name">Headline Test &mdash; Brand Awareness Q1</span>
+            <span class="test-status running">Running &middot; Day 12 of 14</span>
+          </div>
+          <div class="test-variants">
+            <div class="variant-card">
+              <div class="variant-label">Variant A &mdash; Control</div>
+              <div class="variant-metrics">
+                <div class="variant-metric"><div class="v-label">CTR</div><div class="v-value">2.30%</div></div>
+                <div class="variant-metric"><div class="v-label">Conv. Rate</div><div class="v-value">3.1%</div></div>
+                <div class="variant-metric"><div class="v-label">CPA</div><div class="v-value">$19.20</div></div>
+              </div>
+            </div>
+            <div class="variant-card winner">
+              <div class="variant-label">Variant B &mdash; Challenger &#9733;</div>
+              <div class="variant-metrics">
+                <div class="variant-metric"><div class="v-label">CTR</div><div class="v-value" style="color:var(--accent-green)">2.84%</div></div>
+                <div class="variant-metric"><div class="v-label">Conv. Rate</div><div class="v-value" style="color:var(--accent-green)">4.2%</div></div>
+                <div class="variant-metric"><div class="v-label">CPA</div><div class="v-value" style="color:var(--accent-green)">$14.80</div></div>
+              </div>
+              <div class="confidence-bar">
+                <div class="confidence-label">Statistical confidence: 94%</div>
+                <div class="confidence-track"><div class="confidence-fill" style="width:94%;"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="test-card">
+          <div class="test-header">
+            <span class="test-name">CTA Button Test &mdash; Product Launch</span>
+            <span class="test-status running">Running &middot; Day 6 of 14</span>
+          </div>
+          <div class="test-variants">
+            <div class="variant-card">
+              <div class="variant-label">Variant A &mdash; "Get Started Free"</div>
+              <div class="variant-metrics">
+                <div class="variant-metric"><div class="v-label">CTR</div><div class="v-value">1.42%</div></div>
+                <div class="variant-metric"><div class="v-label">Conv. Rate</div><div class="v-value">2.8%</div></div>
+                <div class="variant-metric"><div class="v-label">CPA</div><div class="v-value">$21.50</div></div>
+              </div>
+            </div>
+            <div class="variant-card">
+              <div class="variant-label">Variant B &mdash; "See It in Action"</div>
+              <div class="variant-metrics">
+                <div class="variant-metric"><div class="v-label">CTR</div><div class="v-value">1.61%</div></div>
+                <div class="variant-metric"><div class="v-label">Conv. Rate</div><div class="v-value">3.0%</div></div>
+                <div class="variant-metric"><div class="v-label">CPA</div><div class="v-value">$20.10</div></div>
+              </div>
+              <div class="confidence-bar">
+                <div class="confidence-label">Statistical confidence: 68% &mdash; needs more data</div>
+                <div class="confidence-track"><div class="confidence-fill" style="width:68%;background:var(--accent-orange);"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/supabase-client.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/project-service.js"></script>
+  <script src="/js/ai-service.js"></script>
+  <script src="/js/paid-media-service.js"></script>
+  <script>
+    // Auth protection
+    document.addEventListener('DOMContentLoaded', async function() {
+      try {
+        if (typeof checkAuth === 'function') {
+          const user = await checkAuth();
+          if (!user) { window.location.href = '/login.html'; return; }
+        }
+      } catch (e) {
+        console.warn('Auth check skipped:', e.message);
+      }
+      initPaidMedia();
+    });
+
+    // Initialize Paid Media dashboard
+    async function initPaidMedia() {
+      console.log('[PaidMedia] Dashboard initialized');
+      loadCampaignData();
+      bindEventListeners();
+    }
+
+    // Load campaign data from service
+    async function loadCampaignData() {
+      try {
+        if (typeof PaidMediaService !== 'undefined') {
+          const data = await PaidMediaService.getCampaigns();
+          if (data && data.length) renderCampaigns(data);
+          const kpis = await PaidMediaService.getKPIs();
+          if (kpis) updateKPIs(kpis);
+        }
+      } catch (e) {
+        console.warn('[PaidMedia] Using default data:', e.message);
+      }
+    }
+
+    // Update KPI cards
+    function updateKPIs(kpis) {
+      if (kpis.spend) document.getElementById('kpi-spend').textContent = kpis.spend;
+      if (kpis.roas) document.getElementById('kpi-roas').textContent = kpis.roas;
+      if (kpis.cpa) document.getElementById('kpi-cpa').textContent = kpis.cpa;
+      if (kpis.conversions) document.getElementById('kpi-conversions').textContent = kpis.conversions;
+    }
+
+    // Render campaigns into table
+    function renderCampaigns(campaigns) {
+      const tbody = document.querySelector('#campaign-table tbody');
+      if (!tbody || !campaigns.length) return;
+      tbody.innerHTML = campaigns.map(c => {
+        const platformClass = c.platform.toLowerCase();
+        const platformLabel = platformClass === 'google' ? 'G' : platformClass === 'meta' ? 'M' : 'in';
+        const statusClass = c.status.toLowerCase();
+        return '<tr>' +
+          '<td><strong>' + c.name + '</strong></td>' +
+          '<td><span class="platform-icon ' + platformClass + '">' + platformLabel + '</span></td>' +
+          '<td><span class="status-badge ' + statusClass + '">' + c.status + '</span></td>' +
+          '<td class="mono">' + c.budget + '</td><td class="mono">' + c.spend + '</td>' +
+          '<td class="mono">' + c.impressions + '</td><td class="mono">' + c.clicks + '</td>' +
+          '<td class="mono">' + c.ctr + '</td><td class="mono">' + c.conversions + '</td>' +
+          '<td class="mono">' + c.cpa + '</td><td class="mono">' + c.roas + '</td></tr>';
+      }).join('');
+    }
+
+    // Bind UI event listeners
+    function bindEventListeners() {
+      var genBtn = document.getElementById('btn-generate-ad');
+      if (genBtn) genBtn.addEventListener('click', generateAdCopy);
+
+      var syncBtn = document.getElementById('btn-sync-data');
+      if (syncBtn) syncBtn.addEventListener('click', function() {
+        this.textContent = 'Syncing...';
+        setTimeout(function() { syncBtn.textContent = '\u21BB Sync Platforms'; }, 2000);
+      });
+
+      var budgetBtn = document.getElementById('btn-apply-budget');
+      if (budgetBtn) budgetBtn.addEventListener('click', function() {
+        this.textContent = 'Applied!';
+        this.style.background = 'var(--accent-green)';
+        this.style.borderColor = 'var(--accent-green)';
+        setTimeout(function() {
+          budgetBtn.textContent = 'Apply Recommendations';
+          budgetBtn.style.background = '';
+          budgetBtn.style.borderColor = '';
+        }, 2500);
+      });
+    }
+
+    // AI Ad Copy Generator
+    async function generateAdCopy() {
+      var btn = document.getElementById('btn-generate-ad');
+      btn.textContent = 'Generating...';
+      btn.disabled = true;
+
+      var params = {
+        platform: document.getElementById('gen-platform').value,
+        campaignType: document.getElementById('gen-campaign-type').value,
+        audience: document.getElementById('gen-audience').value || 'Marketing professionals',
+        product: document.getElementById('gen-product').value || 'Marketing platform',
+        tone: document.getElementById('gen-tone').value
+      };
+
+      try {
+        if (typeof AIService !== 'undefined' && typeof AIService.generateAdCopy === 'function') {
+          var result = await AIService.generateAdCopy(params);
+          if (result) {
+            document.getElementById('ad-headline').textContent = result.headline || '';
+            document.getElementById('ad-description').textContent = result.description || '';
+            if (result.ctas && result.ctas.length) {
+              document.getElementById('ad-ctas').innerHTML = result.ctas
+                .map(function(c) { return '<span class="cta-chip">' + c + '</span>'; }).join('');
+            }
+          }
+        } else {
+          var fallback = getFallbackAdCopy(params);
+          document.getElementById('ad-headline').textContent = fallback.headline;
+          document.getElementById('ad-description').textContent = fallback.description;
+        }
+      } catch (e) {
+        console.warn('[PaidMedia] AI generation fallback:', e.message);
+        var fallback = getFallbackAdCopy(params);
+        document.getElementById('ad-headline').textContent = fallback.headline;
+        document.getElementById('ad-description').textContent = fallback.description;
+      }
+
+      btn.textContent = 'Generate Ad Copy';
+      btn.disabled = false;
+    }
+
+    // Fallback ad copy when AI service unavailable
+    function getFallbackAdCopy(params) {
+      var headlines = {
+        awareness: 'Discover the Future of ' + params.product,
+        consideration: 'See Why Teams Choose ' + params.product,
+        conversion: 'Start Growing with ' + params.product + ' Today',
+        retargeting: 'Still Thinking About ' + params.product + '?'
+      };
+      var descriptions = {
+        awareness: 'Join thousands of ' + params.audience + ' who trust our platform to drive measurable results. AI-powered insights, real-time optimization, and dedicated support.',
+        consideration: 'Compare features, read case studies, and see real ROI data from ' + params.audience + ' just like you. The proof is in the performance.',
+        conversion: 'Limited time offer for ' + params.audience + '. Get started in minutes with our proven ' + params.product + '. No credit card required.',
+        retargeting: 'You were close! Come back and see what is new with ' + params.product + '. Special offer waiting for ' + params.audience + '.'
+      };
+      return {
+        headline: headlines[params.campaignType] || headlines.awareness,
+        description: descriptions[params.campaignType] || descriptions.awareness
+      };
+    }
+  </script>
+</body>
+</html>
