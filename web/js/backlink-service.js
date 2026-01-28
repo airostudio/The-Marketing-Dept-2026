@@ -55,12 +55,24 @@
             // Clean domain
             domain = domain.replace(/^www\./, '').toLowerCase();
 
-            // Check known domains
+            // Check known domains (reference estimates)
             if (this.knownDomains[domain]) {
                 return this.knownDomains[domain];
             }
 
-            // Estimate based on TLD
+            // Try real API for domain rating
+            try {
+                if (window.ApiConnector && window.ApiConnector.SEOTools && window.ApiConnector.SEOTools.ahrefs && window.ApiConnector.SEOTools.ahrefs.getDomainRating) {
+                    var rating = window.ApiConnector.SEOTools.ahrefs.getDomainRating(domain);
+                    if (typeof rating === 'number' && rating > 0) {
+                        return rating;
+                    }
+                }
+            } catch (e) {
+                // Fall through to TLD-based estimate
+            }
+
+            // Estimate based on TLD (base value only, no random variance)
             const tld = domain.split('.').pop();
             let baseDA = 30;
 
@@ -72,8 +84,7 @@
             else if (tld === 'io') baseDA = 40;
             else if (tld === 'co') baseDA = 35;
 
-            // Add some randomness for realism
-            return Math.min(95, Math.max(10, baseDA + Math.floor(Math.random() * 25) - 10));
+            return baseDA;
         },
 
         getRating(da) {
@@ -96,17 +107,35 @@
         getBacklinks() {
             try {
                 const stored = localStorage.getItem('seo-backlinks');
-                return stored ? JSON.parse(stored) : [];
+                if (stored) {
+                    return JSON.parse(stored);
+                }
             } catch (e) {
-                return [];
+                // Fall through to API fallback
             }
+
+            // Fallback: try semrush API if available
+            try {
+                if (window.ApiConnector && window.ApiConnector.SEOTools && window.ApiConnector.SEOTools.semrush && window.ApiConnector.SEOTools.semrush.getBacklinks) {
+                    var apiData = window.ApiConnector.SEOTools.semrush.getBacklinks();
+                    if (Array.isArray(apiData) && apiData.length > 0) {
+                        return apiData;
+                    }
+                }
+            } catch (e) {
+                // Fall through to empty
+            }
+
+            return [];
         },
 
         /**
          * Save backlinks
          */
         saveBacklinks(backlinks) {
-            localStorage.setItem('seo-backlinks', JSON.stringify(backlinks));
+            var value = JSON.stringify(backlinks);
+            localStorage.setItem('seo-backlinks', value);
+            if (window.MarketingStore) { window.MarketingStore.set('backlinks', 'seo-backlinks', value).catch(function(){}); }
             this.dispatchUpdate();
         },
 
@@ -125,7 +154,7 @@
                 anchorText: b.anchorText || '',
                 linkType: b.linkType || 'dofollow',
                 domainAuthority: b.domainAuthority || DomainAuthority.estimate(this.extractDomain(b.sourceUrl)),
-                pageAuthority: b.pageAuthority || Math.floor(Math.random() * 30) + 20,
+                pageAuthority: b.pageAuthority || 0,
                 status: 'active',
                 firstSeen: b.firstSeen || new Date().toISOString(),
                 lastChecked: new Date().toISOString(),
@@ -176,22 +205,32 @@
         },
 
         /**
-         * Check backlink status (simulated)
+         * Check backlink status via HTTP or stored status
          */
         async checkBacklinkStatus(backlink) {
-            // In production, this would actually fetch the page and verify the link exists
-            // For now, we'll simulate the check
-            const stillActive = Math.random() > 0.05; // 95% chance still active
-
-            if (!stillActive) {
-                const reasons = ['Link removed', 'Page deleted', 'Domain expired', 'Noindex added', 'Changed to nofollow'];
-                return {
-                    active: false,
-                    reason: reasons[Math.floor(Math.random() * reasons.length)]
-                };
+            // Use stored status if already marked
+            if (backlink.status === 'lost') {
+                return { active: false, reason: backlink.lostReason || 'Previously marked lost' };
             }
 
-            return { active: true };
+            // Attempt real HTTP check via CORS proxy
+            try {
+                for (var i = 0; i < CONFIG.corsProxies.length; i++) {
+                    var proxyUrl = CONFIG.corsProxies[i] + encodeURIComponent(backlink.sourceUrl);
+                    var response = await fetch(proxyUrl, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
+                    if (response.ok) {
+                        return { active: true };
+                    }
+                    if (response.status === 404 || response.status === 410) {
+                        return { active: false, reason: 'Page deleted (HTTP ' + response.status + ')' };
+                    }
+                }
+            } catch (e) {
+                // Network error or timeout - assume still active (cannot verify)
+            }
+
+            // Cannot verify - preserve current stored status
+            return { active: backlink.status === 'active' };
         },
 
         /**
@@ -377,45 +416,50 @@
 
     const BacklinkDiscovery = {
         /**
-         * Discover potential backlinks (simulated)
-         * In production, this would integrate with backlink APIs
+         * Discover backlinks via API or stored data
          */
         async discoverBacklinks(targetDomain) {
-            // Simulate discovering backlinks
-            const domains = [
-                'techblog.io', 'digitalmarketing.com', 'seojournal.net', 'marketingweekly.com',
-                'businessnews.com', 'startupguide.io', 'entrepreneur.net', 'smallbiz.com',
-                'productreview.com', 'industryinsider.net', 'blogosphere.io', 'contentking.net',
-                'linkbuilder.com', 'webmaster.io', 'searchexpert.net', 'growthhacker.io',
-                'techstartup.net', 'digitaltips.com', 'onlinemarketing.io', 'seotoolbox.net'
-            ];
-
-            const discovered = [];
-
-            for (const domain of domains.slice(0, Math.floor(Math.random() * 10) + 5)) {
-                const da = DomainAuthority.estimate(domain);
-                discovered.push({
-                    sourceUrl: `https://${domain}/article-${Math.floor(Math.random() * 10000)}`,
-                    sourceDomain: domain,
-                    targetUrl: '/',
-                    anchorText: this.generateAnchorText(),
-                    linkType: Math.random() > 0.25 ? 'dofollow' : 'nofollow',
-                    domainAuthority: da,
-                    pageAuthority: Math.max(10, da - Math.floor(Math.random() * 20)),
-                    firstSeen: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString()
-                });
+            // Try real ahrefs API if available
+            try {
+                if (window.ApiConnector && window.ApiConnector.SEOTools && window.ApiConnector.SEOTools.ahrefs && window.ApiConnector.SEOTools.ahrefs.isAvailable && window.ApiConnector.SEOTools.ahrefs.isAvailable()) {
+                    var apiResult = await window.ApiConnector.SEOTools.ahrefs.getBacklinks(targetDomain);
+                    if (Array.isArray(apiResult) && apiResult.length > 0) {
+                        return apiResult;
+                    }
+                }
+            } catch (e) {
+                console.warn('Ahrefs API unavailable for backlink discovery:', e);
             }
 
-            return discovered;
-        },
+            // Try semrush API as fallback
+            try {
+                if (window.ApiConnector && window.ApiConnector.SEOTools && window.ApiConnector.SEOTools.semrush && window.ApiConnector.SEOTools.semrush.getBacklinks) {
+                    var semrushResult = await window.ApiConnector.SEOTools.semrush.getBacklinks(targetDomain);
+                    if (Array.isArray(semrushResult) && semrushResult.length > 0) {
+                        return semrushResult;
+                    }
+                }
+            } catch (e) {
+                console.warn('Semrush API unavailable for backlink discovery:', e);
+            }
 
-        generateAnchorText() {
-            const anchors = [
-                'click here', 'learn more', 'visit website', 'official site',
-                'SEO tools', 'marketing platform', 'best solution', 'read more',
-                'seo agent', 'recommended tool', 'top rated', 'get started'
-            ];
-            return anchors[Math.floor(Math.random() * anchors.length)];
+            // Fall back to stored data from Supabase
+            try {
+                if (window.MarketingStore) {
+                    var stored = await window.MarketingStore.get('backlinks', 'seo-backlinks');
+                    if (stored) {
+                        var parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            return parsed;
+                        }
+                    }
+                }
+            } catch (e) {
+                // Fall through to empty
+            }
+
+            // No API or stored data available
+            return [];
         },
 
         /**
@@ -480,12 +524,6 @@
                 }
             }
 
-            // Also generate some simulated opportunities
-            if (opportunities.length < 20) {
-                const simulated = this.generateSimulatedOpportunities(20 - opportunities.length);
-                opportunities.push(...simulated);
-            }
-
             return opportunities
                 .sort((a, b) => b.domainAuthority - a.domainAuthority)
                 .slice(0, 50);
@@ -515,28 +553,16 @@
         },
 
         /**
-         * Get broken link opportunities
+         * Get broken link opportunities from stored data
          */
         getBrokenLinkOpportunities() {
-            // In production, this would find broken links pointing to competitor 404 pages
-            const opportunities = [];
-
-            for (let i = 0; i < 10; i++) {
-                const da = Math.floor(Math.random() * 40) + 30;
-                opportunities.push({
-                    id: this.generateId(),
-                    sourceDomain: `site${i + 1}.example.com`,
-                    sourceUrl: `https://site${i + 1}.example.com/broken-link-page`,
-                    brokenUrl: `https://competitor${i + 1}.com/removed-page`,
-                    domainAuthority: da,
-                    type: 'broken_link',
-                    priority: this.calculatePriority(da),
-                    reason: 'Broken link on their page - you can suggest your content as replacement',
-                    suggestedOutreach: 'Inform them about the broken link and suggest your content as a replacement'
-                });
+            // Return stored opportunities or empty array (no hardcoded data)
+            try {
+                var saved = this.getSavedOpportunities();
+                return saved.filter(function(o) { return o.type === 'broken_link'; });
+            } catch (e) {
+                return [];
             }
-
-            return opportunities;
         },
 
         /**
@@ -607,7 +633,9 @@
                     savedAt: new Date().toISOString(),
                     status: 'pending'
                 });
-                localStorage.setItem('seo-link-opportunities', JSON.stringify(saved));
+                var value = JSON.stringify(saved);
+                localStorage.setItem('seo-link-opportunities', value);
+                if (window.MarketingStore) { window.MarketingStore.set('backlinks', 'seo-link-opportunities', value).catch(function(){}); }
             }
         },
 
@@ -637,7 +665,9 @@
                 }
                 return o;
             });
-            localStorage.setItem('seo-link-opportunities', JSON.stringify(saved));
+            var value = JSON.stringify(saved);
+            localStorage.setItem('seo-link-opportunities', value);
+            if (window.MarketingStore) { window.MarketingStore.set('backlinks', 'seo-link-opportunities', value).catch(function(){}); }
         },
 
         // Utility methods
@@ -661,6 +691,7 @@
         },
 
         generateOutreachSuggestion(domain) {
+            // Deterministic selection based on domain string hash
             const suggestions = [
                 'Reach out with valuable content they might want to link to',
                 'Offer to write a guest post or contribute content',
@@ -668,33 +699,17 @@
                 'Look for broken links on their site you could help fix',
                 'Comment on their content to get on their radar'
             ];
-            return suggestions[Math.floor(Math.random() * suggestions.length)];
+            var hash = 0;
+            for (var i = 0; i < domain.length; i++) {
+                hash = ((hash << 5) - hash) + domain.charCodeAt(i);
+                hash |= 0;
+            }
+            return suggestions[Math.abs(hash) % suggestions.length];
         },
 
         generateSimulatedOpportunities(count) {
-            const opportunities = [];
-            const domains = [
-                'industry-blog.com', 'marketing-news.io', 'tech-review.net',
-                'business-daily.com', 'startup-weekly.io', 'digital-insights.net'
-            ];
-
-            for (let i = 0; i < count; i++) {
-                const domain = domains[i % domains.length].replace('.', `${i + 1}.`);
-                const da = Math.floor(Math.random() * 50) + 30;
-
-                opportunities.push({
-                    id: this.generateId(),
-                    sourceDomain: domain,
-                    sourceUrl: `https://${domain}/relevant-article`,
-                    domainAuthority: da,
-                    type: 'competitor_link',
-                    priority: this.calculatePriority(da),
-                    reason: 'Competitor backlink opportunity',
-                    suggestedOutreach: this.generateOutreachSuggestion(domain)
-                });
-            }
-
-            return opportunities;
+            // No simulated data - return empty array
+            return [];
         }
     };
 
@@ -835,37 +850,8 @@
     function initializeWithSampleData() {
         const existing = BacklinkMonitor.getBacklinks();
         if (existing.length === 0) {
-            // Try to import from analysis first
-            const imported = BacklinkDiscovery.importFromAnalysis();
-
-            // If no analysis data, generate sample data
-            if (imported.length === 0) {
-                const sampleDomains = [
-                    { domain: 'techcrunch.com', da: 94 },
-                    { domain: 'searchengineland.com', da: 89 },
-                    { domain: 'moz.com', da: 91 },
-                    { domain: 'ahrefs.com', da: 92 },
-                    { domain: 'hubspot.com', da: 93 },
-                    { domain: 'neilpatel.com', da: 78 },
-                    { domain: 'backlinko.com', da: 76 },
-                    { domain: 'semrush.com', da: 90 },
-                    { domain: 'entrepreneur.com', da: 88 },
-                    { domain: 'forbes.com', da: 95 }
-                ];
-
-                const sampleBacklinks = sampleDomains.map((d, i) => ({
-                    sourceUrl: `https://${d.domain}/article-${1000 + i}`,
-                    sourceDomain: d.domain,
-                    targetUrl: '/',
-                    anchorText: ['SEO tools', 'marketing platform', 'seo agent', 'click here', 'learn more'][i % 5],
-                    linkType: i % 4 === 0 ? 'nofollow' : 'dofollow',
-                    domainAuthority: d.da,
-                    pageAuthority: d.da - Math.floor(Math.random() * 15),
-                    firstSeen: new Date(Date.now() - Math.floor(Math.random() * 180) * 24 * 60 * 60 * 1000).toISOString()
-                }));
-
-                BacklinkMonitor.addBacklinks(sampleBacklinks);
-            }
+            // Try to import from analysis data only - no sample/fake data
+            BacklinkDiscovery.importFromAnalysis();
         }
     }
 

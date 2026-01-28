@@ -35,6 +35,26 @@
     function saveStorage(key, value) {
         try { localStorage.setItem(key, JSON.stringify(value)); }
         catch (err) { console.error(LOG_PREFIX, 'Storage write error:', err); }
+        // Async persist to Supabase
+        if (window.MarketingStore) {
+            window.MarketingStore.set('brand', key, value).catch(function(e) {
+                console.warn(LOG_PREFIX, 'MarketingStore persist failed:', e.message);
+            });
+        }
+    }
+
+    /** Async load from Supabase (falls back to localStorage) */
+    async function loadStorageAsync(key) {
+        if (window.MarketingStore) {
+            try {
+                var data = await window.MarketingStore.get('brand', key, null);
+                if (data !== null) {
+                    try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
+                    return data;
+                }
+            } catch (e) { console.warn(LOG_PREFIX, 'MarketingStore load failed:', e.message); }
+        }
+        return loadStorage(key);
     }
 
     /** @param {string} prompt @param {object} [opts] @returns {Promise<string>} AI result */

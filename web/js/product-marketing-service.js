@@ -28,6 +28,25 @@
     function save(k, v) {
         try { localStorage.setItem(k, JSON.stringify(v)); }
         catch (e) { console.error(LOG, 'Storage write error:', e); }
+        // Async persist to Supabase
+        if (window.MarketingStore) {
+            window.MarketingStore.set('product-marketing', k, v).catch(function(e) {
+                console.warn(LOG, 'MarketingStore persist failed:', e.message);
+            });
+        }
+    }
+    /** Async load from Supabase (falls back to localStorage) */
+    async function loadAsync(k, fb) {
+        if (window.MarketingStore) {
+            try {
+                var data = await window.MarketingStore.get('product-marketing', k, null);
+                if (data !== null) {
+                    try { localStorage.setItem(k, JSON.stringify(data)); } catch (_) {}
+                    return data;
+                }
+            } catch (e) { console.warn(LOG, 'MarketingStore load failed:', e.message); }
+        }
+        return load(k, fb);
     }
     function uid() { return 'pmm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
     function now() { return new Date().toISOString(); }

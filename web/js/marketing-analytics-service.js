@@ -44,6 +44,7 @@
     function store(key, value) {
         try {
             localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+            if (window.MarketingStore) { window.MarketingStore.set('analytics', key, value).catch(function(){}); }
         } catch (e) {
             warn('Storage write failed:', e.message);
         }
@@ -62,6 +63,24 @@
         } catch {
             return fallback;
         }
+    }
+
+    /**
+     * Asynchronously retrieve a value, checking MarketingStore first then localStorage.
+     * @param {string} key - Storage key (auto-prefixed for localStorage).
+     * @param {*} fallback - Default when key is absent in both stores.
+     * @returns {Promise<*>} Resolved value or fallback.
+     */
+    async function loadAsync(key, fallback = null) {
+        try {
+            if (window.MarketingStore) {
+                const remote = await window.MarketingStore.get('analytics', key);
+                if (remote !== null && remote !== undefined) return remote;
+            }
+        } catch {
+            // MarketingStore unavailable, fall through to localStorage
+        }
+        return load(key, fallback);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -125,6 +144,10 @@
      * @returns {Object} Channel metrics keyed by channel name.
      */
     function generateChannelData(dateRange) {
+        const storedKey = 'channel-data-' + dateRange;
+        const stored = load(storedKey, null);
+        if (stored) return stored;
+
         const multiplier = { 'last-7d': 1, 'last-30d': 4, 'last-90d': 12, 'last-12m': 52 }[dateRange] || 4;
         const base = {
             SEO:      { traffic: 12400, leads: 310, conversions: 62, revenue: 31000, spend: 4200 },
@@ -137,13 +160,12 @@
         const result = {};
         for (const ch of CHANNELS) {
             const b = base[ch];
-            const jitter = () => 0.85 + Math.random() * 0.3;
             result[ch] = {
-                traffic:     Math.round(b.traffic * multiplier * jitter()),
-                leads:       Math.round(b.leads * multiplier * jitter()),
-                conversions: Math.round(b.conversions * multiplier * jitter()),
-                revenue:     Math.round(b.revenue * multiplier * jitter()),
-                spend:       Math.round(b.spend * multiplier * jitter()),
+                traffic:     Math.round(b.traffic * multiplier * 1.0),
+                leads:       Math.round(b.leads * multiplier * 1.0),
+                conversions: Math.round(b.conversions * multiplier * 1.0),
+                revenue:     Math.round(b.revenue * multiplier * 1.0),
+                spend:       Math.round(b.spend * multiplier * 1.0),
                 cac:         b.spend > 0 ? +(b.spend / b.conversions).toFixed(2) : 0,
                 roi:         b.spend > 0 ? +(((b.revenue - b.spend) / b.spend) * 100).toFixed(1) : null
             };
@@ -162,6 +184,17 @@
      */
     function getOverviewMetrics(dateRange = 'last-30d') {
         log('Fetching overview metrics for', dateRange);
+        if (window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
+            try {
+                const gaData = window.ApiConnector.GoogleAnalytics.getDashboardData(dateRange);
+                if (gaData) {
+                    store('overview-' + dateRange, gaData);
+                    return gaData;
+                }
+            } catch (e) {
+                warn('GA4 dashboard fetch failed, using local data:', e.message);
+            }
+        }
         const data = generateChannelData(dateRange);
         const totals = { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0 };
         for (const ch of CHANNELS) {
@@ -187,6 +220,17 @@
      */
     function getChannelBreakdown(dateRange = 'last-30d') {
         log('Building channel breakdown for', dateRange);
+        if (window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
+            try {
+                const gaChannels = window.ApiConnector.GoogleAnalytics.getChannelPerformance(dateRange);
+                if (gaChannels) {
+                    store('channel-breakdown-' + dateRange, gaChannels);
+                    return gaChannels;
+                }
+            } catch (e) {
+                warn('GA4 channel performance fetch failed, using local data:', e.message);
+            }
+        }
         return generateChannelData(dateRange);
     }
 
@@ -198,19 +242,22 @@
      */
     function getChannelTrends(channel, period = 'weekly') {
         log('Computing trends for', channel, period);
+        const storedKey = 'channel-trends-' + channel + '-' + period;
+        const stored = load(storedKey, null);
+        if (stored) return stored;
+
         const points = { daily: 30, weekly: 12, monthly: 12 }[period] || 12;
         const stepDays = { daily: 1, weekly: 7, monthly: 30 }[period] || 7;
         const trends = [];
         for (let i = points; i > 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i * stepDays);
-            const jitter = () => 0.8 + Math.random() * 0.4;
             trends.push({
                 date: d.toISOString().slice(0, 10),
-                traffic:     Math.round(3000 * jitter()),
-                leads:       Math.round(90 * jitter()),
-                conversions: Math.round(18 * jitter()),
-                revenue:     Math.round(9000 * jitter())
+                traffic:     Math.round(3000 * 1.0),
+                leads:       Math.round(90 * 1.0),
+                conversions: Math.round(18 * 1.0),
+                revenue:     Math.round(9000 * 1.0)
             });
         }
         return trends;
@@ -281,6 +328,9 @@
      */
     function getConversionPaths(limit = 10) {
         log('Fetching top', limit, 'conversion paths');
+        const stored = load('conversion-paths', null);
+        if (stored) return stored.slice(0, limit);
+
         const paths = [
             { path: ['SEO', 'Email', 'Direct'],            conversions: 142, avgValue: 285 },
             { path: ['Paid', 'Referral', 'Direct'],        conversions: 118, avgValue: 340 },
@@ -302,11 +352,14 @@
      */
     function getAssistConversions() {
         log('Computing assist conversions');
+        const stored = load('assist-conversions', null);
+        if (stored) return stored;
+
         return CHANNELS.map(ch => ({
             channel: ch,
-            assists: Math.round(40 + Math.random() * 160),
-            closes: Math.round(10 + Math.random() * 80),
-            assistRatio: +(0.3 + Math.random() * 0.6).toFixed(2)
+            assists: 0,
+            closes: 0,
+            assistRatio: 0
         })).sort((a, b) => b.assistRatio - a.assistRatio);
     }
 
@@ -407,6 +460,10 @@
      */
     function getCohortAnalysis(cohortType = 'monthly', metric = 'retention') {
         log('Running cohort analysis:', cohortType, metric);
+        const storedKey = 'cohort-' + cohortType + '-' + metric;
+        const stored = load(storedKey, null);
+        if (stored) return stored;
+
         const periods = { weekly: 8, monthly: 6, quarterly: 4 }[cohortType] || 6;
         const cohorts = [];
         for (let c = 0; c < periods; c++) {
@@ -414,16 +471,11 @@
             d.setMonth(d.getMonth() - (periods - 1 - c));
             const row = {
                 cohort: d.toISOString().slice(0, 7),
-                size: Math.round(800 + Math.random() * 400),
+                size: 0,
                 periods: []
             };
             for (let p = 0; p <= periods - 1 - c; p++) {
-                const decay = Math.pow(0.78, p);
-                row.periods.push(
-                    metric === 'retention'
-                        ? +((decay * 100) * (0.9 + Math.random() * 0.2)).toFixed(1)
-                        : Math.round(row.size * 45 * decay * (0.85 + Math.random() * 0.3))
-                );
+                row.periods.push(0);
             }
             cohorts.push(row);
         }
@@ -436,11 +488,14 @@
      */
     function getCustomerLifetimeValue() {
         log('Calculating customer LTV');
+        const stored = load('customer-ltv', null);
+        if (stored) return stored;
+
         const byChannel = {};
         CHANNELS.forEach(ch => {
             byChannel[ch] = {
-                avgLTV: Math.round(400 + Math.random() * 2000),
-                retentionRate: +(0.55 + Math.random() * 0.35).toFixed(2)
+                avgLTV: 0,
+                retentionRate: 0
             };
         });
         return {

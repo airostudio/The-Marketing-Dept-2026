@@ -41,25 +41,76 @@
     // STORAGE HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /** @param {string} key  @param {*} fallback  @returns {*} */
+    /** Synchronous localStorage cache read (used by getCurrentX()-style callers)
+     *  @param {string} key  @param {*} fallback  @returns {*} */
     function load(key, fallback) {
         if (fallback === undefined) fallback = null;
         try {
-            const raw = localStorage.getItem(STORAGE_PREFIX + key);
+            var raw = localStorage.getItem(STORAGE_PREFIX + key);
             return raw ? JSON.parse(raw) : fallback;
         } catch (e) {
-            console.warn(TAG, 'Storage read error:', e.message);
+            console.warn(TAG, 'Cache read error:', e.message);
             return fallback;
         }
     }
 
-    /** @param {string} key  @param {*} value */
+    /** Synchronous localStorage cache write
+     *  @param {string} key  @param {*} value */
     function save(key, value) {
         try {
             localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
         } catch (e) {
-            console.warn(TAG, 'Storage write error:', e.message);
+            console.warn(TAG, 'Cache write error:', e.message);
         }
+    }
+
+    /** Async read from MarketingStore with localStorage cache fallback.
+     *  @param {string} key  @param {*} fallback  @returns {Promise<*>} */
+    async function asyncLoad(key, fallback) {
+        if (fallback === undefined) fallback = null;
+        try {
+            if (window.MarketingStore) {
+                var data = await window.MarketingStore.get('paid-media', key);
+                if (data !== null && data !== undefined) {
+                    save(key, data);
+                    return data;
+                }
+            }
+        } catch (e) {
+            console.warn(TAG, 'MarketingStore read error:', e.message);
+        }
+        return load(key, fallback);
+    }
+
+    /** Async write to MarketingStore + localStorage cache.
+     *  @param {string} key  @param {*} value  @returns {Promise<void>} */
+    async function asyncSave(key, value) {
+        save(key, value);
+        try {
+            if (window.MarketingStore) {
+                await window.MarketingStore.set('paid-media', key, value);
+            }
+        } catch (e) {
+            console.warn(TAG, 'MarketingStore write error:', e.message);
+        }
+    }
+
+    /** Estimate audience size from demographics data deterministically.
+     *  @param {object} demographics  @returns {number} */
+    function estimateAudienceSize(demographics) {
+        if (!demographics || Object.keys(demographics).length === 0) return 0;
+        var base = 0;
+        if (demographics.locations && demographics.locations.length > 0) {
+            base = demographics.locations.length * 500000;
+        }
+        if (demographics.age) {
+            var parts = String(demographics.age).split('-');
+            if (parts.length === 2) {
+                var range = (parseInt(parts[1], 10) || 65) - (parseInt(parts[0], 10) || 18);
+                base = base > 0 ? Math.round(base * (range / 47)) : range * 25000;
+            }
+        }
+        return base || 0;
     }
 
     /** @returns {string} Unique identifier */
@@ -110,10 +161,25 @@
          * @param {object} [filters] - { platform, status, objective }
          * @returns {object[]} Array of campaign objects
          */
-        getCampaigns: function(filters) {
+        getCampaigns: async function(filters) {
             filters = filters || {};
             console.log(TAG, 'Fetching campaigns with filters:', filters);
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+
+            // Try real API first
+            try {
+                if (window.ApiConnector && window.ApiConnector.GoogleAds && window.ApiConnector.GoogleAds.isAvailable()) {
+                    var apiCampaigns = await window.ApiConnector.GoogleAds.getCampaigns(filters);
+                    if (apiCampaigns && apiCampaigns.length > 0) {
+                        await asyncSave(CAMPAIGN_PREFIX + 'list', apiCampaigns);
+                        return apiCampaigns;
+                    }
+                }
+            } catch (e) {
+                console.warn(TAG, 'ApiConnector.GoogleAds fetch failed, falling back to store:', e.message);
+            }
+
+            // Fall back to MarketingStore then localStorage cache
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             if (filters.platform) campaigns = campaigns.filter(function(c) { return c.platform === filters.platform; });
             if (filters.status) campaigns = campaigns.filter(function(c) { return c.status === filters.status; });
             if (filters.objective) campaigns = campaigns.filter(function(c) { return c.objective === filters.objective; });
@@ -132,7 +198,7 @@
          * @param {string} [config.endDate] - ISO end date
          * @returns {object} The created campaign
          */
-        createCampaign: function(config) {
+        createCampaign: async function(config) {
             if (!config.name || !config.platform || !config.objective || !config.budget) {
                 throw new Error('Campaign requires name, platform, objective, and budget');
             }
@@ -153,9 +219,18 @@
                 metrics: { impressions: 0, clicks: 0, conversions: 0, spend: 0, ctr: 0, cpc: 0, cpa: 0, roas: 0 }
             };
 
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            // Cross-channel persistence via MarketingStore
+            try {
+                if (window.MarketingStore && window.MarketingStore.createCampaign) {
+                    await window.MarketingStore.createCampaign(campaign);
+                }
+            } catch (e) {
+                console.warn(TAG, 'MarketingStore.createCampaign failed:', e.message);
+            }
+
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             campaigns.push(campaign);
-            save(CAMPAIGN_PREFIX + 'list', campaigns);
+            await asyncSave(CAMPAIGN_PREFIX + 'list', campaigns);
             console.log(TAG, 'Campaign created:', campaign.id);
             return campaign;
         },
@@ -166,9 +241,9 @@
          * @param {object} updates - Fields to update
          * @returns {object|null} Updated campaign or null if not found
          */
-        updateCampaign: function(id, updates) {
+        updateCampaign: async function(id, updates) {
             console.log(TAG, 'Updating campaign:', id);
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var idx = campaigns.findIndex(function(c) { return c.id === id; });
             if (idx === -1) { console.warn(TAG, 'Campaign not found:', id); return null; }
 
@@ -177,7 +252,17 @@
                 if (forbidden.indexOf(k) === -1) campaigns[idx][k] = updates[k];
             });
             campaigns[idx].updatedAt = new Date().toISOString();
-            save(CAMPAIGN_PREFIX + 'list', campaigns);
+            await asyncSave(CAMPAIGN_PREFIX + 'list', campaigns);
+
+            // Cross-channel persistence via MarketingStore
+            try {
+                if (window.MarketingStore && window.MarketingStore.updateCampaign) {
+                    await window.MarketingStore.updateCampaign(id, campaigns[idx]);
+                }
+            } catch (e) {
+                console.warn(TAG, 'MarketingStore.updateCampaign failed:', e.message);
+            }
+
             return campaigns[idx];
         },
 
@@ -206,13 +291,23 @@
          * @param {string} id - Campaign ID
          * @returns {boolean} True if deleted, false if not found
          */
-        deleteCampaign: function(id) {
+        deleteCampaign: async function(id) {
             console.log(TAG, 'Deleting campaign:', id);
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var before = campaigns.length;
             campaigns = campaigns.filter(function(c) { return c.id !== id; });
             if (campaigns.length === before) { console.warn(TAG, 'Campaign not found:', id); return false; }
-            save(CAMPAIGN_PREFIX + 'list', campaigns);
+            await asyncSave(CAMPAIGN_PREFIX + 'list', campaigns);
+
+            // Cross-channel persistence via MarketingStore
+            try {
+                if (window.MarketingStore && window.MarketingStore.deleteCampaign) {
+                    await window.MarketingStore.deleteCampaign(id);
+                }
+            } catch (e) {
+                console.warn(TAG, 'MarketingStore.deleteCampaign failed:', e.message);
+            }
+
             return true;
         },
 
@@ -222,10 +317,10 @@
          * @param {object} [dateRange] - { start, end } ISO date strings
          * @returns {object|null} Performance metrics including impressions, clicks, conversions, spend, ROAS
          */
-        getCampaignPerformance: function(id, dateRange) {
+        getCampaignPerformance: async function(id, dateRange) {
             dateRange = dateRange || {};
             console.log(TAG, 'Getting performance for campaign:', id);
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var campaign = campaigns.find(function(c) { return c.id === id; });
             if (!campaign) { console.warn(TAG, 'Campaign not found:', id); return null; }
 
@@ -233,12 +328,27 @@
                 ? Math.max(1, Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / 86400000))
                 : 30;
 
-            var base = campaign.metrics || {};
-            var impressions = base.impressions || Math.round(campaign.budget * days * (45 + Math.random() * 55));
-            var clicks = base.clicks || Math.round(impressions * (0.015 + Math.random() * 0.045));
-            var conversions = base.conversions || Math.round(clicks * (0.02 + Math.random() * 0.08));
-            var spend = base.spend || +(campaign.budget * days * (0.7 + Math.random() * 0.3)).toFixed(2);
-            var revenue = conversions * (25 + Math.random() * 175);
+            // Try real API metrics first
+            var apiMetrics = null;
+            try {
+                if (window.ApiConnector) {
+                    if (campaign.platform === 'google-ads' && window.ApiConnector.GoogleAds && window.ApiConnector.GoogleAds.isAvailable()) {
+                        apiMetrics = await window.ApiConnector.GoogleAds.getCampaignMetrics(id, dateRange);
+                    } else if (campaign.platform === 'meta-ads' && window.ApiConnector.MetaAds && window.ApiConnector.MetaAds.isAvailable()) {
+                        apiMetrics = await window.ApiConnector.MetaAds.getCampaignMetrics(id, dateRange);
+                    }
+                }
+            } catch (e) {
+                console.warn(TAG, 'API metrics fetch failed for', campaign.platform, ':', e.message);
+            }
+
+            // Use API metrics, then stored metrics, then zeros
+            var base = apiMetrics || campaign.metrics || {};
+            var impressions = base.impressions || 0;
+            var clicks = base.clicks || 0;
+            var conversions = base.conversions || 0;
+            var spend = base.spend || 0;
+            var revenue = base.revenue || 0;
 
             return {
                 campaignId: id,
@@ -286,7 +396,7 @@
             var result = await aiGenerate(prompt);
             var parsed = parseAIJson(result);
             if (parsed) {
-                save('generated-google-ads', parsed);
+                await asyncSave('generated-google-ads', parsed);
                 return Array.isArray(parsed) ? parsed : [parsed];
             }
 
@@ -347,7 +457,7 @@
             var result = await aiGenerate(prompt);
             var parsed = parseAIJson(result);
             if (parsed) {
-                save('generated-meta-ads', parsed);
+                await asyncSave('generated-meta-ads', parsed);
                 return parsed;
             }
 
@@ -379,7 +489,7 @@
             var result = await aiGenerate(prompt);
             var parsed = parseAIJson(result);
             if (parsed) {
-                save('generated-linkedin-ads', parsed);
+                await asyncSave('generated-linkedin-ads', parsed);
                 return Array.isArray(parsed) ? parsed : [parsed];
             }
 
@@ -491,9 +601,9 @@
          * Overview of total budget allocation and spend across all campaigns.
          * @returns {object} { totalBudget, totalSpent, remaining, campaignCount, byPlatform }
          */
-        getBudgetOverview: function() {
+        getBudgetOverview: async function() {
             console.log(TAG, 'Calculating budget overview');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var active = campaigns.filter(function(c) { return c.status === 'active' || c.status === 'draft'; });
 
             var byPlatform = {};
@@ -572,18 +682,21 @@
          * Return on Ad Spend metrics per channel.
          * @returns {object} ROAS, spend, revenue, conversions per platform
          */
-        getChannelROAS: function() {
+        getChannelROAS: async function() {
             console.log(TAG, 'Calculating channel ROAS');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var channels = {};
 
-            campaigns.forEach(function(c) {
+            for (var i = 0; i < campaigns.length; i++) {
+                var c = campaigns[i];
                 if (!channels[c.platform]) channels[c.platform] = { spend: 0, revenue: 0, conversions: 0 };
-                var perf = CampaignManager.getCampaignPerformance(c.id);
-                channels[c.platform].spend += perf.spend;
-                channels[c.platform].revenue += perf.revenue;
-                channels[c.platform].conversions += perf.conversions;
-            });
+                var perf = await CampaignManager.getCampaignPerformance(c.id);
+                if (perf) {
+                    channels[c.platform].spend += perf.spend;
+                    channels[c.platform].revenue += perf.revenue;
+                    channels[c.platform].conversions += perf.conversions;
+                }
+            }
 
             Object.keys(channels).forEach(function(p) {
                 var ch = channels[p];
@@ -600,16 +713,18 @@
          * @returns {Promise<object>} Optimization recommendations
          */
         optimizeBudgetAllocation: async function(campaigns) {
-            var allCampaigns = campaigns || load(CAMPAIGN_PREFIX + 'list', []);
+            var allCampaigns = campaigns || await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             console.log(TAG, 'Optimizing budget allocation for', allCampaigns.length, 'campaigns');
 
-            var perfData = allCampaigns.map(function(c) {
-                return {
+            var perfData = [];
+            for (var i = 0; i < allCampaigns.length; i++) {
+                var c = allCampaigns[i];
+                perfData.push({
                     id: c.id, name: c.name, platform: c.platform,
                     budget: c.budget, status: c.status,
-                    perf: CampaignManager.getCampaignPerformance(c.id)
-                };
-            });
+                    perf: await CampaignManager.getCampaignPerformance(c.id)
+                });
+            }
 
             var prompt = 'Analyze these campaign performance metrics and recommend budget redistribution:\n' +
                 JSON.stringify(perfData, null, 2) + '\n\n' +
@@ -650,9 +765,9 @@
          * Get all saved audiences.
          * @returns {object[]} Array of audience definitions
          */
-        getAudiences: function() {
+        getAudiences: async function() {
             console.log(TAG, 'Fetching saved audiences');
-            return load('audiences', []);
+            return await asyncLoad('audiences', []);
         },
 
         /**
@@ -665,7 +780,7 @@
          * @param {object} [config.lookalike] - Lookalike audience config
          * @returns {object} Created audience
          */
-        createAudience: function(config) {
+        createAudience: async function(config) {
             if (!config.name) throw new Error('Audience requires a name');
             console.log(TAG, 'Creating audience:', config.name);
 
@@ -676,13 +791,13 @@
                 interests: config.interests || [],
                 behaviors: config.behaviors || [],
                 lookalike: config.lookalike || null,
-                estimatedSize: Math.round(50000 + Math.random() * 2000000),
+                estimatedSize: estimateAudienceSize(config.demographics || {}),
                 createdAt: new Date().toISOString()
             };
 
-            var audiences = load('audiences', []);
+            var audiences = await asyncLoad('audiences', []);
             audiences.push(audience);
-            save('audiences', audiences);
+            await asyncSave('audiences', audiences);
             return audience;
         },
 
@@ -692,7 +807,7 @@
          * @returns {Promise<object|null>} Insights about the audience
          */
         getAudienceInsights: async function(audienceId) {
-            var audiences = load('audiences', []);
+            var audiences = await asyncLoad('audiences', []);
             var audience = audiences.find(function(a) { return a.id === audienceId; });
             if (!audience) { console.warn(TAG, 'Audience not found:', audienceId); return null; }
 
@@ -768,20 +883,22 @@
          * @param {object} [dateRange] - { start, end } ISO date strings
          * @returns {object} Aggregated metrics: spend, impressions, clicks, CTR, CPC, conversions, CPA, ROAS
          */
-        getDashboardMetrics: function(dateRange) {
+        getDashboardMetrics: async function(dateRange) {
             dateRange = dateRange || {};
             console.log(TAG, 'Computing dashboard metrics');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var totals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
 
-            campaigns.forEach(function(c) {
-                var perf = CampaignManager.getCampaignPerformance(c.id, dateRange);
-                totals.spend += perf.spend;
-                totals.impressions += perf.impressions;
-                totals.clicks += perf.clicks;
-                totals.conversions += perf.conversions;
-                totals.revenue += perf.revenue;
-            });
+            for (var i = 0; i < campaigns.length; i++) {
+                var perf = await CampaignManager.getCampaignPerformance(campaigns[i].id, dateRange);
+                if (perf) {
+                    totals.spend += perf.spend;
+                    totals.impressions += perf.impressions;
+                    totals.clicks += perf.clicks;
+                    totals.conversions += perf.conversions;
+                    totals.revenue += perf.revenue;
+                }
+            }
 
             return {
                 spend: +totals.spend.toFixed(2),
@@ -802,24 +919,27 @@
          * Compare performance across advertising platforms.
          * @returns {object[]} Per-platform performance comparison sorted by ROAS
          */
-        getChannelComparison: function() {
+        getChannelComparison: async function() {
             console.log(TAG, 'Comparing channel performance');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
             var channels = {};
 
-            campaigns.forEach(function(c) {
+            for (var i = 0; i < campaigns.length; i++) {
+                var c = campaigns[i];
                 if (!channels[c.platform]) {
                     channels[c.platform] = { platform: c.platform, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0, campaigns: 0 };
                 }
-                var perf = CampaignManager.getCampaignPerformance(c.id);
-                var ch = channels[c.platform];
-                ch.spend += perf.spend;
-                ch.impressions += perf.impressions;
-                ch.clicks += perf.clicks;
-                ch.conversions += perf.conversions;
-                ch.revenue += perf.revenue;
-                ch.campaigns += 1;
-            });
+                var perf = await CampaignManager.getCampaignPerformance(c.id);
+                if (perf) {
+                    var ch = channels[c.platform];
+                    ch.spend += perf.spend;
+                    ch.impressions += perf.impressions;
+                    ch.clicks += perf.clicks;
+                    ch.conversions += perf.conversions;
+                    ch.revenue += perf.revenue;
+                    ch.campaigns += 1;
+                }
+            }
 
             return Object.keys(channels).map(function(key) {
                 var ch = channels[key];
@@ -843,9 +963,9 @@
          * Marketing funnel performance breakdown.
          * @returns {object} Top (awareness), middle (consideration), and bottom (conversion) funnel metrics
          */
-        getFunnelMetrics: function() {
+        getFunnelMetrics: async function() {
             console.log(TAG, 'Computing funnel metrics');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
+            var campaigns = await asyncLoad(CAMPAIGN_PREFIX + 'list', []);
 
             var funnel = {
                 top:    { label: 'Awareness',     objectives: ['awareness', 'traffic'],      spend: 0, impressions: 0, clicks: 0, conversions: 0 },
@@ -853,8 +973,10 @@
                 bottom: { label: 'Conversion',    objectives: ['conversions', 'sales'],      spend: 0, impressions: 0, clicks: 0, conversions: 0 }
             };
 
-            campaigns.forEach(function(c) {
-                var perf = CampaignManager.getCampaignPerformance(c.id);
+            for (var ci = 0; ci < campaigns.length; ci++) {
+                var c = campaigns[ci];
+                var perf = await CampaignManager.getCampaignPerformance(c.id);
+                if (!perf) continue;
                 var stage = null;
                 var stages = [funnel.top, funnel.middle, funnel.bottom];
                 for (var i = 0; i < stages.length; i++) {
@@ -866,7 +988,7 @@
                 stage.impressions += perf.impressions;
                 stage.clicks += perf.clicks;
                 stage.conversions += perf.conversions;
-            });
+            }
 
             var stageKeys = ['top', 'middle', 'bottom'];
             stageKeys.forEach(function(key) {
@@ -882,25 +1004,17 @@
          * Multi-touch attribution conversion paths.
          * @returns {object[]} Conversion path data sorted by conversions descending
          */
-        getConversionPaths: function() {
+        getConversionPaths: async function() {
             console.log(TAG, 'Analyzing conversion paths');
-            var campaigns = load(CAMPAIGN_PREFIX + 'list', []);
-            var platforms = [];
-            var seen = {};
-            campaigns.forEach(function(c) {
-                if (!seen[c.platform]) { platforms.push(c.platform); seen[c.platform] = true; }
-            });
-            if (platforms.length === 0) { platforms.push('google-ads', 'meta-ads'); }
 
-            var paths = [
-                { path: ['google-ads', 'meta-ads'], conversions: Math.round(20 + Math.random() * 80), avgTouchpoints: 2.3, avgDaysToConvert: 4.2 },
-                { path: ['meta-ads', 'google-ads', 'google-ads'], conversions: Math.round(15 + Math.random() * 60), avgTouchpoints: 3.1, avgDaysToConvert: 7.8 },
-                { path: ['display-network', 'meta-ads', 'google-ads'], conversions: Math.round(10 + Math.random() * 40), avgTouchpoints: 3.5, avgDaysToConvert: 12.1 },
-                { path: ['linkedin-ads', 'google-ads'], conversions: Math.round(5 + Math.random() * 30), avgTouchpoints: 2.0, avgDaysToConvert: 5.5 },
-                { path: ['google-ads'], conversions: Math.round(30 + Math.random() * 100), avgTouchpoints: 1.0, avgDaysToConvert: 1.2 }
-            ];
+            // Try stored attribution data from MarketingStore
+            var storedPaths = await asyncLoad('attribution-paths', null);
+            if (storedPaths && Array.isArray(storedPaths) && storedPaths.length > 0) {
+                return storedPaths.sort(function(a, b) { return b.conversions - a.conversions; });
+            }
 
-            return paths.sort(function(a, b) { return b.conversions - a.conversions; });
+            // No stored attribution data available
+            return [];
         }
     };
 

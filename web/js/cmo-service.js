@@ -80,24 +80,50 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DATA STORAGE (localStorage with 'cmo-' prefix)
+    // DATA STORAGE (Supabase via MarketingStore + localStorage cache)
     // ═══════════════════════════════════════════════════════════════════════════
 
     const Storage = {
-        /** Save a JSON-serialisable value. */
+        /** Save a JSON-serialisable value (localStorage cache + Supabase persist). */
         save(key, value) {
             try { localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value)); }
             catch (err) { error('Storage save failed for', key, err); }
+            // Async persist to Supabase
+            if (window.MarketingStore) {
+                window.MarketingStore.set('cmo', key, value).catch(function(e) {
+                    warn('MarketingStore persist failed:', e.message);
+                });
+            }
         },
-        /** Load a value (returns fallback when missing). */
+        /** Load a value synchronously (localStorage cache). */
         load(key, fallback = null) {
             try {
                 const raw = localStorage.getItem(STORAGE_PREFIX + key);
                 return raw ? JSON.parse(raw) : fallback;
             } catch (err) { error('Storage load failed for', key, err); return fallback; }
         },
+        /** Load a value from Supabase (async, falls back to localStorage). */
+        async loadAsync(key, fallback = null) {
+            if (window.MarketingStore) {
+                try {
+                    const data = await window.MarketingStore.get('cmo', key, null);
+                    if (data !== null) {
+                        // Update local cache
+                        try { localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data)); }
+                        catch (_) { /* ignore */ }
+                        return data;
+                    }
+                } catch (e) { warn('MarketingStore load failed:', e.message); }
+            }
+            return this.load(key, fallback);
+        },
         /** Remove a key. */
-        remove(key) { localStorage.removeItem(STORAGE_PREFIX + key); },
+        remove(key) {
+            localStorage.removeItem(STORAGE_PREFIX + key);
+            if (window.MarketingStore) {
+                window.MarketingStore.remove('cmo', key).catch(function() {});
+            }
+        },
         /** List all cmo- keys (without prefix). */
         keys() {
             const out = [];

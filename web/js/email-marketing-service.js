@@ -51,9 +51,25 @@
     function saveStore(key, data) {
         try {
             localStorage.setItem(key, JSON.stringify(data));
+            if (window.MarketingStore) { window.MarketingStore.set('email', key, data).catch(function(){}); }
         } catch (err) {
             console.error(TAG, 'Failed to write', key, err);
         }
+    }
+
+    /** Read a JSON array from Supabase (via MarketingStore) first, falling back to localStorage. */
+    async function loadStoreAsync(key) {
+        try {
+            if (window.MarketingStore) {
+                var remote = await window.MarketingStore.get('email', key);
+                if (remote !== null && remote !== undefined) {
+                    return Array.isArray(remote) ? remote : [];
+                }
+            }
+        } catch (err) {
+            console.warn(TAG, 'MarketingStore.get failed for', key, err);
+        }
+        return loadStore(key);
     }
 
     /**
@@ -82,29 +98,100 @@
         }
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  Internal: filter & merge helpers for API integration               */
+    /* ------------------------------------------------------------------ */
+
+    /** Apply standard campaign filters to an array. */
+    function _applyFilters(campaigns, filters) {
+        if (filters.status) campaigns = campaigns.filter(function (c) { return c.status === filters.status; });
+        if (filters.type) campaigns = campaigns.filter(function (c) { return c.type === filters.type; });
+        if (filters.listId) campaigns = campaigns.filter(function (c) { return c.listId === filters.listId; });
+        if (filters.dateRange) {
+            var start = filters.dateRange.start;
+            var end = filters.dateRange.end;
+            campaigns = campaigns.filter(function (c) {
+                var d = new Date(c.createdAt);
+                return (!start || d >= new Date(start)) && (!end || d <= new Date(end));
+            });
+        }
+        return campaigns;
+    }
+
+    /** Merge API-sourced campaigns into local list by ID.  API data takes precedence. */
+    function _mergeApiCampaigns(local, api) {
+        var byId = {};
+        local.forEach(function (c) { byId[c.id] = c; });
+        api.forEach(function (c) {
+            var key = c.id || c.externalId || uid();
+            byId[key] = Object.assign({}, byId[key] || {}, c);
+        });
+        return Object.keys(byId).map(function (k) { return byId[k]; });
+    }
+
     /* ================================================================== */
     /*  1. Campaign Management                                            */
     /* ================================================================== */
 
     /**
      * Retrieve campaigns, optionally filtered.
+     * Kicks off a background API refresh from Mailchimp when available.
      * @param {object} [filters] - { status, type, listId, dateRange }
      * @returns {object[]}
      */
     function getCampaigns(filters = {}) {
         console.log(TAG, 'getCampaigns', filters);
-        let campaigns = loadStore(STORAGE_KEYS.CAMPAIGNS);
-        if (filters.status) campaigns = campaigns.filter(c => c.status === filters.status);
-        if (filters.type) campaigns = campaigns.filter(c => c.type === filters.type);
-        if (filters.listId) campaigns = campaigns.filter(c => c.listId === filters.listId);
-        if (filters.dateRange) {
-            const { start, end } = filters.dateRange;
-            campaigns = campaigns.filter(c => {
-                const d = new Date(c.createdAt);
-                return (!start || d >= new Date(start)) && (!end || d <= new Date(end));
-            });
+        var campaigns = loadStore(STORAGE_KEYS.CAMPAIGNS);
+
+        // Background refresh from real Mailchimp API when available
+        if (window.ApiConnector && window.ApiConnector.EmailMarketing &&
+            window.ApiConnector.EmailMarketing.mailchimp &&
+            window.ApiConnector.EmailMarketing.mailchimp.isAvailable()) {
+            window.ApiConnector.EmailMarketing.mailchimp.getCampaigns(filters)
+                .then(function (apiCampaigns) {
+                    if (apiCampaigns && Array.isArray(apiCampaigns) && apiCampaigns.length) {
+                        var merged = _mergeApiCampaigns(loadStore(STORAGE_KEYS.CAMPAIGNS), apiCampaigns);
+                        saveStore(STORAGE_KEYS.CAMPAIGNS, merged);
+                        console.log(TAG, 'Campaigns refreshed from Mailchimp API:', merged.length);
+                    }
+                })
+                .catch(function (err) {
+                    console.warn(TAG, 'Mailchimp API fetch failed, using stored data', err);
+                });
         }
-        return campaigns;
+
+        return _applyFilters(campaigns, filters);
+    }
+
+    /**
+     * Async version of getCampaigns -- awaits real API data when available,
+     * falls back to Supabase / localStorage.
+     * @param {object} [filters] - { status, type, listId, dateRange }
+     * @returns {Promise<object[]>}
+     */
+    async function getCampaignsAsync(filters) {
+        filters = filters || {};
+        console.log(TAG, 'getCampaignsAsync', filters);
+
+        // Try real API first
+        if (window.ApiConnector && window.ApiConnector.EmailMarketing &&
+            window.ApiConnector.EmailMarketing.mailchimp &&
+            window.ApiConnector.EmailMarketing.mailchimp.isAvailable()) {
+            try {
+                var apiCampaigns = await window.ApiConnector.EmailMarketing.mailchimp.getCampaigns(filters);
+                if (apiCampaigns && Array.isArray(apiCampaigns) && apiCampaigns.length) {
+                    var merged = _mergeApiCampaigns(loadStore(STORAGE_KEYS.CAMPAIGNS), apiCampaigns);
+                    saveStore(STORAGE_KEYS.CAMPAIGNS, merged);
+                    return _applyFilters(merged, filters);
+                }
+            } catch (err) {
+                console.warn(TAG, 'API getCampaigns failed, falling back to stored data', err);
+            }
+        }
+
+        // Fall back to Supabase, then localStorage
+        var campaigns = await loadStoreAsync(STORAGE_KEYS.CAMPAIGNS);
+        return _applyFilters(campaigns, filters);
     }
 
     /**
@@ -189,18 +276,110 @@
 
     /**
      * Retrieve performance stats for a campaign.
+     * Kicks off a background API refresh from Mailchimp / SendGrid when available.
      * @param {string} id
      * @returns {object|null}
      */
     function getCampaignStats(id) {
-        const campaign = loadStore(STORAGE_KEYS.CAMPAIGNS).find(c => c.id === id);
+        var campaign = loadStore(STORAGE_KEYS.CAMPAIGNS).find(function (c) { return c.id === id; });
         if (!campaign) { console.warn(TAG, 'Campaign not found', id); return null; }
-        const s = campaign.stats;
-        const openRate = s.sent ? ((s.opens / s.sent) * 100).toFixed(1) : '0.0';
-        const clickRate = s.opens ? ((s.clicks / s.opens) * 100).toFixed(1) : '0.0';
-        const bounceRate = s.sent ? ((s.bounces / s.sent) * 100).toFixed(1) : '0.0';
+        var s = campaign.stats;
+
+        // Background refresh from real API when available (Mailchimp or SendGrid)
+        if (window.ApiConnector && window.ApiConnector.EmailMarketing) {
+            var mc = window.ApiConnector.EmailMarketing.mailchimp;
+            var sg = window.ApiConnector.EmailMarketing.sendgrid;
+            var provider = (mc && mc.isAvailable && mc.isAvailable()) ? mc
+                         : (sg && sg.isAvailable && sg.isAvailable()) ? sg
+                         : null;
+            if (provider && provider.getCampaignStats) {
+                provider.getCampaignStats(id)
+                    .then(function (apiStats) {
+                        if (apiStats) {
+                            var campaigns = loadStore(STORAGE_KEYS.CAMPAIGNS);
+                            var idx = campaigns.findIndex(function (c) { return c.id === id; });
+                            if (idx !== -1) {
+                                campaigns[idx].stats = Object.assign({}, campaigns[idx].stats, apiStats);
+                                saveStore(STORAGE_KEYS.CAMPAIGNS, campaigns);
+                                console.log(TAG, 'Campaign stats refreshed from API:', id);
+                            }
+                        }
+                    })
+                    .catch(function (err) {
+                        console.warn(TAG, 'API getCampaignStats failed, using stored data', err);
+                    });
+            }
+        }
+
+        var openRate = s.sent ? ((s.opens / s.sent) * 100).toFixed(1) : '0.0';
+        var clickRate = s.opens ? ((s.clicks / s.opens) * 100).toFixed(1) : '0.0';
+        var bounceRate = s.sent ? ((s.bounces / s.sent) * 100).toFixed(1) : '0.0';
         console.log(TAG, 'getCampaignStats', id);
-        return { ...s, openRate, clickRate, bounceRate, campaignId: id, campaignName: campaign.name };
+        return {
+            opens: s.opens, clicks: s.clicks, bounces: s.bounces,
+            unsubscribes: s.unsubscribes, revenue: s.revenue, sent: s.sent,
+            openRate: openRate, clickRate: clickRate, bounceRate: bounceRate,
+            campaignId: id, campaignName: campaign.name
+        };
+    }
+
+    /**
+     * Async version of getCampaignStats -- awaits real API data when available,
+     * falls back to Supabase / localStorage.
+     * @param {string} id
+     * @returns {Promise<object|null>}
+     */
+    async function getCampaignStatsAsync(id) {
+        console.log(TAG, 'getCampaignStatsAsync', id);
+
+        // Try real API first (Mailchimp or SendGrid)
+        if (window.ApiConnector && window.ApiConnector.EmailMarketing) {
+            var mc = window.ApiConnector.EmailMarketing.mailchimp;
+            var sg = window.ApiConnector.EmailMarketing.sendgrid;
+            var provider = (mc && mc.isAvailable && mc.isAvailable()) ? mc
+                         : (sg && sg.isAvailable && sg.isAvailable()) ? sg
+                         : null;
+            if (provider && provider.getCampaignStats) {
+                try {
+                    var apiStats = await provider.getCampaignStats(id);
+                    if (apiStats) {
+                        // Persist the fresh stats back to storage
+                        var campaigns = loadStore(STORAGE_KEYS.CAMPAIGNS);
+                        var idx = campaigns.findIndex(function (c) { return c.id === id; });
+                        if (idx !== -1) {
+                            campaigns[idx].stats = Object.assign({}, campaigns[idx].stats, apiStats);
+                            saveStore(STORAGE_KEYS.CAMPAIGNS, campaigns);
+                        }
+                        var sa = apiStats;
+                        var name = idx !== -1 ? campaigns[idx].name : '';
+                        return {
+                            opens: sa.opens || 0, clicks: sa.clicks || 0, bounces: sa.bounces || 0,
+                            unsubscribes: sa.unsubscribes || 0, revenue: sa.revenue || 0, sent: sa.sent || 0,
+                            openRate: sa.sent ? ((sa.opens / sa.sent) * 100).toFixed(1) : '0.0',
+                            clickRate: sa.opens ? ((sa.clicks / sa.opens) * 100).toFixed(1) : '0.0',
+                            bounceRate: sa.sent ? ((sa.bounces / sa.sent) * 100).toFixed(1) : '0.0',
+                            campaignId: id, campaignName: name
+                        };
+                    }
+                } catch (err) {
+                    console.warn(TAG, 'API getCampaignStats failed, falling back to stored data', err);
+                }
+            }
+        }
+
+        // Fall back to Supabase, then localStorage
+        var campaigns = await loadStoreAsync(STORAGE_KEYS.CAMPAIGNS);
+        var campaign = campaigns.find(function (c) { return c.id === id; });
+        if (!campaign) { return null; }
+        var s = campaign.stats;
+        return {
+            opens: s.opens, clicks: s.clicks, bounces: s.bounces,
+            unsubscribes: s.unsubscribes, revenue: s.revenue, sent: s.sent,
+            openRate: s.sent ? ((s.opens / s.sent) * 100).toFixed(1) : '0.0',
+            clickRate: s.opens ? ((s.clicks / s.opens) * 100).toFixed(1) : '0.0',
+            bounceRate: s.sent ? ((s.bounces / s.sent) * 100).toFixed(1) : '0.0',
+            campaignId: id, campaignName: campaign.name
+        };
     }
 
     /* ================================================================== */
@@ -708,11 +887,13 @@
     window.EmailMarketingService = {
         /* Campaign Management */
         getCampaigns: getCampaigns,
+        getCampaignsAsync: getCampaignsAsync,
         createCampaign: createCampaign,
         updateCampaign: updateCampaign,
         deleteCampaign: deleteCampaign,
         scheduleCampaign: scheduleCampaign,
         getCampaignStats: getCampaignStats,
+        getCampaignStatsAsync: getCampaignStatsAsync,
 
         /* AI Email Generation */
         generateSubjectLines: generateSubjectLines,

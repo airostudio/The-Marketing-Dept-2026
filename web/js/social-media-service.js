@@ -88,9 +88,32 @@
     function storageSet(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
+            if (window.MarketingStore) { window.MarketingStore.set('social', key, value).catch(function(){}); }
         } catch (err) {
             console.error(TAG, 'Storage write error:', err.message);
         }
+    }
+
+    /**
+     * Async read from Supabase via MarketingStore, falling back to localStorage.
+     * @param {string} key
+     * @param {*} fallback
+     * @returns {Promise<*>}
+     */
+    async function storageGetAsync(key, fallback) {
+        if (fallback === undefined) { fallback = null; }
+        if (window.MarketingStore) {
+            try {
+                var data = await window.MarketingStore.get('social', key, null);
+                if (data !== null && data !== undefined) {
+                    try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
+                    return data;
+                }
+            } catch (err) {
+                console.warn(TAG, 'MarketingStore load failed:', err.message);
+            }
+        }
+        return storageGet(key, fallback);
     }
 
     /* ------------------------------------------------------------------ */
@@ -477,6 +500,150 @@
         return parseAIJson(raw);
     }
 
+    /**
+     * Fetch real channel metrics from platform APIs when available.
+     * Falls back to stored metrics or zeros.
+     * @param {string} platform
+     * @returns {Promise<object>}
+     */
+    async function getChannelMetrics(platform) {
+        console.log(TAG, 'Fetching channel metrics for', PLATFORM_LABELS[platform] || platform);
+
+        // Try real API connections first
+        try {
+            var api = window.ApiConnector && window.ApiConnector.Social;
+            if (api) {
+                if (platform === 'twitter' && api.twitter && api.twitter.isAvailable()) {
+                    var twData = await api.twitter.getMetrics();
+                    if (twData) {
+                        storageSet(STORAGE_KEYS.metrics + '-twitter', twData);
+                        return twData;
+                    }
+                }
+                if (platform === 'linkedin' && api.linkedin && api.linkedin.isAvailable()) {
+                    var liData = await api.linkedin.getOrganizationStats();
+                    if (liData) {
+                        storageSet(STORAGE_KEYS.metrics + '-linkedin', liData);
+                        return liData;
+                    }
+                }
+                if (platform === 'tiktok' && api.tiktok && api.tiktok.isAvailable()) {
+                    var ttData = await api.tiktok.getVideoStats();
+                    if (ttData) {
+                        storageSet(STORAGE_KEYS.metrics + '-tiktok', ttData);
+                        return ttData;
+                    }
+                }
+                if (platform === 'facebook') {
+                    var fbApi = window.ApiConnector.MetaAds;
+                    if (fbApi && fbApi.isAvailable && fbApi.isAvailable()) {
+                        var fbData = await fbApi.getCampaigns();
+                        if (fbData) {
+                            storageSet(STORAGE_KEYS.metrics + '-facebook', fbData);
+                            return fbData;
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn(TAG, 'API fetch failed for', platform, ':', err.message);
+        }
+
+        // Fall back to stored metrics or zeros
+        var stored = await storageGetAsync(STORAGE_KEYS.metrics, {});
+        return stored[platform] || {
+            followers: 0,
+            engagementRate: 0,
+            impressions: 0,
+            reach: 0,
+            clicks: 0,
+            likes: 0,
+            comments: 0,
+            shares: 0
+        };
+    }
+
+    /**
+     * Fetch follower growth data from platform APIs when available.
+     * Falls back to stored data or zeros.
+     * @param {string} platform
+     * @param {string} [period='30d']
+     * @returns {Promise<object>}
+     */
+    async function getFollowerGrowth(platform, period) {
+        if (!period) { period = '30d'; }
+        console.log(TAG, 'Fetching follower growth for', PLATFORM_LABELS[platform] || platform, '|', period);
+
+        // Try real API connections first
+        try {
+            var api = window.ApiConnector && window.ApiConnector.Social;
+            if (api) {
+                if (platform === 'twitter' && api.twitter && api.twitter.isAvailable()) {
+                    var twData = await api.twitter.getFollowers();
+                    if (twData && twData.data) {
+                        var twMetrics = twData.data.public_metrics || {};
+                        var twResult = {
+                            platform: platform,
+                            period: period,
+                            followers: twMetrics.followers_count || 0,
+                            following: twMetrics.following_count || 0,
+                            growth: 0,
+                            source: 'api'
+                        };
+                        storageSet(STORAGE_KEYS.metrics + '-twitter-followers', twResult);
+                        return twResult;
+                    }
+                }
+                if (platform === 'linkedin' && api.linkedin && api.linkedin.isAvailable()) {
+                    var liData = await api.linkedin.getOrganizationStats();
+                    if (liData) {
+                        var liFollowers = 0;
+                        if (liData.elements && liData.elements[0] &&
+                            liData.elements[0].totalShareStatistics) {
+                            liFollowers = liData.elements[0].totalShareStatistics.followerCount || 0;
+                        }
+                        var liResult = {
+                            platform: platform,
+                            period: period,
+                            followers: liFollowers,
+                            growth: 0,
+                            source: 'api'
+                        };
+                        storageSet(STORAGE_KEYS.metrics + '-linkedin-followers', liResult);
+                        return liResult;
+                    }
+                }
+                if (platform === 'tiktok' && api.tiktok && api.tiktok.isAvailable()) {
+                    var ttData = await api.tiktok.getVideoStats();
+                    if (ttData) {
+                        var ttResult = {
+                            platform: platform,
+                            period: period,
+                            followers: 0,
+                            growth: 0,
+                            source: 'api'
+                        };
+                        storageSet(STORAGE_KEYS.metrics + '-tiktok-followers', ttResult);
+                        return ttResult;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn(TAG, 'API follower fetch failed for', platform, ':', err.message);
+        }
+
+        // Fall back to stored data or zeros
+        var stored = await storageGetAsync(STORAGE_KEYS.metrics, {});
+        var pm = stored[platform] || {};
+        return {
+            platform: platform,
+            period: period,
+            followers: pm.followers || 0,
+            growth: pm.followerGrowth || 0,
+            source: 'stored'
+        };
+    }
+
     /* ================================================================== */
     /*  4. ENGAGEMENT & COMMUNITY                                          */
     /* ================================================================== */
@@ -663,11 +830,12 @@
         });
         var metrics = getEngagementMetrics();
 
-        var estimatedReach = metrics.totals.reach || posts.length * 250;
-        var estimatedClicks = metrics.totals.clicks || Math.round(estimatedReach * 0.02);
-        var estimatedConversions = Math.round(estimatedClicks * 0.03);
-        var estimatedRevenue = estimatedConversions * 50;
-        var estimatedCost = posts.length * 15;
+        var storedPerf = storageGet('social-roi-performance', {});
+        var estimatedReach = metrics.totals.reach || storedPerf.reach || 0;
+        var estimatedClicks = metrics.totals.clicks || storedPerf.clicks || 0;
+        var estimatedConversions = storedPerf.conversions || 0;
+        var estimatedRevenue = storedPerf.revenue || 0;
+        var estimatedCost = storedPerf.cost || 0;
 
         var roi = estimatedCost > 0
             ? (((estimatedRevenue - estimatedCost) / estimatedCost) * 100).toFixed(1)
@@ -790,6 +958,8 @@
         getPlatformStats: getPlatformStats,
         getConnectedPlatforms: getConnectedPlatforms,
         getBestPostingTimes: getBestPostingTimes,
+        getChannelMetrics: getChannelMetrics,
+        getFollowerGrowth: getFollowerGrowth,
 
         /* 4. Engagement & Community */
         getEngagementMetrics: getEngagementMetrics,

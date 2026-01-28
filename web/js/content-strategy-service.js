@@ -59,6 +59,26 @@
         } catch (err) {
             console.error(TAG, 'Storage write error for', key, err);
         }
+        // Async persist to Supabase via MarketingStore
+        if (window.MarketingStore) {
+            window.MarketingStore.set('content', key, value).catch(function(e) {
+                console.warn(TAG, 'MarketingStore persist failed:', e.message);
+            });
+        }
+    }
+
+    /** Async load from Supabase (falls back to localStorage) */
+    async function storageGetAsync(key, fallback) {
+        if (window.MarketingStore) {
+            try {
+                var data = await window.MarketingStore.get('content', key, null);
+                if (data !== null) {
+                    try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
+                    return data;
+                }
+            } catch (e) { console.warn(TAG, 'MarketingStore load failed:', e.message); }
+        }
+        return storageGet(key, fallback);
     }
 
     /** Generate a unique identifier */
