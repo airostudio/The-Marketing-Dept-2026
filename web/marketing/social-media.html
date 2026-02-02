@@ -572,58 +572,100 @@
         }
 
         /* ── Data Loading ── */
-        function loadFallbackData() {
+        const STORAGE_KEY = 'social-media';
+
+        async function loadStoredData() {
+            console.log('[SocialMedia] Loading stored data');
+            var data = null;
+
+            // Try MarketingStore first (Supabase with localStorage fallback)
+            if (window.MarketingStore) {
+                try {
+                    data = await window.MarketingStore.get(STORAGE_KEY, 'dashboard-data', null);
+                } catch (e) {
+                    console.warn('[SocialMedia] MarketingStore unavailable:', e);
+                }
+            }
+
+            // Fallback to direct localStorage
+            if (!data) {
+                try {
+                    var stored = localStorage.getItem(STORAGE_KEY + '-dashboard');
+                    if (stored) data = JSON.parse(stored);
+                } catch (e) {}
+            }
+
+            if (data && Object.keys(data).length > 0) {
+                // Render stored data
+                if (data.kpis) renderKPIs(data.kpis);
+                if (data.platforms) renderPlatforms(data.platforms);
+                if (data.scheduledPosts) renderScheduler(data.scheduledPosts);
+                if (data.heatmap) renderHeatmap(data.heatmap);
+                if (data.posts) renderPosts(data.posts);
+                if (data.trending) renderTrending(data.trending);
+            } else {
+                // Show empty states - no demo data
+                renderEmptyState();
+            }
+        }
+
+        function renderEmptyState() {
+            console.log('[SocialMedia] Showing empty state - no data yet');
+
+            // KPIs with zeros
             renderKPIs({
-                totalFollowers: 487250, followersChange: 8.3,
-                engagementRate: 4.72, engagementChange: 0.34,
-                socialTraffic: 34820, trafficChange: 12.1,
-                shareOfVoice: 23.8, sovChange: 2.4
+                totalFollowers: 0, followersChange: 0,
+                engagementRate: 0, engagementChange: 0,
+                socialTraffic: 0, trafficChange: 0,
+                shareOfVoice: 0, sovChange: 0
             });
+
+            // Platforms with zeros
             renderPlatforms({
-                fb: { followers: 142000, engagement: 3.2, growth: 2.1, reach: 89000 },
-                ig: { followers: 118500, engagement: 5.8, growth: 6.4, reach: 156000 },
-                tw: { followers: 67300, engagement: 2.9, growth: 1.8, reach: 234000 },
-                li: { followers: 89400, engagement: 6.1, growth: 4.7, reach: 67000 },
-                tt: { followers: 45200, engagement: 8.4, growth: 18.2, reach: 520000 },
-                yt: { followers: 24850, engagement: 4.1, growth: 3.6, reach: 12400 }
+                fb: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                ig: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                tw: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                li: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                tt: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                yt: { followers: 0, engagement: 0, growth: 0, reach: 0 }
             });
-            renderScheduler([
-                { date: new Date().toISOString().split('T')[0], time: '09:00', platform: 'Instagram Story' },
-                { date: new Date().toISOString().split('T')[0], time: '14:30', platform: 'LinkedIn Article' },
-                { date: new Date(Date.now() + 86400000).toISOString().split('T')[0], time: '10:00', platform: 'Twitter Thread' },
-                { date: new Date(Date.now() + 86400000).toISOString().split('T')[0], time: '16:00', platform: 'Facebook Post' },
-                { date: new Date(Date.now() + 172800000).toISOString().split('T')[0], time: '11:00', platform: 'TikTok Video' },
-                { date: new Date(Date.now() + 259200000).toISOString().split('T')[0], time: '13:00', platform: 'YouTube Short' },
-                { date: new Date(Date.now() + 345600000).toISOString().split('T')[0], time: '09:30', platform: 'Instagram Reel' },
-                { date: new Date(Date.now() + 345600000).toISOString().split('T')[0], time: '15:00', platform: 'LinkedIn Post' }
-            ]);
+
+            // Empty scheduler
+            document.getElementById('scheduler-list').innerHTML = '<div class="empty-state" style="padding:2rem;text-align:center;color:var(--text-secondary);"><p>No posts scheduled</p><p style="font-size:0.8rem;opacity:0.7;">Click "Schedule Post" to plan your content</p></div>';
+
+            // Empty heatmap
             renderHeatmap({
-                '6am':  [12, 18, 15, 20, 14, 8, 6],
-                '9am':  [45, 62, 58, 70, 55, 22, 15],
-                '12pm': [78, 85, 90, 82, 76, 45, 38],
-                '3pm':  [60, 72, 68, 75, 65, 50, 42],
-                '6pm':  [82, 78, 88, 80, 72, 65, 55],
-                '9pm':  [55, 48, 52, 45, 40, 68, 72]
+                '6am':  [0, 0, 0, 0, 0, 0, 0],
+                '9am':  [0, 0, 0, 0, 0, 0, 0],
+                '12pm': [0, 0, 0, 0, 0, 0, 0],
+                '3pm':  [0, 0, 0, 0, 0, 0, 0],
+                '6pm':  [0, 0, 0, 0, 0, 0, 0],
+                '9pm':  [0, 0, 0, 0, 0, 0, 0]
             });
-            renderPosts([
-                { platformKey: 'ig', platformLabel: 'Instagram', content: 'Excited to unveil our new product line! Innovation meets design in every detail...', date: '2026-01-27', likes: 2340, comments: 187, shares: 412, reach: 45200 },
-                { platformKey: 'li', platformLabel: 'LinkedIn', content: 'Our latest whitepaper on B2B marketing trends is now available for download...', date: '2026-01-27', likes: 890, comments: 67, shares: 234, reach: 23100 },
-                { platformKey: 'tw', platformLabel: 'Twitter/X', content: 'Thread: 5 marketing strategies that drove 300% ROI for our clients in Q4...', date: '2026-01-26', likes: 1567, comments: 234, shares: 789, reach: 67800 },
-                { platformKey: 'fb', platformLabel: 'Facebook', content: 'Join us for a live Q&A session this Friday at 2PM EST with our marketing experts...', date: '2026-01-26', likes: 456, comments: 89, shares: 123, reach: 18900 },
-                { platformKey: 'tt', platformLabel: 'TikTok', content: 'POV: When the marketing campaign goes viral and your phone won\'t stop buzzing...', date: '2026-01-25', likes: 12400, comments: 890, shares: 3400, reach: 245000 },
-                { platformKey: 'yt', platformLabel: 'YouTube', content: 'How We Built a $1M Marketing Funnel from Scratch - Full Breakdown', date: '2026-01-25', likes: 3200, comments: 456, shares: 890, reach: 78000 },
-                { platformKey: 'ig', platformLabel: 'Instagram', content: 'Behind the scenes of our latest brand photoshoot. The team crushed it!', date: '2026-01-24', likes: 4500, comments: 312, shares: 567, reach: 52000 },
-                { platformKey: 'li', platformLabel: 'LinkedIn', content: 'Proud to announce we have been named a Top 50 Marketing Agency for 2026...', date: '2026-01-24', likes: 2100, comments: 178, shares: 645, reach: 41000 }
-            ]);
-            renderTrending([
-                { topic: 'AI-Powered Content Creation', volume: 284000, velocity: 'Trending up 45%', sentiment: 'positive' },
-                { topic: 'Short-Form Video Strategy', volume: 196000, velocity: 'Steady growth', sentiment: 'positive' },
-                { topic: 'Social Commerce Integration', volume: 152000, velocity: 'Trending up 28%', sentiment: 'positive' },
-                { topic: 'Privacy-First Marketing', volume: 118000, velocity: 'Emerging trend', sentiment: 'neutral' },
-                { topic: 'Influencer ROI Measurement', volume: 97000, velocity: 'Trending up 15%', sentiment: 'positive' },
-                { topic: 'Community-Led Growth', volume: 84000, velocity: 'Steady growth', sentiment: 'positive' }
-            ]);
-            document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;"><div style="font-size:0.85rem;margin-bottom:0.5rem;">Engagement Trend</div><svg width="100%" height="140" viewBox="0 0 500 140"><polyline fill="none" stroke="#6366f1" stroke-width="2" points="10,120 40,100 70,110 100,85 130,90 160,70 190,75 220,55 250,60 280,45 310,50 340,35 370,40 400,25 430,30 460,20 490,15"/><polyline fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="5,5" points="10,130 40,125 70,120 100,115 130,110 160,105 190,100 220,95 250,90 280,85 310,80 340,75 370,70 400,65 430,60 460,55 490,50"/></svg><div style="display:flex;gap:1.5rem;justify-content:center;font-size:0.72rem;color:var(--text-secondary);margin-top:0.5rem;"><span><span style="color:#6366f1;">&#9632;</span> Engagement</span><span><span style="color:#22c55e;">&#9632;</span> Reach Growth</span></div></div>';
+
+            // Empty posts
+            document.getElementById('posts-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);">No posts yet. Connect your social accounts to see performance data.</td></tr>';
+
+            // Empty trending
+            document.getElementById('trending-list').innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">No trending topics tracked yet</div>';
+
+            // Empty chart
+            document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
+        }
+
+        async function saveData(data) {
+            // Save to MarketingStore (Supabase with localStorage fallback)
+            if (window.MarketingStore) {
+                try {
+                    await window.MarketingStore.set(STORAGE_KEY, 'dashboard-data', data);
+                } catch (e) {
+                    console.warn('[SocialMedia] Could not save to MarketingStore:', e);
+                }
+            }
+            // Also save to localStorage as fallback
+            try {
+                localStorage.setItem(STORAGE_KEY + '-dashboard', JSON.stringify(data));
+            } catch (e) {}
         }
 
         async function loadSchedulerData() {
@@ -650,11 +692,11 @@
                     renderPosts(data.recentPosts);
                     renderTrending(data.trending);
                 } else {
-                    loadFallbackData();
+                    loadStoredData();
                 }
             } catch (err) {
                 console.warn('Social media service unavailable, loading fallback data:', err);
-                loadFallbackData();
+                loadStoredData();
             }
         }
 

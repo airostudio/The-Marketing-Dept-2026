@@ -2280,7 +2280,7 @@
         initialize: () => AgentEngine.initialize(),
         stop: () => AgentEngine.stop(),
         resume: () => AgentEngine.resume(),
-        runAllAgents: () => AgentEngine.runFullCycle(),
+        runAllAgents: async () => await AgentEngine.runFullCycle(),
 
         // State access
         getAgentStatus: () => AgentEngine.state.agents,
