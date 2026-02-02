@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Generation Specialist - Marketing Department</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+
+        .leadgen-container {
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .page-header h1 {
+            font-size: 1.75rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--dark);
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-icon.blue { background: #dbeafe; }
+        .stat-icon.green { background: #d1fae5; }
+        .stat-icon.orange { background: #fef3c7; }
+        .stat-icon.red { background: #fee2e2; }
+        .stat-icon.purple { background: #ede9fe; }
+
+        .stat-content h3 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin: 0;
+        }
+
+        .stat-content p {
+            color: #64748b;
+            margin: 0;
+            font-size: 0.875rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 0.75rem 1.25rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 500;
+            color: #64748b;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Pipeline View */
+        .pipeline-container {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+
+        .pipeline-stage {
+            min-width: 280px;
+            background: #f1f5f9;
+            border-radius: 0.75rem;
+            padding: 1rem;
+        }
+
+        .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .stage-title {
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stage-count {
+            background: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .prospect-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .prospect-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .prospect-name {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .prospect-company {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .prospect-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+        }
+
+        .lead-score {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+        }
+
+        .score-hot { background: #fee2e2; color: #dc2626; }
+        .score-warm { background: #fef3c7; color: #d97706; }
+        .score-cold { background: #dbeafe; color: #2563eb; }
+
+        /* Outreach Section */
+        .outreach-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .outreach-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--dark);
+        }
+
+        .panel-body {
+            padding: 1.5rem;
+        }
+
+        /* Sequence List */
+        .sequence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .sequence-info h4 {
+            margin: 0 0 0.25rem 0;
+            color: var(--dark);
+        }
+
+        .sequence-info p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .sequence-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .sequence-stats span {
+            padding: 0.25rem 0.5rem;
+            background: #f1f5f9;
+            border-radius: 0.25rem;
+        }
+
+        /* Template Card */
+        .template-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-card:hover {
+            border-color: var(--primary);
+            background: #f8fafc;
+        }
+
+        .template-card h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--dark);
+        }
+
+        .template-card .subject {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* Campaign Cards */
+        .campaign-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .campaign-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .campaign-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .campaign-title {
+            font-weight: 600;
+            color: var(--dark);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .campaign-type {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .campaign-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-active { background: #d1fae5; color: #059669; }
+        .status-draft { background: #e2e8f0; color: #64748b; }
+        .status-paused { background: #fef3c7; color: #d97706; }
+
+        .campaign-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .campaign-metric {
+            text-align: center;
+        }
+
+        .campaign-metric .value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .campaign-metric .label {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        /* Qualification Panel */
+        .qualification-form {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .bant-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .bant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .bant-header h4 {
+            margin: 0;
+            color: var(--dark);
+        }
+
+        .bant-score {
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            background: #f1f5f9;
+            border-radius: 0.25rem;
+        }
+
+        .bant-questions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .bant-question {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        /* Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .funnel-chart {
+            padding: 1.5rem;
+        }
+
+        .funnel-stage {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .funnel-bar {
+            height: 40px;
+            background: var(--primary);
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 1rem;
+            color: white;
+            font-weight: 600;
+            min-width: 50px;
+            transition: all 0.3s;
+        }
+
+        .funnel-label {
+            min-width: 100px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .source-list {
+            padding: 1rem;
+        }
+
+        .source-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .source-item:last-child {
+            border-bottom: none;
+        }
+
+        .source-name {
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .source-count {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .source-bar {
+            height: 8px;
+            background: var(--primary);
+            border-radius: 4px;
+            min-width: 20px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--dark);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* Activity Timeline */
+        .activity-timeline {
+            padding: 1rem;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.email { background: #dbeafe; color: #3b82f6; }
+        .activity-icon.call { background: #d1fae5; color: #10b981; }
+        .activity-icon.meeting { background: #fef3c7; color: #f59e0b; }
+        .activity-icon.note { background: #e2e8f0; color: #64748b; }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-content p {
+            margin: 0 0 0.25rem 0;
+            color: var(--dark);
+        }
+
+        .activity-content small {
+            color: #64748b;
+        }
+
+        /* Nurture Tracks */
+        .nurture-tracks {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .nurture-track {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
+
+        .track-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .track-header h4 {
+            margin: 0;
+            color: var(--dark);
+        }
+
+        .track-description {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+
+        .track-touchpoints {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .touchpoint {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: #f1f5f9;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .touchpoint-day {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--dark);
+        }
+
+        .empty-state p {
+            margin: 0 0 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="leadgen-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Lead Generation Specialist
+            </h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exportLeads()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Export
+                </button>
+                <button class="btn btn-primary" onclick="openAddLeadModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add Lead
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <h3 id="totalLeads">0</h3>
+                    <p>Total Leads</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <h3 id="hotLeads">0</h3>
+                    <p>Hot Leads</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <h3 id="qualifiedLeads">0</h3>
+                    <p>Qualified</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <h3 id="pipelineValue">$0</h3>
+                    <p>Pipeline Value</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <h3 id="conversionRate">0%</h3>
+                    <p>Conversion Rate</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="pipeline">Pipeline</button>
+            <button class="tab" data-tab="outreach">Outreach</button>
+            <button class="tab" data-tab="campaigns">Campaigns</button>
+            <button class="tab" data-tab="qualification">Qualification</button>
+            <button class="tab" data-tab="nurturing">Nurturing</button>
+            <button class="tab" data-tab="analytics">Analytics</button>
+        </div>
+
+        <!-- Pipeline Tab -->
+        <div class="tab-content active" id="tab-pipeline">
+            <div class="pipeline-container" id="pipelineView">
+                <!-- Pipeline stages populated by JS -->
+            </div>
+        </div>
+
+        <!-- Outreach Tab -->
+        <div class="tab-content" id="tab-outreach">
+            <div class="outreach-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Active Sequences</h3>
+                        <button class="btn btn-primary" onclick="createSequence()">+ New Sequence</button>
+                    </div>
+                    <div class="panel-body" id="sequencesList">
+                        <!-- Sequences populated by JS -->
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Email Templates</h3>
+                        <button class="btn btn-secondary" onclick="createTemplate()">+ Template</button>
+                    </div>
+                    <div class="panel-body" id="templatesList">
+                        <!-- Templates populated by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="panel" style="margin-top: 1.5rem;">
+                <div class="panel-header">
+                    <h3>Recent Activity</h3>
+                </div>
+                <div class="activity-timeline" id="activityTimeline">
+                    <!-- Activity populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Campaigns Tab -->
+        <div class="tab-content" id="tab-campaigns">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+                <button class="btn btn-primary" onclick="createCampaign()">+ New Campaign</button>
+            </div>
+            <div class="campaign-grid" id="campaignGrid">
+                <!-- Campaigns populated by JS -->
+            </div>
+        </div>
+
+        <!-- Qualification Tab -->
+        <div class="tab-content" id="tab-qualification">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Lead Scoring Model (BANT)</h3>
+                    <button class="btn btn-secondary" onclick="editScoringModel()">Edit Model</button>
+                </div>
+                <div class="panel-body">
+                    <div class="qualification-form" id="qualificationForm">
+                        <div class="bant-section">
+                            <div class="bant-header">
+                                <h4>Budget</h4>
+                                <span class="bant-score">25 pts</span>
+                            </div>
+                            <div class="bant-questions">
+                                <label class="bant-question">
+                                    <input type="checkbox" name="budget_allocated"> Has budget allocated?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="budget_confirmed"> Budget amount confirmed?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="budget_timeline"> Budget timeline known?
+                                </label>
+                            </div>
+                        </div>
+                        <div class="bant-section">
+                            <div class="bant-header">
+                                <h4>Authority</h4>
+                                <span class="bant-score">25 pts</span>
+                            </div>
+                            <div class="bant-questions">
+                                <label class="bant-question">
+                                    <input type="checkbox" name="is_decision_maker"> Is decision maker?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="influences_decision"> Influences decision?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="access_dm"> Access to decision maker?
+                                </label>
+                            </div>
+                        </div>
+                        <div class="bant-section">
+                            <div class="bant-header">
+                                <h4>Need</h4>
+                                <span class="bant-score">25 pts</span>
+                            </div>
+                            <div class="bant-questions">
+                                <label class="bant-question">
+                                    <input type="checkbox" name="pain_identified"> Has identified pain point?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="urgency"> Urgency exists?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="priority"> Problem is priority?
+                                </label>
+                            </div>
+                        </div>
+                        <div class="bant-section">
+                            <div class="bant-header">
+                                <h4>Timeline</h4>
+                                <span class="bant-score">25 pts</span>
+                            </div>
+                            <div class="bant-questions">
+                                <label class="bant-question">
+                                    <input type="checkbox" name="has_timeline"> Has timeline?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="immediate"> Timeline is immediate?
+                                </label>
+                                <label class="bant-question">
+                                    <input type="checkbox" name="this_quarter"> Timeline is this quarter?
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nurturing Tab -->
+        <div class="tab-content" id="tab-nurturing">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+                <button class="btn btn-primary" onclick="createNurtureTrack()">+ New Track</button>
+            </div>
+            <div class="nurture-tracks" id="nurtureTracks">
+                <!-- Nurture tracks populated by JS -->
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-content" id="tab-analytics">
+            <div class="analytics-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Conversion Funnel</h3>
+                    </div>
+                    <div class="funnel-chart" id="funnelChart">
+                        <!-- Funnel populated by JS -->
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Lead Sources</h3>
+                    </div>
+                    <div class="source-list" id="sourcesList">
+                        <!-- Sources populated by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="panel" style="margin-top: 1.5rem;">
+                <div class="panel-header">
+                    <h3>Outreach Performance</h3>
+                    <select id="outreachPeriod" onchange="updateOutreachStats()">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+                <div class="panel-body">
+                    <div class="stats-row" id="outreachStats">
+                        <!-- Outreach stats populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Lead Modal -->
+    <div class="modal" id="addLeadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Lead</h2>
+                <button class="modal-close" onclick="closeModal('addLeadModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addLeadForm" onsubmit="handleAddLead(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>First Name *</label>
+                            <input type="text" name="firstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name *</label>
+                            <input type="text" name="lastName" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" name="email" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Company</label>
+                            <input type="text" name="company">
+                        </div>
+                        <div class="form-group">
+                            <label>Job Title</label>
+                            <input type="text" name="title">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="tel" name="phone">
+                        </div>
+                        <div class="form-group">
+                            <label>Source</label>
+                            <select name="source">
+                                <option value="website">Website</option>
+                                <option value="linkedin">LinkedIn</option>
+                                <option value="referral">Referral</option>
+                                <option value="event">Event</option>
+                                <option value="cold_outreach">Cold Outreach</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Estimated Value ($)</label>
+                        <input type="number" name="estimatedValue" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" rows="3"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addLeadModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Lead</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Detail Modal -->
+    <div class="modal" id="leadDetailModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="leadDetailName">Lead Details</h2>
+                <button class="modal-close" onclick="closeModal('leadDetailModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="leadDetailContent">
+                <!-- Lead details populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/store.js"></script>
+    <script src="/js/lead-generation-service.js"></script>
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Modal functions
+        function openAddLeadModal() {
+            document.getElementById('addLeadModal').classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // Handle adding a new lead
+        async function handleAddLead(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+
+            const leadData = {
+                name: `${formData.get('firstName')} ${formData.get('lastName')}`,
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                company: formData.get('company'),
+                title: formData.get('title'),
+                phone: formData.get('phone'),
+                source: formData.get('source'),
+                estimatedValue: parseFloat(formData.get('estimatedValue')) || 0,
+                notes: formData.get('notes')
+            };
+
+            await window.LeadGeneration.createLead(leadData);
+            closeModal('addLeadModal');
+            form.reset();
+            await loadDashboard();
+        }
+
+        // Load pipeline view
+        async function loadPipeline() {
+            const pipelineData = await window.LeadGeneration.Pipeline.getPipelineData();
+            const container = document.getElementById('pipelineView');
+
+            container.innerHTML = pipelineData.map(stage => `
+                <div class="pipeline-stage" data-stage="${stage.id}">
+                    <div class="stage-header">
+                        <div class="stage-title">
+                            <span style="width: 12px; height: 12px; border-radius: 50%; background: ${stage.color};"></span>
+                            ${stage.name}
+                        </div>
+                        <span class="stage-count">${stage.count}</span>
+                    </div>
+                    <div class="stage-prospects">
+                        ${stage.prospects.map(p => {
+                            const scoreInfo = window.LeadGeneration.Qualification.getScoreLabel(p.score || 0);
+                            const scoreClass = p.score >= 80 ? 'score-hot' : p.score >= 50 ? 'score-warm' : 'score-cold';
+                            return `
+                                <div class="prospect-card" onclick="viewProspect('${p.id}')">
+                                    <div class="prospect-name">${p.name || 'Unknown'}</div>
+                                    <div class="prospect-company">${p.company || 'No company'}</div>
+                                    <div class="prospect-meta">
+                                        <span>${p.title || '-'}</span>
+                                        <span class="lead-score ${scoreClass}">${p.score || 0}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${stage.prospects.length === 0 ? '<div style="text-align: center; color: #94a3b8; padding: 1rem; font-size: 0.875rem;">No leads</div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load sequences
+        async function loadSequences() {
+            const sequences = await window.LeadGeneration.Outreach.getSequences();
+            const container = document.getElementById('sequencesList');
+
+            if (sequences.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No sequences yet</h3>
+                        <p>Create automated email sequences to nurture leads.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = sequences.map(seq => `
+                <div class="sequence-item">
+                    <div class="sequence-info">
+                        <h4>${seq.name}</h4>
+                        <p>${seq.steps?.length || 0} steps - ${seq.status}</p>
+                    </div>
+                    <div class="sequence-stats">
+                        <span>${seq.enrolled || 0} enrolled</span>
+                        <span>${seq.stats?.sent || 0} sent</span>
+                        <span>${seq.stats?.opened || 0} opened</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load templates
+        async function loadTemplates() {
+            const templates = await window.LeadGeneration.Outreach.getTemplates();
+            const container = document.getElementById('templatesList');
+
+            container.innerHTML = templates.map(tpl => `
+                <div class="template-card" onclick="editTemplate('${tpl.id}')">
+                    <h4>${tpl.name}</h4>
+                    <div class="subject">${tpl.subject}</div>
+                </div>
+            `).join('');
+        }
+
+        // Load campaigns
+        async function loadCampaigns() {
+            const campaigns = await window.LeadGeneration.Campaigns.getCampaigns();
+            const container = document.getElementById('campaignGrid');
+
+            if (campaigns.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h3>No campaigns yet</h3>
+                        <p>Create lead generation campaigns to track ROI and performance.</p>
+                        <button class="btn btn-primary" onclick="createCampaign()">Create Campaign</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = campaigns.map(camp => {
+                const statusClass = camp.status === 'active' ? 'status-active' :
+                                   camp.status === 'paused' ? 'status-paused' : 'status-draft';
+                return `
+                    <div class="campaign-card">
+                        <div class="campaign-header">
+                            <div>
+                                <h4 class="campaign-title">${camp.name}</h4>
+                                <span class="campaign-type">${camp.type || 'Outbound'}</span>
+                            </div>
+                            <span class="campaign-status ${statusClass}">${camp.status}</span>
+                        </div>
+                        <div class="campaign-metrics">
+                            <div class="campaign-metric">
+                                <div class="value">${camp.metrics?.leadsGenerated || 0}</div>
+                                <div class="label">Leads</div>
+                            </div>
+                            <div class="campaign-metric">
+                                <div class="value">$${camp.spent || 0}</div>
+                                <div class="label">Spent</div>
+                            </div>
+                            <div class="campaign-metric">
+                                <div class="value">$${camp.metrics?.costPerLead || 0}</div>
+                                <div class="label">CPL</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load nurture tracks
+        async function loadNurtureTracks() {
+            const tracks = await window.LeadGeneration.Nurturing.getNurtureTracks();
+            const container = document.getElementById('nurtureTracks');
+
+            container.innerHTML = tracks.map(track => `
+                <div class="nurture-track">
+                    <div class="track-header">
+                        <h4>${track.name}</h4>
+                        <span style="font-size: 0.875rem; color: #64748b;">${track.duration || 'Ongoing'}</span>
+                    </div>
+                    <p class="track-description">${track.description || 'No description'}</p>
+                    <div class="track-touchpoints">
+                        ${(track.touchpoints || []).map(tp => `
+                            <span class="touchpoint">
+                                <span class="touchpoint-day">Day ${tp.day}</span>
+                                ${tp.type === 'email' ? '📧' : tp.type === 'call' ? '📞' : '📋'}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            // Load funnel
+            const funnel = await window.LeadGeneration.Analytics.getConversionFunnel();
+            const funnelContainer = document.getElementById('funnelChart');
+
+            funnelContainer.innerHTML = funnel.map((stage, i) => {
+                const width = Math.max(stage.percentage, 10);
+                const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'];
+                return `
+                    <div class="funnel-stage">
+                        <span class="funnel-label">${stage.stage}</span>
+                        <div class="funnel-bar" style="width: ${width}%; background: ${colors[i] || colors[0]};">
+                            ${stage.count}
+                        </div>
+                        <span style="color: #64748b; font-size: 0.875rem;">${stage.percentage}%</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Load sources
+            const sources = await window.LeadGeneration.Analytics.getLeadSources();
+            const sourcesContainer = document.getElementById('sourcesList');
+
+            if (sources.length === 0) {
+                sourcesContainer.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 2rem;">No lead sources yet</div>';
+            } else {
+                sourcesContainer.innerHTML = sources.map(source => `
+                    <div class="source-item">
+                        <span class="source-name">${source.name}</span>
+                        <div class="source-count">
+                            <div class="source-bar" style="width: ${source.percentage * 2}px;"></div>
+                            <span>${source.count} (${source.percentage}%)</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Load outreach stats
+            await updateOutreachStats();
+        }
+
+        // Update outreach stats
+        async function updateOutreachStats() {
+            const days = parseInt(document.getElementById('outreachPeriod').value);
+            const stats = await window.LeadGeneration.Outreach.getOutreachStats({
+                start: new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+            });
+
+            const container = document.getElementById('outreachStats');
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3>${stats.emails}</h3>
+                        <p>Emails Sent</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3>${stats.calls}</h3>
+                        <p>Calls Made</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                            <rect x="2" y="9" width="4" height="12"/>
+                            <circle cx="4" cy="4" r="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3>${stats.linkedin}</h3>
+                        <p>LinkedIn Messages</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <h3>${stats.responseRate}%</h3>
+                        <p>Response Rate</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load activity timeline
+        async function loadActivityTimeline() {
+            const activities = await window.LeadGeneration.Analytics.getActivityTimeline(30);
+            const container = document.getElementById('activityTimeline');
+
+            if (activities.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 2rem;">No recent activity</div>';
+                return;
+            }
+
+            container.innerHTML = activities.slice(0, 10).map(activity => {
+                const iconClass = activity.type?.includes('email') ? 'email' :
+                                 activity.type?.includes('call') ? 'call' :
+                                 activity.type?.includes('meeting') ? 'meeting' : 'note';
+                const icon = iconClass === 'email' ? '📧' :
+                            iconClass === 'call' ? '📞' :
+                            iconClass === 'meeting' ? '📅' : '📝';
+
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${iconClass}">${icon}</div>
+                        <div class="activity-content">
+                            <p><strong>${activity.prospectName}</strong> - ${activity.type?.replace(/_/g, ' ') || 'Activity'}</p>
+                            <small>${new Date(activity.timestamp).toLocaleString()}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // View prospect details
+        async function viewProspect(id) {
+            const prospect = await window.LeadGeneration.Prospects.getById(id);
+            if (!prospect) return;
+
+            document.getElementById('leadDetailName').textContent = prospect.name || 'Lead Details';
+
+            const scoreInfo = window.LeadGeneration.Qualification.getScoreLabel(prospect.score || 0);
+            const scoreClass = prospect.score >= 80 ? 'score-hot' : prospect.score >= 50 ? 'score-warm' : 'score-cold';
+
+            document.getElementById('leadDetailContent').innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <h3 style="margin-top: 0;">Contact Information</h3>
+                        <div style="display: grid; gap: 0.75rem;">
+                            <div><strong>Email:</strong> ${prospect.email || '-'}</div>
+                            <div><strong>Phone:</strong> ${prospect.phone || '-'}</div>
+                            <div><strong>Company:</strong> ${prospect.company || '-'}</div>
+                            <div><strong>Title:</strong> ${prospect.title || '-'}</div>
+                            <div><strong>Source:</strong> ${prospect.source || '-'}</div>
+                            <div><strong>Est. Value:</strong> $${prospect.estimatedValue || 0}</div>
+                        </div>
+                        <h3>Lead Score</h3>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span class="lead-score ${scoreClass}" style="font-size: 1.5rem; padding: 0.5rem 1rem;">
+                                ${prospect.score || 0}
+                            </span>
+                            <span style="font-size: 1.25rem;">${scoreInfo.icon} ${scoreInfo.label}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="margin-top: 0;">Recent Activity</h3>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            ${(prospect.activities || []).slice(-10).reverse().map(a => `
+                                <div style="padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0;">
+                                    <div style="font-weight: 500;">${a.type?.replace(/_/g, ' ') || 'Activity'}</div>
+                                    <div style="font-size: 0.75rem; color: #64748b;">${new Date(a.timestamp).toLocaleString()}</div>
+                                </div>
+                            `).join('') || '<div style="color: #94a3b8;">No activity yet</div>'}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="logActivity('${prospect.id}', 'email')">Log Email</button>
+                    <button class="btn btn-secondary" onclick="logActivity('${prospect.id}', 'call')">Log Call</button>
+                    <button class="btn btn-secondary" onclick="moveStage('${prospect.id}')">Change Stage</button>
+                </div>
+            `;
+
+            document.getElementById('leadDetailModal').classList.add('active');
+        }
+
+        // Log activity
+        async function logActivity(prospectId, type) {
+            await window.LeadGeneration.Prospects.addActivity(prospectId, {
+                type: type + '_logged',
+                details: { manual: true }
+            });
+            await loadDashboard();
+            closeModal('leadDetailModal');
+        }
+
+        // Move stage
+        async function moveStage(prospectId) {
+            const stages = await window.LeadGeneration.Pipeline.getStages();
+            const prospect = await window.LeadGeneration.Prospects.getById(prospectId);
+
+            const newStage = prompt(`Move to stage:\n${stages.map((s, i) => `${i + 1}. ${s.name}`).join('\n')}\n\nCurrent: ${prospect.status}\nEnter stage name:`);
+
+            if (newStage) {
+                const stage = stages.find(s => s.name.toLowerCase() === newStage.toLowerCase() || s.id === newStage);
+                if (stage) {
+                    await window.LeadGeneration.Pipeline.moveProspect(prospectId, stage.id);
+                    await loadDashboard();
+                    closeModal('leadDetailModal');
+                }
+            }
+        }
+
+        // Create placeholders for actions
+        function createSequence() { alert('Sequence builder coming soon!'); }
+        function createTemplate() { alert('Template editor coming soon!'); }
+        function createCampaign() { alert('Campaign creator coming soon!'); }
+        function createNurtureTrack() { alert('Nurture track builder coming soon!'); }
+        function editTemplate(id) { alert('Edit template: ' + id); }
+        function editScoringModel() { alert('Scoring model editor coming soon!'); }
+        function exportLeads() { alert('Export functionality coming soon!'); }
+
+        // Update dashboard stats
+        async function updateStats() {
+            const stats = await window.LeadGeneration.getDashboardStats();
+
+            document.getElementById('totalLeads').textContent = stats.prospects.total;
+            document.getElementById('hotLeads').textContent = stats.prospects.hotLeads;
+            document.getElementById('qualifiedLeads').textContent = stats.prospects.byStatus?.qualified || 0;
+            document.getElementById('pipelineValue').textContent = '$' + (stats.pipeline.total || 0).toLocaleString();
+
+            const converted = stats.prospects.byStatus?.converted || 0;
+            const rate = stats.prospects.total > 0 ? Math.round((converted / stats.prospects.total) * 100) : 0;
+            document.getElementById('conversionRate').textContent = rate + '%';
+        }
+
+        // Load all dashboard data
+        async function loadDashboard() {
+            await Promise.all([
+                updateStats(),
+                loadPipeline(),
+                loadSequences(),
+                loadTemplates(),
+                loadCampaigns(),
+                loadNurtureTracks(),
+                loadAnalytics(),
+                loadActivityTimeline()
+            ]);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait for services to load
+            setTimeout(loadDashboard, 100);
+        });
+    </script>
+</body>
+</html>
