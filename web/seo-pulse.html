@@ -828,6 +828,47 @@
             color: #3b82f6;
         }
 
+        /* Clickable issue items */
+        .issue-item {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .issue-item:hover {
+            background: var(--color-bg-secondary);
+            transform: translateX(4px);
+        }
+
+        .issue-item:hover .issue-name {
+            color: var(--color-primary-light);
+        }
+
+        .issue-fix-cta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--color-primary);
+            color: white;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+
+        .issue-item:hover .issue-fix-cta {
+            opacity: 1;
+        }
+
+        .issue-fix-cta svg {
+            width: 12px;
+            height: 12px;
+        }
+
         /* CTA Section */
         .cta-section {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
@@ -1217,6 +1258,23 @@
 
         // State
         let isScanning = false;
+        let currentResults = null;
+
+        // Issue to tool URL mapping
+        const issueToolMap = {
+            'Missing Meta Description': { url: '/seo/audits.html', tool: 'meta-tags', action: 'add-meta-description' },
+            'Slow Page Load': { url: '/seo/vitals.html', tool: 'performance', action: 'optimize-speed' },
+            'No SSL Certificate': { url: '/seo/audits.html', tool: 'security', action: 'add-ssl' },
+            'Missing H1 Tag': { url: '/seo/audits.html', tool: 'content', action: 'add-h1' },
+            'Images Without Alt Text': { url: '/seo/audits.html', tool: 'accessibility', action: 'add-alt-text' },
+            'Duplicate Title Tags': { url: '/seo/audits.html', tool: 'meta-tags', action: 'fix-duplicate-titles' },
+            'Large Image Files': { url: '/seo/vitals.html', tool: 'performance', action: 'compress-images' },
+            'Missing Canonical URL': { url: '/seo/audits.html', tool: 'technical', action: 'add-canonical' },
+            'No Sitemap Found': { url: '/seo/indexing.html', tool: 'sitemap', action: 'generate-sitemap' },
+            'Missing Robots.txt': { url: '/tools/robots.html', tool: 'robots', action: 'generate-robots' },
+            'Low Text-to-HTML Ratio': { url: '/seo/audits.html', tool: 'content', action: 'improve-content' },
+            'No Schema Markup': { url: '/tools/schema.html', tool: 'schema', action: 'add-schema' }
+        };
 
         // Initialize
         urlInput.addEventListener('input', validateUrl);
@@ -1402,6 +1460,9 @@
 
         // Show Results
         function showResults(results) {
+            // Store results for later use (e.g., when navigating to tools)
+            currentResults = results;
+
             // Hide scanning, show results
             scanningState.classList.remove('active');
             resultsSection.classList.add('active');
@@ -1537,15 +1598,18 @@
             const sortedIssues = [...critical, ...warning, ...notice];
 
             // Update list
-            issuesList.innerHTML = sortedIssues.map(issue => {
+            issuesList.innerHTML = sortedIssues.map((issue, index) => {
                 const icons = {
                     critical: '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
                     warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
                     notice: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
                 };
 
+                const toolInfo = issueToolMap[issue.name];
+                const hasToolLink = !!toolInfo;
+
                 return `
-                    <div class="issue-item ${issue.severity}">
+                    <div class="issue-item ${issue.severity}" data-issue-name="${issue.name}" data-issue-index="${index}" ${hasToolLink ? 'role="button" tabindex="0"' : ''}>
                         <div class="issue-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 ${icons[issue.severity]}
@@ -1555,10 +1619,54 @@
                             <div class="issue-name">${issue.name}</div>
                             <div class="issue-desc">${issue.desc}</div>
                         </div>
-                        <span class="issue-badge">${issue.severity}</span>
+                        ${hasToolLink ? `
+                        <div class="issue-fix-cta">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                            </svg>
+                            Fix Issue
+                        </div>
+                        ` : `<span class="issue-badge">${issue.severity}</span>`}
                     </div>
                 `;
             }).join('');
+
+            // Add click handlers for issues
+            issuesList.querySelectorAll('.issue-item[data-issue-name]').forEach(item => {
+                item.addEventListener('click', () => navigateToTool(item.dataset.issueName));
+                item.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigateToTool(item.dataset.issueName);
+                    }
+                });
+            });
+        }
+
+        // Navigate to tool page with issue parameters
+        function navigateToTool(issueName) {
+            const toolInfo = issueToolMap[issueName];
+            if (!toolInfo) {
+                console.warn('No tool mapping for issue:', issueName);
+                return;
+            }
+
+            // Build URL with parameters
+            const params = new URLSearchParams({
+                issue: issueName,
+                tool: toolInfo.tool,
+                action: toolInfo.action,
+                autofix: 'true',
+                source: 'seo-pulse'
+            });
+
+            // Add the scanned URL if available
+            if (currentResults && currentResults.url) {
+                params.set('url', currentResults.url);
+            }
+
+            // Navigate to the tool page
+            window.location.href = `${toolInfo.url}?${params.toString()}`;
         }
 
         // Reset to Input
