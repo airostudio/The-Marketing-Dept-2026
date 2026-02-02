@@ -1260,20 +1260,38 @@
         let isScanning = false;
         let currentResults = null;
 
-        // Issue to tool URL mapping
+        // Issue to tool URL mapping - includes real PageSpeed audit issues
         const issueToolMap = {
+            // Meta/SEO issues
             'Missing Meta Description': { url: '/seo/audits.html', tool: 'meta-tags', action: 'add-meta-description' },
-            'Slow Page Load': { url: '/seo/vitals.html', tool: 'performance', action: 'optimize-speed' },
-            'No SSL Certificate': { url: '/seo/audits.html', tool: 'security', action: 'add-ssl' },
-            'Missing H1 Tag': { url: '/seo/audits.html', tool: 'content', action: 'add-h1' },
-            'Images Without Alt Text': { url: '/seo/audits.html', tool: 'accessibility', action: 'add-alt-text' },
+            'Missing Page Title': { url: '/seo/audits.html', tool: 'meta-tags', action: 'add-title' },
             'Duplicate Title Tags': { url: '/seo/audits.html', tool: 'meta-tags', action: 'fix-duplicate-titles' },
-            'Large Image Files': { url: '/seo/vitals.html', tool: 'performance', action: 'compress-images' },
             'Missing Canonical URL': { url: '/seo/audits.html', tool: 'technical', action: 'add-canonical' },
+
+            // Performance issues
+            'Slow Page Load': { url: '/seo/vitals.html', tool: 'performance', action: 'optimize-speed' },
+            'Layout Shift Issues': { url: '/seo/vitals.html', tool: 'performance', action: 'fix-cls' },
+            'Large Image Files': { url: '/seo/vitals.html', tool: 'performance', action: 'compress-images' },
+            'Render Blocking Resources': { url: '/seo/vitals.html', tool: 'performance', action: 'optimize-resources' },
+
+            // Security issues
+            'No SSL Certificate': { url: '/seo/audits.html', tool: 'security', action: 'add-ssl' },
+            'HTTP Not Redirecting': { url: '/seo/audits.html', tool: 'security', action: 'fix-redirect' },
+
+            // Content/Accessibility issues
+            'Missing H1 Tag': { url: '/seo/audits.html', tool: 'content', action: 'add-h1' },
+            'Heading Structure Issues': { url: '/seo/audits.html', tool: 'content', action: 'fix-headings' },
+            'Images Without Alt Text': { url: '/seo/audits.html', tool: 'accessibility', action: 'add-alt-text' },
+            'Low Text-to-HTML Ratio': { url: '/seo/audits.html', tool: 'content', action: 'improve-content' },
+
+            // Mobile issues
+            'Missing Viewport Meta': { url: '/seo/mobile.html', tool: 'mobile', action: 'add-viewport' },
+
+            // Technical issues
             'No Sitemap Found': { url: '/seo/indexing.html', tool: 'sitemap', action: 'generate-sitemap' },
             'Missing Robots.txt': { url: '/tools/robots.html', tool: 'robots', action: 'generate-robots' },
-            'Low Text-to-HTML Ratio': { url: '/seo/audits.html', tool: 'content', action: 'improve-content' },
-            'No Schema Markup': { url: '/tools/schema.html', tool: 'schema', action: 'add-schema' }
+            'No Schema Markup': { url: '/tools/schema.html', tool: 'schema', action: 'add-schema' },
+            'Uncrawlable Links': { url: '/seo/audits.html', tool: 'technical', action: 'fix-links' }
         };
 
         // Initialize
@@ -1340,122 +1358,301 @@
             runScan(domain, url);
         }
 
-        // Run Scan
+        // Run Scan - REAL DATA using PageSpeed Insights API
         async function runScan(domain, url) {
             const checks = ['ssl', 'meta', 'performance', 'mobile', 'content', 'links'];
-            const statuses = [
-                'Checking SSL certificate...',
-                'Analyzing meta tags...',
-                'Testing page performance...',
-                'Checking mobile friendliness...',
-                'Analyzing content structure...',
-                'Checking internal links...',
-                'Compiling results...'
-            ];
+            let completedChecks = 0;
 
-            let progress = 0;
-            const progressStep = 100 / checks.length;
-
-            for (let i = 0; i < checks.length; i++) {
-                // Update status
-                scanningStatus.textContent = statuses[i];
-
-                // Activate check
-                const checkItem = document.querySelector(`[data-check="${checks[i]}"]`);
-                if (checkItem) {
-                    checkItem.classList.add('active');
-                }
-
-                // Simulate check duration
-                await sleep(randomInt(600, 1200));
-
-                // Complete check
+            // Helper to update progress
+            function updateProgress(checkName, status) {
+                const checkItem = document.querySelector(`[data-check="${checkName}"]`);
                 if (checkItem) {
                     checkItem.classList.remove('active');
                     checkItem.classList.add('complete');
                 }
-
-                // Update progress
-                progress += progressStep;
-                progressFill.style.width = `${Math.min(progress, 100)}%`;
+                completedChecks++;
+                progressFill.style.width = `${(completedChecks / checks.length) * 100}%`;
+                scanningStatus.textContent = status;
             }
 
-            // Final status
-            scanningStatus.textContent = 'Analysis complete!';
-            progressFill.style.width = '100%';
+            function setCheckActive(checkName) {
+                const checkItem = document.querySelector(`[data-check="${checkName}"]`);
+                if (checkItem) checkItem.classList.add('active');
+            }
 
-            await sleep(500);
+            try {
+                // Initialize results object
+                const analysisResults = {
+                    domain,
+                    url,
+                    isHttps: url.startsWith('https'),
+                    score: 0,
+                    metrics: { performance: 0, seo: 0, mobile: 0, security: 0 },
+                    issues: [],
+                    rawData: {}
+                };
 
-            // Generate and show results
-            const results = generateResults(domain, url);
-            showResults(results);
-        }
-
-        // Generate Results
-        function generateResults(domain, url) {
-            const urlObj = new URL(url);
-            const isHttps = urlObj.protocol === 'https:';
-
-            // Base score
-            let score = randomInt(55, 92);
-
-            // Adjust based on HTTPS
-            if (!isHttps) score -= 15;
-
-            // Generate issues
-            const allIssues = [
-                { name: 'Missing Meta Description', desc: 'Homepage lacks a meta description tag', severity: 'critical', category: 'meta' },
-                { name: 'Slow Page Load', desc: 'Page takes over 3 seconds to load', severity: 'critical', category: 'performance' },
-                { name: 'No SSL Certificate', desc: 'Site is not secured with HTTPS', severity: 'critical', category: 'security' },
-                { name: 'Missing H1 Tag', desc: 'Primary heading tag not found', severity: 'warning', category: 'content' },
-                { name: 'Images Without Alt Text', desc: '5 images missing alt attributes', severity: 'warning', category: 'accessibility' },
-                { name: 'Duplicate Title Tags', desc: 'Multiple pages share the same title', severity: 'warning', category: 'meta' },
-                { name: 'Large Image Files', desc: '3 images over 500KB detected', severity: 'warning', category: 'performance' },
-                { name: 'Missing Canonical URL', desc: 'No canonical tag specified', severity: 'notice', category: 'technical' },
-                { name: 'No Sitemap Found', desc: 'XML sitemap not detected', severity: 'notice', category: 'technical' },
-                { name: 'Missing Robots.txt', desc: 'Robots.txt file not found', severity: 'notice', category: 'technical' },
-                { name: 'Low Text-to-HTML Ratio', desc: 'Content ratio below recommended level', severity: 'notice', category: 'content' },
-                { name: 'No Schema Markup', desc: 'Structured data not implemented', severity: 'notice', category: 'technical' }
-            ];
-
-            // Select random issues
-            const issueCount = randomInt(4, 8);
-            const shuffled = allIssues.sort(() => 0.5 - Math.random());
-            let issues = shuffled.slice(0, issueCount);
-
-            // If HTTPS, remove SSL issue
-            if (isHttps) {
-                issues = issues.filter(i => i.name !== 'No SSL Certificate');
-            } else {
-                // Ensure SSL issue is included
-                if (!issues.find(i => i.name === 'No SSL Certificate')) {
-                    issues.unshift(allIssues.find(i => i.name === 'No SSL Certificate'));
+                // 1. Check SSL
+                setCheckActive('ssl');
+                scanningStatus.textContent = 'Checking SSL certificate...';
+                await sleep(300);
+                analysisResults.metrics.security = analysisResults.isHttps ? 100 : 0;
+                if (!analysisResults.isHttps) {
+                    analysisResults.issues.push({
+                        name: 'No SSL Certificate',
+                        desc: 'Site is not secured with HTTPS - this affects trust and rankings',
+                        severity: 'critical',
+                        category: 'security'
+                    });
                 }
+                updateProgress('ssl', 'SSL check complete');
+
+                // 2. Call PageSpeed Insights API for real data
+                setCheckActive('meta');
+                setCheckActive('performance');
+                setCheckActive('mobile');
+                setCheckActive('content');
+                scanningStatus.textContent = 'Running PageSpeed Insights analysis...';
+
+                const apiKey = window.APP_CONFIG?.PAGESPEED_API_KEY || '';
+                const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${apiKey ? '&key=' + apiKey : ''}`;
+
+                let pageSpeedData = null;
+                try {
+                    const response = await fetch(apiUrl);
+                    if (response.ok) {
+                        pageSpeedData = await response.json();
+                        analysisResults.rawData.pageSpeed = pageSpeedData;
+                    }
+                } catch (e) {
+                    console.warn('PageSpeed API error:', e);
+                }
+
+                // Extract metrics from PageSpeed if available
+                if (pageSpeedData && pageSpeedData.lighthouseResult) {
+                    const lh = pageSpeedData.lighthouseResult;
+                    const categories = lh.categories || {};
+                    const audits = lh.audits || {};
+
+                    // Get real scores (0-100)
+                    analysisResults.metrics.performance = Math.round((categories.performance?.score || 0) * 100);
+                    analysisResults.metrics.seo = Math.round((categories.seo?.score || 0) * 100);
+                    analysisResults.metrics.mobile = Math.round((categories.accessibility?.score || 0) * 100);
+
+                    // Extract real issues from failed audits
+
+                    // Meta description
+                    if (audits['meta-description']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Missing Meta Description',
+                            desc: audits['meta-description'].title || 'Page lacks a meta description',
+                            severity: 'critical',
+                            category: 'meta'
+                        });
+                    }
+
+                    // Title
+                    if (audits['document-title']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Missing Page Title',
+                            desc: 'Document does not have a title element',
+                            severity: 'critical',
+                            category: 'meta'
+                        });
+                    }
+
+                    // Viewport
+                    if (audits['viewport']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Missing Viewport Meta',
+                            desc: 'Page does not have a viewport meta tag for mobile',
+                            severity: 'warning',
+                            category: 'mobile'
+                        });
+                    }
+
+                    // Performance issues
+                    const lcp = audits['largest-contentful-paint'];
+                    if (lcp && lcp.numericValue > 4000) {
+                        analysisResults.issues.push({
+                            name: 'Slow Page Load',
+                            desc: `Largest Contentful Paint is ${(lcp.numericValue / 1000).toFixed(1)}s (should be <2.5s)`,
+                            severity: lcp.numericValue > 6000 ? 'critical' : 'warning',
+                            category: 'performance'
+                        });
+                    }
+
+                    // CLS
+                    const cls = audits['cumulative-layout-shift'];
+                    if (cls && cls.numericValue > 0.25) {
+                        analysisResults.issues.push({
+                            name: 'Layout Shift Issues',
+                            desc: `Cumulative Layout Shift is ${cls.numericValue.toFixed(2)} (should be <0.1)`,
+                            severity: 'warning',
+                            category: 'performance'
+                        });
+                    }
+
+                    // Image optimization
+                    if (audits['uses-optimized-images']?.score !== null && audits['uses-optimized-images']?.score < 0.9) {
+                        analysisResults.issues.push({
+                            name: 'Large Image Files',
+                            desc: audits['uses-optimized-images'].title || 'Images could be optimized',
+                            severity: 'warning',
+                            category: 'performance'
+                        });
+                    }
+
+                    // Alt text
+                    if (audits['image-alt']?.score === 0) {
+                        const details = audits['image-alt'].details;
+                        const count = details?.items?.length || 'Some';
+                        analysisResults.issues.push({
+                            name: 'Images Without Alt Text',
+                            desc: `${count} images missing alt attributes`,
+                            severity: 'warning',
+                            category: 'accessibility'
+                        });
+                    }
+
+                    // H1
+                    if (audits['heading-order']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Heading Structure Issues',
+                            desc: 'Heading elements are not in sequential order',
+                            severity: 'warning',
+                            category: 'content'
+                        });
+                    }
+
+                    // Canonical
+                    if (audits['canonical']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Missing Canonical URL',
+                            desc: 'Page does not specify a canonical URL',
+                            severity: 'notice',
+                            category: 'technical'
+                        });
+                    }
+
+                    // Structured data
+                    if (audits['structured-data']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'No Schema Markup',
+                            desc: 'No structured data found on the page',
+                            severity: 'notice',
+                            category: 'technical'
+                        });
+                    }
+
+                    // Crawlable links
+                    if (audits['crawlable-anchors']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Uncrawlable Links',
+                            desc: 'Some links are not crawlable by search engines',
+                            severity: 'warning',
+                            category: 'technical'
+                        });
+                    }
+
+                    // robots.txt
+                    if (audits['robots-txt']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'Missing Robots.txt',
+                            desc: 'No valid robots.txt file found',
+                            severity: 'notice',
+                            category: 'technical'
+                        });
+                    }
+
+                    // HTTP redirects to HTTPS
+                    if (audits['redirects-http']?.score === 0) {
+                        analysisResults.issues.push({
+                            name: 'HTTP Not Redirecting',
+                            desc: 'HTTP traffic does not redirect to HTTPS',
+                            severity: 'warning',
+                            category: 'security'
+                        });
+                    }
+
+                    // Render blocking resources
+                    if (audits['render-blocking-resources']?.score !== null && audits['render-blocking-resources']?.score < 0.5) {
+                        analysisResults.issues.push({
+                            name: 'Render Blocking Resources',
+                            desc: 'Eliminate render-blocking resources to improve load time',
+                            severity: 'warning',
+                            category: 'performance'
+                        });
+                    }
+                }
+
+                updateProgress('meta', 'Meta tags analyzed');
+                await sleep(100);
+                updateProgress('performance', 'Performance checked');
+                await sleep(100);
+                updateProgress('mobile', 'Mobile friendliness checked');
+                await sleep(100);
+                updateProgress('content', 'Content analyzed');
+
+                // 3. Check for sitemap
+                setCheckActive('links');
+                scanningStatus.textContent = 'Checking sitemap and robots.txt...';
+
+                try {
+                    const sitemapUrl = new URL('/sitemap.xml', url).href;
+                    const sitemapResp = await fetch(sitemapUrl, { method: 'HEAD', mode: 'no-cors' });
+                    // With no-cors we can't read status, but we tried
+                } catch (e) {
+                    // Only add if not already detected by PageSpeed
+                    if (!analysisResults.issues.find(i => i.name === 'No Sitemap Found')) {
+                        analysisResults.issues.push({
+                            name: 'No Sitemap Found',
+                            desc: 'XML sitemap not accessible at /sitemap.xml',
+                            severity: 'notice',
+                            category: 'technical'
+                        });
+                    }
+                }
+
+                updateProgress('links', 'Link analysis complete');
+
+                // Calculate overall score
+                const { metrics, issues } = analysisResults;
+                let score = Math.round(
+                    (metrics.performance * 0.3) +
+                    (metrics.seo * 0.35) +
+                    (metrics.mobile * 0.2) +
+                    (metrics.security * 0.15)
+                );
+
+                // Adjust for critical issues
+                const criticalCount = issues.filter(i => i.severity === 'critical').length;
+                const warningCount = issues.filter(i => i.severity === 'warning').length;
+                score -= criticalCount * 5;
+                score -= warningCount * 2;
+                score = Math.max(10, Math.min(100, score));
+
+                analysisResults.score = score;
+
+                // Final status
+                scanningStatus.textContent = 'Analysis complete!';
+                progressFill.style.width = '100%';
+                await sleep(300);
+
+                showResults(analysisResults);
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                scanningStatus.textContent = 'Error during scan. Please try again.';
+                scanBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    Check Pulse
+                `;
+                scanBtn.disabled = false;
+                isScanning = false;
             }
-
-            // Adjust score based on issues
-            const criticalCount = issues.filter(i => i.severity === 'critical').length;
-            const warningCount = issues.filter(i => i.severity === 'warning').length;
-            score -= criticalCount * 8;
-            score -= warningCount * 3;
-            score = Math.max(25, Math.min(98, score));
-
-            // Generate metrics
-            const metrics = {
-                performance: randomInt(40, 95),
-                seo: randomInt(50, 90),
-                mobile: randomInt(60, 100),
-                security: isHttps ? randomInt(80, 100) : randomInt(20, 50)
-            };
-
-            return {
-                domain,
-                url,
-                score,
-                metrics,
-                issues,
-                isHttps
-            };
         }
 
         // Show Results

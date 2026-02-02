@@ -19,6 +19,10 @@
             showIssueHighlight('Missing Meta Description', 'Add a unique, compelling meta description (150-160 characters) that summarizes the page content.');
             autoTriggerButton('runAudit');
         },
+        'add-title': function() {
+            showIssueHighlight('Missing Page Title', 'Add a descriptive title tag (50-60 characters) to your page.');
+            autoTriggerButton('runAudit');
+        },
         'fix-duplicate-titles': function() {
             showIssueHighlight('Duplicate Title Tags', 'Each page should have a unique title tag. Review pages with duplicate titles below.');
             autoTriggerButton('runAudit');
@@ -33,6 +37,10 @@
             showIssueHighlight('Missing H1 Tag', 'Add a single H1 heading that describes the main topic of your page.');
             autoTriggerButton('runAudit');
         },
+        'fix-headings': function() {
+            showIssueHighlight('Heading Structure Issues', 'Ensure headings follow proper hierarchy (H1 > H2 > H3). Don\'t skip levels.');
+            autoTriggerButton('runAudit');
+        },
         'improve-content': function() {
             showIssueHighlight('Low Text-to-HTML Ratio', 'Add more valuable text content to your page. Aim for at least 500 words of quality content.');
             autoTriggerButton('runAudit');
@@ -41,14 +49,26 @@
             showIssueHighlight('Images Without Alt Text', 'Add descriptive alt text to all images for better accessibility and SEO.');
             autoTriggerButton('runAudit');
         },
+        'fix-links': function() {
+            showIssueHighlight('Uncrawlable Links', 'Ensure all important links use standard anchor tags that search engines can follow.');
+            autoTriggerButton('runAudit');
+        },
 
         // Performance related actions
         'optimize-speed': function() {
             showIssueHighlight('Slow Page Load', 'Run a Core Web Vitals test to identify specific performance bottlenecks.');
             autoTriggerButton('runCWVTest');
         },
+        'fix-cls': function() {
+            showIssueHighlight('Layout Shift Issues', 'Add width/height to images and avoid inserting content above existing content.');
+            autoTriggerButton('runCWVTest');
+        },
         'compress-images': function() {
             showIssueHighlight('Large Image Files', 'Compress images to improve page load times. Use WebP format and lazy loading.');
+            autoTriggerButton('runCWVTest');
+        },
+        'optimize-resources': function() {
+            showIssueHighlight('Render Blocking Resources', 'Defer non-critical CSS/JS and use async loading for external scripts.');
             autoTriggerButton('runCWVTest');
         },
 
@@ -56,6 +76,16 @@
         'add-ssl': function() {
             showIssueHighlight('No SSL Certificate', 'Install an SSL certificate to enable HTTPS. Most hosting providers offer free SSL via Let\'s Encrypt.');
             autoTriggerButton('runAudit');
+        },
+        'fix-redirect': function() {
+            showIssueHighlight('HTTP Not Redirecting', 'Configure your server to redirect all HTTP traffic to HTTPS (301 redirect).');
+            autoTriggerButton('runAudit');
+        },
+
+        // Mobile related actions
+        'add-viewport': function() {
+            showIssueHighlight('Missing Viewport Meta', 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your page.');
+            autoTriggerButton('runMobileTest');
         },
 
         // Sitemap and indexing actions
