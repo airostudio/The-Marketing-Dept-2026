@@ -696,18 +696,82 @@
       bindEventListeners();
     }
 
-    // Load campaign data from service
+    const STORAGE_KEY = 'paid-media';
+
+    // Load campaign data from storage/service
     async function loadCampaignData() {
-      try {
-        if (typeof PaidMediaService !== 'undefined') {
-          const data = await PaidMediaService.getCampaigns();
-          if (data && data.length) renderCampaigns(data);
-          const kpis = await PaidMediaService.getKPIs();
-          if (kpis) updateKPIs(kpis);
+      var data = null;
+
+      // Try MarketingStore first (Supabase with localStorage fallback)
+      if (window.MarketingStore) {
+        try {
+          data = await window.MarketingStore.get(STORAGE_KEY, 'dashboard-data', null);
+        } catch (e) {
+          console.warn('[PaidMedia] MarketingStore unavailable:', e);
         }
-      } catch (e) {
-        console.warn('[PaidMedia] Using default data:', e.message);
       }
+
+      // Fallback to localStorage
+      if (!data) {
+        try {
+          var stored = localStorage.getItem(STORAGE_KEY + '-data');
+          if (stored) data = JSON.parse(stored);
+        } catch (e) {}
+      }
+
+      // Try legacy PaidMediaService
+      if (!data && typeof PaidMediaService !== 'undefined') {
+        try {
+          var campaigns = await PaidMediaService.getCampaigns();
+          var kpis = await PaidMediaService.getKPIs();
+          if (campaigns || kpis) {
+            data = { campaigns: campaigns, kpis: kpis };
+          }
+        } catch (e) {
+          console.warn('[PaidMedia] Service unavailable:', e.message);
+        }
+      }
+
+      // If we have data, render it; otherwise show empty state
+      if (data && (data.campaigns || data.kpis)) {
+        if (data.campaigns && data.campaigns.length) renderCampaigns(data.campaigns);
+        if (data.kpis) updateKPIs(data.kpis);
+      } else {
+        showEmptyState();
+      }
+    }
+
+    function showEmptyState() {
+      console.log('[PaidMedia] Showing empty state - no data yet');
+
+      // Clear KPIs
+      document.getElementById('kpi-spend').textContent = '$0';
+      document.getElementById('kpi-roas').textContent = '0x';
+      document.getElementById('kpi-cpa').textContent = '$0.00';
+      document.getElementById('kpi-conversions').textContent = '0';
+
+      // Update trend indicators
+      document.querySelectorAll('.kpi-change').forEach(function(el) {
+        el.textContent = 'No data yet';
+        el.classList.remove('positive', 'negative');
+      });
+
+      // Clear campaign table
+      var tbody = document.querySelector('#campaign-table tbody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-secondary);">No campaigns yet. Connect your ad platforms in Settings to import campaign data.</td></tr>';
+      }
+    }
+
+    async function saveData(data) {
+      if (window.MarketingStore) {
+        try {
+          await window.MarketingStore.set(STORAGE_KEY, 'dashboard-data', data);
+        } catch (e) {}
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY + '-data', JSON.stringify(data));
+      } catch (e) {}
     }
 
     // Update KPI cards

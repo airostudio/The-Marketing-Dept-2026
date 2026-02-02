@@ -1116,56 +1116,61 @@
         initDashboard({ from, to });
     }
 
-    /* ── Default Data ── */
-    const defaultKPIs = {
-        conversions: { value: '12,847', change: '+18.3%', direction: 'up' },
-        roi: { value: '342%', change: '+24.1%', direction: 'up' },
-        ltv: { value: '$1,245', change: '+8.7%', direction: 'up' },
-        mer: { value: '4.2x', change: '+12.5%', direction: 'up' }
+    /* ── Storage & Data Loading ── */
+    const ANALYTICS_STORAGE_KEY = 'marketing-analytics';
+
+    async function loadStoredAnalytics() {
+        var data = null;
+
+        // Try MarketingStore first
+        if (window.MarketingStore) {
+            try {
+                data = await window.MarketingStore.get(ANALYTICS_STORAGE_KEY, 'dashboard-data', null);
+            } catch (e) {
+                console.warn('[Analytics] MarketingStore unavailable:', e);
+            }
+        }
+
+        // Fallback to localStorage
+        if (!data) {
+            try {
+                var stored = localStorage.getItem(ANALYTICS_STORAGE_KEY + '-data');
+                if (stored) data = JSON.parse(stored);
+            } catch (e) {}
+        }
+
+        return data;
+    }
+
+    /* ── Empty State Data ── */
+    const emptyKPIs = {
+        conversions: { value: '0', change: 'No data', direction: 'neutral' },
+        roi: { value: '0%', change: 'No data', direction: 'neutral' },
+        ltv: { value: '$0', change: 'No data', direction: 'neutral' },
+        mer: { value: '0x', change: 'No data', direction: 'neutral' }
     };
 
+    /* ── Default Data (used only when real data exists) ── */
+    const defaultKPIs = emptyKPIs;
+
     const defaultAttribution = {
-        'first-touch': [
-            { channel: 'Organic Search', conversions: 4102, revenue: '$512,750', pct: 31.9 },
-            { channel: 'Paid Search', conversions: 2826, revenue: '$353,250', pct: 22.0 },
-            { channel: 'Social Media', conversions: 2312, revenue: '$289,000', pct: 18.0 },
-            { channel: 'Email Marketing', conversions: 1927, revenue: '$240,875', pct: 15.0 },
-            { channel: 'Referral', conversions: 1027, revenue: '$128,375', pct: 8.0 },
-            { channel: 'Direct', conversions: 653, revenue: '$81,625', pct: 5.1 }
-        ]
+        'first-touch': []
     };
 
     const defaultFunnel = [
-        { stage: 'Awareness', count: 185000, color: '#4f46e5' },
-        { stage: 'Interest', count: 74000, color: '#6366f1' },
-        { stage: 'Consideration', count: 37000, color: '#818cf8' },
-        { stage: 'Intent', count: 22200, color: '#3b82f6' },
-        { stage: 'Purchase', count: 12847, color: '#10b981' },
-        { stage: 'Loyalty', count: 8993, color: '#059669' }
+        { stage: 'Awareness', count: 0, color: '#4f46e5' },
+        { stage: 'Interest', count: 0, color: '#6366f1' },
+        { stage: 'Consideration', count: 0, color: '#818cf8' },
+        { stage: 'Intent', count: 0, color: '#3b82f6' },
+        { stage: 'Purchase', count: 0, color: '#10b981' },
+        { stage: 'Loyalty', count: 0, color: '#059669' }
     ];
 
-    const defaultInsights = [
-        { severity: 'high', text: 'Paid search CPA has increased 23% over the last 14 days. Consider pausing underperforming ad groups in the "Brand Competitors" campaign and reallocating budget to high-converting organic keywords.' },
-        { severity: 'medium', text: 'Email open rates for the "Re-engagement" segment have declined to 12.4%. A/B testing subject lines with personalization tokens could recover an estimated 3.2% in open rate.' },
-        { severity: 'low', text: 'Social media referral traffic from LinkedIn has grown 45% month-over-month. Consider increasing content frequency on this channel to capitalize on momentum.' },
-        { severity: 'high', text: 'Funnel drop-off between Consideration and Intent stages is 40%. Implementing retargeting sequences and case study content could improve conversion by an estimated 15-20%.' }
-    ];
+    const defaultInsights = [];
 
-    const defaultSegments = [
-        { name: 'High-Value Enterprise', size: '2,340', ltv: '$4,850', engagement: 'high' },
-        { name: 'Growth SMB', size: '8,120', ltv: '$1,280', engagement: 'high' },
-        { name: 'Trial Converters', size: '5,630', ltv: '$890', engagement: 'medium' },
-        { name: 'At-Risk Accounts', size: '1,450', ltv: '$2,100', engagement: 'low' },
-        { name: 'Referral Champions', size: '890', ltv: '$3,200', engagement: 'high' },
-        { name: 'Dormant Users', size: '3,780', ltv: '$340', engagement: 'low' }
-    ];
+    const defaultSegments = [];
 
-    const defaultGoals = [
-        { name: 'Q1 Lead Generation Target', current: 8420, target: 12000, projected: 'Jan 28', status: 'on-track', rec: 'Increase LinkedIn ad spend by 15% to maintain trajectory.' },
-        { name: 'Monthly Revenue Goal', current: 284000, target: 350000, projected: 'Feb 3', status: 'at-risk', rec: 'Activate dormant email segment to recover $42K pipeline.' },
-        { name: 'Customer Acquisition Cost Reduction', current: 68, target: 55, projected: 'Mar 15', status: 'behind', rec: 'Shift 20% of paid budget to organic content initiatives.' },
-        { name: 'Brand Awareness Index', current: 72, target: 85, projected: 'Feb 20', status: 'on-track', rec: 'Launch influencer partnership campaign in February.' }
-    ];
+    const defaultGoals = [];
 
     /* ── Render Functions ── */
     function renderKPIs(data) {

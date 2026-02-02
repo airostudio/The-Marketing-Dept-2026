@@ -599,13 +599,43 @@
             setupAIGenerator();
         }
 
-        function loadKPIs() {
-            const kpis = {
-                subscribers: { value: '48,320', change: '+2,041 this month', positive: true },
-                openRate: { value: '36.8%', change: '+2.4% vs last month', positive: true },
-                clickRate: { value: '8.2%', change: '+0.9% vs last month', positive: true },
-                revenue: { value: '$0.42', change: '+$0.06 vs last month', positive: true }
-            };
+        const EMAIL_STORAGE_KEY = 'email-marketing';
+
+        async function loadKPIs() {
+            var data = null;
+
+            // Try MarketingStore first
+            if (window.MarketingStore) {
+                try {
+                    data = await window.MarketingStore.get(EMAIL_STORAGE_KEY, 'kpis', null);
+                } catch (e) {
+                    console.warn('[EmailMarketing] MarketingStore unavailable:', e);
+                }
+            }
+
+            // Fallback to localStorage
+            if (!data) {
+                try {
+                    var stored = localStorage.getItem(EMAIL_STORAGE_KEY + '-kpis');
+                    if (stored) data = JSON.parse(stored);
+                } catch (e) {}
+            }
+
+            // Use stored data or empty state
+            var kpis;
+            if (data) {
+                kpis = data;
+            } else {
+                // Empty state
+                kpis = {
+                    subscribers: { value: '0', change: 'No data yet', positive: false },
+                    openRate: { value: '0%', change: 'No data yet', positive: false },
+                    clickRate: { value: '0%', change: 'No data yet', positive: false },
+                    revenue: { value: '$0.00', change: 'No data yet', positive: false }
+                };
+                console.log('[EmailMarketing] Showing empty state - no data yet');
+            }
+
             document.getElementById('kpiSubscribers').textContent = kpis.subscribers.value;
             document.getElementById('kpiSubscribersChange').textContent = kpis.subscribers.change;
             document.getElementById('kpiOpenRate').textContent = kpis.openRate.value;
@@ -614,6 +644,17 @@
             document.getElementById('kpiClickRateChange').textContent = kpis.clickRate.change;
             document.getElementById('kpiRevenue').textContent = kpis.revenue.value;
             document.getElementById('kpiRevenueChange').textContent = kpis.revenue.change;
+        }
+
+        async function saveEmailKPIs(kpis) {
+            if (window.MarketingStore) {
+                try {
+                    await window.MarketingStore.set(EMAIL_STORAGE_KEY, 'kpis', kpis);
+                } catch (e) {}
+            }
+            try {
+                localStorage.setItem(EMAIL_STORAGE_KEY + '-kpis', JSON.stringify(kpis));
+            } catch (e) {}
         }
 
         function setupSidebar() {
