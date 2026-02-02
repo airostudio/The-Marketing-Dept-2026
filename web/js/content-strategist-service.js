@@ -888,28 +888,67 @@
             return null;
         },
 
-        // Generate AI-powered content ideas
+        // Generate AI-powered content ideas using real AI service
         generateIdeas: async function(topic, count) {
             count = count || 5;
-            // This would integrate with AI service
-            // For now, return template-based suggestions
+
+            // Use AI service if available
+            if (window.AIService) {
+                try {
+                    var prompt = 'Generate ' + count + ' unique content ideas for the topic: "' + topic + '".\n\n' +
+                        'For each idea, provide:\n' +
+                        '1. A compelling title\n' +
+                        '2. Content type (blog, video, whitepaper, infographic, case-study, webinar, social, or podcast)\n' +
+                        '3. A brief description (1-2 sentences)\n' +
+                        '4. Target audience\n' +
+                        '5. Estimated word count or duration\n\n' +
+                        'Return as a JSON array with objects containing: title, type, description, targetAudience, estimatedLength\n' +
+                        'Make the ideas specific, actionable, and SEO-friendly.';
+
+                    var response = await window.AIService.generate(prompt, {
+                        type: 'creative',
+                        maxTokens: 1500
+                    });
+
+                    // Parse AI response
+                    var aiIdeas = JSON.parse(response);
+                    if (Array.isArray(aiIdeas)) {
+                        return aiIdeas.map(function(idea) {
+                            return {
+                                title: idea.title,
+                                type: idea.type || 'blog',
+                                description: idea.description || '',
+                                targetAudience: idea.targetAudience || '',
+                                estimatedLength: idea.estimatedLength || '',
+                                source: 'ai'
+                            };
+                        });
+                    }
+                } catch (e) {
+                    console.warn(TAG, 'AI idea generation failed, using fallback:', e.message);
+                }
+            }
+
+            // Fallback: template-based suggestions when AI unavailable
+            console.log(TAG, 'Using template fallback for content ideas');
             var templates = [
-                'The Ultimate Guide to {topic}',
-                '{topic}: What You Need to Know in 2026',
-                '10 {topic} Best Practices for Success',
-                'How to Master {topic} in 30 Days',
-                '{topic} vs. Traditional Approaches: A Comparison',
-                'Common {topic} Mistakes and How to Avoid Them',
-                'The Future of {topic}: Trends to Watch',
-                '{topic} Case Study: Real Results'
+                { title: 'The Ultimate Guide to {topic}', type: 'blog', description: 'Comprehensive overview covering all aspects' },
+                { title: '{topic}: What You Need to Know in ' + new Date().getFullYear(), type: 'blog', description: 'Current trends and updates' },
+                { title: '10 {topic} Best Practices for Success', type: 'blog', description: 'Actionable tips and strategies' },
+                { title: 'How to Master {topic} in 30 Days', type: 'video', description: 'Step-by-step tutorial series' },
+                { title: '{topic} vs. Traditional Approaches: A Comparison', type: 'whitepaper', description: 'In-depth analysis and comparison' },
+                { title: 'Common {topic} Mistakes and How to Avoid Them', type: 'blog', description: 'Learn from others\' mistakes' },
+                { title: 'The Future of {topic}: Trends to Watch', type: 'infographic', description: 'Visual trend analysis' },
+                { title: '{topic} Case Study: Real Results', type: 'case-study', description: 'Data-driven success story' }
             ];
 
             var ideas = [];
             for (var i = 0; i < Math.min(count, templates.length); i++) {
                 ideas.push({
-                    title: templates[i].replace(/{topic}/g, topic),
-                    type: i < 3 ? 'blog' : (i < 5 ? 'video' : 'whitepaper'),
-                    source: 'ai'
+                    title: templates[i].title.replace(/{topic}/g, topic),
+                    type: templates[i].type,
+                    description: templates[i].description,
+                    source: 'template'
                 });
             }
 

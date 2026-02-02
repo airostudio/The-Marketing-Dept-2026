@@ -10,31 +10,51 @@
     'use strict';
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STORAGE HELPER
+    // STORAGE HELPER - Uses MarketingStore (Supabase-backed) with localStorage fallback
     // ═══════════════════════════════════════════════════════════════════════════
+    const SERVICE_NAME = 'leadgen';
+
     const LeadStore = {
         async get(key) {
-            try {
-                if (window.MarketingStore) {
-                    const data = await window.MarketingStore.get(key);
-                    return data;
+            // Try MarketingStore first (Supabase-backed)
+            if (window.MarketingStore) {
+                try {
+                    const data = await window.MarketingStore.get(SERVICE_NAME, key, null);
+                    if (data !== null) {
+                        // Cache to localStorage
+                        try {
+                            localStorage.setItem(SERVICE_NAME + '_' + key, JSON.stringify(data));
+                        } catch (_) { /* ignore */ }
+                        return data;
+                    }
+                } catch (e) {
+                    console.warn('[LeadGeneration] MarketingStore read failed:', e.message);
                 }
-            } catch (e) {
-                console.warn('MarketingStore unavailable, using localStorage');
             }
-            const item = localStorage.getItem('leadgen_' + key);
-            return item ? JSON.parse(item) : null;
+            // Fallback to localStorage
+            try {
+                const item = localStorage.getItem(SERVICE_NAME + '_' + key);
+                return item ? JSON.parse(item) : null;
+            } catch (e) {
+                console.error('[LeadGeneration] localStorage read failed:', e);
+                return null;
+            }
         },
         async set(key, value) {
+            // Always write to localStorage first (cache)
             try {
-                if (window.MarketingStore) {
-                    await window.MarketingStore.set(key, value);
-                    return;
-                }
+                localStorage.setItem(SERVICE_NAME + '_' + key, JSON.stringify(value));
             } catch (e) {
-                console.warn('MarketingStore unavailable, using localStorage');
+                console.warn('[LeadGeneration] localStorage write failed:', e.message);
             }
-            localStorage.setItem('leadgen_' + key, JSON.stringify(value));
+            // Persist to Supabase via MarketingStore
+            if (window.MarketingStore) {
+                try {
+                    await window.MarketingStore.set(SERVICE_NAME, key, value);
+                } catch (e) {
+                    console.warn('[LeadGeneration] MarketingStore persist failed:', e.message);
+                }
+            }
         }
     };
 
