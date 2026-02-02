@@ -869,6 +869,46 @@
             height: 12px;
         }
 
+        .issue-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .issue-how-to-fix {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            color: var(--color-text-secondary);
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0;
+            transition: all 0.2s;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .issue-item:hover .issue-how-to-fix {
+            opacity: 1;
+        }
+
+        .issue-how-to-fix:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-primary);
+            color: var(--color-primary-light);
+        }
+
+        .issue-how-to-fix svg {
+            width: 12px;
+            height: 12px;
+        }
+
         /* CTA Section */
         .cta-section {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
@@ -1226,6 +1266,7 @@
     </main>
 
     <script src="/js/config.js"></script>
+    <script src="/js/seo-fix-guide.js"></script>
     <script>
     (function() {
         'use strict';
@@ -1807,7 +1848,7 @@
                 const hasToolLink = !!toolInfo;
 
                 return `
-                    <div class="issue-item ${issue.severity}" data-issue-name="${issue.name}" data-issue-index="${index}" ${hasToolLink ? 'role="button" tabindex="0"' : ''}>
+                    <div class="issue-item ${issue.severity}" data-issue-name="${issue.name}" data-issue-index="${index}">
                         <div class="issue-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 ${icons[issue.severity]}
@@ -1817,28 +1858,60 @@
                             <div class="issue-name">${issue.name}</div>
                             <div class="issue-desc">${issue.desc}</div>
                         </div>
-                        ${hasToolLink ? `
-                        <div class="issue-fix-cta">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                            </svg>
-                            Fix Issue
+                        <div class="issue-actions">
+                            <button class="issue-how-to-fix" data-action="how-to-fix" title="Learn how to fix this issue">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                How to Fix
+                            </button>
+                            ${hasToolLink ? `
+                            <button class="issue-fix-cta" data-action="fix-now" title="Go to tool and fix this issue">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                                </svg>
+                                Fix Now
+                            </button>
+                            ` : ''}
                         </div>
-                        ` : `<span class="issue-badge">${issue.severity}</span>`}
                     </div>
                 `;
             }).join('');
 
-            // Add click handlers for issues
+            // Add click handlers for issue actions
             issuesList.querySelectorAll('.issue-item[data-issue-name]').forEach(item => {
-                item.addEventListener('click', () => navigateToTool(item.dataset.issueName));
-                item.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        navigateToTool(item.dataset.issueName);
-                    }
-                });
+                const issueName = item.dataset.issueName;
+
+                // "How to Fix" button - shows detailed instructions
+                const howToFixBtn = item.querySelector('[data-action="how-to-fix"]');
+                if (howToFixBtn) {
+                    howToFixBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showHowToFix(issueName);
+                    });
+                }
+
+                // "Fix Now" button - navigates to tool
+                const fixNowBtn = item.querySelector('[data-action="fix-now"]');
+                if (fixNowBtn) {
+                    fixNowBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        navigateToTool(issueName);
+                    });
+                }
             });
+        }
+
+        // Show How to Fix modal
+        function showHowToFix(issueName) {
+            if (window.SEOFixGuide && window.SEOFixGuide.showFixModal) {
+                window.SEOFixGuide.showFixModal(issueName);
+            } else {
+                console.warn('SEOFixGuide not loaded');
+                alert('How to fix: ' + issueName + '\n\nPlease check the documentation for detailed instructions.');
+            }
         }
 
         // Navigate to tool page with issue parameters
