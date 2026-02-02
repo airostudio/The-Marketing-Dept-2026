@@ -351,6 +351,15 @@
         storageSet(STORAGE_KEYS.BRIEFS, history);
     }
 
+    /**
+     * Retrieve all stored content briefs.
+     * @returns {Array<object>} List of saved briefs sorted by createdAt descending
+     */
+    function getBriefs() {
+        console.log(TAG, 'Loading content briefs');
+        return storageGet(STORAGE_KEYS.BRIEFS, []);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // 3. CONTENT PERFORMANCE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -544,6 +553,7 @@
         generateSocialPosts: generateSocialPosts,
         generateEmailCopy: generateEmailCopy,
         generateAdCopy: generateAdCopy,
+        getBriefs: getBriefs,
 
         // Content Performance
         getContentPerformance: getContentPerformance,
