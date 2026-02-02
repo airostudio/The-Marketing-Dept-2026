@@ -1,7 +1,7 @@
 /**
  * Brand & Positioning Agent Service
  * Manages brand identity, guidelines, monitoring, messaging frameworks, and brand health.
- * Part of "The Marketing Department 2026" platform.
+ * Part of "Aduma Marketing 2026" platform.
  */
 (function () {
     'use strict';

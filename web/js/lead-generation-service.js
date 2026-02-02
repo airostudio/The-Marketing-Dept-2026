@@ -1,6 +1,6 @@
 /**
  * Lead Generation Specialist Service
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * Comprehensive lead generation and qualification system
  * for identifying, attracting, and nurturing potential customers.

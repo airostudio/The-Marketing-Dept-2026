@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * AI SERVICE - Unified AI Integration
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Provides AI-powered features using OpenAI GPT-4 and Google Gemini:

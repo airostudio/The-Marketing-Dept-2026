@@ -1,6 +1,6 @@
 /**
  * Content Strategist Service
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * A comprehensive content strategy management system that handles:
  * - Strategy Development & Planning

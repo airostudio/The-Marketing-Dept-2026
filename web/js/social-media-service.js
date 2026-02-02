@@ -1,6 +1,6 @@
 /**
  * Social Media Manager Agent Service
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * Manages social media content scheduling, AI-powered content generation,
  * platform analytics, engagement tracking, social listening, and reporting.

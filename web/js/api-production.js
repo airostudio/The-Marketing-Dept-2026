@@ -1,6 +1,6 @@
 /**
  * Production API Integration Service
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * Connects to real APIs for production use:
  * - Google Search Console (keywords, indexing)

@@ -1,6 +1,6 @@
 /**
  * SEO Fix Guide - Comprehensive Fix Instructions Database
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * Provides actionable, easy-to-understand fix instructions for every SEO issue.
  * Acts as a Senior SEO Analyst providing expert guidance.
@@ -63,7 +63,7 @@ window.SEOFixGuide = (function() {
                 'Include your primary keyword near the beginning',
                 'Keep it under 60 characters'
             ],
-            codeExample: '<title>Complete SEO Guide for Beginners | The Marketing Dept</title>',
+            codeExample: '<title>Complete SEO Guide for Beginners | Aduma Marketing</title>',
             bestPractices: [
                 'Keep titles under 60 characters',
                 'Put important keywords first',

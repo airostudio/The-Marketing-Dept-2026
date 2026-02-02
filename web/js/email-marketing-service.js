@@ -1,5 +1,5 @@
 /**
- * Email Marketing Service for The Marketing Department 2026
+ * Email Marketing Service for Aduma Marketing 2026
  * Manages email campaigns, automation flows, list management, and analytics.
  * Integrates with AIService for intelligent copy generation and optimization.
  * @module EmailMarketingService

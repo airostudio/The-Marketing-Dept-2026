@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * CONTENT STRATEGY SERVICE - Content Creation & Editorial Management
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Manages the full content lifecycle:

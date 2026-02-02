@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * DASHBOARD JAVASCRIPT
- * The Marketing Department 2026 - SEO Agent Dashboard
+ * Aduma Marketing 2026 - SEO Agent Dashboard
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 

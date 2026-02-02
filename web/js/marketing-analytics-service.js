@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * MARKETING ANALYTICS SERVICE - Cross-Channel Intelligence Engine
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Provides comprehensive marketing analytics across all channels:

@@ -1,6 +1,6 @@
 /**
  * Project Service - Supabase-backed Project Management
- * The Marketing Department 2026
+ * Aduma Marketing 2026
  *
  * Handles persistent project storage using Supabase with localStorage fallback.
  * Projects are stored in the user's account and sync across devices.
