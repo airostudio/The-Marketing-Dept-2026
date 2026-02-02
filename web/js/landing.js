@@ -444,23 +444,240 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // FORM HANDLING
+    // AUTH MODAL & TAB SWITCHING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    const forms = document.querySelectorAll('form');
+    // Auth tab switching
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const authForms = document.querySelectorAll('.auth-form');
 
-    forms.forEach(form => {
+    authTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+
+            // Update tab states
+            authTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+
+            // Update form visibility
+            authForms.forEach(form => {
+                if (form.dataset.form === targetTab) {
+                    form.classList.add('active');
+                } else {
+                    form.classList.remove('active');
+                }
+            });
+        });
+    });
+
+    // Auth modal open/close
+    const authModal = document.querySelector('.auth-modal');
+    const authModalOverlay = document.querySelector('.auth-modal-overlay');
+    const authModalClose = document.querySelector('.auth-modal-close');
+    const loginButtons = document.querySelectorAll('[href="#login"], [data-action="login"], .btn-login');
+    const signupButtons = document.querySelectorAll('[href="#signup"], [href="#register"], [data-action="signup"], .btn-signup');
+
+    function openAuthModal(tab = 'login') {
+        if (authModal) {
+            authModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            // Switch to specified tab
+            authTabs.forEach(t => {
+                t.classList.toggle('active', t.dataset.tab === tab);
+            });
+            authForms.forEach(form => {
+                form.classList.toggle('active', form.dataset.form === tab);
+            });
+        }
+    }
+
+    function closeAuthModal() {
+        if (authModal) {
+            authModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    loginButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            openAuthModal('login');
+        });
+    });
+
+    signupButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            openAuthModal('register');
+        });
+    });
+
+    if (authModalClose) {
+        authModalClose.addEventListener('click', closeAuthModal);
+    }
+
+    if (authModalOverlay) {
+        authModalOverlay.addEventListener('click', closeAuthModal);
+    }
+
+    // Close on escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && authModal && authModal.classList.contains('active')) {
+            closeAuthModal();
+        }
+    });
+
+    // Password visibility toggle
+    const togglePasswordBtns = document.querySelectorAll('.toggle-password');
+    togglePasswordBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const input = this.parentElement.querySelector('input');
+            const eyeOpen = this.querySelector('.eye-open');
+            const eyeClosed = this.querySelector('.eye-closed');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (eyeOpen) eyeOpen.style.display = 'none';
+                if (eyeClosed) eyeClosed.style.display = 'block';
+            } else {
+                input.type = 'password';
+                if (eyeOpen) eyeOpen.style.display = 'block';
+                if (eyeClosed) eyeClosed.style.display = 'none';
+            }
+        });
+    });
+
+    // Check if already authenticated, redirect to dashboard
+    if (typeof Auth !== 'undefined' && Auth.isAuthenticatedSync && Auth.isAuthenticatedSync()) {
+        // User is already logged in, show dashboard link or auto-redirect
+        const heroButtons = document.querySelector('.hero-buttons');
+        if (heroButtons) {
+            const dashboardLink = document.createElement('a');
+            dashboardLink.href = '/dashboard.html';
+            dashboardLink.className = 'btn btn-primary';
+            dashboardLink.textContent = 'Go to Dashboard';
+            heroButtons.innerHTML = '';
+            heroButtons.appendChild(dashboardLink);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTHENTICATION FORM HANDLING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Login Form
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('loginError');
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            // Clear previous errors
+            if (errorDiv) errorDiv.textContent = '';
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+            try {
+                // Auth.login returns user object directly, throws on error
+                const user = await Auth.login(email, password);
+
+                if (user) {
+                    submitBtn.innerHTML = '&#10003; Success!';
+                    submitBtn.classList.add('success');
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 500);
+                } else {
+                    throw new Error('Login failed');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                if (errorDiv) {
+                    errorDiv.textContent = error.message || 'Invalid email or password. Please try again.';
+                }
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign In';
+            }
+        });
+    }
+
+    // Register Form
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('registerError');
+            const firstname = document.getElementById('register-firstname').value;
+            const lastname = document.getElementById('register-lastname').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+
+            // Clear previous errors
+            if (errorDiv) errorDiv.textContent = '';
+
+            // Validate password
+            if (password.length < 8) {
+                if (errorDiv) errorDiv.textContent = 'Password must be at least 8 characters';
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+            try {
+                // Auth.register expects { firstname, lastname, email, password }
+                const user = await Auth.register({ firstname, lastname, email, password });
+
+                if (user) {
+                    submitBtn.innerHTML = '&#10003; Account created!';
+                    submitBtn.classList.add('success');
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 500);
+                } else {
+                    throw new Error('Registration failed');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                if (errorDiv) {
+                    errorDiv.textContent = error.message || 'Could not create account. Please try again.';
+                }
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+            }
+        });
+    }
+
+    // Generic form handling for other forms (newsletter, contact, etc.)
+    const otherForms = document.querySelectorAll('form:not(#loginForm):not(#registerForm)');
+    otherForms.forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
             const submitBtn = this.querySelector('button[type="submit"]');
+            if (!submitBtn) return;
+
             const originalText = submitBtn.textContent;
 
             // Show loading state
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
 
-            // Simulate form submission
+            // Simulate form submission for non-auth forms
             setTimeout(() => {
                 submitBtn.innerHTML = '&#10003; Success!';
                 submitBtn.classList.add('success');
