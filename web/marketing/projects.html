@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Projects | Aduma Marketing</title>
+    <meta name="description" content="Manage all your marketing projects in one place - view, resume, pause, and track progress">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="/marketing/projects.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        .projects-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .projects-header {
+            margin-bottom: 32px;
+        }
+
+        .projects-title {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .projects-subtitle {
+            font-size: 16px;
+            color: var(--color-text-secondary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filters-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--color-primary);
+            color: var(--color-text-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .project-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--project-color);
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+            border-color: var(--color-primary);
+        }
+
+        .project-header {
+            margin-bottom: 16px;
+        }
+
+        .project-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .project-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .project-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-created {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+        }
+
+        .badge-in_progress {
+            background: rgba(245, 158, 11, 0.1);
+            color: #F59E0B;
+        }
+
+        .badge-paused {
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366F1;
+        }
+
+        .badge-completed {
+            background: rgba(139, 92, 246, 0.1);
+            color: #8B5CF6;
+        }
+
+        .project-description {
+            font-size: 14px;
+            color: var(--color-text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .project-progress {
+            margin-bottom: 16px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-bottom: 6px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--color-bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .project-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .project-time {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text-primary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state-description {
+            font-size: 16px;
+            color: var(--color-text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .btn-create-project {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-create-project:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="projects-container">
+        <!-- Header -->
+        <div class="projects-header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="projects-title">My Projects</h1>
+                    <p class="projects-subtitle">Manage all your content, SEO, and marketing projects in one place</p>
+                </div>
+                <button onclick="createNewProject()" class="btn-create-project">
+                    ➕ New Project
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statActive">0</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statCompleted">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgProgress">0%</div>
+                <div class="stat-label">Avg Progress</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar">
+            <button class="filter-btn active" data-filter="all">All Projects</button>
+            <button class="filter-btn" data-filter="created">Created</button>
+            <button class="filter-btn" data-filter="in_progress">In Progress</button>
+            <button class="filter-btn" data-filter="paused">Paused</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <!-- Projects Grid -->
+        <div class="projects-grid" id="projectsGrid">
+            <!-- Projects will be rendered here -->
+        </div>
+    </div>
+
+    <script src="/js/unified-project-manager.js"></script>
+    <script>
+        let currentFilter = 'all';
+
+        /**
+         * Initialize projects page
+         */
+        async function init() {
+            // Wait for UnifiedProjectManager to be ready
+            await new Promise(resolve => {
+                if (window.UnifiedProjectManager) {
+                    resolve();
+                } else {
+                    window.addEventListener('load', resolve);
+                }
+            });
+
+            // Load and render projects
+            renderProjects();
+            renderStatistics();
+
+            // Set up filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    renderProjects();
+                });
+            });
+
+            // Listen for project changes
+            window.addEventListener('projectCreated', renderAll);
+            window.addEventListener('projectUpdated', renderAll);
+            window.addEventListener('projectDeleted', renderAll);
+        }
+
+        /**
+         * Render all (stats + projects)
+         */
+        function renderAll() {
+            renderProjects();
+            renderStatistics();
+        }
+
+        /**
+         * Render statistics
+         */
+        function renderStatistics() {
+            const stats = window.UnifiedProjectManager.getStatistics();
+
+            document.getElementById('statTotal').textContent = stats.total;
+            document.getElementById('statActive').textContent = stats.active;
+            document.getElementById('statCompleted').textContent = stats.completed;
+            document.getElementById('statAvgProgress').textContent = `${stats.avgProgress}%`;
+        }
+
+        /**
+         * Render projects grid
+         */
+        function renderProjects() {
+            const filters = currentFilter === 'all' ? {} : { state: currentFilter };
+            const projects = window.UnifiedProjectManager.getAllProjects(filters);
+
+            const grid = document.getElementById('projectsGrid');
+
+            if (projects.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <div class="empty-state-title">No projects yet</div>
+                        <div class="empty-state-description">
+                            Create your first project to get started with AI-powered content creation
+                        </div>
+                        <button onclick="createNewProject()" class="btn-create-project">
+                            Create Your First Project
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = projects.map(project => renderProjectCard(project)).join('');
+        }
+
+        /**
+         * Render single project card
+         */
+        function renderProjectCard(project) {
+            const stateLabels = {
+                'created': 'Created',
+                'in_progress': 'In Progress',
+                'paused': 'Paused',
+                'completed': 'Completed',
+                'archived': 'Archived'
+            };
+
+            const typeIcons = {
+                'content': '📝',
+                'seo': '🔍',
+                'social_media': '📱',
+                'email': '✉️',
+                'paid_media': '💰',
+                'brand': '🎨',
+                'analytics': '📊'
+            };
+
+            const relativeTime = getRelativeTime(project.lastAccessedAt);
+
+            // Determine action button
+            let actionButton = '';
+            if (project.state === 'created') {
+                actionButton = `<button class="action-btn primary" onclick="startProject('${project.id}')">▶️ Start</button>`;
+            } else if (project.state === 'in_progress') {
+                actionButton = `<button class="action-btn" onclick="pauseProject('${project.id}')">⏸️ Pause</button>`;
+            } else if (project.state === 'paused') {
+                actionButton = `<button class="action-btn primary" onclick="resumeProject('${project.id}')">▶️ Resume</button>`;
+            } else if (project.state === 'completed') {
+                actionButton = `<button class="action-btn" onclick="restartProject('${project.id}')">🔄 Restart</button>`;
+            }
+
+            return `
+                <div class="project-card" style="--project-color: ${project.color}">
+                    <div class="project-header">
+                        <div class="project-name">
+                            ${typeIcons[project.type] || '📄'} ${escapeHtml(project.name)}
+                        </div>
+                        <div class="project-meta">
+                            <span class="project-badge badge-${project.state}">
+                                ${stateLabels[project.state]}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="project-description">
+                        ${escapeHtml(project.description || 'No description')}
+                    </div>
+
+                    <div class="project-progress">
+                        <div class="progress-label">
+                            <span>Progress</span>
+                            <span>${project.progress}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${project.progress}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="project-footer">
+                        <div class="project-time">
+                            Last accessed ${relativeTime}
+                        </div>
+                        <div class="project-actions">
+                            ${actionButton}
+                            <button class="action-btn" onclick="openProject('${project.id}')">Open</button>
+                            <button class="action-btn" onclick="deleteProject('${project.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Create new project
+         */
+        function createNewProject() {
+            const name = prompt('Enter project name:', 'My Project');
+            if (!name) return;
+
+            const type = prompt('Project type (content, seo, social_media, email):', 'content');
+
+            window.UnifiedProjectManager.createProject({
+                name,
+                type: type || 'content',
+                description: 'Created from Projects page'
+            });
+        }
+
+        /**
+         * Start project
+         */
+        function startProject(projectId) {
+            window.UnifiedProjectManager.startProject(projectId);
+            renderAll();
+        }
+
+        /**
+         * Pause project
+         */
+        function pauseProject(projectId) {
+            window.UnifiedProjectManager.pauseProject(projectId);
+            renderAll();
+        }
+
+        /**
+         * Resume project
+         */
+        function resumeProject(projectId) {
+            window.UnifiedProjectManager.resumeProject(projectId);
+            renderAll();
+        }
+
+        /**
+         * Restart project
+         */
+        function restartProject(projectId) {
+            if (confirm('Are you sure you want to restart this project? Progress will be reset to 0%.')) {
+                window.UnifiedProjectManager.restartProject(projectId);
+                renderAll();
+            }
+        }
+
+        /**
+         * Open project
+         */
+        function openProject(projectId) {
+            const project = window.UnifiedProjectManager.getProject(projectId);
+            if (!project) return;
+
+            // Set as current project
+            window.UnifiedProjectManager.setCurrentProject(projectId);
+
+            // Navigate based on type
+            const typeUrls = {
+                'content': '/marketing/ai-content-writer.html',
+                'seo': '/seo-pulse.html',
+                'social_media': '/marketing/social-media.html',
+                'email': '/marketing/email-marketing.html'
+            };
+
+            window.location.href = typeUrls[project.type] || '/marketing/overview.html';
+        }
+
+        /**
+         * Delete project
+         */
+        function deleteProject(projectId) {
+            const project = window.UnifiedProjectManager.getProject(projectId);
+            if (!project) return;
+
+            if (confirm(`Are you sure you want to delete "${project.name}"? This cannot be undone.`)) {
+                window.UnifiedProjectManager.deleteProject(projectId);
+                renderAll();
+            }
+        }
+
+        /**
+         * Get relative time string
+         */
+        function getRelativeTime(timestamp) {
+            const now = Date.now();
+            const diff = now - new Date(timestamp).getTime();
+
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            return new Date(timestamp).toLocaleDateString();
+        }
+
+        /**
+         * Escape HTML
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

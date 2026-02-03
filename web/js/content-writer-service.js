@@ -22,7 +22,9 @@ const ContentWriterService = (() => {
         styleGuides: {},
         personas: {},
         activeStyleGuide: null,
-        activePersona: null
+        activePersona: null,
+        currentProject: null,
+        autoSaveInterval: null
     };
 
     // Style Guide Definitions
@@ -220,7 +222,249 @@ const ContentWriterService = (() => {
         initializeEventListeners();
         loadStyleGuides();
         loadPersonas();
+        initializeProjectIntegration();
         console.log('✅ Content Writer Service initialized');
+    }
+
+    /**
+     * Initialize project integration
+     */
+    function initializeProjectIntegration() {
+        // Check if UnifiedProjectManager is available
+        if (typeof window.UnifiedProjectManager === 'undefined') {
+            console.warn('[ContentWriter] UnifiedProjectManager not available');
+            return;
+        }
+
+        // Load current project if exists
+        loadCurrentProject();
+
+        // Set up auto-save
+        setupProjectAutoSave();
+
+        // Listen for project changes
+        window.addEventListener('currentProjectChanged', (e) => {
+            if (e.detail?.project?.type === 'content') {
+                loadProject(e.detail.project);
+            }
+        });
+
+        console.log('✅ Project integration initialized');
+    }
+
+    /**
+     * Load current project
+     */
+    function loadCurrentProject() {
+        if (typeof window.UnifiedProjectManager === 'undefined') return;
+
+        const project = window.UnifiedProjectManager.getCurrentProject();
+        if (project && project.type === window.PROJECT_TYPES.CONTENT) {
+            state.currentProject = project;
+            loadProjectData(project);
+        }
+    }
+
+    /**
+     * Load project data into the editor
+     */
+    function loadProjectData(project) {
+        if (!project || !project.data) return;
+
+        // Restore project settings
+        if (project.data.useCase) {
+            document.getElementById('useCase').value = project.data.useCase;
+        }
+        if (project.data.tone) {
+            document.getElementById('tone').value = project.data.tone;
+        }
+        if (project.data.persona) {
+            document.getElementById('persona').value = project.data.persona;
+        }
+        if (project.data.styleGuide) {
+            document.getElementById('styleGuide').value = project.data.styleGuide;
+        }
+        if (project.data.language) {
+            document.getElementById('language').value = project.data.language;
+        }
+        if (project.data.contentLength) {
+            document.getElementById('contentLength').value = project.data.contentLength;
+        }
+        if (project.data.inputTopic) {
+            document.getElementById('inputTopic').value = project.data.inputTopic;
+        }
+
+        // Restore content
+        if (project.data.content) {
+            displayContent(project.data.content);
+        }
+
+        // Show project info
+        showProjectInfo(project);
+    }
+
+    /**
+     * Save current state to project
+     */
+    function saveToProject() {
+        if (typeof window.UnifiedProjectManager === 'undefined') return;
+        if (!state.currentProject) return;
+
+        const projectData = {
+            useCase: document.getElementById('useCase')?.value,
+            tone: document.getElementById('tone')?.value,
+            persona: document.getElementById('persona')?.value,
+            styleGuide: document.getElementById('styleGuide')?.value,
+            language: document.getElementById('language')?.value,
+            contentLength: document.getElementById('contentLength')?.value,
+            inputTopic: document.getElementById('inputTopic')?.value,
+            content: state.currentContent,
+            wordCount: document.getElementById('wordCount')?.textContent,
+            lastSaved: new Date().toISOString()
+        };
+
+        window.UnifiedProjectManager.autoSaveCurrentProject(projectData);
+    }
+
+    /**
+     * Set up auto-save interval
+     */
+    function setupProjectAutoSave() {
+        // Clear existing interval
+        if (state.autoSaveInterval) {
+            clearInterval(state.autoSaveInterval);
+        }
+
+        // Auto-save every 15 seconds
+        state.autoSaveInterval = setInterval(() => {
+            if (state.currentProject) {
+                saveToProject();
+            }
+        }, 15000);
+    }
+
+    /**
+     * Create new content project
+     */
+    function createNewProject() {
+        if (typeof window.UnifiedProjectManager === 'undefined') {
+            showAlert('Project management not available', 'warning');
+            return;
+        }
+
+        const projectName = prompt('Enter project name:', 'Content Project');
+        if (!projectName) return;
+
+        const project = window.UnifiedProjectManager.createProject({
+            name: projectName,
+            type: window.PROJECT_TYPES.CONTENT,
+            description: 'AI Content Writer Project',
+            data: {
+                useCase: document.getElementById('useCase')?.value || 'blog-post',
+                tone: document.getElementById('tone')?.value || 'professional'
+            }
+        });
+
+        state.currentProject = project;
+        showAlert('Project created successfully!', 'success');
+        showProjectInfo(project);
+    }
+
+    /**
+     * Show project information
+     */
+    function showProjectInfo(project) {
+        // Add project info banner if not exists
+        let banner = document.getElementById('project-info-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'project-info-banner';
+            banner.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 24px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                z-index: 9998;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+
+            const container = document.querySelector('.writer-container');
+            if (container) {
+                container.style.paddingTop = '60px';
+            }
+
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+
+        const stateColors = {
+            'created': '#10B981',
+            'in_progress': '#F59E0B',
+            'paused': '#6366F1',
+            'completed': '#8B5CF6'
+        };
+
+        const stateLabels = {
+            'created': 'Created',
+            'in_progress': 'In Progress',
+            'paused': 'Paused',
+            'completed': 'Completed'
+        };
+
+        banner.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-weight: 600; font-size: 15px;">
+                    📝 ${project.name}
+                </div>
+                <div style="padding: 4px 12px; background: ${stateColors[project.state]}; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                    ${stateLabels[project.state]}
+                </div>
+                <div style="font-size: 13px; opacity: 0.9;">
+                    Progress: ${project.progress}%
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="ContentWriterService.pauseCurrentProject()" style="padding: 6px 12px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: white; font-size: 13px; cursor: pointer;">
+                    ${project.state === 'paused' ? '▶️ Resume' : '⏸️ Pause'}
+                </button>
+                <button onclick="ContentWriterService.saveToProject()" style="padding: 6px 12px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: white; font-size: 13px; cursor: pointer;">
+                    💾 Save
+                </button>
+                <button onclick="ContentWriterService.viewAllProjects()" style="padding: 6px 12px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: white; font-size: 13px; cursor: pointer;">
+                    📁 Projects
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Pause/Resume current project
+     */
+    function pauseCurrentProject() {
+        if (!state.currentProject) return;
+
+        if (state.currentProject.state === 'paused') {
+            window.UnifiedProjectManager.resumeProject(state.currentProject.id);
+            showAlert('Project resumed', 'success');
+        } else {
+            window.UnifiedProjectManager.pauseProject(state.currentProject.id);
+            showAlert('Project paused', 'info');
+        }
+
+        state.currentProject = window.UnifiedProjectManager.getProject(state.currentProject.id);
+        showProjectInfo(state.currentProject);
+    }
+
+    /**
+     * View all projects
+     */
+    function viewAllProjects() {
+        window.location.href = '/marketing/projects.html';
     }
 
     /**
@@ -1735,7 +1979,13 @@ ${tone.closing}`;
         init,
         generateContent,
         displayContent,
-        calculateQualityMetrics
+        calculateQualityMetrics,
+        // Project management
+        createNewProject,
+        loadCurrentProject,
+        saveToProject,
+        pauseCurrentProject,
+        viewAllProjects
     };
 })();
 
