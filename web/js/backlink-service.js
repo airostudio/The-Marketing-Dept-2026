@@ -844,13 +844,13 @@
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // INITIALIZE WITH SAMPLE DATA
+    // INITIALIZE FROM ANALYSIS DATA (Real Data Only)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function initializeWithSampleData() {
+    function initializeFromAnalysisData() {
         const existing = BacklinkMonitor.getBacklinks();
         if (existing.length === 0) {
-            // Try to import from analysis data only - no sample/fake data
+            // Import from real analysis results only - no fake/sample data
             BacklinkDiscovery.importFromAnalysis();
         }
     }
@@ -904,18 +904,18 @@
             return BacklinkDiscovery.discoverBacklinks(domain);
         },
 
-        initializeSampleData() {
-            initializeWithSampleData();
+        initializeFromAnalysis() {
+            initializeFromAnalysisData();
         }
     };
 
-    // Initialize on load
+    // Initialize on load - import from real analysis data only
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeWithSampleData);
+        document.addEventListener('DOMContentLoaded', initializeFromAnalysisData);
     } else {
-        setTimeout(initializeWithSampleData, 100);
+        setTimeout(initializeFromAnalysisData, 100);
     }
 
-    console.log('BacklinkService initialized');
+    console.log('BacklinkService initialized (real data only)');
 
 })();

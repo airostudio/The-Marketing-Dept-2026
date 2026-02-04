@@ -644,14 +644,14 @@
                 const domain = comp.domain || comp;
                 const domainKeywords = COMPETITOR_KEYWORD_DB[domain] || COMPETITOR_KEYWORD_DB['default'];
 
-                // Add domain-specific keywords
+                // Add domain-specific keywords (real API needed for volume/difficulty)
                 domainKeywords.forEach(kw => {
                     if (!trackedKeywords.has(kw.toLowerCase()) && !competitorKeywords.find(k => k.keyword === kw)) {
                         competitorKeywords.push({
                             keyword: kw,
                             source: domain,
-                            volume: Math.floor(Math.random() * 8000) + 500,
-                            difficulty: Math.floor(Math.random() * 50) + 20
+                            volume: null, // Requires keyword API (Semrush/Ahrefs)
+                            difficulty: null // Requires keyword API
                         });
                     }
                 });
@@ -672,8 +672,8 @@
                         competitorKeywords.push({
                             keyword: kw,
                             source: domain,
-                            volume: Math.floor(Math.random() * 3000) + 200,
-                            difficulty: Math.floor(Math.random() * 40) + 15
+                            volume: null, // Requires keyword API (Semrush/Ahrefs)
+                            difficulty: null // Requires keyword API
                         });
                     }
                 });
@@ -690,9 +690,9 @@
                 tag.style.cssText = 'cursor: pointer; padding: 6px 12px;';
                 tag.innerHTML = `
                     ${escapeHtml(kw.keyword)}
-                    <span style="margin-left: 6px; opacity: 0.6; font-size: 11px;">${formatNumber(kw.volume)}/mo</span>
+                    <span style="margin-left: 6px; opacity: 0.6; font-size: 11px;">${kw.volume ? formatNumber(kw.volume) + '/mo' : 'API required'}</span>
                 `;
-                tag.title = `Source: ${kw.source} | Difficulty: ${kw.difficulty}`;
+                tag.title = `Source: ${kw.source}${kw.difficulty ? ' | Difficulty: ' + kw.difficulty : ' | Connect keyword API for metrics'}`;
                 tag.addEventListener('click', () => {
                     window.KeywordService.addKeywords([kw.keyword]);
                     tag.style.background = 'rgba(16, 185, 129, 0.2)';
@@ -737,31 +737,9 @@
             } catch (e) {
                 console.error('Crawl error:', e);
                 document.getElementById('crawlModal').style.display = 'none';
-                // Generate suggestions anyway for demo
-                const fakeSuggestions = generateDemoSuggestions();
-                showScanResults(fakeSuggestions, Math.floor(Math.random() * 10) + 5);
+                // No fake data - show error
+                showNotification('Crawl Failed', 'Unable to crawl site. Please check the URL and try again.', 'error');
             }
-        }
-
-        function generateDemoSuggestions() {
-            const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
-            const siteDomain = (settings.websiteUrl || 'example.com').replace(/https?:\/\//, '').replace(/\/$/, '');
-
-            const baseKeywords = [
-                'seo optimization', 'keyword tracking', 'backlink analysis', 'site audit',
-                'search rankings', 'organic traffic', 'content marketing', 'technical seo',
-                'link building', 'competitor analysis', 'rank tracker', 'seo tools',
-                'website analytics', 'search console', 'meta tags optimization', 'page speed',
-                'mobile seo', 'local seo', 'content strategy', 'link profile'
-            ];
-
-            return baseKeywords.map(k => ({
-                keyword: k,
-                relevanceScore: Math.floor(Math.random() * 100) + 50,
-                estimatedVolume: Math.floor(Math.random() * 5000) + 100,
-                estimatedDifficulty: Math.floor(Math.random() * 60) + 20,
-                pagesFound: Math.floor(Math.random() * 5) + 1
-            }));
         }
 
         function showScanResults(keywords, pagesScanned) {

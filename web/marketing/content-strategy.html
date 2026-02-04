@@ -714,16 +714,8 @@
                     if (cal && cal.length) {
                         calendarItems = cal;
                     } else {
-                        // Seed demo data
-                        calendarItems = [
-                            { id: 'demo-1', title: '2026 Marketing Trends', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-03', status: 'published', type: 'blog' },
-                            { id: 'demo-2', title: 'Product Launch Email', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-07', status: 'scheduled', type: 'email' },
-                            { id: 'demo-3', title: 'Social Campaign Brief', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-10', status: 'review', type: 'social-post' },
-                            { id: 'demo-4', title: 'SEO Pillar Article', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-14', status: 'draft', type: 'blog' },
-                            { id: 'demo-5', title: 'Case Study: Client X', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-18', status: 'scheduled', type: 'case-study' },
-                            { id: 'demo-6', title: 'Weekly Newsletter', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-21', status: 'published', type: 'email' },
-                            { id: 'demo-7', title: 'Webinar Landing Page', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-25', status: 'draft', type: 'landing-page' }
-                        ];
+                        // Start with empty calendar - no demo data
+                        calendarItems = [];
                     }
                     renderCalendar();
 
@@ -750,7 +742,7 @@
             function updateKPIs(perf, top) {
                 var published = (perf || []).filter(function (p) { return p.status === 'published'; }).length || calendarItems.filter(function (c) { return c.status === 'published'; }).length;
                 setMetric('content-published', published);
-                setMetric('published-trend', '+' + Math.floor(Math.random() * 5 + 1) + ' this month');
+                setMetric('published-trend', published > 0 ? 'Real data' : 'No data yet');
 
                 var totalEng = 0; var engCount = 0;
                 (perf || []).forEach(function (p) { if (p.engagement) { totalEng += p.engagement; engCount++; } });
