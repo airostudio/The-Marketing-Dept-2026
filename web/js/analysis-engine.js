@@ -10,7 +10,7 @@
  * - Google Search Console API (keywords, if authorized)
  * - DataForSEO API (backlinks, if configured)
  *
- * Set APP_CONFIG.FEATURES.USE_MOCK_DATA = true for demo mode with simulated data.
+ * NO MOCK DATA - Production ready with real analysis only.
  */
 
 (function() {
@@ -147,14 +147,6 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CHECK FOR MOCK MODE
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function useMockData() {
-        return window.APP_CONFIG?.FEATURES?.USE_MOCK_DATA === true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -204,7 +196,7 @@
 
         // Start analysis
         state.startTime = Date.now();
-        addLog(`Starting ${useMockData() ? 'demo' : 'production'} analysis for ${state.projectData.url}`, 'info');
+        addLog(`Starting analysis for ${state.projectData.url}`, 'info');
 
         startAnalysis();
     }
@@ -236,15 +228,11 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // REAL ANALYSIS
+    // REAL ANALYSIS - PRODUCTION ONLY
     // ═══════════════════════════════════════════════════════════════════════════
 
     async function startAnalysis() {
-        if (useMockData()) {
-            await runMockAnalysis();
-        } else {
-            await runRealAnalysis();
-        }
+        await runRealAnalysis();
     }
 
     async function runRealAnalysis() {
@@ -378,9 +366,18 @@
             addLog('Analysis error: ' + error.message, 'error');
             console.error('Analysis failed:', error);
 
-            // Fall back to mock data on error
-            addLog('Falling back to demo mode...', 'warning');
-            await runMockAnalysis();
+            // Show error state - no fake data fallback
+            state.isComplete = true;
+            state.progress = 0;
+
+            if (elements.progressBar) {
+                elements.progressBar.style.width = '0%';
+            }
+            if (elements.progressPercent) {
+                elements.progressPercent.textContent = 'Analysis Failed';
+            }
+
+            addLog('Analysis could not be completed. Please check your website URL and try again.', 'error');
         }
     }
 
@@ -408,7 +405,7 @@
                         url: pageUrl,
                         title: results.pageTitles?.[pageUrl] || `Page ${i + 1}`,
                         status: 200,
-                        loadTime: Math.random() * 2000 + 500
+                        loadTime: results.loadTimes?.[pageUrl] || null
                     }));
 
                     // Format issues
@@ -614,135 +611,6 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MOCK ANALYSIS (Demo Mode)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    async function runMockAnalysis() {
-        addLog('Running in demo mode with simulated data...', 'warning');
-
-        // Simulate crawl
-        await runTask('crawl', async () => {
-            for (let i = 0; i < 5; i++) {
-                await sleep(1000);
-                state.counters.pages = Math.min(state.counters.pages + Math.floor(Math.random() * 10) + 5, 50);
-                updateStats();
-                addLog(`Discovered ${state.counters.pages} pages...`, 'info');
-            }
-        });
-
-        // Simulate performance
-        await runTask('performance', async () => {
-            await sleep(2000);
-            state.data.performanceScore = Math.floor(Math.random() * 30) + 60;
-            addLog(`Performance Score: ${state.data.performanceScore}/100`, 'success');
-        });
-
-        // Simulate keywords
-        await runTask('keywords', async () => {
-            await sleep(2000);
-            state.counters.keywords = Math.floor(Math.random() * 50) + 30;
-            updateStats();
-            addLog(`Found ${state.counters.keywords} keywords`, 'success');
-        });
-
-        // Simulate backlinks
-        await runTask('backlinks', async () => {
-            await sleep(1500);
-            state.counters.backlinks = Math.floor(Math.random() * 20) + 5;
-            updateStats();
-            addLog(`Found ${state.counters.backlinks} backlinks`, 'success');
-        });
-
-        // Generate report
-        await runTask('report', async () => {
-            await sleep(1000);
-            state.data.healthScore = Math.floor(Math.random() * 25) + 65;
-            state.counters.issues = Math.floor(Math.random() * 15) + 5;
-
-            // Generate mock data
-            state.data.pages = generateMockPages(state.counters.pages);
-            state.data.issues = generateMockIssues(state.counters.issues);
-            state.data.keywords = generateMockKeywords(state.counters.keywords);
-            state.data.backlinks = generateMockBacklinks(state.counters.backlinks);
-            state.data.summary = generateSummary();
-
-            updateStats();
-        });
-
-        completeAnalysis();
-    }
-
-    function generateMockPages(count) {
-        const pages = [];
-        const types = ['homepage', 'about', 'services', 'contact', 'blog', 'product'];
-
-        for (let i = 0; i < count; i++) {
-            const type = types[Math.floor(Math.random() * types.length)];
-            pages.push({
-                url: i === 0 ? '/' : `/${type}/${i}`,
-                title: `${type.charAt(0).toUpperCase() + type.slice(1)} Page ${i + 1}`,
-                status: 200,
-                loadTime: Math.random() * 2000 + 500
-            });
-        }
-
-        return pages;
-    }
-
-    function generateMockIssues(count) {
-        const issueTemplates = [
-            { severity: 'critical', category: 'seo', title: 'Missing Meta Description', recommendation: 'Add unique meta descriptions' },
-            { severity: 'high', category: 'seo', title: 'Missing H1 Tag', recommendation: 'Add H1 headings to pages' },
-            { severity: 'medium', category: 'performance', title: 'Large Image Files', recommendation: 'Compress images' },
-            { severity: 'low', category: 'seo', title: 'Missing Alt Text', recommendation: 'Add alt text to images' },
-            { severity: 'high', category: 'technical', title: 'Slow Page Load', recommendation: 'Optimize page speed' },
-            { severity: 'medium', category: 'seo', title: 'Thin Content', recommendation: 'Add more content' }
-        ];
-
-        const issues = [];
-        for (let i = 0; i < count; i++) {
-            const template = issueTemplates[i % issueTemplates.length];
-            issues.push({
-                ...template,
-                description: `Issue found on page ${i + 1}`,
-                url: `/page-${i + 1}`
-            });
-        }
-
-        return issues;
-    }
-
-    function generateMockKeywords(count) {
-        const baseKeywords = ['seo', 'marketing', 'digital', 'website', 'content', 'strategy', 'analytics', 'optimization'];
-        const keywords = [];
-
-        for (let i = 0; i < count; i++) {
-            keywords.push({
-                keyword: baseKeywords[i % baseKeywords.length] + (i > 7 ? ` ${i}` : ''),
-                position: Math.floor(Math.random() * 50) + 1,
-                volume: Math.floor(Math.random() * 5000) + 100
-            });
-        }
-
-        return keywords;
-    }
-
-    function generateMockBacklinks(count) {
-        const domains = ['techblog.com', 'marketing.io', 'news.org', 'business.net'];
-        const backlinks = [];
-
-        for (let i = 0; i < count; i++) {
-            backlinks.push({
-                sourceUrl: `https://${domains[i % domains.length]}/article-${i}`,
-                targetUrl: '/',
-                domainAuthority: Math.floor(Math.random() * 50) + 20
-            });
-        }
-
-        return backlinks;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // TASK EXECUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -877,7 +745,7 @@
                 coreWebVitals: state.data.coreWebVitals,
                 summary: state.data.summary,
                 analyzedAt: new Date().toISOString(),
-                isRealData: !useMockData()
+                isRealData: true // Always real data - no mock mode
             };
 
             // Generate AI-powered insights if available

@@ -221,8 +221,8 @@ window.APP_CONFIG = {
         ENABLE_AI_CONTENT: true,           // AI content generation
         ENABLE_AI_REPORTS: true,           // AI report summaries
         ENABLE_COMPETITOR_TRACKING: true,
-        ENABLE_SOCIAL_PUBLISHING: false,
-        USE_MOCK_DATA: false  // Set to true for demo mode
+        ENABLE_SOCIAL_PUBLISHING: false
+        // NO MOCK DATA FLAG - Production ready with real data only
     }
 };
 

@@ -676,8 +676,7 @@ const ContentWriterService = (() => {
         // Build expert prompt
         const expertPrompt = buildExpertPrompt(params, template, personaData, styleGuideData);
 
-        // Simulate generation delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // No fake delays - return immediately when content is generated
 
         // Generate content based on use case
         return generateContentByUseCase(params, template);
@@ -1353,7 +1352,7 @@ ${tone.closing}`;
         showProcessing('Improving content...');
 
         // Simulate AI improvement
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         // Add improvements (in production, this would use Claude API)
         const improved = improveContent(content);
@@ -1395,7 +1394,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Shortening content...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         const shortened = shortenContent(content);
         displayContent(shortened);
@@ -1431,7 +1430,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Expanding content...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         const expanded = expandContent(content);
         displayContent(expanded);
@@ -1464,7 +1463,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Summarizing content...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         const summary = summarizeContent(content);
         displayContent(summary);
@@ -1502,7 +1501,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Rewriting content...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         // Rewrite with different structure
         const rewritten = rewriteContent(content);
@@ -1620,7 +1619,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Checking style compliance...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         const issues = checkStyleGuide(content);
         displayProofreadResults(issues);
@@ -1687,7 +1686,7 @@ ${tone.closing}`;
         }
 
         showProcessing('Analyzing tone...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // No fake delays
 
         const issues = checkToneCompliance(content);
         displayProofreadResults(issues);
