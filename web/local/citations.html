@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citation Management | Local SEO | SEO Agent</title>
+    <meta name="description" content="Manage and monitor your business citations across local directories and platforms.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="/local/citations.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main sidebar navigation">
+            <div class="sidebar-header">
+                <a href="../index.html" class="sidebar-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 40 40" fill="none">
+                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
+                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                            <defs><linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">SEO Agent</span>
+                </a>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Overview</span>
+                    <a href="../dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <button class="nav-section-header expanded" data-module="local-seo">
+                        <span class="nav-section-title">Local SEO</span>
+                        <svg class="nav-section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="nav-section-content expanded" data-module-content="local-seo">
+                        <a href="local-overview.html" class="nav-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            <span>Local Overview</span>
+                        </a>
+                        <a href="citations.html" class="nav-item active">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>Citations</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="../settings.html" class="nav-item settings-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div class="breadcrumb">
+                        <a href="../dashboard.html">Dashboard</a>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <span>Local SEO</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <span class="current">Citations</span>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-outline" id="scanCitationsBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        Scan for Citations
+                    </button>
+                    <button class="btn btn-primary" id="addCitationBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Citation Source
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content" id="main-content">
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h1>Citation Management</h1>
+                        <p>Monitor and manage your business citations across directories and local platforms</p>
+                    </div>
+                </div>
+
+                <!-- API Connection Alert -->
+                <div class="alert alert-info" id="apiAlert" style="margin-bottom: 24px; padding: 16px 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 1px solid #667eea40; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;color:#667eea;flex-shrink:0;">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div style="flex: 1;">
+                        <strong style="display:block;margin-bottom:4px;">Citation Tracking API Required</strong>
+                        <p style="margin:0;opacity:0.8;">Connect BrightLocal or similar citation management API to automatically track and monitor your citations. <a href="../settings.html#integrations" style="color:#667eea;text-decoration:underline;">Configure in Settings</a></p>
+                    </div>
+                </div>
+
+                <!-- Citation Health Score -->
+                <div class="card" style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:24px;">
+                    <h2 style="font-size:18px;font-weight:600;color:#1e293b;margin:0 0 20px;">Citation Health Score</h2>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;">
+                        <div style="text-align:center;padding:24px;background:linear-gradient(135deg, #10b98115 0%, #10b98105 100%);border-radius:12px;">
+                            <div style="font-size:40px;font-weight:700;color:#10b981;margin-bottom:8px;" id="accuracyScore">-</div>
+                            <div style="font-size:14px;color:#64748b;font-weight:500;">Accuracy Score</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">API required</div>
+                        </div>
+                        <div style="text-align:center;padding:24px;background:linear-gradient(135deg, #3b82f615 0%, #3b82f605 100%);border-radius:12px;">
+                            <div style="font-size:40px;font-weight:700;color:#3b82f6;margin-bottom:8px;" id="totalCitations">-</div>
+                            <div style="font-size:14px;color:#64748b;font-weight:500;">Total Citations</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">API required</div>
+                        </div>
+                        <div style="text-align:center;padding:24px;background:linear-gradient(135deg, #f59e0b15 0%, #f59e0b05 100%);border-radius:12px;">
+                            <div style="font-size:40px;font-weight:700;color:#f59e0b;margin-bottom:8px;" id="issuesFound">-</div>
+                            <div style="font-size:14px;color:#64748b;font-weight:500;">Issues Found</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">API required</div>
+                        </div>
+                        <div style="text-align:center;padding:24px;background:linear-gradient(135deg, #667eea15 0%, #667eea05 100%);border-radius:12px;">
+                            <div style="font-size:40px;font-weight:700;color:#667eea;margin-bottom:8px;" id="completionRate">-</div>
+                            <div style="font-size:14px;color:#64748b;font-weight:500;">Completion Rate</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">API required</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Citation Sources -->
+                <div class="card" style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:24px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                        <h2 style="font-size:18px;font-weight:600;color:#1e293b;margin:0;">Citation Sources</h2>
+                        <div style="display:flex;gap:8px;">
+                            <select id="filterStatus" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#1e293b;">
+                                <option value="all">All Statuses</option>
+                                <option value="complete">Complete</option>
+                                <option value="incomplete">Incomplete</option>
+                                <option value="incorrect">Incorrect</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="citationsTable">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="border-bottom:2px solid #e2e8f0;">
+                                    <th style="padding:12px;text-align:left;font-size:13px;font-weight:600;color:#64748b;">Platform</th>
+                                    <th style="padding:12px;text-align:left;font-size:13px;font-weight:600;color:#64748b;">Status</th>
+                                    <th style="padding:12px;text-align:left;font-size:13px;font-weight:600;color:#64748b;">Business Name</th>
+                                    <th style="padding:12px;text-align:left;font-size:13px;font-weight:600;color:#64748b;">Address</th>
+                                    <th style="padding:12px;text-align:left;font-size:13px;font-weight:600;color:#64748b;">Phone</th>
+                                    <th style="padding:12px;text-align:center;font-size:13px;font-weight:600;color:#64748b;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="citationsTableBody">
+                                <tr>
+                                    <td colspan="6" style="padding:60px 20px;text-align:center;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;margin:0 auto 16px;opacity:0.3;color:#94a3b8;">
+                                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                        <p style="margin:0;font-size:15px;color:#64748b;">No citations tracked yet</p>
+                                        <p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">Add citation sources or scan for existing citations to get started</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Important Citation Platforms -->
+                <div class="card" style="background:white;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <h2 style="font-size:18px;font-weight:600;color:#1e293b;margin:0 0 20px;">Key Citation Platforms</h2>
+                    <p style="margin:0 0 20px;font-size:14px;color:#64748b;">These are the most important directories for local SEO. Make sure your business is listed accurately on each:</p>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+                        <!-- Google Business Profile -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#4285F4;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <svg viewBox="0 0 24 24" fill="white" style="width:24px;height:24px;">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Google Business Profile</div>
+                                <div style="font-size:12px;color:#94a3b8;">Most important citation</div>
+                            </div>
+                            <a href="https://business.google.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+
+                        <!-- Yelp -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#D32323;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:700;font-size:18px;">Y</div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Yelp</div>
+                                <div style="font-size:12px;color:#94a3b8;">Consumer reviews</div>
+                            </div>
+                            <a href="https://biz.yelp.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+
+                        <!-- Facebook -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#1877F2;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:700;font-size:20px;">f</div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Facebook</div>
+                                <div style="font-size:12px;color:#94a3b8;">Social presence</div>
+                            </div>
+                            <a href="https://business.facebook.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+
+                        <!-- Apple Maps -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#007AFF;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <svg viewBox="0 0 24 24" fill="white" style="width:24px;height:24px;">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Apple Maps</div>
+                                <div style="font-size:12px;color:#94a3b8;">iOS users</div>
+                            </div>
+                            <a href="https://mapsconnect.apple.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+
+                        <!-- Bing Places -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#008373;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:700;font-size:18px;">B</div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Bing Places</div>
+                                <div style="font-size:12px;color:#94a3b8;">Bing search</div>
+                            </div>
+                            <a href="https://www.bingplaces.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+
+                        <!-- Yellow Pages -->
+                        <div style="padding:16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:40px;height:40px;background:#FDB515;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:700;font-size:18px;">YP</div>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1e293b;margin-bottom:2px;">Yellow Pages</div>
+                                <div style="font-size:12px;color:#94a3b8;">Traditional directory</div>
+                            </div>
+                            <a href="https://www.yellowpages.com" target="_blank" rel="noopener" style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:12px;color:#667eea;text-decoration:none;font-weight:500;">Manage</a>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;border-left:3px solid #667eea;">
+                        <p style="margin:0;font-size:13px;color:#64748b;">
+                            <strong style="color:#1e293b;">Pro Tip:</strong> Ensure your NAP (Name, Address, Phone) is consistent across all platforms. Inconsistencies can harm your local SEO rankings.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/ui.js"></script>
+    <script>
+        // Citation Management functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for citation API connection
+            const isConnected = checkCitationAPIConnection();
+
+            if (!isConnected) {
+                showAPIAlert();
+            } else {
+                loadCitationData();
+            }
+
+            // Scan citations button
+            document.getElementById('scanCitationsBtn')?.addEventListener('click', function() {
+                if (isConnected) {
+                    scanForCitations();
+                } else {
+                    alert('Citation scanning requires BrightLocal API or similar service. See API_REQUIREMENTS.md for details.');
+                }
+            });
+
+            // Add citation button
+            document.getElementById('addCitationBtn')?.addEventListener('click', function() {
+                // Show modal to manually add citation source
+                alert('Manual citation tracking will be available once citation management API is integrated');
+            });
+
+            // Filter status
+            document.getElementById('filterStatus')?.addEventListener('change', function(e) {
+                filterCitations(e.target.value);
+            });
+        });
+
+        function checkCitationAPIConnection() {
+            // Check if citation management API is connected (BrightLocal, etc.)
+            const integrations = JSON.parse(localStorage.getItem('integrations') || '{}');
+            return integrations.brightLocal?.connected === true || integrations.citationAPI?.connected === true;
+        }
+
+        function showAPIAlert() {
+            document.getElementById('apiAlert').style.display = 'flex';
+        }
+
+        function loadCitationData() {
+            // Load real citation data from API
+            console.log('Loading citation data...');
+
+            // Show "No data yet" instead of fake data
+            document.getElementById('accuracyScore').textContent = '0%';
+            document.getElementById('totalCitations').textContent = '0';
+            document.getElementById('issuesFound').textContent = '0';
+            document.getElementById('completionRate').textContent = '0%';
+        }
+
+        function scanForCitations() {
+            alert('Scanning for citations across directories. This requires BrightLocal API integration.');
+        }
+
+        function filterCitations(status) {
+            // Filter citations table by status
+            console.log('Filtering by:', status);
+        }
+    </script>
+</body>
+</html>
