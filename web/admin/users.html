@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management | Admin Dashboard</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .admin-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+
+        .admin-header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .users-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f9fafb;
+        }
+
+        th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .user-email {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-admin {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-super-admin {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-user {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .badge-free {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .badge-pro {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-enterprise {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            padding: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 6px;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .btn-icon.danger:hover {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="../index.html" class="sidebar-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 40 40" fill="none">
+                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
+                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M14.5 24H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                            <defs>
+                                <linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40">
+                                    <stop stop-color="#6366F1"/>
+                                    <stop offset="1" stop-color="#8B5CF6"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">Admin Panel</span>
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Admin</span>
+                    <a href="users.html" class="nav-item active">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <span>User Management</span>
+                    </a>
+                    <a href="../dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                        <span>Back to Dashboard</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container" style="max-width: 1400px; padding: 40px;">
+                <div class="admin-header">
+                    <h1>User Management</h1>
+                    <p>Manage user accounts, roles, and permissions</p>
+                </div>
+
+                <div class="users-table">
+                    <div class="table-header">
+                        <h2>All Users</h2>
+                        <div class="table-actions">
+                            <button class="btn btn-primary" onclick="openCreateUserModal()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                Create User
+                            </button>
+                            <button class="btn btn-outline" onclick="loadUsers()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="23 4 23 10 17 10"/>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                </svg>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="loading-spinner" id="loadingSpinner">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="#e5e7eb" stroke-width="4"/>
+                            <circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="4" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round">
+                                <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/>
+                            </circle>
+                        </svg>
+                        <p>Loading users...</p>
+                    </div>
+
+                    <table id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Plan</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+
+                    <div class="empty-state" id="emptyState" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <h3>No users found</h3>
+                        <p>Create your first user to get started</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create/Edit User Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Create New User</h3>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId">
+
+                    <div class="form-group">
+                        <label for="userEmail">Email Address *</label>
+                        <input type="email" id="userEmail" required placeholder="user@example.com">
+                    </div>
+
+                    <div class="form-group" id="passwordGroup">
+                        <label for="userPassword">Password *</label>
+                        <input type="password" id="userPassword" required minlength="8" placeholder="At least 8 characters">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userFirstname">First Name *</label>
+                        <input type="text" id="userFirstname" required placeholder="John">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userLastname">Last Name *</label>
+                        <input type="text" id="userLastname" required placeholder="Doe">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userRole">Role *</label>
+                        <select id="userRole" required>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userPlan">Plan *</label>
+                        <select id="userPlan" required>
+                            <option value="free">Free</option>
+                            <option value="pro">Pro</option>
+                            <option value="enterprise">Enterprise</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUser()">
+                    <span id="saveButtonText">Create User</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let currentEditingUser = null;
+
+        // Check if user is admin
+        async function checkAdminAccess() {
+            const user = await Auth.getUser();
+            if (!user) {
+                window.location.href = '../index.html';
+                return false;
+            }
+
+            // Check if using Supabase or local storage
+            if (window.Supabase && window.Supabase.isConfigured()) {
+                const profile = await window.Supabase.DB.getProfile(user.id);
+                if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+                    alert('Access denied. Admin privileges required.');
+                    window.location.href = '../dashboard.html';
+                    return false;
+                }
+            } else {
+                // Local mode - check if user has admin flag
+                if (!user.role || (user.role !== 'admin' && user.role !== 'super_admin')) {
+                    alert('Access denied. This feature requires Supabase configuration and admin privileges.');
+                    window.location.href = '../dashboard.html';
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Load all users
+        async function loadUsers() {
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const usersTableBody = document.getElementById('usersTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            loadingSpinner.classList.add('active');
+            usersTableBody.innerHTML = '';
+            emptyState.style.display = 'none';
+
+            try {
+                if (window.Supabase && window.Supabase.isConfigured()) {
+                    const client = window.Supabase.getClient();
+                    const { data: profiles, error } = await client
+                        .from('profiles')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    if (!profiles || profiles.length === 0) {
+                        emptyState.style.display = 'block';
+                    } else {
+                        profiles.forEach(profile => {
+                            renderUserRow(profile);
+                        });
+                    }
+                } else {
+                    // Local mode
+                    const users = Auth.getStoredUsers();
+                    if (!users || users.length === 0) {
+                        emptyState.style.display = 'block';
+                    } else {
+                        users.forEach(user => {
+                            renderUserRow(user);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                alert('Failed to load users: ' + error.message);
+            } finally {
+                loadingSpinner.classList.remove('active');
+            }
+        }
+
+        // Render user row
+        function renderUserRow(user) {
+            const tbody = document.getElementById('usersTableBody');
+            const initials = (user.firstname?.charAt(0) || '') + (user.lastname?.charAt(0) || '');
+            const createdDate = new Date(user.created_at || user.createdAt).toLocaleDateString();
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <div class="user-info">
+                        <div class="user-avatar">${initials || 'U'}</div>
+                        <div class="user-details">
+                            <span class="user-name">${user.firstname || ''} ${user.lastname || ''}</span>
+                            <span class="user-email">${user.email}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge badge-${user.role || 'user'}">
+                        ${(user.role || 'user').replace('_', ' ').toUpperCase()}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge badge-${user.plan || 'free'}">
+                        ${(user.plan || 'free').toUpperCase()}
+                    </span>
+                </td>
+                <td>${createdDate}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick='editUser(${JSON.stringify(user)})' title="Edit user">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                        </button>
+                        <button class="btn-icon danger" onclick='deleteUser("${user.id || user.email}", "${user.email}")' title="Delete user">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        // Open create user modal
+        function openCreateUserModal() {
+            currentEditingUser = null;
+            document.getElementById('modalTitle').textContent = 'Create New User';
+            document.getElementById('saveButtonText').textContent = 'Create User';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        // Edit user
+        function editUser(user) {
+            currentEditingUser = user;
+            document.getElementById('modalTitle').textContent = 'Edit User';
+            document.getElementById('saveButtonText').textContent = 'Update User';
+            document.getElementById('userId').value = user.id;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userFirstname').value = user.firstname || '';
+            document.getElementById('userLastname').value = user.lastname || '';
+            document.getElementById('userRole').value = user.role || 'user';
+            document.getElementById('userPlan').value = user.plan || 'free';
+            document.getElementById('passwordGroup').style.display = 'none';
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        // Close modal
+        function closeUserModal() {
+            document.getElementById('userModal').classList.remove('active');
+            currentEditingUser = null;
+        }
+
+        // Save user
+        async function saveUser() {
+            const form = document.getElementById('userForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const userData = {
+                email: document.getElementById('userEmail').value,
+                firstname: document.getElementById('userFirstname').value,
+                lastname: document.getElementById('userLastname').value,
+                role: document.getElementById('userRole').value,
+                plan: document.getElementById('userPlan').value
+            };
+
+            try {
+                if (currentEditingUser) {
+                    // Update existing user
+                    if (window.Supabase && window.Supabase.isConfigured()) {
+                        await window.Supabase.DB.updateProfile(currentEditingUser.id, userData);
+                    } else {
+                        // Local mode update
+                        const users = Auth.getStoredUsers();
+                        const index = users.findIndex(u => u.email === currentEditingUser.email);
+                        if (index !== -1) {
+                            users[index] = { ...users[index], ...userData };
+                            localStorage.setItem('seo_agent_users', JSON.stringify(users));
+                        }
+                    }
+                    alert('User updated successfully!');
+                } else {
+                    // Create new user
+                    const password = document.getElementById('userPassword').value;
+
+                    if (window.Supabase && window.Supabase.isConfigured()) {
+                        const result = await window.Supabase.Auth.signUp(userData.email, password, {
+                            firstname: userData.firstname,
+                            lastname: userData.lastname,
+                            first_name: userData.firstname,
+                            last_name: userData.lastname
+                        });
+
+                        // Update role and plan
+                        if (result.user) {
+                            await window.Supabase.DB.updateProfile(result.user.id, {
+                                role: userData.role,
+                                plan: userData.plan
+                            });
+                        }
+                    } else {
+                        // Local mode create
+                        await Auth.register({ ...userData, password });
+                    }
+                    alert('User created successfully!');
+                }
+
+                closeUserModal();
+                loadUsers();
+            } catch (error) {
+                console.error('Failed to save user:', error);
+                alert('Failed to save user: ' + error.message);
+            }
+        }
+
+        // Delete user
+        async function deleteUser(userId, email) {
+            if (!confirm(`Are you sure you want to delete user: ${email}?`)) {
+                return;
+            }
+
+            try {
+                if (window.Supabase && window.Supabase.isConfigured()) {
+                    const client = window.Supabase.getClient();
+                    const { error } = await client
+                        .from('profiles')
+                        .delete()
+                        .eq('id', userId);
+
+                    if (error) throw error;
+                } else {
+                    // Local mode delete
+                    const users = Auth.getStoredUsers();
+                    const filtered = users.filter(u => u.email !== email);
+                    localStorage.setItem('seo_agent_users', JSON.stringify(filtered));
+                }
+
+                alert('User deleted successfully!');
+                loadUsers();
+            } catch (error) {
+                console.error('Failed to delete user:', error);
+                alert('Failed to delete user: ' + error.message);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            const hasAccess = await checkAdminAccess();
+            if (hasAccess) {
+                loadUsers();
+            }
+        });
+    </script>
+</body>
+</html>
