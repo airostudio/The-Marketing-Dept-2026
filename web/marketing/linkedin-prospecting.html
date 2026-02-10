@@ -466,14 +466,116 @@
         </div>
     </div>
 
+    <!-- PHASE 1: CSV Import Modal -->
+    <div class="modal" id="csvImportModal">
+        <div class="modal-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+                <h2 style="font-size:24px;font-weight:700;color:#1e293b;margin:0;">Import Prospects from CSV</h2>
+                <button class="action-btn action-btn-secondary" id="closeCsvModal" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="csvImportStep1">
+                <p style="margin-bottom:20px;color:#64748b;">Upload a CSV file containing your LinkedIn prospects. Supported formats:</p>
+                <ul style="margin-bottom:20px;color:#64748b;padding-left:20px;">
+                    <li>LinkedIn exported connections CSV</li>
+                    <li>Custom CSV with prospect data</li>
+                    <li>CRM exported prospect lists</li>
+                </ul>
+
+                <div style="margin-bottom:20px;padding:16px;background:#f1f5f9;border-radius:8px;">
+                    <strong style="display:block;margin-bottom:8px;">Expected CSV Format:</strong>
+                    <code style="font-size:12px;display:block;background:white;padding:10px;border-radius:4px;overflow-x:auto;">
+Name,Company,Job Title,Email,LinkedIn URL<br>
+John Smith,Acme Corp,VP Marketing,john@acme.com,https://linkedin.com/in/johnsmith<br>
+Jane Doe,Beta Inc,CEO,jane@beta.com,https://linkedin.com/in/janedoe
+                    </code>
+                </div>
+
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+                <button class="action-btn action-btn-primary" id="selectCsvBtn" style="width:100%;padding:16px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;margin-right:8px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Select CSV File
+                </button>
+            </div>
+
+            <div id="csvImportStep2" style="display:none;">
+                <div id="csvPreview"></div>
+
+                <div style="margin-top:24px;">
+                    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Import Options</h3>
+
+                    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;">
+                        <input type="checkbox" id="skipDuplicates" checked>
+                        <span>Skip duplicates (recommended)</span>
+                    </label>
+
+                    <div class="form-group">
+                        <label class="form-label">Default Status for Imported Prospects</label>
+                        <select class="form-select" id="importDefaultStatus">
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="responded">Responded</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Add Tags to All Imported Prospects (optional)</label>
+                        <input type="text" class="form-input" id="importTags" placeholder="import-2026, linkedin-export">
+                        <p class="form-hint">Separate tags with commas</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-top:24px;">
+                    <button class="action-btn action-btn-primary" id="confirmImportBtn" style="flex:1;">
+                        Import Prospects
+                    </button>
+                    <button class="action-btn action-btn-secondary" id="cancelImportBtn">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <div id="csvImportStep3" style="display:none;">
+                <div id="importResults"></div>
+                <button class="action-btn action-btn-primary" id="closeResultsBtn" style="width:100%;margin-top:20px;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/ui.js"></script>
     <script src="/js/linkedin-prospecting-service.js"></script>
     <script>
+        // PHASE 1: Global CSV import state
+        let csvImportData = null;
+        let csvColumnMapping = null;
+
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             LinkedInProspectingService.init();
             loadProspects();
             updateStats();
+
+            // PHASE 1: Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                const permission = await LinkedInProspectingService.requestNotificationPermission();
+                if (permission) {
+                    console.log('Notifications enabled');
+                    LinkedInProspectingService.startFollowUpReminders();
+                }
+            } else if (Notification.permission === 'granted') {
+                LinkedInProspectingService.startFollowUpReminders();
+            }
 
             // Event listeners
             document.getElementById('addProspectBtn').addEventListener('click', () => {
@@ -512,10 +614,189 @@
                 LinkedInProspectingService.filterProspects();
             });
 
+            // PHASE 1: CSV Import Event Listeners
             document.getElementById('importProspectsBtn').addEventListener('click', () => {
-                alert('CSV import functionality coming soon! For now, add prospects manually using the "Add Prospect" button.');
+                document.getElementById('csvImportModal').classList.add('active');
+                showImportStep(1);
+            });
+
+            document.getElementById('closeCsvModal').addEventListener('click', () => {
+                document.getElementById('csvImportModal').classList.remove('active');
+                csvImportData = null;
+                csvColumnMapping = null;
+            });
+
+            document.getElementById('selectCsvBtn').addEventListener('click', () => {
+                document.getElementById('csvFileInput').click();
+            });
+
+            document.getElementById('csvFileInput').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        csvImportData = await LinkedInProspectingService.importFromCSV(file);
+                        csvColumnMapping = LinkedInProspectingService.mapCSVColumns(csvImportData.headers);
+                        showCSVPreview(csvImportData);
+                        showImportStep(2);
+                    } catch (error) {
+                        alert('Error reading CSV file:\n' + error.message);
+                    }
+                }
+                // Reset file input
+                e.target.value = '';
+            });
+
+            document.getElementById('confirmImportBtn').addEventListener('click', () => {
+                processCSVImport();
+            });
+
+            document.getElementById('cancelImportBtn').addEventListener('click', () => {
+                showImportStep(1);
+                csvImportData = null;
+                csvColumnMapping = null;
+            });
+
+            document.getElementById('closeResultsBtn').addEventListener('click', () => {
+                document.getElementById('csvImportModal').classList.remove('active');
+                csvImportData = null;
+                csvColumnMapping = null;
+                showImportStep(1);
             });
         });
+
+        // PHASE 1: CSV Import Helper Functions
+        function showImportStep(step) {
+            document.getElementById('csvImportStep1').style.display = step === 1 ? 'block' : 'none';
+            document.getElementById('csvImportStep2').style.display = step === 2 ? 'block' : 'none';
+            document.getElementById('csvImportStep3').style.display = step === 3 ? 'block' : 'none';
+        }
+
+        function showCSVPreview(csvData) {
+            const preview = document.getElementById('csvPreview');
+            const previewRows = Math.min(5, csvData.data.length);
+
+            let html = `
+                <div style="margin-bottom:16px;">
+                    <strong>File Preview:</strong> ${csvData.successfulRows} rows found
+                    ${csvData.errors.length > 0 ? `<span style="color:#ef4444;margin-left:8px;">(${csvData.errors.length} errors)</span>` : ''}
+                </div>
+            `;
+
+            if (csvData.errors.length > 0) {
+                html += `<details style="margin-bottom:16px;"><summary style="cursor:pointer;color:#ef4444;">View Errors (${csvData.errors.length})</summary>
+                    <div style="max-height:150px;overflow-y:auto;margin-top:8px;padding:8px;background:#fef2f2;border-radius:4px;font-size:12px;">
+                        ${csvData.errors.join('<br>')}
+                    </div>
+                </details>`;
+            }
+
+            html += `
+                <div style="overflow-x:auto;margin-bottom:16px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                                ${csvData.headers.map(h => `<th style="padding:8px;text-align:left;font-weight:600;">${h}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${csvData.data.slice(0, previewRows).map(row => `
+                                <tr style="border-bottom:1px solid #e2e8f0;">
+                                    ${csvData.headers.map(h => `<td style="padding:8px;">${row[h] || ''}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${csvData.data.length > previewRows ? `<p style="font-size:13px;color:#64748b;">...and ${csvData.data.length - previewRows} more rows</p>` : ''}
+            `;
+
+            preview.innerHTML = html;
+        }
+
+        function processCSVImport() {
+            if (!csvImportData || !csvColumnMapping) {
+                alert('No CSV data to import');
+                return;
+            }
+
+            const skipDuplicates = document.getElementById('skipDuplicates').checked;
+            const defaultStatus = document.getElementById('importDefaultStatus').value;
+            const tagsInput = document.getElementById('importTags').value.trim();
+            const defaultTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+
+            const results = LinkedInProspectingService.processCSVImport(csvImportData, csvColumnMapping, {
+                skipDuplicates,
+                defaultStatus,
+                defaultTags
+            });
+
+            showImportResults(results);
+            showImportStep(3);
+        }
+
+        function showImportResults(results) {
+            const resultsDiv = document.getElementById('importResults');
+
+            let html = `
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="font-size:48px;font-weight:700;color:#10b981;margin-bottom:12px;">
+                        ${results.imported}
+                    </div>
+                    <div style="font-size:18px;color:#64748b;">
+                        Prospects Imported Successfully
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+                    <div style="text-align:center;padding:12px;background:#f8fafc;border-radius:8px;">
+                        <div style="font-size:24px;font-weight:700;color:#3b82f6;">${results.imported}</div>
+                        <div style="font-size:12px;color:#64748b;">Imported</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#f8fafc;border-radius:8px;">
+                        <div style="font-size:24px;font-weight:700;color:#f59e0b;">${results.skipped}</div>
+                        <div style="font-size:12px;color:#64748b;">Skipped</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#f8fafc;border-radius:8px;">
+                        <div style="font-size:24px;font-weight:700;color:#ef4444;">${results.errors}</div>
+                        <div style="font-size:12px;color:#64748b;">Errors</div>
+                    </div>
+                </div>
+            `;
+
+            if (results.duplicates > 0) {
+                html += `<div style="padding:12px;background:#fef3c7;border-radius:8px;margin-bottom:16px;font-size:14px;">
+                    <strong>Note:</strong> ${results.duplicates} duplicate${results.duplicates > 1 ? 's' : ''} were skipped
+                </div>`;
+            }
+
+            if (results.details.length > 0) {
+                html += `
+                    <details>
+                        <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;">View Details (${results.details.length} rows)</summary>
+                        <div style="max-height:300px;overflow-y:auto;font-size:13px;">
+                            ${results.details.map(d => `
+                                <div style="padding:8px;border-bottom:1px solid #e2e8f0;display:flex;gap:12px;">
+                                    <span style="min-width:60px;color:#64748b;">Row ${d.row}:</span>
+                                    <span style="flex:1;color:${d.status === 'success' ? '#10b981' : d.status === 'error' ? '#ef4444' : '#f59e0b'}">
+                                        ${d.message}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </details>
+                `;
+            }
+
+            resultsDiv.innerHTML = html;
+
+            // Show success notification
+            if (results.imported > 0) {
+                LinkedInProspectingService.showNotification('CSV Import Complete', {
+                    body: `Successfully imported ${results.imported} prospect${results.imported > 1 ? 's' : ''}`,
+                    tag: 'csv-import'
+                });
+            }
+        }
 
         function loadProspects() {
             LinkedInProspectingService.renderProspects();
