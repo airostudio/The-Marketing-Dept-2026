@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deck Maker | The Marketing Department 2026</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+            --border: rgba(255,255,255,0.08); --text: #f1f5f9;
+            --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --card-bg: rgba(255,255,255,0.03);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: var(--gradient); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--text3); font-size: 14px; }
+        .nav-breadcrumb { font-size: 13px; color: var(--text2); }
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; color: var(--text2); border: 1px solid var(--border); background: var(--card-bg); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+        .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
+
+        .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(124,58,237,0.14) 0%, transparent 70%); pointer-events: none; }
+        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
+        .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
+        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-inspired { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--cyan); }
+
+        .main-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+
+        .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+        .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .intel-badge { display: none; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); font-size: 11px; font-weight: 600; color: var(--green); }
+        .intel-badge.active { display: flex; }
+        .intel-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .field-group { margin-bottom: 14px; }
+        .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+        .field-select option { background: #1a1a2e; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
+
+        .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
+        .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
+        .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
+        .output-body p { margin-bottom: 10px; }
+        .output-body ul, .output-body ol { padding-left: 20px; margin-bottom: 10px; }
+        .output-body li { margin-bottom: 5px; }
+        .output-body strong { color: white; }
+        .output-body code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+        .output-body blockquote { border-left: 3px solid var(--purple); padding-left: 12px; color: var(--text2); margin: 10px 0; font-style: italic; }
+
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .streaming-cursor::after { content: '▋'; animation: blink 0.8s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .features-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 80px; }
+        .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
+        .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,58,237,0.3); box-shadow: 0 12px 32px rgba(124,58,237,0.1); }
+        .feature-icon { font-size: 24px; margin-bottom: 10px; }
+        .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+        @media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
+        @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-left">
+        <a class="nav-logo" href="/index.html">
+            <div class="nav-logo-icon">📊</div>
+            <span>The Marketing Dept</span>
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Deck Maker</span>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/hub.html">Agent Hub</a>
+        <a class="nav-link" href="/scotty.html">Scotty AI</a>
+        <a class="nav-link primary" href="/settings.html">Settings</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <span class="hero-emoji">📊</span>
+    <h1 class="hero-title">Deck Maker</h1>
+    <p class="hero-tagline">Tome-style presentations, investor decks, and pitch structures that close deals and raise rounds</p>
+    <div class="hero-pills">
+        <span class="pill pill-claude">Powered by Claude</span>
+        <span class="pill pill-inspired">Inspired by Tome AI · Beautiful.ai · Gamma</span>
+    </div>
+</section>
+
+<div class="main-wrap">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Deck Brief</span>
+            <div class="intel-badge" id="intelBadge">
+                <div class="intel-dot"></div>
+                Intelligence Layer Active
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="field-group">
+                <label class="field-label">Deck Type</label>
+                <select class="field-select" id="deckType">
+                    <option value="Investor Pitch">Investor Pitch</option>
+                    <option value="Sales Deck">Sales Deck</option>
+                    <option value="Marketing Strategy">Marketing Strategy</option>
+                    <option value="Quarterly Review">Quarterly Review</option>
+                    <option value="Product Launch">Product Launch</option>
+                    <option value="Partnership Proposal">Partnership Proposal</option>
+                    <option value="Conference Talk">Conference Talk</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Company / Project Name</label>
+                    <input class="field-input" id="company" type="text" placeholder="e.g. Acme Corp">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Number of Slides</label>
+                    <select class="field-select" id="slideCount">
+                        <option value="10">10 slides</option>
+                        <option value="15" selected>15 slides</option>
+                        <option value="20">20 slides</option>
+                        <option value="25+">25+ slides</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Key Message (1 sentence)</label>
+                <input class="field-input" id="keyMessage" type="text" placeholder="e.g. We're the only AI platform that reduces churn by 40% automatically">
+            </div>
+            <div class="field-group">
+                <label class="field-label">Audience</label>
+                <select class="field-select" id="audience">
+                    <option value="Investors">Investors</option>
+                    <option value="Customers">Customers</option>
+                    <option value="Board">Board</option>
+                    <option value="Internal Team">Internal Team</option>
+                    <option value="Conference Audience">Conference Audience</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Key Data Points to Include (optional)</label>
+                <textarea class="field-textarea" id="dataPoints" placeholder="e.g. $2M ARR, 340% YoY growth, 94% retention rate, 50+ enterprise customers, Series A targeting $8M..."></textarea>
+            </div>
+            <button class="btn-run" id="runBtn" onclick="buildDeck()">
+                <span id="btnIcon">📊</span>
+                <span id="btnText">Build Deck Structure</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Deck Structure</span>
+            <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
+        </div>
+        <div id="outputArea">
+            <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="features-wrap">
+    <div class="features-title">What Deck Maker Does</div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🎭</div>
+            <div class="feature-name">Story-Arc Slide Structure</div>
+            <div class="feature-desc">Every deck follows a proven narrative arc — problem, insight, solution, proof, ask — that keeps audiences engaged.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎤</div>
+            <div class="feature-name">Speaker Notes for Each Slide</div>
+            <div class="feature-desc">Detailed talking points and transitions so you always know what to say and how long to spend on each slide.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📉</div>
+            <div class="feature-name">Data Viz Recommendations</div>
+            <div class="feature-desc">Specific chart types, visual layouts, and data display formats recommended for each slide's key message.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌊</div>
+            <div class="feature-name">Narrative Flow Optimization</div>
+            <div class="feature-desc">Built-in tension and release, objection handling, and momentum that builds to a compelling close.</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="../js/intelligence-engine.js"></script>
+<script src="../js/claude-service.js"></script>
+<script>
+    const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion.`;
+
+    (function checkIntel() {
+        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+    })();
+
+    async function buildDeck() {
+        const deckType = document.getElementById('deckType').value;
+        const company = document.getElementById('company').value.trim();
+        const slideCount = document.getElementById('slideCount').value;
+        const keyMessage = document.getElementById('keyMessage').value.trim();
+        const audience = document.getElementById('audience').value;
+        const dataPoints = document.getElementById('dataPoints').value.trim();
+
+        if (!keyMessage && !company) {
+            alert('Please enter a key message or company name.');
+            return;
+        }
+
+        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
+        const contextStr = contextBundle.summary ? `\n\nCOMPANY CONTEXT: ${contextBundle.summary}` : '';
+
+        const userPrompt = `Create a complete ${deckType} deck structure:
+
+COMPANY / PROJECT: ${company || 'Not specified'}
+DECK TYPE: ${deckType}
+KEY MESSAGE: ${keyMessage || 'Not specified'}
+TARGET AUDIENCE: ${audience}
+NUMBER OF SLIDES: ${slideCount}
+KEY DATA POINTS:
+${dataPoints || 'None provided — use placeholder examples'}
+${contextStr}
+
+For each of the ${slideCount} slides, provide:
+**Slide [N]: [TITLE]**
+- Bullets: 3-5 concise bullet points (actual content, not generic placeholders)
+- Speaker Notes: 2-4 sentences of what to say, tone to use, transitions
+- Visual Suggestion: specific chart type, image direction, or layout recommendation
+- So What: the single takeaway the audience should leave with
+
+After all slides, include:
+## NARRATIVE ARC ANALYSIS
+How the tension builds and resolves across the deck
+
+## OBJECTION HANDLING SLIDES
+2-3 backup slides to prepare for common objections from ${audience}
+
+## APPENDIX SUGGESTIONS
+Supporting slides to have ready if asked
+
+Make all content specific to ${company || 'this company'} — no generic filler.`;
+
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        document.getElementById('btnIcon').innerHTML = '<span class="spinner"></span>';
+        document.getElementById('btnText').textContent = 'Building...';
+
+        const outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
+        const outputBody = document.getElementById('outputBody');
+
+        try {
+            if (window.ClaudeService) {
+                let fullText = '';
+                await window.ClaudeService.streamResponse({
+                    systemPrompt: SYSTEM_PROMPT,
+                    messages: [{ role: 'user', content: userPrompt }],
+                    onChunk: (chunk, accumulated) => {
+                        fullText = accumulated;
+                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
+                    },
+                    onDone: (text) => {
+                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    },
+                    onError: (err) => {
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                    }
+                });
+            } else {
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
+            }
+        } catch (e) {
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '📊';
+            document.getElementById('btnText').textContent = 'Build Deck Structure';
+        }
+    }
+
+    function copyOutput() {
+        const body = document.getElementById('outputBody');
+        if (!body) return;
+        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+</script>
+</body>
+</html>
