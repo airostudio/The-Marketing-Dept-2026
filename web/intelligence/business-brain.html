@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Brain | Intelligence Layer | The Marketing Department 2026</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/theme-2026.css">
+
+  <style>
+    /* ── Page shell ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #070711;
+      color: #fff;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top progress bar ───────────────────────────────────────────────────── */
+    .progress-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7,7,17,0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 0 32px;
+    }
+
+    .progress-header-inner {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 14px 0;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .progress-header-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+    .progress-header-back:hover { color: #fff; }
+
+    .progress-track-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #a855f7, #ec4899);
+      border-radius: 99px;
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+    }
+
+    .progress-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #a855f7;
+      white-space: nowrap;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .autosave-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.35);
+      white-space: nowrap;
+      transition: color 0.3s;
+    }
+    .autosave-badge.saved  { color: #10b981; }
+    .autosave-badge.saving { color: #eab308; }
+
+    /* ── Page header ────────────────────────────────────────────────────────── */
+    .page-header {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 52px 32px 32px;
+    }
+
+    .intel-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #ec4899;
+      background: rgba(236,72,153,0.1);
+      border: 1px solid rgba(236,72,153,0.25);
+      padding: 5px 14px;
+      border-radius: 50px;
+      margin-bottom: 18px;
+    }
+
+    .page-title {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    .page-title .t-gradient {
+      background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      font-size: 1.05rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+      max-width: 580px;
+    }
+
+    /* ── Intelligence score card ─────────────────────────────────────────────── */
+    .score-card {
+      max-width: 880px;
+      margin: 0 auto 36px;
+      padding: 0 32px;
+    }
+
+    .score-card-inner {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .score-ring-wrap {
+      flex-shrink: 0;
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+
+    .score-ring-svg {
+      width: 80px;
+      height: 80px;
+      transform: rotate(-90deg);
+    }
+
+    .score-ring-bg {
+      fill: none;
+      stroke: rgba(255,255,255,0.08);
+      stroke-width: 6;
+    }
+
+    .score-ring-fill {
+      fill: none;
+      stroke: url(#scoreGrad);
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 201.06;
+      stroke-dashoffset: 201.06;
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .score-number {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .score-text {
+      flex: 1;
+    }
+
+    .score-heading {
+      font-size: 0.98rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .score-description {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.5;
+    }
+
+    .score-warning {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #ef4444;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-top: 8px;
+    }
+    .score-warning.visible { display: flex; }
+
+    /* ── Tab navigation ─────────────────────────────────────────────────────── */
+    .tabs-wrap {
+      max-width: 880px;
+      margin: 0 auto 28px;
+      padding: 0 32px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-nav::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.06); }
+
+    .tab-btn.active {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.15));
+      border: 1px solid rgba(168,85,247,0.3);
+    }
+
+    .tab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .tab-btn.active .tab-dot { background: #a855f7; }
+    .tab-btn.complete .tab-dot { background: #10b981; }
+
+    /* ── Sections ────────────────────────────────────────────────────────────── */
+    .sections-wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 32px 80px;
+    }
+
+    .section-panel {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+    .section-panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .section-heading {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .section-subheading {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    /* ── Form elements ───────────────────────────────────────────────────────── */
+    .field-group {
+      margin-bottom: 28px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
+
+    .field-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 720px) { .field-row-3 { grid-template-columns: 1fr; } }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+
+    .field-hint {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 400;
+      color: rgba(255,255,255,0.35);
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 0.92rem;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      transition: border-color 0.2s, background 0.2s;
+      outline: none;
+      resize: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(168,85,247,0.6);
+      background: rgba(168,85,247,0.07);
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+
+    select option {
+      background: #12122a;
+      color: #fff;
+    }
+
+    textarea { min-height: 100px; }
+    textarea.tall { min-height: 130px; }
+    textarea.short { min-height: 78px; }
+
+    /* ── Chip multi-select ───────────────────────────────────────────────────── */
+    .chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 15px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .chip:hover {
+      border-color: rgba(168,85,247,0.4);
+      color: rgba(255,255,255,0.85);
+    }
+
+    .chip.selected {
+      background: rgba(168,85,247,0.18);
+      border-color: rgba(168,85,247,0.55);
+      color: #e2c5ff;
+    }
+
+    /* ── Competitor accordion ────────────────────────────────────────────────── */
+    .competitor-block {
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .competitor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .competitor-header:hover { background: rgba(255,255,255,0.04); }
+
+    .competitor-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    .comp-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .competitor-toggle {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.4);
+      transition: transform 0.25s;
+    }
+    .competitor-block.open .competitor-toggle { transform: rotate(180deg); }
+
+    .competitor-body {
+      display: none;
+      padding: 0 20px 20px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .competitor-block.open .competitor-body { display: block; }
+    .competitor-body .field-group:first-child { margin-top: 20px; }
+
+    .add-competitor-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.15);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .add-competitor-btn:hover { border-color: rgba(168,85,247,0.5); color: #fff; background: rgba(168,85,247,0.07); }
+
+    /* ── Section nav footer ─────────────────────────────────────────────────── */
+    .section-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 40px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .btn-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 22px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-nav:hover { border-color: rgba(168,85,247,0.4); color: #fff; background: rgba(168,85,247,0.08); }
+    .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn-nav-next {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border-color: transparent;
+      color: #fff;
+    }
+    .btn-nav-next:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(168,85,247,0.4); border-color: transparent; }
+
+    /* ── Save button & status ────────────────────────────────────────────────── */
+    .save-section {
+      max-width: 880px;
+      margin: 0 auto 60px;
+      padding: 0 32px;
+    }
+
+    .save-card {
+      background: rgba(168,85,247,0.07);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 20px;
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .save-card-text { flex: 1; }
+    .save-card-text h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .save-card-text p  { font-size: 0.85rem; color: rgba(255,255,255,0.55); }
+
+    .btn-save {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 30px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(168,85,247,0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(168,85,247,0.55); }
+    .btn-save:active { transform: none; }
+
+    .save-status {
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 10px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      display: none;
+    }
+    .save-status.success { display: block; color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); }
+    .save-status.error   { display: block; color: #ef4444; background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2);  }
+    .save-status.warning { display: block; color: #f97316; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
+
+    /* ── Divider ─────────────────────────────────────────────────────────────── */
+    .field-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 32px 0;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top progress bar ──────────────────────────────────────────────────── -->
+  <header class="progress-header">
+    <div class="progress-header-inner">
+      <a href="/hub.html" class="progress-header-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Hub
+      </a>
+      <div class="progress-track-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="topProgressFill"></div>
+        </div>
+        <span class="progress-label" id="topProgressLabel">0%</span>
+      </div>
+      <span class="autosave-badge" id="autosaveBadge">No changes yet</span>
+    </div>
+  </header>
+
+  <!-- ── Page header ───────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="intel-badge">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+      Intelligence Layer
+    </div>
+    <h1 class="page-title">
+      Build Your<br><span class="t-gradient">Business Brain</span>
+    </h1>
+    <p class="page-subtitle">
+      This is the strategic foundation every AI agent on the platform draws from.
+      The more you fill in, the smarter every decision Scotty makes.
+    </p>
+  </div>
+
+  <!-- ── Intelligence score card ───────────────────────────────────────────── -->
+  <div class="score-card">
+    <div class="score-card-inner">
+      <div class="score-ring-wrap">
+        <svg class="score-ring-svg" viewBox="0 0 72 72">
+          <defs>
+            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#a855f7"/>
+              <stop offset="100%" stop-color="#ec4899"/>
+            </linearGradient>
+          </defs>
+          <circle class="score-ring-bg" cx="36" cy="36" r="32"/>
+          <circle class="score-ring-fill" id="scoreRingFill" cx="36" cy="36" r="32"/>
+        </svg>
+        <div class="score-number" id="scoreNumber">0</div>
+      </div>
+      <div class="score-text">
+        <div class="score-heading" id="scoreHeading">Intelligence Foundation</div>
+        <div class="score-description" id="scoreDescription">Your intelligence foundation is <strong id="scorePercent">0%</strong> complete. Scotty will use this context for all decisions.</div>
+        <div class="score-warning" id="scoreWarning">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Scotty needs more context to make strategic judgments. Please complete at least Sections 1–3.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab navigation ────────────────────────────────────────────────────── -->
+  <div class="tabs-wrap">
+    <nav class="tabs-nav" role="tablist">
+      <button class="tab-btn active" role="tab" data-tab="0" aria-selected="true">
+        <span class="tab-dot"></span>Company Basics
+      </button>
+      <button class="tab-btn" role="tab" data-tab="1" aria-selected="false">
+        <span class="tab-dot"></span>Your Customer
+      </button>
+      <button class="tab-btn" role="tab" data-tab="2" aria-selected="false">
+        <span class="tab-dot"></span>Positioning &amp; Voice
+      </button>
+      <button class="tab-btn" role="tab" data-tab="3" aria-selected="false">
+        <span class="tab-dot"></span>Competitive Landscape
+      </button>
+      <button class="tab-btn" role="tab" data-tab="4" aria-selected="false">
+        <span class="tab-dot"></span>Strategic Objectives
+      </button>
+    </nav>
+  </div>
+
+  <!-- ── Form sections ─────────────────────────────────────────────────────── -->
+  <div class="sections-wrap">
+
+    <!-- SECTION 1: Company Basics -->
+    <section class="section-panel active" id="section-0" role="tabpanel">
+      <h2 class="section-heading">Company Basics</h2>
+      <p class="section-subheading">The foundation. Every agent needs to know who you are before it can write or strategise on your behalf.</p>
+
+      <div class="field-group">
+        <label for="company-name">Company Name</label>
+        <input type="text" id="company-name" data-path="company.name" placeholder="e.g. Acme Corp" maxlength="120">
+      </div>
+
+      <div class="field-group">
+        <label for="company-tagline">Tagline — one line only</label>
+        <input type="text" id="company-tagline" data-path="company.tagline" placeholder="e.g. The only CRM that sales reps actually love." maxlength="160">
+        <span class="field-hint">If you don't have a public tagline yet, write the sentence you'd use in a cold email intro.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="company-description">What you do — explain it like you're talking to a smart friend</label>
+        <textarea id="company-description" data-path="company.description" class="tall" placeholder="We help B2B SaaS companies turn their blog into a pipeline engine by writing SEO content that actually converts — not just ranks."></textarea>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label for="company-industry">Industry</label>
+          <select id="company-industry" data-path="company.industry">
+            <option value="">Select industry...</option>
+            <option value="SaaS">SaaS</option>
+            <option value="E-commerce">E-commerce</option>
+            <option value="Agency">Agency</option>
+            <option value="Professional Services">Professional Services</option>
+            <option value="Healthcare">Healthcare</option>
+            <option value="Fintech">Fintech</option>
+            <option value="EdTech">EdTech</option>
+            <option value="Real Estate">Real Estate</option>
+            <option value="Manufacturing">Manufacturing</option>
+            <option value="Media &amp; Publishing">Media &amp; Publishing</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="company-stage">Company Stage</label>
+          <select id="company-stage" data-path="company.stage">
+            <option value="">Select stage...</option>
+            <option value="Pre-revenue">Pre-revenue</option>
+            <option value="Seed">Seed</option>
+            <option value="Series A">Series A</option>
+            <option value="Series B">Series B</option>
+            <option value="Growth">Growth</option>
+            <option value="Enterprise">Enterprise</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label for="company-team-size">Approximate Team Size</label>
+          <select id="company-team-size" data-path="company.teamSize">
+            <option value="">Select team size...</option>
+            <option value="1-5">1–5</option>
+            <option value="6-15">6–15</option>
+            <option value="16-50">16–50</option>
+            <option value="51-200">51–200</option>
+            <option value="201-1000">201–1000</option>
+            <option value="1000+">1000+</option>
+          </select>
+        </div>
+        <div>
+          <label for="company-revenue-model">Primary Revenue Model</label>
+          <select id="company-revenue-model" data-path="company.revenueModel">
+            <option value="">Select model...</option>
+            <option value="SaaS subscription">SaaS subscription</option>
+            <option value="Usage-based">Usage-based</option>
+            <option value="Marketplace fee">Marketplace fee</option>
+            <option value="Services / retainer">Services / retainer</option>
+            <option value="One-time purchase">One-time purchase</option>
+            <option value="Freemium">Freemium</option>
+            <option value="Advertising">Advertising</option>
+            <option value="Hybrid">Hybrid</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Previous
+        </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(1)">
+          Your Customer
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Your Customer (ICP) -->
+    <section class="section-panel" id="section-1" role="tabpanel">
+      <h2 class="section-heading">Your Customer (ICP)</h2>
+      <p class="section-subheading">Who you're actually writing for. The more specific you are here, the better every agent performs.</p>
+
+      <div class="field-row">
+        <div>
+          <label for="icp-role">Primary Buyer's Job Title</label>
+          <input type="text" id="icp-role" data-path="icp.primaryBuyer.role" placeholder="e.g. Head of Marketing, VP of Sales, Founder">
+        </div>
+        <div>
+          <label for="icp-company-size">Company Size They Work At</label>
+          <select id="icp-company-size" data-path="icp.primaryBuyer.companySize">
+            <option value="">Select size...</option>
+            <option value="1-10">1–10 employees</option>
+            <option value="11-50">11–50 employees</option>
+            <option value="51-200">51–200 employees</option>
+            <option value="201-1000">201–1000 employees</option>
+            <option value="1000+">1000+ employees</option>
+            <option value="any">Any size</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="icp-industry">Industry They're In</label>
+        <input type="text" id="icp-industry" data-path="icp.primaryBuyer.industry" placeholder="e.g. B2B SaaS, E-commerce, Professional Services">
+      </div>
+
+      <hr class="field-divider">
+
+      <div class="field-group">
+        <label>Their TOP 3 Pain Points — be ruthlessly specific</label>
+        <div class="field-group" style="margin-bottom: 12px;">
+          <label for="pain-1" style="font-size:0.76rem; color: rgba(255,255,255,0.45); font-weight: 600;">Pain 1 — Their biggest daily frustration</label>
+          <textarea id="pain-1" data-path="icp.painPoints.0" class="short" placeholder="e.g. They spend 4+ hours a week writing content that gets no traffic because they're targeting the wrong keywords."></textarea>
+        </div>
+        <div class="field-group" style="margin-bottom: 12px;">
+          <label for="pain-2" style="font-size:0.76rem; color: rgba(255,255,255,0.45); font-weight: 600;">Pain 2 — The second-biggest problem</label>
+          <textarea id="pain-2" data-path="icp.painPoints.1" class="short" placeholder="e.g. They can't tell which channels are actually driving revenue vs. just vanity metrics."></textarea>
+        </div>
+        <div class="field-group">
+          <label for="pain-3" style="font-size:0.76rem; color: rgba(255,255,255,0.45); font-weight: 600;">Pain 3 — The hidden, under-discussed pain</label>
+          <textarea id="pain-3" data-path="icp.painPoints.2" class="short" placeholder="e.g. They're afraid of hiring a content agency again after a $30k engagement that produced nothing."></textarea>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="icp-language">How They Describe Their Problem In Their Own Words</label>
+        <textarea id="icp-language" data-path="icp.triedBefore" class="tall" placeholder="Write this like you're the customer venting to a colleague. Use their exact language, their jargon, their frustration. e.g. 'We're just not getting enough leads from content. We publish 4 posts a month and nothing converts. I don't even know where to start.'"></textarea>
+        <span class="field-hint">This is the most powerful input — agents use this voice to write copy that feels like it reads their mind.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="icp-tried-before">What They Tried Before Finding You</label>
+        <textarea id="icp-tried-before" data-path="icp.language" class="short" placeholder="e.g. Hired a content agency, tried Jasper/AI tools, had an intern run their blog, outsourced to Upwork writers..."></textarea>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label for="icp-reason-chose">The #1 Reason They Chose You Over Competitors</label>
+          <textarea id="icp-reason-chose" data-path="icp.reasonChose" class="short" placeholder="e.g. We were the only ones who showed them an actual content strategy before they paid a cent."></textarea>
+        </div>
+        <div>
+          <label for="icp-biggest-fear">Their Biggest Fear About Switching Tools / Vendors</label>
+          <textarea id="icp-biggest-fear" data-path="icp.biggestFear" class="short" placeholder="e.g. Wasting another 3 months and $10k on a solution that doesn't integrate with their existing CRM workflow."></textarea>
+        </div>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(0)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Company Basics
+        </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(2)">
+          Positioning &amp; Voice
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Positioning & Voice -->
+    <section class="section-panel" id="section-2" role="tabpanel">
+      <h2 class="section-heading">Positioning &amp; Voice</h2>
+      <p class="section-subheading">How you show up in the market — and how you don't. This shapes every word agents write.</p>
+
+      <div class="field-group">
+        <label for="pos-uvp">Your Unique Value Proposition</label>
+        <textarea id="pos-uvp" data-path="positioning.uniqueValue" class="tall" placeholder="We help [ICP] achieve [outcome] without [common frustration or tradeoff].&#10;&#10;e.g. We help B2B founders build a content engine that drives demo requests without hiring a full content team or spending months on SEO before seeing results."></textarea>
+        <span class="field-hint">Complete the template: "We help [ICP] achieve [outcome] without [frustration]."</span>
+      </div>
+
+      <div class="field-group">
+        <label>3 Ways You're Genuinely Different From Alternatives</label>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <input type="text" id="diff-1" data-path="positioning.differentiation.0" placeholder="Differentiator 1 — e.g. We only work with one client per industry niche per city">
+          <input type="text" id="diff-2" data-path="positioning.differentiation.1" placeholder="Differentiator 2 — e.g. Every piece includes a distribution plan, not just the content">
+          <input type="text" id="diff-3" data-path="positioning.differentiation.2" placeholder="Differentiator 3 — e.g. We show ROI attribution in 90 days or we refund the month">
+        </div>
+        <span class="field-hint">Be honest — these must be real differences, not marketing fluff.</span>
+      </div>
+
+      <div class="field-group">
+        <label>Voice &amp; Tone — select all that apply</label>
+        <div class="chips-wrap" id="tone-chips">
+          <span class="chip" data-value="Professional">Professional</span>
+          <span class="chip" data-value="Casual">Casual</span>
+          <span class="chip" data-value="Direct">Direct</span>
+          <span class="chip" data-value="Warm">Warm</span>
+          <span class="chip" data-value="Technical">Technical</span>
+          <span class="chip" data-value="Provocative">Provocative</span>
+          <span class="chip" data-value="Contrarian">Contrarian</span>
+          <span class="chip" data-value="Educational">Educational</span>
+          <span class="chip" data-value="Urgent">Urgent</span>
+          <span class="chip" data-value="Calm">Calm</span>
+          <span class="chip" data-value="Bold">Bold</span>
+          <span class="chip" data-value="Humble">Humble</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="pos-never-say">Things You NEVER Say</label>
+        <textarea id="pos-never-say" data-path="positioning.thingsWeNeverSay" class="tall" placeholder="List phrases, claims, or tones that don't represent you. e.g.&#10;- 'Cutting-edge AI-powered solutions' (too generic)&#10;- 'World-class service' (anyone can say this)&#10;- Overly corporate, passive-voice language&#10;- Exaggerated claims we can't back up"></textarea>
+        <span class="field-hint">Agents will avoid anything listed here in all generated content.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="pos-not-like-competitors">Things Competitors Say That You Deliberately Don't</label>
+        <textarea id="pos-not-like-competitors" data-path="positioning.notLikeCompetitors" class="tall" placeholder="e.g.&#10;- Competitor X leads with 'AI-generated content at scale' — we emphasise human strategy&#10;- Most agencies say 'results in 6-12 months' — we commit to leading indicators in 90 days&#10;- Our space overuses 'thought leadership' — we say 'point of view'"></textarea>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Your Customer
+        </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(3)">
+          Competitive Landscape
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 4: Competitive Landscape -->
+    <section class="section-panel" id="section-3" role="tabpanel">
+      <h2 class="section-heading">Competitive Landscape</h2>
+      <p class="section-subheading">Map your competitive world. This context lets agents position you sharply against alternatives — not just generically.</p>
+
+      <div id="competitors-container">
+        <!-- Competitor blocks injected by JS -->
+      </div>
+
+      <button class="add-competitor-btn" id="addCompetitorBtn" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Competitor (up to 5)
+      </button>
+
+      <hr class="field-divider">
+
+      <div class="field-group">
+        <label for="comp-gap-opportunity">What Competitors Are NOT Doing That's an Opportunity for You</label>
+        <textarea id="comp-gap-opportunity" data-path="positioning.competitorGap" class="tall" placeholder="e.g.&#10;- None of them publish transparent case studies with real numbers&#10;- No one in our space offers a live content audit as a lead magnet&#10;- Everyone is focused on enterprise — the mid-market is completely ignored&#10;- Competitors talk to marketing teams but ignore the CEO's perspective"></textarea>
+        <span class="field-hint">This feeds directly into Scotty's strategic brief generation — the gaps you name become opportunities we exploit.</span>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Positioning &amp; Voice
+        </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(4)">
+          Strategic Objectives
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 5: Strategic Objectives -->
+    <section class="section-panel" id="section-4" role="tabpanel">
+      <h2 class="section-heading">Strategic Objectives</h2>
+      <p class="section-subheading">Where you're focused right now. Scotty uses this to prioritise which type of output makes sense for every brief.</p>
+
+      <div class="field-group">
+        <label for="obj-q1-focus">What's Your #1 Focus This Quarter?</label>
+        <input type="text" id="obj-q1-focus" data-path="objectives.q1Focus" placeholder="e.g. Driving 50 qualified demo requests through SEO and LinkedIn content">
+      </div>
+
+      <div class="field-group">
+        <label for="obj-annual-goal">What Does Success Look Like in 12 Months?</label>
+        <textarea id="obj-annual-goal" data-path="objectives.annualGoal" class="tall" placeholder="Be as specific as possible. Numbers are better than adjectives.&#10;&#10;e.g. $2M ARR, 3 strategic partnerships signed, 10,000 email subscribers, ranking top 3 for our 5 highest-intent keywords, a repeatable content playbook that doesn't require our CEO to be involved."></textarea>
+      </div>
+
+      <div class="field-group">
+        <label for="obj-challenge">What's Your Biggest Marketing Challenge Right Now?</label>
+        <textarea id="obj-challenge" data-path="objectives.currentChallenge" class="tall" placeholder="e.g. We have great case studies but can't get them in front of the right decision-makers. Our content is too educational and not commercial enough. We're generating traffic but it's not converting."></textarea>
+      </div>
+
+      <div class="field-group">
+        <label for="obj-best-content">What Content Has Worked Best for You Historically?</label>
+        <textarea id="obj-best-content" data-path="objectives.bestContentHistorically" class="tall" placeholder="e.g. Long-form LinkedIn posts from our CEO outperform everything. One case study PDF we gated got 400 downloads in a week. Our 'State of...' report got picked up by 3 industry blogs."></textarea>
+        <span class="field-hint">Even if it was accidental, tell us what has worked. Agents will bias toward those formats.</span>
+      </div>
+
+      <div class="field-group">
+        <label>Channels That Drive Your Best Leads</label>
+        <div class="chips-wrap" id="channel-chips">
+          <span class="chip" data-value="SEO">SEO</span>
+          <span class="chip" data-value="Paid Search">Paid Search</span>
+          <span class="chip" data-value="LinkedIn">LinkedIn</span>
+          <span class="chip" data-value="Email">Email</span>
+          <span class="chip" data-value="Content/Blog">Content / Blog</span>
+          <span class="chip" data-value="Partnerships">Partnerships</span>
+          <span class="chip" data-value="Events">Events</span>
+          <span class="chip" data-value="Referrals">Referrals</span>
+          <span class="chip" data-value="Social">Social</span>
+          <span class="chip" data-value="Other">Other</span>
+        </div>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(3)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Competitive Landscape
+        </button>
+        <button class="btn-save" onclick="saveBrain()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Business Brain
+        </button>
+      </div>
+    </section>
+
+  </div><!-- /.sections-wrap -->
+
+  <!-- ── Bottom save section ────────────────────────────────────────────────── -->
+  <div class="save-section">
+    <div class="save-card">
+      <div class="save-card-text">
+        <h3>Ready to activate your intelligence foundation?</h3>
+        <p id="saveCardSubtext">Complete all 5 sections and save — Scotty will use this context before every decision.</p>
+      </div>
+      <button class="btn-save" onclick="saveBrain()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Business Brain
+      </button>
+    </div>
+    <div class="save-status" id="saveStatus"></div>
+  </div>
+
+
+  <!-- ── Scripts ────────────────────────────────────────────────────────────── -->
+  <script src="/js/intelligence-engine.js"></script>
+  <script>
+  /* ════════════════════════════════════════════════════════════════════════════
+     BUSINESS BRAIN UI — page controller
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  'use strict';
+
+  /* ── State ──────────────────────────────────────────────────────────────────*/
+  let currentTab = 0;
+  const TOTAL_TABS = 5;
+  let autosaveTimer = null;
+  let competitors = [];   // local array; synced into brain on save
+
+  /* ── Helpers ────────────────────────────────────────────────────────────────*/
+
+  /** Set a deeply-nested value on an object by dot-path. Mutates obj. */
+  function setByPath(obj, path, value) {
+    const keys = path.split('.');
+    let cursor = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const k = keys[i];
+      if (typeof cursor[k] !== 'object' || cursor[k] === null) cursor[k] = {};
+      cursor = cursor[k];
+    }
+    cursor[keys[keys.length - 1]] = value;
+  }
+
+  /** Get a deeply-nested value from an object by dot-path. */
+  function getByPath(obj, path) {
+    return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), obj);
+  }
+
+  /* ── Score & progress UI ─────────────────────────────────────────────────── */
+
+  function updateScoreUI(score) {
+    const circumference = 201.06; // 2 * PI * 32
+    const offset = circumference - (score / 100) * circumference;
+
+    document.getElementById('scoreRingFill').style.strokeDashoffset = offset;
+    document.getElementById('scoreNumber').textContent = score;
+    document.getElementById('scorePercent').textContent = score + '%';
+    document.getElementById('topProgressFill').style.width = score + '%';
+    document.getElementById('topProgressLabel').textContent = score + '%';
+
+    const heading = document.getElementById('scoreHeading');
+    const warning = document.getElementById('scoreWarning');
+
+    if (score >= 80) {
+      heading.textContent = 'Intelligence Foundation: Excellent';
+    } else if (score >= 60) {
+      heading.textContent = 'Intelligence Foundation: Good';
+    } else if (score >= 40) {
+      heading.textContent = 'Intelligence Foundation: Building';
+    } else {
+      heading.textContent = 'Intelligence Foundation: Needs More Context';
+    }
+
+    if (score < 40) {
+      warning.classList.add('visible');
+    } else {
+      warning.classList.remove('visible');
+    }
+
+    // Update save-card subtext
+    const subtext = document.getElementById('saveCardSubtext');
+    if (subtext) {
+      subtext.textContent = `Your intelligence foundation is ${score}% complete. Scotty will use this context for all decisions.`;
+    }
+  }
+
+  /* ── Tab navigation ─────────────────────────────────────────────────────── */
+
+  function goToTab(index) {
+    if (index < 0 || index >= TOTAL_TABS) return;
+
+    // Hide current
+    document.getElementById('section-' + currentTab).classList.remove('active');
+    document.querySelectorAll('.tab-btn')[currentTab].classList.remove('active');
+    document.querySelectorAll('.tab-btn')[currentTab].setAttribute('aria-selected', 'false');
+
+    // Show new
+    currentTab = index;
+    document.getElementById('section-' + currentTab).classList.add('active');
+    const newBtn = document.querySelectorAll('.tab-btn')[currentTab];
+    newBtn.classList.add('active');
+    newBtn.setAttribute('aria-selected', 'true');
+
+    // Scroll top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Tab button click handlers
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.addEventListener('click', () => goToTab(i));
+  });
+
+  /* ── Collect all form data into brain schema ─────────────────────────────── */
+
+  function collectFormData() {
+    const brain = window.IntelligenceEngine ? window.IntelligenceEngine.brain.load() : {};
+
+    // Bound input/select/textarea fields
+    document.querySelectorAll('[data-path]').forEach(el => {
+      const path = el.dataset.path;
+      let value = el.value.trim();
+
+      // Handle array index paths like painPoints.0
+      const arrayMatch = path.match(/^(.+)\.(\d+)$/);
+      if (arrayMatch) {
+        const parentPath = arrayMatch[1];
+        const idx = parseInt(arrayMatch[2], 10);
+        let arr = getByPath(brain, parentPath);
+        if (!Array.isArray(arr)) arr = [];
+        arr[idx] = value;
+        setByPath(brain, parentPath, arr);
+      } else {
+        setByPath(brain, path, value);
+      }
+    });
+
+    // Voice & tone chips
+    const selectedTones = [];
+    document.querySelectorAll('#tone-chips .chip.selected').forEach(c => selectedTones.push(c.dataset.value));
+    setByPath(brain, 'positioning.voiceAndTone', selectedTones);
+
+    // Channel chips
+    const selectedChannels = [];
+    document.querySelectorAll('#channel-chips .chip.selected').forEach(c => selectedChannels.push(c.dataset.value));
+    setByPath(brain, 'objectives.bestLeadChannels', selectedChannels);
+
+    // Competitors
+    const compData = collectCompetitors();
+    brain.competitors = compData;
+
+    return brain;
+  }
+
+  /* ── Populate form from existing brain data ─────────────────────────────── */
+
+  function populateForm(brain) {
+    document.querySelectorAll('[data-path]').forEach(el => {
+      const path = el.dataset.path;
+      const arrayMatch = path.match(/^(.+)\.(\d+)$/);
+
+      let value;
+      if (arrayMatch) {
+        const arr = getByPath(brain, arrayMatch[1]);
+        value = Array.isArray(arr) ? (arr[parseInt(arrayMatch[2], 10)] || '') : '';
+      } else {
+        value = getByPath(brain, path) || '';
+      }
+
+      el.value = value;
+    });
+
+    // Tone chips
+    const tones = getByPath(brain, 'positioning.voiceAndTone') || [];
+    document.querySelectorAll('#tone-chips .chip').forEach(chip => {
+      chip.classList.toggle('selected', tones.includes(chip.dataset.value));
+    });
+
+    // Channel chips
+    const channels = getByPath(brain, 'objectives.bestLeadChannels') || [];
+    document.querySelectorAll('#channel-chips .chip').forEach(chip => {
+      chip.classList.toggle('selected', channels.includes(chip.dataset.value));
+    });
+
+    // Competitors
+    const storedCompetitors = brain.competitors || [];
+    if (storedCompetitors.length) {
+      competitors = storedCompetitors.map(c => ({
+        id: c.id || Date.now().toString(36),
+        name: c.name || '',
+        url: c.url || '',
+        positioning: c.positioning || '',
+        strongAt: c.theyAreStrongAt ? c.theyAreStrongAt.join('\n') : '',
+        weakAt: c.theyAreWeakAt ? c.theyAreWeakAt.join('\n') : '',
+        borrowAndImprove: c.borrowAndImprove || ''
+      }));
+      renderCompetitors();
+    }
+  }
+
+  /* ── Chip toggle behaviour ──────────────────────────────────────────────── */
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('selected');
+      scheduleAutosave();
+    });
+  });
+
+  /* ── Competitor accordion management ─────────────────────────────────────── */
+
+  function renderCompetitors() {
+    const container = document.getElementById('competitors-container');
+    container.innerHTML = '';
+
+    competitors.forEach((comp, i) => {
+      const block = document.createElement('div');
+      block.className = 'competitor-block open';
+      block.dataset.idx = i;
+      block.innerHTML = `
+        <div class="competitor-header" onclick="toggleCompetitor(${i})">
+          <div class="competitor-header-left">
+            <div class="comp-number">${i + 1}</div>
+            <span class="comp-name-display">${comp.name || 'New Competitor'}</span>
+          </div>
+          <span class="competitor-toggle">&#9650;</span>
+        </div>
+        <div class="competitor-body">
+          <div class="field-row">
+            <div class="field-group" style="margin-bottom:0">
+              <label>Competitor Name</label>
+              <input type="text" class="comp-field" data-comp="${i}" data-field="name" value="${escHtml(comp.name)}" placeholder="e.g. HubSpot" oninput="updateCompetitorField(${i},'name',this.value)">
+            </div>
+            <div class="field-group" style="margin-bottom:0">
+              <label>Their Website URL</label>
+              <input type="url" class="comp-field" data-comp="${i}" data-field="url" value="${escHtml(comp.url)}" placeholder="https://" oninput="updateCompetitorField(${i},'url',this.value)">
+            </div>
+          </div>
+          <div class="field-group" style="margin-top:20px">
+            <label>How They Position Themselves</label>
+            <textarea class="comp-field short" data-comp="${i}" data-field="positioning" placeholder="e.g. 'The all-in-one CRM for scaling sales teams'" oninput="updateCompetitorField(${i},'positioning',this.value)">${escHtml(comp.positioning)}</textarea>
+          </div>
+          <div class="field-row">
+            <div class="field-group" style="margin-bottom:0">
+              <label>What They're Genuinely Good At</label>
+              <textarea class="comp-field short" data-comp="${i}" data-field="strongAt" placeholder="e.g. Huge integration ecosystem, well-known brand, polished UI" oninput="updateCompetitorField(${i},'strongAt',this.value)">${escHtml(comp.strongAt)}</textarea>
+            </div>
+            <div class="field-group" style="margin-bottom:0">
+              <label>Where They Fall Short</label>
+              <textarea class="comp-field short" data-comp="${i}" data-field="weakAt" placeholder="e.g. Expensive, slow support, complex setup, not built for SMBs" oninput="updateCompetitorField(${i},'weakAt',this.value)">${escHtml(comp.weakAt)}</textarea>
+            </div>
+          </div>
+          <div class="field-group" style="margin-top:20px">
+            <label>Borrow &amp; Improve — What Idea From Them Could You Do Better?</label>
+            <textarea class="comp-field short" data-comp="${i}" data-field="borrowAndImprove" placeholder="e.g. They do a great weekly newsletter — we could do the same but focus it on actionable tactics (not product news)" oninput="updateCompetitorField(${i},'borrowAndImprove',this.value)">${escHtml(comp.borrowAndImprove)}</textarea>
+          </div>
+          <div style="text-align:right; margin-top:12px;">
+            <button type="button" onclick="removeCompetitor(${i})" style="font-size:0.78rem; color:rgba(239,68,68,0.7); background:none; border:none; cursor:pointer; font-weight:600; transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='rgba(239,68,68,0.7)'">Remove competitor</button>
+          </div>
+        </div>
+      `;
+      container.appendChild(block);
+    });
+
+    // Show/hide add button
+    const addBtn = document.getElementById('addCompetitorBtn');
+    addBtn.style.display = competitors.length >= 5 ? 'none' : 'flex';
+  }
+
+  function toggleCompetitor(i) {
+    const blocks = document.querySelectorAll('.competitor-block');
+    blocks[i].classList.toggle('open');
+    const toggle = blocks[i].querySelector('.competitor-toggle');
+    toggle.innerHTML = blocks[i].classList.contains('open') ? '&#9650;' : '&#9660;';
+  }
+
+  function updateCompetitorField(idx, field, value) {
+    if (!competitors[idx]) return;
+    competitors[idx][field] = value;
+    // Update the displayed name in header
+    if (field === 'name') {
+      const blocks = document.querySelectorAll('.competitor-block');
+      if (blocks[idx]) {
+        const nameDisplay = blocks[idx].querySelector('.comp-name-display');
+        if (nameDisplay) nameDisplay.textContent = value || 'New Competitor';
+      }
+    }
+    scheduleAutosave();
+  }
+
+  function removeCompetitor(idx) {
+    competitors.splice(idx, 1);
+    renderCompetitors();
+    scheduleAutosave();
+  }
+
+  document.getElementById('addCompetitorBtn').addEventListener('click', () => {
+    if (competitors.length >= 5) return;
+    competitors.push({ id: Date.now().toString(36), name: '', url: '', positioning: '', strongAt: '', weakAt: '', borrowAndImprove: '' });
+    renderCompetitors();
+    // Auto-open the new one
+    const blocks = document.querySelectorAll('.competitor-block');
+    if (blocks.length) blocks[blocks.length - 1].classList.add('open');
+  });
+
+  function collectCompetitors() {
+    return competitors.map(c => ({
+      id:              c.id,
+      name:            c.name,
+      url:             c.url,
+      positioning:     c.positioning,
+      theyAreStrongAt: c.strongAt ? c.strongAt.split('\n').map(s => s.trim()).filter(Boolean) : [],
+      theyAreWeakAt:   c.weakAt   ? c.weakAt.split('\n').map(s => s.trim()).filter(Boolean)   : [],
+      borrowAndImprove: c.borrowAndImprove,
+      recentMoves:     [],
+      addedAt:         c.addedAt || new Date().toISOString()
+    }));
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /* ── Auto-save (debounced 1 second) ─────────────────────────────────────── */
+
+  function scheduleAutosave() {
+    const badge = document.getElementById('autosaveBadge');
+    badge.textContent = 'Unsaved changes...';
+    badge.className = 'autosave-badge saving';
+
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      performSave(true);
+    }, 1000);
+  }
+
+  function performSave(silent = false) {
+    if (!window.IntelligenceEngine) {
+      if (!silent) showSaveStatus('error', 'IntelligenceEngine not loaded. Refresh the page.');
+      return;
+    }
+
+    try {
+      const brainData = collectFormData();
+      const saved = window.IntelligenceEngine.brain.save(brainData);
+      const score = saved.intelligence.confidenceScore;
+
+      updateScoreUI(score);
+
+      const badge = document.getElementById('autosaveBadge');
+      badge.textContent = 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      badge.className = 'autosave-badge saved';
+
+      if (!silent) {
+        showSaveStatus('success', `Business Brain saved. Intelligence score: ${score}%. ${score >= 60 ? 'Scotty is ready to use your context.' : 'Add more detail to improve Scotty\'s judgment.'}`);
+      }
+
+    } catch (err) {
+      console.error('[BusinessBrain] Save failed:', err);
+      if (!silent) showSaveStatus('error', 'Save failed: ' + err.message);
+      document.getElementById('autosaveBadge').textContent = 'Save error';
+      document.getElementById('autosaveBadge').className = 'autosave-badge';
+    }
+  }
+
+  function saveBrain() {
+    performSave(false);
+    // Scroll to status
+    setTimeout(() => {
+      document.getElementById('saveStatus').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+  }
+
+  function showSaveStatus(type, message) {
+    const el = document.getElementById('saveStatus');
+    el.className = 'save-status ' + type;
+    el.textContent = message;
+    if (type === 'success') {
+      setTimeout(() => { el.className = 'save-status'; }, 6000);
+    }
+  }
+
+  /* ── Live score recalculation on every input ─────────────────────────────── */
+
+  function recalcScore() {
+    if (!window.IntelligenceEngine) return;
+    try {
+      const brainData = collectFormData();
+      const score = window.IntelligenceEngine.brain._computeConfidence(brainData);
+      updateScoreUI(score);
+    } catch (_) { /* ignore */ }
+  }
+
+  // Attach live listeners to all static fields
+  document.querySelectorAll('[data-path]').forEach(el => {
+    el.addEventListener('input', () => {
+      recalcScore();
+      scheduleAutosave();
+    });
+    el.addEventListener('change', () => {
+      recalcScore();
+      scheduleAutosave();
+    });
+  });
+
+  /* ── Mark tab dots as complete ───────────────────────────────────────────── */
+
+  function updateTabCompleteness() {
+    const brain = collectFormData();
+
+    const checks = [
+      // Tab 0 — Company
+      brain.company?.name && brain.company?.description && brain.company?.industry,
+      // Tab 1 — ICP
+      brain.icp?.primaryBuyer?.role && (brain.icp?.painPoints || []).some(p => p && p.trim()),
+      // Tab 2 — Positioning
+      brain.positioning?.uniqueValue && (brain.positioning?.differentiation || []).some(d => d && d.trim()),
+      // Tab 3 — Competitors (optional — just having the gap field counts)
+      !!brain.positioning?.competitorGap,
+      // Tab 4 — Objectives
+      brain.objectives?.q1Focus && brain.objectives?.annualGoal
+    ];
+
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      btn.classList.toggle('complete', !!checks[i]);
+    });
+  }
+
+  /* ── Initialise on load ──────────────────────────────────────────────────── */
+
+  function init() {
+    if (!window.IntelligenceEngine) {
+      console.warn('[BusinessBrain] IntelligenceEngine not loaded yet — score tracking unavailable');
+      return;
+    }
+
+    const existing = window.IntelligenceEngine.brain.load();
+    populateForm(existing);
+
+    const score = window.IntelligenceEngine.brain.getCompletionScore();
+    updateScoreUI(score);
+    updateTabCompleteness();
+
+    // Listen for changes to update tab completeness
+    document.querySelectorAll('[data-path], .chip').forEach(el => {
+      el.addEventListener('input', updateTabCompleteness);
+      el.addEventListener('change', updateTabCompleteness);
+      el.addEventListener('click', updateTabCompleteness);
+    });
+  }
+
+  // Run after DOM is ready; IntelligenceEngine is loaded synchronously from the script tag
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  </script>
+
+</body>
+</html>

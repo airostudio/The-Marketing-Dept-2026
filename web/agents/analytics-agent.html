@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Brain | The Marketing Department 2026</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/theme-2026.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #070711;
+            --bg2: #0e0e1a;
+            --bg3: #13131f;
+            --border: rgba(255,255,255,0.08);
+            --text: #f1f5f9;
+            --text2: #94a3b8;
+            --text3: #64748b;
+            --accent: #6366F1;
+            --accent2: #4F46E5;
+            --accent-glow: rgba(99,102,241,0.15);
+            --sidebar-w: 200px;
+            --chat-w: 340px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .sidebar-logo {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-logo a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 8px;
+        }
+
+        .nav-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 0 8px;
+            margin-bottom: 6px;
+            margin-top: 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text2);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-item:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        .nav-item.active { background: var(--accent-glow); color: var(--accent); }
+
+        .nav-item-emoji { font-size: 15px; width: 20px; text-align: center; }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── Workspace ── */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .workspace-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .agent-badge {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .workspace-title h1 { font-size: 20px; font-weight: 700; }
+        .workspace-title p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+        /* ── Tabs ── */
+        .tabs-bar {
+            display: flex;
+            gap: 0;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg2);
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            padding: 12px 18px;
+            border: none;
+            background: none;
+            color: var(--text2);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .workspace-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Form Elements ── */
+        .field-group { margin-bottom: 16px; }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .field-input, .field-select, .field-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.15s;
+        }
+
+        .field-input:focus, .field-select:focus, .field-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .field-textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+        .field-select option { background: #1a1a2e; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* ── Buttons ── */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text2);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-secondary:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* ── Output ── */
+        .output-card {
+            margin-top: 20px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .output-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .output-body {
+            padding: 16px;
+            min-height: 200px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text);
+            white-space: pre-wrap;
+        }
+
+        .output-empty {
+            color: var(--text3);
+            font-style: italic;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        /* ── Spinner ── */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Chat Panel ── */
+        .chat-panel {
+            width: var(--chat-w);
+            min-width: var(--chat-w);
+            background: var(--bg2);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .chat-agent-name { font-size: 14px; font-weight: 700; }
+        .chat-agent-status { font-size: 11px; color: #10b981; margin-top: 1px; }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-welcome {
+            background: var(--accent-glow);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.5;
+        }
+
+        .chat-bubble {
+            max-width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .bubble-user {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 3px;
+        }
+
+        .bubble-ai {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            align-self: flex-start;
+            border-bottom-left-radius: 3px;
+            white-space: pre-wrap;
+        }
+
+        .bubble-label {
+            font-size: 10px;
+            color: var(--text3);
+            margin-bottom: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            resize: none;
+            max-height: 100px;
+        }
+
+        .chat-input:focus { outline: none; border-color: var(--accent); }
+
+        .chat-send-btn {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+        .chat-send-btn:hover { opacity: 0.85; }
+        .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1100px) {
+            .chat-panel { width: 280px; min-width: 280px; }
+        }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .chat-panel { display: none; }
+        }
+
+        @media (max-width: 900px) {
+            .layout { flex-direction: column; }
+        }
+
+        .streaming-cursor::after {
+            content: '▋';
+            animation: blink 0.8s step-end infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .copy-success { color: #10b981 !important; }
+    </style>
+</head>
+<body>
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <a href="/hub.html">
+                <div class="logo-icon">📊</div>
+                <span>Analytics Brain</span>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Current Agent</div>
+            <a class="nav-item active" href="analytics-agent.html">
+                <span class="nav-item-emoji">📊</span> Analytics Brain
+            </a>
+            <div class="nav-section-label">Other Agents</div>
+            <a class="nav-item" href="competitive-agent.html">
+                <span class="nav-item-emoji">🕵️</span> Competitive Intel
+            </a>
+            <a class="nav-item" href="video-agent.html">
+                <span class="nav-item-emoji">🎬</span> Video Studio
+            </a>
+            <a class="nav-item" href="cro-agent.html">
+                <span class="nav-item-emoji">🧪</span> CRO Lab
+            </a>
+            <a class="nav-item" href="compliance-agent.html">
+                <span class="nav-item-emoji">✅</span> Compliance Guard
+            </a>
+            <a class="nav-item" href="deck-agent.html">
+                <span class="nav-item-emoji">📑</span> Deck Maker
+            </a>
+            <a class="nav-item" href="linkedin-agent.html">
+                <span class="nav-item-emoji">💼</span> LinkedIn Agent
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <a class="nav-item" href="/hub.html">
+                <span class="nav-item-emoji">←</span> Back to Hub
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+        <div class="workspace-header">
+            <div class="agent-badge">📊</div>
+            <div class="workspace-title">
+                <h1>Analytics Brain</h1>
+                <p>Octane11 + Mutinex + Segment Personas — Attribution, Mix Modeling &amp; Segmentation</p>
+            </div>
+        </div>
+
+        <div class="tabs-bar">
+            <button class="tab-btn active" data-tab="attribution">Campaign Attribution</button>
+            <button class="tab-btn" data-tab="mmm">Marketing Mix Model</button>
+            <button class="tab-btn" data-tab="segmentation">Customer Segmentation</button>
+            <button class="tab-btn" data-tab="performance">Performance Analysis</button>
+            <button class="tab-btn" data-tab="report">Report Builder</button>
+        </div>
+
+        <div class="workspace-body">
+
+            <!-- Tab: Campaign Attribution -->
+            <div class="tab-panel active" id="tab-attribution">
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Campaign Attribution Analysis</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Paste your campaign data (channel, spend, conversions) and get multi-touch attribution analysis with actionable recommendations.</p>
+                <div class="field-group">
+                    <label class="field-label">Campaign Data (CSV or paste rows: channel, spend, conversions)</label>
+                    <textarea class="field-textarea" id="attr-data" style="min-height:140px;" placeholder="Channel, Spend, Conversions, Revenue&#10;Google Search, $12000, 340, $48000&#10;Meta Ads, $8000, 210, $28500&#10;LinkedIn Ads, $5000, 45, $18000&#10;Email, $1200, 380, $52000&#10;Organic Social, $0, 95, $14000"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label">Attribution Model</label>
+                        <select class="field-select" id="attr-model">
+                            <option value="data-driven">Data-Driven (recommended)</option>
+                            <option value="linear">Linear</option>
+                            <option value="time-decay">Time Decay</option>
+                            <option value="first-touch">First Touch</option>
+                            <option value="last-touch">Last Touch</option>
+                            <option value="position-based">Position Based (U-Shaped)</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Goal / KPI Focus</label>
+                        <select class="field-select" id="attr-goal">
+                            <option value="revenue">Revenue</option>
+                            <option value="leads">Lead Generation</option>
+                            <option value="brand">Brand Awareness</option>
+                            <option value="retention">Customer Retention</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="runWorkspace('attribution')">
+                        <span>Analyze Attribution</span>
+                    </button>
+                    <button class="btn-secondary" onclick="sendToChat('Analyze my campaign attribution data and give recommendations')">Ask AI</button>
+                </div>
+                <div class="output-card" id="out-attribution" style="display:none;">
+                    <div class="output-header">
+                        <span class="output-title">Attribution Analysis</span>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-attribution')">Copy</button>
+                    </div>
+                    <div class="output-body" id="out-attribution-body"><div class="output-empty">Analysis will appear here...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Marketing Mix Model -->
+            <div class="tab-panel" id="tab-mmm">
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Marketing Mix Model</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Enter your budget allocation across channels to get ROI analysis and reallocation suggestions.</p>
+                <div class="field-group">
+                    <label class="field-label">Current Budget Allocation (channel: budget, ROI or results)</label>
+                    <textarea class="field-textarea" id="mmm-data" style="min-height:140px;" placeholder="Paste your budget allocation data here. Example:&#10;Paid Search: $30,000/mo | 3.2x ROAS | 1,200 conversions&#10;Paid Social: $20,000/mo | 2.1x ROAS | 800 conversions&#10;Content/SEO: $8,000/mo | 8x ROI (lagging) | 2,400 organic visits&#10;Email: $2,000/mo | 14x ROI | 600 conversions&#10;Events: $15,000/mo | 1.8x ROI | 40 SQLs"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label">Total Monthly Budget</label>
+                        <input class="field-input" id="mmm-budget" type="text" placeholder="e.g. $75,000">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Primary Business Goal</label>
+                        <select class="field-select" id="mmm-goal">
+                            <option value="growth">Aggressive Growth</option>
+                            <option value="efficiency">Efficiency / Profitability</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="brand">Brand Building</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="runWorkspace('mmm')">Run Mix Model</button>
+                    <button class="btn-secondary" onclick="sendToChat('Help me optimize my marketing mix model')">Ask AI</button>
+                </div>
+                <div class="output-card" id="out-mmm" style="display:none;">
+                    <div class="output-header">
+                        <span class="output-title">Mix Model Analysis</span>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-mmm')">Copy</button>
+                    </div>
+                    <div class="output-body" id="out-mmm-body"><div class="output-empty">Analysis will appear here...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Customer Segmentation -->
+            <div class="tab-panel" id="tab-segmentation">
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Customer Segmentation</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Describe your customers and get AI-generated segment profiles (4–6 personas) with characteristics and targeting recommendations.</p>
+                <div class="field-group">
+                    <label class="field-label">Describe Your Customer Base</label>
+                    <textarea class="field-textarea" id="seg-customers" style="min-height:120px;" placeholder="Describe who buys from you: industry, company size, job roles, pain points, buying behavior, deal size, sales cycle, geography, etc.&#10;&#10;Example: We sell B2B project management software. Customers are mid-market companies (50-500 employees) in professional services, tech, and construction. Buyers are typically ops managers or IT directors. Average deal size $12k ARR. Most come from referrals or Google Search."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label">Business Model</label>
+                        <select class="field-select" id="seg-model">
+                            <option value="b2b-saas">B2B SaaS</option>
+                            <option value="b2b-services">B2B Services</option>
+                            <option value="b2c-ecomm">B2C E-commerce</option>
+                            <option value="b2c-subscription">B2C Subscription</option>
+                            <option value="marketplace">Marketplace</option>
+                            <option value="enterprise">Enterprise Software</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Number of Segments</label>
+                        <select class="field-select" id="seg-count">
+                            <option value="4">4 Segments</option>
+                            <option value="5" selected>5 Segments</option>
+                            <option value="6">6 Segments</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="runWorkspace('segmentation')">Generate Segments</button>
+                    <button class="btn-secondary" onclick="sendToChat('Help me understand my customer segments better')">Ask AI</button>
+                </div>
+                <div class="output-card" id="out-segmentation" style="display:none;">
+                    <div class="output-header">
+                        <span class="output-title">Segment Profiles</span>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-segmentation')">Copy</button>
+                    </div>
+                    <div class="output-body" id="out-segmentation-body"><div class="output-empty">Segments will appear here...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Performance Analysis -->
+            <div class="tab-panel" id="tab-performance">
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Performance Analysis</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Paste your marketing metrics and get AI analysis of what's working, what's not, and what to change.</p>
+                <div class="field-group">
+                    <label class="field-label">Marketing Metrics (paste from your dashboards)</label>
+                    <textarea class="field-textarea" id="perf-metrics" style="min-height:160px;" placeholder="Paste your metrics here. Include any relevant data:&#10;&#10;Website: 48,000 sessions, 3.2% conversion rate, 2:14 avg session, 62% bounce rate&#10;Email: 42% open rate, 3.8% CTR, 0.9% unsubscribe&#10;Paid: $4.20 CPC, $48 CPL, 380 leads, $28k spend&#10;Pipeline: 142 MQLs, 38 SQLs, 12 closed-won, $180k ARR&#10;Social: 12k followers, 4.2% engagement rate, 240 link clicks"></textarea>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Time Period &amp; Context</label>
+                    <input class="field-input" id="perf-context" type="text" placeholder="e.g. Q1 2026, post product launch, during slow season...">
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="runWorkspace('performance')">Analyze Performance</button>
+                    <button class="btn-secondary" onclick="sendToChat('What are the key insights from my performance data?')">Ask AI</button>
+                </div>
+                <div class="output-card" id="out-performance" style="display:none;">
+                    <div class="output-header">
+                        <span class="output-title">Performance Analysis</span>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-performance')">Copy</button>
+                    </div>
+                    <div class="output-body" id="out-performance-body"><div class="output-empty">Analysis will appear here...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Report Builder -->
+            <div class="tab-panel" id="tab-report">
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Report Builder</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Select your metrics and audience — the AI writes a complete narrative report ready to share.</p>
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label">Report Type</label>
+                        <select class="field-select" id="report-type">
+                            <option value="monthly">Monthly Marketing Report</option>
+                            <option value="quarterly">Quarterly Business Review</option>
+                            <option value="campaign">Campaign Performance Report</option>
+                            <option value="exec">Executive Summary</option>
+                            <option value="board">Board-Level Report</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Audience</label>
+                        <select class="field-select" id="report-audience">
+                            <option value="cmo">CMO / Marketing Leadership</option>
+                            <option value="ceo">CEO / Executive Team</option>
+                            <option value="board">Board of Directors</option>
+                            <option value="team">Marketing Team</option>
+                            <option value="client">Client / Stakeholder</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Metrics &amp; Data to Include</label>
+                    <textarea class="field-textarea" id="report-data" style="min-height:140px;" placeholder="Paste all metrics, results, and data points you want included in the report. The AI will weave these into a coherent narrative."></textarea>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Key Message or Narrative Focus (optional)</label>
+                    <input class="field-input" id="report-focus" type="text" placeholder="e.g. Strong Q1 despite budget cuts, pipeline is healthy, need more budget for paid...">
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="runWorkspace('report')">Write Report</button>
+                    <button class="btn-secondary" onclick="sendToChat('Help me structure an effective marketing report')">Ask AI</button>
+                </div>
+                <div class="output-card" id="out-report" style="display:none;">
+                    <div class="output-header">
+                        <span class="output-title">Generated Report</span>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-report')">Copy</button>
+                    </div>
+                    <div class="output-body" id="out-report-body"><div class="output-empty">Report will appear here...</div></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Chat Panel -->
+    <aside class="chat-panel">
+        <div class="chat-header">
+            <div class="chat-avatar">📊</div>
+            <div>
+                <div class="chat-agent-name">Analytics Brain AI</div>
+                <div class="chat-agent-status">● Ready to analyze</div>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-welcome">
+                Hi! I'm your Analytics Brain AI. I can help you interpret marketing data, build attribution models, identify trends, and generate insights. Ask me anything about your marketing analytics.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-input-row">
+                <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask about analytics, attribution, ROI..."></textarea>
+                <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<script src="/js/claude-service.js"></script>
+<script src="/js/scotty-orchestrator.js"></script>
+<script>
+    const AGENT_ID = 'analytics-brain';
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+    });
+
+    // Workspace prompts per tab
+    const workspacePrompts = {
+        attribution: () => {
+            const data = document.getElementById('attr-data').value.trim();
+            const model = document.getElementById('attr-model').value;
+            const goal = document.getElementById('attr-goal').value;
+            if (!data) return null;
+            return `You are an expert marketing analytics consultant specializing in attribution modeling.
+
+Analyze this campaign data and provide a comprehensive attribution analysis:
+
+CAMPAIGN DATA:
+${data}
+
+ATTRIBUTION MODEL REQUESTED: ${model}
+GOAL / KPI FOCUS: ${goal}
+
+Provide:
+1. Attribution Analysis - assign credit to each channel based on the ${model} model
+2. Key Insights - what the data reveals about channel performance
+3. Top performing channels and why
+4. Underperforming channels with root cause analysis
+5. Specific, actionable recommendations to improve ROI
+6. Suggested budget reallocation (with percentages)
+7. Quick wins (implement in next 30 days)
+
+Format clearly with sections and be specific with numbers.`;
+        },
+        mmm: () => {
+            const data = document.getElementById('mmm-data').value.trim();
+            const budget = document.getElementById('mmm-budget').value.trim();
+            const goal = document.getElementById('mmm-goal').value;
+            if (!data) return null;
+            return `You are an expert marketing mix modeling consultant.
+
+Analyze this marketing budget allocation and provide MMM insights:
+
+CURRENT ALLOCATION:
+${data}
+
+TOTAL MONTHLY BUDGET: ${budget || 'Not specified'}
+BUSINESS GOAL: ${goal}
+
+Provide:
+1. Current State Assessment - efficiency score per channel
+2. ROI Ranking - rank all channels by return
+3. Saturation Analysis - which channels are over/under-invested
+4. Optimal Reallocation - specific budget shifts with rationale
+5. Projected Impact - estimated improvement from reallocation
+6. Channel synergies to leverage
+7. 3-month roadmap for implementation
+
+Be specific with numbers and percentages.`;
+        },
+        segmentation: () => {
+            const customers = document.getElementById('seg-customers').value.trim();
+            const model = document.getElementById('seg-model').value;
+            const count = document.getElementById('seg-count').value;
+            if (!customers) return null;
+            return `You are an expert customer segmentation strategist using Segment Personas methodology.
+
+Create ${count} detailed customer segment profiles based on this description:
+
+CUSTOMER BASE DESCRIPTION:
+${customers}
+
+BUSINESS MODEL: ${model}
+
+For each segment provide:
+- Segment Name (memorable, descriptive)
+- Size estimate (% of customer base)
+- Demographics & Firmographics
+- Psychographics & Motivations
+- Key Pain Points (top 3)
+- Buying Triggers
+- Buying Barriers
+- Preferred Channels
+- Average Deal Value / LTV
+- Key Message that resonates
+- Best-fit Products/Features
+- Targeting Strategy (paid, content, outreach)
+
+Make each segment distinct and actionable.`;
+        },
+        performance: () => {
+            const metrics = document.getElementById('perf-metrics').value.trim();
+            const context = document.getElementById('perf-context').value.trim();
+            if (!metrics) return null;
+            return `You are an expert marketing performance analyst.
+
+Analyze these marketing metrics and provide insights:
+
+METRICS DATA:
+${metrics}
+
+CONTEXT: ${context || 'General marketing performance review'}
+
+Provide:
+1. Executive Summary (2-3 sentences on overall health)
+2. What's Working Well (specific wins with data)
+3. What Needs Attention (problems with severity rating: High/Medium/Low)
+4. Anomalies & Trends worth investigating
+5. Benchmarks - how these metrics compare to industry standards
+6. Top 5 Priority Actions (ranked by impact)
+7. Metrics to add for better visibility
+8. 90-Day Improvement Roadmap
+
+Be direct, specific, and data-driven.`;
+        },
+        report: () => {
+            const data = document.getElementById('report-data').value.trim();
+            const type = document.getElementById('report-type').value;
+            const audience = document.getElementById('report-audience').value;
+            const focus = document.getElementById('report-focus').value.trim();
+            if (!data) return null;
+            return `You are an expert marketing communications director writing for senior leadership.
+
+Write a complete ${type} for a ${audience} audience.
+
+DATA & METRICS:
+${data}
+
+${focus ? `KEY NARRATIVE: ${focus}` : ''}
+
+Write a polished, professional report that:
+- Opens with a compelling executive summary
+- Tells a coherent data story (not just a list of numbers)
+- Highlights wins prominently
+- Addresses challenges honestly with context
+- Includes clear next steps and asks
+- Uses appropriate language for ${audience}
+- Ends with a forward-looking outlook
+
+Format with clear sections, use the data provided, and write in a confident narrative style.`;
+        }
+    };
+
+    async function runWorkspace(tabId) {
+        const prompt = workspacePrompts[tabId]();
+        if (!prompt) {
+            alert('Please fill in the required fields before generating.');
+            return;
+        }
+
+        const outCard = document.getElementById('out-' + tabId);
+        const outBody = document.getElementById('out-' + tabId + '-body');
+        outCard.style.display = 'block';
+        outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Analyzing with Analytics Brain AI...</div>';
+
+        try {
+            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
+                let result = '';
+                await ClaudeService.callAgent(AGENT_ID, prompt, {}, (chunk) => {
+                    result += chunk;
+                    outBody.textContent = result;
+                });
+            } else {
+                await streamFallback(prompt, outBody);
+            }
+        } catch (err) {
+            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
+        }
+    }
+
+    // Chat functionality
+    async function sendChat() {
+        const input = document.getElementById('chatInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        addChatBubble('user', msg);
+        input.value = '';
+
+        const aiDiv = addChatBubble('ai', '');
+        const cursor = document.createElement('span');
+        cursor.className = 'streaming-cursor';
+        aiDiv.appendChild(cursor);
+
+        try {
+            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
+                let result = '';
+                await ClaudeService.callAgent(AGENT_ID, msg, { tab: 'chat' }, (chunk) => {
+                    result += chunk;
+                    aiDiv.textContent = result;
+                });
+            } else {
+                await streamFallback(`You are Analytics Brain AI, an expert marketing analytics assistant. Answer this question concisely and helpfully: ${msg}`, aiDiv);
+            }
+        } catch (err) {
+            aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
+        }
+    }
+
+    function sendToChat(msg) {
+        document.getElementById('chatInput').value = msg;
+        sendChat();
+    }
+
+    function addChatBubble(role, text) {
+        const messages = document.getElementById('chatMessages');
+        const wrapper = document.createElement('div');
+        const label = document.createElement('div');
+        label.className = 'bubble-label';
+        label.textContent = role === 'user' ? 'You' : 'Analytics Brain AI';
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ' + (role === 'user' ? 'bubble-user' : 'bubble-ai');
+        bubble.textContent = text;
+        wrapper.appendChild(label);
+        wrapper.appendChild(bubble);
+        messages.appendChild(wrapper);
+        messages.scrollTop = messages.scrollHeight;
+        return bubble;
+    }
+
+    document.getElementById('chatInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+
+    function copyOutput(id) {
+        const body = document.getElementById(id + '-body');
+        const text = body.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = body.previousElementSibling.querySelector('button');
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('copy-success');
+            setTimeout(() => { btn.textContent = orig; btn.classList.remove('copy-success'); }, 2000);
+        });
+    }
+
+    // Fallback streaming simulation when ClaudeService is not loaded
+    async function streamFallback(prompt, element) {
+        element.textContent = '';
+        const placeholder = '[ClaudeService not loaded] Configure /js/claude-service.js to enable AI responses.\n\nPrompt that would be sent:\n\n' + prompt.substring(0, 300) + '...';
+        for (let i = 0; i < placeholder.length; i++) {
+            element.textContent += placeholder[i];
+            await new Promise(r => setTimeout(r, 10));
+        }
+    }
+</script>
+</body>
+</html>

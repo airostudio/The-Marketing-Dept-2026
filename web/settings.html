@@ -842,6 +842,24 @@
                                 </div>
                             </div>
 
+                            <!-- Claude AI Configuration -->
+                            <div class="settings-section" id="claude-config-section" style="border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 24px; background: rgba(124,58,237,0.05); margin-bottom: 24px;">
+                                <h3 style="color: #a78bfa;">🤖 Claude AI Configuration</h3>
+                                <p class="section-desc">Configure your Anthropic Claude API key to enable all AI agents — Scotty, Content Studio, SEO Intelligence, and all 13 specialist agents.</p>
+                                <div id="claude-key-status" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none;"></div>
+                                <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                                    <div style="flex: 1; min-width: 260px;">
+                                        <label style="display: block; font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 6px;">Claude API Key</label>
+                                        <input type="password" id="claude-api-key-input" placeholder="sk-ant-api03-..." style="width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: white; font-family: monospace; font-size: 13px; outline: none; box-sizing: border-box;" />
+                                    </div>
+                                    <button id="claude-save-btn" onclick="saveClaudeKey()" style="padding: 10px 20px; background: linear-gradient(135deg, #7c3aed, #ec4899); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; white-space: nowrap;">Save Key</button>
+                                    <button id="claude-test-btn" onclick="testClaudeKey()" style="padding: 10px 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: white; cursor: pointer; white-space: nowrap;">Test Connection</button>
+                                </div>
+                                <div style="margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.4);">
+                                    Get your API key at <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color: #a78bfa;">console.anthropic.com</a> · Model: claude-sonnet-4-6 · Key stored locally in your browser
+                                </div>
+                            </div>
+
                             <!-- API Keys -->
                             <div class="settings-section">
                                 <h3>API Keys</h3>
@@ -898,5 +916,71 @@
     <script src="/js/supabase-client.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/settings.js"></script>
+
+    <script>
+    // Claude API Key Management
+    (function() {
+        const input = document.getElementById('claude-api-key-input');
+        const statusEl = document.getElementById('claude-key-status');
+
+        // Load existing key on page load
+        const existing = localStorage.getItem('claude_api_key');
+        if (existing && input) {
+            input.value = existing;
+            showStatus('Claude API key is configured. All AI agents are enabled.', 'success');
+        }
+
+        function showStatus(msg, type) {
+            if (!statusEl) return;
+            const colors = {
+                success: { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)', text: '#10b981' },
+                error:   { bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  text: '#ef4444' },
+                info:    { bg: 'rgba(124,58,237,0.1)', border: 'rgba(124,58,237,0.3)', text: '#a78bfa' },
+            };
+            const c = colors[type] || colors.info;
+            statusEl.style.cssText = `display:block; background:${c.bg}; border:1px solid ${c.border}; color:${c.text}; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;`;
+            statusEl.textContent = msg;
+        }
+
+        window.saveClaudeKey = function() {
+            const key = input ? input.value.trim() : '';
+            if (!key) { showStatus('Please enter an API key.', 'error'); return; }
+            if (!key.startsWith('sk-ant-')) { showStatus('Warning: key should start with sk-ant- — are you sure this is a Claude API key?', 'error'); return; }
+            localStorage.setItem('claude_api_key', key);
+            if (window.ClaudeService) window.ClaudeService.setApiKey(key);
+            showStatus('Claude API key saved. All AI agents are now enabled.', 'success');
+        };
+
+        window.testClaudeKey = async function() {
+            const key = (input ? input.value.trim() : '') || localStorage.getItem('claude_api_key');
+            if (!key) { showStatus('No API key found. Save a key first.', 'error'); return; }
+            showStatus('Testing connection to Claude API...', 'info');
+            try {
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': key,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true',
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-6',
+                        max_tokens: 10,
+                        messages: [{ role: 'user', content: 'Hi' }],
+                    }),
+                });
+                if (res.ok) {
+                    showStatus('Connection successful. Claude API is working correctly.', 'success');
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showStatus(`Connection failed: ${err.error?.message || 'HTTP ' + res.status}`, 'error');
+                }
+            } catch (e) {
+                showStatus(`Connection error: ${e.message}`, 'error');
+            }
+        };
+    })();
+    </script>
 </body>
 </html>

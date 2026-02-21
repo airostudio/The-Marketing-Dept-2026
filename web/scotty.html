@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scotty — Your AI CMO | The Marketing Department 2026</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #070711;
+            --bg2:       #0d0d1a;
+            --bg3:       #12121f;
+            --border:    rgba(255,255,255,0.08);
+            --border-h:  rgba(255,255,255,0.14);
+            --text:      #f1f5f9;
+            --text2:     #94a3b8;
+            --text3:     #64748b;
+            --purple:    #7c3aed;
+            --pink:      #ec4899;
+            --cyan:      #06b6d4;
+            --green:     #22c55e;
+            --card-bg:   rgba(255,255,255,0.03);
+            --glow-p:    rgba(124,58,237,0.25);
+            --sidebar-w: 280px;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.35); border-radius: 3px; }
+
+        /* ════════════════════════════════════════
+           LAYOUT
+        ════════════════════════════════════════ */
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ════════════════════════════════════════
+           SIDEBAR
+        ════════════════════════════════════════ */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-logo {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo-text {
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .sidebar-logo-text span {
+            display: block;
+            font-size: 11px;
+            color: var(--text3);
+            font-weight: 400;
+        }
+
+        .btn-new-convo {
+            margin: 16px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-new-convo:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(124,58,237,0.40);
+        }
+
+        .sidebar-section-label {
+            padding: 8px 20px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text3);
+        }
+
+        .convo-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 8px;
+        }
+
+        .convo-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .convo-item:hover { background: rgba(255,255,255,0.04); }
+        .convo-item.active { background: rgba(124,58,237,0.12); }
+
+        .convo-icon {
+            font-size: 14px;
+            margin-top: 1px;
+            flex-shrink: 0;
+        }
+
+        .convo-info { min-width: 0; }
+
+        .convo-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .convo-item.active .convo-title { color: var(--text); }
+
+        .convo-time {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 2px;
+        }
+
+        .sidebar-bottom {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text2);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+        }
+
+        .intel-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: rgba(34,197,94,0.08);
+            border: 1px solid rgba(34,197,94,0.20);
+            border-radius: 10px;
+            font-size: 11px;
+            color: #4ade80;
+        }
+
+        .intel-status-badge.unconfigured {
+            background: rgba(245,158,11,0.08);
+            border-color: rgba(245,158,11,0.20);
+            color: #fbbf24;
+        }
+
+        .intel-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 6px #22c55e;
+            flex-shrink: 0;
+        }
+
+        .intel-dot.warn { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+
+        /* ════════════════════════════════════════
+           MAIN CHAT AREA
+        ════════════════════════════════════════ */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        /* ── Top Bar ── */
+        .chat-topbar {
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(7,7,17,0.60);
+            backdrop-filter: blur(12px);
+            flex-shrink: 0;
+            gap: 16px;
+        }
+
+        .chat-topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .scotty-avatar-sm {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .topbar-title { font-size: 15px; font-weight: 700; }
+        .topbar-sub   { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chip-claude {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(124,58,237,0.12);
+            border: 1px solid rgba(124,58,237,0.25);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #a78bfa;
+        }
+
+        .chip-claude::before {
+            content: '◆';
+            font-size: 9px;
+        }
+
+        .topbar-hub-link {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            text-decoration: none;
+            color: var(--text2);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .topbar-hub-link:hover {
+            border-color: var(--border-h);
+            color: var(--text);
+            background: rgba(255,255,255,0.04);
+        }
+
+        /* ── Intelligence Warning Banner ── */
+        .intel-warning {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 24px;
+            background: rgba(245,158,11,0.08);
+            border-bottom: 1px solid rgba(245,158,11,0.20);
+            font-size: 13px;
+            color: #fbbf24;
+            flex-shrink: 0;
+        }
+
+        .intel-warning a {
+            color: #f59e0b;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .intel-warning-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            line-height: 1;
+        }
+
+        /* ── Message Thread ── */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Scotty message */
+        .msg {
+            display: flex;
+            gap: 12px;
+            max-width: 800px;
+        }
+
+        .msg.user-msg {
+            flex-direction: row-reverse;
+            align-self: flex-end;
+            max-width: 600px;
+        }
+
+        .msg-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .msg-avatar.user-avatar {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .msg-bubble {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            border-top-left-radius: 4px;
+            padding: 16px 20px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        .msg.user-msg .msg-bubble {
+            background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(236,72,153,0.20));
+            border-color: rgba(124,58,237,0.30);
+            border-top-left-radius: 16px;
+            border-top-right-radius: 4px;
+        }
+
+        .msg-bubble p + p { margin-top: 10px; }
+
+        .msg-meta {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 6px;
+            padding: 0 4px;
+        }
+
+        .msg.user-msg .msg-meta { text-align: right; }
+
+        /* Agent recommendation card inside message */
+        .agent-rec-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .agent-rec-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(124,58,237,0.10);
+            border: 1px solid rgba(124,58,237,0.25);
+            border-radius: 10px;
+            padding: 8px 14px;
+            text-decoration: none;
+            color: #a78bfa;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .agent-rec-card:hover {
+            background: rgba(124,58,237,0.18);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(124,58,237,0.25);
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 12px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            padding: 14px 18px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            border-top-left-radius: 4px;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--text3);
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* ── Suggested Prompts ── */
+        .prompt-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .prompt-chip {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--text2);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .prompt-chip:hover {
+            background: rgba(124,58,237,0.10);
+            border-color: rgba(124,58,237,0.30);
+            color: #a78bfa;
+            transform: translateY(-1px);
+        }
+
+        /* ── Input Area ── */
+        .input-area {
+            padding: 16px 24px 20px;
+            border-top: 1px solid var(--border);
+            background: rgba(7,7,17,0.80);
+            backdrop-filter: blur(12px);
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            padding: 12px 14px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: rgba(124,58,237,0.50);
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.10);
+        }
+
+        .input-textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.6;
+            min-height: 24px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .input-textarea::placeholder { color: var(--text3); }
+
+        .btn-send {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .btn-send:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(124,58,237,0.45);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .context-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 11px;
+            color: var(--text3);
+            flex-wrap: wrap;
+        }
+
+        .ctx-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .ctx-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+        }
+
+        .ctx-dot.ok  { background: var(--green); }
+        .ctx-dot.warn { background: #f59e0b; }
+
+        .ctx-sep { color: var(--border); }
+
+        /* ════════════════════════════════════════
+           ANIMATIONS
+        ════════════════════════════════════════ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg { animation: fadeInUp 0.25s ease; }
+
+        /* ════════════════════════════════════════
+           RESPONSIVE
+        ════════════════════════════════════════ */
+        @media (max-width: 700px) {
+            .sidebar { display: none; }
+            .chat-topbar { padding: 0 16px; }
+            .messages { padding: 20px 16px; }
+            .input-area { padding: 12px 16px 16px; }
+            .topbar-hub-link span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ════════════════════════════════════════
+         SIDEBAR
+    ════════════════════════════════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">🤖</div>
+            <div class="sidebar-logo-text">
+                Scotty
+                <span>AI CMO · The Marketing Dept</span>
+            </div>
+        </div>
+
+        <button class="btn-new-convo" id="btnNewConvo">
+            ✦ New Conversation
+        </button>
+
+        <div class="sidebar-section-label">Recent</div>
+
+        <div class="convo-list" id="convoList">
+            <div class="convo-item active" data-id="current">
+                <span class="convo-icon">💬</span>
+                <div class="convo-info">
+                    <div class="convo-title">New conversation</div>
+                    <div class="convo-time">Just now</div>
+                </div>
+            </div>
+            <div class="convo-item" data-id="q4">
+                <span class="convo-icon">📋</span>
+                <div class="convo-info">
+                    <div class="convo-title">Q4 campaign strategy</div>
+                    <div class="convo-time">2 hours ago</div>
+                </div>
+            </div>
+            <div class="convo-item" data-id="li">
+                <span class="convo-icon">🎯</span>
+                <div class="convo-info">
+                    <div class="convo-title">LinkedIn outreach plan</div>
+                    <div class="convo-time">Yesterday</div>
+                </div>
+            </div>
+            <div class="convo-item" data-id="comp">
+                <span class="convo-icon">🕵️</span>
+                <div class="convo-info">
+                    <div class="convo-title">Competitor analysis deep dive</div>
+                    <div class="convo-time">3 days ago</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="intel-status-badge" id="intelBadge">
+                <div class="intel-dot" id="intelDot"></div>
+                <span id="intelBadgeText">Intelligence: Active</span>
+            </div>
+            <a href="/hub.html" class="sidebar-link">⬅ Back to Agent Hub</a>
+            <a href="/intelligence/business-brain.html" class="sidebar-link">🛰️ Intelligence Setup</a>
+        </div>
+    </aside>
+
+    <!-- ════════════════════════════════════════
+         MAIN CHAT AREA
+    ════════════════════════════════════════ -->
+    <section class="chat-area">
+
+        <!-- Top bar -->
+        <div class="chat-topbar">
+            <div class="chat-topbar-left">
+                <div class="scotty-avatar-sm">🤖</div>
+                <div>
+                    <div class="topbar-title">Scotty — Your AI CMO</div>
+                    <div class="topbar-sub">Strategic orchestrator · Routes to 13 specialist agents</div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="chip-claude">Powered by Claude</div>
+                <a href="/hub.html" class="topbar-hub-link">
+                    🏠 <span>Agent Hub</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Intelligence warning (shown when not configured) -->
+        <div class="intel-warning" id="intelWarning" style="display:none;">
+            ⚠️ Intelligence Layer not configured. Scotty is working blind.
+            Set up BusinessBrain →
+            <a href="/intelligence/business-brain.html">Configure Now</a>
+            <button class="intel-warning-close" id="intelWarningClose">✕</button>
+        </div>
+
+        <!-- Message thread -->
+        <div class="messages" id="messages">
+
+            <!-- Welcome message from Scotty -->
+            <div class="msg" id="welcomeMsg">
+                <div class="msg-avatar">🤖</div>
+                <div>
+                    <div class="msg-bubble" id="welcomeBubble">
+                        <p>👋 I'm Scotty, your AI CMO.</p>
+                        <p>I don't just execute tasks — I think strategically first. Before routing your request to the right specialist agent, I'll draw on your competitive intelligence, market signals, and business context to make sure we're building the right thing, not just building things quickly.</p>
+                        <p>What are you trying to achieve?</p>
+                        <div class="prompt-chips" id="promptChips">
+                            <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Help me plan next month's content strategy</button>
+                            <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze our competitor's latest moves</button>
+                            <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create an outreach sequence for new prospects</button>
+                            <button class="prompt-chip" data-prompt="Review our ad creative performance">Review our ad creative performance</button>
+                        </div>
+                    </div>
+                    <div class="msg-meta">Scotty · Just now</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input area -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea
+                    class="input-textarea"
+                    id="inputTextarea"
+                    placeholder="Describe what you're trying to achieve..."
+                    rows="1"
+                ></textarea>
+                <button class="btn-send" id="btnSend" title="Send message">↑</button>
+            </div>
+            <div class="context-bar" id="contextBar">
+                <span class="ctx-item">
+                    <span class="ctx-dot ok" id="ctxBrainDot"></span>
+                    <span id="ctxBrainLabel">Business Brain ✓</span>
+                </span>
+                <span class="ctx-sep">|</span>
+                <span class="ctx-item">
+                    <span class="ctx-dot ok" id="ctxCompDot"></span>
+                    <span id="ctxCompLabel">Competitive Data ✓</span>
+                </span>
+                <span class="ctx-sep">|</span>
+                <span class="ctx-item">
+                    <span class="ctx-dot ok" id="ctxMktDot"></span>
+                    <span id="ctxMktLabel">Market Signals ✓</span>
+                </span>
+            </div>
+        </div>
+
+    </section>
+</div>
+
+<!-- Load external services if available -->
+<script src="/js/claude-service.js" onerror="console.info('ClaudeService not loaded — using mock mode')"></script>
+<script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════
+   SCOTTY CHAT — The Marketing Department 2026
+   Connects to window.ClaudeService when available, falls back to
+   a rich mock response for demo / offline use.
+════════════════════════════════════════════════════════════════ */
+
+const AGENT_DIRECTORY = [
+    { key: 'content',     name: 'Content Studio',         emoji: '✍️',  url: '/agents/content-studio-agent.html',  tags: ['content','blog','copy','writing','brand voice'] },
+    { key: 'seo',         name: 'SEO Intelligence',        emoji: '🔍',  url: '/agents/seo-agent.html',              tags: ['seo','keyword','rank','search','technical','backlink'] },
+    { key: 'email',       name: 'Email Engine',            emoji: '📧',  url: '/agents/email-agent.html',            tags: ['email','newsletter','campaign','flow','sequence','klaviyo'] },
+    { key: 'sales',       name: 'Sales Intelligence',      emoji: '🎯',  url: '/agents/sales-agent.html',            tags: ['sales','prospect','outreach','lead','apollo','crm'] },
+    { key: 'ads',         name: 'Ad Creative Lab',         emoji: '🎨',  url: '/agents/ads-agent.html',              tags: ['ad','advertising','creative','google','meta','paid','a/b'] },
+    { key: 'social',      name: 'Social Studio',           emoji: '📱',  url: '/agents/social-agent.html',           tags: ['social','instagram','linkedin','twitter','tiktok','post'] },
+    { key: 'analytics',   name: 'Analytics Brain',         emoji: '📊',  url: '/agents/analytics-agent.html',        tags: ['analytics','data','attribution','reporting','mmm'] },
+    { key: 'competitive', name: 'Competitive Intelligence',emoji: '🕵️', url: '/agents/competitive-agent.html',      tags: ['competitor','competitive','monitor','crayon','intelligence'] },
+    { key: 'video',       name: 'Video Studio',            emoji: '🎬',  url: '/agents/video-agent.html',            tags: ['video','script','youtube','descript','thumbnail'] },
+    { key: 'cro',         name: 'CRO Lab',                 emoji: '🧪',  url: '/agents/cro-agent.html',              tags: ['cro','conversion','landing','test','optimize','vwo'] },
+    { key: 'compliance',  name: 'Compliance Guard',        emoji: '🛡️', url: '/agents/compliance-agent.html',       tags: ['compliance','legal','brand safety','review','puntt'] },
+    { key: 'deck',        name: 'Deck Maker',              emoji: '📽️', url: '/agents/deck-agent.html',             tags: ['deck','presentation','slide','pitch','investor','tome'] },
+];
+
+const SCOTTY_SYSTEM_PROMPT_TEMPLATE = `You are Scotty, the AI CMO of {{companyName}}. You are a strategic thinker who routes marketing tasks to the right specialist agents. You always think UPSTREAM first — understanding WHY before executing WHAT.
+
+BUSINESS CONTEXT:
+{{businessContext}}
+
+COMPETITIVE LANDSCAPE:
+{{competitiveLandscape}}
+
+MARKET SIGNALS:
+{{marketSignals}}
+
+Available specialist agents and when to use them:
+- Content Studio (/agents/content-studio-agent.html): blog posts, copy, brand voice
+- SEO Intelligence (/agents/seo-agent.html): rankings, technical SEO, keywords
+- Email Engine (/agents/email-agent.html): sequences, flows, campaigns
+- Sales Intelligence (/agents/sales-agent.html): prospecting, enrichment, outreach
+- Ad Creative Lab (/agents/ads-agent.html): ad copy, creative variants, A/B tests
+- Social Studio (/agents/social-agent.html): social posts, content calendar
+- Analytics Brain (/agents/analytics-agent.html): attribution, reporting, MMM
+- Competitive Intelligence (/agents/competitive-agent.html): competitor monitoring
+- Video Studio (/agents/video-agent.html): scripts, editing, thumbnails
+- CRO Lab (/agents/cro-agent.html): conversion optimization, testing
+- Compliance Guard (/agents/compliance-agent.html): brand safety, legal review
+- Deck Maker (/agents/deck-agent.html): presentations, pitch decks
+
+Always respond with:
+1. Strategic context (why this matters now, 2-3 sentences)
+2. Which agent(s) you recommend and why (be specific, name the agent)
+3. What specific output they should request from each agent
+4. Mention the agent names exactly as listed above so I can parse them
+
+Format your agent recommendations clearly. Be direct, strategic, and specific. No generic advice. Think like a CMO who has seen this play out before.`;
+
+class ScottyChat {
+    constructor() {
+        this.conversations = [];
+        this.currentConvoId = this._generateId();
+        this.isWaiting = false;
+        this.intelConfigured = false;
+
+        this._bindElements();
+        this._bindEvents();
+        this.init();
+    }
+
+    _generateId() {
+        return 'convo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    _bindElements() {
+        this.messagesEl  = document.getElementById('messages');
+        this.inputEl     = document.getElementById('inputTextarea');
+        this.btnSend     = document.getElementById('btnSend');
+        this.btnNew      = document.getElementById('btnNewConvo');
+        this.convoList   = document.getElementById('convoList');
+        this.intelWarn   = document.getElementById('intelWarning');
+        this.intelBadge  = document.getElementById('intelBadge');
+        this.intelDot    = document.getElementById('intelDot');
+        this.intelText   = document.getElementById('intelBadgeText');
+        this.promptChips = document.getElementById('promptChips');
+    }
+
+    _bindEvents() {
+        this.btnSend.addEventListener('click', () => this._handleSend());
+
+        this.inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this._handleSend();
+            }
+        });
+
+        this.inputEl.addEventListener('input', () => {
+            this.inputEl.style.height = 'auto';
+            this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 160) + 'px';
+        });
+
+        this.btnNew.addEventListener('click', () => this._startNewConversation());
+
+        document.getElementById('intelWarningClose')?.addEventListener('click', () => {
+            this.intelWarn.style.display = 'none';
+        });
+
+        if (this.promptChips) {
+            this.promptChips.addEventListener('click', (e) => {
+                const chip = e.target.closest('.prompt-chip');
+                if (chip) {
+                    const prompt = chip.dataset.prompt;
+                    this.inputEl.value = prompt;
+                    this.inputEl.focus();
+                    this._handleSend();
+                }
+            });
+        }
+
+        this.convoList.addEventListener('click', (e) => {
+            const item = e.target.closest('.convo-item');
+            if (item) {
+                document.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+            }
+        });
+    }
+
+    init() {
+        this._loadConversations();
+        this._checkIntelligenceEngine();
+        this._updateContextBar();
+    }
+
+    _loadConversations() {
+        try {
+            const stored = localStorage.getItem('scotty_conversations');
+            if (stored) this.conversations = JSON.parse(stored);
+        } catch (e) {
+            this.conversations = [];
+        }
+    }
+
+    _saveConversations() {
+        try {
+            const toSave = this.conversations.slice(-20); // keep last 20
+            localStorage.setItem('scotty_conversations', JSON.stringify(toSave));
+        } catch (e) { /* ignore */ }
+    }
+
+    _checkIntelligenceEngine() {
+        const engine = window.IntelligenceEngine;
+        if (engine && typeof engine.isConfigured === 'function' && engine.isConfigured()) {
+            this.intelConfigured = true;
+            this.intelDot.classList.remove('warn');
+            this.intelText.textContent = 'Intelligence: Active';
+            this.intelBadge.classList.remove('unconfigured');
+        } else {
+            this.intelConfigured = false;
+            this.intelDot.classList.add('warn');
+            this.intelText.textContent = 'Intelligence: Not configured';
+            this.intelBadge.classList.add('unconfigured');
+            this.intelWarn.style.display = 'flex';
+        }
+    }
+
+    _updateContextBar() {
+        const engine = window.IntelligenceEngine;
+        const hasBrain   = engine && engine.hasContext && engine.hasContext('business');
+        const hasComp    = engine && engine.hasContext && engine.hasContext('competitive');
+        const hasMkt     = engine && engine.hasContext && engine.hasContext('market');
+
+        this._setCtxItem('ctxBrainDot', 'ctxBrainLabel', hasBrain, 'Business Brain ✓', 'Business Brain ✗');
+        this._setCtxItem('ctxCompDot',  'ctxCompLabel',  hasComp,  'Competitive Data ✓', 'Competitive Data ✗');
+        this._setCtxItem('ctxMktDot',   'ctxMktLabel',   hasMkt,   'Market Signals ✓', 'Market Signals ✗');
+    }
+
+    _setCtxItem(dotId, labelId, ok, okText, failText) {
+        const dot   = document.getElementById(dotId);
+        const label = document.getElementById(labelId);
+        if (!dot || !label) return;
+        dot.className   = 'ctx-dot ' + (ok ? 'ok' : 'warn');
+        label.textContent = ok ? okText : failText;
+    }
+
+    _handleSend() {
+        const text = this.inputEl.value.trim();
+        if (!text || this.isWaiting) return;
+        this.inputEl.value = '';
+        this.inputEl.style.height = 'auto';
+        this.sendMessage(text);
+    }
+
+    sendMessage(text) {
+        // Remove prompt chips after first user message
+        const chips = document.getElementById('promptChips');
+        if (chips) chips.remove();
+
+        this._appendUserMessage(text);
+        this._showTypingIndicator();
+        this.isWaiting = true;
+        this.btnSend.disabled = true;
+
+        const contextBundle = this._getContextBundle();
+        const systemPrompt  = this.buildScottySystemPrompt(contextBundle);
+
+        const messages = this._buildMessageHistory(text);
+
+        if (window.ClaudeService && typeof window.ClaudeService.streamResponse === 'function') {
+            // Create Scotty bubble for streaming
+            const { bubble, scrollAnchor } = this._createScottyBubble();
+            this._removeTypingIndicator();
+
+            window.ClaudeService.streamResponse({
+                systemPrompt,
+                messages,
+                outputEl: bubble,
+                onStart:  () => { bubble.textContent = ''; },
+                onChunk:  () => { scrollAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' }); },
+                onDone:   (fullText) => {
+                    this._processScottyResponse(fullText, bubble);
+                    this._finaliseResponse(text, fullText);
+                },
+                onError:  (err) => {
+                    bubble.textContent = '⚠️ Connection error. Please check your API key in settings.';
+                    this._finaliseResponse(text, '');
+                }
+            });
+        } else {
+            // Mock response after realistic delay
+            setTimeout(() => {
+                this._removeTypingIndicator();
+                const mockResponse = this._generateMockResponse(text);
+                const { bubble, scrollAnchor } = this._createScottyBubble();
+                this._typeResponse(mockResponse, bubble, scrollAnchor, () => {
+                    this._processScottyResponse(mockResponse, bubble);
+                    this._finaliseResponse(text, mockResponse);
+                });
+            }, 1400 + Math.random() * 600);
+        }
+    }
+
+    _typeResponse(text, bubble, anchor, done) {
+        let i = 0;
+        bubble.textContent = '';
+        const interval = setInterval(() => {
+            if (i >= text.length) {
+                clearInterval(interval);
+                if (done) done();
+                return;
+            }
+            // Type in chunks for speed
+            const chunk = text.slice(i, i + 4);
+            bubble.textContent += chunk;
+            i += 4;
+            anchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 12);
+    }
+
+    _processScottyResponse(text, bubble) {
+        // Detect agent mentions and append recommendation cards
+        const mentioned = AGENT_DIRECTORY.filter(agent =>
+            text.toLowerCase().includes(agent.name.toLowerCase()) ||
+            agent.tags.some(tag => text.toLowerCase().includes(tag))
+        );
+
+        // Only show the first 3 most relevant agents as cards
+        const topAgents = mentioned.slice(0, 3);
+        if (topAgents.length > 0) {
+            const cards = document.createElement('div');
+            cards.className = 'agent-rec-cards';
+            topAgents.forEach(agent => {
+                const card = document.createElement('a');
+                card.className = 'agent-rec-card';
+                card.href = agent.url;
+                card.innerHTML = `${agent.emoji} ${agent.name} →`;
+                cards.appendChild(card);
+            });
+            bubble.appendChild(cards);
+        }
+    }
+
+    _finaliseResponse(userText, responseText) {
+        this.isWaiting = false;
+        this.btnSend.disabled = false;
+
+        // Persist conversation
+        const existing = this.conversations.find(c => c.id === this.currentConvoId);
+        const entry = { role: 'user', content: userText };
+        const reply  = { role: 'assistant', content: responseText };
+        if (existing) {
+            existing.messages.push(entry, reply);
+            existing.updatedAt = Date.now();
+        } else {
+            this.conversations.unshift({
+                id: this.currentConvoId,
+                title: userText.slice(0, 50),
+                messages: [entry, reply],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+        }
+        this._saveConversations();
+    }
+
+    _buildMessageHistory(newText) {
+        const history = [];
+        const convo = this.conversations.find(c => c.id === this.currentConvoId);
+        if (convo) {
+            convo.messages.slice(-10).forEach(m => {
+                history.push({ role: m.role, content: m.content });
+            });
+        }
+        history.push({ role: 'user', content: newText });
+        return history;
+    }
+
+    _getContextBundle() {
+        const engine = window.IntelligenceEngine;
+        if (engine && typeof engine.getContextBundle === 'function') {
+            return engine.getContextBundle();
+        }
+        return {
+            companyName:          'your company',
+            businessContext:      'No business context configured yet. Ask the user about their company, ICP, and positioning.',
+            competitiveLandscape: 'No competitive data available. Ask the user about their main competitors.',
+            marketSignals:        'No market signals available. Use your general marketing knowledge.'
+        };
+    }
+
+    buildScottySystemPrompt(contextBundle) {
+        return SCOTTY_SYSTEM_PROMPT_TEMPLATE
+            .replace('{{companyName}}',          contextBundle.companyName || 'your company')
+            .replace('{{businessContext}}',      contextBundle.businessContext || 'Not configured.')
+            .replace('{{competitiveLandscape}}', contextBundle.competitiveLandscape || 'Not configured.')
+            .replace('{{marketSignals}}',        contextBundle.marketSignals || 'Not configured.');
+    }
+
+    _appendUserMessage(text) {
+        const time = this._formatTime(new Date());
+        const msgEl = document.createElement('div');
+        msgEl.className = 'msg user-msg';
+        msgEl.innerHTML = `
+            <div class="msg-avatar user-avatar">U</div>
+            <div>
+                <div class="msg-bubble">${this._escapeHtml(text)}</div>
+                <div class="msg-meta">You · ${time}</div>
+            </div>`;
+        this.messagesEl.appendChild(msgEl);
+        this._scrollToBottom();
+    }
+
+    _createScottyBubble() {
+        const time = this._formatTime(new Date());
+        const wrapper = document.createElement('div');
+        wrapper.className = 'msg';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.textContent = '';
+        const meta = document.createElement('div');
+        meta.className = 'msg-meta';
+        meta.textContent = `Scotty · ${time}`;
+        const scrollAnchor = document.createElement('div');
+
+        const inner = document.createElement('div');
+        inner.appendChild(bubble);
+        inner.appendChild(meta);
+
+        const avatar = document.createElement('div');
+        avatar.className = 'msg-avatar';
+        avatar.textContent = '🤖';
+
+        wrapper.appendChild(avatar);
+        wrapper.appendChild(inner);
+        this.messagesEl.appendChild(wrapper);
+        this.messagesEl.appendChild(scrollAnchor);
+        this._scrollToBottom();
+        return { bubble, scrollAnchor };
+    }
+
+    _showTypingIndicator() {
+        const el = document.createElement('div');
+        el.className = 'typing-indicator';
+        el.id = 'typingIndicator';
+        el.innerHTML = `
+            <div class="msg-avatar">🤖</div>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>`;
+        this.messagesEl.appendChild(el);
+        this._scrollToBottom();
+    }
+
+    _removeTypingIndicator() {
+        document.getElementById('typingIndicator')?.remove();
+    }
+
+    _scrollToBottom() {
+        requestAnimationFrame(() => {
+            this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+        });
+    }
+
+    _startNewConversation() {
+        this.currentConvoId = this._generateId();
+        // Clear messages and re-add welcome
+        this.messagesEl.innerHTML = '';
+        const welcomeEl = document.createElement('div');
+        welcomeEl.className = 'msg';
+        welcomeEl.innerHTML = `
+            <div class="msg-avatar">🤖</div>
+            <div>
+                <div class="msg-bubble">
+                    <p>Ready for a new challenge. What are we building today?</p>
+                    <div class="prompt-chips" id="promptChips">
+                        <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Help me plan next month's content strategy</button>
+                        <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze our competitor's latest moves</button>
+                        <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create an outreach sequence for new prospects</button>
+                        <button class="prompt-chip" data-prompt="Review our ad creative performance">Review our ad creative performance</button>
+                    </div>
+                </div>
+                <div class="msg-meta">Scotty · Just now</div>
+            </div>`;
+        this.messagesEl.appendChild(welcomeEl);
+
+        // Re-bind prompt chips
+        const chips = document.getElementById('promptChips');
+        if (chips) {
+            chips.addEventListener('click', (e) => {
+                const chip = e.target.closest('.prompt-chip');
+                if (chip) {
+                    this.inputEl.value = chip.dataset.prompt;
+                    this._handleSend();
+                }
+            });
+        }
+
+        // Update sidebar
+        const newItem = document.createElement('div');
+        newItem.className = 'convo-item active';
+        newItem.innerHTML = `
+            <span class="convo-icon">💬</span>
+            <div class="convo-info">
+                <div class="convo-title">New conversation</div>
+                <div class="convo-time">Just now</div>
+            </div>`;
+        document.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
+        this.convoList.insertBefore(newItem, this.convoList.firstChild);
+        this.inputEl.focus();
+    }
+
+    _generateMockResponse(text) {
+        const t = text.toLowerCase();
+        if (/content|blog|copy|writing/.test(t)) {
+            return `Great question — content strategy is where most companies leave the most leverage on the table.\n\nStrategically, the priority right now should be building content that maps to the bottom of your funnel, not just awareness pieces. Buyers are doing more research before engaging sales, so mid-funnel comparison content converts far better than generic thought leadership.\n\nHere's how I'd approach this:\n\n1. Strategic context: Before we create anything, we need to align content to your current pipeline gaps and highest-converting ICP segments.\n\n2. Recommended agents:\n— Content Studio for the actual writing — brief them on your ICP, top pain points, and the competitors they're currently evaluating.\n— SEO Intelligence to validate that every piece targets high-intent keywords before we write a single word.\n— Analytics Brain to pull your current top-converting content so we double down on what's already working.\n\n3. What to request: Ask Content Studio for a 90-day editorial calendar with 2 pillar posts/month + 4 supporting pieces, all mapped to buyer journey stages.`;
+        }
+        if (/competitor|competitive/.test(t)) {
+            return `Competitive intelligence is one of the highest-leverage activities you can do right now — most companies only look at this quarterly when they should be watching it weekly.\n\nStrategic context: Competitor positioning shifts are often the earliest signal of market changes. If a competitor is changing their messaging or pricing, they've done the research — use it.\n\n1. Immediate action: Run a full competitive audit before your next planning cycle.\n\n2. Recommended agents:\n— Competitive Intelligence for ongoing monitoring of competitor websites, job listings (great signal for where they're investing), and content output.\n— Analytics Brain to benchmark your performance vs. estimated competitor traffic and share of voice.\n— Content Studio to create direct comparison content once we've identified the gaps they're not addressing.\n\n3. What to request from Competitive Intelligence: A competitor teardown covering messaging, pricing page, ICP signals from their case studies, and recent ad creative themes.`;
+        }
+        if (/outreach|prospect|sequence|sales/.test(t)) {
+            return `Outreach sequences are broken at most companies — they're either too generic or too aggressive. The ones that work feel personal and provide clear value before asking for anything.\n\nStrategic context: The best sequences right now lead with insight, not product. Share a relevant observation about their business before you ever mention yours.\n\n1. Strategic move: Build persona-specific sequences, not one-size-fits-all cadences.\n\n2. Recommended agents:\n— Sales Intelligence to build your prospect list with tight ICP filtering and enrich with intent signals.\n— Content Studio to write the actual sequence copy — give them the persona, pain points, and your differentiators.\n— Email Engine to structure the cadence, timing, and deliverability setup.\n\n3. What to request: Ask Sales Intelligence for a list of 200 accounts matching your top 3 customer profiles, then brief Content Studio on a 7-touch sequence with specific value props for each persona.`;
+        }
+        if (/ad|creative|paid/.test(t)) {
+            return `Ad creative is where most budgets get wasted — not because of targeting, but because of weak angles and no testing framework.\n\nStrategic context: The highest-performing ad creative in 2026 leads with social proof and specificity. Numbers, named customers, and concrete outcomes outperform generic benefit statements every time.\n\n1. Strategic priority: Test your value proposition in ads before scaling spend.\n\n2. Recommended agents:\n— Ad Creative Lab to generate 6-10 creative variants across 3 different angles (problem-led, outcome-led, comparison-led).\n— CRO Lab to design the A/B testing framework so you're getting statistically valid results, not gut feelings.\n— Analytics Brain to set up proper attribution before you start spending, so you know what's actually driving pipeline.\n\n3. What to request: Ask Ad Creative Lab for a creative brief with 3 angles, then 3 headline variants + primary text variants per angle for Meta and LinkedIn.`;
+        }
+        return `That's a smart area to focus on. Let me think through the strategic context before recommending which agents to deploy.\n\nStrategic context: The key before executing any marketing activity is understanding where this fits in your current growth motion — is this a demand gen play, a retention move, or a conversion optimization effort? That determines which agents matter and in what sequence.\n\nHere's my initial read:\n\n1. Start with Scotty (that's me) to align on the goal and success metrics.\n2. Likely involve Content Studio and Analytics Brain in parallel — one to create, one to ensure we have the measurement framework in place.\n3. Once we see early signals, layer in the specialist agents for specific channels.\n\nTo give you a sharper recommendation: what does success look like in 30 days? And which part of the funnel are you most trying to move? That'll let me route this to exactly the right agents.`;
+    }
+
+    _formatTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+}
+
+// Boot
+window.addEventListener('DOMContentLoaded', () => {
+    window.scottyChat = new ScottyChat();
+});
+</script>
+
+</body>
+</html>
