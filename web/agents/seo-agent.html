@@ -195,6 +195,8 @@ class SEOAgent {
         this.claudeService = window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
+        this._loadICP();
+        this._loadCompetitors();
     }
 
     _checkIntelligence() {
@@ -206,14 +208,201 @@ class SEOAgent {
         }
     }
 
-    buildSystemPrompt(contextBundle) {
-        let prompt = `You are a senior SEO strategist with 10 years experience. Provide actionable SEO recommendations with specific implementation steps. Include keyword opportunities, content gaps, and technical fixes. Prioritize by impact and effort.
-
-Format your output as clean markdown with clear sections. Use ## headers, bullet points, and **bold** for key terms. Include specific examples wherever possible.`;
-        if (contextBundle && contextBundle.isReady) {
-            prompt += `\n\nIntelligence context available:\n${JSON.stringify(contextBundle).substring(0, 600)}`;
+    _loadICP() {
+        // Auto-populate target audience from BusinessBrain ICP
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp) {
+                const icp = data.icp;
+                let icpSummary = '';
+                if (icp.primaryBuyer && icp.primaryBuyer.role) {
+                    icpSummary += `${icp.primaryBuyer.role}`;
+                    if (icp.primaryBuyer.companySize) icpSummary += ` at ${icp.primaryBuyer.companySize} companies`;
+                    if (icp.primaryBuyer.industry) icpSummary += ` in ${icp.primaryBuyer.industry}`;
+                }
+                if (icp.painPoints && icp.painPoints.length > 0 && icp.painPoints[0]) {
+                    icpSummary += `. Pain points: ${icp.painPoints.filter(p => p).join(', ')}`;
+                }
+                if (icpSummary) {
+                    const textarea = document.getElementById('audience');
+                    textarea.value = `✨ ${icpSummary} (from BusinessBrain ICP)`;
+                    textarea.style.color = '#10b981';
+                }
+            }
         }
+    }
+
+    _loadCompetitors() {
+        // Auto-populate competitors from CompetitiveRadar
+        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
+            const competitors = this.intelligenceEngine.radar.getAll();
+            if (competitors && competitors.length > 0) {
+                const urls = competitors.map(c => c.url).filter(u => u).join(', ');
+                if (urls) {
+                    const input = document.getElementById('competitors');
+                    input.value = `✨ ${urls} (from CompetitiveRadar)`;
+                    input.style.color = '#10b981';
+                }
+            }
+        }
+    }
+
+    buildSystemPrompt(contextBundle) {
+        let prompt = `You are an expert SEO strategist for Audema SEO Intelligence.
+
+## Your Role
+Provide actionable, competitive SEO analysis that:
+1. Identifies keyword opportunities based on ICP search intent
+2. Analyzes competitor keyword gaps (what they rank for vs. what we should target)
+3. Prioritizes by search volume, difficulty, and business objective alignment
+4. Provides specific implementation steps (title tags, meta descriptions, schema, internal linking)
+5. Differentiates our SEO strategy from competitors
+
+## Output Format
+- Use clean markdown with ## headers for sections
+- **Bold** high-priority keywords and recommendations
+- Bullet lists for keyword clusters, content gaps, technical fixes
+- Include difficulty estimates (Low/Medium/High) and search intent (Informational/Commercial/Transactional)
+- Always prioritize by: Impact (traffic potential) × Effort (difficulty) × Strategic Fit (business objectives)
+
+`;
+
+        if (contextBundle && contextBundle.isReady) {
+            // BUSINESS CONTEXT — ICP search intent, objectives
+            if (contextBundle.businessContext) {
+                prompt += `\n## BUSINESS CONTEXT (Your SEO Foundation)\n${contextBundle.businessContext}\n\n`;
+                prompt += `**SEO Instructions:**\n`;
+                prompt += `- Extract ICP pain points and language → these are your seed keywords\n`;
+                prompt += `- Align keyword strategy with business objectives (Q1 focus, annual goal)\n`;
+                prompt += `- Match keywords to buyer journey stages (awareness/consideration/decision)\n`;
+                prompt += `- Use positioning to differentiate titles/meta descriptions from competitors\n\n`;
+            }
+
+            // COMPETITIVE LANDSCAPE — keyword gaps, SERP differentiation
+            if (contextBundle.competitiveLandscape) {
+                prompt += `## COMPETITIVE KEYWORD INTELLIGENCE\n${contextBundle.competitiveLandscape}\n\n`;
+                prompt += `**Competitor Keyword Analysis Instructions:**\n`;
+                prompt += `- Infer what keywords competitors likely rank for based on their positioning\n`;
+                prompt += `- Identify keyword gaps: what they rank for that we don't (catch-up opportunities)\n`;
+                prompt += `- Find content gaps: topics they should cover but miss (own these keywords)\n`;
+                prompt += `- Suggest differentiated title tags that stand out in SERPs from competitor titles\n`;
+                prompt += `- Recommend keyword clusters they're weak at (from "theyAreWeakAt" data)\n\n`;
+            }
+
+            // MARKET SIGNALS — trending topics, content calendar priorities
+            if (contextBundle.marketSignals) {
+                prompt += `## MARKET SIGNALS (Trending SEO Opportunities)\n${contextBundle.marketSignals}\n\n`;
+                prompt += `**Trending Topic Instructions:**\n`;
+                prompt += `- Identify trending keywords and topics from market signals\n`;
+                prompt += `- Prioritize content calendar around what's working right now\n`;
+                prompt += `- Suggest timely keyword opportunities (trending searches)\n\n`;
+            }
+
+            prompt += `## STRATEGIC SEO MANDATE\nThis is NOT generic SEO advice. Every keyword recommendation must:\n`;
+            prompt += `1. Match ICP search intent (how they actually search for solutions)\n`;
+            prompt += `2. Exploit competitor keyword gaps (own keywords they're missing)\n`;
+            prompt += `3. Align with business objectives (support Q1 focus and annual goals)\n`;
+            prompt += `4. Differentiate in SERPs (stand out from competitor titles/descriptions)\n\n`;
+        } else {
+            // Fallback when Intelligence Layer not configured
+            prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without ICP search intent data, competitor keyword benchmarks, or business objectives. The SEO analysis will be generic best practices rather than strategically positioned competitive analysis. Recommend configuring BusinessBrain + CompetitiveRadar for keyword gap analysis.\n\n`;
+        }
+
         return prompt;
+    }
+
+    buildICPSearchIntent(contextBundle) {
+        // Extract search intent keywords from ICP language and pain points
+        if (!contextBundle || !contextBundle.isReady) return '';
+
+        let searchIntent = '';
+
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp) {
+                const icp = data.icp;
+
+                if ((icp.language && icp.language.length > 0) || (icp.painPoints && icp.painPoints.filter(p => p).length > 0)) {
+                    searchIntent += `\n\n## ICP SEARCH INTENT (How Your Buyers Search)\n`;
+
+                    if (icp.language && icp.language.length > 0) {
+                        searchIntent += `Your ICP describes their problems using language like:\n`;
+                        searchIntent += icp.language.map(lang => `- "${lang}"`).join('\n') + '\n\n';
+                    }
+
+                    if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
+                        const painPoints = icp.painPoints.filter(p => p);
+                        searchIntent += `Their main pain points:\n`;
+                        searchIntent += painPoints.map(pain => `- ${pain}`).join('\n') + '\n\n';
+                    }
+
+                    searchIntent += `**Translate these into search intent keywords.** What would they type into Google when looking for a solution? Generate long-tail keyword variations that match this language.\n`;
+                }
+            }
+        }
+
+        return searchIntent;
+    }
+
+    buildCompetitorSEOContext(contextBundle) {
+        // Build competitor keyword gap analysis instructions
+        if (!contextBundle || !contextBundle.isReady) return '';
+
+        let competitorContext = '';
+
+        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
+            const competitors = this.intelligenceEngine.radar.getAll();
+            if (competitors && competitors.length > 0) {
+                competitorContext += `\n\n## COMPETITOR KEYWORD GAP ANALYSIS\n`;
+                competitorContext += `Analyze these competitors for keyword opportunities:\n\n`;
+
+                competitors.forEach(comp => {
+                    competitorContext += `**${comp.name}** (${comp.url})\n`;
+                    if (comp.profile && comp.profile.positioning) {
+                        competitorContext += `- Positioning: ${comp.profile.positioning}\n`;
+                    }
+                    if (comp.gaps && comp.gaps.length > 0) {
+                        const highPriorityGaps = comp.gaps.filter(g => g.priority === 'high').map(g => g.gap);
+                        if (highPriorityGaps.length > 0) {
+                            competitorContext += `- High-priority gaps: ${highPriorityGaps.join(', ')} (opportunity keywords for us)\n`;
+                        }
+                    }
+                    if (comp.borrowedIdeas && comp.borrowedIdeas.length > 0) {
+                        competitorContext += `- Ideas to borrow: ${comp.borrowedIdeas.length} identified\n`;
+                    }
+                    competitorContext += '\n';
+                });
+
+                competitorContext += `**Keyword Gap Instructions:**\n`;
+                competitorContext += `1. Based on their positioning, infer what keywords they likely rank for\n`;
+                competitorContext += `2. Identify keywords they rank for that we don't (catch-up keywords)\n`;
+                competitorContext += `3. Exploit high-priority gaps (from CompetitiveRadar gap data) — prioritize these keywords\n`;
+                competitorContext += `4. Suggest SERP differentiation: title/meta variations that stand out from theirs\n`;
+            }
+        }
+
+        return competitorContext;
+    }
+
+    _showSEOStrategyWarning(completionScore) {
+        if (completionScore < 30) {
+            const outputEl = document.getElementById('output');
+            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
+                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
+                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
+                    SEO Intelligence will provide recommendations, but they'll be generic best practices—not competitive keyword gap analysis.<br><br>
+                    <strong>Why this matters for SEO:</strong> You can't outrank competitors without knowing what keywords they own and what gaps exist.<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP search intent)</a><br>
+                    <a href="/intelligence/competitive-radar.html" style="color:#fbbf24;font-weight:600;">→ Configure CompetitiveRadar (keyword gaps)</a>
+                </div>
+            </div>`;
+            setTimeout(() => {
+                const urlTopic = document.getElementById('urlTopic').value.trim();
+                if (urlTopic) this.run();
+            }, 5000);
+            return true;
+        }
+        return false;
     }
 
     async run() {
@@ -226,20 +415,40 @@ Format your output as clean markdown with clear sections. Use ## headers, bullet
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
+
+        // Get intelligence context
+        let contextBundle = null;
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+
+            // Show warning if Intelligence Layer not configured (first-time only)
+            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('seo_agent_warning_shown')) {
+                localStorage.setItem('seo_agent_warning_shown', 'true');
+                this._showSEOStrategyWarning(contextBundle.completionScore);
+                setTimeout(() => this.run(), 5500);
+                return;
+            }
+        }
+
         runBtn.disabled = true;
         runBtn.textContent = 'Analyzing...';
 
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Running ${taskType}...</div>`;
 
-        let contextBundle = null;
-        if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
-
         const systemPrompt = this.buildSystemPrompt(contextBundle);
+        const icpSearchIntent = this.buildICPSearchIntent(contextBundle);
+        const competitorSEOContext = this.buildCompetitorSEOContext(contextBundle);
 
         let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
         if (audience) userMessage += `\nTarget Audience: ${audience}`;
         if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
-        userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include examples, keyword suggestions, and prioritized next steps. Make it detailed and practical.`;
+        userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
+- High-priority keyword opportunities (with difficulty and search intent)
+- Content gaps to fill
+- Technical SEO fixes
+- Prioritized next steps (by impact × effort × strategic fit)
+
+Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOContext}`;
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
