@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * INTELLIGENCE ENGINE — The Marketing Department 2026
+ * INTELLIGENCE ENGINE — Audema - Your AI Marketing Department
  * The upstream judgment layer. Runs BEFORE any content agent executes.
  *
  * This module manages four intelligence stores:

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * SCOTTY ORCHESTRATOR — The Marketing Department 2026
+ * SCOTTY ORCHESTRATOR — Audema - Your AI Marketing Department
  *
  * Scotty is the AI CMO. Routes tasks to specialist agents — but always runs
  * the Intelligence Layer FIRST so every execution is grounded in upstream

@@ -1,6 +1,6 @@
 # Admin User Management Setup Guide
 
-This guide walks you through setting up and using the admin user management system for The Marketing Department 2026 platform.
+This guide walks you through setting up and using the admin user management system for Audema - Your AI Marketing Department platform.
 
 ## Overview
 
