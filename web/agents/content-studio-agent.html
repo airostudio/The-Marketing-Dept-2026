@@ -484,6 +484,7 @@ class ContentStudioAgent {
         this.claudeService = window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
+        this._loadBrandVoice();
     }
 
     _checkIntelligence() {
@@ -495,14 +496,111 @@ class ContentStudioAgent {
         }
     }
 
-    buildSystemPrompt(contextBundle) {
-        let prompt = `You are a world-class content marketing specialist. Write compelling, SEO-optimized content that converts. Use the brand voice specified. Draw from competitive intelligence to make content stand out. Always include: hook, value proposition, proof points, and CTA.
-
-Format your output as clean markdown. Use ## for section headers, **bold** for key terms, and bullet lists where appropriate.`;
-        if (contextBundle && contextBundle.isReady) {
-            prompt += `\n\nCompetitive intelligence context:\n${JSON.stringify(contextBundle).substring(0, 800)}`;
+    _loadBrandVoice() {
+        // Auto-populate brand voice from BusinessBrain if configured
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.positioning && data.positioning.voiceAndTone && data.positioning.voiceAndTone.length > 0) {
+                const intelligentVoice = data.positioning.voiceAndTone.join(', ');
+                const dropdown = document.getElementById('brandVoice');
+                // Add custom option with BusinessBrain voice
+                const customOpt = document.createElement('option');
+                customOpt.value = intelligentVoice;
+                customOpt.textContent = `✨ ${intelligentVoice} (from BusinessBrain)`;
+                customOpt.selected = true;
+                dropdown.insertBefore(customOpt, dropdown.firstChild);
+            }
         }
+    }
+
+    buildSystemPrompt(contextBundle) {
+        let prompt = `You are an expert content strategist and writer for Audema Content Studio.
+
+## Your Role
+Write compelling, SEO-optimized content that:
+1. Converts readers into leads/customers
+2. Positions the brand strategically against competitors
+3. Speaks directly to the target audience's pain points
+4. Incorporates market signals (what's working right now)
+5. Differentiates from competitor messaging
+
+## Output Format
+- Use clean markdown formatting
+- Use ## for section headers, ### for subsections
+- **Bold** key value propositions and differentiators
+- Bullet lists for feature/benefit breakdowns
+- Always include: compelling hook, clear value prop, proof/credibility, strong CTA
+
+`;
+
+        if (contextBundle && contextBundle.isReady) {
+            // BUSINESS CONTEXT — who we are, who we serve
+            if (contextBundle.businessContext) {
+                prompt += `\n## BUSINESS CONTEXT\n${contextBundle.businessContext}\n\n`;
+                prompt += `**Instructions:** Ground all content in this company's positioning and ICP pain points. Use the voice/tone specified. Reference the unique value proposition.\n\n`;
+            }
+
+            // COMPETITIVE LANDSCAPE — what they're saying, how we differentiate
+            if (contextBundle.competitiveLandscape) {
+                prompt += `## COMPETITIVE LANDSCAPE\n${contextBundle.competitiveLandscape}\n\n`;
+                prompt += `**Instructions:** Identify messaging gaps competitors have left open. Emphasize our differentiation points. Avoid angles that are overused in the market. Borrow ideas where noted, but improve them.\n\n`;
+            }
+
+            // MARKET SIGNALS — what's working right now
+            if (contextBundle.marketSignals) {
+                prompt += `## MARKET SIGNALS (What's Working Now)\n${contextBundle.marketSignals}\n\n`;
+                prompt += `**Instructions:** Incorporate patterns and tactics that are proven to work in this market right now. Adapt successful messaging frameworks to our positioning.\n\n`;
+            }
+
+            prompt += `## STRATEGIC MANDATE\nThis is NOT generic content. Every sentence should be strategically positioned to differentiate from competitors, speak to ICP pain points, and leverage what's working in the market. Make it feel like a human who deeply understands this space wrote it.\n\n`;
+        } else {
+            // Fallback when Intelligence Layer not configured
+            prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without business context, competitive intelligence, or market signals. The content will be more generic than if the Intelligence Layer were configured. Still deliver high-quality work, but note that strategic differentiation requires BusinessBrain setup.\n\n`;
+        }
+
         return prompt;
+    }
+
+    buildCompetitiveContext(contextBundle) {
+        // Extract competitive differentiation for user message
+        if (!contextBundle || !contextBundle.isReady) return '';
+
+        let competitiveInstructions = '';
+
+        if (contextBundle.competitiveLandscape && contextBundle.competitiveLandscape.length > 50) {
+            competitiveInstructions += `\n\n## COMPETITIVE DIFFERENTIATION\n`;
+            competitiveInstructions += `Based on our competitive radar, ensure this content:\n`;
+            competitiveInstructions += `- Emphasizes angles our competitors are NOT using\n`;
+            competitiveInstructions += `- Addresses gaps in their messaging\n`;
+            competitiveInstructions += `- Avoids overused phrases common in our space\n`;
+        }
+
+        if (contextBundle.marketSignals && contextBundle.marketSignals.length > 50) {
+            competitiveInstructions += `\n## MARKET TIMING\n`;
+            competitiveInstructions += `Incorporate signals showing what's resonating in the market right now. Make it feel timely and relevant to current buyer concerns.\n`;
+        }
+
+        return competitiveInstructions;
+    }
+
+    _showStrategyWarning(completionScore) {
+        if (completionScore < 30) {
+            const outputEl = document.getElementById('output');
+            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
+                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
+                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
+                    Content Studio will generate content, but it won't be strategically differentiated from competitors.<br><br>
+                    <strong>Why this matters:</strong> Generic AI content is easy. Content that positions you ahead of competitors requires upstream intelligence.<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (10 min)</a> for strategic, context-aware content.
+                </div>
+            </div>`;
+            setTimeout(() => {
+                const topic = document.getElementById('topic').value.trim();
+                if (topic) this.run(); // Continue with generation after showing warning
+            }, 4000);
+            return true;
+        }
+        return false;
     }
 
     async run() {
@@ -515,18 +613,35 @@ Format your output as clean markdown. Use ## for section headers, **bold** for k
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
+
+        // Get intelligence context
+        let contextBundle = null;
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+
+            // Show warning if Intelligence Layer not configured (first-time only check)
+            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('content_studio_warning_shown')) {
+                localStorage.setItem('content_studio_warning_shown', 'true');
+                this._showStrategyWarning(contextBundle.completionScore);
+                setTimeout(() => this.run(), 4500); // Re-run after warning
+                return;
+            }
+        }
+
         runBtn.disabled = true;
         runBtn.textContent = 'Generating...';
 
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing your ${contentType}...</div>`;
 
-        let contextBundle = null;
-        if (this.intelligenceEngine) {
-            contextBundle = this.intelligenceEngine.getContextBundle();
-        }
-
         const systemPrompt = this.buildSystemPrompt(contextBundle);
-        const userMessage = `Write a ${contentType} about: ${topic}\n\nBrand Voice: ${brandVoice}\nTarget Length: ${wordCount}\n\nDeliver the complete piece ready to publish. Include a compelling headline/title.`;
+        const competitiveContext = this.buildCompetitiveContext(contextBundle);
+
+        const userMessage = `Write a ${contentType} about: ${topic}
+
+Brand Voice: ${brandVoice}
+Target Length: ${wordCount}
+
+Deliver the complete piece ready to publish. Include a compelling headline/title.${competitiveContext}`;
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
