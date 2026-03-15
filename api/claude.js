@@ -20,14 +20,45 @@ export default async function handler(req, res) {
   }
 
   // Get API key from environment variables
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Try multiple possible environment variable names
+  const apiKey = process.env.ANTHROPIC_API_KEY ||
+                 process.env.CLAUDE_API_KEY ||
+                 process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    console.error('ANTHROPIC_API_KEY not found in environment variables');
+    console.error('❌ API key not found in environment variables');
+    console.error('Checked variables: ANTHROPIC_API_KEY, CLAUDE_API_KEY, NEXT_PUBLIC_ANTHROPIC_API_KEY');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('API') || k.includes('ANTHROPIC') || k.includes('CLAUDE')));
+
     return res.status(500).json({
-      error: 'API key not configured. Please add ANTHROPIC_API_KEY to Vercel environment variables.'
+      error: 'API key not configured',
+      details: 'ANTHROPIC_API_KEY not found in environment variables',
+      help: {
+        message: 'Please add ANTHROPIC_API_KEY to Vercel environment variables',
+        steps: [
+          '1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables',
+          '2. Add variable: ANTHROPIC_API_KEY',
+          '3. Set value to your Claude API key (starts with sk-ant-api)',
+          '4. Select all environments (Production, Preview, Development)',
+          '5. Redeploy your application'
+        ],
+        diagnosticUrl: '/api/health'
+      }
     });
   }
+
+  // Validate API key format
+  if (!apiKey.startsWith('sk-ant-api')) {
+    console.warn('⚠️ API key format looks incorrect. Should start with sk-ant-api');
+    return res.status(500).json({
+      error: 'Invalid API key format',
+      details: 'API key should start with sk-ant-api',
+      help: 'Please check your Claude API key at https://console.anthropic.com/'
+    });
+  }
+
+  console.log(`✅ API key found (${apiKey.substring(0, 11)}...${apiKey.substring(apiKey.length - 4)})`);
+  console.log(`📍 Environment: ${process.env.VERCEL_ENV || 'development'}`);
 
   try {
     const { model, max_tokens, messages, system, stream } = req.body;
@@ -50,6 +81,10 @@ export default async function handler(req, res) {
     }
 
     // Call Anthropic API
+    console.log('🚀 Calling Anthropic API...');
+    console.log('Model:', requestBody.model);
+    console.log('Stream:', requestBody.stream);
+
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
@@ -60,6 +95,8 @@ export default async function handler(req, res) {
       body: JSON.stringify(requestBody),
     });
 
+    console.log('📡 Anthropic API response status:', response.status);
+
     // Handle streaming responses
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -68,7 +105,12 @@ export default async function handler(req, res) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        return res.status(response.status).json(errorData);
+        console.error('❌ Anthropic API error (streaming):', response.status, errorData);
+        return res.status(response.status).json({
+          error: errorData.error || 'API request failed',
+          status: response.status,
+          details: errorData
+        });
       }
 
       // Stream the response back to the client
@@ -88,10 +130,16 @@ export default async function handler(req, res) {
       // Non-streaming response
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        return res.status(response.status).json(errorData);
+        console.error('❌ Anthropic API error (non-streaming):', response.status, errorData);
+        return res.status(response.status).json({
+          error: errorData.error || 'API request failed',
+          status: response.status,
+          details: errorData
+        });
       }
 
       const data = await response.json();
+      console.log('✅ Anthropic API success');
       return res.status(200).json(data);
     }
   } catch (error) {
