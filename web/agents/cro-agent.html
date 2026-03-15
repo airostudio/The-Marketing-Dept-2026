@@ -240,11 +240,123 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/claude-service.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a CRO expert who has optimized hundreds of landing pages. Analyze the provided page/context and give: specific element changes with expected impact, A/B test design with hypothesis and success metrics, prioritized list by effort/impact, and psychological principles being leveraged. Be specific — not generic advice.`;
+    const SYSTEM_PROMPT = `You are a CRO expert who has optimized hundreds of landing pages and increased conversion rates by 200%+ on average. You specialize in hypothesis-driven testing, conversion psychology, and statistical analysis. Analyze the provided page/context and give: specific element changes with expected impact, A/B test design with hypothesis and success metrics, prioritized list by effort/impact, psychological principles being leveraged, and statistical significance guidance. When ICP context is provided, tailor all recommendations to that specific audience's pain points, objections, and buying journey. Be specific — not generic advice. Name actual words to change, specific elements to move or remove, and exact copy suggestions.`;
 
     (function checkIntel() {
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
     })();
+
+    // Intelligence Layer Builders
+    function buildICPConversionContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.icp) return '';
+
+        let context = '\n\n**ICP CONTEXT FOR CRO:**\n';
+        context += `Target Persona: ${data.icp.persona}\n`;
+
+        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+            const painPoints = data.icp.painPoints.filter(p => p);
+            context += `\n**Pain Points (address on landing page):**\n`;
+            painPoints.forEach((pain, i) => {
+                context += `${i + 1}. "${pain}"\n`;
+            });
+            context += `→ CRO Recommendation: Headline should address #1 pain point. Social proof should show how you solve these pains.\n`;
+        }
+
+        if (data.icp.objections && data.icp.objections.length > 0) {
+            context += `\n**Common Objections (overcome with trust signals):**\n`;
+            data.icp.objections.forEach((obj, i) => {
+                context += `${i + 1}. "${obj}"\n`;
+            });
+            context += `→ CRO Recommendation: Add FAQ section, risk-reversal guarantees, or testimonials that address these objections.\n`;
+        }
+
+        if (data.icp.demographics) {
+            context += `\nDemographics: ${data.icp.demographics}\n`;
+            context += `→ CRO Recommendation: Adjust imagery, language complexity, and examples to match this demographic.\n`;
+        }
+
+        if (data.icp.buyerJourney) {
+            context += `\n**Buyer Journey Stage:**\n`;
+            context += `Awareness: "${data.icp.buyerJourney.awareness}"\n`;
+            context += `Consideration: "${data.icp.buyerJourney.consideration}"\n`;
+            context += `Decision: "${data.icp.buyerJourney.decision}"\n`;
+            context += `→ CRO Recommendation: Match page messaging to buyer journey stage. Early stage = education, late stage = risk reduction.\n`;
+        }
+
+        return context;
+    }
+
+    function buildValuePropCRO() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.product?.valueProps || data.product.valueProps.length === 0) return '';
+
+        let context = '\n\n**VALUE PROPOSITIONS (must appear prominently):**\n';
+        data.product.valueProps.forEach((vp, i) => {
+            context += `${i + 1}. ${vp}\n`;
+        });
+        context += `→ CRO Recommendation: Hero section should communicate #1 value prop. Benefits section should expand on all value props with proof points.\n`;
+        return context;
+    }
+
+    function buildCompetitivePositioningCRO() {
+        if (!window.IntelligenceEngine?.radar) return '';
+        const data = window.IntelligenceEngine.radar.load();
+        if (!data?.competitors || data.competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITIVE POSITIONING FOR CRO:**\n';
+
+        // Find competitive gaps/weaknesses
+        const competitorWeaknesses = [];
+        data.competitors.forEach(comp => {
+            if (comp.weaknesses && comp.weaknesses.length > 0) {
+                competitorWeaknesses.push(...comp.weaknesses);
+            }
+        });
+
+        if (competitorWeaknesses.length > 0) {
+            context += `**Competitor Weaknesses (highlight our strengths here):**\n`;
+            [...new Set(competitorWeaknesses)].slice(0, 5).forEach((weakness, i) => {
+                context += `${i + 1}. ${weakness}\n`;
+            });
+            context += `→ CRO Recommendation: Add comparison section or "Why Choose Us" that directly addresses competitor weaknesses.\n`;
+        }
+
+        return context;
+    }
+
+    function buildBrandVoiceCRO() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.brand?.voice) return '';
+
+        let context = '\n\n**BRAND VOICE FOR CRO COPY:**\n';
+        context += `Tone: ${data.brand.voice}\n`;
+
+        if (data.brand.voice.toLowerCase().includes('professional')) {
+            context += `→ CRO Recommendation: Use formal language, industry terms, data-driven proof points. Avoid slang.\n`;
+        } else if (data.brand.voice.toLowerCase().includes('casual')) {
+            context += `→ CRO Recommendation: Use conversational language, contractions, relatable examples. Friendly CTAs like "Let's do this!"\n`;
+        }
+
+        if (data.brand.voice.toLowerCase().includes('humor')) {
+            context += `→ CRO Recommendation: Add witty microcopy, playful CTAs, light humor in error messages.\n`;
+        }
+
+        if (data.brand.voice.toLowerCase().includes('empowering')) {
+            context += `→ CRO Recommendation: Use action-oriented language, success stories, "you can do this" messaging.\n`;
+        }
+
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine?.getContextBundle) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle?.completeness || 0;
+    }
 
     async function runOptimize() {
         const task = document.getElementById('task').value;
@@ -258,8 +370,22 @@
             return;
         }
 
-        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\nBRAND CONTEXT: ${contextBundle.summary}` : '';
+        // Strategic Validation Warnings
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3) {
+            const alreadyWarned = sessionStorage.getItem('croLab_noIntel_warned');
+            if (!alreadyWarned) {
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific CRO (audience-targeted copy, objection handling, value prop emphasis), configure:\n• ICP Definition (persona, pain points, objections)\n• Value Propositions\n• Competitive Positioning\n• Brand Voice\n\nProceed with generic CRO analysis?`);
+                if (!proceed) return;
+                sessionStorage.setItem('croLab_noIntel_warned', 'true');
+            }
+        }
+
+        // Build Intelligence Layer Context
+        const icpContext = buildICPConversionContext();
+        const valuePropContext = buildValuePropCRO();
+        const competitiveContext = buildCompetitivePositioningCRO();
+        const brandVoiceContext = buildBrandVoiceCRO();
 
         const userPrompt = `TASK: ${task}
 
@@ -269,7 +395,10 @@ ${pageDesc}
 ${convRate ? `CURRENT CONVERSION RATE: ${convRate}` : ''}
 ${trafficSource ? `TRAFFIC SOURCE: ${trafficSource}` : ''}
 ${hypothesis ? `HYPOTHESIS TO TEST: ${hypothesis}` : ''}
-${contextStr}
+${icpContext}
+${valuePropContext}
+${competitiveContext}
+${brandVoiceContext}
 
 Please provide:
 1. QUICK WINS (implement this week, low effort/high impact) — at least 5 specific changes
