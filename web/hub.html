@@ -914,5 +914,58 @@
 
 </main>
 
+<!-- API Client (Backend Integration) -->
+<script src="js/api-client.js"></script>
+
+<script>
+  // ═══════════════════════════════════════════════════════════════
+  // AUTHENTICATION REQUIRED FOR AGENTS HUB
+  // Only authenticated users can access the agents dashboard
+  // ═══════════════════════════════════════════════════════════════
+
+  // Check if user is authenticated
+  if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+    // Redirect to login page
+    alert('Please login to access the agents dashboard');
+    window.location.href = 'auth.html';
+  } else {
+    // Load user info
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    console.log('✅ Authenticated as:', user.email);
+
+    // Add user menu to nav (if present)
+    const nav = document.querySelector('nav') || document.querySelector('header');
+    if (nav && !document.getElementById('userMenu')) {
+      const userMenu = document.createElement('div');
+      userMenu.id = 'userMenu';
+      userMenu.style.cssText = 'position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 16px;';
+
+      const userInfo = document.createElement('div');
+      userInfo.style.cssText = 'color: white; font-size: 0.9rem;';
+      userInfo.innerHTML = `<strong>${user.firstName || user.email}</strong>`;
+
+      const logoutBtn = document.createElement('button');
+      logoutBtn.textContent = 'Logout';
+      logoutBtn.style.cssText = 'background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s;';
+      logoutBtn.onmouseover = () => logoutBtn.style.background = 'rgba(255,255,255,0.15)';
+      logoutBtn.onmouseout = () => logoutBtn.style.background = 'rgba(255,255,255,0.1)';
+      logoutBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to logout?')) {
+          await window.apiClient.logout();
+          window.location.href = 'index.html';
+        }
+      });
+
+      userMenu.appendChild(userInfo);
+      userMenu.appendChild(logoutBtn);
+
+      if (nav.style.position !== 'relative') {
+        nav.style.position = 'relative';
+      }
+      nav.appendChild(userMenu);
+    }
+  }
+</script>
+
 </body>
 </html>
