@@ -395,53 +395,41 @@ Create data-driven outreach strategies that:
 
         let qualificationCriteria = '';
 
-        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
-            const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp && data.icp.primaryBuyer) {
-                const buyer = data.icp.primaryBuyer;
+        if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+            const context = this.intelligenceEngine.extractStructuredContext();
+            const firmographics = context.icp.firmographics;
 
-                qualificationCriteria += `\n\n## PROSPECT QUALIFICATION CRITERIA (Firmographics)\n`;
-                qualificationCriteria += `Target high-value prospects matching these criteria:\n\n`;
+            qualificationCriteria += `\n\n## PROSPECT QUALIFICATION CRITERIA (Firmographics)\n`;
+            qualificationCriteria += `Target high-value prospects matching these criteria:\n\n`;
 
-                if (buyer.role) {
-                    qualificationCriteria += `**Role/Title:**\n- Primary: ${buyer.role}\n`;
-                    qualificationCriteria += `- Related titles: [Suggest 2-3 similar titles based on role]\n\n`;
-                }
-
-                if (buyer.companySize) {
-                    qualificationCriteria += `**Company Size:** ${buyer.companySize}\n`;
-                    qualificationCriteria += `- Sweet spot for your ICP\n`;
-                    qualificationCriteria += `- Avoid: Too small (can't afford), too large (enterprise complexity)\n\n`;
-                }
-
-                if (buyer.industry) {
-                    qualificationCriteria += `**Industry/Vertical:** ${buyer.industry}\n`;
-                    qualificationCriteria += `- Primary focus industries\n\n`;
-                }
-
-                if (buyer.revenue) {
-                    qualificationCriteria += `**Revenue/ARR:** ${buyer.revenue}\n`;
-                    qualificationCriteria += `- Indicates budget availability\n\n`;
-                }
-
-                if (buyer.location) {
-                    qualificationCriteria += `**Geography:** ${buyer.location}\n`;
-                    qualificationCriteria += `- Target regions for outreach\n\n`;
-                }
-
-                qualificationCriteria += `**Buyer Intent Signals (High-Priority Prospects):**\n`;
-                qualificationCriteria += `- Hiring for ${buyer.role} roles (signal: team growing, process breaking)\n`;
-                qualificationCriteria += `- Recent funding (Series A/B/C → budget available)\n`;
-                qualificationCriteria += `- LinkedIn activity mentions pain point keywords\n`;
-                qualificationCriteria += `- Using competitor tools (technographic signal)\n\n`;
-
-                qualificationCriteria += `**Qualification Scoring:**\n`;
-                qualificationCriteria += `- **A-tier (High Priority):** Firmographics match + 2+ intent signals\n`;
-                qualificationCriteria += `- **B-tier (Medium Priority):** Firmographics match + 1 intent signal\n`;
-                qualificationCriteria += `- **C-tier (Low Priority):** Firmographics match only (cold outbound needed)\n\n`;
-
-                qualificationCriteria += `Focus 80% of outreach effort on A-tier prospects for maximum qualified pipeline increase.\n`;
+            if (firmographics.role) {
+                qualificationCriteria += `**Role/Title:**\n- Primary: ${firmographics.role}\n`;
+                qualificationCriteria += `- Related titles: [Suggest 2-3 similar titles based on role]\n\n`;
             }
+
+            if (firmographics.companySize) {
+                qualificationCriteria += `**Company Size:** ${firmographics.companySize}\n`;
+                qualificationCriteria += `- Sweet spot for your ICP\n`;
+                qualificationCriteria += `- Avoid: Too small (can't afford), too large (enterprise complexity)\n\n`;
+            }
+
+            if (firmographics.industry) {
+                qualificationCriteria += `**Industry/Vertical:** ${firmographics.industry}\n`;
+                qualificationCriteria += `- Primary focus industries\n\n`;
+            }
+
+            qualificationCriteria += `**Buyer Intent Signals (High-Priority Prospects):**\n`;
+            qualificationCriteria += `- Hiring for ${firmographics.role} roles (signal: team growing, process breaking)\n`;
+            qualificationCriteria += `- Recent funding (Series A/B/C → budget available)\n`;
+            qualificationCriteria += `- LinkedIn activity mentions pain point keywords\n`;
+            qualificationCriteria += `- Using competitor tools (technographic signal)\n\n`;
+
+            qualificationCriteria += `**Qualification Scoring:**\n`;
+            qualificationCriteria += `- **A-tier (High Priority):** Firmographics match + 2+ intent signals\n`;
+            qualificationCriteria += `- **B-tier (Medium Priority):** Firmographics match + 1 intent signal\n`;
+            qualificationCriteria += `- **C-tier (Low Priority):** Firmographics match only (cold outbound needed)\n\n`;
+
+            qualificationCriteria += `Focus 80% of outreach effort on A-tier prospects for maximum qualified pipeline increase.\n`;
         }
 
         return qualificationCriteria;
@@ -470,31 +458,22 @@ Create data-driven outreach strategies that:
         triggers += `- Outdated stack → "Still using [legacy tool]? Most [industry] teams have migrated to modern alternatives"\n\n`;
 
         // Add market signals if available
-        if (this.intelligenceEngine && this.intelligenceEngine.pulse) {
-            const signals = this.intelligenceEngine.pulse.getAll();
-            if (signals && signals.length > 0) {
+        if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+            const context = this.intelligenceEngine.extractStructuredContext();
+
+            if (context.market.signals.length > 0) {
                 triggers += `**Market Trend Signals (from MarketPulse):**\n`;
-                signals.slice(0, 3).forEach(signal => {
-                    if (signal.topic) {
-                        triggers += `- "${signal.topic}" → Use as outreach hook: "With [trend] dominating [industry], [pain] is top of mind for most [role]s"\n`;
-                    }
+                context.market.signals.forEach(signal => {
+                    triggers += `- "${signal.description}" (${signal.type}) → Use as outreach hook: "With [trend] dominating [industry], [pain] is top of mind for most [role]s"\n`;
                 });
                 triggers += `\n`;
             }
-        }
 
-        // Add competitor moves if available
-        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
-            const competitors = this.intelligenceEngine.radar.getAll();
-            if (competitors && competitors.length > 0) {
-                triggers += `**Competitor Move Signals (from CompetitiveRadar):**\n`;
-                competitors.forEach(comp => {
-                    if (comp.recentMoves && comp.recentMoves.length > 0) {
-                        const latestMove = comp.recentMoves[0];
-                        if (latestMove.description) {
-                            triggers += `- ${comp.name}: "${latestMove.description}" → Outreach angle: "Noticed [event]—might be worth exploring alternatives"\n`;
-                        }
-                    }
+            // Add competitor gaps we can exploit
+            if (context.competitive.gaps.length > 0) {
+                triggers += `**Competitor Gap Signals (from CompetitiveRadar):**\n`;
+                context.competitive.gaps.forEach(gap => {
+                    triggers += `- ${gap.competitor}: "${gap.gap}" → Outreach angle: "${gap.opportunity}"\n`;
                 });
                 triggers += `\n`;
             }

@@ -229,25 +229,27 @@ class EmailAgent {
 
     _loadICP() {
         // Auto-populate audience from BusinessBrain ICP
-        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
-            const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp) {
-                const icp = data.icp;
+        if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+            const context = this.intelligenceEngine.extractStructuredContext();
+            if (context.meta.isReady) {
                 let icpSummary = '';
-                if (icp.primaryBuyer && icp.primaryBuyer.role) {
-                    icpSummary += `${icp.primaryBuyer.role}`;
-                    if (icp.primaryBuyer.companySize) icpSummary += ` at ${icp.primaryBuyer.companySize} companies`;
-                    if (icp.primaryBuyer.industry) icpSummary += ` in ${icp.primaryBuyer.industry}`;
+                const firmographics = context.icp.firmographics;
+
+                if (firmographics.role) {
+                    icpSummary += `${firmographics.role}`;
+                    if (firmographics.companySize) icpSummary += ` at ${firmographics.companySize} companies`;
+                    if (firmographics.industry) icpSummary += ` in ${firmographics.industry}`;
                 }
-                if (icp.painPoints && icp.painPoints.length > 0 && icp.painPoints[0]) {
-                    const painPoints = icp.painPoints.filter(p => p);
-                    if (painPoints.length > 0) {
-                        icpSummary += `. Pain points: ${painPoints.slice(0, 3).join(', ')}`;
-                    }
+
+                if (context.icp.painPoints.length > 0) {
+                    icpSummary += `. Pain points: ${context.icp.painPoints.slice(0, 3).join(', ')}`;
                 }
-                if (icp.buyerJourney) {
-                    icpSummary += `. Buyer journey: ${icp.buyerJourney.awareness || 'awareness'} → ${icp.buyerJourney.consideration || 'consideration'} → ${icp.buyerJourney.decision || 'decision'}`;
+
+                const journey = context.icp.buyerJourney;
+                if (journey.awareness || journey.consideration || journey.decision) {
+                    icpSummary += `. Buyer journey: ${journey.awareness || 'awareness'} → ${journey.consideration || 'consideration'} → ${journey.decision || 'decision'}`;
                 }
+
                 if (icpSummary) {
                     const textarea = document.getElementById('audience');
                     textarea.value = `✨ ${icpSummary} (from BusinessBrain ICP)`;
@@ -379,44 +381,42 @@ Use markdown. Separate emails with horizontal rules (---).
 
         let hooks = '';
 
-        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
-            const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp) {
-                const icp = data.icp;
+        if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+            const context = this.intelligenceEngine.extractStructuredContext();
 
-                if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
-                    const painPoints = icp.painPoints.filter(p => p);
-                    hooks += `\n\n## ICP PAIN POINT HOOKS (Subject Line Strategy)\n`;
-                    hooks += `Your ICP's biggest pain points:\n`;
-                    painPoints.forEach((pain, i) => {
-                        hooks += `${i + 1}. "${pain}"\n`;
-                    });
-                    hooks += `\n**Subject Line Hook Strategy:**\n`;
-                    hooks += `- Email 1: Hook with primary pain point #1 ("Tired of ${painPoints[0]}?")\n`;
-                    if (painPoints[1]) hooks += `- Email 2-3: Expand to secondary pain points (${painPoints[1]})\n`;
-                    if (painPoints[2]) hooks += `- Email 4+: Emotional resolution ("Imagine never dealing with ${painPoints[2]} again")\n`;
+            if (context.icp.painPoints.length > 0) {
+                const painPoints = context.icp.painPoints;
+                hooks += `\n\n## ICP PAIN POINT HOOKS (Subject Line Strategy)\n`;
+                hooks += `Your ICP's biggest pain points:\n`;
+                painPoints.forEach((pain, i) => {
+                    hooks += `${i + 1}. "${pain}"\n`;
+                });
+                hooks += `\n**Subject Line Hook Strategy:**\n`;
+                hooks += `- Email 1: Hook with primary pain point #1 ("Tired of ${painPoints[0]}?")\n`;
+                if (painPoints[1]) hooks += `- Email 2-3: Expand to secondary pain points (${painPoints[1]})\n`;
+                if (painPoints[2]) hooks += `- Email 4+: Emotional resolution ("Imagine never dealing with ${painPoints[2]} again")\n`;
+            }
+
+            if (context.icp.firmographics.language && context.icp.firmographics.language.length > 0) {
+                hooks += `\n**ICP Language (Use Their Words in Body Copy):**\n`;
+                hooks += `Your ICP describes problems using language like:\n`;
+                context.icp.firmographics.language.forEach(lang => {
+                    hooks += `- "${lang}"\n`;
+                });
+                hooks += `\nUse these exact phrases in email body copy for instant recognition.\n`;
+            }
+
+            const journey = context.icp.buyerJourney;
+            if (journey.awareness || journey.consideration || journey.decision) {
+                hooks += `\n**Buyer Journey Email Mapping:**\n`;
+                if (journey.awareness) {
+                    hooks += `- Awareness stage: "${journey.awareness}" → Email 1-2 (problem education)\n`;
                 }
-
-                if (icp.language && icp.language.length > 0) {
-                    hooks += `\n**ICP Language (Use Their Words in Body Copy):**\n`;
-                    hooks += `Your ICP describes problems using language like:\n`;
-                    icp.language.forEach(lang => {
-                        hooks += `- "${lang}"\n`;
-                    });
-                    hooks += `\nUse these exact phrases in email body copy for instant recognition.\n`;
+                if (journey.consideration) {
+                    hooks += `- Consideration stage: "${journey.consideration}" → Email 3-4 (solution comparison)\n`;
                 }
-
-                if (icp.buyerJourney) {
-                    hooks += `\n**Buyer Journey Email Mapping:**\n`;
-                    if (icp.buyerJourney.awareness) {
-                        hooks += `- Awareness stage: "${icp.buyerJourney.awareness}" → Email 1-2 (problem education)\n`;
-                    }
-                    if (icp.buyerJourney.consideration) {
-                        hooks += `- Consideration stage: "${icp.buyerJourney.consideration}" → Email 3-4 (solution comparison)\n`;
-                    }
-                    if (icp.buyerJourney.decision) {
-                        hooks += `- Decision stage: "${icp.buyerJourney.decision}" → Email 5+ (conversion, urgency)\n`;
-                    }
+                if (journey.decision) {
+                    hooks += `- Decision stage: "${journey.decision}" → Email 5+ (conversion, urgency)\n`;
                 }
             }
         }
@@ -430,52 +430,53 @@ Use markdown. Separate emails with horizontal rules (---).
 
         let strategyPlan = '';
 
-        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
-            const data = this.intelligenceEngine.brain.load();
+        if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+            const context = this.intelligenceEngine.extractStructuredContext();
 
             strategyPlan += `\n\n## STRATEGIC EMAIL SEQUENCE PLAN\n`;
 
             // Value prop sequencing
-            if (data.valueProp) {
+            if (context.positioning.valueProps.length > 0) {
+                const valueProps = context.positioning.valueProps;
                 strategyPlan += `\n**Value Prop Ladder (Simple → Complex):**\n`;
-                if (data.valueProp.primaryBenefit) {
-                    strategyPlan += `- Email 1: Introduce primary benefit: "${data.valueProp.primaryBenefit}"\n`;
+                strategyPlan += `- Email 1: Introduce primary benefit: "${valueProps[0]}"\n`;
+                if (valueProps.length > 1) {
+                    strategyPlan += `- Email 2-3: Expand on differentiators: ${valueProps.slice(1).join(', ')}\n`;
                 }
-                if (data.differentiators && data.differentiators.length > 0) {
-                    strategyPlan += `- Email 2-3: Expand on differentiators: ${data.differentiators.join(', ')}\n`;
-                }
-                if (data.valueProp.emotionalAppeal) {
-                    strategyPlan += `- Email 4+: Emotional appeal & urgency: "${data.valueProp.emotionalAppeal}"\n`;
+                if (context.icp.context.reasonChose) {
+                    strategyPlan += `- Email 4+: Emotional appeal: "${context.icp.context.reasonChose}"\n`;
                 }
             }
 
             // CTA alignment with business objectives
-            if (data.objectives) {
+            const objectives = context.objectives;
+            if (objectives.q1Focus || objectives.annualGoal) {
                 strategyPlan += `\n**CTA Strategy (Aligned with Business Objectives):**\n`;
-                if (data.objectives.q1Focus) {
-                    strategyPlan += `- Q1 Focus: "${data.objectives.q1Focus}"\n`;
-                    strategyPlan += `- Primary CTA should drive: ${this._inferCTA(data.objectives.q1Focus)}\n`;
+                if (objectives.q1Focus) {
+                    strategyPlan += `- Q1 Focus: "${objectives.q1Focus}"\n`;
+                    strategyPlan += `- Primary CTA should drive: ${this._inferCTA(objectives.q1Focus)}\n`;
                 }
-                if (data.objectives.annualGoal) {
-                    strategyPlan += `- Annual Goal: "${data.objectives.annualGoal}"\n`;
+                if (objectives.annualGoal) {
+                    strategyPlan += `- Annual Goal: "${objectives.annualGoal}"\n`;
                 }
                 strategyPlan += `\n**CTA Ladder:**\n`;
                 strategyPlan += `- Email 1: Soft CTA (read blog, watch video, follow on social)\n`;
                 strategyPlan += `- Email 2-3: Medium CTA (download guide, join webinar, try calculator)\n`;
-                strategyPlan += `- Email 4+: Hard CTA (${this._inferCTA(data.objectives.q1Focus || 'conversion')})\n`;
+                strategyPlan += `- Email 4+: Hard CTA (${this._inferCTA(objectives.q1Focus || 'conversion')})\n`;
             }
 
             // Brand voice reminders
-            if (data.voice) {
+            const voice = context.positioning.brandVoice;
+            if (voice.tone.length > 0 || voice.avoid) {
                 strategyPlan += `\n**Brand Voice Consistency:**\n`;
-                if (data.voice.tone) {
-                    strategyPlan += `- Tone: ${data.voice.tone}\n`;
+                if (voice.tone.length > 0) {
+                    strategyPlan += `- Tone: ${voice.tone.join(', ')}\n`;
                 }
-                if (data.voice.culturalReferences && data.voice.culturalReferences.length > 0) {
-                    strategyPlan += `- Cultural references to use: ${data.voice.culturalReferences.join(', ')}\n`;
+                if (voice.avoid) {
+                    strategyPlan += `- NEVER use these words: ${voice.avoid}\n`;
                 }
-                if (data.voice.language && data.voice.language.avoid && data.voice.language.avoid.length > 0) {
-                    strategyPlan += `- NEVER use these words: ${data.voice.language.avoid.join(', ')}\n`;
+                if (voice.notLikeCompetitors) {
+                    strategyPlan += `- Differentiation: ${voice.notLikeCompetitors}\n`;
                 }
             }
         }

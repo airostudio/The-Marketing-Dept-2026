@@ -1060,6 +1060,225 @@ class IntelligenceEngine {
     ].join('\n');
   }
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     STRUCTURED DATA EXTRACTION METHODS
+     These return programmatic data structures for agents to use directly,
+     instead of raw text summaries that get truncated or dumped as JSON.
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Extract ICP pain points as a clean array of strings.
+   * @returns {string[]} - array of pain points (empty if none configured)
+   */
+  extractICPPainPoints() {
+    const brain = this.brain.load();
+    return (brain.icp?.painPoints || []).filter(p => p && p.trim());
+  }
+
+  /**
+   * Extract firmographic targeting criteria for ads, sales, and analytics.
+   * @returns {{role: string, companySize: string, industry: string, language: string[]}}
+   */
+  extractFirmographicTargets() {
+    const brain = this.brain.load();
+    const buyer = brain.icp?.primaryBuyer || {};
+    return {
+      role:        buyer.role || '',
+      companySize: buyer.companySize || '',
+      industry:    buyer.industry || '',
+      language:    brain.icp?.language || []
+    };
+  }
+
+  /**
+   * Extract value propositions as an array of benefit statements.
+   * @returns {string[]} - array of value props
+   */
+  extractValueProps() {
+    const brain = this.brain.load();
+    const props = [];
+
+    if (brain.positioning?.uniqueValue) {
+      props.push(brain.positioning.uniqueValue);
+    }
+
+    const diffs = (brain.positioning?.differentiation || []).filter(d => d && d.trim());
+    props.push(...diffs);
+
+    return props;
+  }
+
+  /**
+   * Extract competitive differentiation points (how we're different).
+   * @returns {string[]} - array of competitive edges
+   */
+  extractCompetitiveEdges() {
+    const brain = this.brain.load();
+    const edges = [];
+
+    const diffs = (brain.positioning?.differentiation || []).filter(d => d && d.trim());
+    edges.push(...diffs);
+
+    if (brain.positioning?.notLikeCompetitors) {
+      edges.push(brain.positioning.notLikeCompetitors);
+    }
+
+    return edges;
+  }
+
+  /**
+   * Extract buyer journey messaging for each stage.
+   * @returns {{awareness: string, consideration: string, decision: string}}
+   */
+  extractBuyerJourneyMessaging() {
+    const brain = this.brain.load();
+    return {
+      awareness:     brain.icp?.buyerJourney?.aware || '',
+      consideration: brain.icp?.buyerJourney?.consider || '',
+      decision:      brain.icp?.buyerJourney?.decide || ''
+    };
+  }
+
+  /**
+   * Extract brand voice and tone guidelines.
+   * @returns {{tone: string[], avoid: string, notLikeCompetitors: string}}
+   */
+  extractBrandVoice() {
+    const brain = this.brain.load();
+    return {
+      tone:                brain.positioning?.voiceAndTone || [],
+      avoid:               brain.positioning?.thingsWeNeverSay || '',
+      notLikeCompetitors:  brain.positioning?.notLikeCompetitors || ''
+    };
+  }
+
+  /**
+   * Extract ICP context (what they tried before, why they chose us, biggest fear).
+   * @returns {{triedBefore: string, reasonChose: string, biggestFear: string}}
+   */
+  extractICPContext() {
+    const brain = this.brain.load();
+    return {
+      triedBefore:  brain.icp?.triedBefore || '',
+      reasonChose:  brain.icp?.reasonChose || '',
+      biggestFear:  brain.icp?.biggestFear || ''
+    };
+  }
+
+  /**
+   * Extract company basics (name, tagline, industry, stage).
+   * @returns {{name: string, tagline: string, industry: string, stage: string, description: string}}
+   */
+  extractCompanyBasics() {
+    const brain = this.brain.load();
+    return {
+      name:        brain.company?.name || '',
+      tagline:     brain.company?.tagline || '',
+      industry:    brain.company?.industry || '',
+      stage:       brain.company?.stage || '',
+      description: brain.company?.description || ''
+    };
+  }
+
+  /**
+   * Extract current objectives (Q1 focus, annual goal, current challenge).
+   * @returns {{q1Focus: string, annualGoal: string, currentChallenge: string, bestLeadChannels: string[]}}
+   */
+  extractObjectives() {
+    const brain = this.brain.load();
+    return {
+      q1Focus:           brain.objectives?.q1Focus || '',
+      annualGoal:        brain.objectives?.annualGoal || '',
+      currentChallenge:  brain.objectives?.currentChallenge || '',
+      bestLeadChannels:  brain.objectives?.bestLeadChannels || []
+    };
+  }
+
+  /**
+   * Extract high-priority competitive gaps we can exploit.
+   * @returns {Array<{competitor: string, gap: string, opportunity: string}>}
+   */
+  extractCompetitiveGaps() {
+    const gaps = this.radar.getTopGaps();
+    return gaps
+      .filter(g => g.gap.priority === 'high')
+      .map(g => ({
+        competitor:  g.competitor,
+        gap:         g.gap.gap,
+        opportunity: g.gap.opportunity
+      }));
+  }
+
+  /**
+   * Extract top market signals (what's working right now).
+   * @param {number} [n=5] - number of signals to return
+   * @returns {Array<{type: string, description: string, strength: string, evidence: string}>}
+   */
+  extractMarketSignals(n = 5) {
+    const signals = this.pulse.getTopSignals(n);
+    return signals.map(s => ({
+      type:        s.type,
+      description: s.description,
+      strength:    s.strength,
+      evidence:    s.evidence
+    }));
+  }
+
+  /**
+   * Build a complete context object for agent use.
+   * This is the NEW way agents should consume Intelligence Layer data.
+   *
+   * @returns {{
+   *   company: {name: string, tagline: string, industry: string, stage: string, description: string},
+   *   icp: {
+   *     painPoints: string[],
+   *     firmographics: {role: string, companySize: string, industry: string, language: string[]},
+   *     context: {triedBefore: string, reasonChose: string, biggestFear: string},
+   *     buyerJourney: {awareness: string, consideration: string, decision: string}
+   *   },
+   *   positioning: {
+   *     valueProps: string[],
+   *     competitiveEdges: string[],
+   *     brandVoice: {tone: string[], avoid: string, notLikeCompetitors: string}
+   *   },
+   *   competitive: {
+   *     gaps: Array<{competitor: string, gap: string, opportunity: string}>
+   *   },
+   *   market: {
+   *     signals: Array<{type: string, description: string, strength: string, evidence: string}>
+   *   },
+   *   objectives: {q1Focus: string, annualGoal: string, currentChallenge: string, bestLeadChannels: string[]},
+   *   meta: {isReady: boolean, completionScore: number}
+   * }}
+   */
+  extractStructuredContext() {
+    return {
+      company:     this.extractCompanyBasics(),
+      icp: {
+        painPoints:     this.extractICPPainPoints(),
+        firmographics:  this.extractFirmographicTargets(),
+        context:        this.extractICPContext(),
+        buyerJourney:   this.extractBuyerJourneyMessaging()
+      },
+      positioning: {
+        valueProps:       this.extractValueProps(),
+        competitiveEdges: this.extractCompetitiveEdges(),
+        brandVoice:       this.extractBrandVoice()
+      },
+      competitive: {
+        gaps: this.extractCompetitiveGaps()
+      },
+      market: {
+        signals: this.extractMarketSignals(5)
+      },
+      objectives:  this.extractObjectives(),
+      meta: {
+        isReady:         this.brain.isConfigured(),
+        completionScore: this.brain.getCompletionScore()
+      }
+    };
+  }
+
   /**
    * Generate a strategic brief for an initiative by calling Claude.
    * The brief is stored in the StrategicBrief store and returned.

@@ -788,33 +788,40 @@
 
     // Intelligence Layer Context Builders
     function buildICPAttributionContext() {
-        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
-        const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.icp) return '';
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.extractStructuredContext) return '';
+        const intel = window.IntelligenceEngine.extractStructuredContext();
+        if (!intel.meta.isReady) return '';
 
         let context = '\n\n**ICP CONTEXT FOR ATTRIBUTION:**\n';
-        context += `Target Persona: ${data.icp.persona || 'Not defined'}\n`;
-        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
-            context += `Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+        const firmographics = intel.icp.firmographics;
+        context += `Target Persona: ${firmographics.role || 'Not defined'}`;
+        if (firmographics.industry) context += ` in ${firmographics.industry}`;
+        if (firmographics.companySize) context += ` (${firmographics.companySize})`;
+        context += `\n`;
+
+        if (intel.icp.painPoints.length > 0) {
+            context += `Pain Points: ${intel.icp.painPoints.join(', ')}\n`;
             context += `→ Analyze which channels best address these pain points.\n`;
         }
-        if (data.icp.buyerJourney) {
+
+        const journey = intel.icp.buyerJourney;
+        if (journey.awareness || journey.consideration || journey.decision) {
             context += `Buyer Journey:\n`;
-            if (data.icp.buyerJourney.awareness) context += `- Awareness: "${data.icp.buyerJourney.awareness}"\n`;
-            if (data.icp.buyerJourney.consideration) context += `- Consideration: "${data.icp.buyerJourney.consideration}"\n`;
-            if (data.icp.buyerJourney.decision) context += `- Decision: "${data.icp.buyerJourney.decision}"\n`;
+            if (journey.awareness) context += `- Awareness: "${journey.awareness}"\n`;
+            if (journey.consideration) context += `- Consideration: "${journey.consideration}"\n`;
+            if (journey.decision) context += `- Decision: "${journey.decision}"\n`;
             context += `→ Map channel attribution to buyer journey stages.\n`;
         }
         return context;
     }
 
     function buildValuePropConversionContext() {
-        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
-        const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.product || !data.product.valueProps) return '';
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.extractStructuredContext) return '';
+        const intel = window.IntelligenceEngine.extractStructuredContext();
+        if (intel.positioning.valueProps.length === 0) return '';
 
         let context = '\n\n**VALUE PROP CONVERSION DRIVERS:**\n';
-        data.product.valueProps.forEach((vp, i) => {
+        intel.positioning.valueProps.forEach((vp, i) => {
             context += `${i + 1}. ${vp}\n`;
         });
         context += `→ Analyze which channels best communicate these value propositions and drive conversions.\n`;
@@ -833,13 +840,13 @@
     }
 
     function buildBrandVoiceAnalyticsStyle() {
-        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
-        const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.voice || !data.voice.tone) return '';
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.extractStructuredContext) return '';
+        const intel = window.IntelligenceEngine.extractStructuredContext();
+        if (intel.positioning.brandVoice.tone.length === 0) return '';
 
         let context = '\n\n**ANALYTICS REPORTING STYLE:**\n';
-        context += `Brand Voice Tone: ${data.voice.tone}\n`;
-        context += `→ Format insights and recommendations in a ${data.voice.tone} style that matches our brand voice.\n`;
+        context += `Brand Voice Tone: ${intel.positioning.brandVoice.tone.join(', ')}\n`;
+        context += `→ Format insights and recommendations in a ${intel.positioning.brandVoice.tone.join(', ')} style that matches our brand voice.\n`;
         return context;
     }
 
@@ -936,23 +943,34 @@ ${customers}
 BUSINESS MODEL: ${model}`;
 
             // ADD ICP CONTEXT FROM BUSINESSBRAIN
-            if (window.IntelligenceEngine && window.IntelligenceEngine.brain) {
-                const data = window.IntelligenceEngine.brain.load();
-                if (data && data.icp) {
+            if (window.IntelligenceEngine && window.IntelligenceEngine.extractStructuredContext) {
+                const intel = window.IntelligenceEngine.extractStructuredContext();
+                if (intel.meta.isReady) {
                     prompt += `\n\n**START WITH THIS ICP DEFINITION:**\n`;
-                    prompt += `Primary Persona: ${data.icp.persona || 'Not defined'}\n`;
-                    if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
-                        prompt += `Core Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+                    const firmographics = intel.icp.firmographics;
+                    prompt += `Primary Persona: ${firmographics.role || 'Not defined'}`;
+                    if (firmographics.companySize) prompt += ` at ${firmographics.companySize} companies`;
+                    if (firmographics.industry) prompt += ` in ${firmographics.industry}`;
+                    prompt += `\n`;
+
+                    if (intel.icp.painPoints.length > 0) {
+                        prompt += `Core Pain Points: ${intel.icp.painPoints.join(', ')}\n`;
                     }
-                    if (data.icp.buyerJourney) {
+
+                    const journey = intel.icp.buyerJourney;
+                    if (journey.awareness || journey.consideration || journey.decision) {
                         prompt += `Buyer Journey Stages:\n`;
-                        if (data.icp.buyerJourney.awareness) prompt += `- Awareness: "${data.icp.buyerJourney.awareness}"\n`;
-                        if (data.icp.buyerJourney.consideration) prompt += `- Consideration: "${data.icp.buyerJourney.consideration}"\n`;
-                        if (data.icp.buyerJourney.decision) prompt += `- Decision: "${data.icp.buyerJourney.decision}"\n`;
+                        if (journey.awareness) prompt += `- Awareness: "${journey.awareness}"\n`;
+                        if (journey.consideration) prompt += `- Consideration: "${journey.consideration}"\n`;
+                        if (journey.decision) prompt += `- Decision: "${journey.decision}"\n`;
                     }
-                    if (data.icp.firmographics) {
-                        prompt += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
-                    }
+
+                    prompt += `Firmographic Targeting:\n`;
+                    prompt += `- Role/Title: ${firmographics.role}\n`;
+                    if (firmographics.companySize) prompt += `- Company Size: ${firmographics.companySize}\n`;
+                    if (firmographics.industry) prompt += `- Industry: ${firmographics.industry}\n`;
+                    if (firmographics.language.length > 0) prompt += `- Language: ${firmographics.language.join(', ')}\n`;
+
                     prompt += `\n→ Create segments that map to sub-segments of this ICP, considering pain point severity, buyer journey stage, and firmographic attributes.\n`;
                 }
             }
