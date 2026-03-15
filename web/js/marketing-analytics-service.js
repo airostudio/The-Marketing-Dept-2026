@@ -138,36 +138,29 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Generate realistic channel metrics for the given date range.
-     * In production this would query a real analytics backend.
+     * Generate empty channel metrics when Google Analytics is not configured.
+     * PRODUCTION-READY: Returns zeros instead of fake data.
      * @param {string} dateRange - 'last-7d' | 'last-30d' | 'last-90d' | 'last-12m'
-     * @returns {Object} Channel metrics keyed by channel name.
+     * @returns {Object} Channel metrics keyed by channel name (all zeros).
      */
     function generateChannelData(dateRange) {
         const storedKey = 'channel-data-' + dateRange;
         const stored = load(storedKey, null);
         if (stored) return stored;
 
-        const multiplier = { 'last-7d': 1, 'last-30d': 4, 'last-90d': 12, 'last-12m': 52 }[dateRange] || 4;
-        const base = {
-            SEO:      { traffic: 12400, leads: 310, conversions: 62, revenue: 31000, spend: 4200 },
-            Paid:     { traffic: 8600,  leads: 430, conversions: 86, revenue: 43000, spend: 18500 },
-            Social:   { traffic: 6200,  leads: 186, conversions: 28, revenue: 14000, spend: 5600 },
-            Email:    { traffic: 3800,  leads: 380, conversions: 95, revenue: 47500, spend: 1200 },
-            Direct:   { traffic: 4500,  leads: 135, conversions: 40, revenue: 20000, spend: 0 },
-            Referral: { traffic: 2100,  leads: 84,  conversions: 17, revenue: 8500,  spend: 800 }
-        };
+        warn('Google Analytics not configured - returning empty state. Configure GA4 in Settings to see real web insights.');
+
+        // Return zeros instead of demo/fake data
         const result = {};
         for (const ch of CHANNELS) {
-            const b = base[ch];
             result[ch] = {
-                traffic:     Math.round(b.traffic * multiplier * 1.0),
-                leads:       Math.round(b.leads * multiplier * 1.0),
-                conversions: Math.round(b.conversions * multiplier * 1.0),
-                revenue:     Math.round(b.revenue * multiplier * 1.0),
-                spend:       Math.round(b.spend * multiplier * 1.0),
-                cac:         b.spend > 0 ? +(b.spend / b.conversions).toFixed(2) : 0,
-                roi:         b.spend > 0 ? +(((b.revenue - b.spend) / b.spend) * 100).toFixed(1) : null
+                traffic:     0,
+                leads:       0,
+                conversions: 0,
+                revenue:     0,
+                spend:       0,
+                cac:         0,
+                roi:         null
             };
         }
         return result;
@@ -436,20 +429,36 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * AI-generated customer segments across behavioural, demographic, and value dimensions.
+     * AI-generated customer segments integrated with ICP from BusinessBrain.
+     * PRODUCTION-READY: Uses Intelligence Layer for ICP-specific segmentation.
      * @returns {Promise<Array<Object>>} Customer segment profiles.
      */
     async function getCustomerSegments() {
         log('Generating customer segments');
-        const prompt = 'Generate 5 distinct marketing customer segments with behavioural, demographic, and value-based attributes. Return JSON array of { "name", "size_pct", "avg_ltv", "channels", "description", "type" }.';
+
+        let prompt = 'Generate 5 distinct marketing customer segments with behavioural, demographic, and value-based attributes. Return JSON array of { "name", "size_pct", "avg_ltv", "channels", "description", "type" }.';
+
+        // ADD ICP CONTEXT FROM BUSINESSBRAIN
+        if (window.IntelligenceEngine && window.IntelligenceEngine.brain) {
+            const data = window.IntelligenceEngine.brain.load();
+            if (data && data.icp) {
+                prompt += `\n\nStart with this ICP definition:\n`;
+                prompt += `Persona: ${data.icp.persona || 'Not specified'}\n`;
+                if (data.icp.painPoints && data.icp.painPoints.length > 0) {
+                    prompt += `Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+                }
+                if (data.icp.buyerJourney) {
+                    prompt += `Buyer Journey: ${JSON.stringify(data.icp.buyerJourney)}\n`;
+                }
+                if (data.icp.firmographics) {
+                    prompt += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
+                }
+                prompt += `\nCreate segments that map to different sub-segments of this ICP, considering pain point severity, buyer journey stage, and firmographic attributes.`;
+            }
+        }
+
         const text = await askAI(prompt);
-        return parseAIJson(text, [
-            { name: 'Power Buyers',     size_pct: 12, avg_ltv: 2800, channels: ['Email', 'Direct'],   description: 'High-frequency, high-value repeat customers.',       type: 'value-based' },
-            { name: 'Social Explorers', size_pct: 24, avg_ltv: 450,  channels: ['Social', 'SEO'],     description: 'Discovery-driven users arriving via social channels.', type: 'behavioral' },
-            { name: 'Deal Seekers',     size_pct: 18, avg_ltv: 620,  channels: ['Paid', 'Email'],     description: 'Price-sensitive buyers activated by promotions.',      type: 'behavioral' },
-            { name: 'Enterprise Leads', size_pct: 8,  avg_ltv: 5200, channels: ['SEO', 'Referral'],   description: 'High-value B2B prospects with long sales cycles.',    type: 'demographic' },
-            { name: 'Casual Browsers',  size_pct: 38, avg_ltv: 120,  channels: ['SEO', 'Social'],     description: 'Low-intent visitors with potential for nurturing.',    type: 'behavioral' }
-        ]);
+        return parseAIJson(text, []); // Empty array fallback - NO fake segments
     }
 
     /**

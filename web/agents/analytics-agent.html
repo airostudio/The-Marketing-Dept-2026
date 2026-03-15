@@ -786,6 +786,69 @@
         });
     });
 
+    // Intelligence Layer Context Builders
+    function buildICPAttributionContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.icp) return '';
+
+        let context = '\n\n**ICP CONTEXT FOR ATTRIBUTION:**\n';
+        context += `Target Persona: ${data.icp.persona || 'Not defined'}\n`;
+        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+            context += `Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+            context += `→ Analyze which channels best address these pain points.\n`;
+        }
+        if (data.icp.buyerJourney) {
+            context += `Buyer Journey:\n`;
+            if (data.icp.buyerJourney.awareness) context += `- Awareness: "${data.icp.buyerJourney.awareness}"\n`;
+            if (data.icp.buyerJourney.consideration) context += `- Consideration: "${data.icp.buyerJourney.consideration}"\n`;
+            if (data.icp.buyerJourney.decision) context += `- Decision: "${data.icp.buyerJourney.decision}"\n`;
+            context += `→ Map channel attribution to buyer journey stages.\n`;
+        }
+        return context;
+    }
+
+    function buildValuePropConversionContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.product || !data.product.valueProps) return '';
+
+        let context = '\n\n**VALUE PROP CONVERSION DRIVERS:**\n';
+        data.product.valueProps.forEach((vp, i) => {
+            context += `${i + 1}. ${vp}\n`;
+        });
+        context += `→ Analyze which channels best communicate these value propositions and drive conversions.\n`;
+        return context;
+    }
+
+    function buildCompetitiveBenchmarkContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.radar) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll();
+        if (!competitors || competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITIVE BENCHMARK:**\n';
+        context += `We compete with: ${competitors.map(c => c.name).join(', ')}\n`;
+        context += `→ Benchmark our channel performance against typical industry standards for our competitive set.\n`;
+        return context;
+    }
+
+    function buildBrandVoiceAnalyticsStyle() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.voice || !data.voice.tone) return '';
+
+        let context = '\n\n**ANALYTICS REPORTING STYLE:**\n';
+        context += `Brand Voice Tone: ${data.voice.tone}\n`;
+        context += `→ Format insights and recommendations in a ${data.voice.tone} style that matches our brand voice.\n`;
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle ? (bundle.completeness || 0) : 0;
+    }
+
     // Workspace prompts per tab
     const workspacePrompts = {
         attribution: () => {
@@ -793,7 +856,8 @@
             const model = document.getElementById('attr-model').value;
             const goal = document.getElementById('attr-goal').value;
             if (!data) return null;
-            return `You are an expert marketing analytics consultant specializing in attribution modeling.
+
+            let prompt = `You are an expert marketing analytics consultant specializing in attribution modeling.
 
 Analyze this campaign data and provide a comprehensive attribution analysis:
 
@@ -801,18 +865,34 @@ CAMPAIGN DATA:
 ${data}
 
 ATTRIBUTION MODEL REQUESTED: ${model}
-GOAL / KPI FOCUS: ${goal}
+GOAL / KPI FOCUS: ${goal}`;
+
+            // ADD INTELLIGENCE LAYER CONTEXT
+            prompt += buildICPAttributionContext();
+            prompt += buildValuePropConversionContext();
+            prompt += buildCompetitiveBenchmarkContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+
+            prompt += `
 
 Provide:
 1. Attribution Analysis - assign credit to each channel based on the ${model} model
-2. Key Insights - what the data reveals about channel performance
-3. Top performing channels and why
+2. Key Insights - what the data reveals about channel performance (consider ICP buyer journey if provided)
+3. Top performing channels and why (map to ICP pain points and value props if available)
 4. Underperforming channels with root cause analysis
 5. Specific, actionable recommendations to improve ROI
-6. Suggested budget reallocation (with percentages)
+6. Suggested budget reallocation (with percentages) - prioritize channels that reach our ICP
 7. Quick wins (implement in next 30 days)
 
 Format clearly with sections and be specific with numbers.`;
+
+            // Strategic validation warning
+            const completeness = getIntelligenceCompleteness();
+            if (completeness < 0.3) {
+                prompt += `\n\n⚠️ NOTE: Intelligence Layer is ${Math.round(completeness * 100)}% complete. For more ICP-specific attribution insights, configure BusinessBrain with ICP, value props, and buyer journey.`;
+            }
+
+            return prompt;
         },
         mmm: () => {
             const data = document.getElementById('mmm-data').value.trim();
@@ -845,47 +925,91 @@ Be specific with numbers and percentages.`;
             const model = document.getElementById('seg-model').value;
             const count = document.getElementById('seg-count').value;
             if (!customers) return null;
-            return `You are an expert customer segmentation strategist using Segment Personas methodology.
+
+            let prompt = `You are an expert customer segmentation strategist using Segment Personas methodology.
 
 Create ${count} detailed customer segment profiles based on this description:
 
 CUSTOMER BASE DESCRIPTION:
 ${customers}
 
-BUSINESS MODEL: ${model}
+BUSINESS MODEL: ${model}`;
+
+            // ADD ICP CONTEXT FROM BUSINESSBRAIN
+            if (window.IntelligenceEngine && window.IntelligenceEngine.brain) {
+                const data = window.IntelligenceEngine.brain.load();
+                if (data && data.icp) {
+                    prompt += `\n\n**START WITH THIS ICP DEFINITION:**\n`;
+                    prompt += `Primary Persona: ${data.icp.persona || 'Not defined'}\n`;
+                    if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+                        prompt += `Core Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+                    }
+                    if (data.icp.buyerJourney) {
+                        prompt += `Buyer Journey Stages:\n`;
+                        if (data.icp.buyerJourney.awareness) prompt += `- Awareness: "${data.icp.buyerJourney.awareness}"\n`;
+                        if (data.icp.buyerJourney.consideration) prompt += `- Consideration: "${data.icp.buyerJourney.consideration}"\n`;
+                        if (data.icp.buyerJourney.decision) prompt += `- Decision: "${data.icp.buyerJourney.decision}"\n`;
+                    }
+                    if (data.icp.firmographics) {
+                        prompt += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
+                    }
+                    prompt += `\n→ Create segments that map to sub-segments of this ICP, considering pain point severity, buyer journey stage, and firmographic attributes.\n`;
+                }
+            }
+
+            prompt += buildBrandVoiceAnalyticsStyle();
+
+            prompt += `
 
 For each segment provide:
 - Segment Name (memorable, descriptive)
 - Size estimate (% of customer base)
 - Demographics & Firmographics
 - Psychographics & Motivations
-- Key Pain Points (top 3)
-- Buying Triggers
+- Key Pain Points (top 3) - map to ICP pain points if provided
+- Buying Triggers - consider buyer journey stages if provided
 - Buying Barriers
 - Preferred Channels
 - Average Deal Value / LTV
-- Key Message that resonates
+- Key Message that resonates - align with value props if available
 - Best-fit Products/Features
 - Targeting Strategy (paid, content, outreach)
 
 Make each segment distinct and actionable.`;
+
+            // Strategic validation warning
+            const completeness = getIntelligenceCompleteness();
+            if (completeness < 0.3) {
+                prompt += `\n\n⚠️ NOTE: Intelligence Layer is ${Math.round(completeness * 100)}% complete. For ICP-specific segmentation, configure BusinessBrain with detailed ICP definition, pain points, and buyer journey.`;
+            }
+
+            return prompt;
         },
         performance: () => {
             const metrics = document.getElementById('perf-metrics').value.trim();
             const context = document.getElementById('perf-context').value.trim();
             if (!metrics) return null;
-            return `You are an expert marketing performance analyst.
+
+            let prompt = `You are an expert marketing performance analyst.
 
 Analyze these marketing metrics and provide insights:
 
 METRICS DATA:
 ${metrics}
 
-CONTEXT: ${context || 'General marketing performance review'}
+CONTEXT: ${context || 'General marketing performance review'}`;
+
+            // ADD INTELLIGENCE LAYER CONTEXT
+            prompt += buildICPAttributionContext();
+            prompt += buildValuePropConversionContext();
+            prompt += buildCompetitiveBenchmarkContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+
+            prompt += `
 
 Provide:
 1. Executive Summary (2-3 sentences on overall health)
-2. What's Working Well (specific wins with data)
+2. What's Working Well (specific wins with data) - consider ICP targeting effectiveness
 3. What Needs Attention (problems with severity rating: High/Medium/Low)
 4. Anomalies & Trends worth investigating
 5. Benchmarks - how these metrics compare to industry standards
@@ -924,6 +1048,22 @@ Format with clear sections, use the data provided, and write in a confident narr
     };
 
     async function runWorkspace(tabId) {
+        // Strategic Validation: Google Analytics Configuration
+        if (typeof window.ApiConnector !== 'undefined' && window.ApiConnector.GoogleAnalytics) {
+            if (!window.ApiConnector.GoogleAnalytics.isAvailable()) {
+                const gaWarning = confirm('⚠️ Google Analytics not configured.\n\nAnalytics Brain can provide AI insights based on your data, but for live web metrics (traffic, conversions, behavior), you need to configure GA4.\n\nConfigure in Settings → API Keys → Google Analytics.\n\nProceed with manual data analysis anyway?');
+                if (!gaWarning) return;
+            }
+        }
+
+        // Strategic Validation: Intelligence Layer
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3 && !sessionStorage.getItem('analytics-intelligence-warning-dismissed')) {
+            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific analytics insights, configure BusinessBrain with:\n• ICP Definition (persona, pain points, firmographics)\n• Value Propositions\n• Buyer Journey Stages\n\nThis will enable attribution by ICP stage, segmentation by pain point, and value prop-driven conversion analysis.\n\nProceed with generic analysis?`);
+            if (!proceed) return;
+            sessionStorage.setItem('analytics-intelligence-warning-dismissed', 'true');
+        }
+
         const prompt = workspacePrompts[tabId]();
         if (!prompt) {
             alert('Please fill in the required fields before generating.');
