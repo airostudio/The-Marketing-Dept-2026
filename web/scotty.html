@@ -1005,7 +1005,10 @@ class ScottyChat {
                     this._finaliseResponse(text, fullText);
                 },
                 onError:  (err) => {
-                    bubble.textContent = '⚠️ Connection error. Please check your API key in settings.';
+                    console.error('Scotty AI Error:', err);
+                    const errorMsg = err.message || err.error || 'Unknown error';
+                    bubble.innerHTML = `⚠️ <strong>AI Connection Error:</strong><br>${errorMsg}<br><br>` +
+                        `<small>Check <a href="/api/health" target="_blank">/api/health</a> for diagnostics</small>`;
                     this._finaliseResponse(text, '');
                 }
             });
