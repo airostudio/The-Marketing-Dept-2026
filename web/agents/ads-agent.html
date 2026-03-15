@@ -230,6 +230,8 @@ class AdsAgent {
         this.claudeService = window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
+        this._loadICP();
+        this._loadProduct();
     }
 
     _checkIntelligence() {
@@ -241,25 +243,322 @@ class AdsAgent {
         }
     }
 
-    buildSystemPrompt(contextBundle) {
-        let prompt = `You are a performance marketing expert with deep knowledge of each ad platform's best practices. Generate 5+ ad variants with: headlines, primary text, descriptions, and CTAs. Include A/B testing hypotheses for each variant. Note which psychological triggers each variant uses (urgency, social proof, curiosity, fear of missing out, authority, etc.).
+    _loadICP() {
+        // Auto-populate target audience from BusinessBrain ICP
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp) {
+                const icp = data.icp;
+                let audienceSummary = '';
 
-Format each variant as:
-## Variant N: [Name / Angle]
-**Psychological Trigger:** [e.g. Social Proof + Urgency]
-**Headline 1:** ...
-**Headline 2:** ...
-**Headline 3:** (if applicable)
-**Primary Text:** ...
-**Description:** ...
-**CTA:** ...
-**A/B Hypothesis:** What this variant tests vs. others and what success looks like.
+                if (icp.primaryBuyer && icp.primaryBuyer.role) {
+                    audienceSummary += `${icp.primaryBuyer.role}`;
+                    if (icp.primaryBuyer.companySize) audienceSummary += ` at ${icp.primaryBuyer.companySize} companies`;
+                    if (icp.primaryBuyer.industry) audienceSummary += `, ${icp.primaryBuyer.industry}`;
+                }
 
-Use markdown. Separate each variant with a horizontal rule. Include a brief strategy note at the start.`;
-        if (contextBundle && contextBundle.isReady) {
-            prompt += `\n\nCompetitive intelligence:\n${JSON.stringify(contextBundle).substring(0, 500)}`;
+                if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
+                    const painPoints = icp.painPoints.filter(p => p);
+                    audienceSummary += `. Pain points: ${painPoints.slice(0, 2).join(', ')}`;
+                }
+
+                if (audienceSummary) {
+                    const textarea = document.getElementById('audience');
+                    textarea.value = `✨ ${audienceSummary} (from BusinessBrain ICP)`;
+                    textarea.style.color = '#10b981';
+                }
+            }
         }
+    }
+
+    _loadProduct() {
+        // Auto-populate product from BusinessBrain value prop
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.positioning) {
+                const textarea = document.getElementById('product');
+                let productDesc = data.positioning;
+
+                if (data.valueProp && data.valueProp.primaryBenefit) {
+                    productDesc += `. ${data.valueProp.primaryBenefit}`;
+                }
+
+                if (data.differentiators && data.differentiators.length > 0) {
+                    productDesc += `. Key differentiators: ${data.differentiators.slice(0, 2).join(', ')}`;
+                }
+
+                textarea.value = `✨ ${productDesc} (from BusinessBrain)`;
+                textarea.style.color = '#10b981';
+            }
+        }
+    }
+
+    buildSystemPrompt(contextBundle) {
+        let prompt = `You are an expert performance marketing strategist for Audema Ad Creative Lab.
+
+## Your Role
+Create conversion-optimized ad variants that:
+1. Hook with ICP pain points in headlines
+2. Match brand voice tone and language consistently
+3. Test distinct psychological triggers (pain, benefit, social proof, urgency, differentiator, curiosity)
+4. Emphasize value prop benefits and unique differentiators
+5. Align CTAs with campaign objective and business goals
+6. Follow platform-specific character limits exactly
+
+## Output Format for Each Variant
+## Variant N: [Name / Angle]
+**Psychological Trigger:** [e.g. Pain Awareness + Urgency]
+**Headline:** ... (character count in parentheses)
+**Primary Text:** ... (character count)
+**Description:** (if applicable for platform)
+**CTA:** [specific button text]
+**A/B Hypothesis:** What this variant tests vs. others and what success looks like (e.g. ">2% CTR", "Lower CPA")
+
+Use markdown. Separate variants with horizontal rules (---). Include campaign strategy note at start.
+
+`;
+
+        if (contextBundle && contextBundle.isReady) {
+            // BUSINESS CONTEXT — ICP pain points, brand voice, value prop
+            if (contextBundle.businessContext) {
+                prompt += `\n## BUSINESS CONTEXT (Ad Creative Foundation)\n${contextBundle.businessContext}\n\n`;
+                prompt += `**Ad-Specific Instructions:**\n`;
+                prompt += `- Use ICP pain points as ad headline hooks ("Tired of [pain]?")\n`;
+                prompt += `- Match brand voice tone exactly (all variants same tone, different angles)\n`;
+                prompt += `- Emphasize value prop primary benefit in benefit-focused variants\n`;
+                prompt += `- Highlight differentiators in competitive displacement variants\n`;
+                prompt += `- Use ICP language in ad body copy (how they describe problems)\n`;
+                prompt += `- Align CTAs with business objectives (Q1 focus determines CTA type)\n\n`;
+            }
+
+            // COMPETITIVE LANDSCAPE — competitive displacement angles
+            if (contextBundle.competitiveLandscape) {
+                prompt += `## COMPETITIVE DIFFERENTIATION (Ad Angles)\n${contextBundle.competitiveLandscape}\n\n`;
+                prompt += `**Competitive Ad Variant Instructions:**\n`;
+                prompt += `- Create differentiator variant: "[Our unique selling point] vs [competitor standard]"\n`;
+                prompt += `- Use competitive positioning for ad hooks\n`;
+                prompt += `- Reference what competitors WON'T say (our advantage)\n\n`;
+            }
+
+            // MARKET SIGNALS — timely ad hooks
+            if (contextBundle.marketSignals) {
+                prompt += `## MARKET SIGNALS (Timely Ad Hooks)\n${contextBundle.marketSignals}\n\n`;
+                prompt += `**Timely Hook Instructions:**\n`;
+                prompt += `- Create market trend variant if relevant: "With [trend] taking over [industry]..."\n`;
+                prompt += `- Use market momentum for urgency variants\n\n`;
+            }
+
+            prompt += `## STRATEGIC AD CREATIVE MANDATE\nThis is NOT generic ad copy. Every variant must:\n`;
+            prompt += `1. Hook with ICP-specific pain points (not generic pain)\n`;
+            prompt += `2. Match brand voice exactly (same tone across all variants)\n`;
+            prompt += `3. Test distinct psychological triggers (each variant different trigger)\n`;
+            prompt += `4. Emphasize correct value prop elements\n`;
+            prompt += `5. Align CTAs with business objectives\n`;
+            prompt += `6. Follow platform character limits (critical for ad approval)\n\n`;
+        } else {
+            // Fallback when Intelligence Layer not configured
+            prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without ICP pain points for ad hooks, brand voice for tone consistency, or value prop for benefit focus. The ad variants will be generic ad copy rather than conversion-optimized, ICP-targeted ads. Recommend configuring BusinessBrain for high-performing ads.\n\n`;
+        }
+
         return prompt;
+    }
+
+    buildAdVariantStrategy(contextBundle) {
+        // Build ad variant strategy mapping ICP pain points + value prop to variant types
+        if (!contextBundle || !contextBundle.isReady) return '';
+
+        let variantStrategy = '';
+
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+
+            variantStrategy += `\n\n## AD VARIANT STRATEGY\n`;
+            variantStrategy += `Generate 6 distinct variants testing these angles:\n\n`;
+
+            if (data.icp && data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+                const painPoints = data.icp.painPoints.filter(p => p);
+                variantStrategy += `**Variant 1: Pain-Focused Hook**\n`;
+                variantStrategy += `- Headline hook: "${painPoints[0]}" (use ICP pain point)\n`;
+                variantStrategy += `- Psychological trigger: Pain Awareness\n`;
+                variantStrategy += `- A/B hypothesis: Does pain focus outperform benefit focus?\n\n`;
+            }
+
+            if (data.valueProp && data.valueProp.primaryBenefit) {
+                variantStrategy += `**Variant 2: Benefit-Focused (Value Prop)**\n`;
+                variantStrategy += `- Headline: "${data.valueProp.primaryBenefit}"\n`;
+                variantStrategy += `- Psychological trigger: Desire for Outcome\n`;
+                variantStrategy += `- A/B hypothesis: Does benefit-first messaging convert better?\n\n`;
+            }
+
+            variantStrategy += `**Variant 3: Social Proof**\n`;
+            variantStrategy += `- Headline: "[Customer count]+ teams use [Product]"\n`;
+            variantStrategy += `- Psychological trigger: FOMO + Authority\n`;
+            variantStrategy += `- A/B hypothesis: Does social proof build trust faster?\n\n`;
+
+            if (data.valueProp && data.valueProp.emotionalAppeal) {
+                variantStrategy += `**Variant 4: Urgency + Emotional Appeal**\n`;
+                variantStrategy += `- Headline: "${data.valueProp.emotionalAppeal}"\n`;
+                variantStrategy += `- Psychological trigger: Urgency + FOMO\n`;
+                variantStrategy += `- A/B hypothesis: Does urgency drive immediate action?\n\n`;
+            }
+
+            if (data.differentiators && data.differentiators.length > 0) {
+                variantStrategy += `**Variant 5: Differentiator (Unique Angle)**\n`;
+                variantStrategy += `- Headline: "${data.differentiators[0]}" vs competitor standard\n`;
+                variantStrategy += `- Psychological trigger: Competitive Displacement\n`;
+                variantStrategy += `- A/B hypothesis: Does unique angle cut through noise?\n\n`;
+            }
+
+            variantStrategy += `**Variant 6: Curiosity (Question Hook)**\n`;
+            variantStrategy += `- Headline: "How do [customer type] [achieve outcome]?"\n`;
+            variantStrategy += `- Psychological trigger: Curiosity Gap\n`;
+            variantStrategy += `- A/B hypothesis: Does question format increase click rate?\n\n`;
+
+            if (data.voice && data.voice.tone) {
+                variantStrategy += `**Brand Voice Requirement:** All variants MUST use "${data.voice.tone}" tone.\n`;
+            }
+        }
+
+        return variantStrategy;
+    }
+
+    buildCampaignObjectiveMapping(objective, contextBundle) {
+        // Map campaign objective to ad messaging strategy and CTA type
+        let objectiveMapping = `\n\n## CAMPAIGN OBJECTIVE MAPPING\n`;
+        objectiveMapping += `Objective: ${objective}\n\n`;
+
+        const mappings = {
+            'Awareness': {
+                messagingFocus: 'Problem education, pain amplification',
+                ctaType: 'Learn more, Read article, Watch video',
+                psychologicalTriggers: ['Pain awareness', 'Curiosity', 'Problem identification']
+            },
+            'Traffic': {
+                messagingFocus: 'Curiosity hooks, value teasers',
+                ctaType: 'Learn more, Discover how, See examples',
+                psychologicalTriggers: ['Curiosity', 'Benefit preview', 'Social proof']
+            },
+            'Leads': {
+                messagingFocus: 'Value prop, social proof, benefit focus',
+                ctaType: 'Download guide, Join webinar, Get demo',
+                psychologicalTriggers: ['Social proof', 'Authority', 'Benefit focus']
+            },
+            'Conversions': {
+                messagingFocus: 'Urgency, differentiators, emotional appeal',
+                ctaType: 'Start free trial, Buy now, Get started',
+                psychologicalTriggers: ['Urgency', 'FOMO', 'Competitive displacement']
+            },
+            'Retargeting': {
+                messagingFocus: 'Objection handling, urgency, limited time offers',
+                ctaType: 'Come back, Limited offer, Last chance',
+                psychologicalTriggers: ['Urgency', 'FOMO', 'Scarcity']
+            }
+        };
+
+        const mapping = mappings[objective] || mappings['Conversions'];
+
+        objectiveMapping += `**Messaging Focus:** ${mapping.messagingFocus}\n`;
+        objectiveMapping += `**Recommended CTAs:** ${mapping.ctaType}\n`;
+        objectiveMapping += `**Psychological Triggers to Emphasize:** ${mapping.psychologicalTriggers.join(', ')}\n`;
+
+        // Add buyer journey stage mapping if available
+        if (contextBundle && contextBundle.isReady && this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.buyerJourney) {
+                const journey = data.icp.buyerJourney;
+                if (objective === 'Awareness' && journey.awareness) {
+                    objectiveMapping += `\n**ICP Buyer Journey Stage:** Awareness - "${journey.awareness}"\n`;
+                } else if (objective === 'Leads' && journey.consideration) {
+                    objectiveMapping += `\n**ICP Buyer Journey Stage:** Consideration - "${journey.consideration}"\n`;
+                } else if (objective === 'Conversions' && journey.decision) {
+                    objectiveMapping += `\n**ICP Buyer Journey Stage:** Decision - "${journey.decision}"\n`;
+                }
+            }
+        }
+
+        // Add business objective CTA alignment
+        if (contextBundle && contextBundle.isReady && this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.objectives && data.objectives.q1Focus) {
+                objectiveMapping += `\n**Business Objective Alignment:** Q1 Focus - "${data.objectives.q1Focus}"\n`;
+                objectiveMapping += `CTAs should support this goal (e.g., if "product-led growth" → trial CTA, if "enterprise expansion" → demo CTA)\n`;
+            }
+        }
+
+        return objectiveMapping;
+    }
+
+    buildPlatformSpecs(platform) {
+        // Platform-specific character limits and best practices
+        const platformSpecs = {
+            'Google Search': {
+                headline: 30,
+                description: 90,
+                headlines: 3,
+                descriptions: 2,
+                note: 'Keyword-focused, clear value prop. Google shows 2-3 headlines.'
+            },
+            'Google Display': {
+                headline: 30,
+                description: 90,
+                longHeadline: 90,
+                note: 'Visual-first. Headline + long headline + description.'
+            },
+            'Meta/Facebook': {
+                headline: 40,
+                primaryText: 125,
+                note: 'Text truncates at 125 chars on mobile. Visual-first, scroll-stopping imagery critical.'
+            },
+            'LinkedIn': {
+                headline: 70,
+                introText: 150,
+                note: 'Professional tone required. Job title/company targeting precise.'
+            },
+            'TikTok': {
+                text: 100,
+                note: 'Short, punchy, trend-aware. Video-first, text secondary.'
+            },
+            'Twitter/X': {
+                text: 280,
+                note: 'Conversational, direct. Thread if needed for multiple points.'
+            }
+        };
+
+        const specs = platformSpecs[platform] || platformSpecs['Google Search'];
+
+        let platformInfo = `\n\n## PLATFORM SPECIFICATIONS FOR ${platform}\n`;
+        if (specs.headline) platformInfo += `**Headline max:** ${specs.headline} characters\n`;
+        if (specs.primaryText) platformInfo += `**Primary Text max:** ${specs.primaryText} characters\n`;
+        if (specs.description) platformInfo += `**Description max:** ${specs.description} characters\n`;
+        if (specs.introText) platformInfo += `**Intro Text max:** ${specs.introText} characters\n`;
+        if (specs.text) platformInfo += `**Text max:** ${specs.text} characters\n`;
+        if (specs.headlines) platformInfo += `**Number of headlines:** ${specs.headlines}\n`;
+        if (specs.descriptions) platformInfo += `**Number of descriptions:** ${specs.descriptions}\n`;
+        platformInfo += `\n**${platform} Best Practices:** ${specs.note}\n`;
+        platformInfo += `\nIMPORTANT: Include character counts in parentheses for each headline/text element to verify limits.\n`;
+
+        return platformInfo;
+    }
+
+    _showAdStrategyWarning(completionScore) {
+        if (completionScore < 30) {
+            const outputEl = document.getElementById('output');
+            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
+                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
+                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
+                    Ad Creative Lab will generate variants, but they'll be generic ad copy—not ICP-targeted or conversion-optimized.<br><br>
+                    <strong>Why this matters for paid ads:</strong> Generic ad hooks waste ad spend. Best-performing ads reference specific ICP pain points, match brand voice, and test distinct psychological triggers. Without Intelligence Layer data, variants won't convert.<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP pain points, brand voice, value prop)</a>
+                </div>
+            </div>`;
+            setTimeout(() => {
+                const product = document.getElementById('product').value.trim();
+                const audience = document.getElementById('audience').value.trim();
+                if (product && audience) this.run();
+            }, 5000);
+            return true;
+        }
+        return false;
     }
 
     async run() {
@@ -273,23 +572,43 @@ Use markdown. Separate each variant with a horizontal rule. Include a brief stra
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
+
+        // Get intelligence context
+        let contextBundle = null;
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+
+            // Show warning if Intelligence Layer not configured (first-time only)
+            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('ads_agent_warning_shown')) {
+                localStorage.setItem('ads_agent_warning_shown', 'true');
+                this._showAdStrategyWarning(contextBundle.completionScore);
+                setTimeout(() => this.run(), 5500);
+                return;
+            }
+        }
+
         runBtn.disabled = true;
         runBtn.textContent = 'Generating...';
 
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Crafting your ${platform} ad variants...</div>`;
 
-        let contextBundle = null;
-        if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
-
         const systemPrompt = this.buildSystemPrompt(contextBundle);
-        const userMessage = `Generate 5+ ad variants for ${platform}.
+        const adVariantStrategy = this.buildAdVariantStrategy(contextBundle);
+        const campaignObjectiveMapping = this.buildCampaignObjectiveMapping(objective, contextBundle);
+        const platformSpecs = this.buildPlatformSpecs(platform);
 
-Campaign Objective: ${objective}
-Product/Offer: ${product}
-Target Audience: ${audience}
-${budget ? `Budget Context: ${budget}` : ''}
+        let userMessage = `Generate 6 conversion-optimized ad variants for ${platform}.
 
-Follow ${platform}'s character limits and best practices. Make each variant distinct with a unique angle. Include platform-specific formatting notes where relevant.`;
+**Campaign Objective:** ${objective}
+**Product/Offer:** ${product}
+**Target Audience:** ${audience}
+${budget ? `**Budget Context:** ${budget}` : ''}
+
+Deliverables:
+- 6 distinct variants with unique psychological triggers
+- Character counts in parentheses for each element
+- Clear A/B testing hypotheses with success metrics
+- Platform-specific formatting notes${adVariantStrategy}${campaignObjectiveMapping}${platformSpecs}`;
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
