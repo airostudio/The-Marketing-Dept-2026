@@ -777,7 +777,46 @@
     </div>
   </footer>
 
+  <!-- API Client (Backend Integration) -->
+  <script src="js/api-client.js"></script>
+
   <script>
+    // ═══════════════════════════════════════════════════════════════
+    // AUTHENTICATION CHECK (Production-Ready)
+    // ═══════════════════════════════════════════════════════════════
+
+    // Check if user is authenticated
+    if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+      // Redirect to login page
+      window.location.href = 'auth.html';
+    } else {
+      // Load user info
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      console.log('✅ Authenticated as:', user.email);
+
+      // Add logout button to nav (if not already present)
+      const nav = document.querySelector('.nav-links');
+      if (nav && !document.getElementById('logoutBtn')) {
+        const logoutBtn = document.createElement('a');
+        logoutBtn.id = 'logoutBtn';
+        logoutBtn.href = '#';
+        logoutBtn.textContent = 'Logout';
+        logoutBtn.style.cssText = 'background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 6px;';
+        logoutBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          if (confirm('Are you sure you want to logout?')) {
+            await window.apiClient.logout();
+            window.location.href = 'auth.html';
+          }
+        });
+        nav.appendChild(logoutBtn);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXISTING SCRIPTS (Navigation, Scroll Reveal, etc.)
+    // ═══════════════════════════════════════════════════════════════
+
     // Navigation scroll state
     const nav = document.getElementById('mainNav');
     window.addEventListener('scroll', () => {
