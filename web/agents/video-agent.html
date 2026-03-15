@@ -467,7 +467,7 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/claude-service.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a video content strategist and scriptwriter. Create complete video scripts with: hook (0-5 seconds), intro, main content with timestamps, B-roll suggestions, talking points, transition notes, CTA, and thumbnail concept. Include editing notes for pacing and cuts. Format as a production script.`;
+    const SYSTEM_PROMPT = `You are a video content strategist and scriptwriter specializing in high-converting video scripts that maximize audience engagement and traffic potential. Create complete video scripts with: hook (0-5 seconds), intro, main content with timestamps, B-roll suggestions, talking points, transition notes, CTA, and thumbnail concept. Include editing notes for pacing and cuts. Format as a production script. When ICP context is provided, target the script specifically to that audience's pain points and language patterns. When brand voice is provided, match the tone and style throughout the script.`;
 
     // Check Intelligence Engine
     (function checkIntel() {
@@ -475,6 +475,98 @@
             document.getElementById('intelBadge').classList.add('active');
         }
     })();
+
+    // Intelligence Layer Builders
+    function buildICPVideoAudienceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.icp) return '';
+
+        let context = '\n\n**TARGET AUDIENCE (ICP) FOR VIDEO SCRIPTING:**\n';
+        context += `Persona: ${data.icp.persona}\n`;
+
+        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+            const painPoints = data.icp.painPoints.filter(p => p);
+            context += `\n**Pain Points (use in hook to grab attention):**\n`;
+            painPoints.forEach((pain, i) => {
+                context += `${i + 1}. "${pain}"\n`;
+            });
+            context += `→ Open video with: "Struggling with ${painPoints[0]}? Here's how to fix it."\n`;
+        }
+
+        if (data.icp.demographics) {
+            context += `\nDemographics: ${data.icp.demographics}\n`;
+            context += `→ Adjust language, examples, and references to match this demographic.\n`;
+        }
+
+        if (data.icp.language && data.icp.language.length > 0) {
+            context += `\n**Audience Language Patterns (use in script):**\n`;
+            data.icp.language.forEach(lang => {
+                context += `- "${lang}"\n`;
+            });
+            context += `→ Mirror this language in the video script for relatability.\n`;
+        }
+
+        return context;
+    }
+
+    function buildBrandVoiceScriptTone() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.brand?.voice) return '';
+
+        let context = '\n\n**BRAND VOICE FOR SCRIPT TONE:**\n';
+        context += `Tone: ${data.brand.voice}\n`;
+
+        if (data.brand.voice.toLowerCase().includes('professional')) {
+            context += `→ Use formal language, industry terms, data-driven arguments.\n`;
+        } else if (data.brand.voice.toLowerCase().includes('casual')) {
+            context += `→ Use conversational language, contractions, relatable examples.\n`;
+        }
+
+        if (data.brand.voice.toLowerCase().includes('humor')) {
+            context += `→ Add light humor, witty transitions, playful B-roll suggestions.\n`;
+        }
+
+        if (data.brand.voice.toLowerCase().includes('empowering')) {
+            context += `→ Use motivational language, action-oriented phrases, empowering messaging.\n`;
+        }
+
+        return context;
+    }
+
+    function buildValuePropMessaging() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.product?.valueProps || data.product.valueProps.length === 0) return '';
+
+        let context = '\n\n**VALUE PROPOSITIONS (weave into video messaging):**\n';
+        data.product.valueProps.forEach((vp, i) => {
+            context += `${i + 1}. ${vp}\n`;
+        });
+        context += `→ Highlight these benefits throughout the video script.\n`;
+        return context;
+    }
+
+    function buildProductDemoContext(videoType) {
+        if (videoType !== 'Product Demo' && videoType !== 'Explainer Video') return '';
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.product?.features || data.product.features.length === 0) return '';
+
+        let context = '\n\n**PRODUCT FEATURES FOR DEMO:**\n';
+        data.product.features.forEach((feature, i) => {
+            context += `${i + 1}. ${feature}\n`;
+        });
+        context += `→ Show these features in the demo with screen recordings or B-roll.\n`;
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine?.getContextBundle) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle?.completeness || 0;
+    }
 
     async function generateScript() {
         const videoType = document.getElementById('videoType').value;
@@ -488,8 +580,22 @@
             return;
         }
 
-        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\nBRAND CONTEXT: ${contextBundle.summary}` : '';
+        // Strategic Validation Warnings
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3) {
+            const alreadyWarned = sessionStorage.getItem('videoStudio_noIntel_warned');
+            if (!alreadyWarned) {
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-targeted scripts (audience-specific hooks, brand voice consistency, value prop messaging), configure:\n• ICP Definition (persona, pain points)\n• Brand Voice\n• Value Propositions\n\nProceed with generic script?`);
+                if (!proceed) return;
+                sessionStorage.setItem('videoStudio_noIntel_warned', 'true');
+            }
+        }
+
+        // Build Intelligence Layer Context
+        const icpContext = buildICPVideoAudienceContext();
+        const brandVoiceContext = buildBrandVoiceScriptTone();
+        const valuePropContext = buildValuePropMessaging();
+        const productContext = buildProductDemoContext(videoType);
 
         const userPrompt = `Create a complete production script for:
 
@@ -499,7 +605,10 @@ TARGET DURATION: ${duration}
 KEY MESSAGES:
 ${keyMessages || '• Not specified'}
 CALL TO ACTION: ${cta || 'Not specified'}
-${contextStr}
+${icpContext}
+${brandVoiceContext}
+${valuePropContext}
+${productContext}
 
 Produce a full production script including:
 1. HOOK (0–5 seconds): Attention-grabbing opening line
@@ -536,6 +645,27 @@ Format as a proper production script with clear section headers and timestamps.`
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+
+                        // Add video generation button if Tavus API available
+                        if (window.ApiConnector?.VideoGeneration?.tavus?.isAvailable()) {
+                            const videoGenBtn = document.createElement('div');
+                            videoGenBtn.style.cssText = 'margin-top:20px;padding:16px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:12px;';
+                            videoGenBtn.innerHTML = `
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div style="flex:1;">
+                                        <div style="font-weight:600;margin-bottom:4px;color:#a78bfa;">🎥 AI Video Generation Available</div>
+                                        <div style="font-size:13px;color:rgba(255,255,255,0.6);">Transform this script into an AI-generated video with Tavus</div>
+                                    </div>
+                                    <button onclick="generateAIVideo()" style="padding:10px 20px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:14px;">Generate Video</button>
+                                </div>
+                                <div id="videoGenStatus" style="margin-top:12px;display:none;"></div>
+                                <div id="videoPreview" style="margin-top:12px;display:none;"></div>
+                            `;
+                            outputBody.appendChild(videoGenBtn);
+                        }
+
+                        // Store script for video generation
+                        window.lastGeneratedScript = text;
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
@@ -563,6 +693,88 @@ Format as a proper production script with clear section headers and timestamps.`
             btn.classList.add('copied');
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         });
+    }
+
+    async function generateAIVideo() {
+        const scriptText = window.lastGeneratedScript;
+        if (!scriptText) {
+            alert('No script available. Generate a script first.');
+            return;
+        }
+
+        if (!window.ApiConnector?.VideoGeneration?.tavus?.isAvailable()) {
+            alert('⚠️ Tavus API not configured.\n\nAdd your Tavus API key in Settings → API Keys to generate AI videos.');
+            return;
+        }
+
+        const statusDiv = document.getElementById('videoGenStatus');
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Creating AI video...</div>';
+
+        try {
+            // Create video with Tavus API
+            const response = await window.ApiConnector.VideoGeneration.tavus.createVideo({
+                script: scriptText,
+                avatar_id: null, // Use default avatar (user can customize later)
+                voice_id: null,  // Use default voice
+                background_url: null
+            });
+
+            if (!response || !response.video_id) {
+                throw new Error('Failed to create video job');
+            }
+
+            const videoId = response.video_id;
+            statusDiv.innerHTML = `<div style="color:#10b981;">✓ Video job created (ID: ${videoId})</div><div style="color:rgba(255,255,255,0.6);margin-top:4px;">Rendering... This may take 2-5 minutes.</div>`;
+
+            // Poll for video completion
+            pollVideoStatus(videoId);
+
+        } catch (error) {
+            statusDiv.innerHTML = `<div style="color:#f87171;">❌ Error: ${error.message}</div><div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">Check your Tavus API configuration in Settings.</div>`;
+        }
+    }
+
+    async function pollVideoStatus(videoId, attempts = 0) {
+        const maxAttempts = 60; // 5 minutes max (5s intervals)
+        const statusDiv = document.getElementById('videoGenStatus');
+        const previewDiv = document.getElementById('videoPreview');
+
+        if (attempts >= maxAttempts) {
+            statusDiv.innerHTML = '<div style="color:#f87171;">❌ Video generation timed out. Check Tavus dashboard for status.</div>';
+            return;
+        }
+
+        try {
+            const status = await window.ApiConnector.VideoGeneration.tavus.getVideoStatus(videoId);
+
+            if (status.status === 'completed' && status.download_url) {
+                // Video ready!
+                statusDiv.innerHTML = '<div style="color:#10b981;font-weight:600;">✓ Video generated successfully!</div>';
+                previewDiv.style.display = 'block';
+                previewDiv.innerHTML = `
+                    <video controls style="width:100%;max-width:600px;border-radius:8px;margin-top:8px;">
+                        <source src="${status.download_url}" type="video/mp4">
+                        Your browser does not support video playback.
+                    </video>
+                    <div style="margin-top:8px;">
+                        <a href="${status.download_url}" download style="display:inline-block;padding:8px 16px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Download Video</a>
+                    </div>
+                `;
+            } else if (status.status === 'failed') {
+                statusDiv.innerHTML = `<div style="color:#f87171;">❌ Video generation failed: ${status.error || 'Unknown error'}</div>`;
+            } else {
+                // Still processing
+                const progress = status.progress || Math.min(attempts * 2, 90);
+                statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering... ${progress}%</div>`;
+
+                // Poll again in 5 seconds
+                setTimeout(() => pollVideoStatus(videoId, attempts + 1), 5000);
+            }
+
+        } catch (error) {
+            statusDiv.innerHTML = `<div style="color:#f87171;">❌ Error checking status: ${error.message}</div>`;
+        }
     }
 
     // Enter key shortcut
