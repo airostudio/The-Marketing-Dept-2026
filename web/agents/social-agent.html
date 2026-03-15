@@ -255,37 +255,188 @@ class SocialAgent {
             const bundle = this.intelligenceEngine.getContextBundle();
             if (bundle && bundle.isReady) {
                 document.getElementById('intelligenceBadge').style.display = 'inline-flex';
+                this._loadICP();
+                this._loadBrandVoice();
             }
         }
     }
 
-    buildSystemPrompt(platform, contextBundle) {
+    _loadICP() {
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.persona) {
+                const topicField = document.getElementById('topic');
+                if (!topicField.value) {
+                    topicField.placeholder = `e.g., ${data.icp.persona} struggles with ${(data.icp.painPoints && data.icp.painPoints[0]) || 'their challenges'}...`;
+                }
+            }
+        }
+    }
+
+    _loadBrandVoice() {
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.voice && data.voice.tone) {
+                // Visual indicator that brand voice is active
+                const badge = document.getElementById('intelligenceBadge');
+                if (badge) {
+                    badge.title = `Brand Voice: ${data.voice.tone}`;
+                }
+            }
+        }
+    }
+
+    buildICPSocialHooks(contextBundle) {
+        let hooks = '';
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp) {
+                const icp = data.icp;
+                hooks += `\n\n**ICP-Specific Social Hooks:**\n`;
+                hooks += `Your target audience is: ${icp.persona || 'professionals'}\n\n`;
+
+                if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
+                    const painPoints = icp.painPoints.filter(p => p);
+                    hooks += `**Pain Point Hooks (scroll-stoppers):**\n`;
+                    painPoints.forEach((pain, i) => {
+                        hooks += `${i + 1}. Hook with: "Still ${pain}?" or "What if you could eliminate ${pain}?"\n`;
+                    });
+                    hooks += `\n`;
+                }
+
+                if (icp.language && icp.language.length > 0) {
+                    hooks += `**Audience Language Patterns:**\n`;
+                    hooks += `Your ICP describes their problems using:\n`;
+                    icp.language.forEach(lang => {
+                        hooks += `- "${lang}"\n`;
+                    });
+                    hooks += `Mirror this language in your hooks and copy.\n\n`;
+                }
+
+                if (icp.buyerJourney) {
+                    hooks += `**Content by Buyer Journey Stage:**\n`;
+                    if (icp.buyerJourney.awareness) {
+                        hooks += `- Awareness: "${icp.buyerJourney.awareness}" → Problem amplification posts\n`;
+                    }
+                    if (icp.buyerJourney.consideration) {
+                        hooks += `- Consideration: "${icp.buyerJourney.consideration}" → Solution comparison posts\n`;
+                    }
+                    if (icp.buyerJourney.decision) {
+                        hooks += `- Decision: "${icp.buyerJourney.decision}" → Social proof & case study posts\n`;
+                    }
+                    hooks += `\n`;
+                }
+            }
+        }
+        return hooks;
+    }
+
+    buildBrandVoiceGuidelines(contextBundle) {
+        let voice = '';
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.voice) {
+                voice += `\n\n**Brand Voice Guidelines:**\n`;
+                if (data.voice.tone) {
+                    voice += `Tone: ${data.voice.tone}\n`;
+                }
+                if (data.voice.style && data.voice.style.length > 0) {
+                    voice += `Style attributes: ${data.voice.style.join(', ')}\n`;
+                }
+                if (data.voice.avoid && data.voice.avoid.length > 0) {
+                    voice += `Avoid: ${data.voice.avoid.join(', ')}\n`;
+                }
+                voice += `Apply this voice consistently across all social posts.\n`;
+            }
+        }
+        return voice;
+    }
+
+    buildValuePropMessaging(contextBundle) {
+        let valueProp = '';
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.product && data.product.valueProps && data.product.valueProps.length > 0) {
+                valueProp += `\n\n**Value Proposition Messaging:**\n`;
+                valueProp += `When appropriate, weave in these value propositions:\n`;
+                data.product.valueProps.forEach((vp, i) => {
+                    valueProp += `${i + 1}. ${vp}\n`;
+                });
+                valueProp += `Translate these into benefit-focused social copy.\n`;
+            }
+        }
+        return valueProp;
+    }
+
+    buildCompetitiveDifferentiation(contextBundle) {
+        let competitive = '';
+        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
+            const competitors = this.intelligenceEngine.radar.getAll();
+            if (competitors && competitors.length > 0) {
+                competitive += `\n\n**Competitive Differentiation:**\n`;
+                competitive += `We compete with: ${competitors.map(c => c.name).join(', ')}\n`;
+                competitive += `When creating thought leadership content, subtly differentiate without directly naming competitors.\n`;
+                competitive += `Focus on what makes us unique and better.\n`;
+            }
+        }
+        return competitive;
+    }
+
+    buildPlatformContentStrategy(platform, contextBundle) {
         const platformGuides = {
-            'LinkedIn': 'LinkedIn posts: professional but personal, 800-1500 chars ideal, start with bold hook, use line breaks for readability, end with question or insight. No hashtag stuffing — 3-5 max. Personal stories outperform corporate speak.',
-            'Twitter/X': 'Twitter/X posts: punchy and direct, under 280 chars (or thread format). Hook must land in first 5 words. Use threads for depth. Contrarian takes and data points get engagement. 1-2 hashtags max.',
-            'Instagram': 'Instagram: visual-first storytelling. Caption starts with a hook (first line is all they see). Use line breaks generously. End with CTA. 10-15 hashtags in first comment or below. Emoji sparingly for emphasis.',
-            'TikTok': 'TikTok: script-style content. Hook in first 3 seconds of video. Structure: Hook → Problem → Story/Value → CTA. Write as a spoken script. Trending sounds and formats help. Keep under 60 seconds.',
-            'Facebook': 'Facebook: community-focused, conversational tone. Questions drive comments. Longer posts with genuine storytelling work well. Link previews matter — write with them in mind.',
-            'All Platforms': 'Generate platform-adapted versions for LinkedIn, Twitter/X, and Instagram for each piece of content.'
+            'LinkedIn': `\n\n**LinkedIn Strategy:**\nProfessional but personal, 800-1500 chars ideal. Start with bold hook. Use line breaks for readability. End with question or insight. No hashtag stuffing — 3-5 max. Personal stories outperform corporate speak.`,
+            'Twitter/X': `\n\n**Twitter/X Strategy:**\nPunchy and direct, under 280 chars (or thread format). Hook must land in first 5 words. Use threads for depth. Contrarian takes and data points get engagement. 1-2 hashtags max.`,
+            'Instagram': `\n\n**Instagram Strategy:**\nVisual-first storytelling. Caption starts with a hook (first line is all they see). Use line breaks generously. End with CTA. 10-15 hashtags in first comment or below. Emoji sparingly for emphasis.`,
+            'TikTok': `\n\n**TikTok Strategy:**\nScript-style content. Hook in first 3 seconds of video. Structure: Hook → Problem → Story/Value → CTA. Write as a spoken script. Trending sounds and formats help. Keep under 60 seconds.`,
+            'Facebook': `\n\n**Facebook Strategy:**\nCommunity-focused, conversational tone. Questions drive comments. Longer posts with genuine storytelling work well. Link previews matter — write with them in mind.`,
+            'All Platforms': `\n\n**Multi-Platform Strategy:**\nGenerate platform-adapted versions for LinkedIn, Twitter/X, and Instagram for each piece of content. Adjust tone, length, and format for each platform's algorithm and audience expectations.`
         };
 
-        let prompt = `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.
+        return platformGuides[platform] || platformGuides['LinkedIn'];
+    }
 
-${platformGuides[platform] || platformGuides['LinkedIn']}
-
-Format each post clearly:
-## Post N — [Day/Date if calendar format] — [Post Title]
-**Hook:** [First line]
-[Full post copy]
-**Hashtags:** #...
-**Posting Time:** [Best time to post]
-**Engagement Note:** [Why this should perform well]
-
-Separate posts with horizontal rules. Include a content strategy overview at the top.`;
-
-        if (contextBundle && contextBundle.isReady) {
-            prompt += `\n\nBrand intelligence context:\n${JSON.stringify(contextBundle).substring(0, 500)}`;
+    buildHashtagStrategy(contextBundle) {
+        let hashtags = '';
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.language && data.icp.language.length > 0) {
+                hashtags += `\n\n**Hashtag Strategy:**\n`;
+                hashtags += `Base hashtags on ICP language patterns:\n`;
+                data.icp.language.slice(0, 3).forEach(lang => {
+                    const hashtagSuggestion = lang.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+                    hashtags += `- Consider: #${hashtagSuggestion}\n`;
+                });
+                hashtags += `Mix with industry-standard hashtags for reach.\n`;
+            }
         }
+        return hashtags;
+    }
+
+    buildSystemPrompt(platform, contextBundle) {
+        let prompt = `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.`;
+
+        // Platform-specific strategy
+        prompt += this.buildPlatformContentStrategy(platform, contextBundle);
+
+        // Intelligence Layer integration
+        prompt += this.buildICPSocialHooks(contextBundle);
+        prompt += this.buildBrandVoiceGuidelines(contextBundle);
+        prompt += this.buildValuePropMessaging(contextBundle);
+        prompt += this.buildCompetitiveDifferentiation(contextBundle);
+        prompt += this.buildHashtagStrategy(contextBundle);
+
+        // Output format
+        prompt += `\n\n**Output Format:**\nFormat each post clearly:\n## Post N — [Day/Date if calendar format] — [Post Title]\n**Hook:** [First line]\n[Full post copy]\n**Hashtags:** #...\n**Posting Time:** [Best time to post]\n**Engagement Note:** [Why this should perform well]\n\nSeparate posts with horizontal rules. Include a content strategy overview at the top.`;
+
+        // Strategic validation
+        if (!contextBundle || !contextBundle.isReady || contextBundle.completeness < 0.3) {
+            prompt += `\n\n⚠️ **STRATEGIC WARNING:** BusinessBrain Intelligence Layer is ${contextBundle ? Math.round(contextBundle.completeness * 100) : 0}% complete. For maximum engagement, configure:\n`;
+            if (!contextBundle || !contextBundle.icp) prompt += `- ICP (Ideal Customer Profile) in Brand Intelligence\n`;
+            if (!contextBundle || !contextBundle.voice) prompt += `- Brand Voice in Brand Intelligence\n`;
+            if (!contextBundle || !contextBundle.product) prompt += `- Value Propositions in Product Marketing\n`;
+            prompt += `\nWithout this context, posts may lack ICP targeting and brand consistency.`;
+        }
+
         return prompt;
     }
 
