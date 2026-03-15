@@ -9,17 +9,9 @@ const ClaudeService = (() => {
   'use strict';
 
   const MODEL = 'claude-sonnet-4-6';
-  const API_URL = 'https://api.anthropic.com/v1/messages';
+  // Use Vercel serverless function endpoint (secure, server-side API key)
+  const API_URL = '/api/claude';
   const MAX_TOKENS = 4096;
-
-  function getApiKey() {
-    return (
-      window.CLAUDE_API_KEY ||
-      (window.APP_CONFIG && window.APP_CONFIG.CLAUDE_API_KEY) ||
-      localStorage.getItem('claude_api_key') ||
-      ''
-    );
-  }
 
   /**
    * Stream a response from Claude into a DOM element.
@@ -34,8 +26,6 @@ const ClaudeService = (() => {
    * @returns {Promise<string>}            – resolves with full response text
    */
   async function streamResponse({ systemPrompt, messages, outputEl, onStart, onChunk, onDone, onError }) {
-    const apiKey = getApiKey();
-
     if (outputEl) outputEl.textContent = '';
 
     let fullText = '';
@@ -51,21 +41,14 @@ const ClaudeService = (() => {
       };
       if (systemPrompt) body.system = systemPrompt;
 
-      let response;
-      if (apiKey) {
-        response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify(body),
-        });
-      } else {
-        throw new Error('No Claude API key configured. Add your key via Settings or set window.CLAUDE_API_KEY.');
-      }
+      // Call secure Vercel API endpoint (API key handled server-side)
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -120,23 +103,19 @@ const ClaudeService = (() => {
    * @returns {Promise<string>}
    */
   async function callAgent({ systemPrompt, messages }) {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('No Claude API key configured.');
-
     const body = {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       messages: messages || [],
+      stream: false,
     };
     if (systemPrompt) body.system = systemPrompt;
 
+    // Call secure Vercel API endpoint (API key handled server-side)
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify(body),
     });
@@ -150,15 +129,7 @@ const ClaudeService = (() => {
     return data.content?.[0]?.text || '';
   }
 
-  /**
-   * Set API key at runtime.
-   */
-  function setApiKey(key) {
-    window.CLAUDE_API_KEY = key;
-    localStorage.setItem('claude_api_key', key);
-  }
-
-  return { streamResponse, callAgent, setApiKey, getApiKey };
+  return { streamResponse, callAgent };
 })();
 
 window.ClaudeService = ClaudeService;
