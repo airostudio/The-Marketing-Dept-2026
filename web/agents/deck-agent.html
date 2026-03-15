@@ -126,6 +126,13 @@
     </div>
 </section>
 
+<div style="max-width:1100px;margin:0 auto;padding:0 32px 24px;">
+    <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);padding:16px 20px;border-radius:12px;font-size:13px;line-height:1.6;">
+        <div style="font-weight:700;margin-bottom:6px;color:#60a5fa;">📊 Deck Structure Generator</div>
+        <div style="color:rgba(255,255,255,0.8);">This tool generates <strong>text-based deck structures</strong> (slide outlines with speaker notes, visual recommendations, and narrative arc). For <strong>editable PowerPoint (.pptx) files with visual design</strong>, export this structure to PowerPoint, Google Slides, or use with design tools like Canva/Figma.</div>
+    </div>
+</div>
+
 <div class="main-wrap">
 
     <!-- INPUT PANEL -->
@@ -233,11 +240,198 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/claude-service.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion.`;
+    const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion. When company intelligence (value prop, ICP, competitors, metrics) is provided, use it to create company-specific content — not generic placeholders. Tailor tone and messaging to the target audience (investors want ROI/traction, customers want benefits/proof, board wants strategy/metrics).`;
 
     (function checkIntel() {
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
     })();
+
+    // Intelligence Layer Builders
+    function buildValuePropContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.value_prop) return '';
+
+        let context = '\n\n**VALUE PROPOSITION CONTEXT:**\n';
+        context += `Value Prop: ${data.value_prop}\n`;
+        context += `\n**Use this to frame:**\n`;
+        context += `- Problem slide (what pain point does this address?)\n`;
+        context += `- Solution slide (how does value prop solve the problem?)\n`;
+        context += `- Key message reinforcement throughout deck\n`;
+
+        return context;
+    }
+
+    function buildICPAudienceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.icp) return '';
+
+        let context = '\n\n**ICP AUDIENCE CONTEXT:**\n';
+        context += `Target ICP: ${data.icp.persona}\n`;
+
+        if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
+            context += `\n**Enterprise B2B Deck Guidelines:**\n`;
+            context += `- Lead with ROI and business impact\n`;
+            context += `- Include security, compliance, scalability slides\n`;
+            context += `- Use data-driven proof (metrics, case studies)\n`;
+            context += `- Professional, formal tone in speaker notes\n`;
+        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('smb')) {
+            context += `\n**SMB Deck Guidelines:**\n`;
+            context += `- Lead with ease of use and quick time-to-value\n`;
+            context += `- Keep it simple and actionable\n`;
+            context += `- Pricing transparency important\n`;
+            context += `- Friendly, approachable tone\n`;
+        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('consumer')) {
+            context += `\n**B2C Deck Guidelines:**\n`;
+            context += `- Lead with emotional benefit and lifestyle impact\n`;
+            context += `- Visual storytelling over data\n`;
+            context += `- Social proof (user testimonials, ratings)\n`;
+            context += `- Conversational, engaging tone\n`;
+        }
+
+        return context;
+    }
+
+    function buildCompetitivePositioningContext() {
+        if (!window.IntelligenceEngine?.radar) return '';
+        const data = window.IntelligenceEngine.radar.load();
+        if (!data?.competitors || data.competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITIVE POSITIONING CONTEXT:**\n';
+        context += `Known Competitors: ${data.competitors.map(c => c.name).join(', ')}\n`;
+
+        if (data.positioning) {
+            context += `\nOur Positioning: ${data.positioning}\n`;
+        }
+
+        context += `\n**Competitive Slide Recommendations:**\n`;
+        context += `- Create a differentiation slide showing why we're different/better\n`;
+        context += `- Include competitive matrix or comparison table\n`;
+        context += `- Focus on unique capabilities competitors lack\n`;
+        context += `- Avoid direct competitor bashing (professional comparison only)\n`;
+
+        return context;
+    }
+
+    function buildBrandVoiceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.brand?.voice) return '';
+
+        let context = '\n\n**BRAND VOICE CONTEXT:**\n';
+        context += `Brand Voice: ${data.brand.voice}\n`;
+        context += `\n**Apply to speaker notes:**\n`;
+
+        if (data.brand.voice.toLowerCase().includes('professional') || data.brand.voice.toLowerCase().includes('formal')) {
+            context += `- Use formal, professional language\n`;
+            context += `- Avoid slang and casual expressions\n`;
+            context += `- Data-driven, authoritative tone\n`;
+        } else if (data.brand.voice.toLowerCase().includes('friendly') || data.brand.voice.toLowerCase().includes('casual')) {
+            context += `- Use conversational, approachable language\n`;
+            context += `- OK to use analogies and storytelling\n`;
+            context += `- Warm, human tone\n`;
+        }
+
+        return context;
+    }
+
+    function buildIndustryMarketContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.industry) return '';
+
+        let context = '\n\n**INDUSTRY & MARKET CONTEXT:**\n';
+        context += `Industry: ${data.industry}\n`;
+        context += `\n**Market Opportunity Slide:**\n`;
+        context += `- Include ${data.industry} market size (TAM/SAM/SOM)\n`;
+        context += `- Industry growth trends and drivers\n`;
+        context += `- Key pain points in ${data.industry}\n`;
+        context += `- Regulatory or technology shifts creating opportunity\n`;
+
+        return context;
+    }
+
+    function buildSocialProofContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+
+        let context = '';
+        let hasSocialProof = false;
+
+        if (data?.customers && data.customers.length > 0) {
+            context += '\n\n**SOCIAL PROOF - CUSTOMER LOGOS:**\n';
+            context += `Featured Customers: ${data.customers.slice(0, 10).join(', ')}\n`;
+            context += `\n**Traction Slide:**\n`;
+            context += `- Include customer logo slide\n`;
+            context += `- Highlight notable brands or enterprise customers\n`;
+            hasSocialProof = true;
+        }
+
+        if (data?.testimonials && data.testimonials.length > 0) {
+            context += '\n\n**SOCIAL PROOF - TESTIMONIALS:**\n';
+            context += `${data.testimonials.length} testimonials available\n`;
+            context += `\n**Use in:**\n`;
+            context += `- Customer success slide (quote + attribution)\n`;
+            context += `- Problem validation (customer describing pain point)\n`;
+            hasSocialProof = true;
+        }
+
+        if (data?.case_studies && data.case_studies.length > 0) {
+            context += '\n\n**SOCIAL PROOF - CASE STUDIES:**\n';
+            context += `${data.case_studies.length} case studies available\n`;
+            context += `\n**Use in:**\n`;
+            context += `- Proof slide (before/after metrics)\n`;
+            context += `- Industry-specific success stories\n`;
+            hasSocialProof = true;
+        }
+
+        return hasSocialProof ? context : '';
+    }
+
+    function buildMetricsContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+
+        let context = '';
+        let hasMetrics = false;
+
+        if (data?.metrics) {
+            context += '\n\n**COMPANY METRICS (for traction slide):**\n';
+
+            if (data.metrics.arr || data.metrics.revenue) {
+                context += `- Revenue/ARR: ${data.metrics.arr || data.metrics.revenue}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.growth_rate) {
+                context += `- Growth Rate: ${data.metrics.growth_rate}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.customers || data.metrics.users) {
+                context += `- Customers/Users: ${data.metrics.customers || data.metrics.users}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.retention) {
+                context += `- Retention Rate: ${data.metrics.retention}\n`;
+                hasMetrics = true;
+            }
+        }
+
+        if (hasMetrics) {
+            context += `\n**Use in traction slide to show momentum**\n`;
+        }
+
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine?.getContextBundle) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle?.completeness || 0;
+    }
 
     async function buildDeck() {
         const deckType = document.getElementById('deckType').value;
@@ -252,8 +446,29 @@
             return;
         }
 
+        // Strategic Validation Warnings
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3) {
+            const alreadyWarned = sessionStorage.getItem('deckMaker_noIntel_warned');
+            if (!alreadyWarned) {
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor company-specific decks (value prop slides, competitive positioning, customer logos, metrics), configure:\n• Value Proposition\n• ICP Definition\n• Competitor Data\n• Customer List\n• Company Metrics\n\nProceed with generic deck structure?`);
+                if (!proceed) return;
+                sessionStorage.setItem('deckMaker_noIntel_warned', 'true');
+            }
+        }
+
+        // Build Intelligence Layer Context
+        const valuePropContext = buildValuePropContext();
+        const icpAudienceContext = buildICPAudienceContext();
+        const competitiveContext = buildCompetitivePositioningContext();
+        const brandVoiceContext = buildBrandVoiceContext();
+        const marketContext = buildIndustryMarketContext();
+        const socialProofContext = buildSocialProofContext();
+        const metricsContext = buildMetricsContext();
+
+        // Legacy summary (keep for backward compatibility)
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\nCOMPANY CONTEXT: ${contextBundle.summary}` : '';
+        const contextStr = contextBundle.summary ? `\n\n**COMPANY CONTEXT:** ${contextBundle.summary}` : '';
 
         const userPrompt = `Create a complete ${deckType} deck structure:
 
@@ -265,6 +480,13 @@ NUMBER OF SLIDES: ${slideCount}
 KEY DATA POINTS:
 ${dataPoints || 'None provided — use placeholder examples'}
 ${contextStr}
+${valuePropContext}
+${icpAudienceContext}
+${competitiveContext}
+${brandVoiceContext}
+${marketContext}
+${socialProofContext}
+${metricsContext}
 
 For each of the ${slideCount} slides, provide:
 **Slide [N]: [TITLE]**
