@@ -141,6 +141,9 @@
                 <label class="field-label">Task</label>
                 <select class="field-select" id="task">
                     <option value="Competitor Analysis">Competitor Analysis</option>
+                    <option value="SEO Keyword Gap Analysis">SEO Keyword Gap Analysis</option>
+                    <option value="Content Gap & Traffic Opportunities">Content Gap & Traffic Opportunities</option>
+                    <option value="Search Intent Analysis">Search Intent Analysis</option>
                     <option value="Messaging Comparison">Messaging Comparison</option>
                     <option value="Pricing Analysis">Pricing Analysis</option>
                     <option value="Product Gap Analysis">Product Gap Analysis</option>
@@ -214,11 +217,96 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/claude-service.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a competitive intelligence analyst. Provide deep analysis of competitor positioning, messaging, and strategy. Identify: what they're emphasizing and why, gaps in their positioning you can exploit, messaging angles they're NOT using, recent strategic shifts and implications, and battlecard-ready talking points. Always suggest a concrete countermove.`;
+    const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
 
     (function checkIntel() {
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
     })();
+
+    // Intelligence Layer Context Builders
+    function buildICPCompetitiveContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.icp) return '';
+
+        let context = '\n\n**ICP COMPETITIVE CONTEXT:**\n';
+        context += `Our Target Persona: ${data.icp.persona || 'Not defined'}\n`;
+        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+            context += `Their Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+        }
+        if (data.icp.language && data.icp.language.length > 0) {
+            context += `\n**ICP Search Language Patterns:**\n`;
+            data.icp.language.forEach(lang => {
+                context += `- "${lang}"\n`;
+            });
+            context += `→ Generate keywords that match how our ICP searches.\n`;
+        }
+        if (data.icp.firmographics) {
+            context += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
+        }
+        context += `→ Identify which competitors best address these pain points.\n`;
+        context += `→ Find positioning gaps where our ICP is underserved.\n`;
+        return context;
+    }
+
+    function buildValuePropDifferentiation() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.product || !data.product.valueProps) return '';
+
+        let context = '\n\n**VALUE PROP DIFFERENTIATION:**\n';
+        data.product.valueProps.forEach((vp, i) => {
+            context += `${i + 1}. ${vp}\n`;
+        });
+        context += `→ Compare these value props against competitor claims.\n`;
+        context += `→ Identify which value props are unique (differentiation opportunities).\n`;
+        context += `→ Suggest keywords that emphasize our unique value props.\n`;
+        return context;
+    }
+
+    function buildCompetitiveRadarContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.radar) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll();
+        if (!competitors || competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITORS ALREADY TRACKED IN RADAR:**\n';
+        competitors.forEach(comp => {
+            context += `- ${comp.name}`;
+            if (comp.website) context += ` (${comp.website})`;
+            context += `\n`;
+            if (comp.strengths && comp.strengths.length > 0) {
+                context += `  Strengths: ${comp.strengths.join(', ')}\n`;
+            }
+            if (comp.weaknesses && comp.weaknesses.length > 0) {
+                context += `  Weaknesses: ${comp.weaknesses.join(', ')}\n`;
+            }
+        });
+        context += `→ Use this existing intelligence to enhance your analysis.\n`;
+        context += `→ Identify SEO keyword gaps where they're strong and we're weak.\n`;
+        return context;
+    }
+
+    function buildProductGapContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.product) return '';
+
+        let context = '\n\n**OUR PRODUCT POSITIONING:**\n';
+        if (data.product.name) context += `Product: ${data.product.name}\n`;
+        if (data.product.category) context += `Category: ${data.product.category}\n`;
+        if (data.product.features && data.product.features.length > 0) {
+            context += `Key Features: ${data.product.features.join(', ')}\n`;
+        }
+        context += `→ Compare our feature set against competitors for product gap analysis.\n`;
+        context += `→ Suggest content keywords for features we have that competitors lack.\n`;
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle ? (bundle.completeness || 0) : 0;
+    }
 
     async function runAnalysis() {
         const task = document.getElementById('task').value;
@@ -232,8 +320,29 @@
             return;
         }
 
-        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\nYOUR COMPANY CONTEXT FROM INTELLIGENCE LAYER: ${contextBundle.summary}` : '';
+        // Strategic Validation: SEO APIs
+        const hasSEOTools = window.ApiConnector?.SEOTools?.ahrefs?.isAvailable() ||
+                           window.ApiConnector?.SEOTools?.semrush?.isAvailable();
+
+        if (!hasSEOTools && !sessionStorage.getItem('competitive-seo-warning-dismissed')) {
+            const proceed = confirm('⚠️ SEO APIs (Ahrefs, SEMrush) not configured.\n\nFor keyword gap analysis, backlink data, and traffic potential scoring, configure SEO tool APIs in Settings → API Keys.\n\nProceed with messaging/positioning analysis only?');
+            if (!proceed) return;
+            sessionStorage.setItem('competitive-seo-warning-dismissed', 'true');
+        }
+
+        // Strategic Validation: Intelligence Layer
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3 && !sessionStorage.getItem('competitive-intelligence-warning-dismissed')) {
+            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific competitive analysis with keyword suggestions matching your ICP's search patterns, configure:\n• ICP Definition (persona, pain points, search language)\n• Value Propositions\n• Competitive Radar\n\nProceed with generic analysis?`);
+            if (!proceed) return;
+            sessionStorage.setItem('competitive-intelligence-warning-dismissed', 'true');
+        }
+
+        // Build Intelligence Layer Context
+        let intelligenceContext = buildICPCompetitiveContext();
+        intelligenceContext += buildValuePropDifferentiation();
+        intelligenceContext += buildCompetitiveRadarContext();
+        intelligenceContext += buildProductGapContext();
 
         const userPrompt = `TASK: ${task}
 
@@ -244,11 +353,11 @@ YOUR COMPANY / PRODUCT:
 ${yourBrief || 'Not specified — analyze competitor strategy independently'}
 
 FOCUS AREA: ${focusArea || 'General competitive landscape'}
-${contextStr}
+${intelligenceContext}
 
 ${recentActivity ? `RECENT COMPETITOR ACTIVITY TO ANALYZE:\n${recentActivity}` : ''}
 
-Please provide:
+Please provide comprehensive analysis to maximize traffic potential:
 
 ## COMPETITOR SNAPSHOT
 For each competitor: what they emphasize, their core ICP, pricing positioning, key differentiators, and perceived weaknesses.
@@ -269,8 +378,28 @@ Compare all competitors across these axes (describe the landscape clearly):
 ## GAPS & OPPORTUNITIES
 Top 3-5 specific positioning gaps you can move into and own immediately.
 
+## AI-POWERED KEYWORD SUGGESTIONS (TO MAXIMIZE TRAFFIC POTENTIAL)
+For each competitor:
+- **High-Volume Keywords** they likely rank for (5-10 keywords with estimated monthly search volume)
+- **Low-Competition Opportunities** keywords they're NOT targeting effectively
+- **Search Intent Classification** (informational, commercial, transactional for each keyword)
+- **Traffic Potential Score** (estimate 1-100 based on volume and difficulty)
+- **Content Gap Keywords** keywords they rank for that we should target
+- **Question Keywords** (People Also Ask opportunities related to their content)
+- **ICP Search Language Match** keywords that match our ICP's search patterns (if ICP provided above)
+
+## SEARCH INTENT ANALYSIS
+For key competitive keywords:
+- Awareness stage keywords (informational intent)
+- Consideration stage keywords (commercial investigation)
+- Decision stage keywords (transactional intent)
+- Navigation keywords (branded searches)
+
+Map these to our buyer journey stages if ICP context provided.
+
 ## STRATEGIC COUNTERMOVES
-Concrete actions (messaging, product emphasis, pricing, content, sales) to respond to competitor moves and gain ground.
+Concrete actions (messaging, product emphasis, pricing, content, sales, SEO) to respond to competitor moves and gain ground.
+Include specific keyword targets and content recommendations to capture traffic.
 
 ## BATTLECARD
 For each competitor, sales-ready format:
