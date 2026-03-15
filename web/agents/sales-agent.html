@@ -202,6 +202,9 @@ class SalesAgent {
         this.claudeService = window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
+        this._loadICP();
+        this._loadValueProp();
+        this._loadPainPoints();
     }
 
     _checkIntelligence() {
@@ -213,14 +216,314 @@ class SalesAgent {
         }
     }
 
-    buildSystemPrompt(contextBundle) {
-        let prompt = `You are a B2B sales intelligence expert. Create targeted outreach strategies that feel personal, not spammy. Focus on: ICP precision, multi-touch cadences, personalization at scale, and objection handling. Every message should reference a specific pain point and offer a concrete value.
+    _loadICP() {
+        // Auto-populate target role and industry from BusinessBrain ICP firmographics
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.primaryBuyer) {
+                const buyer = data.icp.primaryBuyer;
 
-Format your output as clean markdown with clear sections. Include specific message copy (not just frameworks), timing recommendations, and personalization variables in [brackets]. Be actionable and concrete.`;
-        if (contextBundle && contextBundle.isReady) {
-            prompt += `\n\nCompetitive intelligence available:\n${JSON.stringify(contextBundle).substring(0, 500)}`;
+                // Auto-populate target role
+                if (buyer.role) {
+                    const roleInput = document.getElementById('targetRole');
+                    let roleText = buyer.role;
+                    if (buyer.companySize) roleText += ` at ${buyer.companySize} companies`;
+                    roleInput.value = `✨ ${roleText} (from BusinessBrain ICP)`;
+                    roleInput.style.color = '#10b981';
+                }
+
+                // Auto-populate industry
+                if (buyer.industry) {
+                    const industryInput = document.getElementById('industry');
+                    let industryText = buyer.industry;
+                    if (buyer.revenue) industryText += `, ${buyer.revenue}`;
+                    if (buyer.location) industryText += `, ${buyer.location}`;
+                    industryInput.value = `✨ ${industryText} (from BusinessBrain ICP)`;
+                    industryInput.style.color = '#10b981';
+                }
+            }
         }
+    }
+
+    _loadValueProp() {
+        // Auto-populate value proposition from BusinessBrain
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.positioning) {
+                const textarea = document.getElementById('valueProp');
+                let valuePropText = data.positioning;
+
+                if (data.valueProp && data.valueProp.primaryBenefit) {
+                    valuePropText += ` — ${data.valueProp.primaryBenefit}`;
+                }
+
+                textarea.value = `✨ ${valuePropText} (from BusinessBrain)`;
+                textarea.style.color = '#10b981';
+            }
+        }
+    }
+
+    _loadPainPoints() {
+        // Auto-populate pain points from BusinessBrain ICP
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.painPoints) {
+                const painPoints = data.icp.painPoints.filter(p => p);
+                if (painPoints.length > 0) {
+                    const textarea = document.getElementById('painPoints');
+                    textarea.value = `✨ ${painPoints.join('. ')} (from BusinessBrain ICP)`;
+                    textarea.style.color = '#10b981';
+                }
+            }
+        }
+    }
+
+    buildSystemPrompt(contextBundle) {
+        let prompt = `You are an expert B2B sales intelligence strategist for Audema Sales Intelligence.
+
+## Your Role
+Create data-driven outreach strategies that:
+1. Use firmographic targeting to identify high-value prospects
+2. Map buyer intent signals to multi-touch cadence timing
+3. Personalize outreach with pain-specific hooks and market signals
+4. Increase qualified pipeline by 30-50% through precise ICP targeting
+5. Leverage technographic and competitive intelligence
+
+## Output Format
+- Use clean markdown with ## headers for sections
+- Include **specific message copy** (not just frameworks)
+- Use [personalization variables] in brackets
+- Provide timing recommendations (Day 0, Day 3, Day 7, etc.)
+- Include firmographic filters and qualification scoring
+- Add personalization trigger library
+- Estimate expected pipeline lift
+
+`;
+
+        if (contextBundle && contextBundle.isReady) {
+            // BUSINESS CONTEXT — ICP firmographics, buyer journey, pain points
+            if (contextBundle.businessContext) {
+                prompt += `\n## BUSINESS CONTEXT (Sales Intelligence Foundation)\n${contextBundle.businessContext}\n\n`;
+                prompt += `**Sales Intelligence Instructions:**\n`;
+                prompt += `- Extract ICP firmographics (company size, revenue, industry) → prospect qualification criteria\n`;
+                prompt += `- Map buyer journey stages to multi-touch cadence timing (awareness = 5-7 day intervals, decision = 1-3 day intervals)\n`;
+                prompt += `- Use ICP pain points as cold outreach hooks ("I noticed you're likely struggling with [pain]")\n`;
+                prompt += `- Reference ICP language in personalization ("Most [role] at [company size] companies tell us...")\n`;
+                prompt += `- Align outreach CTA with business objectives (Q1 focus determines demo vs trial vs event CTA)\n\n`;
+            }
+
+            // COMPETITIVE LANDSCAPE — competitive positioning, differentiation
+            if (contextBundle.competitiveLandscape) {
+                prompt += `## COMPETITIVE INTELLIGENCE (Sales Positioning)\n${contextBundle.competitiveLandscape}\n\n`;
+                prompt += `**Competitive Positioning Instructions:**\n`;
+                prompt += `- Use competitor positioning to infer technographic data (tools prospects likely use)\n`;
+                prompt += `- Create competitive displacement angles ("Many [role]s switch from [Competitor X] to us for [differentiator]")\n`;
+                prompt += `- Reference competitor moves as personalization triggers ("Noticed [Competitor] just raised prices...")\n`;
+                prompt += `- Emphasize differentiators that competitors lack\n\n`;
+            }
+
+            // MARKET SIGNALS — personalization triggers, timely hooks
+            if (contextBundle.marketSignals) {
+                prompt += `## MARKET SIGNALS (Personalization Triggers)\n${contextBundle.marketSignals}\n\n`;
+                prompt += `**Personalization Trigger Instructions:**\n`;
+                prompt += `- Use market signals as outreach hooks ("With [trend] dominating [industry]...")\n`;
+                prompt += `- Create urgency from market momentum ("Now is the time to...")\n`;
+                prompt += `- Reference industry shifts in cold outreach ("Most [role]s are re-evaluating [category] because...")\n\n`;
+            }
+
+            prompt += `## STRATEGIC SALES INTELLIGENCE MANDATE\nThis is NOT generic cold email templates. Every strategy must:\n`;
+            prompt += `1. Include firmographic prospect qualification criteria (company size, revenue, industry, location)\n`;
+            prompt += `2. Map buyer journey stages to cadence timing (awareness/consideration/decision)\n`;
+            prompt += `3. Use ICP pain-specific hooks (not generic pain statements)\n`;
+            prompt += `4. Provide personalization trigger library (hiring signals, funding signals, market trends, competitor moves)\n`;
+            prompt += `5. Include qualification scoring (A/B/C tier prospects)\n`;
+            prompt += `6. Estimate qualified pipeline increase (30-50% target)\n\n`;
+        } else {
+            // Fallback when Intelligence Layer not configured
+            prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without ICP firmographics for prospect qualification, buyer intent signals for cadence timing, or pain points for outreach hooks. The sales strategy will be generic cold email templates rather than data-driven sales intelligence. Recommend configuring BusinessBrain for qualified pipeline growth.\n\n`;
+        }
+
         return prompt;
+    }
+
+    buildBuyerIntentSignals(contextBundle) {
+        // Extract buyer journey stages for multi-touch cadence timing
+        if (!contextBundle || !contextBundle.isReady) return '';
+
+        let buyerIntent = '';
+
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.buyerJourney) {
+                const journey = data.icp.buyerJourney;
+
+                buyerIntent += `\n\n## BUYER INTENT SIGNALS (Multi-Touch Cadence Timing)\n`;
+                buyerIntent += `Your ICP buyer journey stages:\n\n`;
+
+                if (journey.awareness) {
+                    buyerIntent += `**Awareness Stage:** "${journey.awareness}"\n`;
+                    buyerIntent += `- Cadence: 5-7 day intervals\n`;
+                    buyerIntent += `- Content: Pain amplification, problem education\n`;
+                    buyerIntent += `- Channels: Email + LinkedIn connection\n\n`;
+                }
+
+                if (journey.consideration) {
+                    buyerIntent += `**Consideration Stage:** "${journey.consideration}"\n`;
+                    buyerIntent += `- Cadence: 3-5 day intervals\n`;
+                    buyerIntent += `- Content: Case studies, demo offers, comparison guides\n`;
+                    buyerIntent += `- Channels: Email + LinkedIn InMail + Call\n\n`;
+                }
+
+                if (journey.decision) {
+                    buyerIntent += `**Decision Stage:** "${journey.decision}"\n`;
+                    buyerIntent += `- Cadence: 1-3 day intervals\n`;
+                    buyerIntent += `- Content: Urgency, social proof, pricing, trial CTA\n`;
+                    buyerIntent += `- Channels: Email + Call + LinkedIn message\n\n`;
+                }
+
+                buyerIntent += `Tailor multi-touch cadence timing and content type to buyer journey stage. Don't pitch a demo in touch 1 to awareness-stage prospects.\n`;
+            }
+        }
+
+        return buyerIntent;
+    }
+
+    buildProspectQualificationCriteria(contextBundle, taskType) {
+        // Build firmographic prospect qualification criteria
+        if (!contextBundle || !contextBundle.isReady) return '';
+        if (taskType !== 'Prospect List Strategy' && taskType !== 'ICP Definition') return '';
+
+        let qualificationCriteria = '';
+
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const data = this.intelligenceEngine.brain.load();
+            if (data && data.icp && data.icp.primaryBuyer) {
+                const buyer = data.icp.primaryBuyer;
+
+                qualificationCriteria += `\n\n## PROSPECT QUALIFICATION CRITERIA (Firmographics)\n`;
+                qualificationCriteria += `Target high-value prospects matching these criteria:\n\n`;
+
+                if (buyer.role) {
+                    qualificationCriteria += `**Role/Title:**\n- Primary: ${buyer.role}\n`;
+                    qualificationCriteria += `- Related titles: [Suggest 2-3 similar titles based on role]\n\n`;
+                }
+
+                if (buyer.companySize) {
+                    qualificationCriteria += `**Company Size:** ${buyer.companySize}\n`;
+                    qualificationCriteria += `- Sweet spot for your ICP\n`;
+                    qualificationCriteria += `- Avoid: Too small (can't afford), too large (enterprise complexity)\n\n`;
+                }
+
+                if (buyer.industry) {
+                    qualificationCriteria += `**Industry/Vertical:** ${buyer.industry}\n`;
+                    qualificationCriteria += `- Primary focus industries\n\n`;
+                }
+
+                if (buyer.revenue) {
+                    qualificationCriteria += `**Revenue/ARR:** ${buyer.revenue}\n`;
+                    qualificationCriteria += `- Indicates budget availability\n\n`;
+                }
+
+                if (buyer.location) {
+                    qualificationCriteria += `**Geography:** ${buyer.location}\n`;
+                    qualificationCriteria += `- Target regions for outreach\n\n`;
+                }
+
+                qualificationCriteria += `**Buyer Intent Signals (High-Priority Prospects):**\n`;
+                qualificationCriteria += `- Hiring for ${buyer.role} roles (signal: team growing, process breaking)\n`;
+                qualificationCriteria += `- Recent funding (Series A/B/C → budget available)\n`;
+                qualificationCriteria += `- LinkedIn activity mentions pain point keywords\n`;
+                qualificationCriteria += `- Using competitor tools (technographic signal)\n\n`;
+
+                qualificationCriteria += `**Qualification Scoring:**\n`;
+                qualificationCriteria += `- **A-tier (High Priority):** Firmographics match + 2+ intent signals\n`;
+                qualificationCriteria += `- **B-tier (Medium Priority):** Firmographics match + 1 intent signal\n`;
+                qualificationCriteria += `- **C-tier (Low Priority):** Firmographics match only (cold outbound needed)\n\n`;
+
+                qualificationCriteria += `Focus 80% of outreach effort on A-tier prospects for maximum qualified pipeline increase.\n`;
+            }
+        }
+
+        return qualificationCriteria;
+    }
+
+    buildPersonalizationTriggers(contextBundle, taskType) {
+        // Build personalization trigger library from market signals + competitor moves
+        if (!contextBundle || !contextBundle.isReady) return '';
+        if (taskType !== 'Personalization Research' && taskType !== 'Cold Outreach Sequence') return '';
+
+        let triggers = '';
+
+        triggers += `\n\n## PERSONALIZATION TRIGGER LIBRARY\n`;
+        triggers += `Use these triggers to personalize outreach at scale:\n\n`;
+
+        triggers += `**Hiring Signals:**\n`;
+        triggers += `- Prospect hiring for [target role] → "Saw you're hiring for [role]—signals that [pain from ICP] is becoming a bottleneck"\n`;
+        triggers += `- Rapid headcount growth → "Congrats on the growth! Most [role]s at scaling companies face [pain] around this stage"\n\n`;
+
+        triggers += `**Funding Signals:**\n`;
+        triggers += `- Recent Series A/B/C → "Congrats on [funding]! Most [industry] companies at this stage prioritize [solution category]"\n`;
+        triggers += `- Budget available signal → "With fresh capital, now's the time to invest in [category] before scaling challenges compound"\n\n`;
+
+        triggers += `**Technology Stack Signals:**\n`;
+        triggers += `- Using competitor tool → "Noticed you're using [Competitor X]—many [role]s switch to us for [differentiator]"\n`;
+        triggers += `- Outdated stack → "Still using [legacy tool]? Most [industry] teams have migrated to modern alternatives"\n\n`;
+
+        // Add market signals if available
+        if (this.intelligenceEngine && this.intelligenceEngine.pulse) {
+            const signals = this.intelligenceEngine.pulse.getAll();
+            if (signals && signals.length > 0) {
+                triggers += `**Market Trend Signals (from MarketPulse):**\n`;
+                signals.slice(0, 3).forEach(signal => {
+                    if (signal.topic) {
+                        triggers += `- "${signal.topic}" → Use as outreach hook: "With [trend] dominating [industry], [pain] is top of mind for most [role]s"\n`;
+                    }
+                });
+                triggers += `\n`;
+            }
+        }
+
+        // Add competitor moves if available
+        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
+            const competitors = this.intelligenceEngine.radar.getAll();
+            if (competitors && competitors.length > 0) {
+                triggers += `**Competitor Move Signals (from CompetitiveRadar):**\n`;
+                competitors.forEach(comp => {
+                    if (comp.recentMoves && comp.recentMoves.length > 0) {
+                        const latestMove = comp.recentMoves[0];
+                        if (latestMove.description) {
+                            triggers += `- ${comp.name}: "${latestMove.description}" → Outreach angle: "Noticed [event]—might be worth exploring alternatives"\n`;
+                        }
+                    }
+                });
+                triggers += `\n`;
+            }
+        }
+
+        triggers += `Generate personalization templates triggered by these signals. Each template should feel handcrafted, not auto-generated.\n`;
+
+        return triggers;
+    }
+
+    _showSalesStrategyWarning(completionScore) {
+        if (completionScore < 30) {
+            const outputEl = document.getElementById('output');
+            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
+                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
+                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
+                    Sales Intelligence will generate strategies, but they'll be generic cold email templates—not data-driven with buyer intent signals or firmographic targeting.<br><br>
+                    <strong>Why this matters for sales:</strong> Without ICP firmographics, you can't qualify high-value prospects. Without buyer journey data, you can't time multi-touch cadences. Without pain points, you can't hook prospects. Generic outreach = low qualified pipeline.<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP firmographics, buyer journey, pain points)</a>
+                </div>
+            </div>`;
+            setTimeout(() => {
+                const valueProp = document.getElementById('valueProp').value.trim();
+                const targetRole = document.getElementById('targetRole').value.trim();
+                if (valueProp && targetRole) this.run();
+            }, 5000);
+            return true;
+        }
+        return false;
     }
 
     async run() {
@@ -234,23 +537,45 @@ Format your output as clean markdown with clear sections. Include specific messa
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
+
+        // Get intelligence context
+        let contextBundle = null;
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+
+            // Show warning if Intelligence Layer not configured (first-time only)
+            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('sales_agent_warning_shown')) {
+                localStorage.setItem('sales_agent_warning_shown', 'true');
+                this._showSalesStrategyWarning(contextBundle.completionScore);
+                setTimeout(() => this.run(), 5500);
+                return;
+            }
+        }
+
         runBtn.disabled = true;
         runBtn.textContent = 'Building...';
 
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Building your ${taskType}...</div>`;
 
-        let contextBundle = null;
-        if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
-
         const systemPrompt = this.buildSystemPrompt(contextBundle);
-        const userMessage = `Task: ${taskType}
+        const buyerIntentSignals = this.buildBuyerIntentSignals(contextBundle);
+        const prospectQualificationCriteria = this.buildProspectQualificationCriteria(contextBundle, taskType);
+        const personalizationTriggers = this.buildPersonalizationTriggers(contextBundle, taskType);
+
+        let userMessage = `Task: ${taskType}
 
 Target Role: ${targetRole}
 Industry/Vertical: ${industry || 'Not specified'}
 Value Proposition: ${valueProp}
 Pain Points to Address: ${painPoints || 'Not specified'}
 
-Deliver a comprehensive ${taskType} strategy with specific copy, frameworks, and step-by-step implementation guidance. Include personalization variables, timing, and success metrics.`;
+Deliver a comprehensive ${taskType} strategy with:
+- Specific message copy (not just frameworks)
+- Personalization variables in [brackets]
+- Timing recommendations (Day 0, Day 3, Day 7, etc.)
+- Firmographic filters and qualification scoring
+- Expected qualified pipeline increase (30-50% target)
+- Step-by-step implementation guidance${buyerIntentSignals}${prospectQualificationCriteria}${personalizationTriggers}`;
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
