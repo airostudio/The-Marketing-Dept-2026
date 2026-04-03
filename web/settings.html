@@ -842,40 +842,25 @@
                                 </div>
                             </div>
 
-                            <!-- API Health Dashboard -->
-                            <div class="settings-section" id="api-health-section" style="border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 24px; background: rgba(124,58,237,0.05); margin-bottom: 24px;">
-                                <h3 style="color: #a78bfa;">🔌 API Health Dashboard</h3>
+                            <!-- Claude AI Configuration -->
+                            <div class="settings-section" id="claude-config-section" style="border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 24px; background: rgba(124,58,237,0.05); margin-bottom: 24px;">
+                                <h3 style="color: #a78bfa;">🤖 Claude AI Configuration</h3>
                                 <p class="section-desc">
-                                    Monitor the connection status of all API integrations. All API keys are securely stored in Vercel environment variables.
+                                    All AI agents use a secure server-side API connection. The Claude API key is configured in Vercel environment variables (not in the browser).
+                                    <br><br>
+                                    <strong>✅ Secure:</strong> API key is never exposed to the browser<br>
+                                    <strong>🔒 Server-side:</strong> All requests go through <code>/api/claude</code> proxy
                                 </p>
-
-                                <!-- Test All APIs Button -->
-                                <div style="margin: 20px 0;">
-                                    <button id="test-all-apis-btn" onclick="testAllAPIs()" style="padding: 12px 24px; background: linear-gradient(135deg, #7c3aed, #ec4899); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; font-size: 15px; box-shadow: 0 4px 12px rgba(124,58,237,0.3); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                                        🔍 Test All API Connections
-                                    </button>
-                                    <span id="test-loading" style="display: none; margin-left: 12px; color: #a78bfa;">
-                                        <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #a78bfa; border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                        Testing connections...
-                                    </span>
+                                <div id="claude-key-status" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none;"></div>
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                    <button id="claude-test-btn" onclick="testClaudeConnection()" style="padding: 10px 20px; background: linear-gradient(135deg, #7c3aed, #ec4899); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; white-space: nowrap;">Test API Connection</button>
+                                    <a href="/api/health" target="_blank" style="padding: 10px 20px; background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.4); border-radius: 8px; color: #a78bfa; font-weight: 600; text-decoration: none; white-space: nowrap;">View Diagnostics</a>
                                 </div>
-
-                                <!-- API Status List -->
-                                <div id="api-status-list" style="margin-top: 20px;">
-                                    <div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">
-                                        <p>Click "Test All API Connections" to check status</p>
-                                    </div>
-                                </div>
-
-                                <!-- Admin Info -->
-                                <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid #a78bfa;">
+                                <div style="margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid #a78bfa;">
                                     <strong style="color: #a78bfa;">For Administrators:</strong><br>
                                     <small style="color: rgba(255,255,255,0.6);">
-                                        To configure API keys, add them to Vercel environment variables:<br>
-                                        • <code>ANTHROPIC_API_KEY</code> - Claude AI (Required)<br>
-                                        • <code>SENDGRID_API_KEY</code> - Email (Optional)<br>
-                                        • <code>GA_PROPERTY_ID</code> - Analytics (Optional)<br>
-                                        See <strong>VERCEL_SETUP.md</strong> for full instructions.
+                                        To configure the API key, add <code>ANTHROPIC_API_KEY</code> to Vercel environment variables.<br>
+                                        See <strong>VERCEL_SETUP.md</strong> and <strong>TROUBLESHOOTING.md</strong> for instructions.
                                     </small>
                                 </div>
                             </div>
@@ -937,173 +922,70 @@
     <script src="/js/auth.js"></script>
     <script src="/js/settings.js"></script>
 
-    <style>
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    .api-status-item {
-        padding: 16px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 8px;
-        margin-bottom: 12px;
-        border-left: 4px solid transparent;
-        transition: all 0.2s;
-    }
-    .api-status-item.connected {
-        border-left-color: #10b981;
-        background: rgba(16,185,129,0.05);
-    }
-    .api-status-item.disconnected {
-        border-left-color: #ef4444;
-        background: rgba(239,68,68,0.05);
-    }
-    .api-status-item.configured {
-        border-left-color: #f59e0b;
-        background: rgba(245,158,11,0.05);
-    }
-    </style>
-
     <script>
-    // Comprehensive API Health Check
+    // Claude API Connection Testing (Server-Side)
     (function() {
-        // Test all API connections
-        window.testAllAPIs = async function() {
-            const btn = document.getElementById('test-all-apis-btn');
-            const loading = document.getElementById('test-loading');
-            const statusList = document.getElementById('api-status-list');
+        const statusEl = document.getElementById('claude-key-status');
 
-            // Show loading state
-            btn.disabled = true;
-            loading.style.display = 'inline';
-            statusList.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);"><span class="spinner" style="display: inline-block; width: 24px; height: 24px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #a78bfa; border-radius: 50%; animation: spin 1s linear infinite;"></span><p style="margin-top: 12px;">Testing all API connections...</p></div>';
+        function showStatus(msg, type) {
+            if (!statusEl) return;
+            const colors = {
+                success: { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)', text: '#10b981' },
+                error:   { bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  text: '#ef4444' },
+                info:    { bg: 'rgba(124,58,237,0.1)', border: 'rgba(124,58,237,0.3)', text: '#a78bfa' },
+            };
+            const c = colors[type] || colors.info;
+            statusEl.style.cssText = `display:block; background:${c.bg}; border:1px solid ${c.border}; color:${c.text}; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;`;
+            statusEl.innerHTML = msg;
+        }
+
+        // Test server-side API connection
+        window.testClaudeConnection = async function() {
+            showStatus('Testing server-side Claude API connection...', 'info');
 
             try {
-                // Call comprehensive health check endpoint
-                const response = await fetch('/api/health-check-all');
-                const data = await response.json();
+                // Check health endpoint
+                const healthRes = await fetch('/api/health');
+                const health = await healthRes.json();
 
-                // Build results HTML
-                let html = '';
-
-                // Overall status banner
-                const statusColors = {
-                    healthy: { bg: 'rgba(16,185,129,0.1)', border: '#10b981', icon: '✅' },
-                    degraded: { bg: 'rgba(245,158,11,0.1)', border: '#f59e0b', icon: '⚠️' },
-                    critical: { bg: 'rgba(239,68,68,0.1)', border: '#ef4444', icon: '❌' }
-                };
-                const statusColor = statusColors[data.overall_status] || statusColors.critical;
-
-                html += `
-                    <div style="padding: 16px; background: ${statusColor.bg}; border: 1px solid ${statusColor.border}; border-radius: 8px; margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 24px;">${statusColor.icon}</span>
-                            <div style="flex: 1;">
-                                <strong style="color: ${statusColor.border}; font-size: 16px;">${data.overall_message}</strong>
-                                <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px;">
-                                    ${data.summary.connected} connected · ${data.summary.configured} configured · ${data.summary.disconnected} disconnected
-                                    · Tested in ${data.test_duration_ms}ms
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                // Individual API status items
-                data.apis.forEach(api => {
-                    const statusIcons = {
-                        connected: '✅',
-                        disconnected: '❌',
-                        configured: '⚙️'
-                    };
-                    const statusIcon = statusIcons[api.status] || '❓';
-
-                    html += `
-                        <div class="api-status-item ${api.status}">
-                            <div style="display: flex; align-items: flex-start; justify-content: space-between;">
-                                <div style="flex: 1;">
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                        <span style="font-size: 20px;">${statusIcon}</span>
-                                        <strong style="font-size: 15px; color: white;">${api.name}</strong>
-                                        <code style="font-size: 11px; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; color: rgba(255,255,255,0.6);">${api.key}</code>
-                                    </div>
-                                    <div style="font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 8px;">
-                                        ${api.reason}
-                                    </div>
-                    `;
-
-                    // Show details
-                    if (api.status === 'connected' && api.details) {
-                        html += `
-                            <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
-                                ${api.details.key_preview ? `Key: <code>${api.details.key_preview}</code> · ` : ''}
-                                ${api.details.model ? `Model: ${api.details.model} · ` : ''}
-                                ${api.details.endpoint ? `Endpoint: ${api.details.endpoint}` : ''}
-                            </div>
-                        `;
-                    } else if (api.status === 'disconnected' && api.details) {
-                        html += `
-                            <div style="padding: 10px; background: rgba(239,68,68,0.1); border-radius: 6px; margin-top: 8px;">
-                                <div style="font-size: 12px; color: #ef4444; font-weight: 600; margin-bottom: 4px;">
-                                    💡 How to fix:
-                                </div>
-                                <div style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                                    ${api.details.fix || 'Check Vercel environment variables and redeploy.'}
-                                </div>
-                                ${api.details.http_status ? `<div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;">HTTP Status: ${api.details.http_status}</div>` : ''}
-                            </div>
-                        `;
-                    } else if (api.status === 'configured' && api.details) {
-                        html += `
-                            <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
-                                ${api.details.property_id ? `Property: ${api.details.property_id}` : ''}
-                                ${api.details.key_preview ? `Key: <code>${api.details.key_preview}</code>` : ''}
-                                ${api.details.host ? `Host: ${api.details.host}` : ''}
-                            </div>
-                        `;
-                    }
-
-                    html += `
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                statusList.innerHTML = html;
-
-            } catch (error) {
-                statusList.innerHTML = `
-                    <div class="api-status-item disconnected">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 24px;">❌</span>
-                            <div>
-                                <strong style="color: #ef4444; font-size: 16px;">Health Check Failed</strong>
-                                <div style="font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 4px;">
-                                    ${error.message}
-                                </div>
-                                <div style="padding: 10px; background: rgba(239,68,68,0.1); border-radius: 6px; margin-top: 12px;">
-                                    <div style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                                        Make sure you've deployed the latest changes to Vercel.<br>
-                                        The /api/health-check-all endpoint may not be available yet.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } finally {
-                // Hide loading state
-                btn.disabled = false;
-                loading.style.display = 'none';
+                if (health.status === 'healthy' && health.checks?.apiKeyConfigured) {
+                    showStatus(
+                        `✅ API Connection Healthy<br>` +
+                        `<small>API Key: ${health.checks.apiKeyPreview || 'configured'}<br>` +
+                        `Environment: ${health.environment}<br>` +
+                        `Format: ${health.checks.apiKeyFormat}</small>`,
+                        'success'
+                    );
+                } else if (health.status === 'unhealthy') {
+                    showStatus(
+                        `❌ API Not Configured<br>` +
+                        `<small>${health.error || 'ANTHROPIC_API_KEY not found'}<br>` +
+                        `Please add the API key to Vercel environment variables.<br>` +
+                        `See VERCEL_SETUP.md for instructions.</small>`,
+                        'error'
+                    );
+                } else {
+                    showStatus(
+                        `⚠️ API Configuration Issue<br>` +
+                        `<small>Status: ${health.status}<br>` +
+                        `Check /api/health for details</small>`,
+                        'error'
+                    );
+                }
+            } catch (e) {
+                showStatus(
+                    `❌ Connection Error<br>` +
+                    `<small>${e.message}<br>` +
+                    `Make sure the application is deployed and /api/health is accessible.</small>`,
+                    'error'
+                );
             }
         };
 
         // Auto-test on page load
-        setTimeout(() => {
-            if (document.getElementById('api-status-list')) {
-                window.testAllAPIs();
-            }
-        }, 500);
+        if (statusEl) {
+            window.testClaudeConnection();
+        }
     })();
     </script>
 </body>
