@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Audema</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+        .result {
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .result.success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+        .result.error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        .result.loading {
+            background: #e0e7ff;
+            border: 1px solid #6366f1;
+            color: #3730a3;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            margin-top: 12px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 API Integration Test</h1>
+        <p class="subtitle">Testing Anthropic API key from Vercel environment variables</p>
+
+        <div class="test-section">
+            <div class="test-title">Test 1: Health Check (/api/health)</div>
+            <button onclick="testHealth()">Run Test</button>
+            <div id="health-result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">Test 2: Claude API Connection (/api/claude)</div>
+            <button onclick="testClaude()">Run Test</button>
+            <div id="claude-result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testHealth() {
+            const resultEl = document.getElementById('health-result');
+            resultEl.className = 'result loading';
+            resultEl.innerHTML = '<pre>⏳ Testing /api/health...</pre>';
+
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultEl.className = 'result success';
+                    resultEl.innerHTML = `<pre>✅ SUCCESS
+
+${JSON.stringify(data, null, 2)}
+
+API Key Status: ${data.checks?.apiKeyConfigured ? '✅ Configured' : '❌ Not Found'}
+API Key Format: ${data.checks?.apiKeyFormat || 'N/A'}
+Environment: ${data.environment || 'N/A'}</pre>`;
+                } else {
+                    resultEl.className = 'result error';
+                    resultEl.innerHTML = `<pre>❌ FAILED (${response.status})
+
+${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.innerHTML = `<pre>❌ ERROR
+
+${error.message}
+
+Make sure /api/health endpoint is deployed.</pre>`;
+            }
+        }
+
+        async function testClaude() {
+            const resultEl = document.getElementById('claude-result');
+            resultEl.className = 'result loading';
+            resultEl.innerHTML = '<pre>⏳ Testing /api/claude with minimal request...</pre>';
+
+            try {
+                const response = await fetch('/api/claude', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-6',
+                        max_tokens: 50,
+                        messages: [
+                            { role: 'user', content: 'Say "API key is working!" and nothing else.' }
+                        ],
+                        stream: false
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const message = data.content?.[0]?.text || 'No response text';
+                    resultEl.className = 'result success';
+                    resultEl.innerHTML = `<pre>✅ SUCCESS - API KEY IS WORKING!
+
+Claude Response: "${message}"
+
+Full Response:
+${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultEl.className = 'result error';
+                    resultEl.innerHTML = `<pre>❌ FAILED (${response.status})
+
+${JSON.stringify(data, null, 2)}
+
+${data.error === 'API key not configured' ?
+  '🔧 FIX: Add ANTHROPIC_API_KEY to Vercel environment variables and redeploy.' :
+  '🔧 FIX: Check the error message above for details.'}</pre>`;
+                }
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.innerHTML = `<pre>❌ ERROR
+
+${error.message}
+
+Make sure /api/claude endpoint is deployed.</pre>`;
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testHealth();
+                setTimeout(() => testClaude(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>
