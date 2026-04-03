@@ -1,0 +1,935 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT STRATEGY AGENT - AUTONOMOUS DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This configuration defines the autonomous decision-making logic for the Content
+# Strategy Agent, including prioritization algorithms, action triggers, and
+# escalation protocols. The agent operates within defined boundaries with clear
+# authority levels and safety guardrails.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  mode: "autonomous_with_oversight"
+  cycle_interval: "5_minutes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 1: PRIORITY SCORING MODEL
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  priority_scoring:
+    description: "Unified scoring model for prioritizing all content actions"
+
+    # Content opportunity score calculation (0-100)
+    opportunity_factors:
+      - factor: "traffic_potential"
+        weight: 0.20
+        calculation: "estimated_monthly_traffic * traffic_value"
+        data_sources: ["seo_agent_keywords", "analytics_data"]
+
+      - factor: "conversion_potential"
+        weight: 0.20
+        calculation: "traffic_potential * expected_conversion_rate * customer_value"
+        data_sources: ["analytics", "crm_data"]
+
+      - factor: "strategic_alignment"
+        weight: 0.20
+        values:
+          core_product_content: 100
+          high_priority_cluster: 85
+          supporting_cluster: 70
+          brand_awareness: 55
+          experimental: 30
+
+      - factor: "competitive_urgency"
+        weight: 0.15
+        calculation: "competitor_content_gap * market_timing"
+        triggers:
+          - "Competitor launching similar content"
+          - "Market opportunity window closing"
+          - "Seasonal relevance expiring"
+          - "Trend momentum declining"
+
+      - factor: "authority_contribution"
+        weight: 0.15
+        calculation: "topic_cluster_impact * authority_gap_size"
+        data_sources: ["topic_authority_scores", "cluster_analysis"]
+
+      - factor: "quick_win_potential"
+        weight: 0.10
+        calculation: "impact / effort"
+        thresholds:
+          quick_win: "> 4.0"
+          moderate: "1.5 - 4.0"
+          investment: "< 1.5"
+
+    # Effort estimation (1-100)
+    effort_factors:
+      - factor: "content_complexity"
+        categories:
+          quick_update: 10        # Statistics refresh, link update
+          minor_refresh: 20       # Section updates, minor additions
+          standard_article: 40    # 1500-2500 word blog post
+          in_depth_article: 60   # 3000+ word comprehensive piece
+          pillar_content: 80     # 5000+ word pillar page
+          research_content: 95   # Original research, data analysis
+
+      - factor: "research_requirements"
+        multipliers:
+          no_research: 1.0
+          basic_research: 1.2
+          moderate_research: 1.4
+          deep_research: 1.7
+          original_research: 2.0
+
+      - factor: "asset_requirements"
+        categories:
+          text_only: 0.9
+          stock_images: 1.0
+          custom_graphics: 1.2
+          infographics: 1.4
+          video_content: 1.6
+          interactive_content: 1.8
+
+      - factor: "review_requirements"
+        categories:
+          standard_review: 1.0
+          sme_review: 1.2
+          legal_review: 1.4
+          executive_review: 1.5
+          multi_stakeholder: 1.8
+
+    # Final priority score
+    priority_formula: "opportunity_score * (1 / log(effort_score + 1)) * urgency_multiplier"
+
+    priority_tiers:
+      - tier: "P0 - Critical"
+        score_range: ">= 90"
+        response_time: "Immediate"
+        auto_escalate: true
+        description: "High-impact opportunities with time sensitivity"
+
+      - tier: "P1 - High"
+        score_range: "75-89"
+        response_time: "This week"
+        auto_escalate: false
+        description: "Important strategic content"
+
+      - tier: "P2 - Medium"
+        score_range: "50-74"
+        response_time: "This month"
+        auto_escalate: false
+        description: "Valuable but not urgent"
+
+      - tier: "P3 - Low"
+        score_range: "25-49"
+        response_time: "This quarter"
+        auto_escalate: false
+        description: "Opportunistic content"
+
+      - tier: "P4 - Backlog"
+        score_range: "< 25"
+        response_time: "When capacity allows"
+        auto_escalate: false
+        description: "Nice to have content"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 2: AUTONOMOUS ACTION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  autonomous_actions:
+    description: "Actions the agent can take without human approval"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Content Intelligence & Analysis
+    # ─────────────────────────────────────────────────────────────────────────
+
+    content_intelligence:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Analyze content performance"
+          frequency: "daily"
+          constraints: ["all_published_content"]
+
+        - action: "Score content health"
+          frequency: "daily"
+          constraints: ["automated_scoring_model"]
+
+        - action: "Identify content gaps"
+          frequency: "weekly"
+          constraints: ["seo_data_integration"]
+
+        - action: "Monitor competitor content"
+          frequency: "daily"
+          constraints: ["approved_competitor_list"]
+
+        - action: "Track topic authority"
+          frequency: "weekly"
+          constraints: ["defined_topic_clusters"]
+
+        - action: "Detect content cannibalization"
+          frequency: "weekly"
+          constraints: ["keyword_overlap_threshold"]
+
+        - action: "Identify trending topics"
+          frequency: "continuous"
+          constraints: ["relevance_filter"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Content Brief Generation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    brief_generation:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate content briefs from SEO opportunities"
+          triggers:
+            - condition: "new_keyword_opportunity_from_seo_agent"
+              priority_threshold: "P2 or higher"
+          constraints:
+            - "max_20_briefs_per_week"
+            - "brief_quality_score > 0.8"
+
+        - action: "Generate optimization briefs"
+          triggers:
+            - condition: "content_health_score_below_threshold"
+              threshold: 60
+          constraints:
+            - "prioritize_high_traffic_content"
+            - "max_10_optimization_briefs_per_week"
+
+        - action: "Generate content outlines"
+          triggers:
+            - condition: "brief_approved"
+          constraints:
+            - "seo_data_available"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Editorial Calendar Management
+    # ─────────────────────────────────────────────────────────────────────────
+
+    calendar_management:
+      authority_level: "autonomous_with_logging"
+      actions:
+        - action: "Schedule non-campaign content"
+          conditions:
+            - "content_approved_for_publication"
+            - "no_scheduling_conflicts"
+            - "within_capacity_limits"
+          constraints:
+            - "respect_topic_cluster_balance"
+            - "maintain_publishing_frequency"
+            - "log_all_scheduling_decisions"
+
+        - action: "Rebalance editorial calendar"
+          conditions:
+            - "topic_imbalance_detected"
+            - "no_campaign_conflicts"
+          constraints:
+            - "notify_affected_stakeholders"
+            - "maintain_committed_deadlines"
+
+        - action: "Suggest optimal publish times"
+          conditions:
+            - "sufficient_historical_data"
+          constraints:
+            - "recommendation_only"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Alerting & Notifications
+    # ─────────────────────────────────────────────────────────────────────────
+
+    alerting:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate content performance alerts"
+          triggers:
+            - condition: "content_traffic_drop > 30%"
+              severity: "high"
+              recipients: ["cmo_agent", "seo_agent"]
+
+            - condition: "content_traffic_increase > 50%"
+              severity: "info"
+              recipients: ["content_team"]
+
+            - condition: "content_health_critical"
+              severity: "high"
+              recipients: ["content_team", "cmo_agent"]
+
+        - action: "Generate pipeline alerts"
+          triggers:
+            - condition: "pipeline_below_2_weeks"
+              severity: "warning"
+              recipients: ["cmo_agent"]
+
+            - condition: "deadline_at_risk"
+              severity: "medium"
+              recipients: ["content_team"]
+
+        - action: "Generate competitive alerts"
+          triggers:
+            - condition: "competitor_publishes_high_impact_content"
+              severity: "medium"
+              recipients: ["competitive_intel_agent", "cmo_agent"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Report Generation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    reporting:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Generate scheduled reports"
+          schedules:
+            - type: "daily_content_snapshot"
+              time: "07:00 UTC"
+              recipients: ["content_team"]
+
+            - type: "weekly_content_performance"
+              time: "Monday 08:00 UTC"
+              recipients: ["cmo_agent", "marketing_analytics_agent"]
+
+            - type: "monthly_topic_authority"
+              time: "1st of month 09:00 UTC"
+              recipients: ["cmo_agent", "seo_agent"]
+
+            - type: "quarterly_content_roi"
+              time: "1st of quarter 09:00 UTC"
+              recipients: ["cmo_agent", "roi_budget_agent"]
+
+        - action: "Generate on-demand reports"
+          triggers:
+            - "agent_request"
+            - "stakeholder_request"
+            - "threshold_breach"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Category: Content Recommendations
+    # ─────────────────────────────────────────────────────────────────────────
+
+    recommendations:
+      authority_level: "full_autonomy"
+      actions:
+        - action: "Recommend content updates"
+          triggers:
+            - "content_older_than_12_months"
+            - "performance_declining"
+            - "information_outdated"
+          output_to: ["content_update_queue"]
+          constraints: ["prioritize_by_traffic_potential"]
+
+        - action: "Recommend content consolidation"
+          triggers:
+            - "cannibalization_detected"
+            - "similar_low_performing_content"
+          output_to: ["consolidation_review_queue"]
+          constraints: ["seo_impact_assessment_required"]
+
+        - action: "Recommend content retirement"
+          triggers:
+            - "health_score_below_20"
+            - "no_traffic_in_6_months"
+            - "information_irrelevant"
+          output_to: ["retirement_review_queue"]
+          constraints: ["redirect_strategy_required"]
+
+        - action: "Recommend repurposing"
+          triggers:
+            - "high_performing_content"
+            - "format_opportunity_detected"
+          output_to: ["repurposing_queue"]
+          constraints: ["roi_positive_forecast"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 3: APPROVAL-REQUIRED ACTIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  approval_required_actions:
+    description: "Actions requiring human or higher-agent approval"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 1: Single Agent Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_1_approval:
+      approver: "cmo_agent"
+      timeout: "48_hours"
+      actions:
+        - action: "Major editorial calendar changes"
+          criteria:
+            - "Affects > 5 scheduled content pieces"
+            - "Changes publishing frequency"
+            - "Shifts topic cluster priorities"
+
+        - action: "New topic cluster creation"
+          criteria:
+            - "Creating new topic authority area"
+            - "Significant resource commitment"
+
+        - action: "Content retirement execution"
+          criteria:
+            - "Removing indexed content"
+            - "Retiring content with any traffic"
+
+        - action: "Resource allocation changes"
+          criteria:
+            - "Writer assignment changes"
+            - "External resource procurement"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 2: Multiple Agent Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_2_approval:
+      approvers: ["cmo_agent", "seo_agent"]
+      timeout: "72_hours"
+      actions:
+        - action: "Large-scale content consolidation"
+          criteria:
+            - "Affects > 10 content pieces"
+            - "Significant redirect implementation"
+
+        - action: "Topic cluster restructuring"
+          criteria:
+            - "Changing pillar content structure"
+            - "Reassigning cluster relationships"
+
+        - action: "Content strategy pivot"
+          criteria:
+            - "Changing content focus areas"
+            - "Deprioritizing existing clusters"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tier 3: Executive Approval
+    # ─────────────────────────────────────────────────────────────────────────
+
+    tier_3_approval:
+      approvers: ["cmo_agent", "brand_agent", "head_of_growth_agent"]
+      timeout: "1_week"
+      actions:
+        - action: "Brand voice changes"
+          criteria:
+            - "Modifying voice and tone guidelines"
+            - "New messaging frameworks"
+
+        - action: "Content governance changes"
+          criteria:
+            - "Quality standard modifications"
+            - "Approval workflow changes"
+
+        - action: "Major content investments"
+          criteria:
+            - "New content programs"
+            - "Significant budget commitments"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 4: ESCALATION PROTOCOLS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_protocols:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Automatic Escalation Triggers
+    # ─────────────────────────────────────────────────────────────────────────
+
+    automatic_triggers:
+      - trigger: "content_pipeline_crisis"
+        thresholds:
+          warning: "Pipeline < 3 weeks"
+          critical: "Pipeline < 2 weeks"
+          emergency: "Pipeline < 1 week"
+        actions:
+          warning:
+            - "Log incident"
+            - "Identify quick-win content opportunities"
+            - "Notify content_team"
+          critical:
+            - "Alert cmo_agent"
+            - "Activate emergency content queue"
+            - "Recommend resource reallocation"
+          emergency:
+            - "Alert all executive agents"
+            - "Pause non-critical projects"
+            - "Emergency content production protocol"
+
+      - trigger: "topic_authority_decline"
+        thresholds:
+          warning: "Authority score drop > 10%"
+          critical: "Authority score drop > 20%"
+        actions:
+          warning:
+            - "Investigate cause"
+            - "Identify affected content"
+            - "Coordinate with seo_agent"
+          critical:
+            - "Alert cmo_agent"
+            - "Priority content refresh initiative"
+            - "Competitor analysis deep dive"
+
+      - trigger: "content_performance_collapse"
+        thresholds:
+          warning: "Traffic drop > 20% MoM"
+          critical: "Traffic drop > 40% MoM"
+        actions:
+          warning:
+            - "Performance audit"
+            - "Technical issue check"
+            - "Coordinate with seo_agent"
+          critical:
+            - "Emergency escalation"
+            - "Full content audit"
+            - "Recovery strategy development"
+
+      - trigger: "quality_crisis"
+        conditions:
+          - "Multiple content pieces with quality issues"
+          - "Brand voice violations"
+          - "Compliance failures"
+        actions:
+          - "Halt affected content"
+          - "Quality audit initiation"
+          - "Alert cmo_agent and brand_agent"
+          - "Process review"
+
+      - trigger: "competitive_threat"
+        conditions:
+          - "Competitor launches major content initiative"
+          - "Competitor gains significant authority"
+        actions:
+          - "Alert competitive_intel_agent"
+          - "Gap analysis against competitor"
+          - "Response strategy development"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Escalation Hierarchy
+    # ─────────────────────────────────────────────────────────────────────────
+
+    hierarchy:
+      level_1:
+        name: "Content Team Queue"
+        response_time: "4 hours"
+        capabilities: ["content_execution", "minor_updates"]
+
+      level_2:
+        name: "Content Strategy Agent Autonomous"
+        response_time: "1 hour"
+        capabilities: ["analysis", "recommendations", "brief_generation", "scheduling"]
+
+      level_3:
+        name: "CMO Agent"
+        response_time: "2 hours"
+        capabilities: ["approval", "resource_allocation", "strategy_decisions"]
+
+      level_4:
+        name: "Executive Council"
+        response_time: "4 hours"
+        capabilities: ["major_decisions", "budget_approval", "crisis_management"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 5: DECISION TREES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  decision_trees:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: New Content Opportunity Evaluation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    new_content_evaluation:
+      trigger: "content_opportunity_identified"
+      steps:
+        - step: 1
+          action: "Score opportunity"
+          calculations:
+            - "traffic_potential"
+            - "conversion_potential"
+            - "strategic_alignment"
+            - "competitive_urgency"
+          next: 2
+
+        - step: 2
+          decision: "Score meets threshold?"
+          conditions:
+            p0_p1:
+              condition: "score >= 75"
+              next: 3
+            p2:
+              condition: "score >= 50"
+              next: 4
+            p3_p4:
+              condition: "score < 50"
+              next: 5
+
+        - step: 3
+          action: "Fast-track content brief generation"
+          next: 6
+
+        - step: 4
+          action: "Queue for standard brief generation"
+          next: 6
+
+        - step: 5
+          action: "Add to backlog for future consideration"
+          next: "complete"
+
+        - step: 6
+          action: "Check for cannibalization risk"
+          decision: "Cannibalization detected?"
+          conditions:
+            yes:
+              action: "Generate consolidation recommendation"
+              next: 7
+            no:
+              next: 8
+
+        - step: 7
+          action: "Present options: consolidate or differentiate"
+          next: 8
+
+        - step: 8
+          action: "Generate comprehensive content brief"
+          next: 9
+
+        - step: 9
+          action: "Assign to appropriate queue"
+          next: 10
+
+        - step: 10
+          action: "Notify relevant stakeholders"
+          next: "complete"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: Content Performance Response
+    # ─────────────────────────────────────────────────────────────────────────
+
+    content_performance_response:
+      trigger: "content_underperforming"
+      steps:
+        - step: 1
+          action: "Diagnose performance issue"
+          checks:
+            - "Traffic trend"
+            - "Ranking changes"
+            - "Engagement metrics"
+            - "Technical issues"
+          next: 2
+
+        - step: 2
+          decision: "Issue type?"
+          conditions:
+            ranking_drop:
+              next: 3
+            engagement_issue:
+              next: 4
+            conversion_issue:
+              next: 5
+            technical_issue:
+              next: 6
+
+        - step: 3
+          action: "Coordinate with SEO Agent"
+          checks:
+            - "Competitor content changes"
+            - "Algorithm update impact"
+            - "Content freshness"
+          next: 7
+
+        - step: 4
+          action: "Analyze engagement factors"
+          checks:
+            - "Content quality score"
+            - "Readability"
+            - "Visual appeal"
+            - "User feedback"
+          next: 7
+
+        - step: 5
+          action: "Analyze conversion path"
+          checks:
+            - "CTA effectiveness"
+            - "Content-offer alignment"
+            - "User intent match"
+          next: 7
+
+        - step: 6
+          action: "Flag for technical team"
+          next: 7
+
+        - step: 7
+          action: "Generate optimization brief"
+          next: 8
+
+        - step: 8
+          action: "Prioritize in optimization queue"
+          next: 9
+
+        - step: 9
+          action: "Track for post-optimization review"
+          next: "complete"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: Content Refresh Decision
+    # ─────────────────────────────────────────────────────────────────────────
+
+    content_refresh_decision:
+      trigger: "content_needs_update"
+      steps:
+        - step: 1
+          action: "Assess content age and performance"
+          next: 2
+
+        - step: 2
+          decision: "Current performance level?"
+          conditions:
+            high_performing:
+              next: 3
+            moderate_performing:
+              next: 4
+            low_performing:
+              next: 5
+
+        - step: 3
+          action: "Conservative refresh - maintain winning formula"
+          refresh_type: "minor_update"
+          actions:
+            - "Update statistics"
+            - "Refresh links"
+            - "Add recent examples"
+          next: 8
+
+        - step: 4
+          action: "Standard refresh - improve and expand"
+          refresh_type: "moderate_update"
+          actions:
+            - "Update all sections"
+            - "Add new content"
+            - "Improve SEO"
+            - "Enhance visuals"
+          next: 8
+
+        - step: 5
+          decision: "Content worth saving?"
+          conditions:
+            yes:
+              next: 6
+            no:
+              next: 7
+
+        - step: 6
+          action: "Major overhaul"
+          refresh_type: "major_rewrite"
+          actions:
+            - "Complete content rewrite"
+            - "New angle/approach"
+            - "Enhanced SEO strategy"
+          next: 8
+
+        - step: 7
+          action: "Recommend retirement or consolidation"
+          next: "complete"
+
+        - step: 8
+          action: "Generate refresh brief"
+          next: 9
+
+        - step: 9
+          action: "Schedule refresh in calendar"
+          next: 10
+
+        - step: 10
+          action: "Set post-refresh monitoring"
+          next: "complete"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tree: Topic Cluster Expansion
+    # ─────────────────────────────────────────────────────────────────────────
+
+    cluster_expansion:
+      trigger: "cluster_gap_identified"
+      steps:
+        - step: 1
+          action: "Analyze cluster completeness"
+          metrics:
+            - "Subtopics covered vs available"
+            - "Content depth per subtopic"
+            - "Internal linking completeness"
+          next: 2
+
+        - step: 2
+          decision: "Gap type?"
+          conditions:
+            missing_subtopic:
+              next: 3
+            depth_gap:
+              next: 4
+            linking_gap:
+              next: 5
+
+        - step: 3
+          action: "Generate new content brief for subtopic"
+          next: 6
+
+        - step: 4
+          action: "Generate expansion brief for existing content"
+          next: 6
+
+        - step: 5
+          action: "Generate internal linking recommendations"
+          output_to: "seo_agent"
+          next: 6
+
+        - step: 6
+          action: "Calculate authority impact"
+          next: 7
+
+        - step: 7
+          action: "Prioritize against other opportunities"
+          next: 8
+
+        - step: 8
+          action: "Add to content calendar"
+          next: "complete"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 6: LEARNING & ADAPTATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  learning_system:
+
+    feedback_loops:
+      - loop: "brief_effectiveness"
+        inputs:
+          - "Brief quality scores"
+          - "Content produced from brief"
+          - "Content performance vs brief predictions"
+        learning_targets:
+          - "Improve brief templates"
+          - "Better performance predictions"
+          - "More accurate effort estimates"
+        frequency: "monthly_analysis"
+
+      - loop: "priority_accuracy"
+        inputs:
+          - "Priority scores assigned"
+          - "Actual performance outcomes"
+          - "Resource investment vs return"
+        learning_targets:
+          - "Refine priority scoring model"
+          - "Improve opportunity identification"
+          - "Better resource allocation"
+        frequency: "monthly_analysis"
+
+      - loop: "content_health_prediction"
+        inputs:
+          - "Health scores over time"
+          - "Intervention effectiveness"
+          - "Decay patterns"
+        learning_targets:
+          - "Predict content decay earlier"
+          - "Optimize refresh timing"
+          - "Improve health scoring model"
+        frequency: "quarterly_analysis"
+
+      - loop: "topic_authority_building"
+        inputs:
+          - "Cluster investments"
+          - "Authority score changes"
+          - "Ranking improvements"
+        learning_targets:
+          - "Optimize cluster structure"
+          - "Predict authority gains"
+          - "Improve content sequencing"
+        frequency: "quarterly_analysis"
+
+    model_updates:
+      - model: "content_performance_predictor"
+        training_frequency: "monthly"
+        inputs: ["content_features", "performance_outcomes"]
+
+      - model: "opportunity_scorer"
+        training_frequency: "monthly"
+        inputs: ["opportunity_features", "actual_results"]
+
+      - model: "effort_estimator"
+        training_frequency: "quarterly"
+        inputs: ["content_requirements", "actual_effort"]
+
+      - model: "content_health_scorer"
+        training_frequency: "quarterly"
+        inputs: ["content_metrics", "health_outcomes"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 7: SAFETY GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  safety_guardrails:
+
+    hard_limits:
+      - limit: "max_briefs_per_day"
+        value: 10
+        scope: "automated_brief_generation"
+        override: false
+
+      - limit: "max_content_scheduled_per_week"
+        value: 20
+        scope: "autonomous_scheduling"
+        override: "tier_1_approval"
+
+      - limit: "max_retirement_recommendations_per_month"
+        value: 25
+        scope: "automated_recommendations"
+        override: "tier_2_approval"
+
+      - limit: "calendar_change_window"
+        value: "48_hours_minimum"
+        scope: "scheduled_content_changes"
+        override: "tier_1_approval"
+
+    prohibited_actions:
+      - "Delete published content without approval"
+      - "Change pillar content structure autonomously"
+      - "Modify brand voice guidelines"
+      - "Override campaign content scheduling"
+      - "Remove content from calendar without notification"
+      - "Change topic cluster definitions autonomously"
+
+    quality_gates:
+      - gate: "brief_quality_minimum"
+        threshold: 0.7
+        action: "human_review_required"
+
+      - gate: "scheduling_conflict_check"
+        check: "No overlapping topics on same day"
+        action: "rebalance_required"
+
+      - gate: "capacity_check"
+        check: "Resource availability confirmed"
+        action: "defer_or_escalate"
+
+    rollback_triggers:
+      - trigger: "scheduled_content_conflict_discovered"
+        action: "revert_scheduling_decision"
+        notification: ["content_team"]
+
+      - trigger: "brief_quality_complaint"
+        action: "brief_review_and_revision"
+        notification: ["content_team"]
+
+    audit_logging:
+      - log_type: "all_autonomous_actions"
+        retention: "permanent"
+        fields: ["timestamp", "action", "inputs", "outputs", "rationale", "agent_id"]
+
+      - log_type: "all_recommendations"
+        retention: "1_year"
+        fields: ["timestamp", "recommendation_type", "targets", "rationale", "outcome"]
+
+      - log_type: "all_escalations"
+        retention: "permanent"
+        fields: ["timestamp", "trigger", "severity", "response", "resolution"]
+
+      - log_type: "all_brief_generations"
+        retention: "permanent"
+        fields: ["timestamp", "opportunity_source", "brief_content", "quality_score", "assignment"]

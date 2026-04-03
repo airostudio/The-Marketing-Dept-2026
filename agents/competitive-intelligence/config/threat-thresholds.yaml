@@ -1,0 +1,376 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPETITIVE INTELLIGENCE AGENT - THREAT THRESHOLDS CONFIGURATION
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+threat_thresholds:
+  version: "1.0.0"
+  last_calibrated: "2026-01-22"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # THREAT SCORING THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  threat_scoring:
+    composite_thresholds:
+      critical:
+        min_score: 80
+        max_score: 100
+        label: "Critical Threat"
+        color: "Red"
+        response_time: "1 hour"
+        escalation: "Immediate CMO notification"
+
+      high:
+        min_score: 60
+        max_score: 79
+        label: "High Threat"
+        color: "Orange"
+        response_time: "24 hours"
+        escalation: "CMO notification same day"
+
+      moderate:
+        min_score: 40
+        max_score: 59
+        label: "Moderate Threat"
+        color: "Yellow"
+        response_time: "1 week"
+        escalation: "Weekly summary"
+
+      low:
+        min_score: 20
+        max_score: 39
+        label: "Low Threat"
+        color: "Green"
+        response_time: "Standard monitoring"
+        escalation: "Monthly report"
+
+      minimal:
+        min_score: 0
+        max_score: 19
+        label: "Minimal Threat"
+        color: "Gray"
+        response_time: "Passive monitoring"
+        escalation: "Quarterly review"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SPECIFIC THREAT TYPE THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  product_threats:
+    feature_launch:
+      critical:
+        condition: "Major feature launch matching our core differentiator"
+        score_impact: "+30"
+
+      high:
+        condition: "Feature launch in key capability area"
+        score_impact: "+20"
+
+      moderate:
+        condition: "Incremental feature update"
+        score_impact: "+10"
+
+    technology_advancement:
+      critical:
+        condition: "Breakthrough technology adoption ahead of us"
+        score_impact: "+35"
+
+      high:
+        condition: "Significant technology upgrade"
+        score_impact: "+20"
+
+      moderate:
+        condition: "Standard technology improvement"
+        score_impact: "+10"
+
+  pricing_threats:
+    price_reduction:
+      critical:
+        condition: "Price cut >30% on competing product"
+        score_impact: "+25"
+
+      high:
+        condition: "Price cut 15-30%"
+        score_impact: "+15"
+
+      moderate:
+        condition: "Price cut <15%"
+        score_impact: "+10"
+
+    new_pricing_model:
+      critical:
+        condition: "Introduces freemium directly competing with us"
+        score_impact: "+30"
+
+      high:
+        condition: "Significant pricing model change favoring buyers"
+        score_impact: "+20"
+
+      moderate:
+        condition: "Minor pricing restructure"
+        score_impact: "+10"
+
+  market_threats:
+    new_entrant:
+      critical:
+        condition: "Well-funded entrant targeting our core market"
+        score_impact: "+25"
+
+      high:
+        condition: "Established company expanding into our market"
+        score_impact: "+20"
+
+      moderate:
+        condition: "New startup without significant resources"
+        score_impact: "+10"
+
+    acquisition:
+      critical:
+        condition: "Acquisition creating significantly stronger competitor"
+        score_impact: "+30"
+
+      high:
+        condition: "Strategic acquisition adding key capability"
+        score_impact: "+20"
+
+      moderate:
+        condition: "Acquisition with unclear competitive impact"
+        score_impact: "+10"
+
+  customer_threats:
+    key_account_targeting:
+      critical:
+        condition: "Active pursuit of top 10 account"
+        score_impact: "+25"
+
+      high:
+        condition: "Pursuit of strategic account"
+        score_impact: "+15"
+
+      moderate:
+        condition: "General competitive activity in account base"
+        score_impact: "+5"
+
+    customer_loss:
+      critical:
+        condition: "Top 10 customer lost to competitor"
+        score_impact: "+30"
+
+      high:
+        condition: "Strategic customer lost"
+        score_impact: "+20"
+
+      moderate:
+        condition: "Standard customer churn to competitor"
+        score_impact: "+10"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ALERT TRIGGER THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  alert_triggers:
+    immediate_alerts:
+      - trigger: "Tier 1 competitor major announcement"
+        threshold: "Any announcement"
+        response: "Alert within 30 minutes"
+
+      - trigger: "Pricing change detected"
+        threshold: "Any pricing page change"
+        response: "Alert and analysis within 2 hours"
+
+      - trigger: "Acquisition announcement"
+        threshold: "Any competitor M&A"
+        response: "Alert within 1 hour"
+
+      - trigger: "Executive departure"
+        threshold: "C-level or VP-level"
+        response: "Alert within 4 hours"
+
+      - trigger: "Major funding round"
+        threshold: ">$10M raise"
+        response: "Alert within 4 hours"
+
+    daily_digest_triggers:
+      - trigger: "Website content changes"
+        threshold: "Any significant change"
+        consolidation: "Daily summary"
+
+      - trigger: "Job posting changes"
+        threshold: ">5 new postings"
+        consolidation: "Daily summary"
+
+      - trigger: "Social media activity"
+        threshold: "Notable posts/campaigns"
+        consolidation: "Daily summary"
+
+    weekly_summary_triggers:
+      - trigger: "Minor product updates"
+        threshold: "Incremental changes"
+        consolidation: "Weekly summary"
+
+      - trigger: "Content publishing"
+        threshold: "Blog posts, resources"
+        consolidation: "Weekly summary"
+
+      - trigger: "Review site activity"
+        threshold: "New reviews"
+        consolidation: "Weekly summary"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MONITORING FREQUENCY THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  monitoring_frequency:
+    tier_1_competitors:
+      website_monitoring: "Daily"
+      social_media: "Real-time"
+      news_alerts: "Real-time"
+      job_postings: "Weekly"
+      financial_monitoring: "As filed"
+      profile_refresh: "Monthly"
+      battlecard_review: "Monthly"
+
+    tier_2_competitors:
+      website_monitoring: "Weekly"
+      social_media: "Daily"
+      news_alerts: "Real-time"
+      job_postings: "Bi-weekly"
+      financial_monitoring: "Quarterly"
+      profile_refresh: "Quarterly"
+      battlecard_review: "Quarterly"
+
+    tier_3_competitors:
+      website_monitoring: "Monthly"
+      social_media: "Weekly"
+      news_alerts: "Real-time"
+      job_postings: "Monthly"
+      financial_monitoring: "Semi-annually"
+      profile_refresh: "Semi-annually"
+      battlecard_review: "As needed"
+
+    new_entrants:
+      initial_assessment: "Within 48 hours of identification"
+      monitoring_ramp: "Elevated for first 90 days"
+      tier_assignment: "After 90-day evaluation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITIVE WIN RATE THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  win_rate_thresholds:
+    by_competitor:
+      healthy:
+        win_rate: ">60%"
+        status: "Competitive advantage"
+        action: "Maintain current approach"
+
+      competitive:
+        win_rate: "40-60%"
+        status: "Competitive parity"
+        action: "Focus on differentiation"
+
+      at_risk:
+        win_rate: "25-39%"
+        status: "Competitive disadvantage"
+        action: "Develop counter-strategy"
+
+      critical:
+        win_rate: "<25%"
+        status: "Critical competitive threat"
+        action: "Urgent strategic review"
+
+    trend_alerts:
+      declining:
+        threshold: "Win rate drops >10% quarter-over-quarter"
+        alert: "High priority alert"
+        action: "Investigate and address"
+
+      improving:
+        threshold: "Win rate improves >10% quarter-over-quarter"
+        notification: "Positive trend notification"
+        action: "Document success factors"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SHARE OF VOICE THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  share_of_voice:
+    healthy_range:
+      leading: ">30%"
+      strong: "20-30%"
+      average: "10-20%"
+      below_average: "<10%"
+
+    alerts:
+      share_drop:
+        threshold: "Drop >5% month-over-month"
+        alert_level: "Medium"
+        action: "Investigate cause"
+
+      competitor_surge:
+        threshold: "Competitor gains >10% in month"
+        alert_level: "High"
+        action: "Analyze competitive activity"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SENTIMENT THRESHOLDS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  sentiment_monitoring:
+    competitor_sentiment:
+      positive_trend:
+        threshold: "Competitor positive sentiment rises >10%"
+        alert: "Monitor their messaging"
+        action: "Analyze drivers"
+
+      negative_trend:
+        threshold: "Competitor negative sentiment rises >15%"
+        alert: "Opportunity alert"
+        action: "Assess exploitation potential"
+
+    comparative_sentiment:
+      advantage:
+        threshold: "Our sentiment >10% better"
+        status: "Sentiment advantage"
+
+      parity:
+        threshold: "Within ±10%"
+        status: "Sentiment parity"
+
+      disadvantage:
+        threshold: "Their sentiment >10% better"
+        status: "Sentiment disadvantage"
+        alert: "Review positioning"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ESCALATION MATRIX
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_matrix:
+    cmo_immediate:
+      triggers:
+        - "Critical threat score (80+)"
+        - "Major competitor acquisition"
+        - "Direct attack on our positioning"
+        - "Top 10 customer at risk"
+        - "Significant market share shift"
+
+    cmo_same_day:
+      triggers:
+        - "High threat score (60-79)"
+        - "Tier 1 competitor major announcement"
+        - "Pricing disruption"
+        - "New funded competitor"
+
+    marketing_leadership:
+      triggers:
+        - "Moderate threat (40-59)"
+        - "Positioning change detected"
+        - "Campaign competitive conflict"
+
+    standard_reporting:
+      triggers:
+        - "Low threats (20-39)"
+        - "Routine competitive activity"
+        - "Minor updates"

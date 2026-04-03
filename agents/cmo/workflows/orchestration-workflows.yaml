@@ -1,0 +1,265 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CMO AGENT - ORCHESTRATION WORKFLOWS
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflows:
+  version: "1.0.0"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DAILY ORCHESTRATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  daily_orchestration:
+    name: "Daily Marketing Operations"
+    trigger: "06:00 UTC daily"
+
+    steps:
+      - step: 1
+        name: "Morning Performance Review"
+        actions:
+          - "Collect overnight performance data from all agents"
+          - "Review key metrics vs targets"
+          - "Identify anomalies and issues"
+          - "Review pending escalations"
+
+      - step: 2
+        name: "Issue Resolution"
+        actions:
+          - "Address any critical escalations"
+          - "Make urgent decisions"
+          - "Issue immediate directives if needed"
+
+      - step: 3
+        name: "Daily Priorities"
+        actions:
+          - "Set daily focus areas"
+          - "Communicate priorities to agents"
+          - "Ensure resource alignment"
+
+      - step: 4
+        name: "Cross-Agent Coordination"
+        actions:
+          - "Review inter-agent handoffs"
+          - "Resolve any coordination issues"
+          - "Optimize workflows"
+
+      - step: 5
+        name: "Executive Update"
+        actions:
+          - "Generate daily snapshot"
+          - "Highlight key metrics"
+          - "Note any concerns"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WEEKLY ORCHESTRATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  weekly_orchestration:
+    name: "Weekly Strategic Review"
+    trigger: "Monday 08:00 UTC"
+
+    steps:
+      - step: 1
+        name: "Performance Analysis"
+        actions:
+          - "Review weekly performance across all channels"
+          - "Compare vs targets and previous week"
+          - "Identify trends and patterns"
+
+      - step: 2
+        name: "Agent Performance Review"
+        actions:
+          - "Review each agent's KPI performance"
+          - "Identify overperformers and underperformers"
+          - "Determine support needs"
+
+      - step: 3
+        name: "Resource Reallocation"
+        actions:
+          - "Evaluate budget pacing"
+          - "Identify reallocation opportunities"
+          - "Issue budget directives"
+
+      - step: 4
+        name: "Strategy Alignment Check"
+        actions:
+          - "Review progress toward strategic goals"
+          - "Identify strategy gaps"
+          - "Adjust priorities if needed"
+
+      - step: 5
+        name: "Week Planning"
+        actions:
+          - "Set weekly objectives"
+          - "Assign priorities to agents"
+          - "Communicate weekly focus"
+
+      - step: 6
+        name: "Stakeholder Report"
+        actions:
+          - "Generate weekly marketing report"
+          - "Include key insights"
+          - "Distribute to stakeholders"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CAMPAIGN ORCHESTRATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  campaign_orchestration:
+    name: "Campaign Launch Coordination"
+    trigger: "New campaign request"
+
+    steps:
+      - step: 1
+        name: "Campaign Assessment"
+        actions:
+          - "Review campaign objectives"
+          - "Assess resource requirements"
+          - "Evaluate strategic fit"
+          - "Approve/reject/modify"
+
+      - step: 2
+        name: "Resource Allocation"
+        actions:
+          - "Assign budget"
+          - "Identify required agents"
+          - "Allocate resources"
+
+      - step: 3
+        name: "Agent Briefing"
+        actions:
+          - "Create campaign brief"
+          - "Brief all involved agents"
+          - "Define responsibilities"
+          - "Set success metrics"
+
+      - step: 4
+        name: "Launch Coordination"
+        actions:
+          - "Coordinate launch timing"
+          - "Ensure all components ready"
+          - "Confirm go/no-go"
+          - "Execute launch"
+
+      - step: 5
+        name: "Performance Monitoring"
+        actions:
+          - "Set up campaign tracking"
+          - "Define check-in cadence"
+          - "Monitor initial performance"
+
+      - step: 6
+        name: "Optimization Loop"
+        actions:
+          - "Regular performance reviews"
+          - "Coordinate optimizations"
+          - "Reallocate as needed"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CRISIS RESPONSE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  crisis_response:
+    name: "Crisis Response Protocol"
+    trigger: "Crisis detection"
+
+    steps:
+      - step: 1
+        name: "Immediate Assessment"
+        time: "Within 15 minutes"
+        actions:
+          - "Assess crisis severity"
+          - "Identify affected areas"
+          - "Determine immediate impact"
+
+      - step: 2
+        name: "Immediate Actions"
+        time: "Within 30 minutes"
+        actions:
+          - "Pause affected campaigns/content"
+          - "Alert relevant agents"
+          - "Escalate to humans if needed"
+
+      - step: 3
+        name: "Response Development"
+        time: "Within 1 hour"
+        actions:
+          - "Develop response strategy"
+          - "Coordinate with Brand Agent"
+          - "Prepare communications"
+
+      - step: 4
+        name: "Response Execution"
+        actions:
+          - "Execute approved response"
+          - "Monitor response effectiveness"
+          - "Adjust as needed"
+
+      - step: 5
+        name: "Recovery"
+        actions:
+          - "Resume normal operations"
+          - "Document lessons learned"
+          - "Update protocols if needed"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-AGENT COORDINATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_distribution_workflow:
+    name: "Content Distribution Coordination"
+    trigger: "New content published"
+
+    flow:
+      - source: "Content Strategy Agent"
+        action: "Publishes content"
+        notifies: ["CMO Agent"]
+
+      - step: "CMO Agent"
+        action: "Evaluate distribution strategy"
+        outputs:
+          - "Distribution directive"
+
+      - parallel:
+          - agent: "SEO Agent"
+            action: "Ensure SEO optimization"
+
+          - agent: "Social Media Agent"
+            action: "Distribute on social channels"
+
+          - agent: "Paid Media Agent"
+            action: "Evaluate for paid promotion"
+
+      - step: "Marketing Analytics Agent"
+        action: "Track performance across channels"
+        reports_to: "CMO Agent"
+
+  paid_organic_coordination:
+    name: "Paid-Organic Synergy"
+    trigger: "Performance data available"
+
+    flow:
+      - step: "SEO Agent"
+        action: "Identifies keyword opportunities"
+        outputs: ["Keyword list with difficulty/volume"]
+
+      - step: "CMO Agent"
+        action: "Evaluate paid vs organic strategy"
+        decision:
+          high_value_difficult: "Assign to Paid Media"
+          high_value_achievable: "Assign to SEO + Content"
+          low_value: "Deprioritize"
+
+      - parallel:
+          - condition: "Assigned to Paid"
+            agent: "Paid Media Agent"
+            action: "Create search campaigns"
+
+          - condition: "Assigned to Organic"
+            agent: "Content Strategy Agent"
+            action: "Create content briefs"
+
+      - step: "Marketing Analytics Agent"
+        action: "Track combined performance"
+        reports_to: "CMO Agent"

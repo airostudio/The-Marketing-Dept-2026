@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Content Writer | Aduma Marketing</title>
+    <meta name="description" content="Professional AI-powered content writer with 30+ use cases, 20+ tones, style guide enforcement, and persona-based content generation">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="/marketing/ai-content-writer.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        /* AI Content Writer Specific Styles */
+        :root {
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .writer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .writer-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .writer-title {
+            font-size: 32px;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .writer-subtitle {
+            font-size: 16px;
+            color: var(--color-text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Left Panel - Controls */
+        .control-panel {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 24px;
+            height: fit-content;
+            position: sticky;
+            top: 24px;
+        }
+
+        .control-section {
+            margin-bottom: 24px;
+        }
+
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23888' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+
+        .select-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-bg-primary);
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-bg-primary);
+        }
+
+        .textarea-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px 16px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+            resize: vertical;
+        }
+
+        .textarea-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: var(--color-bg-primary);
+        }
+
+        /* Right Panel - Editor */
+        .editor-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .editor-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .editor-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--color-border);
+            background: var(--color-bg-tertiary);
+            padding: 0 16px;
+        }
+
+        .editor-tab {
+            padding: 14px 20px;
+            background: transparent;
+            border: none;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .editor-tab:hover {
+            color: var(--color-text-primary);
+        }
+
+        .editor-tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .editor-content {
+            padding: 24px;
+        }
+
+        .editor-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .toolbar-btn {
+            padding: 8px 14px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            border-color: var(--color-primary);
+        }
+
+        .toolbar-btn.primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .toolbar-btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            min-height: 400px;
+            padding: 20px;
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            color: var(--color-text-primary);
+            font-size: 15px;
+            line-height: 1.8;
+            font-family: 'Inter', sans-serif;
+            resize: vertical;
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        .output-content {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 400px;
+            color: var(--color-text-primary);
+            font-size: 15px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .output-empty {
+            color: var(--color-text-tertiary);
+            text-align: center;
+            padding: 60px 20px;
+            font-style: italic;
+        }
+
+        /* Action Buttons */
+        .action-section {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn-generate {
+            flex: 1;
+            padding: 14px 24px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-generate:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            padding: 14px 24px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-primary);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 16px 20px;
+            background: var(--color-bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        /* Settings Panel */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .setting-card {
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .setting-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .setting-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--color-bg-secondary);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: var(--color-primary);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* Loading States */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Suggestions */
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .suggestion-chip {
+            padding: 6px 12px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-chip:hover {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        /* Quality Metrics */
+        .quality-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .metric-card {
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: rgba(79, 172, 254, 0.1);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+            color: #4facfe;
+        }
+
+        .alert-warning {
+            background: rgba(255, 183, 77, 0.1);
+            border: 1px solid rgba(255, 183, 77, 0.3);
+            color: #ffb74d;
+        }
+
+        .alert-success {
+            background: rgba(56, 239, 125, 0.1);
+            border: 1px solid rgba(56, 239, 125, 0.3);
+            color: #38ef7d;
+        }
+
+        /* History Panel */
+        .history-item {
+            padding: 12px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--color-primary);
+            transform: translateX(4px);
+        }
+
+        .history-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .history-meta {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+        }
+    </style>
+</head>
+<body>
+    <div class="writer-container">
+        <!-- Header -->
+        <div class="writer-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 class="writer-title" style="margin-bottom: 0;">AI Content Writer & Generator</h1>
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="ContentWriterService.createNewProject()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        ➕ New Project
+                    </button>
+                    <button onclick="ContentWriterService.viewAllProjects()" style="padding: 10px 20px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-primary); font-size: 14px; font-weight: 500; cursor: pointer;">
+                        📁 View Projects
+                    </button>
+                </div>
+            </div>
+            <p class="writer-subtitle">
+                Professional AI-powered writing assistant with 30+ use cases, 20+ tones, style guide enforcement,
+                and expert 20+ years content writing experience built-in
+            </p>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Panel - Controls -->
+            <div class="control-panel">
+                <div class="control-section">
+                    <label class="control-label">Use Case</label>
+                    <select class="select-input" id="useCase">
+                        <optgroup label="Blog & Articles">
+                            <option value="blog-post">Blog Post / Article</option>
+                            <option value="blog-intro">Blog Introduction</option>
+                            <option value="blog-outline">Blog Outline</option>
+                            <option value="blog-conclusion">Blog Conclusion</option>
+                            <option value="listicle">Listicle</option>
+                        </optgroup>
+                        <optgroup label="Email Marketing">
+                            <option value="email-campaign">Email Campaign</option>
+                            <option value="email-subject">Email Subject Line</option>
+                            <option value="welcome-email">Welcome Email</option>
+                            <option value="newsletter">Newsletter</option>
+                            <option value="cold-email">Cold Outreach Email</option>
+                        </optgroup>
+                        <optgroup label="Social Media">
+                            <option value="social-post">Social Media Post</option>
+                            <option value="facebook-ad">Facebook Ad</option>
+                            <option value="instagram-caption">Instagram Caption</option>
+                            <option value="twitter-thread">Twitter Thread</option>
+                            <option value="linkedin-post">LinkedIn Post</option>
+                        </optgroup>
+                        <optgroup label="Advertising & Sales">
+                            <option value="google-ad">Google Ad Copy</option>
+                            <option value="landing-page">Landing Page Copy</option>
+                            <option value="product-description">Product Description</option>
+                            <option value="sales-pitch">Sales Pitch</option>
+                            <option value="value-proposition">Value Proposition</option>
+                        </optgroup>
+                        <optgroup label="SEO & Web">
+                            <option value="seo-meta">SEO Meta Description</option>
+                            <option value="seo-title">SEO Title Tag</option>
+                            <option value="website-copy">Website Copy</option>
+                            <option value="about-us">About Us Page</option>
+                            <option value="faq">FAQ Content</option>
+                        </optgroup>
+                        <optgroup label="Video & Audio">
+                            <option value="video-script">Video Script</option>
+                            <option value="video-description">Video Description</option>
+                            <option value="youtube-intro">YouTube Intro</option>
+                            <option value="podcast-outline">Podcast Outline</option>
+                        </optgroup>
+                        <optgroup label="Business">
+                            <option value="press-release">Press Release</option>
+                            <option value="case-study">Case Study</option>
+                            <option value="white-paper">White Paper</option>
+                            <option value="job-description">Job Description</option>
+                            <option value="company-bio">Company Bio</option>
+                        </optgroup>
+                        <optgroup label="E-commerce">
+                            <option value="product-features">Product Features</option>
+                            <option value="product-review">Product Review</option>
+                            <option value="comparison">Product Comparison</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Tone of Voice</label>
+                    <select class="select-input" id="tone">
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="formal">Formal</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                        <option value="persuasive">Persuasive</option>
+                        <option value="informative">Informative</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="confident">Confident</option>
+                        <option value="empathetic">Empathetic</option>
+                        <option value="witty">Witty</option>
+                        <option value="authoritative">Authoritative</option>
+                        <option value="conversational">Conversational</option>
+                        <option value="inspirational">Inspirational</option>
+                        <option value="educational">Educational</option>
+                        <option value="humorous">Humorous</option>
+                        <option value="serious">Serious</option>
+                        <option value="optimistic">Optimistic</option>
+                        <option value="cautious">Cautious</option>
+                        <option value="bold">Bold</option>
+                        <option value="compassionate">Compassionate</option>
+                        <option value="luxury">Luxury</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Audience Persona</label>
+                    <select class="select-input" id="persona">
+                        <option value="default">General Audience</option>
+                        <option value="b2b-executive">B2B Executive</option>
+                        <option value="b2b-manager">B2B Manager</option>
+                        <option value="b2c-consumer">B2C Consumer</option>
+                        <option value="technical">Technical Audience</option>
+                        <option value="non-technical">Non-Technical</option>
+                        <option value="millennial">Millennial</option>
+                        <option value="gen-z">Gen Z</option>
+                        <option value="enterprise">Enterprise Buyer</option>
+                        <option value="smb">Small Business</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Style Guide</label>
+                    <select class="select-input" id="styleGuide">
+                        <option value="default">Default Style</option>
+                        <option value="ap">AP Style</option>
+                        <option value="chicago">Chicago Manual</option>
+                        <option value="apa">APA Style</option>
+                        <option value="custom">Custom Brand Style</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Language</label>
+                    <select class="select-input" id="language">
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="nl">Dutch</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ko">Korean</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Content Length</label>
+                    <select class="select-input" id="contentLength">
+                        <option value="short">Short (50-150 words)</option>
+                        <option value="medium">Medium (150-300 words)</option>
+                        <option value="long">Long (300-500 words)</option>
+                        <option value="very-long">Very Long (500+ words)</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">Input / Topic</label>
+                    <textarea
+                        class="textarea-input"
+                        id="inputTopic"
+                        placeholder="Enter your topic, keywords, or context here..."
+                    ></textarea>
+                </div>
+
+                <div class="action-section">
+                    <button class="btn-generate" id="generateBtn">
+                        <span>✨</span> Generate Content
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel - Editor -->
+            <div class="editor-panel">
+                <!-- Stats Bar -->
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-label">Words</span>
+                        <span class="stat-value" id="wordCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Characters</span>
+                        <span class="stat-value" id="charCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Reading Time</span>
+                        <span class="stat-value" id="readingTime">0 min</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Quality Score</span>
+                        <span class="stat-value" id="qualityScore">--</span>
+                    </div>
+                </div>
+
+                <!-- Editor Card -->
+                <div class="editor-card">
+                    <div class="editor-tabs">
+                        <button class="editor-tab active" data-tab="output">Generated Output</button>
+                        <button class="editor-tab" data-tab="edit">Edit & Refine</button>
+                        <button class="editor-tab" data-tab="proofread">Proofread</button>
+                        <button class="editor-tab" data-tab="history">History</button>
+                    </div>
+
+                    <div class="editor-content">
+                        <!-- Output Tab -->
+                        <div class="tab-content active" id="tab-output">
+                            <div class="editor-toolbar">
+                                <button class="toolbar-btn" id="copyBtn">📋 Copy</button>
+                                <button class="toolbar-btn" id="downloadBtn">💾 Download</button>
+                                <button class="toolbar-btn" id="improveBtn">✨ Improve</button>
+                                <button class="toolbar-btn" id="shortenBtn">📏 Shorten</button>
+                                <button class="toolbar-btn" id="expandBtn">📈 Expand</button>
+                                <button class="toolbar-btn" id="summarizeBtn">📝 Summarize</button>
+                                <button class="toolbar-btn" id="rewriteBtn">🔄 Rewrite</button>
+                            </div>
+                            <div class="output-content" id="outputContent">
+                                <div class="output-empty">
+                                    Your generated content will appear here. Select your options and click "Generate Content" to begin.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Edit Tab -->
+                        <div class="tab-content" id="tab-edit">
+                            <div class="editor-toolbar">
+                                <button class="toolbar-btn" id="saveEditBtn">💾 Save Changes</button>
+                                <button class="toolbar-btn" id="undoBtn">↩️ Undo</button>
+                                <button class="toolbar-btn" id="redoBtn">↪️ Redo</button>
+                                <button class="toolbar-btn" id="clearBtn">🗑️ Clear</button>
+                            </div>
+                            <textarea
+                                class="editor-textarea"
+                                id="editTextarea"
+                                placeholder="Edit your content here..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Proofread Tab -->
+                        <div class="tab-content" id="tab-proofread">
+                            <div class="alert alert-info">
+                                <span>ℹ️</span>
+                                <span>Proofreading checks grammar, spelling, punctuation, and style compliance</span>
+                            </div>
+                            <div class="editor-toolbar">
+                                <button class="toolbar-btn primary" id="checkGrammarBtn">🔍 Check Grammar</button>
+                                <button class="toolbar-btn" id="checkStyleBtn">📖 Check Style</button>
+                                <button class="toolbar-btn" id="checkToneBtn">🎭 Check Tone</button>
+                                <button class="toolbar-btn" id="applyFixesBtn">✅ Apply Fixes</button>
+                            </div>
+                            <div id="proofreadResults">
+                                <div class="output-empty">
+                                    Click "Check Grammar" to analyze your content for errors and improvements.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- History Tab -->
+                        <div class="tab-content" id="tab-history">
+                            <div class="alert alert-info">
+                                <span>ℹ️</span>
+                                <span>Your recent content generations are saved here</span>
+                            </div>
+                            <div id="historyList">
+                                <div class="output-empty">
+                                    No history yet. Start generating content to see your history here.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Metrics -->
+                <div class="quality-metrics">
+                    <div class="metric-card">
+                        <div class="metric-value" id="readabilityScore">--</div>
+                        <div class="metric-label">Readability</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="seoScore">--</div>
+                        <div class="metric-label">SEO Score</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="toneCompliance">--</div>
+                        <div class="metric-label">Tone Match</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="styleCompliance">--</div>
+                        <div class="metric-label">Style Guide</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api-connector.js"></script>
+    <script src="/js/unified-project-manager.js"></script>
+    <script src="/js/content-writer-service.js"></script>
+    <script>
+        // Initialize the AI Content Writer
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize content writer service
+            if (typeof ContentWriterService !== 'undefined') {
+                ContentWriterService.init();
+            }
+
+            // Tab switching
+            const tabs = document.querySelectorAll('.editor-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+
+                    // Update active tab
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    // Update active content
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+                });
+            });
+
+            // Update stats on content change
+            const updateStats = (text) => {
+                const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                const chars = text.length;
+                const readingTime = Math.ceil(words / 200); // Average reading speed
+
+                document.getElementById('wordCount').textContent = words;
+                document.getElementById('charCount').textContent = chars;
+                document.getElementById('readingTime').textContent = `${readingTime} min`;
+            };
+
+            // Monitor output content changes
+            const outputObserver = new MutationObserver(() => {
+                const outputContent = document.getElementById('outputContent').textContent;
+                updateStats(outputContent);
+            });
+
+            outputObserver.observe(document.getElementById('outputContent'), {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            // Monitor edit textarea changes
+            const editTextarea = document.getElementById('editTextarea');
+            editTextarea.addEventListener('input', (e) => {
+                updateStats(e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>

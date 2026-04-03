@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competitive Intelligence | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+            --border: rgba(255,255,255,0.08); --text: #f1f5f9;
+            --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --card-bg: rgba(255,255,255,0.03);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: var(--gradient); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--text3); font-size: 14px; }
+        .nav-breadcrumb { font-size: 13px; color: var(--text2); }
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; color: var(--text2); border: 1px solid var(--border); background: var(--card-bg); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+        .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
+
+        .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(6,182,212,0.1) 0%, transparent 70%); pointer-events: none; }
+        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
+        .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
+        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-inspired { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--cyan); }
+
+        .main-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 5fr 6fr; gap: 24px; align-items: start; }
+
+        .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+        .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .intel-badge { display: none; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); font-size: 11px; font-weight: 600; color: var(--green); }
+        .intel-badge.active { display: flex; }
+        .intel-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .field-group { margin-bottom: 14px; }
+        .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+        .field-select option { background: #1a1a2e; }
+
+        .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
+
+        .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
+        .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
+        .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
+        .output-body p { margin-bottom: 10px; }
+        .output-body ul, .output-body ol { padding-left: 20px; margin-bottom: 10px; }
+        .output-body li { margin-bottom: 5px; }
+        .output-body strong { color: white; }
+        .output-body code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+        .output-body blockquote { border-left: 3px solid var(--cyan); padding-left: 12px; color: var(--text2); margin: 10px 0; font-style: italic; }
+
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .streaming-cursor::after { content: '▋'; animation: blink 0.8s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .features-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 80px; }
+        .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
+        .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(6,182,212,0.3); box-shadow: 0 12px 32px rgba(6,182,212,0.08); }
+        .feature-icon { font-size: 24px; margin-bottom: 10px; }
+        .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+        @media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
+        @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-left">
+        <a class="nav-logo" href="/index.html">
+            <div class="nav-logo-icon">🔭</div>
+            <span>Audema</span>
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Competitive Intelligence</span>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/hub.html">Agent Hub</a>
+        <a class="nav-link" href="/scotty.html">Scotty AI</a>
+        <a class="nav-link primary" href="/settings.html">Settings</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <span class="hero-emoji">🔭</span>
+    <h1 class="hero-title">Competitive Intelligence</h1>
+    <p class="hero-tagline">Crayon-style competitor monitoring, strategic gap analysis, and battlecard-ready intelligence</p>
+    <div class="hero-pills">
+        <span class="pill pill-claude">Powered by Claude</span>
+        <span class="pill pill-inspired">Inspired by Crayon AI · Klue · Kompyte</span>
+    </div>
+</section>
+
+<div class="main-wrap">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Intelligence Brief</span>
+            <div class="intel-badge" id="intelBadge">
+                <div class="intel-dot"></div>
+                Intelligence Layer Active
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="field-group">
+                <label class="field-label">Task</label>
+                <select class="field-select" id="task">
+                    <option value="Competitor Analysis">Competitor Analysis</option>
+                    <option value="SEO Keyword Gap Analysis">SEO Keyword Gap Analysis</option>
+                    <option value="Content Gap & Traffic Opportunities">Content Gap & Traffic Opportunities</option>
+                    <option value="Search Intent Analysis">Search Intent Analysis</option>
+                    <option value="Messaging Comparison">Messaging Comparison</option>
+                    <option value="Pricing Analysis">Pricing Analysis</option>
+                    <option value="Product Gap Analysis">Product Gap Analysis</option>
+                    <option value="Win / Loss Analysis">Win / Loss Analysis</option>
+                    <option value="Battlecard Creation">Battlecard Creation</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Competitor Name(s) — one per line</label>
+                <textarea class="field-textarea" id="competitors" style="min-height:80px;" placeholder="HubSpot&#10;Salesforce Marketing Cloud&#10;ActiveCampaign"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Your Company / Product Brief</label>
+                <textarea class="field-textarea" id="yourBrief" style="min-height:80px;" placeholder="Brief description of your company, product, positioning, and target market..."></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Specific Area of Focus</label>
+                <input class="field-input" id="focusArea" type="text" placeholder="e.g. enterprise pricing, AI features, SMB market, developer tools">
+            </div>
+            <div class="field-group">
+                <label class="field-label">Recent Competitor Activity to Analyze</label>
+                <textarea class="field-textarea" id="recentActivity" style="min-height:80px;" placeholder="Paste recent competitor content: website copy, pricing page, press releases, social posts, job listings, product announcements, ad copy..."></textarea>
+            </div>
+            <button class="btn-run" id="runBtn" onclick="runAnalysis()">
+                <span id="btnIcon">🔭</span>
+                <span id="btnText">Analyze</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Intelligence Report</span>
+            <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
+        </div>
+        <div id="outputArea">
+            <div class="output-empty">Enter competitor names and any recent activity to analyze. Click Analyze to get deep positioning analysis, messaging gaps, strategic countermoves, and ready-to-use battlecard content.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="features-wrap">
+    <div class="features-title">What Competitive Intelligence Does</div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🗺️</div>
+            <div class="feature-name">Competitor Positioning Maps</div>
+            <div class="feature-desc">Visual breakdown of where each competitor positions on key dimensions — and where the whitespace is for you.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🕳️</div>
+            <div class="feature-name">Messaging Gap Identification</div>
+            <div class="feature-desc">Find the messages your competitors are NOT using that your audience cares about — your opportunity to own.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">♟️</div>
+            <div class="feature-name">Strategic Countermoves</div>
+            <div class="feature-desc">Concrete actions to respond to competitor moves: messaging shifts, product emphasis, pricing tactics, and more.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🃏</div>
+            <div class="feature-name">Battlecard Generation</div>
+            <div class="feature-desc">Sales-ready battlecards with objection handling, differentiators, and how to position against each competitor.</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="../js/intelligence-engine.js"></script>
+<script src="../js/claude-service.js"></script>
+<script>
+    const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
+
+    (function checkIntel() {
+        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+    })();
+
+    // Intelligence Layer Context Builders
+    function buildICPCompetitiveContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.icp) return '';
+
+        let context = '\n\n**ICP COMPETITIVE CONTEXT:**\n';
+        context += `Our Target Persona: ${data.icp.persona || 'Not defined'}\n`;
+        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
+            context += `Their Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
+        }
+        if (data.icp.language && data.icp.language.length > 0) {
+            context += `\n**ICP Search Language Patterns:**\n`;
+            data.icp.language.forEach(lang => {
+                context += `- "${lang}"\n`;
+            });
+            context += `→ Generate keywords that match how our ICP searches.\n`;
+        }
+        if (data.icp.firmographics) {
+            context += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
+        }
+        context += `→ Identify which competitors best address these pain points.\n`;
+        context += `→ Find positioning gaps where our ICP is underserved.\n`;
+        return context;
+    }
+
+    function buildValuePropDifferentiation() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.product || !data.product.valueProps) return '';
+
+        let context = '\n\n**VALUE PROP DIFFERENTIATION:**\n';
+        data.product.valueProps.forEach((vp, i) => {
+            context += `${i + 1}. ${vp}\n`;
+        });
+        context += `→ Compare these value props against competitor claims.\n`;
+        context += `→ Identify which value props are unique (differentiation opportunities).\n`;
+        context += `→ Suggest keywords that emphasize our unique value props.\n`;
+        return context;
+    }
+
+    function buildCompetitiveRadarContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.radar) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll();
+        if (!competitors || competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITORS ALREADY TRACKED IN RADAR:**\n';
+        competitors.forEach(comp => {
+            context += `- ${comp.name}`;
+            if (comp.website) context += ` (${comp.website})`;
+            context += `\n`;
+            if (comp.strengths && comp.strengths.length > 0) {
+                context += `  Strengths: ${comp.strengths.join(', ')}\n`;
+            }
+            if (comp.weaknesses && comp.weaknesses.length > 0) {
+                context += `  Weaknesses: ${comp.weaknesses.join(', ')}\n`;
+            }
+        });
+        context += `→ Use this existing intelligence to enhance your analysis.\n`;
+        context += `→ Identify SEO keyword gaps where they're strong and we're weak.\n`;
+        return context;
+    }
+
+    function buildProductGapContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.product) return '';
+
+        let context = '\n\n**OUR PRODUCT POSITIONING:**\n';
+        if (data.product.name) context += `Product: ${data.product.name}\n`;
+        if (data.product.category) context += `Category: ${data.product.category}\n`;
+        if (data.product.features && data.product.features.length > 0) {
+            context += `Key Features: ${data.product.features.join(', ')}\n`;
+        }
+        context += `→ Compare our feature set against competitors for product gap analysis.\n`;
+        context += `→ Suggest content keywords for features we have that competitors lack.\n`;
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle ? (bundle.completeness || 0) : 0;
+    }
+
+    async function runAnalysis() {
+        const task = document.getElementById('task').value;
+        const competitors = document.getElementById('competitors').value.trim();
+        const yourBrief = document.getElementById('yourBrief').value.trim();
+        const focusArea = document.getElementById('focusArea').value.trim();
+        const recentActivity = document.getElementById('recentActivity').value.trim();
+
+        if (!competitors) {
+            alert('Please enter at least one competitor name.');
+            return;
+        }
+
+        // Strategic Validation: SEO APIs
+        const hasSEOTools = window.ApiConnector?.SEOTools?.ahrefs?.isAvailable() ||
+                           window.ApiConnector?.SEOTools?.semrush?.isAvailable();
+
+        if (!hasSEOTools && !sessionStorage.getItem('competitive-seo-warning-dismissed')) {
+            const proceed = confirm('⚠️ SEO APIs (Ahrefs, SEMrush) not configured.\n\nFor keyword gap analysis, backlink data, and traffic potential scoring, configure SEO tool APIs in Settings → API Keys.\n\nProceed with messaging/positioning analysis only?');
+            if (!proceed) return;
+            sessionStorage.setItem('competitive-seo-warning-dismissed', 'true');
+        }
+
+        // Strategic Validation: Intelligence Layer
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3 && !sessionStorage.getItem('competitive-intelligence-warning-dismissed')) {
+            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific competitive analysis with keyword suggestions matching your ICP's search patterns, configure:\n• ICP Definition (persona, pain points, search language)\n• Value Propositions\n• Competitive Radar\n\nProceed with generic analysis?`);
+            if (!proceed) return;
+            sessionStorage.setItem('competitive-intelligence-warning-dismissed', 'true');
+        }
+
+        // Build Intelligence Layer Context
+        let intelligenceContext = buildICPCompetitiveContext();
+        intelligenceContext += buildValuePropDifferentiation();
+        intelligenceContext += buildCompetitiveRadarContext();
+        intelligenceContext += buildProductGapContext();
+
+        const userPrompt = `TASK: ${task}
+
+COMPETITORS:
+${competitors}
+
+YOUR COMPANY / PRODUCT:
+${yourBrief || 'Not specified — analyze competitor strategy independently'}
+
+FOCUS AREA: ${focusArea || 'General competitive landscape'}
+${intelligenceContext}
+
+${recentActivity ? `RECENT COMPETITOR ACTIVITY TO ANALYZE:\n${recentActivity}` : ''}
+
+Please provide comprehensive analysis to maximize traffic potential:
+
+## COMPETITOR SNAPSHOT
+For each competitor: what they emphasize, their core ICP, pricing positioning, key differentiators, and perceived weaknesses.
+
+## MESSAGING ANALYSIS
+- What messages are they HAMMERING (repeating consistently)?
+- What messages are they AVOIDING (gaps you can exploit)?
+- How is their tone and voice evolving?
+- Recent messaging shifts and what they signal strategically
+
+## POSITIONING MAP
+Compare all competitors across these axes (describe the landscape clearly):
+- Enterprise vs. SMB focus
+- Feature depth vs. simplicity
+- Self-serve vs. sales-led
+- Price positioning
+
+## GAPS & OPPORTUNITIES
+Top 3-5 specific positioning gaps you can move into and own immediately.
+
+## AI-POWERED KEYWORD SUGGESTIONS (TO MAXIMIZE TRAFFIC POTENTIAL)
+For each competitor:
+- **High-Volume Keywords** they likely rank for (5-10 keywords with estimated monthly search volume)
+- **Low-Competition Opportunities** keywords they're NOT targeting effectively
+- **Search Intent Classification** (informational, commercial, transactional for each keyword)
+- **Traffic Potential Score** (estimate 1-100 based on volume and difficulty)
+- **Content Gap Keywords** keywords they rank for that we should target
+- **Question Keywords** (People Also Ask opportunities related to their content)
+- **ICP Search Language Match** keywords that match our ICP's search patterns (if ICP provided above)
+
+## SEARCH INTENT ANALYSIS
+For key competitive keywords:
+- Awareness stage keywords (informational intent)
+- Consideration stage keywords (commercial investigation)
+- Decision stage keywords (transactional intent)
+- Navigation keywords (branded searches)
+
+Map these to our buyer journey stages if ICP context provided.
+
+## STRATEGIC COUNTERMOVES
+Concrete actions (messaging, product emphasis, pricing, content, sales, SEO) to respond to competitor moves and gain ground.
+Include specific keyword targets and content recommendations to capture traffic.
+
+## BATTLECARD
+For each competitor, sales-ready format:
+- Headline positioning statement (when you lose to them)
+- Their 3 strongest claims and how to counter each
+- Your 3 strongest differentiators vs. them
+- Landmines to avoid / questions to ask
+- Discovery questions that favor you`;
+
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        document.getElementById('btnIcon').innerHTML = '<span class="spinner"></span>';
+        document.getElementById('btnText').textContent = 'Analyzing...';
+
+        const outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
+        const outputBody = document.getElementById('outputBody');
+
+        try {
+            if (window.ClaudeService) {
+                let fullText = '';
+                await window.ClaudeService.streamResponse({
+                    systemPrompt: SYSTEM_PROMPT,
+                    messages: [{ role: 'user', content: userPrompt }],
+                    onChunk: (chunk, accumulated) => {
+                        fullText = accumulated;
+                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
+                    },
+                    onDone: (text) => {
+                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    },
+                    onError: (err) => {
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                    }
+                });
+            } else {
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
+            }
+        } catch (e) {
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🔭';
+            document.getElementById('btnText').textContent = 'Analyze';
+        }
+    }
+
+    function copyOutput() {
+        const body = document.getElementById('outputBody');
+        if (!body) return;
+        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+</script>
+</body>
+</html>

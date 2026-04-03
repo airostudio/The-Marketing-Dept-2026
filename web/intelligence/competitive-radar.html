@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Competitive Radar | Audema - Your AI Marketing Department</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #070711; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+
+    .gradient-text { background: linear-gradient(135deg, #a78bfa, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; }
+
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.12); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 14px; }
+    .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
+    button:hover { opacity: 0.85; }
+
+    input, textarea, select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; border-radius: 10px; padding: 12px 16px; width: 100%; font-family: inherit; font-size: 14px; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #7c3aed; }
+    textarea { resize: vertical; min-height: 100px; }
+    select option { background: #1a1a2e; }
+
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500; }
+
+    .page-header { padding: 20px 32px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+    .back-link { color: #94a3b8; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .back-link:hover { color: #e2e8f0; }
+
+    .tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .tag-strong { background: rgba(16,185,129,0.15); color: #10b981; }
+    .tag-moderate { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tag-weak { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .tag-content { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .tag-product { background: rgba(16,185,129,0.15); color: #34d399; }
+    .tag-pricing { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .tag-messaging { background: rgba(236,72,153,0.15); color: #f472b6; }
+    .tag-campaign { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .tag-partnership { background: rgba(14,165,233,0.15); color: #38bdf8; }
+    .tag-high { background: rgba(16,185,129,0.15); color: #10b981; }
+    .tag-medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tag-low { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .tag-considering { background: rgba(99,102,241,0.12); color: #818cf8; }
+    .tag-inprogress { background: rgba(245,158,11,0.12); color: #fbbf24; }
+    .tag-done { background: rgba(16,185,129,0.12); color: #34d399; }
+
+    .form-group { margin-bottom: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Layout */
+    .main-layout { display: flex; height: calc(100vh - 73px); overflow: hidden; }
+    .sidebar { width: 280px; min-width: 280px; border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-inner { flex: 1; overflow-y: auto; padding: 20px 16px; }
+    .sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.06); }
+    .main-panel { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+    /* Competitor cards in sidebar */
+    .competitor-card { padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); cursor: pointer; margin-bottom: 10px; transition: all 0.15s; }
+    .competitor-card:hover { border-color: rgba(124,58,237,0.4); background: rgba(124,58,237,0.06); }
+    .competitor-card.active { border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.1); }
+    .competitor-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .competitor-meta { font-size: 12px; color: #64748b; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 4px; }
+    .tab-btn { flex: 1; padding: 8px 14px; border-radius: 9px; border: none; background: transparent; color: #64748b; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .tab-btn.active { background: rgba(124,58,237,0.2); color: #a78bfa; }
+    .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.04); color: #94a3b8; }
+
+    /* Move cards */
+    .move-card { padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.02); margin-bottom: 12px; }
+    .move-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .move-date { font-size: 12px; color: #64748b; }
+    .move-desc { font-size: 14px; color: #cbd5e1; margin-bottom: 10px; line-height: 1.6; }
+    .move-analysis { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2); border-radius: 10px; padding: 14px; font-size: 13px; color: #c4b5fd; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+
+    /* Inline form */
+    .inline-form { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; margin-top: 16px; }
+    .inline-form h4 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: #a78bfa; }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; font-size: 12px; font-weight: 600; color: #64748b; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); text-transform: uppercase; letter-spacing: 0.5px; }
+    .data-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #cbd5e1; vertical-align: top; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* Gap cards */
+    .gap-card { padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.02); margin-bottom: 12px; }
+    .gap-desc { font-size: 14px; color: #e2e8f0; margin-bottom: 10px; line-height: 1.6; }
+    .gap-evidence { font-size: 13px; color: #64748b; font-style: italic; }
+
+    /* Modal overlay */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #0e0e1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px; width: 580px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; color: #475569; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state p { font-size: 14px; }
+
+    /* Loading spinner */
+    .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .section-title { font-size: 16px; font-weight: 700; }
+    .no-competitor { text-align: center; padding: 80px 20px; color: #475569; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- Page Header -->
+<header class="page-header">
+  <div style="display:flex;align-items:center;gap:24px;">
+    <a href="/hub.html" class="back-link">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Hub
+    </a>
+    <div>
+      <h1 style="font-size:20px;font-weight:800;">🕵️ <span class="gradient-text">Competitive Radar</span></h1>
+      <p style="font-size:13px;color:#64748b;margin-top:2px;">Track what competitors do. Find what they miss.</p>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#475569;">Intelligence Layer</div>
+</header>
+
+<!-- Main Layout -->
+<div class="main-layout">
+
+  <!-- Left Sidebar: Competitor List -->
+  <div class="sidebar">
+    <div class="sidebar-inner">
+      <div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px;">Tracked Competitors</div>
+      <div id="competitor-list">
+        <div class="empty-state" style="padding:40px 10px;">
+          <div class="icon">🕵️</div>
+          <p>No competitors tracked yet.</p>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn-primary" style="width:100%;" onclick="openAddCompetitorModal()">+ Add Competitor</button>
+    </div>
+  </div>
+
+  <!-- Right Main Panel -->
+  <div class="main-panel" id="main-panel">
+    <div class="no-competitor">
+      <div style="font-size:48px;margin-bottom:16px;">🎯</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;">Select a competitor to begin</div>
+      <div style="font-size:13px;color:#475569;">Add competitors using the sidebar, then track their moves, borrow their ideas, and identify market gaps.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Competitor Modal -->
+<div class="modal-overlay" id="add-competitor-modal">
+  <div class="modal-box">
+    <h2 class="modal-title">Add Competitor</h2>
+    <div class="form-group">
+      <label>Company Name *</label>
+      <input type="text" id="comp-name" placeholder="e.g. Acme Corp">
+    </div>
+    <div class="form-group">
+      <label>Website URL</label>
+      <input type="url" id="comp-url" placeholder="https://acme.com">
+    </div>
+    <div class="form-group">
+      <label>How they position themselves</label>
+      <textarea id="comp-positioning" placeholder="What's their core value proposition? How do they describe themselves?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Their target audience</label>
+      <input type="text" id="comp-audience" placeholder="e.g. Mid-market SaaS companies, 50-500 employees">
+    </div>
+    <div class="form-group">
+      <label>Their key messages (one per line)</label>
+      <textarea id="comp-messages" placeholder="We make X easier&#10;The only platform that does Y&#10;Trusted by 10,000+ companies"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Their tone/voice</label>
+      <input type="text" id="comp-tone" placeholder="e.g. Bold, irreverent, data-driven, enterprise-formal">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAddCompetitorModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveCompetitor()">Save Competitor</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/intelligence-engine.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  let selectedCompetitorId = null;
+  let activeTab = 'moves';
+
+  // ── IntelligenceEngine shim ────────────────────────────────────────────
+  function getEngine() {
+    if (window.IntelligenceEngine && window.IntelligenceEngine.radar) {
+      return window.IntelligenceEngine.radar;
+    }
+    // Local fallback backed by localStorage
+    const KEY = 'tmd_radar';
+    return {
+      getAll: () => JSON.parse(localStorage.getItem(KEY) || '[]'),
+      save: (data) => localStorage.setItem(KEY, JSON.stringify(data)),
+      addCompetitor(comp) {
+        const all = this.getAll();
+        comp.id = 'c_' + Date.now();
+        comp.moves = [];
+        comp.borrowedIdeas = [];
+        comp.marketGaps = [];
+        all.push(comp);
+        this.save(all);
+        return comp;
+      },
+      updateCompetitor(id, updates) {
+        const all = this.getAll();
+        const idx = all.findIndex(c => c.id === id);
+        if (idx !== -1) { all[idx] = { ...all[idx], ...updates }; this.save(all); }
+      },
+      getCompetitor(id) { return this.getAll().find(c => c.id === id); },
+      addMove(competitorId, move) {
+        const all = this.getAll();
+        const c = all.find(c => c.id === competitorId);
+        if (!c) return;
+        move.id = 'm_' + Date.now();
+        c.moves = c.moves || [];
+        c.moves.unshift(move);
+        this.save(all);
+      },
+      addBorrowedIdea(competitorId, idea) {
+        const all = this.getAll();
+        const c = all.find(c => c.id === competitorId);
+        if (!c) return;
+        idea.id = 'b_' + Date.now();
+        c.borrowedIdeas = c.borrowedIdeas || [];
+        c.borrowedIdeas.unshift(idea);
+        this.save(all);
+      },
+      addGap(competitorId, gap) {
+        const all = this.getAll();
+        const c = all.find(c => c.id === competitorId);
+        if (!c) return;
+        gap.id = 'g_' + Date.now();
+        c.marketGaps = c.marketGaps || [];
+        c.marketGaps.unshift(gap);
+        this.save(all);
+      }
+    };
+  }
+
+  function radar() { return getEngine(); }
+
+  // ── Render competitor sidebar list ────────────────────────────────────
+  function renderCompetitorList() {
+    const competitors = radar().getAll();
+    const el = document.getElementById('competitor-list');
+    if (!competitors.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:40px 10px;"><div class="icon">🕵️</div><p>No competitors yet.</p></div>';
+      return;
+    }
+    el.innerHTML = competitors.map(c => `
+      <div class="competitor-card ${selectedCompetitorId === c.id ? 'active' : ''}" onclick="selectCompetitor('${c.id}')">
+        <div class="competitor-name">${escHtml(c.name)}</div>
+        <div class="competitor-meta">${c.url ? `<span style="color:#475569">${escHtml(c.url)}</span><br>` : ''}${(c.moves||[]).length} moves logged</div>
+      </div>
+    `).join('');
+  }
+
+  // ── Select competitor ─────────────────────────────────────────────────
+  window.selectCompetitor = function(id) {
+    selectedCompetitorId = id;
+    renderCompetitorList();
+    renderMainPanel();
+  };
+
+  // ── Render main panel ─────────────────────────────────────────────────
+  function renderMainPanel() {
+    if (!selectedCompetitorId) return;
+    const c = radar().getCompetitor(selectedCompetitorId);
+    if (!c) return;
+
+    const panel = document.getElementById('main-panel');
+    panel.innerHTML = `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:22px;font-weight:800;">${escHtml(c.name)}</div>
+        ${c.url ? `<a href="${escHtml(c.url)}" target="_blank" style="font-size:13px;color:#7c3aed;">${escHtml(c.url)}</a>` : ''}
+      </div>
+      <div class="tabs">
+        <button class="tab-btn ${activeTab==='moves'?'active':''}" onclick="switchTab('moves')">Recent Moves</button>
+        <button class="tab-btn ${activeTab==='ideas'?'active':''}" onclick="switchTab('ideas')">Borrowed Ideas</button>
+        <button class="tab-btn ${activeTab==='gaps'?'active':''}" onclick="switchTab('gaps')">Market Gaps</button>
+        <button class="tab-btn ${activeTab==='profile'?'active':''}" onclick="switchTab('profile')">Profile</button>
+      </div>
+      <div id="tab-content"></div>
+    `;
+    renderTabContent();
+  }
+
+  window.switchTab = function(tab) {
+    activeTab = tab;
+    renderMainPanel();
+  };
+
+  function renderTabContent() {
+    const c = radar().getCompetitor(selectedCompetitorId);
+    const el = document.getElementById('tab-content');
+    if (activeTab === 'moves') el.innerHTML = buildMovesTab(c);
+    else if (activeTab === 'ideas') el.innerHTML = buildIdeasTab(c);
+    else if (activeTab === 'gaps') el.innerHTML = buildGapsTab(c);
+    else if (activeTab === 'profile') el.innerHTML = buildProfileTab(c);
+  }
+
+  // ── MOVES TAB ────────────────────────────────────────────────────────
+  function buildMovesTab(c) {
+    const moves = c.moves || [];
+    const typeClass = { Content:'tag-content', Product:'tag-product', Pricing:'tag-pricing', Messaging:'tag-messaging', Campaign:'tag-campaign', Partnership:'tag-partnership' };
+    const movesList = moves.length ? moves.map(m => `
+      <div class="move-card">
+        <div class="move-header">
+          <span class="move-date">${m.date || ''}</span>
+          <span class="tag ${typeClass[m.type]||'tag-content'}">${escHtml(m.type||'')}</span>
+        </div>
+        <div class="move-desc">${escHtml(m.description||'')}</div>
+        ${m.source ? `<div style="font-size:12px;color:#475569;">Source: <a href="${escHtml(m.source)}" target="_blank" style="color:#7c3aed;">${escHtml(m.source)}</a></div>` : ''}
+        ${m.analysis ? `<div class="move-analysis"><strong style="color:#a78bfa;">Scotty's Analysis:</strong><br>${escHtml(m.analysis)}</div>` : ''}
+      </div>
+    `).join('') : '<div class="empty-state"><div class="icon">📋</div><p>No moves logged yet.</p></div>';
+
+    return `
+      <div class="section-header">
+        <div class="section-title">Recent Moves</div>
+        <button class="btn-secondary btn-sm" onclick="toggleLogMoveForm()">+ Log a Move</button>
+      </div>
+      ${movesList}
+      <div id="log-move-form" style="display:none;">
+        <div class="inline-form">
+          <h4>Log a Competitor Move</h4>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="move-date" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="form-group">
+              <label>Move Type</label>
+              <select id="move-type">
+                <option>Content</option>
+                <option>Product</option>
+                <option>Pricing</option>
+                <option>Messaging</option>
+                <option>Campaign</option>
+                <option>Partnership</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>What they did</label>
+            <textarea id="move-desc" placeholder="Describe exactly what the competitor did..." style="min-height:120px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Source URL (optional)</label>
+            <input type="url" id="move-source" placeholder="https://...">
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="sendMoveToScotty()">🤖 Send to Scotty for Analysis</button>
+            <button class="btn-secondary btn-sm" onclick="saveMove()">Save Move (no analysis)</button>
+          </div>
+          <div id="move-analysis-output" style="display:none;" class="move-analysis" style="margin-top:16px;"></div>
+          <div id="move-save-after-analysis" style="display:none;margin-top:12px;">
+            <button class="btn-primary btn-sm" onclick="saveMoveWithAnalysis()">Save Move + Analysis</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  window.toggleLogMoveForm = function() {
+    const f = document.getElementById('log-move-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  };
+
+  let pendingAnalysis = '';
+
+  window.sendMoveToScotty = async function() {
+    const desc = document.getElementById('move-desc').value.trim();
+    if (!desc) { alert('Please describe what the competitor did.'); return; }
+
+    const outputEl = document.getElementById('move-analysis-output');
+    outputEl.style.display = 'block';
+    outputEl.textContent = '';
+
+    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
+      outputEl.textContent = 'Claude API key not configured. Go to Settings to add your API key.';
+      return;
+    }
+
+    const c = radar().getCompetitor(selectedCompetitorId);
+    const systemPrompt = `You are Scotty, a strategic marketing analyst for Audema - Your AI Marketing Department platform. Analyze competitor moves with sharp strategic insight. Be concise and actionable.`;
+    const userMessage = `Competitor: ${c.name}
+Their positioning: ${c.positioning || 'Unknown'}
+Their target audience: ${c.audience || 'Unknown'}
+
+Move logged: ${desc}
+
+Analyze this competitor move. Answer:
+1. WHAT THIS TELLS US: What does this signal about their strategy or priorities?
+2. SHOULD WE RESPOND? (Yes/No/Watch) — and why.
+3. WHAT CAN WE BORROW? What's the underlying tactic we could adapt for our own purposes?
+
+Be specific and sharp. 3-4 sentences per section.`;
+
+    try {
+      const btn = document.querySelector('[onclick="sendMoveToScotty()"]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span>Analyzing...';
+
+      const result = await window.ClaudeService.streamResponse({
+        systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        outputEl
+      });
+      pendingAnalysis = result;
+      document.getElementById('move-save-after-analysis').style.display = 'block';
+    } catch(e) {
+      outputEl.textContent = 'Error: ' + e.message;
+    } finally {
+      const btn = document.querySelector('[onclick="sendMoveToScotty()"]');
+      if (btn) { btn.disabled = false; btn.textContent = '🤖 Send to Scotty for Analysis'; }
+    }
+  };
+
+  window.saveMove = function() {
+    const move = {
+      date: document.getElementById('move-date').value,
+      type: document.getElementById('move-type').value,
+      description: document.getElementById('move-desc').value.trim(),
+      source: document.getElementById('move-source').value.trim(),
+      analysis: ''
+    };
+    if (!move.description) { alert('Please describe the move.'); return; }
+    radar().addMove(selectedCompetitorId, move);
+    renderMainPanel();
+  };
+
+  window.saveMoveWithAnalysis = function() {
+    const move = {
+      date: document.getElementById('move-date').value,
+      type: document.getElementById('move-type').value,
+      description: document.getElementById('move-desc').value.trim(),
+      source: document.getElementById('move-source').value.trim(),
+      analysis: pendingAnalysis
+    };
+    if (!move.description) { alert('Please describe the move.'); return; }
+    radar().addMove(selectedCompetitorId, move);
+    pendingAnalysis = '';
+    renderMainPanel();
+  };
+
+  // ── BORROWED IDEAS TAB ───────────────────────────────────────────────
+  function buildIdeasTab(c) {
+    const ideas = c.borrowedIdeas || [];
+    const statusClass = { Considering: 'tag-considering', 'In Progress': 'tag-inprogress', Done: 'tag-done' };
+
+    const tableRows = ideas.length ? ideas.map(i => `
+      <tr>
+        <td>${escHtml(i.idea||'')}</td>
+        <td><span class="tag tag-content">${escHtml(c.name)}</span></td>
+        <td style="color:#64748b;font-style:italic;">${escHtml(i.ourSpin||'')}</td>
+        <td><span class="tag ${statusClass[i.status]||'tag-considering'}">${escHtml(i.status||'Considering')}</span></td>
+      </tr>
+    `).join('') : `<tr><td colspan="4" style="text-align:center;color:#475569;padding:40px;">No borrowed ideas yet.</td></tr>`;
+
+    return `
+      <div class="section-header">
+        <div class="section-title">Borrowed Ideas</div>
+      </div>
+      <div class="card" style="margin-bottom:20px;overflow:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Idea</th>
+              <th>Competitor</th>
+              <th>How We'd Do It Differently</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div class="inline-form">
+        <h4>Add Borrowed Idea</h4>
+        <div class="form-group">
+          <label>The idea from their playbook</label>
+          <textarea id="idea-text" placeholder="What's the idea or tactic they're using well?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Why it works for THEM</label>
+          <textarea id="idea-why" placeholder="What makes this effective in their context?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>How WE would do it differently (the key insight)</label>
+          <textarea id="idea-spin" placeholder="Same tactic, different angle. What's our unique twist that fits our brand and audience?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="idea-status">
+            <option>Considering</option>
+            <option>In Progress</option>
+            <option>Done</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="saveBorrowedIdea()">Save Idea</button>
+      </div>
+    `;
+  }
+
+  window.saveBorrowedIdea = function() {
+    const idea = {
+      idea: document.getElementById('idea-text').value.trim(),
+      whyWorks: document.getElementById('idea-why').value.trim(),
+      ourSpin: document.getElementById('idea-spin').value.trim(),
+      status: document.getElementById('idea-status').value
+    };
+    if (!idea.idea) { alert('Please describe the idea.'); return; }
+    radar().addBorrowedIdea(selectedCompetitorId, idea);
+    renderMainPanel();
+  };
+
+  // ── MARKET GAPS TAB ──────────────────────────────────────────────────
+  function buildGapsTab(c) {
+    const gaps = c.marketGaps || [];
+    const sizeClass = { High: 'tag-high', Medium: 'tag-medium', Low: 'tag-low' };
+
+    const gapCards = gaps.length ? gaps.map(g => `
+      <div class="gap-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span class="tag ${sizeClass[g.size]||'tag-medium'}">${escHtml(g.size||'Medium')} Opportunity</span>
+          <span style="font-size:12px;color:#475569;">vs. ${escHtml(c.name)}</span>
+        </div>
+        <div class="gap-desc">${escHtml(g.description||'')}</div>
+        ${g.evidence ? `<div class="gap-evidence">Evidence: ${escHtml(g.evidence)}</div>` : ''}
+      </div>
+    `).join('') : '<div class="empty-state"><div class="icon">🎯</div><p>No gaps identified yet.</p></div>';
+
+    return `
+      <div class="section-header">
+        <div class="section-title">Market Gaps</div>
+      </div>
+      ${gapCards}
+      <div class="inline-form">
+        <h4>Identify a Market Gap</h4>
+        <div class="form-group">
+          <label>What are they failing to address?</label>
+          <textarea id="gap-desc" placeholder="What need, audience segment, or use case are ALL your competitors missing or handling poorly?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Opportunity size</label>
+          <select id="gap-size">
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Evidence — why does this gap exist?</label>
+          <textarea id="gap-evidence" placeholder="Customer quotes, support tickets, search data, sales call observations..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="saveGap()">Save Gap</button>
+      </div>
+    `;
+  }
+
+  window.saveGap = function() {
+    const gap = {
+      description: document.getElementById('gap-desc').value.trim(),
+      size: document.getElementById('gap-size').value,
+      evidence: document.getElementById('gap-evidence').value.trim()
+    };
+    if (!gap.description) { alert('Please describe the gap.'); return; }
+    radar().addGap(selectedCompetitorId, gap);
+    renderMainPanel();
+  };
+
+  // ── PROFILE TAB ──────────────────────────────────────────────────────
+  function buildProfileTab(c) {
+    return `
+      <div class="section-title" style="margin-bottom:20px;">Competitor Profile</div>
+      <div class="card">
+        <div class="form-group">
+          <label>Company Name</label>
+          <input type="text" id="prof-name" value="${escAttr(c.name||'')}">
+        </div>
+        <div class="form-group">
+          <label>Website URL</label>
+          <input type="url" id="prof-url" value="${escAttr(c.url||'')}">
+        </div>
+        <div class="form-group">
+          <label>How they position themselves</label>
+          <textarea id="prof-positioning">${escHtml(c.positioning||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Their target audience</label>
+          <input type="text" id="prof-audience" value="${escAttr(c.audience||'')}">
+        </div>
+        <div class="form-group">
+          <label>Their key messages (one per line)</label>
+          <textarea id="prof-messages">${escHtml(c.messages||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Their tone/voice</label>
+          <input type="text" id="prof-tone" value="${escAttr(c.tone||'')}">
+        </div>
+        <button class="btn-primary" onclick="updateProfile()">Update Profile</button>
+      </div>
+    `;
+  }
+
+  window.updateProfile = function() {
+    const updates = {
+      name: document.getElementById('prof-name').value.trim(),
+      url: document.getElementById('prof-url').value.trim(),
+      positioning: document.getElementById('prof-positioning').value.trim(),
+      audience: document.getElementById('prof-audience').value.trim(),
+      messages: document.getElementById('prof-messages').value.trim(),
+      tone: document.getElementById('prof-tone').value.trim()
+    };
+    if (!updates.name) { alert('Company name is required.'); return; }
+    radar().updateCompetitor(selectedCompetitorId, updates);
+    renderCompetitorList();
+    renderMainPanel();
+    showToast('Profile updated.');
+  };
+
+  // ── Add Competitor Modal ──────────────────────────────────────────────
+  window.openAddCompetitorModal = function() {
+    document.getElementById('add-competitor-modal').classList.add('open');
+  };
+  window.closeAddCompetitorModal = function() {
+    document.getElementById('add-competitor-modal').classList.remove('open');
+  };
+
+  window.saveCompetitor = function() {
+    const name = document.getElementById('comp-name').value.trim();
+    if (!name) { alert('Company name is required.'); return; }
+    const comp = {
+      name,
+      url: document.getElementById('comp-url').value.trim(),
+      positioning: document.getElementById('comp-positioning').value.trim(),
+      audience: document.getElementById('comp-audience').value.trim(),
+      messages: document.getElementById('comp-messages').value.trim(),
+      tone: document.getElementById('comp-tone').value.trim()
+    };
+    const saved = radar().addCompetitor(comp);
+    closeAddCompetitorModal();
+    // clear fields
+    ['comp-name','comp-url','comp-positioning','comp-audience','comp-messages','comp-tone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    renderCompetitorList();
+    selectCompetitor(saved.id);
+  };
+
+  // Close modal on overlay click
+  document.getElementById('add-competitor-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAddCompetitorModal();
+  });
+
+  // ── Utilities ─────────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(str) { return escHtml(str); }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    Object.assign(t.style, { position:'fixed', bottom:'24px', right:'24px', background:'#7c3aed', color:'white', padding:'12px 20px', borderRadius:'10px', fontSize:'13px', zIndex:'9999', fontFamily:'Inter,sans-serif' });
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────
+  renderCompetitorList();
+})();
+</script>
+</body>
+</html>

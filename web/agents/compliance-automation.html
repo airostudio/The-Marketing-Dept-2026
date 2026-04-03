@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Compliance Automation | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+            --border: rgba(255,255,255,0.08); --text: #f1f5f9;
+            --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --card-bg: rgba(255,255,255,0.03);
+            --red: #ef4444; --yellow: #f59e0b; --blue: #3b82f6;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: var(--gradient); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--text3); font-size: 14px; }
+        .nav-breadcrumb { font-size: 13px; color: var(--text2); }
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; color: var(--text2); border: 1px solid var(--border); background: var(--card-bg); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+        .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
+
+        .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(124,58,237,0.15) 0%, transparent 70%); pointer-events: none; }
+        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); max-width: 600px; margin: 0 auto 20px; line-height: 1.5; }
+        .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
+        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-inspired { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.25); color: #c4b5fd; }
+
+        .main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 2fr 3fr; gap: 24px; align-items: start; }
+
+        .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+        .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .intel-badge { display: none; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); font-size: 11px; font-weight: 600; color: #a78bfa; }
+        .intel-badge.active { display: flex; }
+        .intel-dot { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .field-group { margin-bottom: 14px; }
+        .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+        .field-select option { background: #1a1a2e; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+        .checkbox-item:hover { background: rgba(255,255,255,0.05); border-color: var(--purple); }
+        .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+        .checkbox-item label { font-size: 12px; font-weight: 500; cursor: pointer; flex: 1; }
+        .checkbox-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+        .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
+
+        .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .output-body { padding: 20px; min-height: 300px; font-size: 14px; line-height: 1.75; color: var(--text); }
+        .output-body h2 { font-size: 16px; color: #a78bfa; margin: 16px 0 8px; font-weight: 700; }
+        .output-body h3 { font-size: 14px; color: var(--cyan); margin: 12px 0 6px; font-weight: 700; }
+        .output-body h4 { font-size: 13px; color: var(--green); margin: 10px 0 4px; font-weight: 700; }
+        .output-body p { margin-bottom: 10px; }
+        .output-body ul, .output-body ol { padding-left: 20px; margin-bottom: 10px; }
+        .output-body li { margin-bottom: 5px; }
+        .output-body strong { color: white; }
+        .output-body code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+        .output-body blockquote { border-left: 3px solid var(--purple); padding-left: 12px; color: var(--text2); margin: 10px 0; font-style: italic; }
+        .output-body table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+        .output-body th, .output-body td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+        .output-body th { background: rgba(124,58,237,0.1); font-weight: 600; }
+
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .streaming-cursor::after { content: '▋'; animation: blink 0.8s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .features-wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px 80px; }
+        .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
+        .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,58,237,0.3); box-shadow: 0 12px 32px rgba(124,58,237,0.08); }
+        .feature-icon { font-size: 24px; margin-bottom: 10px; }
+        .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+        .info-banner { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); padding: 12px 16px; border-radius: 10px; font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.8); margin-bottom: 16px; }
+        .info-banner strong { color: #60a5fa; }
+
+        @media (max-width: 1000px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
+        @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } .form-row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-left">
+        <a class="nav-logo" href="/index.html">
+            <div class="nav-logo-icon">🛡️</div>
+            <span>Audema</span>
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Enterprise Compliance Automation</span>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/hub.html">Agent Hub</a>
+        <a class="nav-link" href="/scotty.html">Scotty AI</a>
+        <a class="nav-link primary" href="/settings.html">Settings</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <span class="hero-emoji">🔒</span>
+    <h1 class="hero-title">Enterprise Compliance Automation</h1>
+    <p class="hero-tagline">Eliminate compliance busywork by automating evidence collection, continuous monitoring, and security workflows — close deals faster with audit-ready compliance</p>
+    <div class="hero-pills">
+        <span class="pill pill-claude">Powered by Claude</span>
+        <span class="pill pill-inspired">Inspired by Vanta · Drata · Secureframe · OneTrust</span>
+    </div>
+</section>
+
+<div class="main-wrap">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Compliance Setup</span>
+            <div class="intel-badge" id="intelBadge">
+                <div class="intel-dot"></div>
+                Intelligence Layer Active
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="info-banner">
+                <strong>🚀 Sales Acceleration:</strong> Generate audit-ready compliance reports, security questionnaires, and trust center content to close enterprise deals faster.
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Automation Goal</label>
+                <select class="field-select" id="automationGoal">
+                    <option value="Compliance Gap Analysis">Compliance Gap Analysis</option>
+                    <option value="Evidence Collection Plan">Evidence Collection Plan</option>
+                    <option value="Audit Readiness Report">Audit Readiness Report</option>
+                    <option value="Security Questionnaire Auto-Fill">Security Questionnaire Auto-Fill</option>
+                    <option value="Continuous Monitoring Setup">Continuous Monitoring Setup</option>
+                    <option value="Trust Center Content">Trust Center Content</option>
+                    <option value="Vendor Risk Assessment">Vendor Risk Assessment</option>
+                    <option value="Control Mapping">Control Mapping</option>
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Target Frameworks</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="soc2" checked>
+                        <label for="soc2">SOC 2 Type II (Trust Service Criteria)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="iso27001">
+                        <label for="iso27001">ISO 27001 (114 Annex A Controls)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="gdpr">
+                        <label for="gdpr">GDPR (EU Data Protection)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="hipaa">
+                        <label for="hipaa">HIPAA (Healthcare Data)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="pci">
+                        <label for="pci">PCI DSS (Payment Card Industry)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Company Stage</label>
+                    <select class="field-select" id="companyStage">
+                        <option value="Pre-compliance (just starting)">Pre-compliance (just starting)</option>
+                        <option value="Building compliance (in progress)">Building compliance (in progress)</option>
+                        <option value="Audit ready (90+ days)">Audit ready (90+ days)</option>
+                        <option value="Certified (SOC 2 / ISO 27001)">Certified (SOC 2 / ISO 27001)</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Infrastructure</label>
+                    <select class="field-select" id="infrastructure">
+                        <option value="AWS">AWS</option>
+                        <option value="GCP">GCP</option>
+                        <option value="Azure">Azure</option>
+                        <option value="Multi-cloud">Multi-cloud</option>
+                        <option value="On-premise">On-premise</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Current Setup / Context (optional)</label>
+                <textarea class="field-textarea" id="context" placeholder="Describe your current compliance setup, security controls, tools used (Vanta, Drata, etc.), audit timeline, sales stage, or paste a security questionnaire you need to fill out..."></textarea>
+            </div>
+
+            <button class="btn-run" id="runBtn" onclick="runAutomation()">
+                <span id="btnIcon">🔒</span>
+                <span id="btnText">Generate Compliance Automation</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Compliance Automation Plan</span>
+            <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
+        </div>
+        <div id="outputArea">
+            <div class="output-empty">Select your compliance frameworks and automation goal, then click Generate to get an AI-powered compliance automation plan with evidence collection, monitoring setup, and security workflow automation.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="features-wrap">
+    <div class="features-title">Enterprise Compliance Automation Features</div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">📋</div>
+            <div class="feature-name">SOC 2 Automation</div>
+            <div class="feature-desc">Trust Service Criteria (Security, Availability, Confidentiality, Processing Integrity, Privacy) tracking, control evidence collection, audit readiness.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔐</div>
+            <div class="feature-name">ISO 27001 Tracker</div>
+            <div class="feature-desc">114 Annex A controls mapped to your infrastructure, risk assessment automation, ISMS documentation, certification roadmap.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🇪🇺</div>
+            <div class="feature-name">GDPR Compliance</div>
+            <div class="feature-desc">Data mapping, DPIA templates, data subject request automation (access, deletion, portability), consent management, breach workflows.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📸</div>
+            <div class="feature-name">Evidence Collection</div>
+            <div class="feature-desc">Automated screenshot capture, log aggregation, policy versioning, access control reports, vendor assessments, training tracking.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <div class="feature-name">Continuous Monitoring</div>
+            <div class="feature-desc">Real-time security control status, vulnerability scan integration, compliance drift alerts, access log monitoring, MFA enforcement tracking.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📝</div>
+            <div class="feature-name">Security Questionnaires</div>
+            <div class="feature-desc">Auto-fill security questionnaires based on your compliance posture, vendor risk assessments, standardized responses for enterprise sales.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🚀</div>
+            <div class="feature-name">Sales Acceleration</div>
+            <div class="feature-desc">Compliance status dashboard, audit readiness reports, trust center automation, security documentation portal for enterprise buyers.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔌</div>
+            <div class="feature-name">API Integrations</div>
+            <div class="feature-desc">Connect to Vanta, Drata, Secureframe, OneTrust, and other compliance platforms to sync data and automate evidence collection.</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="../js/intelligence-engine.js"></script>
+<script src="../js/claude-service.js"></script>
+<script>
+    const SYSTEM_PROMPT = `You are an enterprise compliance automation specialist with expertise in SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS, and security frameworks. You help companies automate compliance evidence collection, continuous monitoring, and security workflows to close enterprise deals faster. Provide detailed, actionable automation plans with specific tools, API integrations, and step-by-step implementation guides. Focus on eliminating manual compliance busywork through automation.`;
+
+    (function checkIntel() {
+        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+    })();
+
+    function getSelectedFrameworks() {
+        const frameworks = [];
+        if (document.getElementById('soc2').checked) frameworks.push('SOC 2 Type II');
+        if (document.getElementById('iso27001').checked) frameworks.push('ISO 27001');
+        if (document.getElementById('gdpr').checked) frameworks.push('GDPR');
+        if (document.getElementById('hipaa').checked) frameworks.push('HIPAA');
+        if (document.getElementById('pci').checked) frameworks.push('PCI DSS');
+        return frameworks;
+    }
+
+    function buildIntelligenceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data) return '';
+
+        let context = '\n\n**COMPANY INTELLIGENCE CONTEXT:**\n';
+
+        if (data.industry) {
+            context += `Industry: ${data.industry}\n`;
+
+            // Industry-specific compliance requirements
+            if (data.industry.toLowerCase().includes('healthcare') || data.industry.toLowerCase().includes('health')) {
+                context += `⚠️ Healthcare industry requires HIPAA compliance, BAA agreements, and PHI protection.\n`;
+            }
+            if (data.industry.toLowerCase().includes('finance') || data.industry.toLowerCase().includes('fintech')) {
+                context += `⚠️ Financial services require SOX compliance, PCI DSS (if handling payments), and enhanced security controls.\n`;
+            }
+        }
+
+        if (data.icp) {
+            context += `\nTarget Market: ${data.icp.persona}\n`;
+            if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
+                context += `🎯 Enterprise B2B sales — compliance is critical for closing deals. Prioritize SOC 2, security questionnaires, and trust center.\n`;
+            }
+        }
+
+        if (data.brand?.name) {
+            context += `\nCompany: ${data.brand.name}\n`;
+        }
+
+        return context;
+    }
+
+    async function runAutomation() {
+        const automationGoal = document.getElementById('automationGoal').value;
+        const frameworks = getSelectedFrameworks();
+        const companyStage = document.getElementById('companyStage').value;
+        const infrastructure = document.getElementById('infrastructure').value;
+        const context = document.getElementById('context').value.trim();
+
+        if (frameworks.length === 0) {
+            alert('Please select at least one compliance framework.');
+            return;
+        }
+
+        const intelligenceContext = buildIntelligenceContext();
+
+        const userPrompt = `AUTOMATION GOAL: ${automationGoal}
+TARGET FRAMEWORKS: ${frameworks.join(', ')}
+COMPANY STAGE: ${companyStage}
+INFRASTRUCTURE: ${infrastructure}
+${intelligenceContext}
+
+${context ? `ADDITIONAL CONTEXT:\n${context}\n` : ''}
+
+Please provide a comprehensive compliance automation plan with:
+
+## EXECUTIVE SUMMARY
+- What you'll automate and why
+- Time savings estimate (hours/week)
+- Sales acceleration impact (faster deal closure)
+- Recommended tools/integrations
+
+## FRAMEWORK-SPECIFIC AUTOMATION
+
+${frameworks.includes('SOC 2 Type II') ? `### SOC 2 Type II Automation
+**Trust Service Criteria Coverage:**
+- **Security:** Access controls, encryption, MFA, vulnerability management
+- **Availability:** Uptime monitoring, incident response, disaster recovery
+- **Confidentiality:** Data classification, NDA tracking, confidential data handling
+- **Processing Integrity:** Change management, code review, testing processes
+- **Privacy:** Data inventory, consent management, privacy notices
+
+**Evidence Collection Automation:**
+- Screenshots: [specific controls to screenshot and tool recommendations]
+- Logs: [access logs, audit trails, change logs — where to collect and how to automate]
+- Policies: [policy versioning system, annual review automation]
+- Access Reviews: [quarterly access review automation with scripts/tools]
+- Vendor Assessments: [vendor security questionnaire automation]
+- Training: [employee security training tracking and completion automation]
+
+**Continuous Monitoring:**
+- Security control dashboard setup
+- Automated compliance drift alerts
+- Quarterly audit prep checklist
+
+**Audit Readiness Timeline:**
+- [90-day readiness plan if pre-audit]
+- [Gap analysis if in progress]
+- [Maintenance plan if certified]
+` : ''}
+
+${frameworks.includes('ISO 27001') ? `### ISO 27001 Automation
+**114 Annex A Controls Mapping:**
+- [Map controls to your ${infrastructure} infrastructure]
+- [Identify gaps and automation opportunities]
+- [Risk assessment automation]
+
+**ISMS Documentation:**
+- Information Security Policy automation
+- Asset inventory tracking
+- Risk register updates
+- Statement of Applicability (SoA) generation
+
+**Certification Roadmap:**
+- [Timeline to certification]
+- [Required documentation]
+- [Control implementation automation]
+` : ''}
+
+${frameworks.includes('GDPR') ? `### GDPR Compliance Automation
+**Data Mapping:**
+- Personal data inventory (where personal data flows)
+- Data Processing Activities (Article 30 record)
+- International data transfer tracking
+
+**Data Subject Requests (DSR) Automation:**
+- Access request workflow (Article 15)
+- Deletion request workflow (Article 17 "right to be forgotten")
+- Data portability workflow (Article 20)
+- Automated response templates
+
+**Consent Management:**
+- Consent tracking system
+- Cookie consent automation
+- Opt-in/opt-out workflow
+
+**Breach Notification:**
+- 72-hour breach notification workflow
+- Incident response automation
+- Documentation templates
+` : ''}
+
+${frameworks.includes('HIPAA') ? `### HIPAA Compliance Automation
+**PHI Protection:**
+- PHI data discovery and classification
+- Encryption verification (data at rest and in transit)
+- BAA (Business Associate Agreement) tracking
+
+**Security Rule Automation:**
+- Access control monitoring
+- Audit log aggregation
+- Encryption enforcement checks
+
+**Privacy Rule Compliance:**
+- Patient consent tracking
+- Minimum necessary use enforcement
+- Breach notification workflow (HHS reporting)
+` : ''}
+
+${frameworks.includes('PCI DSS') ? `### PCI DSS Automation
+**12 Requirements Coverage:**
+- Network security controls
+- Cardholder data protection
+- Vulnerability management
+- Access control automation
+- Network monitoring
+- Security testing automation
+
+**Quarterly Compliance:**
+- Automated vulnerability scanning (ASV)
+- Penetration testing coordination
+- Quarterly compliance reports
+` : ''}
+
+## EVIDENCE COLLECTION AUTOMATION PLAN
+
+**Automated Screenshot Tools:**
+- [Tool recommendations: Headless Chrome, Puppeteer, Selenium]
+- [Schedule: daily, weekly, quarterly]
+- [Storage: S3, Google Drive, compliance platform]
+- [Controls to screenshot: MFA enforcement, firewall rules, encryption settings, backup verification, access controls]
+
+**Log Aggregation Setup:**
+- [Tools: CloudWatch, Datadog, Splunk, ELK stack]
+- [Logs to collect: access logs, authentication logs, change logs, API logs, database access logs]
+- [Retention policy: 1 year minimum for SOC 2]
+- [Automation: scheduled exports, automated analysis]
+
+**Policy Management:**
+- [Version control: Git, Google Docs versioning]
+- [Annual review automation: calendar reminders, approval workflows]
+- [Policy distribution: employee acknowledgment tracking]
+
+**Access Review Automation:**
+- [Quarterly access review scripts]
+- [Tool recommendations: AWS IAM Access Analyzer, custom scripts, Vanta, Drata]
+- [Workflow: automated reports → manager review → attestation]
+
+**Vendor Assessment Automation:**
+- [Security questionnaire templates]
+- [Vendor risk scoring]
+- [Annual reassessment automation]
+
+**Training Tracking:**
+- [Security awareness training platform: KnowBe4, Infosec IQ]
+- [Annual training completion tracking]
+- [Phishing simulation automation]
+
+## CONTINUOUS MONITORING SETUP
+
+**Security Control Dashboard:**
+- [Tools: Vanta, Drata, Secureframe, custom dashboard]
+- [Real-time control status (MFA enforcement, encryption, backups, vulnerability scanning)]
+- [Compliance drift alerts (when controls fall out of compliance)]
+
+**Vulnerability Scanning:**
+- [Tools: Snyk, Dependabot, Qualys, Tenable]
+- [Automated scanning schedule]
+- [Remediation SLAs (critical: 7 days, high: 30 days, medium: 90 days)]
+
+**Access Log Monitoring:**
+- [Failed login attempts]
+- [Privilege escalations]
+- [Unusual access patterns]
+- [Automated alerts for suspicious activity]
+
+**Infrastructure Monitoring:**
+- [Uptime monitoring: Pingdom, UptimeRobot, Datadog]
+- [Backup verification automation]
+- [Disaster recovery testing schedule]
+
+## SECURITY WORKFLOW AUTOMATION
+
+**Security Questionnaire Auto-Fill:**
+- [Build a "security posture database" based on your current controls]
+- [Common questions and standardized answers]
+- [Integration with sales CRM (Salesforce, HubSpot)]
+- [Version control for security documentation]
+
+**Vendor Risk Assessment:**
+- [Vendor categorization (critical, high, medium, low risk)]
+- [Automated security questionnaire distribution]
+- [Risk scoring based on responses]
+- [Reassessment schedule]
+
+**Audit Prep Automation:**
+- [90-day pre-audit checklist]
+- [Evidence collection sprint automation]
+- [Control testing automation]
+- [Auditor portal setup (evidence sharing)]
+
+**Remediation Task Tracking:**
+- [Gap analysis → Jira/Linear/Asana tickets]
+- [Owner assignment]
+- [Deadline tracking]
+- [Progress dashboard]
+
+## SALES ACCELERATION SETUP
+
+**Compliance Status Dashboard:**
+- [Public trust center: "SOC 2 Type II in progress — audit ready Q3 2026"]
+- [Certifications display: badges, certificates]
+- [Security overview: encryption, MFA, backups, incident response]
+
+**Trust Center Content:**
+- [Security overview page]
+- [Privacy policy]
+- [Data processing agreement (DPA)]
+- [Subprocessor list]
+- [Compliance certifications]
+- [Penetration testing summary]
+
+**Security Documentation Portal:**
+- [For enterprise prospects: share security docs during sales cycle]
+- [Common documents: security whitepaper, SOC 2 report (under NDA), penetration test summary, infrastructure overview]
+- [Access control: NDA-gated downloads]
+
+**Sales Enablement:**
+- [Security FAQ for sales team]
+- [Standardized security responses]
+- [Objection handling (competitive security claims)]
+- [Security differentiators]
+
+## API INTEGRATION RECOMMENDATIONS
+
+${companyStage.includes('Pre-compliance') || companyStage.includes('Building') ? `
+**Recommended Compliance Platform:**
+- **Vanta** (Best for SOC 2, fast setup, excellent integrations)
+- **Drata** (SOC 2, ISO 27001, HIPAA automation)
+- **Secureframe** (Multi-framework support)
+- **OneTrust** (Best for GDPR, privacy-focused)
+
+**Integration Setup:**
+1. Connect cloud infrastructure (${infrastructure})
+2. Connect HR system (BambooHR, Gusto, Rippling) for employee onboarding/offboarding
+3. Connect code repository (GitHub, GitLab) for change management
+4. Connect endpoint management (Jamf, Kandji, Workspace ONE) for device security
+5. Enable automated evidence collection
+6. Configure continuous monitoring
+7. Set up compliance dashboard
+` : ''}
+
+${companyStage.includes('Audit ready') || companyStage.includes('Certified') ? `
+**Maintenance Automation:**
+- Quarterly access reviews
+- Annual policy reviews
+- Continuous evidence collection
+- Compliance drift monitoring
+- Vendor reassessments
+- Security training (annual)
+` : ''}
+
+## IMPLEMENTATION TIMELINE
+
+**Week 1-2: Foundation**
+- [ ] Select compliance platform (Vanta/Drata/Secureframe) or build custom
+- [ ] Connect integrations (${infrastructure}, HR, GitHub, endpoint management)
+- [ ] Initial control mapping
+
+**Week 3-4: Evidence Collection Automation**
+- [ ] Set up automated screenshot capture
+- [ ] Configure log aggregation
+- [ ] Implement policy version control
+- [ ] Create access review automation
+
+**Week 5-6: Continuous Monitoring**
+- [ ] Build security control dashboard
+- [ ] Configure compliance drift alerts
+- [ ] Set up vulnerability scanning automation
+- [ ] Implement access log monitoring
+
+**Week 7-8: Security Workflows**
+- [ ] Create security questionnaire database
+- [ ] Build vendor risk assessment workflow
+- [ ] Develop audit prep checklist
+- [ ] Set up remediation task tracking
+
+**Week 9-10: Sales Acceleration**
+- [ ] Build trust center
+- [ ] Create security documentation portal
+- [ ] Develop sales enablement materials
+- [ ] Set up compliance status dashboard
+
+**Ongoing: Maintenance**
+- [ ] Quarterly access reviews
+- [ ] Annual policy reviews
+- [ ] Continuous evidence collection
+- [ ] Vendor reassessments
+
+## TOOLS & COST ESTIMATE
+
+**Compliance Platform:** $500-2000/month (Vanta, Drata, Secureframe)
+**Vulnerability Scanning:** $0-500/month (Snyk, Dependabot free tier; Qualys, Tenable paid)
+**Log Aggregation:** $0-500/month (CloudWatch, ELK, Datadog)
+**Training Platform:** $0-50/user/year (KnowBe4, Infosec IQ)
+**Endpoint Management:** $5-15/device/month (Jamf, Kandji)
+
+**Total Estimated Cost:** $1000-4000/month
+**Time Savings:** 20-40 hours/week (compliance/security team)
+**Sales Impact:** 30-50% faster enterprise deal closure (compliance ready = faster procurement)
+
+## NEXT STEPS
+
+1. ${companyStage.includes('Pre-compliance') ? 'Select a compliance platform (recommend Vanta for SOC 2, OneTrust for GDPR)' : 'Audit current compliance automation gaps'}
+2. ${companyStage.includes('Pre-compliance') ? 'Connect integrations (start with cloud infrastructure + HR)' : 'Enhance automated evidence collection'}
+3. ${companyStage.includes('Pre-compliance') ? 'Implement foundational controls (MFA, encryption, backups, access controls)' : 'Set up continuous monitoring dashboard'}
+4. Build evidence collection automation for highest-effort manual tasks first
+5. Create trust center and sales enablement materials
+6. Quarterly review and optimization of automation workflows
+
+---
+
+**🚀 SALES ACCELERATION IMPACT:**
+- Enterprise buyers expect SOC 2 — having it (or being audit-ready) removes a major procurement blocker
+- Security questionnaire auto-fill reduces sales cycle friction (1-2 weeks saved per enterprise deal)
+- Trust center builds buyer confidence and reduces back-and-forth
+- Compliance status transparency accelerates legal/security reviews
+
+**💡 COMPLIANCE BUSYWORK ELIMINATED:**
+- Manual screenshot capture → automated (saves 5-10 hours/quarter)
+- Access reviews → automated reports (saves 8-12 hours/quarter)
+- Policy updates → version-controlled and scheduled (saves 4-6 hours/year)
+- Vendor assessments → templated and tracked (saves 3-5 hours/vendor)
+- Security questionnaires → auto-filled from posture database (saves 2-4 hours/questionnaire)
+
+**Total Time Savings:** 20-40 hours/week for compliance/security team`;
+
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        document.getElementById('btnIcon').innerHTML = '<span class="spinner"></span>';
+        document.getElementById('btnText').textContent = 'Generating...';
+
+        const outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
+        const outputBody = document.getElementById('outputBody');
+
+        try {
+            if (window.ClaudeService) {
+                let fullText = '';
+                await window.ClaudeService.streamResponse({
+                    systemPrompt: SYSTEM_PROMPT,
+                    messages: [{ role: 'user', content: userPrompt }],
+                    onChunk: (chunk, accumulated) => {
+                        fullText = accumulated;
+                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
+                    },
+                    onDone: (text) => {
+                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    },
+                    onError: (err) => {
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                    }
+                });
+            } else {
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered compliance automation.</div>';
+            }
+        } catch (e) {
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🔒';
+            document.getElementById('btnText').textContent = 'Generate Compliance Automation';
+        }
+    }
+
+    function copyOutput() {
+        const body = document.getElementById('outputBody');
+        if (!body) return;
+        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+</script>
+</body>
+</html>

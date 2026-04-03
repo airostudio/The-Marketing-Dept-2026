@@ -1,0 +1,239 @@
+===================================================================
+ADUMA MARKETING PLATFORM AUDIT REPORT
+Generated: Wed Feb  4 06:39:04 UTC 2026
+===================================================================
+
+1. FAKE DATA GENERATION (Math.random, hardcoded scores)
+-------------------------------------------------------------------
+web/marketing/product-marketing.html:742:                PMS.createPersona({ name: name, role: 'New Persona', painPoints: [], goals: [], channels: [], triggers: [], color: '#' + Math.floor(Math.random()*16777215).toString(16) });
+web/marketing/content-strategy.html:753:                setMetric('published-trend', '+' + Math.floor(Math.random() * 5 + 1) + ' this month');
+web/keywords/opportunities.html:314:                const recommendation = recommendations[Math.floor(Math.random() * recommendations.length)];
+web/seo-pulse.html:1965:            return Math.floor(Math.random() * (max - min + 1)) + min;
+web/seo/competitors.html:1242:                    const gap = Math.floor(Math.random() * 2000) + 200;
+web/seo/keywords.html:653:                            volume: Math.floor(Math.random() * 8000) + 500,
+web/seo/keywords.html:654:                            difficulty: Math.floor(Math.random() * 50) + 20
+web/seo/keywords.html:675:                            volume: Math.floor(Math.random() * 3000) + 200,
+web/seo/keywords.html:676:                            difficulty: Math.floor(Math.random() * 40) + 15
+web/seo/keywords.html:742:                showScanResults(fakeSuggestions, Math.floor(Math.random() * 10) + 5);
+web/seo/keywords.html:760:                relevanceScore: Math.floor(Math.random() * 100) + 50,
+web/seo/keywords.html:761:                estimatedVolume: Math.floor(Math.random() * 5000) + 100,
+web/seo/keywords.html:762:                estimatedDifficulty: Math.floor(Math.random() * 60) + 20,
+web/seo/keywords.html:763:                pagesFound: Math.floor(Math.random() * 5) + 1
+web/js/social-media-service.js:166:        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+web/js/content-writer-service.js:920:        return options[Math.floor(Math.random() * options.length)];
+web/js/content-writer-service.js:1190:        return options[Math.floor(Math.random() * options.length)];
+web/js/email-marketing-service.js:37:        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+web/js/brand-service.js:388:            id: 'asset-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+web/js/content-strategist-service.js:1039:        return 'cs_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+web/js/paid-media-service.js:118:        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+web/js/settings.js:961:            key += chars.charAt(Math.floor(Math.random() * chars.length));
+web/js/marketing-store.js:344:            campaign.id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+web/js/seo-audit.js:1292:        issue.id = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+web/js/unified-project-manager.js:85:            return `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+web/js/unified-project-manager.js:90:            return colors[Math.floor(Math.random() * colors.length)];
+web/js/unified-project-manager.js:196:                id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+web/js/unified-project-manager.js:662:                data.id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+web/js/backlink-service.js:394:            return 'bl_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+web/js/backlink-service.js:684:            return 'opp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+
+2. SIMULATED API DELAYS (setTimeout for fake loading)
+-------------------------------------------------------------------
+web/js/content-writer-service.js:680:        await new Promise(resolve => setTimeout(resolve, 2000));
+web/js/content-writer-service.js:1356:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1398:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1434:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1467:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1505:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1540:        await new Promise(resolve => setTimeout(resolve, 2000));
+web/js/content-writer-service.js:1623:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/content-writer-service.js:1690:        await new Promise(resolve => setTimeout(resolve, 1500));
+web/js/project-wizard.js:847:            const timeoutId = setTimeout(() => controller.abort(), 10000);
+web/js/project-wizard.js:1169:            await new Promise(resolve => setTimeout(resolve, 500));
+web/js/seo-modules.js:176:                            await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
+web/js/seo-modules.js:194:                        await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
+web/js/seo-modules.js:420:                await new Promise(r => setTimeout(r, 100));
+web/js/settings.js:999:        const timeout = setTimeout(() => dismissNotification(notification), 5000);
+web/js/settings.js:1009:        setTimeout(() => notification.remove(), 300);
+web/js/settings.js:1429:        setTimeout(initSupabaseSettings, 100);
+web/js/api-integrations.js:226:                    await new Promise(r => setTimeout(r, 1000));
+web/js/api-integrations.js:700:                await new Promise(r => setTimeout(r, 500));
+web/js/cro-checklist.js:368:            setTimeout(() => toast.remove(), 300);
+web/js/backlink-service.js:916:        setTimeout(initializeWithSampleData, 100);
+web/js/ai-agents-service.js:243:            setTimeout(() => this.runFullCycle(), 2000);
+web/js/ai-agents-service.js:2334:        setTimeout(() => window.AIAgents.initialize(), 100);
+web/js/dashboard.js:1292:            setTimeout(() => modal.remove(), 300);
+web/js/dashboard.js:1298:                setTimeout(() => modal.remove(), 300);
+web/js/dashboard.js:1672:                setTimeout(() => issueItem.remove(), 300);
+web/js/analysis-engine.js:864:        setTimeout(showCompletion, 1000);
+
+3. PLACEHOLDER TEXT
+-------------------------------------------------------------------
+web/history.html:152:                        <input type="text" id="historySearch" placeholder="Search events..." class="form-input" aria-label="Search history events" />
+web/index.html:109:                    <a href="#demo" class="btn btn-outline btn-lg">
+web/index.html:114:                        <span>Watch Demo</span>
+web/index.html:665:                    <a href="#demo" class="btn btn-ghost-white btn-lg">Schedule Demo</a>
+web/index.html:758:                        <input type="email" id="login-email" name="email" required placeholder="you@example.com" autocomplete="email">
+web/index.html:764:                            <input type="password" id="login-password" name="password" required placeholder="Enter your password" autocomplete="current-password">
+web/index.html:828:                            <input type="text" id="register-firstname" name="firstname" required placeholder="John" autocomplete="given-name">
+web/index.html:832:                            <input type="text" id="register-lastname" name="lastname" required placeholder="Doe" autocomplete="family-name">
+web/index.html:838:                        <input type="email" id="register-email" name="email" required placeholder="you@example.com" autocomplete="email">
+web/index.html:844:                            <input type="password" id="register-password" name="password" required placeholder="Create a password" minlength="8" autocomplete="new-password">
+web/marketing/lead-generation.html:1522:        // Create placeholders for actions
+web/marketing/analytics.html:1288:    /* ── Chart Placeholder ── */
+web/marketing/product-marketing.html:247:                            <li class="trend-item loading-placeholder">Loading trends...</li>
+web/marketing/product-marketing.html:306:                            <span class="loading-placeholder">Analyzing competitive landscape...</span>
+web/marketing/product-marketing.html:430:                                    <li class="loading-placeholder">Loading...</li>
+web/marketing/product-marketing.html:436:                                    <li class="loading-placeholder">Loading...</li>
+web/marketing/product-marketing.html:614:                    '<p class="persona-role">' + esc(p.role || p.demographics || '') + '</p>' +
+web/marketing/content-strategist.html:1077:                    <input type="text" class="form-input" id="contentTitle" placeholder="Enter content title">
+web/marketing/content-strategist.html:1093:                    <textarea class="form-textarea" id="contentDescription" placeholder="Brief description of the content"></textarea>
+web/marketing/content-strategist.html:1112:                    <input type="text" class="form-input" id="contentKeywords" placeholder="seo, marketing, strategy">
+web/marketing/paid-media.html:474:              <input type="text" id="gen-audience" placeholder="e.g., SaaS decision makers, 25-45, US">
+web/marketing/paid-media.html:478:              <input type="text" id="gen-product" placeholder="e.g., Marketing automation platform">
+web/marketing/paid-media.html:495:              <div class="ad-url">www.example.com/marketing-platform</div>
+web/marketing/paid-media.html:502:                <span class="cta-chip">Get a Demo</span>
+web/marketing/content-strategy.html:717:                        // Seed demo data
+web/marketing/content-strategy.html:719:                            { id: 'demo-1', title: '2026 Marketing Trends', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-03', status: 'published', type: 'blog' },
+web/marketing/content-strategy.html:720:                            { id: 'demo-2', title: 'Product Launch Email', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-07', status: 'scheduled', type: 'email' },
+web/marketing/content-strategy.html:721:                            { id: 'demo-3', title: 'Social Campaign Brief', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-10', status: 'review', type: 'social-post' },
+web/marketing/content-strategy.html:722:                            { id: 'demo-4', title: 'SEO Pillar Article', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-14', status: 'draft', type: 'blog' },
+web/marketing/content-strategy.html:723:                            { id: 'demo-5', title: 'Case Study: Client X', date: calYear + '-' + String(calMonth+1).padStart(2,'0') + '-18', status: 'scheduled', type: 'case-study' },
+
+4. HARDCODED SCORES AND METRICS
+-------------------------------------------------------------------
+web/js/keyword-service.js:806:            const score = (volume / 1000) * (100 - difficulty);
+web/js/keyword-service.js:858:                    const scoreA = (b.searchVolume / 1000) * (100 - a.difficulty);
+web/js/keyword-service.js:859:                    const scoreB = (a.searchVolume / 1000) * (100 - b.difficulty);
+web/js/lead-generation-service.js:238:                        score += model.criteria[key].weight * (value / 100);
+web/js/project-wizard.js:201:        const progress = (WizardState.currentStep / WizardState.totalSteps) * 100;
+web/js/project-wizard.js:665:        elements.progressFill.style.width = '100%';
+web/js/content-strategist-service.js:465:            audit.scores.quality = Math.min(100, qualityScore);
+web/js/content-strategist-service.js:473:            audit.scores.seo = Math.min(100, seoScore);
+web/js/content-strategist-service.js:483:            audit.scores.engagement = Math.min(100, engagementScore);
+web/js/api-production.js:577:            let score = 100;
+web/js/seo-audit.js:165:        AuditState.progress = 0;
+web/js/seo-audit.js:1679:                elements.progressBar.style.width = '100%';
+web/js/unified-project-manager.js:56:            this.progress = data.progress || 0; // 0-100
+web/js/unified-project-manager.js:137:            this.progress = 100;
+web/js/unified-project-manager.js:149:                this.progress = 0;
+web/js/unified-project-manager.js:170:            this.progress = Math.max(0, Math.min(100, progress));
+web/js/unified-project-manager.js:173:            if (this.progress === 100 && this.state !== PROJECT_STATES.COMPLETED) {
+web/js/seo-fixer.js:131:        FixerState.progress = 0;
+web/js/backlink-service.js:766:            score += (stats.dofollowPercent / 100) * 30;
+web/js/ai-agents-service.js:648:            let score = 100;
+web/js/ai-agents-service.js:1104:            let score = 100;
+web/js/ai-agents-service.js:1158:            } else if (results.healthScore >= 90) {
+web/js/dashboard.js:915:            const progress = Math.min(elapsed / duration, 1);
+web/js/analysis-engine.js:582:        let score = 100;
+web/js/analysis-engine.js:659:            state.data.healthScore = Math.floor(Math.random() * 25) + 65;
+web/js/analysis-engine.js:769:        state.progress = Math.min(completedWeight, 99);
+web/js/analysis-engine.js:832:        state.progress = 100;
+
+5. TODO, FIXME, HACK COMMENTS
+-------------------------------------------------------------------
+web/settings.html:602:                                        <input type="text" class="form-input" id="gaMeasurementId" placeholder="G-XXXXXXXXXX">
+web/project-wizard.html:747:                                    <input type="text" class="form-input" placeholder="G-XXXXXXXXXX or UA-XXXXX-X">
+web/js/email-marketing-service.js:17:        TEMPLATES: 'email-templates',
+web/js/email-marketing-service.js:830:        return loadStore(STORAGE_KEYS.TEMPLATES);
+web/js/email-marketing-service.js:853:        var templates = loadStore(STORAGE_KEYS.TEMPLATES);
+web/js/email-marketing-service.js:855:        saveStore(STORAGE_KEYS.TEMPLATES, templates);
+web/js/ai-service.js:33:            const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
+web/js/ai-service.js:72:            const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
+web/js/config.js:181:            TEMPERATURE: {
+web/js/supabase-client.js:37:    const MAX_RETRY_ATTEMPTS = 3;
+web/js/supabase-client.js:152:            if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+web/js/supabase-client.js:156:                console.log(`Supabase: Retrying connection in ${retryDelay}ms (attempt ${connectionRetryCount}/${MAX_RETRY_ATTEMPTS})`);
+
+6. MOCK/FAKE/DEMO DATA
+-------------------------------------------------------------------
+web/js/auth.js:367:            description: 'Using local demo mode (data stored in browser only)'
+web/js/paid-media-service.js:98:    /** Estimate audience size from demographics data deterministically.
+web/js/config.js:225:        USE_MOCK_DATA: false  // Set to true for demo mode
+web/js/backlink-service.js:847:    // INITIALIZE WITH SAMPLE DATA
+web/js/backlink-service.js:850:    function initializeWithSampleData() {
+web/js/backlink-service.js:853:            // Try to import from analysis data only - no sample/fake data
+web/js/backlink-service.js:907:        initializeSampleData() {
+web/js/backlink-service.js:908:            initializeWithSampleData();
+web/js/backlink-service.js:914:        document.addEventListener('DOMContentLoaded', initializeWithSampleData);
+web/js/backlink-service.js:916:        setTimeout(initializeWithSampleData, 100);
+web/js/dashboard.js:622:        // Sample data
+web/js/analysis-engine.js:13: * Set APP_CONFIG.FEATURES.USE_MOCK_DATA = true for demo mode with simulated data.
+web/js/analysis-engine.js:153:    function useMockData() {
+web/js/analysis-engine.js:154:        return window.APP_CONFIG?.FEATURES?.USE_MOCK_DATA === true;
+web/js/analysis-engine.js:207:        addLog(`Starting ${useMockData() ? 'demo' : 'production'} analysis for ${state.projectData.url}`, 'info');
+web/js/analysis-engine.js:243:        if (useMockData()) {
+web/js/analysis-engine.js:381:            // Fall back to mock data on error
+web/js/analysis-engine.js:621:        addLog('Running in demo mode with simulated data...', 'warning');
+web/js/analysis-engine.js:662:            // Generate mock data
+web/js/analysis-engine.js:880:                isRealData: !useMockData()
+
+7. COMMENTED OUT CODE
+-------------------------------------------------------------------
+web/js/keyword-service.js
+web/js/lead-generation-service.js
+web/js/api.js
+web/js/marketing-analytics-service.js
+web/js/social-media-service.js
+web/js/content-writer-service.js
+web/js/email-marketing-service.js
+web/js/project-wizard.js
+web/js/brand-service.js
+web/js/ai-service.js
+web/js/seo-fix-guide.js
+web/js/content-strategist-service.js
+web/js/auth.js
+web/js/seo-modules.js
+web/js/paid-media-service.js
+web/js/seo-pulse-handler.js
+web/js/config.js
+web/js/settings.js
+web/js/api-production.js
+web/js/landing.js
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+find: 'grep' terminated by signal 13
+
+8. CONSOLE LOGS (should be removed in production)
+-------------------------------------------------------------------
+433
+Total console statements found
+
+9. EMPTY/PLACEHOLDER FUNCTIONS
+-------------------------------------------------------------------
+web/js/keyword-service.js:360:            if (window.MarketingStore) { window.MarketingStore.set('keywords', 'seo-tracked-keywords', value).catch(function(){}); }
+web/js/keyword-service.js:830:            if (window.MarketingStore) { window.MarketingStore.set('keywords', 'seo-keyword-research', value).catch(function(){}); }
+web/js/marketing-analytics-service.js:47:            if (window.MarketingStore) { window.MarketingStore.set('analytics', key, value).catch(function(){}); }
+web/js/social-media-service.js:91:            if (window.MarketingStore) { window.MarketingStore.set('social', key, value).catch(function(){}); }
+web/js/email-marketing-service.js:54:            if (window.MarketingStore) { window.MarketingStore.set('email', key, data).catch(function(){}); }
+web/js/email-marketing-service.js:81:    async function aiGenerate(prompt, opts = {}) {
+web/js/email-marketing-service.js:142:    function getCampaigns(filters = {}) {
+web/js/email-marketing-service.js:202:    function createCampaign(config = {}) {
+web/js/email-marketing-service.js:234:    function updateCampaign(id, updates = {}) {
+web/js/email-marketing-service.js:504:    function createFlow(config = {}) {
+web/js/email-marketing-service.js:535:    function updateFlow(id, updates = {}) {
+web/js/brand-service.js:83:        try { return path.split('.').reduce(function (o, k) { return (o || {})[k]; }, window.APP_CONFIG) ?? fallback; }
+web/js/ai-service.js:50:                const error = await response.json().catch(() => ({}));
+web/js/ai-service.js:90:                const error = await response.json().catch(() => ({}));
+web/js/api-production.js:519:                onProgress = () => {}
+web/js/cmo-service.js:71:    async function aiGenerate(prompt, options = {}) {
+web/js/cmo-service.js:124:                window.MarketingStore.remove('cmo', key).catch(function() {});
+web/js/cmo-service.js:249:    async function generateMarketingStrategy(businessData = {}) {
+web/js/cmo-service.js:299:    async function generateCampaignBrief(objectives = {}) {
+web/js/cmo-service.js:377:    async function runCrossChannelCampaign(campaignConfig = {}) {
+
+===================================================================
+END OF AUDIT REPORT
+===================================================================

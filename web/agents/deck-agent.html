@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deck Maker | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+            --border: rgba(255,255,255,0.08); --text: #f1f5f9;
+            --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --card-bg: rgba(255,255,255,0.03);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 14px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: var(--gradient); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--text3); font-size: 14px; }
+        .nav-breadcrumb { font-size: 13px; color: var(--text2); }
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; color: var(--text2); border: 1px solid var(--border); background: var(--card-bg); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+        .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
+
+        .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(124,58,237,0.14) 0%, transparent 70%); pointer-events: none; }
+        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
+        .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
+        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-inspired { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--cyan); }
+
+        .main-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+
+        .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+        .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .intel-badge { display: none; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); font-size: 11px; font-weight: 600; color: var(--green); }
+        .intel-badge.active { display: flex; }
+        .intel-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .field-group { margin-bottom: 14px; }
+        .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+        .field-select option { background: #1a1a2e; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
+
+        .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
+        .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
+        .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
+        .output-body p { margin-bottom: 10px; }
+        .output-body ul, .output-body ol { padding-left: 20px; margin-bottom: 10px; }
+        .output-body li { margin-bottom: 5px; }
+        .output-body strong { color: white; }
+        .output-body code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+        .output-body blockquote { border-left: 3px solid var(--purple); padding-left: 12px; color: var(--text2); margin: 10px 0; font-style: italic; }
+
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .streaming-cursor::after { content: '▋'; animation: blink 0.8s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .features-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 80px; }
+        .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
+        .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,58,237,0.3); box-shadow: 0 12px 32px rgba(124,58,237,0.1); }
+        .feature-icon { font-size: 24px; margin-bottom: 10px; }
+        .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+        @media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
+        @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-left">
+        <a class="nav-logo" href="/index.html">
+            <div class="nav-logo-icon">📊</div>
+            <span>Audema</span>
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Deck Maker</span>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/hub.html">Agent Hub</a>
+        <a class="nav-link" href="/scotty.html">Scotty AI</a>
+        <a class="nav-link primary" href="/settings.html">Settings</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <span class="hero-emoji">📊</span>
+    <h1 class="hero-title">Deck Maker</h1>
+    <p class="hero-tagline">Tome-style presentations, investor decks, and pitch structures that close deals and raise rounds</p>
+    <div class="hero-pills">
+        <span class="pill pill-claude">Powered by Claude</span>
+        <span class="pill pill-inspired">Inspired by Tome AI · Beautiful.ai · Gamma</span>
+    </div>
+</section>
+
+<div style="max-width:1100px;margin:0 auto;padding:0 32px 24px;">
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:16px 20px;border-radius:12px;font-size:13px;line-height:1.6;">
+        <div style="font-weight:700;margin-bottom:6px;color:#34d399;">✨ AI-Powered Visual Presentations (Tome-Style)</div>
+        <div style="color:rgba(255,255,255,0.8);">This tool generates <strong>complete slide-by-slide deck structures</strong> with AI-powered visual design recommendations, then exports to <strong>editable PowerPoint (.pptx) files</strong> with professional layouts, color palettes, typography, and visual hierarchy — all generated by AI. No design skills needed.</div>
+    </div>
+</div>
+
+<div class="main-wrap">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Deck Brief</span>
+            <div class="intel-badge" id="intelBadge">
+                <div class="intel-dot"></div>
+                Intelligence Layer Active
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="field-group">
+                <label class="field-label">Deck Type</label>
+                <select class="field-select" id="deckType">
+                    <option value="Investor Pitch">Investor Pitch</option>
+                    <option value="Sales Deck">Sales Deck</option>
+                    <option value="Marketing Strategy">Marketing Strategy</option>
+                    <option value="Quarterly Review">Quarterly Review</option>
+                    <option value="Product Launch">Product Launch</option>
+                    <option value="Partnership Proposal">Partnership Proposal</option>
+                    <option value="Conference Talk">Conference Talk</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Company / Project Name</label>
+                    <input class="field-input" id="company" type="text" placeholder="e.g. Acme Corp">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Number of Slides</label>
+                    <select class="field-select" id="slideCount">
+                        <option value="10">10 slides</option>
+                        <option value="15" selected>15 slides</option>
+                        <option value="20">20 slides</option>
+                        <option value="25+">25+ slides</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Key Message (1 sentence)</label>
+                <input class="field-input" id="keyMessage" type="text" placeholder="e.g. We're the only AI platform that reduces churn by 40% automatically">
+            </div>
+            <div class="field-group">
+                <label class="field-label">Audience</label>
+                <select class="field-select" id="audience">
+                    <option value="Investors">Investors</option>
+                    <option value="Customers">Customers</option>
+                    <option value="Board">Board</option>
+                    <option value="Internal Team">Internal Team</option>
+                    <option value="Conference Audience">Conference Audience</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Key Data Points to Include (optional)</label>
+                <textarea class="field-textarea" id="dataPoints" placeholder="e.g. $2M ARR, 340% YoY growth, 94% retention rate, 50+ enterprise customers, Series A targeting $8M..."></textarea>
+            </div>
+            <button class="btn-run" id="runBtn" onclick="buildDeck()">
+                <span id="btnIcon">📊</span>
+                <span id="btnText">Build Deck Structure</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Deck Structure</span>
+            <div style="display:flex;gap:8px;">
+                <button class="btn-copy" id="downloadBtn" onclick="downloadPowerPoint()" style="display:none;background:linear-gradient(135deg,#10b981,#06b6d4);border-color:transparent;color:white;">
+                    📥 Download PowerPoint
+                </button>
+                <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
+            </div>
+        </div>
+        <div id="outputArea">
+            <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc. Then download as editable PowerPoint with AI-generated visual design.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="features-wrap">
+    <div class="features-title">What Deck Maker Does (Tome-Style AI Presentations)</div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🎭</div>
+            <div class="feature-name">Story-Arc Slide Structure</div>
+            <div class="feature-desc">Every deck follows a proven narrative arc — problem, insight, solution, proof, ask — that keeps audiences engaged.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎤</div>
+            <div class="feature-name">Speaker Notes for Each Slide</div>
+            <div class="feature-desc">Detailed talking points and transitions so you always know what to say and how long to spend on each slide.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎨</div>
+            <div class="feature-name">AI Visual Design</div>
+            <div class="feature-desc">AI-generated color palettes, typography, layouts, and visual hierarchy tailored to your brand, industry, and deck type.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📥</div>
+            <div class="feature-name">PowerPoint Export</div>
+            <div class="feature-desc">Download editable .pptx files with professional design applied — open in PowerPoint, Google Slides, or Keynote.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📉</div>
+            <div class="feature-name">Data Viz Recommendations</div>
+            <div class="feature-desc">Specific chart types, visual layouts, and data display formats recommended for each slide's key message.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌊</div>
+            <div class="feature-name">Narrative Flow Optimization</div>
+            <div class="feature-desc">Built-in tension and release, objection handling, and momentum that builds to a compelling close.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🖼️</div>
+            <div class="feature-name">Image & Icon Suggestions</div>
+            <div class="feature-desc">AI recommends specific images, icons, and graphics for each slide to enhance visual storytelling.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <div class="feature-name">Seconds, Not Hours</div>
+            <div class="feature-desc">Generate complete, designed presentations in seconds instead of spending hours in PowerPoint.</div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="../js/intelligence-engine.js"></script>
+<script src="../js/claude-service.js"></script>
+<script>
+    const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion. When company intelligence (value prop, ICP, competitors, metrics) is provided, use it to create company-specific content — not generic placeholders. Tailor tone and messaging to the target audience (investors want ROI/traction, customers want benefits/proof, board wants strategy/metrics).`;
+
+    (function checkIntel() {
+        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+    })();
+
+    // Intelligence Layer Builders
+    function buildValuePropContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.value_prop) return '';
+
+        let context = '\n\n**VALUE PROPOSITION CONTEXT:**\n';
+        context += `Value Prop: ${data.value_prop}\n`;
+        context += `\n**Use this to frame:**\n`;
+        context += `- Problem slide (what pain point does this address?)\n`;
+        context += `- Solution slide (how does value prop solve the problem?)\n`;
+        context += `- Key message reinforcement throughout deck\n`;
+
+        return context;
+    }
+
+    function buildICPAudienceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.icp) return '';
+
+        let context = '\n\n**ICP AUDIENCE CONTEXT:**\n';
+        context += `Target ICP: ${data.icp.persona}\n`;
+
+        if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
+            context += `\n**Enterprise B2B Deck Guidelines:**\n`;
+            context += `- Lead with ROI and business impact\n`;
+            context += `- Include security, compliance, scalability slides\n`;
+            context += `- Use data-driven proof (metrics, case studies)\n`;
+            context += `- Professional, formal tone in speaker notes\n`;
+        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('smb')) {
+            context += `\n**SMB Deck Guidelines:**\n`;
+            context += `- Lead with ease of use and quick time-to-value\n`;
+            context += `- Keep it simple and actionable\n`;
+            context += `- Pricing transparency important\n`;
+            context += `- Friendly, approachable tone\n`;
+        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('consumer')) {
+            context += `\n**B2C Deck Guidelines:**\n`;
+            context += `- Lead with emotional benefit and lifestyle impact\n`;
+            context += `- Visual storytelling over data\n`;
+            context += `- Social proof (user testimonials, ratings)\n`;
+            context += `- Conversational, engaging tone\n`;
+        }
+
+        return context;
+    }
+
+    function buildCompetitivePositioningContext() {
+        if (!window.IntelligenceEngine?.radar) return '';
+        const data = window.IntelligenceEngine.radar.load();
+        if (!data?.competitors || data.competitors.length === 0) return '';
+
+        let context = '\n\n**COMPETITIVE POSITIONING CONTEXT:**\n';
+        context += `Known Competitors: ${data.competitors.map(c => c.name).join(', ')}\n`;
+
+        if (data.positioning) {
+            context += `\nOur Positioning: ${data.positioning}\n`;
+        }
+
+        context += `\n**Competitive Slide Recommendations:**\n`;
+        context += `- Create a differentiation slide showing why we're different/better\n`;
+        context += `- Include competitive matrix or comparison table\n`;
+        context += `- Focus on unique capabilities competitors lack\n`;
+        context += `- Avoid direct competitor bashing (professional comparison only)\n`;
+
+        return context;
+    }
+
+    function buildBrandVoiceContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.brand?.voice) return '';
+
+        let context = '\n\n**BRAND VOICE CONTEXT:**\n';
+        context += `Brand Voice: ${data.brand.voice}\n`;
+        context += `\n**Apply to speaker notes:**\n`;
+
+        if (data.brand.voice.toLowerCase().includes('professional') || data.brand.voice.toLowerCase().includes('formal')) {
+            context += `- Use formal, professional language\n`;
+            context += `- Avoid slang and casual expressions\n`;
+            context += `- Data-driven, authoritative tone\n`;
+        } else if (data.brand.voice.toLowerCase().includes('friendly') || data.brand.voice.toLowerCase().includes('casual')) {
+            context += `- Use conversational, approachable language\n`;
+            context += `- OK to use analogies and storytelling\n`;
+            context += `- Warm, human tone\n`;
+        }
+
+        return context;
+    }
+
+    function buildIndustryMarketContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data?.industry) return '';
+
+        let context = '\n\n**INDUSTRY & MARKET CONTEXT:**\n';
+        context += `Industry: ${data.industry}\n`;
+        context += `\n**Market Opportunity Slide:**\n`;
+        context += `- Include ${data.industry} market size (TAM/SAM/SOM)\n`;
+        context += `- Industry growth trends and drivers\n`;
+        context += `- Key pain points in ${data.industry}\n`;
+        context += `- Regulatory or technology shifts creating opportunity\n`;
+
+        return context;
+    }
+
+    function buildSocialProofContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+
+        let context = '';
+        let hasSocialProof = false;
+
+        if (data?.customers && data.customers.length > 0) {
+            context += '\n\n**SOCIAL PROOF - CUSTOMER LOGOS:**\n';
+            context += `Featured Customers: ${data.customers.slice(0, 10).join(', ')}\n`;
+            context += `\n**Traction Slide:**\n`;
+            context += `- Include customer logo slide\n`;
+            context += `- Highlight notable brands or enterprise customers\n`;
+            hasSocialProof = true;
+        }
+
+        if (data?.testimonials && data.testimonials.length > 0) {
+            context += '\n\n**SOCIAL PROOF - TESTIMONIALS:**\n';
+            context += `${data.testimonials.length} testimonials available\n`;
+            context += `\n**Use in:**\n`;
+            context += `- Customer success slide (quote + attribution)\n`;
+            context += `- Problem validation (customer describing pain point)\n`;
+            hasSocialProof = true;
+        }
+
+        if (data?.case_studies && data.case_studies.length > 0) {
+            context += '\n\n**SOCIAL PROOF - CASE STUDIES:**\n';
+            context += `${data.case_studies.length} case studies available\n`;
+            context += `\n**Use in:**\n`;
+            context += `- Proof slide (before/after metrics)\n`;
+            context += `- Industry-specific success stories\n`;
+            hasSocialProof = true;
+        }
+
+        return hasSocialProof ? context : '';
+    }
+
+    function buildMetricsContext() {
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
+
+        let context = '';
+        let hasMetrics = false;
+
+        if (data?.metrics) {
+            context += '\n\n**COMPANY METRICS (for traction slide):**\n';
+
+            if (data.metrics.arr || data.metrics.revenue) {
+                context += `- Revenue/ARR: ${data.metrics.arr || data.metrics.revenue}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.growth_rate) {
+                context += `- Growth Rate: ${data.metrics.growth_rate}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.customers || data.metrics.users) {
+                context += `- Customers/Users: ${data.metrics.customers || data.metrics.users}\n`;
+                hasMetrics = true;
+            }
+
+            if (data.metrics.retention) {
+                context += `- Retention Rate: ${data.metrics.retention}\n`;
+                hasMetrics = true;
+            }
+        }
+
+        if (hasMetrics) {
+            context += `\n**Use in traction slide to show momentum**\n`;
+        }
+
+        return context;
+    }
+
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine?.getContextBundle) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return bundle?.completeness || 0;
+    }
+
+    async function buildDeck() {
+        const deckType = document.getElementById('deckType').value;
+        const company = document.getElementById('company').value.trim();
+        const slideCount = document.getElementById('slideCount').value;
+        const keyMessage = document.getElementById('keyMessage').value.trim();
+        const audience = document.getElementById('audience').value;
+        const dataPoints = document.getElementById('dataPoints').value.trim();
+
+        if (!keyMessage && !company) {
+            alert('Please enter a key message or company name.');
+            return;
+        }
+
+        // Strategic Validation Warnings
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3) {
+            const alreadyWarned = sessionStorage.getItem('deckMaker_noIntel_warned');
+            if (!alreadyWarned) {
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor company-specific decks (value prop slides, competitive positioning, customer logos, metrics), configure:\n• Value Proposition\n• ICP Definition\n• Competitor Data\n• Customer List\n• Company Metrics\n\nProceed with generic deck structure?`);
+                if (!proceed) return;
+                sessionStorage.setItem('deckMaker_noIntel_warned', 'true');
+            }
+        }
+
+        // Build Intelligence Layer Context
+        const valuePropContext = buildValuePropContext();
+        const icpAudienceContext = buildICPAudienceContext();
+        const competitiveContext = buildCompetitivePositioningContext();
+        const brandVoiceContext = buildBrandVoiceContext();
+        const marketContext = buildIndustryMarketContext();
+        const socialProofContext = buildSocialProofContext();
+        const metricsContext = buildMetricsContext();
+
+        // Legacy summary (keep for backward compatibility)
+        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
+        const contextStr = contextBundle.summary ? `\n\n**COMPANY CONTEXT:** ${contextBundle.summary}` : '';
+
+        const userPrompt = `Create a complete ${deckType} deck structure:
+
+COMPANY / PROJECT: ${company || 'Not specified'}
+DECK TYPE: ${deckType}
+KEY MESSAGE: ${keyMessage || 'Not specified'}
+TARGET AUDIENCE: ${audience}
+NUMBER OF SLIDES: ${slideCount}
+KEY DATA POINTS:
+${dataPoints || 'None provided — use placeholder examples'}
+${contextStr}
+${valuePropContext}
+${icpAudienceContext}
+${competitiveContext}
+${brandVoiceContext}
+${marketContext}
+${socialProofContext}
+${metricsContext}
+
+For each of the ${slideCount} slides, provide:
+**Slide [N]: [TITLE]**
+- Bullets: 3-5 concise bullet points (actual content, not generic placeholders)
+- Speaker Notes: 2-4 sentences of what to say, tone to use, transitions
+- Visual Suggestion: specific chart type, image direction, or layout recommendation
+- So What: the single takeaway the audience should leave with
+
+After all slides, include:
+## NARRATIVE ARC ANALYSIS
+How the tension builds and resolves across the deck
+
+## OBJECTION HANDLING SLIDES
+2-3 backup slides to prepare for common objections from ${audience}
+
+## APPENDIX SUGGESTIONS
+Supporting slides to have ready if asked
+
+Make all content specific to ${company || 'this company'} — no generic filler.`;
+
+        const btn = document.getElementById('runBtn');
+        btn.disabled = true;
+        document.getElementById('btnIcon').innerHTML = '<span class="spinner"></span>';
+        document.getElementById('btnText').textContent = 'Building...';
+
+        const outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
+        const outputBody = document.getElementById('outputBody');
+
+        try {
+            if (window.ClaudeService) {
+                let fullText = '';
+                await window.ClaudeService.streamResponse({
+                    systemPrompt: SYSTEM_PROMPT,
+                    messages: [{ role: 'user', content: userPrompt }],
+                    onChunk: (chunk, accumulated) => {
+                        fullText = accumulated;
+                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
+                    },
+                    onDone: (text) => {
+                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        // Store deck data for PPTX export
+                        window.currentDeckData = {
+                            text: text,
+                            company: company || 'Presentation',
+                            deckType: deckType,
+                            audience: audience
+                        };
+                        // Show download button
+                        document.getElementById('downloadBtn').style.display = 'block';
+                    },
+                    onError: (err) => {
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                    }
+                });
+            } else {
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
+            }
+        } catch (e) {
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '📊';
+            document.getElementById('btnText').textContent = 'Build Deck Structure';
+        }
+    }
+
+    function copyOutput() {
+        const body = document.getElementById('outputBody');
+        if (!body) return;
+        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+
+    // ============================================
+    // VISUAL DESIGN AI SYSTEM (Tome-Style)
+    // ============================================
+
+    const DESIGN_SYSTEM_PROMPT = `You are a presentation design expert specializing in creating stunning visual designs for slides. Generate a comprehensive design system specification for a presentation deck. Provide specific, actionable design specifications including color palettes, typography, layouts, and visual hierarchy. Be specific with hex codes, font names, sizes, and layout measurements.`;
+
+    async function generateVisualDesign(deckData) {
+        const { company, deckType, audience } = deckData;
+
+        // Get brand context from Intelligence Layer
+        const brandData = window.IntelligenceEngine?.brain?.load();
+        const industry = brandData?.industry || 'Technology';
+        const brandColors = brandData?.brand?.colors || [];
+
+        const designPrompt = `Generate a complete visual design system for a ${deckType} presentation:
+
+COMPANY: ${company}
+DECK TYPE: ${deckType}
+AUDIENCE: ${audience}
+INDUSTRY: ${industry}
+${brandColors.length > 0 ? `BRAND COLORS: ${brandColors.join(', ')}` : ''}
+
+Provide a design system with:
+
+## COLOR PALETTE
+- Primary color (hex code): [dominant brand/deck color]
+- Secondary color (hex code): [accent color]
+- Background color (hex code): [slide background]
+- Text color (hex code): [main text]
+- Accent 1 (hex code): [highlights, important data]
+- Accent 2 (hex code): [charts, graphs]
+
+Guidelines: ${deckType === 'Investor Pitch' ? 'Professional, trustworthy (blues, purples)' : deckType === 'Sales Deck' ? 'Energetic, confident (greens, blues)' : deckType === 'Marketing Strategy' ? 'Creative, bold (vibrant colors)' : 'Professional, clean (neutral with pops of color)'}
+
+## TYPOGRAPHY
+- Heading font: [specific font name, size in pt, weight]
+- Body font: [specific font name, size in pt]
+- Subheading font: [specific font name, size in pt, weight]
+
+Guidelines: ${audience === 'Investors' ? 'Clean, modern sans-serif (Helvetica, Arial)' : audience === 'Customers' ? 'Friendly, approachable (Inter, Open Sans)' : 'Professional, readable (Calibri, Arial)'}
+
+## LAYOUT STYLE
+Describe the overall layout approach (minimalist, data-rich, visual-heavy, text-heavy) and recommended slide layouts for:
+- Title slide
+- Content slides (bullets)
+- Data/chart slides
+- Image slides
+- Closing slide
+
+## VISUAL HIERARCHY
+Describe font sizes, spacing, and visual weight for:
+- Slide titles
+- Main bullet points
+- Sub-bullets
+- Speaker notes formatting
+
+Respond with JSON format for easy parsing.`;
+
+        try {
+            let designSpec = '';
+            if (window.ClaudeService) {
+                // Generate design specs using Claude
+                const response = await new Promise((resolve, reject) => {
+                    let accumulated = '';
+                    window.ClaudeService.streamResponse({
+                        systemPrompt: DESIGN_SYSTEM_PROMPT,
+                        messages: [{ role: 'user', content: designPrompt }],
+                        onChunk: (chunk, acc) => { accumulated = acc; },
+                        onDone: (text) => resolve(text),
+                        onError: (err) => reject(err)
+                    });
+                });
+                designSpec = response;
+            } else {
+                // Fallback design system
+                designSpec = generateFallbackDesign(deckType, industry, brandColors);
+            }
+
+            return parseDesignSpec(designSpec, deckType, industry, brandColors);
+        } catch (error) {
+            console.error('Design generation error:', error);
+            return generateFallbackDesign(deckType, industry, brandColors);
+        }
+    }
+
+    function generateFallbackDesign(deckType, industry, brandColors) {
+        // Professional fallback based on deck type
+        const palettes = {
+            'Investor Pitch': {
+                primary: '#6366f1',
+                secondary: '#8b5cf6',
+                background: '#ffffff',
+                text: '#1e293b',
+                accent1: '#3b82f6',
+                accent2: '#06b6d4'
+            },
+            'Sales Deck': {
+                primary: '#10b981',
+                secondary: '#059669',
+                background: '#ffffff',
+                text: '#111827',
+                accent1: '#14b8a6',
+                accent2: '#06b6d4'
+            },
+            'Marketing Strategy': {
+                primary: '#ec4899',
+                secondary: '#f43f5e',
+                background: '#ffffff',
+                text: '#0f172a',
+                accent1: '#8b5cf6',
+                accent2: '#f59e0b'
+            }
+        };
+
+        const palette = palettes[deckType] || palettes['Investor Pitch'];
+
+        return {
+            colors: brandColors.length > 0 ? { ...palette, primary: brandColors[0] } : palette,
+            typography: {
+                heading: { font: 'Arial', size: 32, weight: 'bold' },
+                body: { font: 'Arial', size: 18, weight: 'normal' },
+                subheading: { font: 'Arial', size: 24, weight: '600' }
+            },
+            layout: 'minimalist'
+        };
+    }
+
+    function parseDesignSpec(designText, deckType, industry, brandColors) {
+        // Try to extract JSON or parse text-based design specs
+        try {
+            // Look for JSON in the response
+            const jsonMatch = designText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+        } catch (e) {
+            // Fall back to text parsing
+        }
+
+        // Parse colors from text
+        const hexPattern = /#[0-9a-fA-F]{6}/g;
+        const colors = designText.match(hexPattern) || [];
+
+        const design = {
+            colors: {
+                primary: colors[0] || '#6366f1',
+                secondary: colors[1] || '#8b5cf6',
+                background: colors[2] || '#ffffff',
+                text: colors[3] || '#1e293b',
+                accent1: colors[4] || '#3b82f6',
+                accent2: colors[5] || '#06b6d4'
+            },
+            typography: {
+                heading: { font: 'Arial', size: 32, weight: 'bold' },
+                body: { font: 'Arial', size: 18, weight: 'normal' },
+                subheading: { font: 'Arial', size: 24, weight: '600' }
+            },
+            layout: 'minimalist'
+        };
+
+        return design;
+    }
+
+    function parseDeckStructure(markdownText) {
+        const slides = [];
+
+        // Split by slide markers (## Slide or **Slide)
+        const slidePattern = /(?:^|\n)(?:\*\*)?Slide\s+(\d+):\s+(.+?)(?:\*\*)?(?:\n|$)/gi;
+        const matches = [...markdownText.matchAll(slidePattern)];
+
+        for (let i = 0; i < matches.length; i++) {
+            const match = matches[i];
+            const slideNum = match[1];
+            const title = match[2].replace(/\*\*/g, '').trim();
+
+            // Extract content between this slide and the next
+            const startIdx = match.index + match[0].length;
+            const endIdx = i < matches.length - 1 ? matches[i + 1].index : markdownText.length;
+            const content = markdownText.substring(startIdx, endIdx);
+
+            // Parse bullets
+            const bullets = [];
+            const bulletPattern = /^[-•*]\s+(.+?)$/gm;
+            const bulletMatches = [...content.matchAll(bulletPattern)];
+            bulletMatches.forEach(bm => {
+                const text = bm[1].trim();
+                if (!text.toLowerCase().startsWith('bullets:') &&
+                    !text.toLowerCase().startsWith('speaker notes:') &&
+                    !text.toLowerCase().startsWith('visual suggestion:') &&
+                    !text.toLowerCase().startsWith('so what:')) {
+                    bullets.push(text);
+                }
+            });
+
+            // Parse speaker notes
+            const speakerNotesMatch = content.match(/Speaker Notes?:\s*(.+?)(?=\n[-•*]|\n\*\*|$)/is);
+            const speakerNotes = speakerNotesMatch ? speakerNotesMatch[1].trim() : '';
+
+            // Parse visual suggestions
+            const visualMatch = content.match(/Visual Suggestion:\s*(.+?)(?=\n[-•*]|\n\*\*|$)/is);
+            const visualSuggestion = visualMatch ? visualMatch[1].trim() : '';
+
+            slides.push({
+                number: parseInt(slideNum),
+                title: title,
+                bullets: bullets.slice(0, 5), // Max 5 bullets
+                speakerNotes: speakerNotes,
+                visualSuggestion: visualSuggestion
+            });
+        }
+
+        return slides;
+    }
+
+    async function createPowerPoint(deckData, design, slides) {
+        const pptx = new PptxGenJS();
+
+        // Set presentation properties
+        pptx.author = 'Audema AI';
+        pptx.company = deckData.company;
+        pptx.subject = deckData.deckType;
+        pptx.title = `${deckData.company} - ${deckData.deckType}`;
+
+        // Define master slide with design
+        pptx.defineSlideMaster({
+            title: 'MASTER_SLIDE',
+            background: { color: design.colors.background },
+            objects: [
+                {
+                    rect: {
+                        x: 0, y: 0, w: '100%', h: '100%',
+                        fill: { color: design.colors.background }
+                    }
+                }
+            ]
+        });
+
+        // Title Slide
+        const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+        titleSlide.background = { fill: design.colors.primary };
+
+        titleSlide.addText(deckData.company, {
+            x: 0.5, y: 2.0, w: 9.0, h: 1.5,
+            fontSize: 48,
+            bold: true,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.heading.font
+        });
+
+        titleSlide.addText(deckData.deckType, {
+            x: 0.5, y: 3.5, w: 9.0, h: 0.8,
+            fontSize: 28,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.body.font
+        });
+
+        // Content Slides
+        slides.forEach((slide, idx) => {
+            const contentSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+
+            // Slide title
+            contentSlide.addText(slide.title, {
+                x: 0.5, y: 0.5, w: 9.0, h: 0.8,
+                fontSize: design.typography.heading.size,
+                bold: true,
+                color: design.colors.primary.replace('#', ''),
+                fontFace: design.typography.heading.font
+            });
+
+            // Bullet points
+            if (slide.bullets && slide.bullets.length > 0) {
+                const bulletText = slide.bullets.map(b => ({
+                    text: b,
+                    options: {
+                        bullet: true,
+                        color: design.colors.text.replace('#', ''),
+                        fontSize: design.typography.body.size,
+                        fontFace: design.typography.body.font,
+                        paraSpaceAfter: 12
+                    }
+                }));
+
+                contentSlide.addText(bulletText, {
+                    x: 0.8, y: 1.5, w: 8.5, h: 4.0,
+                    fontSize: design.typography.body.size,
+                    color: design.colors.text.replace('#', ''),
+                    fontFace: design.typography.body.font
+                });
+            }
+
+            // Speaker notes
+            if (slide.speakerNotes) {
+                contentSlide.addNotes(slide.speakerNotes);
+            }
+
+            // Slide number
+            contentSlide.addText(`${idx + 1}`, {
+                x: 9.2, y: 7.0, w: 0.5, h: 0.3,
+                fontSize: 12,
+                color: design.colors.text.replace('#', ''),
+                align: 'right'
+            });
+        });
+
+        // Thank You / Closing Slide
+        const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+        closingSlide.background = { fill: design.colors.primary };
+
+        closingSlide.addText('Thank You', {
+            x: 0.5, y: 2.5, w: 9.0, h: 1.5,
+            fontSize: 48,
+            bold: true,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.heading.font
+        });
+
+        closingSlide.addText(deckData.company, {
+            x: 0.5, y: 4.0, w: 9.0, h: 0.6,
+            fontSize: 20,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.body.font,
+            italic: true
+        });
+
+        return pptx;
+    }
+
+    // ============================================
+    // PHASE 3: ADVANCED VISUALS
+    // ============================================
+
+    // AI Image Prompt Generation (for DALL-E/Midjourney)
+    async function generateImagePrompts(slides, deckType) {
+        const imagePrompts = [];
+
+        for (const slide of slides) {
+            const prompt = `Generate a DALL-E image prompt for this slide:
+
+SLIDE TITLE: ${slide.title}
+CONTENT: ${slide.bullets.join(', ')}
+DECK TYPE: ${deckType}
+VISUAL SUGGESTION: ${slide.visualSuggestion || 'Not specified'}
+
+Create a detailed image prompt (50-75 words) for:
+- Professional ${deckType} presentation style
+- High-quality business graphics
+- Modern, clean aesthetic
+- Relevant to slide content
+
+Respond with ONLY the image prompt, no other text.`;
+
+            try {
+                if (window.ClaudeService) {
+                    const imagePrompt = await new Promise((resolve, reject) => {
+                        let accumulated = '';
+                        window.ClaudeService.streamResponse({
+                            systemPrompt: 'You are an expert at creating image generation prompts for presentation slides.',
+                            messages: [{ role: 'user', content: prompt }],
+                            onChunk: (chunk, acc) => { accumulated = acc; },
+                            onDone: (text) => resolve(text.trim()),
+                            onError: (err) => reject(err)
+                        });
+                    });
+                    imagePrompts.push({ slideNumber: slide.number, prompt: imagePrompt });
+                } else {
+                    imagePrompts.push({
+                        slideNumber: slide.number,
+                        prompt: `Professional business graphic for: ${slide.title}`
+                    });
+                }
+            } catch (error) {
+                console.error('Image prompt generation error:', error);
+                imagePrompts.push({
+                    slideNumber: slide.number,
+                    prompt: `Professional business graphic for: ${slide.title}`
+                });
+            }
+        }
+
+        return imagePrompts;
+    }
+
+    // Unsplash API Integration
+    async function fetchUnsplashImage(query, orientation = 'landscape') {
+        // Unsplash API requires access key (stored in settings or env)
+        const accessKey = localStorage.getItem('unsplash_access_key') || 'demo';
+
+        if (accessKey === 'demo') {
+            // Return placeholder if no API key
+            return null;
+        }
+
+        try {
+            const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=1&client_id=${accessKey}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.results && data.results.length > 0) {
+                const photo = data.results[0];
+                return {
+                    url: photo.urls.regular,
+                    downloadUrl: photo.urls.full,
+                    author: photo.user.name,
+                    authorUrl: photo.user.links.html
+                };
+            }
+        } catch (error) {
+            console.error('Unsplash fetch error:', error);
+        }
+
+        return null;
+    }
+
+    // Chart.js Image Generation
+    async function generateChartImage(chartType, data, labels, title) {
+        return new Promise((resolve) => {
+            // Create temporary canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 450;
+            const ctx = canvas.getContext('2d');
+
+            // Chart configuration
+            const config = {
+                type: chartType, // 'bar', 'line', 'pie', 'doughnut'
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: title,
+                        data: data,
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(6, 182, 212, 0.8)',
+                            'rgba(236, 72, 153, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgb(99, 102, 241)',
+                            'rgb(139, 92, 246)',
+                            'rgb(16, 185, 129)',
+                            'rgb(6, 182, 212)',
+                            'rgb(236, 72, 153)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: title,
+                            font: { size: 18, weight: 'bold' }
+                        }
+                    },
+                    scales: chartType !== 'pie' && chartType !== 'doughnut' ? {
+                        y: { beginAtZero: true }
+                    } : {}
+                }
+            };
+
+            // Create chart
+            const chart = new Chart(ctx, config);
+
+            // Wait for chart to render, then get image
+            setTimeout(() => {
+                const imageData = canvas.toDataURL('image/png');
+                chart.destroy();
+                resolve(imageData);
+            }, 500);
+        });
+    }
+
+    // Icon Suggestions for Slides
+    function suggestIconsForSlide(slide) {
+        const title = slide.title.toLowerCase();
+        const content = slide.bullets.join(' ').toLowerCase();
+        const text = title + ' ' + content;
+
+        // Icon mapping based on keywords
+        const iconMap = {
+            'problem': 'fa-exclamation-triangle',
+            'solution': 'fa-lightbulb',
+            'team': 'fa-users',
+            'market': 'fa-chart-line',
+            'revenue': 'fa-dollar-sign',
+            'growth': 'fa-arrow-trend-up',
+            'customer': 'fa-user',
+            'traction': 'fa-rocket',
+            'product': 'fa-box',
+            'technology': 'fa-microchip',
+            'timeline': 'fa-calendar',
+            'roadmap': 'fa-road',
+            'competition': 'fa-chess',
+            'competitive': 'fa-shield',
+            'metrics': 'fa-chart-bar',
+            'data': 'fa-database',
+            'ask': 'fa-hand-holding-dollar',
+            'funding': 'fa-coins',
+            'investment': 'fa-money-bill-trend-up',
+            'vision': 'fa-eye',
+            'mission': 'fa-flag',
+            'value': 'fa-gem',
+            'benefit': 'fa-star',
+            'feature': 'fa-wand-magic-sparkles',
+            'security': 'fa-lock',
+            'scalability': 'fa-expand',
+            'integration': 'fa-plug'
+        };
+
+        // Find matching icon
+        for (const [keyword, icon] of Object.entries(iconMap)) {
+            if (text.includes(keyword)) {
+                return icon;
+            }
+        }
+
+        return 'fa-circle'; // Default icon
+    }
+
+    // Enhanced PowerPoint Creation with Advanced Visuals
+    async function createPowerPointWithVisuals(deckData, design, slides, imagePrompts) {
+        const pptx = new PptxGenJS();
+
+        // Set presentation properties
+        pptx.author = 'Audema AI';
+        pptx.company = deckData.company;
+        pptx.subject = deckData.deckType;
+        pptx.title = `${deckData.company} - ${deckData.deckType}`;
+
+        // Define master slide with design
+        pptx.defineSlideMaster({
+            title: 'MASTER_SLIDE',
+            background: { color: design.colors.background },
+            objects: [
+                {
+                    rect: {
+                        x: 0, y: 0, w: '100%', h: '100%',
+                        fill: { color: design.colors.background }
+                    }
+                }
+            ]
+        });
+
+        // Title Slide
+        const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+        titleSlide.background = { fill: design.colors.primary };
+
+        titleSlide.addText(deckData.company, {
+            x: 0.5, y: 2.0, w: 9.0, h: 1.5,
+            fontSize: 48,
+            bold: true,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.heading.font
+        });
+
+        titleSlide.addText(deckData.deckType, {
+            x: 0.5, y: 3.5, w: 9.0, h: 0.8,
+            fontSize: 28,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.body.font
+        });
+
+        // Content Slides with Advanced Visuals
+        for (const [idx, slide] of slides.entries()) {
+            const contentSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+
+            // Detect if slide needs chart
+            const needsChart = slide.visualSuggestion && (
+                slide.visualSuggestion.toLowerCase().includes('chart') ||
+                slide.visualSuggestion.toLowerCase().includes('graph') ||
+                slide.visualSuggestion.toLowerCase().includes('bar') ||
+                slide.visualSuggestion.toLowerCase().includes('line')
+            );
+
+            // Slide title with icon
+            const icon = suggestIconsForSlide(slide);
+            const iconSymbol = icon !== 'fa-circle' ? '●' : ''; // Simplified for PPTX
+
+            contentSlide.addText(`${iconSymbol} ${slide.title}`, {
+                x: 0.5, y: 0.5, w: 9.0, h: 0.8,
+                fontSize: design.typography.heading.size,
+                bold: true,
+                color: design.colors.primary.replace('#', ''),
+                fontFace: design.typography.heading.font
+            });
+
+            if (needsChart) {
+                // Generate sample chart (in real implementation, would parse data from bullets)
+                const chartData = [45, 30, 15, 10];
+                const chartLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
+                const chartType = slide.visualSuggestion.toLowerCase().includes('pie') ? 'pie' : 'bar';
+
+                try {
+                    const chartImage = await generateChartImage(chartType, chartData, chartLabels, slide.title);
+
+                    contentSlide.addImage({
+                        data: chartImage,
+                        x: 5.5, y: 1.5, w: 4.0, h: 3.5
+                    });
+
+                    // Bullets on left side
+                    if (slide.bullets && slide.bullets.length > 0) {
+                        const bulletText = slide.bullets.map(b => ({
+                            text: b,
+                            options: {
+                                bullet: true,
+                                color: design.colors.text.replace('#', ''),
+                                fontSize: 16,
+                                fontFace: design.typography.body.font
+                            }
+                        }));
+
+                        contentSlide.addText(bulletText, {
+                            x: 0.5, y: 1.5, w: 4.5, h: 4.5,
+                            fontSize: 16,
+                            color: design.colors.text.replace('#', ''),
+                            fontFace: design.typography.body.font,
+                            valign: 'top'
+                        });
+                    }
+                } catch (chartError) {
+                    console.error('Chart generation error:', chartError);
+                    // Fall back to bullet-only layout
+                    addBulletLayout(contentSlide, slide, design);
+                }
+            } else {
+                // Standard bullet layout
+                addBulletLayout(contentSlide, slide, design);
+            }
+
+            // Speaker notes
+            if (slide.speakerNotes) {
+                contentSlide.addNotes(slide.speakerNotes);
+            }
+
+            // Add AI image prompt as note (for user to generate with DALL-E)
+            if (imagePrompts && imagePrompts[idx]) {
+                const promptNote = `\n\n[AI IMAGE PROMPT for DALL-E/Midjourney]:\n${imagePrompts[idx].prompt}`;
+                contentSlide.addNotes((slide.speakerNotes || '') + promptNote);
+            }
+
+            // Slide number
+            contentSlide.addText(`${idx + 1}`, {
+                x: 9.2, y: 7.0, w: 0.5, h: 0.3,
+                fontSize: 12,
+                color: design.colors.text.replace('#', ''),
+                align: 'right'
+            });
+        }
+
+        // Thank You / Closing Slide
+        const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+        closingSlide.background = { fill: design.colors.primary };
+
+        closingSlide.addText('Thank You', {
+            x: 0.5, y: 2.5, w: 9.0, h: 1.5,
+            fontSize: 48,
+            bold: true,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.heading.font
+        });
+
+        closingSlide.addText(deckData.company, {
+            x: 0.5, y: 4.0, w: 9.0, h: 0.6,
+            fontSize: 20,
+            color: 'FFFFFF',
+            align: 'center',
+            fontFace: design.typography.body.font,
+            italic: true
+        });
+
+        return pptx;
+    }
+
+    // Helper: Add bullet-only layout
+    function addBulletLayout(slide, slideData, design) {
+        if (slideData.bullets && slideData.bullets.length > 0) {
+            const bulletText = slideData.bullets.map(b => ({
+                text: b,
+                options: {
+                    bullet: true,
+                    color: design.colors.text.replace('#', ''),
+                    fontSize: design.typography.body.size,
+                    fontFace: design.typography.body.font,
+                    paraSpaceAfter: 12
+                }
+            }));
+
+            slide.addText(bulletText, {
+                x: 0.8, y: 1.5, w: 8.5, h: 4.0,
+                fontSize: design.typography.body.size,
+                color: design.colors.text.replace('#', ''),
+                fontFace: design.typography.body.font
+            });
+        }
+    }
+
+    async function downloadPowerPoint() {
+        if (!window.currentDeckData) {
+            alert('Please generate a deck structure first.');
+            return;
+        }
+
+        const btn = document.getElementById('downloadBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> Generating Visuals...';
+        btn.disabled = true;
+
+        try {
+            // Step 1: Generate visual design using AI
+            btn.innerHTML = '<span class="spinner"></span> Designing...';
+            const design = await generateVisualDesign(window.currentDeckData);
+
+            // Step 2: Parse deck structure from markdown
+            const slides = parseDeckStructure(window.currentDeckData.text);
+
+            if (slides.length === 0) {
+                alert('Could not parse deck structure. Please ensure the deck has been generated first.');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            // Step 3: Generate AI image prompts (for DALL-E/Midjourney)
+            btn.innerHTML = '<span class="spinner"></span> Creating Image Prompts...';
+            const imagePrompts = await generateImagePrompts(slides.slice(0, 3), window.currentDeckData.deckType); // First 3 slides only for performance
+
+            // Step 4: Create PowerPoint with advanced visuals
+            btn.innerHTML = '<span class="spinner"></span> Building PowerPoint...';
+            const pptx = await createPowerPointWithVisuals(window.currentDeckData, design, slides, imagePrompts);
+
+            // Step 5: Download
+            const fileName = `${window.currentDeckData.company.replace(/[^a-z0-9]/gi, '_')}_${window.currentDeckData.deckType.replace(/[^a-z0-9]/gi, '_')}.pptx`;
+            await pptx.writeFile({ fileName: fileName });
+
+            // Success feedback
+            btn.innerHTML = '✓ Downloaded!';
+
+            // Show image prompt instructions
+            if (imagePrompts.length > 0) {
+                setTimeout(() => {
+                    alert(`PowerPoint downloaded! 🎉\n\nAI image prompts have been added to speaker notes for slides 1-3. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.\n\nTip: Configure Unsplash API key in settings for automatic stock images.`);
+                }, 500);
+            }
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 3000);
+
+        } catch (error) {
+            console.error('PowerPoint generation error:', error);
+            alert(`Error generating PowerPoint: ${error.message}`);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

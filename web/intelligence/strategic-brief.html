@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategic Brief | Audema - Your AI Marketing Department</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #070711; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+
+    .gradient-text { background: linear-gradient(135deg, #a78bfa, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; }
+
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: opacity 0.15s; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.12); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 14px; transition: opacity 0.15s; }
+    .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
+    .btn-xs { padding: 5px 12px; font-size: 11px; border-radius: 7px; }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    input, textarea, select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; border-radius: 10px; padding: 12px 16px; width: 100%; font-family: inherit; font-size: 14px; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #7c3aed; }
+    textarea { resize: vertical; }
+    select option { background: #1a1a2e; }
+
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+    .field-hint { font-size: 12px; color: #475569; margin-bottom: 8px; line-height: 1.5; }
+
+    .page-header { padding: 20px 32px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); flex-shrink: 0; }
+    .back-link { color: #94a3b8; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .back-link:hover { color: #e2e8f0; }
+
+    .form-group { margin-bottom: 22px; }
+
+    /* Urgency banner */
+    .urgency-banner { background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(236,72,153,0.08)); border: 1px solid rgba(124,58,237,0.25); border-radius: 14px; padding: 18px 22px; margin-bottom: 28px; display: flex; align-items: flex-start; gap: 14px; }
+    .urgency-icon { font-size: 24px; flex-shrink: 0; }
+    .urgency-text { font-size: 14px; line-height: 1.6; color: #c4b5fd; font-weight: 500; }
+    .urgency-sub { font-size: 13px; color: #7c3aed; margin-top: 4px; font-weight: 400; }
+
+    /* Two column layout */
+    .two-col { display: flex; height: calc(100vh - 73px); overflow: hidden; }
+    .panel-left { width: 55%; min-width: 55%; border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; padding: 28px 32px; }
+    .panel-right { flex: 1; overflow-y: auto; padding: 28px 24px; }
+
+    /* Section dividers */
+    .section-label { font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid rgba(124,58,237,0.2); }
+
+    /* Brief output */
+    .brief-output { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .brief-section { margin-bottom: 20px; }
+    .brief-section:last-child { margin-bottom: 0; }
+    .brief-section-title { font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .brief-section-content { font-size: 14px; color: #cbd5e1; line-height: 1.7; white-space: pre-wrap; }
+
+    /* Agent assignment */
+    .agents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .agent-option { padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.02); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; }
+    .agent-option:hover { border-color: rgba(124,58,237,0.4); background: rgba(124,58,237,0.06); }
+    .agent-option.selected { border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.1); }
+    .agent-option input[type=checkbox] { width: auto; accent-color: #7c3aed; }
+    .agent-label { font-size: 13px; font-weight: 500; }
+    .agent-open-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: none; background: rgba(124,58,237,0.2); color: #a78bfa; cursor: pointer; margin-left: auto; flex-shrink: 0; }
+    .agent-open-btn:hover { background: rgba(124,58,237,0.35); opacity: 1; }
+
+    /* Brief history accordion */
+    .accordion { border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; overflow: hidden; }
+    .accordion-header { padding: 14px 18px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.02); user-select: none; }
+    .accordion-header:hover { background: rgba(255,255,255,0.04); }
+    .accordion-body { display: none; padding: 0 18px 16px; }
+    .accordion-body.open { display: block; }
+    .history-item { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+    .history-item:last-child { border-bottom: none; }
+    .history-item:hover { opacity: 0.8; }
+    .history-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .history-meta { font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 10px; }
+    .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .tag-draft { background: rgba(99,102,241,0.12); color: #818cf8; }
+    .tag-approved { background: rgba(16,185,129,0.12); color: #34d399; }
+    .tag-executed { background: rgba(124,58,237,0.12); color: #a78bfa; }
+
+    /* Loading spinner */
+    .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .streaming-box { background: rgba(124,58,237,0.07); border: 1px solid rgba(124,58,237,0.2); border-radius: 14px; padding: 20px; font-size: 14px; color: #c4b5fd; line-height: 1.7; white-space: pre-wrap; min-height: 120px; }
+
+    /* Generate button area */
+    .generate-area { background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(236,72,153,0.05)); border: 1px solid rgba(124,58,237,0.2); border-radius: 14px; padding: 20px 24px; margin-bottom: 24px; }
+    .generate-area h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .generate-area p { font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.5; }
+
+    /* Empty state */
+    .brief-empty { text-align: center; padding: 60px 20px; }
+    .brief-empty-icon { font-size: 56px; margin-bottom: 20px; }
+    .brief-empty-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #475569; }
+    .brief-empty-sub { font-size: 13px; color: #334155; line-height: 1.6; max-width: 280px; margin: 0 auto; }
+
+    .action-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 24px 0; }
+    .right-section-title { font-size: 13px; font-weight: 700; color: #a78bfa; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- Page Header -->
+<header class="page-header">
+  <div style="display:flex;align-items:center;gap:24px;">
+    <a href="/hub.html" class="back-link">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Hub
+    </a>
+    <div>
+      <h1 style="font-size:20px;font-weight:800;">📋 <span class="gradient-text">Strategic Brief</span></h1>
+      <p style="font-size:13px;color:#64748b;margin-top:2px;">Answer WHY before WHO.</p>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#475569;">Intelligence Layer</div>
+</header>
+
+<!-- Two Panel Layout -->
+<div class="two-col">
+
+  <!-- LEFT PANEL: Brief Builder -->
+  <div class="panel-left">
+
+    <!-- Urgency Banner -->
+    <div class="urgency-banner">
+      <div class="urgency-icon">⚡</div>
+      <div>
+        <div class="urgency-text">The quality of your output is determined by the quality of your upstream thinking.</div>
+        <div class="urgency-sub">Take 10 minutes here to save 10 hours of iteration later. Every field matters.</div>
+      </div>
+    </div>
+
+    <!-- Section 1: What are you making? -->
+    <div class="section-label">What are you trying to create?</div>
+
+    <div class="form-group">
+      <label>Initiative Name</label>
+      <input type="text" id="f-initiative" placeholder="What are we making? Give it a working title.">
+    </div>
+
+    <div class="form-group">
+      <label>Content Type</label>
+      <select id="f-content-type">
+        <option value="">Select content type...</option>
+        <option>Blog Post</option>
+        <option>Email Campaign</option>
+        <option>LinkedIn Post</option>
+        <option>Ad Campaign</option>
+        <option>Landing Page</option>
+        <option>Case Study</option>
+        <option>Video Script</option>
+        <option>Social Campaign</option>
+        <option>Webinar</option>
+        <option>Sales Sequence</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Target Audience Segment</label>
+      <input type="text" id="f-audience" placeholder="Not 'marketers' — but 'VP Marketing at 50-200 person SaaS companies who still do manual reporting...'">
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 2: The Strategic Case -->
+    <div class="section-label">The Strategic Case — most important section</div>
+
+    <div class="form-group">
+      <label>Why now?</label>
+      <div class="field-hint">What's changed in the market, with competitors, or with your audience that makes THIS the right moment? Not "we need content" — what specific shift creates the opportunity?</div>
+      <textarea id="f-why-now" rows="4" placeholder="e.g. 'Three major competitors just announced similar features, but none are addressing the integration pain point our ICP experiences. There's a 2-week window before the market narrative sets...'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>What competitive gap does this fill?</label>
+      <div class="field-hint">What are competitors NOT saying, NOT addressing, or doing poorly? How does this content occupy territory they've left open?</div>
+      <textarea id="f-gap" rows="4" placeholder="e.g. 'Every competitor talks about ROI metrics — none address the emotional weight of justifying budget to a skeptical CFO. We own that conversation.'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>What signals support this?</label>
+      <div class="field-hint">Paste signals from Market Pulse, customer quotes, sales call observations, or search data that tell you this direction will resonate.</div>
+      <textarea id="f-signals" rows="4" placeholder="e.g. 'Customer quote from Slack: &quot;I just need someone to explain it in a way my boss will get.&quot; 3 signals from Market Pulse showing emotional messaging is outperforming feature-led content...'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>How will this be genuinely different?</label>
+      <div class="field-hint">Not "better written" — differently positioned. What specific angle, take, or insight makes this worth publishing vs. adding to the noise?</div>
+      <textarea id="f-differentiation" rows="4" placeholder="e.g. 'We'll lead with the failure story — what happens when you DON'T solve this — instead of the typical aspirational success framing everyone else uses.'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>What should the audience feel / think / do differently after encountering this?</label>
+      <div class="field-hint">The desired outcome, not the deliverable. Describe the shift you want to create in their thinking or behaviour.</div>
+      <textarea id="f-outcome" rows="3" placeholder="e.g. 'They should feel understood and slightly unsettled. Think: &quot;this is exactly my problem.&quot; Do: book a demo to see if we actually solve it.'"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Which ICP segment exactly?</label>
+      <input type="text" id="f-icp" placeholder="Be surgical — role, company size, industry, pain point, buying stage...">
+    </div>
+
+    <div class="form-group">
+      <label>What does success look like?</label>
+      <input type="text" id="f-success" placeholder="Specific metric or behaviour — not 'brand awareness'. e.g. '15% CTR on email, 3+ demo requests within 48 hours'">
+    </div>
+
+    <!-- Generate Brief -->
+    <div class="generate-area">
+      <h3>Generate Strategic Brief</h3>
+      <p>Claude will synthesize your inputs — plus context from your competitive radar and market signals — into a full strategic brief document.</p>
+      <button class="btn-primary" id="generate-btn" onclick="generateBrief()" style="width:100%;">
+        Generate Strategic Brief →
+      </button>
+    </div>
+
+    <!-- Agent Assignment (hidden until brief generated) -->
+    <div id="agent-assignment" style="display:none;">
+      <div class="divider"></div>
+      <div class="section-label">Assign to Agents</div>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Select which agents should work from this brief. The brief will be pre-loaded in their context.</p>
+      <div class="agents-grid" id="agents-grid"></div>
+      <div style="margin-top:16px;font-size:12px;color:#475569;">Click an agent button to open it with this brief pre-loaded.</div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL: Brief Output -->
+  <div class="panel-right">
+    <div class="right-section-title">Generated Brief</div>
+
+    <!-- Empty State -->
+    <div id="brief-empty" class="brief-empty">
+      <div class="brief-empty-icon">📋</div>
+      <div class="brief-empty-title">Your brief will appear here</div>
+      <div class="brief-empty-sub">Fill in the strategic case on the left, then generate your brief. The more specific your inputs, the sharper your output.</div>
+    </div>
+
+    <!-- Streaming output during generation -->
+    <div id="brief-streaming" style="display:none;">
+      <div class="streaming-box" id="streaming-output"></div>
+    </div>
+
+    <!-- Final brief output -->
+    <div id="brief-result" style="display:none;">
+      <div class="brief-output" id="brief-output-content"></div>
+
+      <div class="action-row">
+        <button class="btn-secondary btn-sm" onclick="copyBrief()">Copy Brief</button>
+        <button class="btn-secondary btn-sm" onclick="exportBriefText()">Export as Text</button>
+        <button class="btn-secondary btn-sm" onclick="saveBriefToHistory()">Save to History</button>
+      </div>
+    </div>
+
+    <div class="divider" style="margin:28px 0;"></div>
+
+    <!-- Brief History -->
+    <div class="accordion" id="history-accordion">
+      <div class="accordion-header" onclick="toggleHistory()">
+        <span>Brief History</span>
+        <svg id="history-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="accordion-body" id="history-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/js/intelligence-engine.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const BRIEF_HISTORY_KEY = 'tmd_brief_history';
+  const RADAR_KEY = 'tmd_radar';
+  const PULSE_KEY = 'tmd_pulse_signals';
+
+  let currentBriefText = '';
+  let currentBriefStructured = null;
+
+  // ── Agents registry ────────────────────────────────────────────────
+  const AGENTS = [
+    { id: 'content-writer', label: 'Content Writer', icon: '✍️', path: '/marketing/ai-content-writer.html' },
+    { id: 'seo', label: 'SEO', icon: '🔍', path: '/seo/keywords.html' },
+    { id: 'email', label: 'Email', icon: '📧', path: '/marketing/email-marketing.html' },
+    { id: 'social', label: 'Social', icon: '📱', path: '/marketing/social-media.html' },
+    { id: 'ad-creative', label: 'Ad Creative', icon: '🎯', path: '/marketing/paid-media.html' },
+    { id: 'linkedin', label: 'LinkedIn', icon: '💼', path: '/marketing/linkedin-prospecting.html' },
+    { id: 'content-strategist', label: 'Content Strategist', icon: '🗺️', path: '/marketing/content-strategist.html' },
+    { id: 'product-marketing', label: 'Product Marketing', icon: '🚀', path: '/marketing/product-marketing.html' }
+  ];
+
+  function renderAgentsGrid() {
+    const grid = document.getElementById('agents-grid');
+    grid.innerHTML = AGENTS.map(agent => `
+      <div class="agent-option" id="agent-opt-${agent.id}">
+        <input type="checkbox" id="agent-cb-${agent.id}" onchange="toggleAgentSelect('${agent.id}')">
+        <label for="agent-cb-${agent.id}" class="agent-label" style="margin:0;cursor:pointer;color:#e2e8f0;">${agent.icon} ${agent.label}</label>
+        <button class="agent-open-btn" onclick="openAgent('${agent.id}')" title="Open with brief pre-loaded">Open →</button>
+      </div>
+    `).join('');
+  }
+
+  window.toggleAgentSelect = function(id) {
+    const opt = document.getElementById('agent-opt-' + id);
+    const cb = document.getElementById('agent-cb-' + id);
+    opt.classList.toggle('selected', cb.checked);
+  };
+
+  window.openAgent = function(agentId) {
+    const agent = AGENTS.find(a => a.id === agentId);
+    if (!agent) return;
+
+    // Store brief in sessionStorage for the agent to pick up
+    if (currentBriefText) {
+      sessionStorage.setItem('tmd_strategic_brief', JSON.stringify({
+        text: currentBriefText,
+        initiative: document.getElementById('f-initiative').value,
+        contentType: document.getElementById('f-content-type').value,
+        audience: document.getElementById('f-audience').value,
+        icp: document.getElementById('f-icp').value,
+        success: document.getElementById('f-success').value,
+        generated: new Date().toISOString()
+      }));
+    }
+
+    window.open(agent.path, '_blank');
+  };
+
+  // ── Context gathering ──────────────────────────────────────────────
+  function getRadarContext() {
+    try {
+      const data = JSON.parse(localStorage.getItem(RADAR_KEY) || '[]');
+      if (!data.length) return 'No competitive data logged yet.';
+      return data.slice(0, 3).map(c =>
+        `Competitor: ${c.name} | Positioning: ${(c.positioning||'').slice(0,120)} | Key gaps: ${(c.marketGaps||[]).slice(0,2).map(g=>g.description).join('; ')}`
+      ).join('\n');
+    } catch { return 'No competitive data available.'; }
+  }
+
+  function getPulseContext() {
+    try {
+      const signals = JSON.parse(localStorage.getItem(PULSE_KEY) || '[]');
+      const strong = signals.filter(s => s.strength === 'Strong').slice(0, 5);
+      if (!strong.length) return 'No strong market signals logged yet.';
+      return strong.map(s => `[${s.type}] ${s.content.slice(0,100)}`).join('\n');
+    } catch { return 'No market signals available.'; }
+  }
+
+  // ── Generate Brief ─────────────────────────────────────────────────
+  window.generateBrief = async function() {
+    const initiative = document.getElementById('f-initiative').value.trim();
+    const contentType = document.getElementById('f-content-type').value;
+    const audience = document.getElementById('f-audience').value.trim();
+    const whyNow = document.getElementById('f-why-now').value.trim();
+    const gap = document.getElementById('f-gap').value.trim();
+    const signals = document.getElementById('f-signals').value.trim();
+    const differentiation = document.getElementById('f-differentiation').value.trim();
+    const outcome = document.getElementById('f-outcome').value.trim();
+    const icp = document.getElementById('f-icp').value.trim();
+    const success = document.getElementById('f-success').value.trim();
+
+    if (!initiative) { alert('Please enter an initiative name.'); return; }
+    if (!whyNow) { alert('The "Why now?" field is required — it\'s the most important part of the brief.'); return; }
+
+    // Show streaming state
+    document.getElementById('brief-empty').style.display = 'none';
+    document.getElementById('brief-result').style.display = 'none';
+    document.getElementById('brief-streaming').style.display = 'block';
+
+    const btn = document.getElementById('generate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading"></span>Generating Brief...';
+
+    const radarContext = getRadarContext();
+    const pulseContext = getPulseContext();
+
+    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
+      // Compile manual brief
+      const brief = buildManualBrief({ initiative, contentType, audience, whyNow, gap, signals, differentiation, outcome, icp, success });
+      currentBriefText = brief.text;
+      currentBriefStructured = brief;
+      showBriefResult(brief);
+      btn.disabled = false;
+      btn.textContent = 'Generate Strategic Brief →';
+      document.getElementById('brief-streaming').style.display = 'none';
+      return;
+    }
+
+    const systemPrompt = `You are a senior marketing strategist and strategic brief writer for Audema - Your AI Marketing Department. You write precise, actionable strategic briefs that cut through vagueness and force clear thinking. Your briefs are used to brief AI agents before content creation begins.
+
+Format your response as a structured brief with these exact sections:
+## EXECUTIVE SUMMARY
+(2-3 sentences synthesizing the core strategic opportunity)
+
+## STRATEGIC RATIONALE
+(The "why now" — the market moment, timing, and why this is the right move)
+
+## COMPETITIVE CONTEXT
+(What competitors are doing, what they're missing, and how this creates an opening)
+
+## SIGNAL EVIDENCE
+(The data points, quotes, and observations that validate this direction)
+
+## DIFFERENTIATION ANGLE
+(The specific, ownable angle that makes this genuinely different — not just better)
+
+## TARGET AUDIENCE
+(The surgical ICP description — who exactly, and what they care about)
+
+## SUCCESS METRIC
+(The specific, measurable outcome that defines success)
+
+## RECOMMENDED APPROACH
+(3-5 tactical recommendations for execution that follow from the strategy)`;
+
+    const userMessage = `Create a strategic brief from these inputs:
+
+INITIATIVE: ${initiative}
+CONTENT TYPE: ${contentType || 'Not specified'}
+AUDIENCE: ${audience || 'Not specified'}
+
+WHY NOW:
+${whyNow}
+
+COMPETITIVE GAP:
+${gap || 'Not specified'}
+
+SIGNAL EVIDENCE:
+${signals || 'Not specified'}
+
+DIFFERENTIATION:
+${differentiation || 'Not specified'}
+
+DESIRED OUTCOME:
+${outcome || 'Not specified'}
+
+ICP SEGMENT:
+${icp || 'Not specified'}
+
+SUCCESS METRIC:
+${success || 'Not specified'}
+
+--- COMPETITIVE CONTEXT FROM RADAR ---
+${radarContext}
+
+--- STRONG MARKET SIGNALS FROM PULSE ---
+${pulseContext}
+
+Synthesize all of this into a sharp, strategic brief that could be handed directly to an AI agent to execute. Be specific. Cut vagueness. Every section should push thinking forward, not restate inputs.`;
+
+    try {
+      const outputEl = document.getElementById('streaming-output');
+      const result = await window.ClaudeService.streamResponse({
+        systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        outputEl
+      });
+
+      currentBriefText = result;
+      currentBriefStructured = parseStructuredBrief(result, { initiative, contentType, audience, icp, success });
+      showBriefResult(currentBriefStructured);
+    } catch(e) {
+      document.getElementById('streaming-output').textContent = 'Error generating brief: ' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Strategic Brief →';
+    }
+  };
+
+  function buildManualBrief({ initiative, contentType, audience, whyNow, gap, signals, differentiation, outcome, icp, success }) {
+    const text = [
+      `STRATEGIC BRIEF: ${initiative}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      `Content Type: ${contentType || 'Not specified'}`,
+      '',
+      'EXECUTIVE SUMMARY',
+      `${initiative} — targeting ${audience || 'defined audience'} to ${outcome || 'drive business results'}.`,
+      '',
+      'STRATEGIC RATIONALE (WHY NOW)',
+      whyNow,
+      '',
+      'COMPETITIVE CONTEXT',
+      gap || 'No competitive context specified.',
+      '',
+      'SIGNAL EVIDENCE',
+      signals || 'No signals logged.',
+      '',
+      'DIFFERENTIATION ANGLE',
+      differentiation || 'To be defined.',
+      '',
+      'TARGET AUDIENCE',
+      icp || audience || 'Not specified.',
+      '',
+      'SUCCESS METRIC',
+      success || 'Not defined.',
+      '',
+      'RECOMMENDED APPROACH',
+      '• Start with a strong "why this matters" hook based on the market signals above.',
+      '• Position against the competitive gap — name what others are missing.',
+      '• Speak directly to the ICP pain point, not the product features.',
+      '• Define one clear call to action aligned with the success metric.',
+      '• Test the differentiation angle with a small audience before full rollout.',
+    ].join('\n');
+
+    return {
+      text,
+      sections: {
+        'Executive Summary': `${initiative} — targeting ${audience || 'defined audience'} to ${outcome || 'drive business results'}.`,
+        'Strategic Rationale': whyNow,
+        'Competitive Context': gap || 'No competitive context specified.',
+        'Signal Evidence': signals || 'No signals logged.',
+        'Differentiation Angle': differentiation || 'To be defined.',
+        'Target Audience': icp || audience || 'Not specified.',
+        'Success Metric': success || 'Not defined.',
+        'Recommended Approach': '• Start with a strong "why this matters" hook.\n• Position against the competitive gap.\n• Speak directly to the ICP pain point.\n• Define one clear call to action.\n• Test the differentiation angle before full rollout.'
+      },
+      initiative,
+      contentType
+    };
+  }
+
+  function parseStructuredBrief(text, meta) {
+    const sectionTitles = [
+      'EXECUTIVE SUMMARY', 'STRATEGIC RATIONALE', 'COMPETITIVE CONTEXT',
+      'SIGNAL EVIDENCE', 'DIFFERENTIATION ANGLE', 'TARGET AUDIENCE',
+      'SUCCESS METRIC', 'RECOMMENDED APPROACH'
+    ];
+
+    const sections = {};
+    let remaining = text;
+
+    sectionTitles.forEach((title, i) => {
+      const nextTitle = sectionTitles[i + 1];
+      // Match ## TITLE or TITLE (with optional **)
+      const pattern = new RegExp(`##?\\s*\\*{0,2}${title}\\*{0,2}[\\s\\S]*?(?=##?\\s*\\*{0,2}${nextTitle ? nextTitle : 'ZZZNOMATCH'}|$)`, 'i');
+      const match = text.match(pattern);
+      if (match) {
+        const content = match[0].replace(/^##?\s*\*{0,2}[A-Z ]+\*{0,2}\s*/i, '').trim();
+        const displayTitle = title.split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
+        sections[displayTitle] = content;
+      }
+    });
+
+    return { text, sections, initiative: meta.initiative, contentType: meta.contentType };
+  }
+
+  function showBriefResult(brief) {
+    document.getElementById('brief-streaming').style.display = 'none';
+    document.getElementById('brief-result').style.display = 'block';
+
+    const outputEl = document.getElementById('brief-output-content');
+
+    if (brief.sections && Object.keys(brief.sections).length > 0) {
+      outputEl.innerHTML = Object.entries(brief.sections).map(([title, content]) => `
+        <div class="brief-section">
+          <div class="brief-section-title">${escHtml(title)}</div>
+          <div class="brief-section-content">${escHtml(content)}</div>
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:16px 0;">
+      `).join('');
+    } else {
+      // Raw text fallback
+      outputEl.innerHTML = `<div class="brief-section-content" style="white-space:pre-wrap;">${escHtml(brief.text || '')}</div>`;
+    }
+
+    // Show agent assignment
+    document.getElementById('agent-assignment').style.display = 'block';
+    renderAgentsGrid();
+
+    // Auto-save to history
+    saveBriefToHistory(false);
+  }
+
+  // ── Copy / Export ──────────────────────────────────────────────────
+  window.copyBrief = function() {
+    if (!currentBriefText) return;
+    navigator.clipboard.writeText(currentBriefText).then(() => showToast('Brief copied to clipboard.'));
+  };
+
+  window.exportBriefText = function() {
+    if (!currentBriefText) return;
+    const blob = new Blob([currentBriefText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `strategic-brief-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Brief History ──────────────────────────────────────────────────
+  window.saveBriefToHistory = function(showNotification = true) {
+    if (!currentBriefText) return;
+    const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
+    const entry = {
+      id: 'br_' + Date.now(),
+      initiative: document.getElementById('f-initiative').value || 'Untitled Brief',
+      contentType: document.getElementById('f-content-type').value || '',
+      date: new Date().toISOString(),
+      status: 'Draft',
+      text: currentBriefText
+    };
+    history.unshift(entry);
+    // Keep last 20
+    if (history.length > 20) history.splice(20);
+    localStorage.setItem(BRIEF_HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+    if (showNotification) showToast('Brief saved to history.');
+  };
+
+  function renderHistory() {
+    const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
+    const body = document.getElementById('history-body');
+    if (!history.length) {
+      body.innerHTML = '<div style="padding:16px 0;font-size:13px;color:#475569;">No briefs saved yet.</div>';
+      return;
+    }
+
+    const statusClass = { Draft: 'tag-draft', Approved: 'tag-approved', Executed: 'tag-executed' };
+
+    body.innerHTML = history.map(b => `
+      <div class="history-item" onclick="loadBriefFromHistory('${escAttr(b.id)}')">
+        <div class="history-name">${escHtml(b.initiative)}</div>
+        <div class="history-meta">
+          <span>${new Date(b.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+          ${b.contentType ? `<span>${escHtml(b.contentType)}</span>` : ''}
+          <span class="tag ${statusClass[b.status]||'tag-draft'}">${escHtml(b.status)}</span>
+          <button class="btn-xs btn-secondary" style="margin-left:auto;" onclick="event.stopPropagation();updateBriefStatus('${escAttr(b.id)}')">Update Status</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  window.loadBriefFromHistory = function(id) {
+    const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
+    const entry = history.find(b => b.id === id);
+    if (!entry) return;
+
+    currentBriefText = entry.text;
+    currentBriefStructured = parseStructuredBrief(entry.text, { initiative: entry.initiative, contentType: entry.contentType });
+    showBriefResult(currentBriefStructured);
+    // Scroll to top of right panel
+    document.querySelector('.panel-right').scrollTo(0, 0);
+    showToast('Brief loaded.');
+  };
+
+  window.updateBriefStatus = function(id) {
+    const statuses = ['Draft', 'Approved', 'Executed'];
+    const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
+    const entry = history.find(b => b.id === id);
+    if (!entry) return;
+    const currentIdx = statuses.indexOf(entry.status);
+    entry.status = statuses[(currentIdx + 1) % statuses.length];
+    localStorage.setItem(BRIEF_HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+    showToast(`Status updated to ${entry.status}.`);
+  };
+
+  // ── History Accordion ──────────────────────────────────────────────
+  window.toggleHistory = function() {
+    const body = document.getElementById('history-body');
+    const chevron = document.getElementById('history-chevron');
+    body.classList.toggle('open');
+    chevron.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+    if (body.classList.contains('open')) renderHistory();
+  };
+
+  // ── Utilities ──────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(str) { return escHtml(str); }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    Object.assign(t.style, { position:'fixed', bottom:'24px', right:'24px', background:'#7c3aed', color:'white', padding:'12px 20px', borderRadius:'10px', fontSize:'13px', zIndex:'9999', fontFamily:'Inter,sans-serif' });
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────
+  renderAgentsGrid();
+  renderHistory();
+})();
+</script>
+</body>
+</html>

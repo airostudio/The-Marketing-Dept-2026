@@ -1,6 +1,6 @@
 /**
  * Supabase Client Configuration
- * The Marketing Department 2026 - SEO Agent Dashboard
+ * Aduma Marketing 2026 - SEO Agent Dashboard
  *
  * This file initializes the Supabase client for authentication and database operations.
  * Configure your Supabase project URL and anon key in the settings page or environment.
@@ -38,10 +38,13 @@
     const RETRY_DELAY_BASE = 1000; // 1 second
     const CONNECTION_CHECK_INTERVAL = 30000; // 30 seconds
 
-    // Load config from localStorage
+    // Load config from APP_CONFIG first, then localStorage as fallback
     function loadConfig() {
-        supabaseConfig.url = localStorage.getItem('supabase-url') || '';
-        supabaseConfig.anonKey = localStorage.getItem('supabase-anon-key') || '';
+        // Priority: APP_CONFIG > localStorage
+        const appConfig = window.APP_CONFIG || {};
+
+        supabaseConfig.url = appConfig.SUPABASE_URL || localStorage.getItem('supabase-url') || '';
+        supabaseConfig.anonKey = appConfig.SUPABASE_ANON_KEY || localStorage.getItem('supabase-anon-key') || '';
     }
 
     // Initial load

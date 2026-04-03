@@ -8,19 +8,39 @@
 
     // Configuration
     const CONFIG = {
-        // Google PageSpeed Insights API (free, no auth required)
+        // Google PageSpeed Insights API
         pageSpeedApi: 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed',
         corsProxies: [
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?'
         ],
-        timeout: 60000
+        timeout: 90000, // 90 seconds for PageSpeed API
+        retryAttempts: 3,
+        retryDelay: 2000
     };
 
     /**
-     * Get current project from localStorage
+     * Get API key from configuration or localStorage fallback
+     */
+    function getPageSpeedApiKey() {
+        // Try APP_CONFIG first (from config.js)
+        if (window.APP_CONFIG?.GOOGLE?.API_KEY) {
+            return window.APP_CONFIG.GOOGLE.API_KEY;
+        }
+        // Fallback to localStorage (from Settings page)
+        return localStorage.getItem('pagespeed-api-key') || null;
+    }
+
+    /**
+     * Get current project - uses ProjectService if available, localStorage fallback
      */
     function getCurrentProject() {
+        // Use ProjectService if available (for Supabase-backed storage)
+        if (window.ProjectService?.getCurrentProjectSync) {
+            return window.ProjectService.getCurrentProjectSync();
+        }
+
+        // Fallback to localStorage
         const projectId = localStorage.getItem('seo-current-project');
         if (!projectId) return null;
 
@@ -37,71 +57,147 @@
         /**
          * Fetch real Core Web Vitals data using PageSpeed Insights API
          */
-        async fetchData(url) {
+        async fetchData(url, onProgress = null) {
             if (!url) {
                 const project = getCurrentProject();
                 url = project?.websiteUrl;
             }
 
             if (!url) {
-                throw new Error('No URL provided');
+                throw new Error('No URL provided. Please create a project with a website URL first.');
+            }
+
+            // Normalize URL
+            try {
+                const normalizedUrl = new URL(url.startsWith('http') ? url : `https://${url}`);
+                url = normalizedUrl.href;
+            } catch (e) {
+                throw new Error('Invalid URL format. Please provide a valid website URL.');
             }
 
             const results = {
                 url: url,
                 timestamp: new Date().toISOString(),
                 desktop: null,
-                mobile: null
+                mobile: null,
+                errors: []
             };
 
-            // Fetch both desktop and mobile data
-            try {
-                const [desktopData, mobileData] = await Promise.all([
-                    this.fetchPageSpeedData(url, 'desktop'),
-                    this.fetchPageSpeedData(url, 'mobile')
-                ]);
+            // Check if API key is configured
+            const apiKey = getPageSpeedApiKey();
+            if (!apiKey) {
+                console.warn('[PageSpeed] No API key configured. Using public API with rate limits.');
+            }
 
-                results.desktop = desktopData;
-                results.mobile = mobileData;
+            if (onProgress) onProgress({ phase: 'mobile', message: 'Analyzing mobile performance...' });
+
+            // Fetch mobile data first (more important for SEO)
+            try {
+                results.mobile = await this.fetchPageSpeedData(url, 'mobile');
             } catch (error) {
-                console.error('Error fetching CWV data:', error);
-                throw error;
+                console.error('[PageSpeed] Mobile analysis failed:', error);
+                results.errors.push({ strategy: 'mobile', error: error.message });
+            }
+
+            if (onProgress) onProgress({ phase: 'desktop', message: 'Analyzing desktop performance...' });
+
+            // Fetch desktop data
+            try {
+                results.desktop = await this.fetchPageSpeedData(url, 'desktop');
+            } catch (error) {
+                console.error('[PageSpeed] Desktop analysis failed:', error);
+                results.errors.push({ strategy: 'desktop', error: error.message });
+            }
+
+            // If both failed, throw an error
+            if (!results.mobile && !results.desktop) {
+                const errorMessages = results.errors.map(e => e.error).join('; ');
+                throw new Error(`Failed to analyze website: ${errorMessages}`);
             }
 
             // Save results
             localStorage.setItem('seo-cwv-data', JSON.stringify(results));
 
+            if (onProgress) onProgress({ phase: 'complete', message: 'Analysis complete!' });
+
             return results;
         },
 
         /**
-         * Fetch PageSpeed Insights data
+         * Fetch PageSpeed Insights data with retry logic
          */
         async fetchPageSpeedData(url, strategy = 'mobile') {
-            // Check for saved API key (from Settings/Integrations)
-            const apiKey = localStorage.getItem('pagespeed-api-key');
-            let apiUrl = `${CONFIG.pageSpeedApi}?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&category=accessibility&category=seo`;
+            const apiKey = getPageSpeedApiKey();
+            let apiUrl = `${CONFIG.pageSpeedApi}?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&category=accessibility&category=seo&category=best-practices`;
 
             // Add API key if configured (enables higher rate limits)
             if (apiKey) {
                 apiUrl += `&key=${apiKey}`;
             }
 
-            try {
-                const response = await fetch(apiUrl, {
-                    signal: AbortSignal.timeout(CONFIG.timeout)
-                });
+            let lastError = null;
 
-                if (!response.ok) {
-                    throw new Error(`PageSpeed API error: ${response.status}`);
+            // Retry logic for transient failures
+            for (let attempt = 1; attempt <= CONFIG.retryAttempts; attempt++) {
+                try {
+                    console.log(`[PageSpeed] Fetching ${strategy} data for ${url} (attempt ${attempt}/${CONFIG.retryAttempts})`);
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+
+                    const response = await fetch(apiUrl, {
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        let errorMessage = `PageSpeed API error: ${response.status}`;
+
+                        try {
+                            const errorJson = JSON.parse(errorBody);
+                            if (errorJson.error?.message) {
+                                errorMessage = errorJson.error.message;
+                            }
+                        } catch (e) {
+                            // Use default error message
+                        }
+
+                        // Don't retry on client errors (4xx) except 429 (rate limit)
+                        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                            throw new Error(errorMessage);
+                        }
+
+                        lastError = new Error(errorMessage);
+                        console.warn(`[PageSpeed] Attempt ${attempt} failed:`, errorMessage);
+
+                        if (attempt < CONFIG.retryAttempts) {
+                            await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
+                            continue;
+                        }
+                    }
+
+                    const data = await response.json();
+                    console.log(`[PageSpeed] Successfully fetched ${strategy} data`);
+                    return this.parsePageSpeedResponse(data, strategy);
+
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`[PageSpeed] Attempt ${attempt} error:`, error.message);
+
+                    if (error.name === 'AbortError') {
+                        lastError = new Error('PageSpeed API request timed out. The target site may be slow to respond.');
+                    }
+
+                    if (attempt < CONFIG.retryAttempts) {
+                        await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
+                    }
                 }
-
-                const data = await response.json();
-                return this.parsePageSpeedResponse(data, strategy);
-            } catch (error) {
-                console.error(`Error fetching ${strategy} data:`, error);
-                return null;
             }
+
+            console.error(`[PageSpeed] All ${CONFIG.retryAttempts} attempts failed for ${strategy}:`, lastError);
+            throw lastError || new Error('Failed to fetch PageSpeed data');
         },
 
         /**

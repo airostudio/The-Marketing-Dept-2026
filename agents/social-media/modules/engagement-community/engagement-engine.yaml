@@ -1,0 +1,560 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL MEDIA AGENT - ENGAGEMENT & COMMUNITY MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "engagement-community"
+  name: "Community Engagement & Management Engine"
+  version: "1.0.0"
+  category: "community_management"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # UNIFIED SOCIAL INBOX
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  social_inbox:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Inbox Management
+    # ─────────────────────────────────────────────────────────────────────────
+
+    inbox_features:
+      aggregation:
+        sources:
+          - "Comments on posts"
+          - "Direct messages"
+          - "Mentions"
+          - "Story replies"
+          - "Reviews"
+          - "Tagged posts"
+
+        platforms:
+          - "Instagram"
+          - "Facebook"
+          - "Twitter/X"
+          - "LinkedIn"
+          - "TikTok"
+          - "YouTube"
+
+      organization:
+        views:
+          - "All messages"
+          - "By platform"
+          - "By priority"
+          - "By sentiment"
+          - "By status (open/pending/closed)"
+          - "Assigned to me"
+
+        filtering:
+          - "Date range"
+          - "Message type"
+          - "Sentiment"
+          - "Keywords"
+          - "Customer status (VIP, new, etc.)"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Priority & Routing
+    # ─────────────────────────────────────────────────────────────────────────
+
+    priority_system:
+      auto_priority:
+        factors:
+          - factor: "Sentiment"
+            scoring:
+              negative: "High priority"
+              question: "Medium priority"
+              positive: "Standard priority"
+
+          - factor: "Influencer status"
+            scoring:
+              high_follower_count: "+2 priority levels"
+              verified_account: "+1 priority level"
+
+          - factor: "Customer status"
+            scoring:
+              vip_customer: "High priority"
+              at_risk_customer: "High priority"
+              new_customer: "Medium priority"
+
+          - factor: "Message type"
+            scoring:
+              complaint: "High priority"
+              purchase_intent: "High priority"
+              question: "Medium priority"
+              praise: "Standard priority"
+
+      priority_levels:
+        - level: "Critical"
+          response_time: "30 minutes"
+          escalation: "Immediate to manager"
+          examples: ["Crisis", "Legal issue", "Major complaint"]
+
+        - level: "High"
+          response_time: "2 hours"
+          escalation: "If not resolved in 4 hours"
+          examples: ["Negative sentiment", "Influencer", "Sales opportunity"]
+
+        - level: "Medium"
+          response_time: "8 hours"
+          escalation: "If not resolved in 24 hours"
+          examples: ["Questions", "Feature requests"]
+
+        - level: "Low"
+          response_time: "24 hours"
+          escalation: "None"
+          examples: ["Generic comments", "Emojis", "Praise"]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Team Routing
+    # ─────────────────────────────────────────────────────────────────────────
+
+    routing:
+      auto_assignment:
+        rules:
+          - rule: "By expertise"
+            logic: "Technical questions → Product team"
+
+          - rule: "By language"
+            logic: "Non-English → Multilingual team"
+
+          - rule: "By platform"
+            logic: "Platform specialists"
+
+          - rule: "By workload"
+            logic: "Round-robin distribution"
+
+      manual_assignment:
+        - "Reassign conversations"
+        - "Escalate to manager"
+        - "Transfer to department"
+        - "Claim from queue"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RESPONSE MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  response_management:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Response Templates
+    # ─────────────────────────────────────────────────────────────────────────
+
+    templates:
+      categories:
+        - category: "FAQ Responses"
+          examples:
+            - "Shipping information"
+            - "Return policy"
+            - "Pricing questions"
+            - "Product availability"
+            - "Technical support"
+
+        - category: "Engagement Responses"
+          examples:
+            - "Thank you messages"
+            - "Welcome messages"
+            - "Congratulations"
+            - "Contest entries"
+
+        - category: "Issue Resolution"
+          examples:
+            - "Apology templates"
+            - "Escalation messages"
+            - "Resolution confirmation"
+            - "Follow-up messages"
+
+        - category: "Sales Responses"
+          examples:
+            - "Product recommendations"
+            - "Discount offers"
+            - "Demo requests"
+            - "Pricing information"
+
+      personalization:
+        variables:
+          - "{{first_name}}"
+          - "{{username}}"
+          - "{{product_name}}"
+          - "{{order_number}}"
+          - "{{custom_field}}"
+
+        ai_assistance:
+          - "Tone adjustment"
+          - "Context-aware suggestions"
+          - "Personalization recommendations"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AI Response Suggestions
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ai_assistance:
+      features:
+        - "Auto-generated response suggestions"
+        - "Sentiment-appropriate tone"
+        - "Context-aware recommendations"
+        - "Multi-language support"
+        - "Brand voice consistency"
+
+      automation_levels:
+        fully_automated:
+          eligible:
+            - "Simple acknowledgments"
+            - "FAQ responses (high confidence)"
+            - "Thank you messages"
+          requirements:
+            - "Confidence > 95%"
+            - "Non-sensitive topic"
+            - "Approved template match"
+
+        suggested_response:
+          eligible:
+            - "Most conversations"
+          workflow:
+            - "AI generates response"
+            - "Human reviews and edits"
+            - "Human sends"
+
+        human_only:
+          eligible:
+            - "Complaints"
+            - "Legal issues"
+            - "Crisis situations"
+            - "Complex issues"
+            - "High-value customers"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMMUNITY BUILDING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  community_building:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Advocate Program
+    # ─────────────────────────────────────────────────────────────────────────
+
+    advocate_identification:
+      criteria:
+        - "Frequent positive engagement"
+        - "High-quality UGC creation"
+        - "Referral activity"
+        - "Community helpfulness"
+        - "Brand mention frequency"
+
+      scoring_model:
+        factors:
+          - factor: "Engagement frequency"
+            weight: 0.25
+            measurement: "Comments, likes, shares per month"
+
+          - factor: "Sentiment"
+            weight: 0.20
+            measurement: "% positive interactions"
+
+          - factor: "Influence"
+            weight: 0.20
+            measurement: "Follower count, engagement rate"
+
+          - factor: "Content creation"
+            weight: 0.20
+            measurement: "UGC posts mentioning brand"
+
+          - factor: "Helpfulness"
+            weight: 0.15
+            measurement: "Helping other community members"
+
+      advocate_tiers:
+        - tier: "Emerging Advocate"
+          score_range: "60-74"
+          recognition: "Thank you engagement"
+
+        - tier: "Active Advocate"
+          score_range: "75-89"
+          recognition: "Early access, shoutouts"
+
+        - tier: "Super Advocate"
+          score_range: "90-100"
+          recognition: "Ambassador program invitation"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Ambassador Program
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ambassador_program:
+      recruitment:
+        sources:
+          - "Top advocates"
+          - "Micro-influencers"
+          - "Loyal customers"
+          - "Industry professionals"
+
+        criteria:
+          - "Alignment with brand values"
+          - "Authentic engagement"
+          - "Quality content creation"
+          - "Consistent presence"
+
+      benefits:
+        - "Exclusive products/access"
+        - "Discount codes"
+        - "Commission/referral fees"
+        - "Recognition and features"
+        - "Direct brand relationship"
+
+      management:
+        - "Ambassador dashboard"
+        - "Performance tracking"
+        - "Content guidelines"
+        - "Communication channels"
+        - "Rewards fulfillment"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # User-Generated Content
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ugc_management:
+      curation:
+        discovery:
+          - "Hashtag monitoring"
+          - "Mention tracking"
+          - "Tag tracking"
+          - "Keyword monitoring"
+
+        quality_criteria:
+          - "Image/video quality"
+          - "Brand alignment"
+          - "Authenticity"
+          - "Usage rights"
+
+      workflow:
+        - "Discover UGC"
+        - "Quality assessment"
+        - "Request permission"
+        - "Obtain rights"
+        - "Add to library"
+        - "Schedule for use"
+        - "Credit creator"
+
+      rights_management:
+        - "Permission request templates"
+        - "Rights tracking"
+        - "Creator crediting"
+        - "Usage documentation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ENGAGEMENT CAMPAIGNS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  engagement_campaigns:
+
+    campaign_types:
+      - type: "Hashtag Campaign"
+        description: "Encourage content with branded hashtag"
+        elements:
+          - "Unique hashtag"
+          - "Clear participation rules"
+          - "Incentive structure"
+          - "Content examples"
+        metrics: ["Hashtag usage", "Reach", "Participation rate"]
+
+      - type: "Challenge Campaign"
+        description: "Interactive challenge participation"
+        elements:
+          - "Clear challenge rules"
+          - "Video/photo requirements"
+          - "Judging criteria"
+          - "Prizes"
+        platforms: ["TikTok", "Instagram", "YouTube"]
+
+      - type: "Contest/Giveaway"
+        description: "Entry-based prize competition"
+        elements:
+          - "Entry mechanics"
+          - "Eligibility rules"
+          - "Prize details"
+          - "Legal compliance"
+        metrics: ["Entries", "Shares", "New followers"]
+
+      - type: "Poll/Survey"
+        description: "Interactive opinion gathering"
+        elements:
+          - "Question design"
+          - "Response options"
+          - "Results sharing"
+        platforms: ["Twitter", "Instagram Stories", "LinkedIn"]
+
+      - type: "Live Event"
+        description: "Real-time interactive sessions"
+        elements:
+          - "Event promotion"
+          - "Interactive elements"
+          - "Q&A facilitation"
+          - "Recording/repurposing"
+        platforms: ["Instagram Live", "LinkedIn Live", "YouTube Live", "Twitter Spaces"]
+
+    campaign_management:
+      planning:
+        - "Define objectives"
+        - "Set KPIs"
+        - "Design mechanics"
+        - "Create content"
+        - "Plan promotion"
+
+      execution:
+        - "Launch campaign"
+        - "Monitor participation"
+        - "Engage with participants"
+        - "Moderate content"
+        - "Track metrics"
+
+      post_campaign:
+        - "Analyze results"
+        - "Select winners (if applicable)"
+        - "Thank participants"
+        - "Share highlights"
+        - "Document learnings"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMMUNITY HEALTH MONITORING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  community_health:
+
+    health_metrics:
+      engagement_health:
+        - "Engagement rate trend"
+        - "Response rate"
+        - "Conversation depth"
+        - "Active community members"
+
+      sentiment_health:
+        - "Sentiment distribution"
+        - "Sentiment trend"
+        - "Issue frequency"
+
+      growth_health:
+        - "Community growth rate"
+        - "Retention rate"
+        - "Advocate growth"
+
+    health_score:
+      calculation:
+        components:
+          - component: "Engagement rate"
+            weight: 0.25
+            benchmark: "Industry average"
+
+          - component: "Sentiment ratio"
+            weight: 0.25
+            benchmark: ">80% positive/neutral"
+
+          - component: "Response metrics"
+            weight: 0.20
+            benchmark: "<4hr average response"
+
+          - component: "Growth metrics"
+            weight: 0.15
+            benchmark: "Positive MoM growth"
+
+          - component: "Advocate activity"
+            weight: 0.15
+            benchmark: "Active advocate participation"
+
+      thresholds:
+        excellent: { min: 85, max: 100 }
+        healthy: { min: 70, max: 84 }
+        needs_attention: { min: 50, max: 69 }
+        at_risk: { min: 0, max: 49 }
+
+    alerts:
+      - trigger: "Sentiment shift > 15% negative"
+        action: "Immediate investigation"
+
+      - trigger: "Engagement drop > 25%"
+        action: "Content/community audit"
+
+      - trigger: "Response time exceeding SLA"
+        action: "Team capacity review"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MODERATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  moderation:
+
+    automated_moderation:
+      spam_detection:
+        - "Keyword filtering"
+        - "Link detection"
+        - "Pattern recognition"
+        - "Bot detection"
+
+      content_filtering:
+        - "Profanity filter"
+        - "Hate speech detection"
+        - "Inappropriate content flagging"
+        - "Competitor mention alerts"
+
+      actions:
+        - "Auto-hide content"
+        - "Flag for review"
+        - "Ban repeat offenders"
+        - "Alert moderators"
+
+    manual_moderation:
+      queue_management:
+        - "Flagged content review"
+        - "Reported content review"
+        - "Appeal handling"
+
+      actions:
+        - "Approve/reject"
+        - "Hide/delete"
+        - "Warn user"
+        - "Ban user"
+        - "Escalate"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_analytics:
+      - "Engagement metrics"
+      - "Response metrics"
+      - "Sentiment data"
+      - "Community health scores"
+
+    to_content_strategy:
+      - "Top engaging content"
+      - "Audience feedback"
+      - "Content requests"
+      - "UGC library"
+
+    to_cmo_agent:
+      - "Community health reports"
+      - "Crisis alerts"
+      - "Advocacy program metrics"
+
+    to_brand_agent:
+      - "Sentiment analysis"
+      - "Brand mention tracking"
+      - "Crisis indicators"
+
+  integrations:
+    crm:
+      - "Customer profiles"
+      - "Interaction history"
+      - "VIP status"
+      - "Support tickets"
+
+    helpdesk:
+      - "Ticket creation"
+      - "Issue escalation"
+      - "Resolution tracking"
+
+    platform_apis:
+      - "Direct messaging APIs"
+      - "Comment APIs"
+      - "Mention APIs"

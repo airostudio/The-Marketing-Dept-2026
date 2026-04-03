@@ -1,0 +1,497 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT BRIEF MODULE - AI BRIEF GENERATOR ENGINE
+# Content Strategy Agent - The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: content-briefs-generator
+  name: "AI Content Brief Generator"
+  version: "1.0.0"
+  category: "content_briefs"
+
+  description: |
+    AI-powered content brief generation system that creates comprehensive,
+    SEO-optimized briefs by synthesizing data from SEO Agent, competitive
+    analysis, audience insights, and brand guidelines.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BRIEF TEMPLATES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  brief_templates:
+
+    blog_post_brief:
+      name: "Blog Post Brief"
+      content_type: "blog_post"
+      sections:
+        - section: "Strategic Context"
+          fields:
+            - name: "Business Objective"
+              description: "What business goal does this support?"
+              auto_fill: "From content strategy alignment"
+
+            - name: "Target Audience"
+              description: "Primary and secondary personas"
+              auto_fill: "From audience data"
+
+            - name: "Funnel Stage"
+              description: "Where in the buyer journey"
+              auto_fill: "From intent analysis"
+
+            - name: "Success Metrics"
+              description: "How will we measure success?"
+              auto_fill: "Based on content type benchmarks"
+
+        - section: "SEO Requirements"
+          fields:
+            - name: "Primary Keyword"
+              description: "Main keyword target"
+              auto_fill: "From SEO Agent"
+
+            - name: "Secondary Keywords"
+              description: "Supporting keyword targets"
+              auto_fill: "From SEO Agent semantic analysis"
+
+            - name: "Search Intent"
+              description: "User intent classification"
+              auto_fill: "From SEO Agent intent analysis"
+
+            - name: "Search Volume"
+              description: "Monthly search volume data"
+              auto_fill: "From SEO Agent"
+
+            - name: "Keyword Difficulty"
+              description: "Competition level"
+              auto_fill: "From SEO Agent"
+
+            - name: "SERP Features"
+              description: "Target SERP features"
+              auto_fill: "From SERP analysis"
+
+            - name: "Internal Links Required"
+              description: "Pages to link to"
+              auto_fill: "From content mapping"
+
+        - section: "Content Structure"
+          fields:
+            - name: "Recommended Word Count"
+              description: "Target length"
+              auto_fill: "From competitor analysis"
+
+            - name: "Heading Structure"
+              description: "H1-H4 outline"
+              auto_fill: "AI-generated from SERP analysis"
+
+            - name: "Topics to Cover"
+              description: "Required subtopics"
+              auto_fill: "From topic coverage analysis"
+
+            - name: "Questions to Answer"
+              description: "User questions to address"
+              auto_fill: "From People Also Ask and forums"
+
+            - name: "Entities to Mention"
+              description: "Key entities for E-E-A-T"
+              auto_fill: "From NLP entity extraction"
+
+        - section: "Competitive Analysis"
+          fields:
+            - name: "Top Ranking Content"
+              description: "Analysis of top 5 results"
+              auto_fill: "From SERP analysis"
+
+            - name: "Content Gaps"
+              description: "What competitors miss"
+              auto_fill: "From gap analysis"
+
+            - name: "Differentiation Angle"
+              description: "How to stand out"
+              auto_fill: "AI recommendation"
+
+        - section: "Creative Direction"
+          fields:
+            - name: "Voice and Tone"
+              description: "Writing style guidance"
+              auto_fill: "From brand guidelines"
+
+            - name: "Hook/Angle"
+              description: "Unique perspective"
+              manual: true
+
+            - name: "Key Messages"
+              description: "Must-include messaging"
+              auto_fill: "From messaging framework"
+
+            - name: "CTAs"
+              description: "Call-to-action requirements"
+              auto_fill: "From funnel stage"
+
+        - section: "Asset Requirements"
+          fields:
+            - name: "Featured Image"
+              description: "Hero image specs"
+              auto_fill: "Template defaults"
+
+            - name: "Supporting Images"
+              description: "Inline image needs"
+              auto_fill: "Based on content length"
+
+            - name: "Graphics/Charts"
+              description: "Data visualization needs"
+              manual: true
+
+            - name: "Video Embed"
+              description: "Video requirements"
+              manual: true
+
+    pillar_content_brief:
+      name: "Pillar Content Brief"
+      content_type: "pillar_page"
+      sections:
+        - section: "Cluster Strategy"
+          fields:
+            - name: "Cluster Topic"
+              description: "Topic cluster this anchors"
+              auto_fill: "From cluster analysis"
+
+            - name: "Supporting Content"
+              description: "Cluster content to link"
+              auto_fill: "From content inventory"
+
+            - name: "Authority Goals"
+              description: "Authority targets"
+              auto_fill: "From topic authority scores"
+
+        - section: "Comprehensive Coverage"
+          fields:
+            - name: "Subtopics Required"
+              description: "All subtopics to cover"
+              auto_fill: "From topic modeling"
+
+            - name: "Depth Requirements"
+              description: "Coverage depth per subtopic"
+              auto_fill: "From competitor analysis"
+
+            - name: "Expert Sources"
+              description: "SME input needed"
+              manual: true
+
+        # Inherits other sections from blog_post_brief
+
+    case_study_brief:
+      name: "Case Study Brief"
+      content_type: "case_study"
+      sections:
+        - section: "Story Framework"
+          fields:
+            - name: "Customer Profile"
+              description: "Customer details"
+              manual: true
+
+            - name: "Challenge"
+              description: "Problem they faced"
+              manual: true
+
+            - name: "Solution"
+              description: "How we helped"
+              manual: true
+
+            - name: "Results"
+              description: "Outcomes and metrics"
+              manual: true
+
+            - name: "Testimonial"
+              description: "Customer quote"
+              manual: true
+
+        - section: "SEO Optimization"
+          fields:
+            - name: "Target Keywords"
+              description: "Industry/solution keywords"
+              auto_fill: "From SEO Agent"
+
+            - name: "Schema Markup"
+              description: "Case study schema"
+              auto_fill: "Template"
+
+    landing_page_brief:
+      name: "Landing Page Brief"
+      content_type: "landing_page"
+      sections:
+        - section: "Conversion Strategy"
+          fields:
+            - name: "Primary Goal"
+              description: "Main conversion action"
+              manual: true
+
+            - name: "Value Proposition"
+              description: "Key benefit statement"
+              auto_fill: "From messaging framework"
+
+            - name: "Objection Handling"
+              description: "Common objections to address"
+              auto_fill: "From sales data"
+
+            - name: "Social Proof"
+              description: "Trust elements needed"
+              auto_fill: "From asset library"
+
+        - section: "Page Structure"
+          fields:
+            - name: "Above the Fold"
+              description: "Hero section requirements"
+              manual: true
+
+            - name: "Supporting Sections"
+              description: "Content blocks needed"
+              auto_fill: "From conversion template"
+
+            - name: "CTA Strategy"
+              description: "CTA placement and copy"
+              manual: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BRIEF GENERATION ENGINE
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  generation_engine:
+
+    data_sources:
+      - source: "SEO Agent"
+        data:
+          - "Keyword data (volume, difficulty, intent)"
+          - "SERP analysis (top results, features)"
+          - "Competitor content analysis"
+          - "Internal linking opportunities"
+          - "Topic coverage requirements"
+
+      - source: "Content Intelligence"
+        data:
+          - "Gap analysis results"
+          - "Opportunity scores"
+          - "Competitive positioning"
+
+      - source: "Brand & Positioning Agent"
+        data:
+          - "Voice and tone guidelines"
+          - "Messaging frameworks"
+          - "Brand standards"
+
+      - source: "Market Research Agent"
+        data:
+          - "Audience personas"
+          - "Customer pain points"
+          - "Industry context"
+
+      - source: "Content Inventory"
+        data:
+          - "Existing related content"
+          - "Internal linking targets"
+          - "Cannibalization risks"
+
+    generation_process:
+      steps:
+        - step: 1
+          name: "Gather inputs"
+          actions:
+            - "Receive opportunity/keyword target"
+            - "Pull SEO data from SEO Agent"
+            - "Retrieve audience data"
+            - "Check content inventory"
+
+        - step: 2
+          name: "Analyze SERP"
+          actions:
+            - "Analyze top 10 results"
+            - "Extract topic coverage"
+            - "Identify SERP features"
+            - "Calculate content benchmarks"
+
+        - step: 3
+          name: "Generate outline"
+          actions:
+            - "Create heading structure"
+            - "Identify required topics"
+            - "Extract questions to answer"
+            - "Map entities to include"
+
+        - step: 4
+          name: "Add strategic context"
+          actions:
+            - "Align with business objectives"
+            - "Set success metrics"
+            - "Define target audience"
+            - "Position in funnel"
+
+        - step: 5
+          name: "Apply brand guidelines"
+          actions:
+            - "Set voice and tone"
+            - "Include key messages"
+            - "Add CTA requirements"
+
+        - step: 6
+          name: "Calculate requirements"
+          actions:
+            - "Determine word count target"
+            - "Specify asset needs"
+            - "Estimate effort"
+            - "Set deadlines"
+
+        - step: 7
+          name: "Quality check"
+          actions:
+            - "Validate completeness"
+            - "Check for conflicts"
+            - "Score brief quality"
+            - "Flag for review if needed"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BRIEF QUALITY SCORING
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  quality_scoring:
+    name: "Brief Quality Score (BQS)"
+    max_score: 100
+
+    dimensions:
+      - dimension: "Completeness"
+        weight: 0.30
+        factors:
+          - "All required fields populated"
+          - "Sufficient detail in each section"
+          - "No missing critical information"
+
+      - dimension: "SEO Alignment"
+        weight: 0.25
+        factors:
+          - "Clear keyword targeting"
+          - "Intent alignment"
+          - "Competitive positioning"
+          - "SERP feature optimization"
+
+      - dimension: "Strategic Clarity"
+        weight: 0.20
+        factors:
+          - "Clear business objective"
+          - "Defined success metrics"
+          - "Audience alignment"
+          - "Funnel positioning"
+
+      - dimension: "Actionability"
+        weight: 0.15
+        factors:
+          - "Clear structure provided"
+          - "Specific guidance"
+          - "Realistic requirements"
+          - "Effort estimation accuracy"
+
+      - dimension: "Brand Alignment"
+        weight: 0.10
+        factors:
+          - "Voice and tone guidance"
+          - "Messaging consistency"
+          - "Visual requirements"
+
+    thresholds:
+      - level: "Excellent"
+        score: ">= 90"
+        action: "Auto-approve for assignment"
+
+      - level: "Good"
+        score: "75-89"
+        action: "Light review recommended"
+
+      - level: "Adequate"
+        score: "60-74"
+        action: "Review required"
+
+      - level: "Needs Work"
+        score: "< 60"
+        action: "Revision required"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BRIEF WORKFLOW
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  workflow:
+
+    stages:
+      - stage: "Draft"
+        description: "Brief generated or in creation"
+        actions: ["Edit", "Delete"]
+
+      - stage: "Review"
+        description: "Under editorial/SEO review"
+        actions: ["Approve", "Revise", "Reject"]
+
+      - stage: "Approved"
+        description: "Ready for assignment"
+        actions: ["Assign", "Archive"]
+
+      - stage: "Assigned"
+        description: "Writer working on content"
+        actions: ["View", "Update"]
+
+      - stage: "Complete"
+        description: "Content delivered"
+        actions: ["Archive", "Clone"]
+
+    automation:
+      - trigger: "Brief generated with BQS >= 90"
+        action: "Auto-approve and notify for assignment"
+
+      - trigger: "Brief in review > 48 hours"
+        action: "Escalate to content lead"
+
+      - trigger: "Approved brief unassigned > 7 days"
+        action: "Alert content team"
+
+    assignments:
+      matching_factors:
+        - "Writer expertise in topic"
+        - "Writer capacity"
+        - "Historical performance"
+        - "Content type experience"
+
+      assignment_flow:
+        - "Brief approved"
+        - "Match to best writer"
+        - "Confirm availability"
+        - "Assign with deadline"
+        - "Writer acknowledgment"
+        - "Track progress"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OUTPUTS & FORMATS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  outputs:
+
+    brief_formats:
+      - format: "Interactive Dashboard"
+        description: "Full brief with all sections"
+        features: ["Comments", "Versioning", "Export"]
+
+      - format: "PDF Export"
+        description: "Printable brief document"
+        template: "Branded PDF template"
+
+      - format: "Google Docs"
+        description: "Collaborative editing format"
+        features: ["Comments", "Suggestions", "Sharing"]
+
+      - format: "Notion"
+        description: "Notion page format"
+        features: ["Database integration", "Team workspace"]
+
+      - format: "API/JSON"
+        description: "Structured data for integrations"
+        use_case: "CMS integration, automation"
+
+    brief_components_export:
+      - "Outline only"
+      - "SEO requirements only"
+      - "Full brief"
+      - "Writer checklist"
+      - "Editorial checklist"

@@ -1,0 +1,347 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CMO AGENT - EXECUTIVE DECISION ENGINE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+decision_engine:
+  version: "1.0.0"
+  mode: "executive_orchestration"
+  cycle_interval: "30_minutes"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 1: STRATEGIC DECISION FRAMEWORK
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  strategic_decisions:
+
+    resource_allocation:
+      frequency: "Weekly review, daily micro-adjustments"
+      factors:
+        - factor: "Channel ROI"
+          weight: 0.30
+          description: "Historical return on investment"
+
+        - factor: "Growth potential"
+          weight: 0.25
+          description: "Untapped opportunity in channel"
+
+        - factor: "Strategic alignment"
+          weight: 0.20
+          description: "Alignment with business objectives"
+
+        - factor: "Market conditions"
+          weight: 0.15
+          description: "External market factors"
+
+        - factor: "Competitive position"
+          weight: 0.10
+          description: "Relative competitive strength"
+
+      decision_matrix:
+        high_roi_high_potential:
+          action: "Increase investment aggressively"
+          budget_change: "up_to_+30%"
+
+        high_roi_low_potential:
+          action: "Maintain investment"
+          budget_change: "0_to_+10%"
+
+        low_roi_high_potential:
+          action: "Optimize before scaling"
+          budget_change: "-10%_to_+10%"
+
+        low_roi_low_potential:
+          action: "Reduce or exit"
+          budget_change: "-30%_to_0"
+
+    campaign_prioritization:
+      scoring_model:
+        - criterion: "Business impact potential"
+          weight: 0.35
+
+        - criterion: "Resource requirement"
+          weight: 0.20
+
+        - criterion: "Time to impact"
+          weight: 0.15
+
+        - criterion: "Risk level"
+          weight: 0.15
+
+        - criterion: "Strategic fit"
+          weight: 0.15
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 2: AGENT COORDINATION RULES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  agent_coordination:
+
+    priority_hierarchy:
+      - level: 1
+        name: "Revenue-critical"
+        agents: ["Paid Media Agent"]
+        response_time: "1 hour"
+
+      - level: 2
+        name: "Growth-critical"
+        agents: ["SEO Agent", "Content Strategy Agent"]
+        response_time: "4 hours"
+
+      - level: 3
+        name: "Brand-critical"
+        agents: ["Social Media Agent", "Brand Agent"]
+        response_time: "4 hours"
+
+      - level: 4
+        name: "Support"
+        agents: ["Marketing Analytics Agent", "Competitive Intel Agent"]
+        response_time: "8 hours"
+
+    conflict_resolution:
+      rules:
+        - rule: "Resource conflict"
+          resolution: "Higher priority agent wins"
+          escalation: "If both same priority, CMO decides"
+
+        - rule: "Strategy conflict"
+          resolution: "Align with overall strategy"
+          escalation: "CMO arbitration required"
+
+        - rule: "Budget conflict"
+          resolution: "ROI-based allocation"
+          escalation: "If equal ROI, strategic fit decides"
+
+    handoff_protocols:
+      - handoff: "Content to Social"
+        trigger: "Content published"
+        data: ["Content URL", "Key messages", "Target audience"]
+
+      - handoff: "SEO to Content"
+        trigger: "Keyword opportunity identified"
+        data: ["Keywords", "Search intent", "Competitor gaps"]
+
+      - handoff: "Paid to Organic"
+        trigger: "High-converting content identified"
+        data: ["Content performance", "Audience insights"]
+
+      - handoff: "Analytics to All"
+        trigger: "Performance data available"
+        data: ["Metrics", "Insights", "Recommendations"]
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 3: ESCALATION HANDLING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  escalation_handling:
+
+    triage_criteria:
+      critical:
+        definition: "Immediate business impact"
+        examples:
+          - "Revenue drop > 30%"
+          - "Brand crisis"
+          - "Platform suspension"
+        response: "Immediate action"
+
+      high:
+        definition: "Significant impact within 24 hours"
+        examples:
+          - "Campaign failure"
+          - "Budget issues"
+          - "Competitive threat"
+        response: "Within 4 hours"
+
+      medium:
+        definition: "Impact within 1 week"
+        examples:
+          - "Performance decline"
+          - "Resource conflicts"
+          - "Strategy questions"
+        response: "Within 24 hours"
+
+      low:
+        definition: "No immediate impact"
+        examples:
+          - "Optimization opportunities"
+          - "Process improvements"
+          - "Feature requests"
+        response: "Within 1 week"
+
+    response_templates:
+      performance_issue:
+        actions:
+          - "Assess severity"
+          - "Identify root cause"
+          - "Determine immediate actions"
+          - "Issue directive to relevant agent"
+          - "Set monitoring cadence"
+
+      resource_conflict:
+        actions:
+          - "Evaluate both requests"
+          - "Apply priority rules"
+          - "Make allocation decision"
+          - "Communicate to affected agents"
+
+      approval_request:
+        actions:
+          - "Review request details"
+          - "Check against criteria"
+          - "Approve/deny/modify"
+          - "Communicate decision with rationale"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 4: PERFORMANCE MONITORING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  performance_monitoring:
+
+    dashboard_checks:
+      frequency: "Every 30 minutes"
+      metrics:
+        - "Overall marketing performance"
+        - "Channel performance"
+        - "Budget pacing"
+        - "Campaign status"
+        - "Alert status"
+
+    alert_thresholds:
+      - metric: "Revenue attribution"
+        warning: "-15% vs target"
+        critical: "-30% vs target"
+
+      - metric: "ROAS (Paid Media)"
+        warning: "<80% of target"
+        critical: "<50% of target"
+
+      - metric: "Lead volume"
+        warning: "-20% vs target"
+        critical: "-40% vs target"
+
+      - metric: "Budget pacing"
+        warning: ">110% or <80%"
+        critical: ">130% or <60%"
+
+    automated_responses:
+      - trigger: "ROAS critical"
+        action: "Reduce Paid Media spend 20%"
+        notification: "Alert to humans"
+
+      - trigger: "Lead volume critical"
+        action: "Reallocate budget to best performers"
+        notification: "Weekly report"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 5: APPROVAL WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  approval_workflows:
+
+    campaign_approval:
+      criteria:
+        - "Aligned with strategy"
+        - "Budget available"
+        - "Resources available"
+        - "Risk assessment complete"
+      auto_approve_conditions:
+        - "Campaign type previously approved"
+        - "Budget < $10K"
+        - "Risk level low"
+      require_review:
+        - "New campaign type"
+        - "Budget > $50K"
+        - "Risk level medium/high"
+
+    budget_approval:
+      tiers:
+        - tier: "Micro"
+          amount: "<$5K"
+          approver: "Auto-approve if within channel budget"
+
+        - tier: "Small"
+          amount: "$5K - $25K"
+          approver: "CMO Agent autonomous"
+
+        - tier: "Medium"
+          amount: "$25K - $100K"
+          approver: "CMO Agent with logging"
+
+        - tier: "Large"
+          amount: ">$100K"
+          approver: "Human approval required"
+
+    strategy_approval:
+      autonomous:
+        - "Tactical adjustments within strategy"
+        - "Channel mix optimization"
+        - "Campaign optimization"
+      requires_human:
+        - "Major strategy pivot"
+        - "New market entry"
+        - "Brand repositioning"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 6: SAFETY GUARDRAILS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  safety_guardrails:
+
+    budget_controls:
+      - "Cannot exceed approved annual budget"
+      - "Cannot reallocate >30% from any channel"
+      - "Cannot commit >50% of budget to single campaign"
+      - "Must maintain 10% reserve"
+
+    brand_safety:
+      - "All content must meet brand guidelines"
+      - "Crisis situations require human involvement"
+      - "Controversial topics require human approval"
+
+    operational_limits:
+      - "Cannot terminate agents"
+      - "Cannot change agent core objectives"
+      - "Cannot override human decisions"
+      - "Must log all major decisions"
+
+    audit_requirements:
+      - "Log all decisions with rationale"
+      - "Track all budget movements"
+      - "Document all escalations"
+      - "Regular compliance reviews"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECTION 7: LEARNING SYSTEM
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  learning_system:
+
+    decision_outcome_tracking:
+      - decision_type: "Resource allocation"
+        metrics: ["ROI change", "Performance change"]
+        learning: "Improve allocation models"
+
+      - decision_type: "Campaign approval"
+        metrics: ["Campaign success rate"]
+        learning: "Improve approval criteria"
+
+      - decision_type: "Escalation response"
+        metrics: ["Resolution effectiveness"]
+        learning: "Improve response protocols"
+
+    strategy_effectiveness:
+      frequency: "Quarterly"
+      analysis:
+        - "Strategy vs actual outcomes"
+        - "Resource efficiency"
+        - "Competitive position changes"
+      learning:
+        - "Refine forecasting models"
+        - "Update allocation algorithms"
+        - "Improve risk assessment"
+
+    continuous_improvement:
+      - "Agent coordination efficiency"
+      - "Decision speed and quality"
+      - "Communication effectiveness"
+      - "Crisis response capability"

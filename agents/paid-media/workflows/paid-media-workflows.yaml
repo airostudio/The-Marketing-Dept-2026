@@ -1,0 +1,539 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT WORKFLOWS
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflows:
+  version: "1.0.0"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 1: CAMPAIGN LAUNCH
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  campaign_launch:
+    name: "New Campaign Launch"
+    description: "End-to-end workflow for launching new paid media campaigns"
+    trigger:
+      - "Campaign request from CMO Agent"
+      - "Approved campaign brief"
+      - "Manual launch request"
+    priority: "High"
+
+    steps:
+      - step: 1
+        name: "Brief Review & Planning"
+        actions:
+          - "Receive campaign brief from CMO Agent"
+          - "Validate objectives and KPIs"
+          - "Assess budget requirements"
+          - "Select target platforms"
+          - "Define success criteria"
+        outputs:
+          - "Campaign plan document"
+          - "Platform selection"
+        duration: "1-2 hours"
+
+      - step: 2
+        name: "Audience Strategy"
+        actions:
+          - "Define target audience segments"
+          - "Create/select audience lists"
+          - "Set up retargeting audiences"
+          - "Configure lookalike audiences"
+          - "Plan audience testing strategy"
+        outputs:
+          - "Audience targeting configuration"
+          - "Audience list IDs"
+        parallel_with: "step_3"
+
+      - step: 3
+        name: "Creative Preparation"
+        actions:
+          - "Request creatives from Content Strategy Agent"
+          - "Receive and review assets"
+          - "Verify brand compliance"
+          - "Adapt for platform specifications"
+          - "Create ad variations for testing"
+        outputs:
+          - "Approved creative assets"
+          - "Ad copy variations"
+        parallel_with: "step_2"
+
+      - step: 4
+        name: "Campaign Build"
+        actions:
+          - "Create campaign structure"
+          - "Set up ad groups/ad sets"
+          - "Configure targeting"
+          - "Upload creatives"
+          - "Set budgets and bids"
+          - "Configure conversion tracking"
+          - "Apply naming conventions"
+        outputs:
+          - "Campaign built in platforms"
+          - "Tracking verified"
+
+      - step: 5
+        name: "Quality Assurance"
+        actions:
+          - "Review all settings"
+          - "Verify tracking pixels"
+          - "Test landing pages"
+          - "Check UTM parameters"
+          - "Validate audience targeting"
+          - "Confirm budget allocation"
+        outputs:
+          - "QA checklist completed"
+          - "Issues resolved"
+
+      - step: 6
+        name: "Launch Approval"
+        actions:
+          - "Generate pre-launch report"
+          - "Submit for approval (if required)"
+          - "Receive approval or feedback"
+        outputs:
+          - "Launch approval"
+        conditional: "If budget > threshold"
+
+      - step: 7
+        name: "Campaign Activation"
+        actions:
+          - "Enable campaigns"
+          - "Verify delivery started"
+          - "Set up alerts"
+          - "Notify stakeholders"
+        outputs:
+          - "Campaign live"
+          - "Launch notification sent"
+
+      - step: 8
+        name: "Initial Monitoring"
+        actions:
+          - "Monitor first 24-48 hours closely"
+          - "Check delivery status"
+          - "Verify conversions tracking"
+          - "Address any issues"
+        outputs:
+          - "Initial performance report"
+        timeline: "24-48 hours post-launch"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 2: DAILY OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  daily_optimization:
+    name: "Daily Performance Optimization"
+    description: "Automated daily optimization cycle"
+    trigger: "Scheduled - Daily at 06:00 UTC"
+    automation_level: "Semi-autonomous"
+
+    steps:
+      - step: 1
+        name: "Data Collection"
+        time: "06:00 UTC"
+        actions:
+          - "Pull performance data from all platforms"
+          - "Aggregate cross-platform metrics"
+          - "Calculate KPIs"
+        outputs:
+          - "Consolidated performance data"
+        automated: true
+
+      - step: 2
+        name: "Performance Analysis"
+        time: "06:15 UTC"
+        actions:
+          - "Compare to targets"
+          - "Identify top performers"
+          - "Flag underperformers"
+          - "Detect anomalies"
+          - "Calculate health scores"
+        outputs:
+          - "Performance analysis report"
+          - "Anomaly alerts"
+        automated: true
+
+      - step: 3
+        name: "Bid Optimization"
+        time: "06:30 UTC"
+        actions:
+          - "Review bid performance"
+          - "Apply bid adjustments"
+          - "Update bid modifiers"
+          - "Rebalance portfolio bids"
+        outputs:
+          - "Bid changes log"
+        automated: true
+        guardrails:
+          max_change: "15%"
+          confidence_required: 0.85
+
+      - step: 4
+        name: "Budget Adjustments"
+        time: "07:00 UTC"
+        actions:
+          - "Review budget utilization"
+          - "Reallocate from underperformers"
+          - "Boost top performers"
+          - "Address pacing issues"
+        outputs:
+          - "Budget change log"
+        automated: true
+        guardrails:
+          max_reallocation: "20%"
+          require_approval_above: "$5000"
+
+      - step: 5
+        name: "Keyword/Targeting Review"
+        time: "07:30 UTC"
+        actions:
+          - "Review search query reports"
+          - "Add negative keywords"
+          - "Pause poor performers"
+          - "Expand successful targeting"
+        outputs:
+          - "Targeting updates log"
+        automated: true
+
+      - step: 6
+        name: "Creative Health Check"
+        time: "08:00 UTC"
+        actions:
+          - "Calculate fatigue scores"
+          - "Identify refresh needs"
+          - "Flag disapprovals"
+          - "Queue creative requests"
+        outputs:
+          - "Creative health report"
+          - "Refresh requests"
+        automated: true
+
+      - step: 7
+        name: "Report Generation"
+        time: "08:30 UTC"
+        actions:
+          - "Generate daily summary"
+          - "Highlight key actions taken"
+          - "List items requiring attention"
+          - "Send to stakeholders"
+        outputs:
+          - "Daily performance report"
+        automated: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 3: WEEKLY REVIEW
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  weekly_review:
+    name: "Weekly Performance Review"
+    description: "Comprehensive weekly analysis and planning"
+    trigger: "Scheduled - Monday 09:00 UTC"
+
+    steps:
+      - step: 1
+        name: "Data Compilation"
+        actions:
+          - "Aggregate weekly performance"
+          - "Calculate week-over-week trends"
+          - "Benchmark vs goals"
+        outputs:
+          - "Weekly data summary"
+
+      - step: 2
+        name: "Deep Analysis"
+        actions:
+          - "Platform performance comparison"
+          - "Campaign-level analysis"
+          - "Audience segment analysis"
+          - "Creative performance review"
+          - "Attribution analysis"
+        outputs:
+          - "Weekly analysis report"
+
+      - step: 3
+        name: "Optimization Planning"
+        actions:
+          - "Identify optimization opportunities"
+          - "Plan A/B tests"
+          - "Schedule creative refreshes"
+          - "Budget reallocation planning"
+        outputs:
+          - "Optimization roadmap"
+
+      - step: 4
+        name: "Stakeholder Report"
+        actions:
+          - "Generate weekly report"
+          - "Prepare insights summary"
+          - "Document recommendations"
+          - "Send to CMO Agent"
+        outputs:
+          - "Weekly stakeholder report"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 4: BUDGET REALLOCATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  budget_reallocation:
+    name: "Cross-Platform Budget Reallocation"
+    description: "Optimize budget distribution across platforms and campaigns"
+    trigger:
+      - "Weekly schedule"
+      - "Performance threshold breach"
+      - "Manual request"
+
+    steps:
+      - step: 1
+        name: "Efficiency Analysis"
+        actions:
+          - "Calculate efficiency scores"
+          - "Identify diminishing returns"
+          - "Assess scaling potential"
+        outputs:
+          - "Efficiency ranking"
+
+      - step: 2
+        name: "Reallocation Modeling"
+        actions:
+          - "Model reallocation scenarios"
+          - "Predict impact"
+          - "Identify optimal allocation"
+        outputs:
+          - "Reallocation recommendation"
+
+      - step: 3
+        name: "Approval (if required)"
+        actions:
+          - "Present reallocation plan"
+          - "Get approval for large changes"
+        conditional: "If change > 20%"
+        outputs:
+          - "Approval status"
+
+      - step: 4
+        name: "Execute Reallocation"
+        actions:
+          - "Adjust budgets across platforms"
+          - "Update campaign budgets"
+          - "Document changes"
+        outputs:
+          - "Reallocation log"
+
+      - step: 5
+        name: "Monitor Impact"
+        actions:
+          - "Track performance post-reallocation"
+          - "Validate predictions"
+          - "Adjust if needed"
+        timeline: "7 days"
+        outputs:
+          - "Impact assessment"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 5: PERFORMANCE CRISIS RESPONSE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  performance_crisis:
+    name: "Performance Crisis Response"
+    description: "Rapid response to significant performance drops"
+    trigger:
+      - "ROAS drops > 50% vs target"
+      - "CPA spikes > 100% vs target"
+      - "Conversion volume drops > 50%"
+    priority: "Critical"
+    response_time: "1 hour"
+
+    steps:
+      - step: 1
+        name: "Alert & Assessment"
+        time_limit: "15 minutes"
+        actions:
+          - "Log incident"
+          - "Assess scope (campaign, platform, account)"
+          - "Notify CMO Agent"
+        outputs:
+          - "Incident log"
+          - "Scope assessment"
+
+      - step: 2
+        name: "Root Cause Investigation"
+        time_limit: "30 minutes"
+        parallel_checks:
+          - check: "Tracking Issues"
+            actions: ["Verify pixels", "Check conversions", "Review tag health"]
+          - check: "External Factors"
+            actions: ["Check platform status", "Review algorithm updates", "Assess competition"]
+          - check: "Campaign Issues"
+            actions: ["Review recent changes", "Check approvals", "Verify targeting"]
+          - check: "Creative Issues"
+            actions: ["Check fatigue", "Review approvals", "Assess relevance"]
+        outputs:
+          - "Root cause identification"
+          - "Contributing factors"
+
+      - step: 3
+        name: "Immediate Action"
+        time_limit: "15 minutes"
+        actions:
+          - "Implement quick fixes"
+          - "Pause severely affected campaigns (if needed)"
+          - "Adjust bids/budgets"
+          - "Roll back recent changes (if applicable)"
+        outputs:
+          - "Actions taken log"
+
+      - step: 4
+        name: "Stabilization"
+        actions:
+          - "Monitor impact of actions"
+          - "Make additional adjustments"
+          - "Confirm stabilization"
+        timeline: "2-4 hours"
+        outputs:
+          - "Stabilization status"
+
+      - step: 5
+        name: "Post-Crisis Review"
+        actions:
+          - "Document incident"
+          - "Analyze response effectiveness"
+          - "Implement preventive measures"
+          - "Update monitoring thresholds"
+        timeline: "24 hours"
+        outputs:
+          - "Post-mortem report"
+          - "Prevention recommendations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 6: A/B TEST MANAGEMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  ab_test_management:
+    name: "A/B Test Lifecycle"
+    description: "End-to-end management of advertising tests"
+    trigger:
+      - "Test request"
+      - "Optimization opportunity identified"
+      - "Scheduled testing cycle"
+
+    steps:
+      - step: 1
+        name: "Test Design"
+        actions:
+          - "Define hypothesis"
+          - "Select test variable"
+          - "Calculate sample size"
+          - "Set success criteria"
+          - "Determine duration"
+        outputs:
+          - "Test plan document"
+
+      - step: 2
+        name: "Test Setup"
+        actions:
+          - "Create test variants"
+          - "Set up traffic split"
+          - "Configure tracking"
+          - "Set up monitoring"
+        outputs:
+          - "Test configured"
+
+      - step: 3
+        name: "Test Launch"
+        actions:
+          - "Activate test"
+          - "Verify proper delivery"
+          - "Document start"
+        outputs:
+          - "Test live"
+
+      - step: 4
+        name: "Monitoring"
+        actions:
+          - "Track performance daily"
+          - "Check for statistical significance"
+          - "Monitor for issues"
+        outputs:
+          - "Ongoing test data"
+        duration: "Minimum 7 days or significance"
+
+      - step: 5
+        name: "Analysis & Decision"
+        actions:
+          - "Calculate final results"
+          - "Determine winner"
+          - "Document learnings"
+        outputs:
+          - "Test results report"
+          - "Winner declared"
+
+      - step: 6
+        name: "Implementation"
+        actions:
+          - "Implement winning variant"
+          - "Roll out changes"
+          - "Archive losing variant"
+          - "Plan next test"
+        outputs:
+          - "Changes implemented"
+          - "Next test queued"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKFLOW 7: MONTHLY REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  monthly_reporting:
+    name: "Monthly Performance Report"
+    description: "Comprehensive monthly analysis and reporting"
+    trigger: "Scheduled - 1st of month"
+
+    steps:
+      - step: 1
+        name: "Data Aggregation"
+        actions:
+          - "Compile all monthly data"
+          - "Calculate all KPIs"
+          - "Generate visualizations"
+        outputs:
+          - "Monthly data compilation"
+
+      - step: 2
+        name: "Analysis"
+        actions:
+          - "Month-over-month comparison"
+          - "Goal achievement analysis"
+          - "Platform performance deep-dive"
+          - "ROI analysis"
+          - "Attribution analysis"
+        outputs:
+          - "Monthly analysis"
+
+      - step: 3
+        name: "Recommendations"
+        actions:
+          - "Identify opportunities"
+          - "Develop next month strategy"
+          - "Budget recommendations"
+          - "Testing roadmap"
+        outputs:
+          - "Strategic recommendations"
+
+      - step: 4
+        name: "Report Generation"
+        actions:
+          - "Generate comprehensive report"
+          - "Create executive summary"
+          - "Prepare presentation"
+        outputs:
+          - "Monthly report (PDF)"
+          - "Executive presentation"
+
+      - step: 5
+        name: "Distribution"
+        actions:
+          - "Send to CMO Agent"
+          - "Present to stakeholders"
+          - "Address questions"
+        outputs:
+          - "Report delivered"

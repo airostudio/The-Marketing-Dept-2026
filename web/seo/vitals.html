@@ -349,6 +349,13 @@
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase-client.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/project-service.js"></script>
+    <script src="../js/marketing-store.js"></script>
+    <script src="../js/api-connector.js"></script>
     <script src="../js/dashboard.js"></script>
     <script src="../js/seo-modules.js"></script>
     <script>
@@ -378,7 +385,7 @@
         async function runTest() {
             const project = SEOModules.getCurrentProject();
             if (!project || !project.websiteUrl) {
-                alert('Please create a project first to test Core Web Vitals.');
+                alert('Please create a project first to test Core Web Vitals.\n\nGo to Dashboard → Create Project to set up your website.');
                 return;
             }
 
@@ -387,30 +394,79 @@
 
             progressContainer.style.display = 'block';
             progressBar.style.width = '10%';
-            progressText.textContent = 'Connecting to PageSpeed Insights API...';
+            progressBar.style.background = 'var(--color-primary)';
+            progressText.textContent = 'Connecting to Google PageSpeed Insights API...';
+
+            // Check API key status
+            const hasApiKey = window.APP_CONFIG?.GOOGLE?.API_KEY || localStorage.getItem('pagespeed-api-key');
+            if (!hasApiKey) {
+                console.warn('No PageSpeed API key configured. Using public API with rate limits.');
+            }
 
             try {
-                progressBar.style.width = '30%';
-                progressText.textContent = 'Analyzing mobile performance...';
+                const onProgress = (progress) => {
+                    if (progress.phase === 'mobile') {
+                        progressBar.style.width = '30%';
+                        progressText.textContent = 'Analyzing mobile performance (this may take up to 60 seconds)...';
+                    } else if (progress.phase === 'desktop') {
+                        progressBar.style.width = '70%';
+                        progressText.textContent = 'Analyzing desktop performance...';
+                    } else if (progress.phase === 'complete') {
+                        progressBar.style.width = '100%';
+                        progressText.textContent = 'Analysis complete!';
+                    }
+                };
 
-                const data = await SEOModules.CoreWebVitals.fetchData(project.websiteUrl);
+                const data = await SEOModules.CoreWebVitals.fetchData(project.websiteUrl, onProgress);
                 currentData = data;
 
-                progressBar.style.width = '100%';
-                progressText.textContent = 'Complete!';
+                // Show any partial errors
+                if (data.errors && data.errors.length > 0) {
+                    console.warn('Some analyses had issues:', data.errors);
+                }
 
                 const device = deviceSelector.value;
-                displayResults(device === 'mobile' ? data.mobile : data.desktop);
-                updateLastChecked(data.timestamp);
+                const deviceData = device === 'mobile' ? data.mobile : data.desktop;
+
+                if (deviceData) {
+                    displayResults(deviceData);
+                    updateLastChecked(data.timestamp);
+                    progressBar.style.background = 'var(--color-success)';
+                } else {
+                    // Fall back to the other device if preferred isn't available
+                    const fallbackData = device === 'mobile' ? data.desktop : data.mobile;
+                    if (fallbackData) {
+                        displayResults(fallbackData);
+                        updateLastChecked(data.timestamp);
+                        progressText.textContent = `Complete! (${device} data unavailable, showing ${device === 'mobile' ? 'desktop' : 'mobile'})`;
+                    }
+                }
 
                 setTimeout(() => {
                     progressContainer.style.display = 'none';
-                }, 1000);
+                }, 2000);
 
             } catch (error) {
                 console.error('CWV test error:', error);
-                progressText.textContent = 'Error: ' + error.message;
                 progressBar.style.background = 'var(--color-error)';
+                progressBar.style.width = '100%';
+
+                // Provide helpful error messages
+                let errorMessage = error.message;
+                if (error.message.includes('timed out')) {
+                    errorMessage = 'Request timed out. The website may be slow or unreachable.';
+                } else if (error.message.includes('quota') || error.message.includes('rate')) {
+                    errorMessage = 'API rate limit reached. Try again in a few minutes or add an API key in Settings.';
+                } else if (error.message.includes('Invalid URL') || error.message.includes('URL')) {
+                    errorMessage = 'Invalid URL. Please check your project website URL in Dashboard.';
+                }
+
+                progressText.textContent = 'Error: ' + errorMessage;
+
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.background = 'var(--color-primary)';
+                }, 5000);
             }
 
             runBtn.disabled = false;
@@ -610,5 +666,7 @@
         loadCachedData();
     })();
     </script>
+    <script src="../js/seo-fix-guide.js"></script>
+    <script src="../js/seo-pulse-handler.js"></script>
 </body>
 </html>

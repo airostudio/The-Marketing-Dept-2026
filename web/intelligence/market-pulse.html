@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Pulse | Audema - Your AI Marketing Department</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #070711; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+
+    .gradient-text { background: linear-gradient(135deg, #a78bfa, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; }
+
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: opacity 0.15s; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.12); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 14px; transition: opacity 0.15s; }
+    .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    input, textarea, select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; border-radius: 10px; padding: 12px 16px; width: 100%; font-family: inherit; font-size: 14px; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #7c3aed; }
+    textarea { resize: vertical; }
+    select option { background: #1a1a2e; }
+
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500; }
+
+    .page-header { padding: 20px 32px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); }
+    .back-link { color: #94a3b8; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .back-link:hover { color: #e2e8f0; }
+
+    .tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .tag-strong { background: rgba(16,185,129,0.15); color: #10b981; }
+    .tag-moderate { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tag-weak { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+    .form-group { margin-bottom: 18px; }
+
+    /* Three column layout */
+    .three-col { display: grid; grid-template-columns: 320px 1fr 300px; gap: 0; height: calc(100vh - 73px); overflow: hidden; }
+    .col { display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+    .col:last-child { border-right: none; }
+    .col-header { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    .col-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .col-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .col-subtitle { font-size: 12px; color: #475569; }
+
+    /* Source type chips */
+    .chip-group { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #94a3b8; cursor: pointer; transition: all 0.15s; user-select: none; }
+    .chip.selected { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.5); color: #c4b5fd; }
+    .chip:hover:not(.selected) { background: rgba(255,255,255,0.07); }
+
+    /* Radio group */
+    .radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radio-option { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #94a3b8; cursor: pointer; }
+    .radio-option input[type=radio] { width: auto; accent-color: #7c3aed; }
+
+    /* Analysis box */
+    .analysis-box { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 12px; padding: 16px; font-size: 13px; color: #c4b5fd; line-height: 1.7; margin-top: 14px; white-space: pre-wrap; min-height: 60px; }
+
+    /* Signal cards in library */
+    .signal-card { padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.02); margin-bottom: 10px; cursor: default; transition: border-color 0.15s; }
+    .signal-card:hover { border-color: rgba(124,58,237,0.3); }
+    .signal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+    .signal-preview { font-size: 13px; color: #94a3b8; margin-bottom: 8px; line-height: 1.5; }
+    .signal-insight { font-size: 13px; color: #e2e8f0; font-weight: 500; line-height: 1.5; border-left: 2px solid #7c3aed; padding-left: 10px; }
+
+    /* Source type badge colors */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-blog { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .badge-ad { background: rgba(236,72,153,0.15); color: #f472b6; }
+    .badge-quote { background: rgba(16,185,129,0.15); color: #34d399; }
+    .badge-article { background: rgba(14,165,233,0.15); color: #38bdf8; }
+    .badge-social { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge-podcast { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .badge-sales { background: rgba(239,68,68,0.15); color: #f87171; }
+
+    /* Filter chips */
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #64748b; cursor: pointer; transition: all 0.15s; }
+    .filter-chip.active { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+
+    /* Right column sections */
+    .right-section { margin-bottom: 24px; }
+    .right-section-title { font-size: 13px; font-weight: 700; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .pattern-item { font-size: 13px; color: #cbd5e1; padding: 10px 14px; border-left: 2px solid rgba(124,58,237,0.5); background: rgba(124,58,237,0.05); border-radius: 0 8px 8px 0; margin-bottom: 8px; line-height: 1.5; }
+    .gap-item { font-size: 13px; color: #94a3b8; padding: 8px 14px; border-left: 2px solid rgba(245,158,11,0.5); background: rgba(245,158,11,0.04); border-radius: 0 8px 8px 0; margin-bottom: 8px; line-height: 1.5; }
+
+    /* Loading */
+    .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: #475569; font-size: 13px; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<!-- Page Header -->
+<header class="page-header">
+  <div style="display:flex;align-items:center;gap:24px;">
+    <a href="/hub.html" class="back-link">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Hub
+    </a>
+    <div>
+      <h1 style="font-size:20px;font-weight:800;">📡 <span class="gradient-text">Market Pulse</span></h1>
+      <p style="font-size:13px;color:#64748b;margin-top:2px;">Feed signals in. Find out what's working and why.</p>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#475569;">Intelligence Layer</div>
+</header>
+
+<!-- Three Column Layout -->
+<div class="three-col">
+
+  <!-- LEFT: Signal Input -->
+  <div class="col">
+    <div class="col-header">
+      <div class="col-title">Add Signal</div>
+      <div class="col-subtitle">Drop a raw observation. Get strategic insight.</div>
+    </div>
+    <div class="col-body">
+      <div class="form-group">
+        <label>Source Type</label>
+        <div class="chip-group" id="source-chips">
+          <div class="chip" data-type="Competitor Blog Post">Competitor Blog Post</div>
+          <div class="chip" data-type="Competitor Ad">Competitor Ad</div>
+          <div class="chip" data-type="Customer Quote">Customer Quote</div>
+          <div class="chip" data-type="Industry Article">Industry Article</div>
+          <div class="chip" data-type="Social Post">Social Post</div>
+          <div class="chip" data-type="Podcast Observation">Podcast Observation</div>
+          <div class="chip" data-type="Sales Call Insight">Sales Call Insight</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Paste content or describe what you observed</label>
+        <textarea id="signal-content" rows="8" placeholder="Drop raw content here — a competitor's headline, an ad you saw, a customer quote, a trend you noticed on LinkedIn..." style="min-height:160px;"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>URL (optional)</label>
+        <input type="url" id="signal-url" placeholder="https://...">
+      </div>
+
+      <div class="form-group">
+        <label>Relevance</label>
+        <div class="radio-group">
+          <label class="radio-option"><input type="radio" name="relevance" value="Direct" checked> Direct</label>
+          <label class="radio-option"><input type="radio" name="relevance" value="Adjacent"> Adjacent</label>
+          <label class="radio-option"><input type="radio" name="relevance" value="Peripheral"> Peripheral</label>
+        </div>
+      </div>
+
+      <button class="btn-primary" style="width:100%;" id="extract-btn" onclick="extractInsights()">Extract Insights →</button>
+
+      <!-- Analysis output -->
+      <div id="analysis-area" style="display:none; margin-top:16px;">
+        <div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:500;">SCOTTY'S ANALYSIS</div>
+        <div class="analysis-box" id="analysis-output"></div>
+        <div id="manual-notes-area" style="display:none;margin-top:14px;">
+          <label>Manual Analysis Notes</label>
+          <textarea id="manual-notes" rows="4" placeholder="What does this signal tell you? What tactic is being used? What's the emotional driver?"></textarea>
+        </div>
+        <div id="save-signal-area" style="display:none;margin-top:14px;">
+          <button class="btn-primary btn-sm" onclick="saveSignal()">Save Signal + Analysis</button>
+          <button class="btn-secondary btn-sm" style="margin-left:8px;" onclick="cancelSignal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Signal Library -->
+  <div class="col">
+    <div class="col-header">
+      <div class="col-title">Signal Library</div>
+      <div class="col-subtitle" id="signal-count">0 signals captured</div>
+    </div>
+    <div class="col-body">
+      <div class="filter-chips" id="filter-chips">
+        <div class="filter-chip active" data-filter="all">All</div>
+        <div class="filter-chip" data-filter="week">This Week</div>
+        <div class="filter-chip" data-filter="strong">Strong Only</div>
+        <div class="filter-chip" data-filter="Competitor Blog Post">Blog</div>
+        <div class="filter-chip" data-filter="Competitor Ad">Ad</div>
+        <div class="filter-chip" data-filter="Customer Quote">Quote</div>
+        <div class="filter-chip" data-filter="Industry Article">Article</div>
+        <div class="filter-chip" data-filter="Social Post">Social</div>
+        <div class="filter-chip" data-filter="Podcast Observation">Podcast</div>
+        <div class="filter-chip" data-filter="Sales Call Insight">Sales</div>
+      </div>
+      <div id="signal-library"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Pattern Summary -->
+  <div class="col">
+    <div class="col-header">
+      <div class="col-title">Pattern Summary</div>
+      <div class="col-subtitle">What's the market telling you?</div>
+    </div>
+    <div class="col-body">
+      <div class="right-section">
+        <div class="right-section-title">
+          <span>🔥</span> What's Working Right Now
+        </div>
+        <div id="patterns-output">
+          <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <p>Add strong signals to see patterns emerge.</p>
+          </div>
+        </div>
+        <button class="btn-secondary btn-sm" style="width:100%;margin-top:12px;" onclick="refreshAnalysis()">↻ Refresh Analysis</button>
+      </div>
+
+      <hr class="divider">
+
+      <div class="right-section">
+        <div class="right-section-title">
+          <span>🕳️</span> Emerging Gaps
+        </div>
+        <div id="gaps-output">
+          <div class="empty-state">
+            <p style="font-size:12px;">Gaps appear when you've logged enough signals to identify what's NOT being addressed.</p>
+          </div>
+        </div>
+        <button class="btn-secondary btn-sm" style="width:100%;margin-top:12px;" onclick="addGapManually()">+ Add Gap Manually</button>
+        <div id="add-gap-form" style="display:none;margin-top:12px;">
+          <input type="text" id="gap-text" placeholder="What's not being talked about?" style="margin-bottom:8px;">
+          <button class="btn-primary btn-sm" onclick="saveManualGap()">Save Gap</button>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="right-section">
+        <div class="right-section-title">
+          <span>📋</span> Weekly Digest
+        </div>
+        <button class="btn-secondary" style="width:100%;" onclick="generateDigest()">Generate Weekly Digest</button>
+        <div id="digest-output" style="display:none;margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/intelligence-engine.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  let selectedSourceType = null;
+  let pendingAnalysis = '';
+  let activeFilter = 'all';
+
+  // ── Storage ───────────────────────────────────────────────────────────
+  const SIGNALS_KEY = 'tmd_pulse_signals';
+  const GAPS_KEY = 'tmd_pulse_gaps';
+
+  function getPulse() {
+    if (window.IntelligenceEngine && window.IntelligenceEngine.pulse) {
+      return window.IntelligenceEngine.pulse;
+    }
+    return {
+      getSignals: () => JSON.parse(localStorage.getItem(SIGNALS_KEY) || '[]'),
+      saveSignals: (data) => localStorage.setItem(SIGNALS_KEY, JSON.stringify(data)),
+      addSignal(signal) {
+        const all = this.getSignals();
+        signal.id = 's_' + Date.now();
+        signal.date = new Date().toISOString();
+        all.unshift(signal);
+        this.saveSignals(all);
+        return signal;
+      },
+      getGaps: () => JSON.parse(localStorage.getItem(GAPS_KEY) || '[]'),
+      saveGaps: (data) => localStorage.setItem(GAPS_KEY, JSON.stringify(data)),
+      addGap(text) {
+        const all = this.getGaps();
+        all.unshift({ id: 'g_' + Date.now(), text, date: new Date().toISOString() });
+        this.saveGaps(all);
+      }
+    };
+  }
+
+  function pulse() { return getPulse(); }
+
+  // ── Source type chip selection ─────────────────────────────────────
+  document.querySelectorAll('#source-chips .chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('#source-chips .chip').forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      selectedSourceType = this.dataset.type;
+    });
+  });
+
+  // ── Filter chips ───────────────────────────────────────────────────
+  document.querySelectorAll('#filter-chips .filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('#filter-chips .filter-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      activeFilter = this.dataset.filter;
+      renderLibrary();
+    });
+  });
+
+  // ── Extract Insights ───────────────────────────────────────────────
+  window.extractInsights = async function() {
+    const content = document.getElementById('signal-content').value.trim();
+    if (!content) { alert('Please paste content or describe what you observed.'); return; }
+    if (!selectedSourceType) { alert('Please select a source type.'); return; }
+
+    const analysisArea = document.getElementById('analysis-area');
+    const outputEl = document.getElementById('analysis-output');
+    const manualArea = document.getElementById('manual-notes-area');
+    const saveArea = document.getElementById('save-signal-area');
+
+    analysisArea.style.display = 'block';
+    outputEl.textContent = '';
+    manualArea.style.display = 'none';
+    saveArea.style.display = 'none';
+    pendingAnalysis = '';
+
+    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
+      outputEl.textContent = 'Claude API key not configured. Go to Settings to add your key.';
+      manualArea.style.display = 'block';
+      saveArea.style.display = 'block';
+      return;
+    }
+
+    const btn = document.getElementById('extract-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading"></span>Analyzing...';
+
+    const systemPrompt = `You are a strategic marketing analyst for Audema - Your AI Marketing Department. You analyze market signals with precise, actionable strategic intelligence. Be specific and direct. No filler.`;
+
+    const userMessage = `Analyze this market signal:
+
+SOURCE TYPE: ${selectedSourceType}
+CONTENT: ${content}
+
+As a strategic marketing analyst, analyze this signal from our competitive landscape. Provide:
+
+SIGNAL TYPE: [What kind of signal this is]
+TACTIC USED: [The specific marketing or growth tactic being deployed]
+EMOTIONAL DRIVER: [The core emotion or psychological trigger being targeted]
+STRENGTH: [Strong / Moderate / Weak] — and one sentence explaining why
+KEY INSIGHT: [The most important thing this signal tells us about what's working in this market right now — 2-3 sentences]`;
+
+    try {
+      const result = await window.ClaudeService.streamResponse({
+        systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        outputEl
+      });
+      pendingAnalysis = result;
+      saveArea.style.display = 'block';
+    } catch(e) {
+      outputEl.textContent = 'Error: ' + e.message;
+      manualArea.style.display = 'block';
+      saveArea.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Extract Insights →';
+    }
+  };
+
+  window.saveSignal = function() {
+    const content = document.getElementById('signal-content').value.trim();
+    if (!content) return;
+
+    const relevanceEl = document.querySelector('input[name=relevance]:checked');
+    const manualNotes = document.getElementById('manual-notes').value.trim();
+
+    const analysis = pendingAnalysis || manualNotes;
+
+    // Parse strength from analysis
+    let strength = 'Moderate';
+    if (analysis) {
+      const lower = analysis.toLowerCase();
+      if (lower.includes('strength: strong') || lower.match(/strength.*\bstrong\b/i)) strength = 'Strong';
+      else if (lower.includes('strength: weak') || lower.match(/strength.*\bweak\b/i)) strength = 'Weak';
+
+      // Try to extract KEY INSIGHT
+    }
+
+    const signal = {
+      type: selectedSourceType || 'Industry Article',
+      content,
+      url: document.getElementById('signal-url').value.trim(),
+      relevance: relevanceEl ? relevanceEl.value : 'Direct',
+      analysis,
+      strength
+    };
+
+    pulse().addSignal(signal);
+    resetForm();
+    renderLibrary();
+    renderPatterns();
+    showToast('Signal saved.');
+  };
+
+  window.cancelSignal = function() {
+    document.getElementById('analysis-area').style.display = 'none';
+    pendingAnalysis = '';
+  };
+
+  function resetForm() {
+    document.getElementById('signal-content').value = '';
+    document.getElementById('signal-url').value = '';
+    document.getElementById('analysis-area').style.display = 'none';
+    document.getElementById('analysis-output').textContent = '';
+    document.getElementById('save-signal-area').style.display = 'none';
+    document.getElementById('manual-notes').value = '';
+    document.querySelector('input[name=relevance][value=Direct]').checked = true;
+    document.querySelectorAll('#source-chips .chip').forEach(c => c.classList.remove('selected'));
+    selectedSourceType = null;
+    pendingAnalysis = '';
+  }
+
+  // ── Signal Library ─────────────────────────────────────────────────
+  const typeToClass = {
+    'Competitor Blog Post': 'badge-blog',
+    'Competitor Ad': 'badge-ad',
+    'Customer Quote': 'badge-quote',
+    'Industry Article': 'badge-article',
+    'Social Post': 'badge-social',
+    'Podcast Observation': 'badge-podcast',
+    'Sales Call Insight': 'badge-sales'
+  };
+
+  function renderLibrary() {
+    let signals = pulse().getSignals();
+
+    // Filter
+    if (activeFilter === 'week') {
+      const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+      signals = signals.filter(s => new Date(s.date).getTime() >= weekAgo);
+    } else if (activeFilter === 'strong') {
+      signals = signals.filter(s => s.strength === 'Strong');
+    } else if (activeFilter !== 'all') {
+      signals = signals.filter(s => s.type === activeFilter);
+    }
+
+    const count = pulse().getSignals().length;
+    document.getElementById('signal-count').textContent = count + ' signal' + (count !== 1 ? 's' : '') + ' captured';
+
+    const el = document.getElementById('signal-library');
+    if (!signals.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div><p>No signals match this filter.</p></div>';
+      return;
+    }
+
+    el.innerHTML = signals.map(s => {
+      const preview = s.content.length > 120 ? s.content.slice(0, 120) + '…' : s.content;
+      const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
+      // Extract KEY INSIGHT line from analysis if available
+      let keyInsight = '';
+      if (s.analysis) {
+        const m = s.analysis.match(/KEY INSIGHT[:\s]+(.+?)(\n|$)/i);
+        if (m) keyInsight = m[1].trim();
+        else keyInsight = s.analysis.split('\n').find(l => l.trim().length > 20) || '';
+      }
+
+      return `
+        <div class="signal-card">
+          <div class="signal-header">
+            <span class="badge ${typeToClass[s.type]||'badge-article'}">${escHtml(s.type||'Signal')}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="tag ${s.strength==='Strong'?'tag-strong':s.strength==='Weak'?'tag-weak':'tag-moderate'}">${escHtml(s.strength||'Moderate')}</span>
+              <span style="font-size:11px;color:#475569;">${dateStr}</span>
+            </div>
+          </div>
+          <div class="signal-preview">${escHtml(preview)}</div>
+          ${keyInsight ? `<div class="signal-insight">${escHtml(keyInsight)}</div>` : ''}
+          ${s.url ? `<div style="margin-top:6px;"><a href="${escHtml(s.url)}" target="_blank" style="font-size:11px;color:#7c3aed;">View source →</a></div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Pattern Summary ────────────────────────────────────────────────
+  function renderPatterns() {
+    const signals = pulse().getSignals();
+    const strong = signals.filter(s => s.strength === 'Strong');
+    const el = document.getElementById('patterns-output');
+
+    if (!strong.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><p>Add strong signals to see patterns emerge.</p></div>';
+      return;
+    }
+
+    // Group by type
+    const typeCounts = {};
+    strong.forEach(s => { typeCounts[s.type] = (typeCounts[s.type] || 0) + 1; });
+
+    const items = Object.entries(typeCounts)
+      .sort((a,b) => b[1]-a[1])
+      .map(([type, count]) => `<div class="pattern-item">${count} strong signal${count>1?'s':''} from <strong>${escHtml(type)}</strong></div>`);
+
+    // Recent 30-day strong signals
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
+    const recent = strong.filter(s => new Date(s.date).getTime() >= thirtyDaysAgo);
+
+    el.innerHTML = `
+      <div class="pattern-item">📈 ${strong.length} strong signal${strong.length!==1?'s':''} total — market intelligence is building.</div>
+      ${recent.length ? `<div class="pattern-item">🔥 ${recent.length} strong signal${recent.length!==1?'s':''} in the last 30 days</div>` : ''}
+      ${items.slice(0,4).join('')}
+    `;
+
+    // Gaps
+    renderGaps();
+  }
+
+  function renderGaps() {
+    const gaps = pulse().getGaps();
+    const el = document.getElementById('gaps-output');
+    if (!gaps.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:20px 0;"><p style="font-size:12px;">Gaps appear when you identify what\'s NOT being addressed.</p></div>';
+      return;
+    }
+    el.innerHTML = gaps.map(g => `<div class="gap-item">${escHtml(g.text)}</div>`).join('');
+  }
+
+  // ── Refresh Analysis (Claude-powered) ─────────────────────────────
+  window.refreshAnalysis = async function() {
+    const signals = pulse().getSignals().filter(s => s.strength === 'Strong').slice(0, 10);
+    const el = document.getElementById('patterns-output');
+
+    if (!signals.length) {
+      el.innerHTML = '<div class="empty-state"><p>Add some strong signals first.</p></div>';
+      return;
+    }
+
+    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
+      el.innerHTML = '<div class="analysis-box" style="color:#f59e0b;">Configure API key in Settings to enable AI pattern synthesis.</div>';
+      return;
+    }
+
+    el.innerHTML = '<div class="analysis-box"><span class="loading"></span>Synthesizing patterns...</div>';
+
+    const signalSummary = signals.map((s,i) => `Signal ${i+1} [${s.type}]: ${s.content.slice(0,200)}${s.analysis ? '\nAnalysis: ' + s.analysis.slice(0,150) : ''}`).join('\n\n');
+
+    try {
+      const result = await window.ClaudeService.callAgent({
+        systemPrompt: `You are a senior market intelligence analyst. Synthesize patterns across signals into concise, actionable insights. Format as 3-5 bullet points starting with "•". Be specific, not generic.`,
+        messages: [{
+          role: 'user',
+          content: `Analyze these strong market signals and identify what patterns are emerging about what's working in this market:\n\n${signalSummary}\n\nIdentify 3-5 clear patterns. What tactics, emotional drivers, or angles are repeatedly showing up? What does this tell us about the market right now?`
+        }]
+      });
+      el.innerHTML = result.split('\n').filter(l=>l.trim()).map(l => `<div class="pattern-item">${escHtml(l)}</div>`).join('');
+    } catch(e) {
+      el.innerHTML = `<div class="analysis-box" style="color:#ef4444;">Error: ${escHtml(e.message)}</div>`;
+    }
+  };
+
+  // ── Manual gap ─────────────────────────────────────────────────────
+  window.addGapManually = function() {
+    const f = document.getElementById('add-gap-form');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  };
+
+  window.saveManualGap = function() {
+    const text = document.getElementById('gap-text').value.trim();
+    if (!text) return;
+    pulse().addGap(text);
+    document.getElementById('gap-text').value = '';
+    document.getElementById('add-gap-form').style.display = 'none';
+    renderGaps();
+    showToast('Gap added.');
+  };
+
+  // ── Weekly Digest ──────────────────────────────────────────────────
+  window.generateDigest = async function() {
+    const outputEl = document.getElementById('digest-output');
+    outputEl.style.display = 'block';
+    outputEl.innerHTML = '<div class="analysis-box"><span class="loading"></span>Generating digest...</div>';
+
+    const signals = pulse().getSignals();
+    const gaps = pulse().getGaps();
+
+    if (!signals.length) {
+      outputEl.innerHTML = '<div class="analysis-box" style="color:#f59e0b;">No signals logged yet. Add signals to generate a digest.</div>';
+      return;
+    }
+
+    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
+      // Generate a manual digest
+      const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+      const recent = signals.filter(s => new Date(s.date).getTime() >= weekAgo);
+      const strong = signals.filter(s => s.strength === 'Strong');
+
+      const digest = `MARKET PULSE — WEEKLY DIGEST\n${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}\n\n` +
+        `SIGNALS THIS WEEK: ${recent.length}\n` +
+        `STRONG SIGNALS: ${strong.length}\n\n` +
+        `TOP SIGNALS:\n` +
+        signals.slice(0,5).map((s,i) => `${i+1}. [${s.type}] ${s.content.slice(0,100)}...`).join('\n') +
+        (gaps.length ? `\n\nIDENTIFIED GAPS:\n` + gaps.map(g=>`• ${g.text}`).join('\n') : '') +
+        '\n\n— Generated by Audema - Your AI Marketing Department';
+
+      outputEl.innerHTML = `<div class="analysis-box" style="white-space:pre-wrap;">${escHtml(digest)}</div>
+        <button class="btn-secondary btn-sm" style="margin-top:10px;" onclick="copyDigest()">Copy Digest</button>`;
+      outputEl.dataset.digest = digest;
+      return;
+    }
+
+    const signalSummary = signals.slice(0,15).map(s => `[${s.type} | ${s.strength}] ${s.content.slice(0,150)}`).join('\n');
+
+    try {
+      const result = await window.ClaudeService.callAgent({
+        systemPrompt: `You are a senior marketing intelligence analyst writing a concise weekly digest for a marketing team. Be crisp, insightful, and immediately useful. Use bullet points.`,
+        messages: [{
+          role: 'user',
+          content: `Generate a Weekly Market Pulse Digest from these signals. Structure it as:\n\n**MARKET PULSE — WEEKLY DIGEST**\n**What We're Seeing** (3-4 bullets on key trends)\n**Strongest Signals** (2-3 specific callouts)\n**Watch List** (what to monitor next week)\n**Potential Gaps to Exploit** (1-2 opportunities)\n\nSignals:\n${signalSummary}`
+        }]
+      });
+      outputEl.innerHTML = `<div class="analysis-box">${escHtml(result)}</div>
+        <button class="btn-secondary btn-sm" style="margin-top:10px;" onclick="copyDigest()">Copy Digest</button>`;
+      outputEl.dataset.digest = result;
+    } catch(e) {
+      outputEl.innerHTML = `<div class="analysis-box" style="color:#ef4444;">Error: ${escHtml(e.message)}</div>`;
+    }
+  };
+
+  window.copyDigest = function() {
+    const text = document.getElementById('digest-output').dataset.digest || '';
+    if (text) {
+      navigator.clipboard.writeText(text).then(() => showToast('Digest copied!'));
+    }
+  };
+
+  // ── Utilities ──────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    Object.assign(t.style, { position:'fixed', bottom:'24px', right:'24px', background:'#7c3aed', color:'white', padding:'12px 20px', borderRadius:'10px', fontSize:'13px', zIndex:'9999', fontFamily:'Inter,sans-serif' });
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────
+  renderLibrary();
+  renderPatterns();
+  renderGaps();
+})();
+</script>
+</body>
+</html>

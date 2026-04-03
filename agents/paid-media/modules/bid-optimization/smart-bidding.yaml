@@ -1,0 +1,166 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAID MEDIA AGENT - SMART BIDDING MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: smart-bidding-engine
+  name: "Autonomous Smart Bidding Engine"
+  version: "1.0.0"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BIDDING STRATEGIES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  strategies:
+
+    target_roas:
+      name: "Target ROAS Optimization"
+      objective: "Maximize conversion value at target ROAS"
+      config:
+        default_target: 400
+        min_target: 100
+        max_target: 2000
+        learning_period_days: 14
+        min_conversions_required: 30
+      signals:
+        - "Device type"
+        - "Location"
+        - "Time of day"
+        - "Day of week"
+        - "Audience segment"
+        - "Query intent"
+        - "Ad creative"
+
+    target_cpa:
+      name: "Target CPA Optimization"
+      objective: "Maximize conversions at target CPA"
+      config:
+        default_target: 50
+        min_target: 5
+        max_target: 500
+        learning_period_days: 14
+        min_conversions_required: 30
+      signals:
+        - "Device type"
+        - "Location"
+        - "Time of day"
+        - "Day of week"
+        - "Audience segment"
+
+    maximize_conversions:
+      name: "Maximize Conversions"
+      objective: "Get maximum conversions within budget"
+      config:
+        budget_type: "daily"
+        aggression_level: "moderate"
+      signals:
+        - "All available signals"
+
+    maximize_conversion_value:
+      name: "Maximize Conversion Value"
+      objective: "Get maximum revenue within budget"
+      config:
+        budget_type: "daily"
+        value_tracking_required: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BID MODIFIERS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  bid_modifiers:
+
+    device:
+      desktop:
+        range: [-100, +300]
+        default: 0
+      mobile:
+        range: [-100, +300]
+        default: 0
+      tablet:
+        range: [-100, +300]
+        default: 0
+      optimization_frequency: "weekly"
+
+    location:
+      country:
+        range: [-90, +300]
+      region:
+        range: [-90, +300]
+      city:
+        range: [-90, +300]
+      radius:
+        range: [-90, +300]
+      optimization_frequency: "weekly"
+
+    schedule:
+      hour_of_day:
+        range: [-90, +300]
+      day_of_week:
+        range: [-90, +300]
+      optimization_frequency: "weekly"
+
+    audience:
+      remarketing:
+        range: [-90, +900]
+      similar_audiences:
+        range: [-90, +900]
+      in_market:
+        range: [-90, +900]
+      demographics:
+        range: [-90, +900]
+      optimization_frequency: "weekly"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OPTIMIZATION RULES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  optimization_rules:
+
+    bid_adjustment_logic:
+      frequency: "every_15_minutes"
+
+      increase_conditions:
+        - condition: "conversion_rate > 2x_average"
+          max_increase: "20%"
+          confidence: 0.8
+
+        - condition: "impression_share < target AND roas > target"
+          max_increase: "15%"
+          confidence: 0.75
+
+        - condition: "position_above_rate < competitor_threshold"
+          max_increase: "10%"
+          confidence: 0.7
+
+      decrease_conditions:
+        - condition: "conversion_rate < 0.5x_average"
+          max_decrease: "25%"
+          confidence: 0.7
+
+        - condition: "roas < 50%_target"
+          max_decrease: "30%"
+          confidence: 0.8
+
+        - condition: "cpa > 2x_target"
+          max_decrease: "20%"
+          confidence: 0.75
+
+    portfolio_bidding:
+      enabled: true
+      rebalancing_frequency: "daily"
+      cross_campaign_optimization: true
+      shared_budget_pools: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GUARDRAILS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  guardrails:
+    max_bid_ceiling: "3x_historical_average"
+    min_bid_floor: "0.1x_historical_average"
+    max_change_per_hour: "15%"
+    max_change_per_day: "40%"
+    min_data_for_decisions: 100
+    statistical_confidence: 0.85
+    learning_mode_protection: true

@@ -1,0 +1,505 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTENT PERFORMANCE MODULE - PERFORMANCE SCORING ENGINE
+# Content Strategy Agent - The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: content-performance-scoring
+  name: "Content Performance Scoring Engine"
+  version: "1.0.0"
+  category: "content_performance"
+
+  description: |
+    Comprehensive content performance measurement and scoring system that
+    evaluates content across multiple dimensions including traffic, engagement,
+    SEO, conversion, and content health.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PERFORMANCE METRICS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  performance_metrics:
+
+    traffic_metrics:
+      - metric: "Organic Sessions"
+        source: "GA4"
+        frequency: "Daily"
+        trending: true
+
+      - metric: "Total Pageviews"
+        source: "GA4"
+        frequency: "Daily"
+        trending: true
+
+      - metric: "Unique Visitors"
+        source: "GA4"
+        frequency: "Daily"
+        trending: true
+
+      - metric: "Traffic Source Distribution"
+        source: "GA4"
+        breakdown: ["Organic", "Direct", "Referral", "Social", "Email", "Paid"]
+
+      - metric: "Entry Rate"
+        source: "GA4"
+        description: "% of sessions starting on this page"
+
+      - metric: "Traffic Velocity"
+        source: "Calculated"
+        description: "Traffic growth rate"
+
+    engagement_metrics:
+      - metric: "Average Time on Page"
+        source: "GA4"
+        benchmark: "By content type"
+
+      - metric: "Scroll Depth"
+        source: "GA4/Custom"
+        levels: ["25%", "50%", "75%", "100%"]
+
+      - metric: "Bounce Rate"
+        source: "GA4"
+        benchmark: "By content type"
+
+      - metric: "Pages Per Session (from this page)"
+        source: "GA4"
+        description: "Navigation depth"
+
+      - metric: "Return Visits"
+        source: "GA4"
+        description: "Repeat visitors to this content"
+
+      - metric: "Social Shares"
+        source: "Social APIs"
+        breakdown: ["LinkedIn", "Twitter", "Facebook"]
+
+      - metric: "Comments"
+        source: "CMS"
+        description: "User comments on content"
+
+    seo_metrics:
+      - metric: "Keyword Rankings"
+        source: "SEO Agent"
+        description: "Position for target keywords"
+
+      - metric: "Total Keywords Ranking"
+        source: "SEO Agent"
+        description: "All keywords this page ranks for"
+
+      - metric: "Featured Snippets"
+        source: "SEO Agent"
+        description: "SERP features captured"
+
+      - metric: "Search Impressions"
+        source: "GSC"
+        frequency: "Daily"
+
+      - metric: "Click-Through Rate"
+        source: "GSC"
+        benchmark: "By position"
+
+      - metric: "Backlinks"
+        source: "SEO Agent"
+        description: "External links to this content"
+
+      - metric: "Internal Links"
+        source: "Content Inventory"
+        description: "Internal pages linking here"
+
+    conversion_metrics:
+      - metric: "Conversion Rate"
+        source: "GA4"
+        breakdown: ["By goal type"]
+
+      - metric: "Total Conversions"
+        source: "GA4"
+        description: "Goal completions from this page"
+
+      - metric: "Conversion Value"
+        source: "GA4/CRM"
+        description: "Revenue attributed"
+
+      - metric: "Lead Quality Score"
+        source: "CRM"
+        description: "Quality of leads generated"
+
+      - metric: "Pipeline Contribution"
+        source: "CRM"
+        description: "Pipeline influenced"
+
+    content_quality_metrics:
+      - metric: "SEO Content Score"
+        source: "Content Analysis"
+        description: "Technical SEO optimization"
+
+      - metric: "Readability Score"
+        source: "Content Analysis"
+        description: "Flesch-Kincaid score"
+
+      - metric: "Topic Coverage Score"
+        source: "Content Analysis"
+        description: "Completeness vs competitors"
+
+      - metric: "Freshness Score"
+        source: "CMS"
+        description: "Days since last update"
+
+      - metric: "E-E-A-T Signals"
+        source: "Content Analysis"
+        description: "Expertise, authority, trust signals"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CONTENT HEALTH SCORING
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  health_scoring:
+    name: "Content Health Score (CHS)"
+    max_score: 100
+
+    dimensions:
+      - dimension: "Traffic Health"
+        weight: 0.25
+        components:
+          - component: "Traffic Volume"
+            weight: 0.40
+            scoring:
+              - range: ">= 1000 monthly"
+                score: 100
+              - range: "500-999"
+                score: 75
+              - range: "200-499"
+                score: 50
+              - range: "50-199"
+                score: 25
+              - range: "< 50"
+                score: 10
+
+          - component: "Traffic Trend"
+            weight: 0.40
+            scoring:
+              - condition: "Growing > 20%"
+                score: 100
+              - condition: "Growing 5-20%"
+                score: 80
+              - condition: "Stable (-5% to +5%)"
+                score: 60
+              - condition: "Declining 5-20%"
+                score: 30
+              - condition: "Declining > 20%"
+                score: 10
+
+          - component: "Traffic vs Potential"
+            weight: 0.20
+            scoring:
+              - range: ">= 80% of potential"
+                score: 100
+              - range: "50-79%"
+                score: 70
+              - range: "25-49%"
+                score: 40
+              - range: "< 25%"
+                score: 20
+
+      - dimension: "Engagement Health"
+        weight: 0.20
+        components:
+          - component: "Time on Page"
+            weight: 0.35
+            benchmark: "Content type specific"
+
+          - component: "Scroll Depth"
+            weight: 0.30
+            target: ">= 75% reaching 50% scroll"
+
+          - component: "Bounce Rate"
+            weight: 0.20
+            benchmark: "Content type specific"
+
+          - component: "Social Engagement"
+            weight: 0.15
+            scoring: "Shares + comments normalized"
+
+      - dimension: "SEO Health"
+        weight: 0.25
+        components:
+          - component: "Primary Keyword Ranking"
+            weight: 0.40
+            scoring:
+              - range: "Position 1-3"
+                score: 100
+              - range: "Position 4-10"
+                score: 75
+              - range: "Position 11-20"
+                score: 50
+              - range: "Position 21-50"
+                score: 25
+              - range: "> 50 or not ranking"
+                score: 10
+
+          - component: "Keyword Coverage"
+            weight: 0.25
+            scoring: "Total ranking keywords"
+
+          - component: "Backlink Profile"
+            weight: 0.20
+            scoring: "Quality-weighted backlinks"
+
+          - component: "Technical SEO"
+            weight: 0.15
+            scoring: "Technical SEO score"
+
+      - dimension: "Conversion Health"
+        weight: 0.15
+        components:
+          - component: "Conversion Rate"
+            weight: 0.50
+            benchmark: "Content type specific"
+
+          - component: "Conversion Value"
+            weight: 0.30
+            scoring: "Revenue attributed"
+
+          - component: "Funnel Progression"
+            weight: 0.20
+            scoring: "% moving to next stage"
+
+      - dimension: "Freshness Health"
+        weight: 0.15
+        components:
+          - component: "Content Age"
+            weight: 0.40
+            scoring:
+              - range: "< 6 months"
+                score: 100
+              - range: "6-12 months"
+                score: 75
+              - range: "12-18 months"
+                score: 50
+              - range: "18-24 months"
+                score: 25
+              - range: "> 24 months"
+                score: 10
+
+          - component: "Information Currency"
+            weight: 0.35
+            scoring: "Data and references freshness"
+
+          - component: "Link Health"
+            weight: 0.25
+            scoring: "Broken links, outdated references"
+
+    health_thresholds:
+      - level: "Thriving"
+        score: ">= 85"
+        action: "Maintain, consider expansion"
+        indicator: "green"
+
+      - level: "Healthy"
+        score: "70-84"
+        action: "Monitor, minor optimizations"
+        indicator: "light-green"
+
+      - level: "Needs Attention"
+        score: "55-69"
+        action: "Schedule optimization"
+        indicator: "yellow"
+
+      - level: "At Risk"
+        score: "40-54"
+        action: "Priority refresh required"
+        indicator: "orange"
+
+      - level: "Critical"
+        score: "25-39"
+        action: "Urgent intervention"
+        indicator: "red"
+
+      - level: "Retire Candidate"
+        score: "< 25"
+        action: "Evaluate for retirement"
+        indicator: "dark-red"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PERFORMANCE BENCHMARKS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  benchmarks:
+
+    by_content_type:
+      blog_post:
+        avg_time_on_page: "3:00"
+        bounce_rate: "60%"
+        scroll_depth_50: "70%"
+        conversion_rate: "1.5%"
+
+      pillar_page:
+        avg_time_on_page: "6:00"
+        bounce_rate: "45%"
+        scroll_depth_50: "60%"
+        conversion_rate: "2.5%"
+
+      case_study:
+        avg_time_on_page: "4:00"
+        bounce_rate: "50%"
+        scroll_depth_50: "65%"
+        conversion_rate: "3.0%"
+
+      landing_page:
+        avg_time_on_page: "2:00"
+        bounce_rate: "40%"
+        scroll_depth_50: "80%"
+        conversion_rate: "5.0%"
+
+      guide_ebook:
+        avg_time_on_page: "5:00"
+        bounce_rate: "55%"
+        scroll_depth_50: "50%"
+        conversion_rate: "4.0%"
+
+    by_funnel_stage:
+      awareness:
+        traffic_weight: "high"
+        engagement_weight: "medium"
+        conversion_weight: "low"
+
+      consideration:
+        traffic_weight: "medium"
+        engagement_weight: "high"
+        conversion_weight: "medium"
+
+      decision:
+        traffic_weight: "low"
+        engagement_weight: "medium"
+        conversion_weight: "high"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OPTIMIZATION RECOMMENDATIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  optimization_engine:
+
+    recommendation_types:
+      - type: "SEO Optimization"
+        triggers:
+          - "SEO health score below 60"
+          - "Primary keyword not ranking top 10"
+          - "Missing meta optimization"
+        recommendations:
+          - "Update meta title and description"
+          - "Improve keyword targeting"
+          - "Enhance internal linking"
+          - "Add schema markup"
+
+      - type: "Content Refresh"
+        triggers:
+          - "Content age > 12 months"
+          - "Declining traffic trend"
+          - "Outdated information"
+        recommendations:
+          - "Update statistics and data"
+          - "Add new sections"
+          - "Refresh examples"
+          - "Update links and references"
+
+      - type: "Engagement Improvement"
+        triggers:
+          - "High bounce rate"
+          - "Low scroll depth"
+          - "Short time on page"
+        recommendations:
+          - "Improve content structure"
+          - "Add visual elements"
+          - "Enhance readability"
+          - "Add interactive elements"
+
+      - type: "Conversion Optimization"
+        triggers:
+          - "Low conversion rate"
+          - "High traffic but low conversions"
+        recommendations:
+          - "Optimize CTA placement"
+          - "Improve value proposition"
+          - "Add social proof"
+          - "Test CTA variations"
+
+      - type: "Content Consolidation"
+        triggers:
+          - "Low traffic AND low conversions"
+          - "Cannibalization with better content"
+          - "Multiple weak pieces on same topic"
+        recommendations:
+          - "Merge with related content"
+          - "Redirect to stronger piece"
+          - "Archive if no value"
+
+    priority_scoring:
+      formula: "(Impact Score * 0.6) + (Effort Efficiency * 0.4)"
+      factors:
+        - "Traffic potential gain"
+        - "Current health score gap"
+        - "Competitive opportunity"
+        - "Effort required"
+        - "Time sensitivity"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPORTING & DASHBOARDS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  reporting:
+
+    dashboards:
+      - name: "Content Portfolio Health"
+        widgets:
+          - "Health score distribution"
+          - "Top performing content"
+          - "Content needing attention"
+          - "Trend analysis"
+
+      - name: "Individual Content View"
+        widgets:
+          - "All metrics breakdown"
+          - "Health score details"
+          - "Historical performance"
+          - "Recommendations"
+
+      - name: "Optimization Queue"
+        widgets:
+          - "Prioritized optimization list"
+          - "Estimated impact"
+          - "Effort required"
+          - "Progress tracking"
+
+    reports:
+      - report: "Weekly Performance Summary"
+        frequency: "Weekly"
+        contents:
+          - "Top movers (up and down)"
+          - "Health score changes"
+          - "Key metrics trends"
+          - "Urgent actions needed"
+
+      - report: "Monthly Performance Analysis"
+        frequency: "Monthly"
+        contents:
+          - "Portfolio health overview"
+          - "Performance by content type"
+          - "Performance by topic cluster"
+          - "ROI analysis"
+          - "Optimization recommendations"
+
+    alerts:
+      - trigger: "Traffic drop > 30%"
+        severity: "High"
+        action: "Immediate investigation"
+
+      - trigger: "Health score drops below 40"
+        severity: "High"
+        action: "Priority intervention"
+
+      - trigger: "Keyword ranking drops > 10 positions"
+        severity: "Medium"
+        action: "Schedule review"
+
+      - trigger: "Content reaches 12 months old"
+        severity: "Low"
+        action: "Freshness review"

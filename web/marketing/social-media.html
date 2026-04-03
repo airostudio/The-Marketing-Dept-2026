@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Manager | Aduma Marketing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #263348;
+            --border-color: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --facebook: #1877f2;
+            --instagram: #e4405f;
+            --twitter: #1da1f2;
+            --linkedin: #0a66c2;
+            --tiktok: #00f2ea;
+            --youtube: #ff0000;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh; }
+        .dashboard-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 260px; background: #0b1120; border-right: 1px solid var(--border-color); padding: 1.5rem 0; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; z-index: 100; }
+        .sidebar-brand { padding: 0 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem; }
+        .sidebar-brand h2 { font-size: 1.1rem; font-weight: 700; color: var(--primary-light); }
+        .sidebar-brand span { font-size: 0.75rem; color: var(--text-secondary); }
+        .nav-section { padding: 0.5rem 0; }
+        .nav-section-title { padding: 0.5rem 1.25rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .nav-section-title .chevron { transition: transform 0.2s; font-size: 0.6rem; }
+        .nav-section-title .chevron.expanded { transform: rotate(90deg); }
+        .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1.25rem; color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; border-left: 3px solid transparent; }
+        .nav-link:hover { color: var(--text-primary); background: rgba(99,102,241,0.08); }
+        .nav-link.active { color: var(--primary-light); background: rgba(99,102,241,0.12); border-left-color: var(--primary); font-weight: 500; }
+        .nav-link .icon { width: 18px; text-align: center; font-size: 0.95rem; }
+        .nav-children { overflow: hidden; transition: max-height 0.25s ease; }
+        .nav-children.collapsed { max-height: 0; }
+        .nav-children.expanded { max-height: 300px; }
+        .main-content { flex: 1; margin-left: 260px; padding: 1.5rem 2rem 3rem; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.75rem; }
+        .breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary); }
+        .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+        .top-bar-actions { display: flex; gap: 0.75rem; }
+        .btn { padding: 0.55rem 1.1rem; border-radius: 8px; border: none; font-family: inherit; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary-light); }
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .kpi-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; }
+        .kpi-card .kpi-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .kpi-card .kpi-value { font-size: 1.75rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .kpi-card .kpi-change { font-size: 0.75rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.3rem; }
+        .kpi-change.up { color: var(--success); }
+        .kpi-change.down { color: var(--danger); }
+        .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .platform-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .platform-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; transition: transform 0.15s, box-shadow 0.15s; }
+        .platform-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+        .platform-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+        .platform-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: #fff; font-weight: 700; }
+        .platform-icon.fb { background: var(--facebook); }
+        .platform-icon.ig { background: var(--instagram); }
+        .platform-icon.tw { background: var(--twitter); }
+        .platform-icon.li { background: var(--linkedin); }
+        .platform-icon.tt { background: var(--tiktok); color: #000; }
+        .platform-icon.yt { background: var(--youtube); }
+        .platform-name { font-weight: 600; font-size: 0.95rem; }
+        .platform-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .platform-stat .stat-label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
+        .platform-stat .stat-value { font-size: 1rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+        .card-panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+        .scheduler-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+        .scheduler-timeline { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.75rem; }
+        .timeline-day { min-width: 140px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem; flex-shrink: 0; }
+        .timeline-day .day-label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; font-weight: 600; }
+        .timeline-day .day-date { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; }
+        .scheduled-post { background: rgba(99,102,241,0.15); border-left: 3px solid var(--primary); border-radius: 6px; padding: 0.5rem 0.6rem; margin-bottom: 0.4rem; font-size: 0.72rem; }
+        .scheduled-post .post-time { color: var(--primary-light); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+        .scheduled-post .post-platform { color: var(--text-secondary); margin-top: 0.15rem; }
+        .ai-generator { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .ai-form { display: flex; flex-direction: column; gap: 1rem; }
+        .form-group label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+        .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.6rem 0.85rem; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color 0.15s; }
+        .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .ai-preview { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.25rem; min-height: 240px; display: flex; flex-direction: column; }
+        .ai-preview-header { font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 1rem; letter-spacing: 0.05em; }
+        .ai-preview-content { flex: 1; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; text-align: center; }
+        .ai-preview-content.generated { color: var(--text-primary); align-items: flex-start; justify-content: flex-start; text-align: left; }
+        .analytics-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .chart-placeholder { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 10px; height: 220px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.85rem; }
+        .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .heatmap-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-family: 'JetBrains Mono', monospace; }
+        .heat-low { background: rgba(99,102,241,0.1); color: var(--text-secondary); }
+        .heat-med { background: rgba(99,102,241,0.3); color: var(--text-primary); }
+        .heat-high { background: rgba(99,102,241,0.55); color: #fff; }
+        .heat-peak { background: rgba(99,102,241,0.85); color: #fff; }
+        .heatmap-label { font-size: 0.65rem; color: var(--text-secondary); text-align: center; padding: 0.25rem 0; }
+        .posts-table { width: 100%; border-collapse: collapse; }
+        .posts-table th { text-align: left; font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); padding: 0.75rem 0.6rem; border-bottom: 1px solid var(--border-color); letter-spacing: 0.05em; font-weight: 600; }
+        .posts-table td { padding: 0.75rem 0.6rem; border-bottom: 1px solid rgba(51,65,85,0.5); font-size: 0.82rem; vertical-align: middle; }
+        .posts-table tr:hover td { background: rgba(99,102,241,0.04); }
+        .post-content-preview { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .platform-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; }
+        .badge-fb { background: rgba(24,119,242,0.15); color: var(--facebook); }
+        .badge-ig { background: rgba(228,64,95,0.15); color: var(--instagram); }
+        .badge-tw { background: rgba(29,161,242,0.15); color: var(--twitter); }
+        .badge-li { background: rgba(10,102,194,0.15); color: var(--linkedin); }
+        .badge-tt { background: rgba(0,242,234,0.15); color: var(--tiktok); }
+        .badge-yt { background: rgba(255,0,0,0.15); color: var(--youtube); }
+        .stat-mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+        .trending-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .trend-card { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; gap: 0.75rem; align-items: flex-start; }
+        .trend-rank { width: 28px; height: 28px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+        .trend-info .trend-topic { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.2rem; }
+        .trend-info .trend-volume { font-size: 0.72rem; color: var(--text-secondary); }
+        .trend-info .trend-sentiment { font-size: 0.7rem; margin-top: 0.3rem; display: inline-block; padding: 0.1rem 0.45rem; border-radius: 4px; }
+        .sentiment-positive { background: rgba(34,197,94,0.15); color: var(--success); }
+        .sentiment-neutral { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .loading-spinner { display: none; width: 18px; height: 18px; border: 2px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .platform-grid { grid-template-columns: repeat(2, 1fr); } .analytics-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .sidebar { display: none; } .main-content { margin-left: 0; padding: 1rem; } .kpi-grid, .platform-grid { grid-template-columns: 1fr; } .ai-generator { grid-template-columns: 1fr; } .trending-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h2>Aduma Marketing</h2>
+                <span>2026 Platform</span>
+            </div>
+            <nav>
+                <div class="nav-section">
+                    <div class="nav-section-title">Executive</div>
+                    <a href="/cmo-dashboard.html" class="nav-link"><span class="icon">&#9632;</span> CMO Dashboard</a>
+                    <a href="/marketing-overview.html" class="nav-link"><span class="icon">&#9670;</span> Marketing Overview</a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title" onclick="toggleNav('channels')">Marketing Channels <span class="chevron expanded" id="chevron-channels">&#9654;</span></div>
+                    <div class="nav-children expanded" id="nav-channels">
+                        <a href="/marketing/content-strategy.html" class="nav-link"><span class="icon">&#9998;</span> Content Strategy</a>
+                        <a href="/marketing/social-media.html" class="nav-link active"><span class="icon">&#9733;</span> Social Media</a>
+                        <a href="/marketing/paid-media.html" class="nav-link"><span class="icon">&#9768;</span> Paid Media</a>
+                        <a href="/marketing/email-marketing.html" class="nav-link"><span class="icon">&#9993;</span> Email Marketing</a>
+                    </div>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title" onclick="toggleNav('intelligence')">Intelligence <span class="chevron expanded" id="chevron-intelligence">&#9654;</span></div>
+                    <div class="nav-children expanded" id="nav-intelligence">
+                        <a href="/intelligence/analytics.html" class="nav-link"><span class="icon">&#9636;</span> Marketing Analytics</a>
+                        <a href="/intelligence/brand.html" class="nav-link"><span class="icon">&#9673;</span> Brand &amp; Positioning</a>
+                        <a href="/intelligence/product.html" class="nav-link"><span class="icon">&#9881;</span> Product Marketing</a>
+                    </div>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">SEO</div>
+                    <a href="/dashboard.html" class="nav-link"><span class="icon">&#9906;</span> SEO Dashboard</a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">System</div>
+                    <a href="/settings.html" class="nav-link"><span class="icon">&#9881;</span> Settings</a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="breadcrumb">
+                    <span>Social Media</span>
+                    <span>&#8250;</span>
+                    <span class="current">Dashboard</span>
+                </div>
+                <div class="top-bar-actions">
+                    <button class="btn btn-outline" onclick="refreshData()">&#8635; Refresh</button>
+                    <button class="btn btn-primary" onclick="openScheduler()">+ Schedule Post</button>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Followers</div>
+                    <div class="kpi-value" id="kpi-followers">--</div>
+                    <div class="kpi-change up" id="kpi-followers-change">&#9650; Loading...</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Engagement Rate</div>
+                    <div class="kpi-value" id="kpi-engagement">--</div>
+                    <div class="kpi-change up" id="kpi-engagement-change">&#9650; Loading...</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Social Traffic</div>
+                    <div class="kpi-value" id="kpi-traffic">--</div>
+                    <div class="kpi-change up" id="kpi-traffic-change">&#9650; Loading...</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Share of Voice</div>
+                    <div class="kpi-value" id="kpi-sov">--</div>
+                    <div class="kpi-change up" id="kpi-sov-change">&#9650; Loading...</div>
+                </div>
+            </div>
+
+            <!-- Platform Overview -->
+            <h3 class="section-title">&#127760; Platform Overview</h3>
+            <div class="platform-grid" id="platform-grid">
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon fb">f</div><div class="platform-name">Facebook</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Followers</div><div class="stat-value" id="fb-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="fb-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="fb-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Reach</div><div class="stat-value" id="fb-reach">--</div></div>
+                    </div>
+                </div>
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon ig">&#9829;</div><div class="platform-name">Instagram</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Followers</div><div class="stat-value" id="ig-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="ig-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="ig-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Reach</div><div class="stat-value" id="ig-reach">--</div></div>
+                    </div>
+                </div>
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon tw">X</div><div class="platform-name">Twitter / X</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Followers</div><div class="stat-value" id="tw-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="tw-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="tw-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Impressions</div><div class="stat-value" id="tw-reach">--</div></div>
+                    </div>
+                </div>
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon li">in</div><div class="platform-name">LinkedIn</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Followers</div><div class="stat-value" id="li-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="li-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="li-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Reach</div><div class="stat-value" id="li-reach">--</div></div>
+                    </div>
+                </div>
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon tt">&#9835;</div><div class="platform-name">TikTok</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Followers</div><div class="stat-value" id="tt-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="tt-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="tt-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Views</div><div class="stat-value" id="tt-reach">--</div></div>
+                    </div>
+                </div>
+                <div class="platform-card">
+                    <div class="platform-header"><div class="platform-icon yt">&#9654;</div><div class="platform-name">YouTube</div></div>
+                    <div class="platform-stats">
+                        <div class="platform-stat"><div class="stat-label">Subscribers</div><div class="stat-value" id="yt-followers">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Engagement</div><div class="stat-value" id="yt-engagement">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Growth (30d)</div><div class="stat-value" id="yt-growth">--</div></div>
+                        <div class="platform-stat"><div class="stat-label">Watch Hours</div><div class="stat-value" id="yt-reach">--</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Scheduler -->
+            <div class="card-panel">
+                <div class="scheduler-header">
+                    <h3 class="section-title" style="margin-bottom:0;">&#128197; Content Scheduler</h3>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button class="btn btn-outline" onclick="shiftScheduler(-1)">&#8592; Prev</button>
+                        <button class="btn btn-outline" onclick="shiftScheduler(1)">Next &#8594;</button>
+                    </div>
+                </div>
+                <div class="scheduler-timeline" id="scheduler-timeline"></div>
+            </div>
+
+            <!-- AI Post Generator -->
+            <div class="card-panel">
+                <h3 class="section-title">&#9889; AI Post Generator</h3>
+                <div class="ai-generator">
+                    <div class="ai-form">
+                        <div class="form-group">
+                            <label for="ai-platform">Platform</label>
+                            <select id="ai-platform">
+                                <option value="facebook">Facebook</option>
+                                <option value="instagram">Instagram</option>
+                                <option value="twitter">Twitter / X</option>
+                                <option value="linkedin">LinkedIn</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="youtube">YouTube</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-topic">Topic / Subject</label>
+                            <input type="text" id="ai-topic" placeholder="e.g. Product launch, Industry trends, Company culture...">
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-tone">Tone</label>
+                            <select id="ai-tone">
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual &amp; Friendly</option>
+                                <option value="humorous">Humorous</option>
+                                <option value="inspirational">Inspirational</option>
+                                <option value="educational">Educational</option>
+                                <option value="urgent">Urgent / FOMO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-context">Additional Context (optional)</label>
+                            <textarea id="ai-context" placeholder="Add any brand guidelines, key messages, or hashtags to include..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:0.75rem;align-items:center;">
+                            <button class="btn btn-primary" id="btn-generate" onclick="generatePost()">&#9889; Generate Post</button>
+                            <div class="loading-spinner" id="generate-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="ai-preview" id="ai-preview">
+                        <div class="ai-preview-header">Generated Preview</div>
+                        <div class="ai-preview-content" id="ai-preview-content">
+                            Select a platform, enter a topic and tone, then click Generate to create an AI-powered social media post.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engagement Analytics -->
+            <h3 class="section-title">&#128200; Engagement Analytics</h3>
+            <div class="analytics-grid">
+                <div class="card-panel" style="margin-bottom:0;">
+                    <h4 style="font-size:0.88rem;margin-bottom:1rem;color:var(--text-secondary);">Engagement Over Time (30 Days)</h4>
+                    <div class="chart-placeholder" id="engagement-chart">Loading engagement data...</div>
+                </div>
+                <div class="card-panel" style="margin-bottom:0;">
+                    <h4 style="font-size:0.88rem;margin-bottom:0.75rem;color:var(--text-secondary);">Best Posting Times</h4>
+                    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+                        <div class="heatmap-label" style="width:40px;"></div>
+                        <div class="heatmap-label" style="flex:1;">Mon</div>
+                        <div class="heatmap-label" style="flex:1;">Tue</div>
+                        <div class="heatmap-label" style="flex:1;">Wed</div>
+                        <div class="heatmap-label" style="flex:1;">Thu</div>
+                        <div class="heatmap-label" style="flex:1;">Fri</div>
+                        <div class="heatmap-label" style="flex:1;">Sat</div>
+                        <div class="heatmap-label" style="flex:1;">Sun</div>
+                    </div>
+                    <div id="heatmap-container"></div>
+                </div>
+            </div>
+
+            <!-- Recent Posts Table -->
+            <div class="card-panel">
+                <h3 class="section-title">&#128240; Recent Posts</h3>
+                <div style="overflow-x:auto;">
+                    <table class="posts-table">
+                        <thead>
+                            <tr>
+                                <th>Platform</th>
+                                <th>Content</th>
+                                <th>Date</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Shares</th>
+                                <th>Reach</th>
+                            </tr>
+                        </thead>
+                        <tbody id="posts-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Trending Topics -->
+            <div class="card-panel">
+                <h3 class="section-title">&#128293; Trending Topics</h3>
+                <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:1rem;">AI-identified trending topics in your industry based on real-time social listening.</p>
+                <div class="trending-grid" id="trending-grid"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/project-service.js"></script>
+    <script src="/js/marketing-store.js"></script>
+    <script src="/js/api-connector.js"></script>
+    <script src="/js/ai-service.js"></script>
+    <script src="/js/social-media-service.js"></script>
+    <script>
+        /* ── Sidebar toggle ── */
+        function toggleNav(section) {
+            const nav = document.getElementById('nav-' + section);
+            const chevron = document.getElementById('chevron-' + section);
+            if (nav.classList.contains('expanded')) {
+                nav.classList.replace('expanded', 'collapsed');
+                chevron.classList.remove('expanded');
+            } else {
+                nav.classList.replace('collapsed', 'expanded');
+                chevron.classList.add('expanded');
+            }
+        }
+
+        /* ── Utility helpers ── */
+        function formatNumber(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return n.toLocaleString();
+        }
+
+        /* ── KPI Rendering ── */
+        function renderKPIs(data) {
+            document.getElementById('kpi-followers').textContent = formatNumber(data.totalFollowers);
+            document.getElementById('kpi-followers-change').innerHTML = (data.followersChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.followersChange).toFixed(1) + '% vs last month';
+            document.getElementById('kpi-followers-change').className = 'kpi-change ' + (data.followersChange >= 0 ? 'up' : 'down');
+
+            document.getElementById('kpi-engagement').textContent = data.engagementRate.toFixed(2) + '%';
+            document.getElementById('kpi-engagement-change').innerHTML = (data.engagementChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.engagementChange).toFixed(2) + '% vs last month';
+            document.getElementById('kpi-engagement-change').className = 'kpi-change ' + (data.engagementChange >= 0 ? 'up' : 'down');
+
+            document.getElementById('kpi-traffic').textContent = formatNumber(data.socialTraffic);
+            document.getElementById('kpi-traffic-change').innerHTML = (data.trafficChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.trafficChange).toFixed(1) + '% vs last month';
+            document.getElementById('kpi-traffic-change').className = 'kpi-change ' + (data.trafficChange >= 0 ? 'up' : 'down');
+
+            document.getElementById('kpi-sov').textContent = data.shareOfVoice.toFixed(1) + '%';
+            document.getElementById('kpi-sov-change').innerHTML = (data.sovChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.sovChange).toFixed(1) + '% vs last month';
+            document.getElementById('kpi-sov-change').className = 'kpi-change ' + (data.sovChange >= 0 ? 'up' : 'down');
+        }
+
+        /* ── Platform Cards ── */
+        function renderPlatforms(platforms) {
+            const keys = ['fb', 'ig', 'tw', 'li', 'tt', 'yt'];
+            keys.forEach(function(key) {
+                var p = platforms[key];
+                if (!p) return;
+                document.getElementById(key + '-followers').textContent = formatNumber(p.followers);
+                document.getElementById(key + '-engagement').textContent = p.engagement.toFixed(2) + '%';
+                document.getElementById(key + '-growth').textContent = (p.growth >= 0 ? '+' : '') + p.growth.toFixed(1) + '%';
+                document.getElementById(key + '-reach').textContent = formatNumber(p.reach);
+            });
+        }
+
+        /* ── Content Scheduler ── */
+        var schedulerOffset = 0;
+        function renderScheduler(posts) {
+            var container = document.getElementById('scheduler-timeline');
+            container.innerHTML = '';
+            var today = new Date();
+            for (var d = 0; d < 7; d++) {
+                var date = new Date(today);
+                date.setDate(today.getDate() + d + schedulerOffset);
+                var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                var dayDiv = document.createElement('div');
+                dayDiv.className = 'timeline-day';
+                var dateStr = date.toISOString().split('T')[0];
+                var dayPosts = posts.filter(function(p) { return p.date === dateStr; });
+                var postsHtml = dayPosts.length === 0 ? '<div style="font-size:0.7rem;color:var(--text-secondary);text-align:center;padding:0.5rem 0;">No posts</div>' :
+                    dayPosts.map(function(p) { return '<div class="scheduled-post"><div class="post-time">' + p.time + '</div><div class="post-platform">' + p.platform + '</div></div>'; }).join('');
+                dayDiv.innerHTML = '<div class="day-label">' + dayNames[date.getDay()] + '</div><div class="day-date">' + monthNames[date.getMonth()] + ' ' + date.getDate() + '</div>' + postsHtml;
+                container.appendChild(dayDiv);
+            }
+        }
+        function shiftScheduler(dir) { schedulerOffset += dir * 7; loadSchedulerData(); }
+
+        /* ── Heatmap ── */
+        function renderHeatmap(data) {
+            var container = document.getElementById('heatmap-container');
+            container.innerHTML = '';
+            var hours = ['6am','9am','12pm','3pm','6pm','9pm'];
+            hours.forEach(function(hour) {
+                var row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;';
+                var label = document.createElement('div');
+                label.style.cssText = 'width:40px;font-size:0.65rem;color:var(--text-secondary);display:flex;align-items:center;';
+                label.textContent = hour;
+                row.appendChild(label);
+                for (var day = 0; day < 7; day++) {
+                    var cell = document.createElement('div');
+                    var val = data[hour] ? data[hour][day] : 0;
+                    var cls = val > 75 ? 'heat-peak' : val > 50 ? 'heat-high' : val > 25 ? 'heat-med' : 'heat-low';
+                    cell.className = 'heatmap-cell ' + cls;
+                    cell.style.cssText = 'flex:1;aspect-ratio:1.5;';
+                    cell.textContent = val;
+                    row.appendChild(cell);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        /* ── Recent Posts ── */
+        function renderPosts(posts) {
+            var tbody = document.getElementById('posts-tbody');
+            tbody.innerHTML = posts.map(function(p) {
+                var badgeClass = 'badge-' + p.platformKey;
+                return '<tr>' +
+                    '<td><span class="platform-badge ' + badgeClass + '">' + p.platformLabel + '</span></td>' +
+                    '<td><div class="post-content-preview">' + p.content + '</div></td>' +
+                    '<td class="stat-mono">' + p.date + '</td>' +
+                    '<td class="stat-mono">' + formatNumber(p.likes) + '</td>' +
+                    '<td class="stat-mono">' + formatNumber(p.comments) + '</td>' +
+                    '<td class="stat-mono">' + formatNumber(p.shares) + '</td>' +
+                    '<td class="stat-mono">' + formatNumber(p.reach) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        /* ── Trending Topics ── */
+        function renderTrending(topics) {
+            var grid = document.getElementById('trending-grid');
+            grid.innerHTML = topics.map(function(t, i) {
+                var sentimentClass = t.sentiment === 'positive' ? 'sentiment-positive' : 'sentiment-neutral';
+                return '<div class="trend-card">' +
+                    '<div class="trend-rank">' + (i + 1) + '</div>' +
+                    '<div class="trend-info">' +
+                    '<div class="trend-topic">' + t.topic + '</div>' +
+                    '<div class="trend-volume">' + formatNumber(t.volume) + ' mentions &middot; ' + t.velocity + '</div>' +
+                    '<span class="trend-sentiment ' + sentimentClass + '">' + t.sentiment + '</span>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        /* ── AI Post Generator ── */
+        async function generatePost() {
+            var platform = document.getElementById('ai-platform').value;
+            var topic = document.getElementById('ai-topic').value;
+            var tone = document.getElementById('ai-tone').value;
+            var context = document.getElementById('ai-context').value;
+            if (!topic) { alert('Please enter a topic.'); return; }
+            var spinner = document.getElementById('generate-spinner');
+            var btn = document.getElementById('btn-generate');
+            var preview = document.getElementById('ai-preview-content');
+            spinner.style.display = 'block';
+            btn.disabled = true;
+            preview.textContent = 'Generating your post...';
+            preview.className = 'ai-preview-content';
+            try {
+                if (typeof window.aiService !== 'undefined' && window.aiService.generateSocialPost) {
+                    var result = await window.aiService.generateSocialPost({ platform: platform, topic: topic, tone: tone, context: context });
+                    preview.textContent = result;
+                } else {
+                    await new Promise(function(r) { setTimeout(r, 1500); });
+                    var templates = {
+                        professional: 'We are excited to share insights on ' + topic + '. In today\'s landscape, staying ahead means embracing change and driving innovation. What strategies are you implementing? #' + topic.replace(/\s+/g, '') + ' #Marketing',
+                        casual: 'Hey everyone! Let\'s talk about ' + topic + ' - it\'s been a game changer for us lately and we wanted to share some thoughts with you all! Drop your take below.',
+                        humorous: 'POV: You just discovered the secret to ' + topic + ' and now you can\'t stop telling everyone about it. We\'ve all been there, right? #Relatable',
+                        inspirational: 'The future belongs to those who believe in ' + topic + '. Every great journey starts with a single step. What\'s yours? #Inspiration #' + topic.replace(/\s+/g, ''),
+                        educational: 'Did you know? ' + topic + ' is transforming how businesses operate. Here are 3 key takeaways you need to know:\n\n1. Efficiency gains of up to 40%\n2. Improved customer satisfaction\n3. Scalable growth opportunities\n\nSave this post for later!',
+                        urgent: 'This won\'t last! ' + topic + ' is changing FAST and you don\'t want to miss out. Here\'s what you need to do RIGHT NOW to stay ahead of the curve.'
+                    };
+                    preview.textContent = templates[tone] || templates.professional;
+                }
+                preview.className = 'ai-preview-content generated';
+            } catch (err) {
+                preview.textContent = 'Error generating post. Please try again.';
+                console.error('AI generation error:', err);
+            }
+            spinner.style.display = 'none';
+            btn.disabled = false;
+        }
+
+        /* ── Data Loading ── */
+        const STORAGE_KEY = 'social-media';
+
+        async function loadStoredData() {
+            console.log('[SocialMedia] Loading stored data');
+            var data = null;
+
+            // Try MarketingStore first (Supabase with localStorage fallback)
+            if (window.MarketingStore) {
+                try {
+                    data = await window.MarketingStore.get(STORAGE_KEY, 'dashboard-data', null);
+                } catch (e) {
+                    console.warn('[SocialMedia] MarketingStore unavailable:', e);
+                }
+            }
+
+            // Fallback to direct localStorage
+            if (!data) {
+                try {
+                    var stored = localStorage.getItem(STORAGE_KEY + '-dashboard');
+                    if (stored) data = JSON.parse(stored);
+                } catch (e) {}
+            }
+
+            if (data && Object.keys(data).length > 0) {
+                // Render stored data
+                if (data.kpis) renderKPIs(data.kpis);
+                if (data.platforms) renderPlatforms(data.platforms);
+                if (data.scheduledPosts) renderScheduler(data.scheduledPosts);
+                if (data.heatmap) renderHeatmap(data.heatmap);
+                if (data.posts) renderPosts(data.posts);
+                if (data.trending) renderTrending(data.trending);
+            } else {
+                // Show empty states - no demo data
+                renderEmptyState();
+            }
+        }
+
+        function renderEmptyState() {
+            console.log('[SocialMedia] Showing empty state - no data yet');
+
+            // KPIs with zeros
+            renderKPIs({
+                totalFollowers: 0, followersChange: 0,
+                engagementRate: 0, engagementChange: 0,
+                socialTraffic: 0, trafficChange: 0,
+                shareOfVoice: 0, sovChange: 0
+            });
+
+            // Platforms with zeros
+            renderPlatforms({
+                fb: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                ig: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                tw: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                li: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                tt: { followers: 0, engagement: 0, growth: 0, reach: 0 },
+                yt: { followers: 0, engagement: 0, growth: 0, reach: 0 }
+            });
+
+            // Empty scheduler
+            document.getElementById('scheduler-list').innerHTML = '<div class="empty-state" style="padding:2rem;text-align:center;color:var(--text-secondary);"><p>No posts scheduled</p><p style="font-size:0.8rem;opacity:0.7;">Click "Schedule Post" to plan your content</p></div>';
+
+            // Empty heatmap
+            renderHeatmap({
+                '6am':  [0, 0, 0, 0, 0, 0, 0],
+                '9am':  [0, 0, 0, 0, 0, 0, 0],
+                '12pm': [0, 0, 0, 0, 0, 0, 0],
+                '3pm':  [0, 0, 0, 0, 0, 0, 0],
+                '6pm':  [0, 0, 0, 0, 0, 0, 0],
+                '9pm':  [0, 0, 0, 0, 0, 0, 0]
+            });
+
+            // Empty posts
+            document.getElementById('posts-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);">No posts yet. Connect your social accounts to see performance data.</td></tr>';
+
+            // Empty trending
+            document.getElementById('trending-list').innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">No trending topics tracked yet</div>';
+
+            // Empty chart
+            document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
+        }
+
+        async function saveData(data) {
+            // Save to MarketingStore (Supabase with localStorage fallback)
+            if (window.MarketingStore) {
+                try {
+                    await window.MarketingStore.set(STORAGE_KEY, 'dashboard-data', data);
+                } catch (e) {
+                    console.warn('[SocialMedia] Could not save to MarketingStore:', e);
+                }
+            }
+            // Also save to localStorage as fallback
+            try {
+                localStorage.setItem(STORAGE_KEY + '-dashboard', JSON.stringify(data));
+            } catch (e) {}
+        }
+
+        async function loadSchedulerData() {
+            try {
+                if (typeof window.socialMediaService !== 'undefined' && window.socialMediaService.getScheduledPosts) {
+                    var posts = await window.socialMediaService.getScheduledPosts(schedulerOffset);
+                    renderScheduler(posts);
+                }
+            } catch (e) { console.warn('Scheduler service unavailable, using fallback'); }
+        }
+
+        function openScheduler() {
+            alert('Post scheduling dialog would open here. Connect your social media accounts in Settings to enable scheduling.');
+        }
+
+        async function refreshData() {
+            try {
+                if (typeof window.socialMediaService !== 'undefined' && window.socialMediaService.getDashboardData) {
+                    var data = await window.socialMediaService.getDashboardData();
+                    renderKPIs(data.kpis);
+                    renderPlatforms(data.platforms);
+                    renderScheduler(data.scheduledPosts);
+                    renderHeatmap(data.heatmap);
+                    renderPosts(data.recentPosts);
+                    renderTrending(data.trending);
+                } else {
+                    loadStoredData();
+                }
+            } catch (err) {
+                console.warn('Social media service unavailable, loading fallback data:', err);
+                loadStoredData();
+            }
+        }
+
+        /* ── Auth Protection & Initialization ── */
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                if (typeof window.checkAuth === 'function') {
+                    var user = await window.checkAuth();
+                    if (!user) { window.location.href = '/login.html'; return; }
+                }
+            } catch (e) {
+                console.warn('Auth check unavailable:', e);
+            }
+            await refreshData();
+        });
+    </script>
+</body>
+</html>

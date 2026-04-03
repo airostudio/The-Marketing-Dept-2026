@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Analytics | Aduma Marketing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --topbar-height: 60px;
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --primary-dark: #3730a3;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --surface: #1e1e2e;
+            --surface-alt: #252538;
+            --surface-hover: #2a2a40;
+            --border: #333350;
+            --text: #e2e2f0;
+            --text-muted: #9595b0;
+            --bg: #13131f;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Dashboard Layout ── */
+        .dashboard-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            padding: 20px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-brand .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+            color: #fff;
+        }
+
+        .sidebar-brand span {
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: -0.3px;
+        }
+
+        .sidebar-section {
+            padding: 16px 12px 4px;
+        }
+
+        .sidebar-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-muted);
+            padding: 0 8px 8px;
+        }
+
+        .sidebar-nav { list-style: none; }
+
+        .sidebar-nav li a,
+        .sidebar-nav li .nav-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sidebar-nav li a:hover,
+        .sidebar-nav li .nav-toggle:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .sidebar-nav li a.active {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .nav-icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+
+        .nav-toggle .chevron {
+            margin-left: auto;
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-toggle.open .chevron { transform: rotate(90deg); }
+
+        .sub-nav {
+            list-style: none;
+            padding-left: 22px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+        }
+
+        .sub-nav.expanded { max-height: 300px; }
+
+        .sub-nav li a {
+            padding: 7px 12px;
+            font-size: 12.5px;
+        }
+
+        /* ── Main Content ── */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ── Top Bar ── */
+        .top-bar {
+            height: var(--topbar-height);
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .breadcrumb span { color: var(--text-muted); }
+        .breadcrumb .sep { color: var(--border); }
+        .breadcrumb .current { color: var(--text); font-weight: 600; }
+
+        .date-range-picker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .date-range-picker select,
+        .date-range-picker input {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .date-range-picker .btn-apply {
+            padding: 7px 16px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .date-range-picker .btn-apply:hover { background: var(--primary-dark); }
+
+        /* ── Page Body ── */
+        .page-body { padding: 24px 28px 40px; }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.4px;
+        }
+
+        /* ── KPI Cards ── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .kpi-card:nth-child(1)::after { background: var(--primary); }
+        .kpi-card:nth-child(2)::after { background: var(--success); }
+        .kpi-card:nth-child(3)::after { background: var(--warning); }
+        .kpi-card:nth-child(4)::after { background: var(--info); }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .kpi-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 6px;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .kpi-change.up { background: rgba(16,185,129,0.15); color: var(--success); }
+        .kpi-change.down { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+        /* ── Section Panels ── */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
+        .panel-body { padding: 22px; }
+
+        /* ── Channel Tabs ── */
+        .channel-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--surface-alt);
+            border-radius: 8px;
+            margin-bottom: 18px;
+        }
+
+        .channel-tab {
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .channel-tab.active { background: var(--primary); color: #fff; }
+        .channel-tab:hover:not(.active) { color: var(--text); }
+
+        .chart-area {
+            width: 100%;
+            height: 320px;
+            border-radius: 8px;
+            background: var(--surface-alt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-area canvas { width: 100%; height: 100%; }
+
+        /* ── Attribution Table ── */
+        .model-selector {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .model-btn {
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .model-btn.active {
+            border-color: var(--primary);
+            background: rgba(79,70,229,0.12);
+            color: var(--primary-light);
+        }
+
+        .model-btn:hover:not(.active) {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+            font-size: 13px;
+        }
+
+        .data-table thead th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(51,51,80,0.4);
+        }
+
+        .data-table tbody tr:hover { background: var(--surface-hover); }
+
+        .pct-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pct-bar-track {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--surface-alt);
+            overflow: hidden;
+        }
+
+        .pct-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: var(--primary);
+            transition: width 0.4s ease;
+        }
+
+        .pct-bar-label {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            min-width: 38px;
+            text-align: right;
+        }
+
+        /* ── Funnel ── */
+        .funnel-visual {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 10px 0 20px;
+        }
+
+        .funnel-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .funnel-bar-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .funnel-bar {
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 10px;
+            min-height: 60px;
+            width: 85%;
+            transition: all 0.3s;
+        }
+
+        .funnel-bar .count {
+            font-size: 18px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #fff;
+        }
+
+        .funnel-stage-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .funnel-dropoff {
+            position: absolute;
+            right: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(239,68,68,0.12);
+            color: var(--danger);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 4px;
+            z-index: 2;
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── AI Insights ── */
+        .insight-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .insight-item {
+            display: flex;
+            gap: 14px;
+            padding: 14px 16px;
+            background: var(--surface-alt);
+            border-radius: 10px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .insight-item.high { border-left-color: var(--danger); }
+        .insight-item.medium { border-left-color: var(--warning); }
+        .insight-item.low { border-left-color: var(--success); }
+
+        .insight-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            height: fit-content;
+        }
+
+        .insight-badge.high { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .insight-badge.medium { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .insight-badge.low { background: rgba(16,185,129,0.15); color: var(--success); }
+
+        .insight-text { font-size: 13px; line-height: 1.5; }
+
+        .btn-refresh {
+            padding: 6px 14px;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+
+        .btn-refresh:hover { background: var(--surface-hover); border-color: var(--primary); }
+
+        /* ── Segment Cards ── */
+        .segment-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .segment-card {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            transition: border-color 0.15s;
+        }
+
+        .segment-card:hover { border-color: var(--primary); }
+
+        .segment-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .segment-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .segment-stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .segment-stat .label { color: var(--text-muted); }
+
+        .segment-stat .value {
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .engagement-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .engagement-badge.high { background: rgba(16,185,129,0.15); color: var(--success); }
+        .engagement-badge.medium { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .engagement-badge.low { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+        /* ── Goal Tracking ── */
+        .goals-list { display: flex; flex-direction: column; gap: 16px; }
+
+        .goal-item {
+            background: var(--surface-alt);
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .goal-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .goal-projected {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 8px;
+            background: var(--bg);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-fill.on-track { background: var(--success); }
+        .progress-fill.at-risk { background: var(--warning); }
+        .progress-fill.behind { background: var(--danger); }
+
+        .goal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .goal-progress-text {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .goal-ai-rec {
+            font-size: 11px;
+            color: var(--primary-light);
+            font-style: italic;
+        }
+
+        /* ── Report Builder ── */
+        .report-builder-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full-width { grid-column: 1 / -1; }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .form-select,
+        .form-input {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.15s;
+        }
+
+        .form-select:focus,
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 14px;
+            height: 14px;
+        }
+
+        .btn-generate {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            justify-self: start;
+        }
+
+        .btn-generate:hover { opacity: 0.9; }
+
+        /* ── Responsive ── */
+        @media (max-width: 1200px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .segment-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; }
+            .kpi-grid { grid-template-columns: 1fr; }
+            .segment-grid { grid-template-columns: 1fr; }
+            .report-builder-form { grid-template-columns: 1fr; }
+            .funnel-visual { flex-direction: column; gap: 8px; }
+            .funnel-dropoff { right: auto; bottom: -10px; top: auto; transform: none; }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+</div>
+
+<div class="dashboard-layout">
+
+    <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">M</div>
+            <span>Aduma Marketing</span>
+        </div>
+
+        <!-- Executive -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Executive</div>
+            <ul class="sidebar-nav">
+                <li><a href="/marketing/cmo-dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>CMO Dashboard</a></li>
+                <li><a href="/marketing/overview.html"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>Marketing Overview</a></li>
+            </ul>
+        </div>
+
+        <!-- Marketing Channels -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Marketing Channels</div>
+            <ul class="sidebar-nav">
+                <li>
+                    <div class="nav-toggle" onclick="toggleSubNav(this)">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        Channels
+                        <span class="chevron">&#9654;</span>
+                    </div>
+                    <ul class="sub-nav">
+                        <li><a href="/marketing/content-strategy.html">Content Strategy</a></li>
+                        <li><a href="/marketing/social-media.html">Social Media</a></li>
+                        <li><a href="/marketing/paid-media.html">Paid Media</a></li>
+                        <li><a href="/marketing/email-marketing.html">Email Marketing</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Intelligence -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Intelligence</div>
+            <ul class="sidebar-nav">
+                <li>
+                    <div class="nav-toggle open" onclick="toggleSubNav(this)">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        Intelligence
+                        <span class="chevron">&#9654;</span>
+                    </div>
+                    <ul class="sub-nav expanded">
+                        <li><a href="/marketing/analytics.html" class="active">Marketing Analytics</a></li>
+                        <li><a href="/marketing/brand.html">Brand &amp; Positioning</a></li>
+                        <li><a href="/marketing/product-marketing.html">Product Marketing</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <!-- SEO -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">SEO</div>
+            <ul class="sidebar-nav">
+                <li><a href="/dashboard.html"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>SEO Dashboard</a></li>
+            </ul>
+        </div>
+
+        <!-- Settings -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Settings</div>
+            <ul class="sidebar-nav">
+                <li><a href="/settings.html"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</a></li>
+            </ul>
+        </div>
+    </aside>
+
+    <!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
+    <div class="main-content">
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="breadcrumb">
+                <span>Marketing Analytics</span>
+                <span class="sep">/</span>
+                <span class="current">Cross-Channel Dashboard</span>
+            </div>
+            <div class="date-range-picker">
+                <select id="datePreset">
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d" selected>Last 30 Days</option>
+                    <option value="90d">Last 90 Days</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+                <input type="date" id="dateFrom" value="2025-12-29">
+                <input type="date" id="dateTo" value="2026-01-28">
+                <button class="btn-apply" onclick="applyDateRange()">Apply</button>
+            </div>
+        </div>
+
+        <!-- Page Body -->
+        <div class="page-body">
+            <h1 class="page-title">Marketing Analytics</h1>
+
+            <!-- ── KPI Cards ── -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Conversions</div>
+                    <div class="kpi-value" id="kpiConversions">--</div>
+                    <div class="kpi-change up" id="kpiConversionsChange">-- --</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Overall ROI</div>
+                    <div class="kpi-value" id="kpiROI">--</div>
+                    <div class="kpi-change up" id="kpiROIChange">-- --</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Customer LTV</div>
+                    <div class="kpi-value" id="kpiLTV">--</div>
+                    <div class="kpi-change up" id="kpiLTVChange">-- --</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Marketing Efficiency Ratio</div>
+                    <div class="kpi-value" id="kpiMER">--</div>
+                    <div class="kpi-change up" id="kpiMERChange">-- --</div>
+                </div>
+            </div>
+
+            <!-- ── Cross-Channel Performance ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Cross-Channel Performance</div>
+                </div>
+                <div class="panel-body">
+                    <div class="channel-tabs" id="channelTabs">
+                        <button class="channel-tab active" data-channel="all">All Channels</button>
+                        <button class="channel-tab" data-channel="organic">Organic</button>
+                        <button class="channel-tab" data-channel="paid">Paid</button>
+                        <button class="channel-tab" data-channel="social">Social</button>
+                        <button class="channel-tab" data-channel="email">Email</button>
+                        <button class="channel-tab" data-channel="referral">Referral</button>
+                    </div>
+                    <div class="chart-area">
+                        <canvas id="channelPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Attribution Modeling ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Attribution Modeling</div>
+                    <div class="model-selector" id="modelSelector">
+                        <button class="model-btn active" data-model="first-touch">First Touch</button>
+                        <button class="model-btn" data-model="last-touch">Last Touch</button>
+                        <button class="model-btn" data-model="linear">Linear</button>
+                        <button class="model-btn" data-model="time-decay">Time Decay</button>
+                        <button class="model-btn" data-model="position-based">Position Based</button>
+                        <button class="model-btn" data-model="data-driven">Data Driven</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <table class="data-table" id="attributionTable">
+                        <thead>
+                            <tr>
+                                <th>Channel</th>
+                                <th>Attributed Conversions</th>
+                                <th>Revenue</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attributionBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Funnel Analysis ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Funnel Analysis</div>
+                </div>
+                <div class="panel-body">
+                    <div class="funnel-visual" id="funnelVisual">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── AI Insights ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">AI-Generated Insights</div>
+                    <button class="btn-refresh" id="btnRefreshInsights" onclick="refreshInsights()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <div class="insight-list" id="insightList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Customer Segments ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Customer Segments</div>
+                </div>
+                <div class="panel-body">
+                    <div class="segment-grid" id="segmentGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Goal Tracking ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Goal Tracking</div>
+                </div>
+                <div class="panel-body">
+                    <div class="goals-list" id="goalsList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Report Builder ── -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Report Builder</div>
+                </div>
+                <div class="panel-body">
+                    <form class="report-builder-form" id="reportForm" onsubmit="generateReport(event)">
+                        <div class="form-group">
+                            <label class="form-label">Report Type</label>
+                            <select class="form-select" id="reportType">
+                                <option value="executive-summary">Executive Summary</option>
+                                <option value="channel-deep-dive">Channel Deep Dive</option>
+                                <option value="attribution-report">Attribution Report</option>
+                                <option value="funnel-analysis">Funnel Analysis</option>
+                                <option value="roi-analysis">ROI Analysis</option>
+                                <option value="competitive-benchmark">Competitive Benchmark</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date Range</label>
+                            <select class="form-select" id="reportDateRange">
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d" selected>Last 30 Days</option>
+                                <option value="90d">Last 90 Days</option>
+                                <option value="6m">Last 6 Months</option>
+                                <option value="1y">Last 12 Months</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Sections to Include</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="sections" value="kpis" checked> KPI Overview</label>
+                                <label><input type="checkbox" name="sections" value="channels" checked> Channel Performance</label>
+                                <label><input type="checkbox" name="sections" value="attribution" checked> Attribution</label>
+                                <label><input type="checkbox" name="sections" value="funnel" checked> Funnel Analysis</label>
+                                <label><input type="checkbox" name="sections" value="segments"> Customer Segments</label>
+                                <label><input type="checkbox" name="sections" value="goals"> Goal Progress</label>
+                                <label><input type="checkbox" name="sections" value="ai-insights"> AI Insights</label>
+                                <label><input type="checkbox" name="sections" value="recommendations"> Recommendations</label>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <button type="submit" class="btn-generate" id="btnGenerate">Generate Report</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div><!-- /page-body -->
+    </div><!-- /main-content -->
+</div><!-- /dashboard-layout -->
+
+<!-- ═══════════════════ SCRIPTS ═══════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/project-service.js"></script>
+    <script src="/js/marketing-store.js"></script>
+    <script src="/js/api-connector.js"></script>
+<script src="/js/ai-service.js"></script>
+<script src="/js/marketing-analytics-service.js"></script>
+
+<script>
+    /* ── Sidebar Toggle ── */
+    function toggleSubNav(el) {
+        el.classList.toggle('open');
+        const subNav = el.nextElementSibling;
+        if (subNav) subNav.classList.toggle('expanded');
+    }
+
+    /* ── Channel Tabs ── */
+    document.getElementById('channelTabs').addEventListener('click', function(e) {
+        if (e.target.classList.contains('channel-tab')) {
+            this.querySelectorAll('.channel-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            loadChannelChart(e.target.dataset.channel);
+        }
+    });
+
+    /* ── Attribution Model Selector ── */
+    document.getElementById('modelSelector').addEventListener('click', function(e) {
+        if (e.target.classList.contains('model-btn')) {
+            this.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            loadAttributionData(e.target.dataset.model);
+        }
+    });
+
+    /* ── Date Range ── */
+    function applyDateRange() {
+        const from = document.getElementById('dateFrom').value;
+        const to = document.getElementById('dateTo').value;
+        initDashboard({ from, to });
+    }
+
+    /* ── Storage & Data Loading ── */
+    const ANALYTICS_STORAGE_KEY = 'marketing-analytics';
+
+    async function loadStoredAnalytics() {
+        var data = null;
+
+        // Try MarketingStore first
+        if (window.MarketingStore) {
+            try {
+                data = await window.MarketingStore.get(ANALYTICS_STORAGE_KEY, 'dashboard-data', null);
+            } catch (e) {
+                console.warn('[Analytics] MarketingStore unavailable:', e);
+            }
+        }
+
+        // Fallback to localStorage
+        if (!data) {
+            try {
+                var stored = localStorage.getItem(ANALYTICS_STORAGE_KEY + '-data');
+                if (stored) data = JSON.parse(stored);
+            } catch (e) {}
+        }
+
+        return data;
+    }
+
+    /* ── Empty State Data ── */
+    const emptyKPIs = {
+        conversions: { value: '0', change: 'No data', direction: 'neutral' },
+        roi: { value: '0%', change: 'No data', direction: 'neutral' },
+        ltv: { value: '$0', change: 'No data', direction: 'neutral' },
+        mer: { value: '0x', change: 'No data', direction: 'neutral' }
+    };
+
+    /* ── Default Data (used only when real data exists) ── */
+    const defaultKPIs = emptyKPIs;
+
+    const defaultAttribution = {
+        'first-touch': []
+    };
+
+    const defaultFunnel = [
+        { stage: 'Awareness', count: 0, color: '#4f46e5' },
+        { stage: 'Interest', count: 0, color: '#6366f1' },
+        { stage: 'Consideration', count: 0, color: '#818cf8' },
+        { stage: 'Intent', count: 0, color: '#3b82f6' },
+        { stage: 'Purchase', count: 0, color: '#10b981' },
+        { stage: 'Loyalty', count: 0, color: '#059669' }
+    ];
+
+    const defaultInsights = [];
+
+    const defaultSegments = [];
+
+    const defaultGoals = [];
+
+    /* ── Render Functions ── */
+    function renderKPIs(data) {
+        const kpis = data || defaultKPIs;
+        document.getElementById('kpiConversions').textContent = kpis.conversions.value;
+        document.getElementById('kpiConversionsChange').textContent = kpis.conversions.change;
+        document.getElementById('kpiConversionsChange').className = 'kpi-change ' + kpis.conversions.direction;
+        document.getElementById('kpiROI').textContent = kpis.roi.value;
+        document.getElementById('kpiROIChange').textContent = kpis.roi.change;
+        document.getElementById('kpiROIChange').className = 'kpi-change ' + kpis.roi.direction;
+        document.getElementById('kpiLTV').textContent = kpis.ltv.value;
+        document.getElementById('kpiLTVChange').textContent = kpis.ltv.change;
+        document.getElementById('kpiLTVChange').className = 'kpi-change ' + kpis.ltv.direction;
+        document.getElementById('kpiMER').textContent = kpis.mer.value;
+        document.getElementById('kpiMERChange').textContent = kpis.mer.change;
+        document.getElementById('kpiMERChange').className = 'kpi-change ' + kpis.mer.direction;
+    }
+
+    function renderAttribution(model) {
+        const data = defaultAttribution['first-touch'];
+        const tbody = document.getElementById('attributionBody');
+        tbody.innerHTML = data.map(row => `
+            <tr>
+                <td><strong>${row.channel}</strong></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${row.conversions.toLocaleString()}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${row.revenue}</td>
+                <td>
+                    <div class="pct-bar">
+                        <div class="pct-bar-track"><div class="pct-bar-fill" style="width:${row.pct}%"></div></div>
+                        <span class="pct-bar-label">${row.pct}%</span>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderFunnel(data) {
+        const funnel = data || defaultFunnel;
+        const maxCount = funnel[0].count;
+        const container = document.getElementById('funnelVisual');
+        container.innerHTML = funnel.map((stage, i) => {
+            const heightPct = Math.max(25, (stage.count / maxCount) * 100);
+            const dropoff = i < funnel.length - 1
+                ? '-' + ((1 - funnel[i + 1].count / stage.count) * 100).toFixed(1) + '%'
+                : null;
+            return `
+                <div class="funnel-stage">
+                    <div class="funnel-bar-wrapper">
+                        <div class="funnel-bar" style="background:${stage.color};height:${heightPct * 2}px">
+                            <span class="count">${(stage.count / 1000).toFixed(1)}K</span>
+                        </div>
+                    </div>
+                    <div class="funnel-stage-label">${stage.stage}</div>
+                    ${dropoff ? `<div class="funnel-dropoff">${dropoff}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderInsights(data) {
+        const insights = data || defaultInsights;
+        document.getElementById('insightList').innerHTML = insights.map(item => `
+            <div class="insight-item ${item.severity}">
+                <span class="insight-badge ${item.severity}">${item.severity === 'high' ? 'High Impact' : item.severity === 'medium' ? 'Medium' : 'Opportunity'}</span>
+                <div class="insight-text">${item.text}</div>
+            </div>
+        `).join('');
+    }
+
+    function renderSegments(data) {
+        const segments = data || defaultSegments;
+        document.getElementById('segmentGrid').innerHTML = segments.map(seg => `
+            <div class="segment-card">
+                <div class="segment-name">${seg.name}</div>
+                <div class="segment-stats">
+                    <div class="segment-stat">
+                        <span class="label">Size</span>
+                        <span class="value">${seg.size}</span>
+                    </div>
+                    <div class="segment-stat">
+                        <span class="label">Avg LTV</span>
+                        <span class="value">${seg.ltv}</span>
+                    </div>
+                    <div class="segment-stat">
+                        <span class="label">Engagement</span>
+                        <span class="engagement-badge ${seg.engagement}">${seg.engagement}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderGoals(data) {
+        const goals = data || defaultGoals;
+        document.getElementById('goalsList').innerHTML = goals.map(goal => {
+            const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+            return `
+                <div class="goal-item">
+                    <div class="goal-header">
+                        <span class="goal-name">${goal.name}</span>
+                        <span class="goal-projected">Projected: ${goal.projected}</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill ${goal.status}" style="width:${pct}%"></div>
+                    </div>
+                    <div class="goal-footer">
+                        <span class="goal-progress-text">${pct}% &mdash; ${goal.current.toLocaleString()} / ${goal.target.toLocaleString()}</span>
+                        <span class="goal-ai-rec">${goal.rec}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ── Chart Placeholder ── */
+    function loadChannelChart(channel) {
+        const canvas = document.getElementById('channelPerformanceChart');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = 320;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const channels = channel === 'all'
+            ? ['Organic', 'Paid', 'Social', 'Email', 'Referral']
+            : [channel.charAt(0).toUpperCase() + channel.slice(1)];
+        const colors = ['#4f46e5', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'];
+        const padding = { top: 30, right: 30, bottom: 40, left: 60 };
+        const chartW = canvas.width - padding.left - padding.right;
+        const chartH = canvas.height - padding.top - padding.bottom;
+
+        /* grid */
+        ctx.strokeStyle = 'rgba(51,51,80,0.4)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const y = padding.top + (chartH / 5) * i;
+            ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
+            ctx.fillStyle = '#9595b0'; ctx.font = '11px JetBrains Mono';
+            ctx.textAlign = 'right';
+            ctx.fillText(((5 - i) * 20) + '%', padding.left - 10, y + 4);
+        }
+
+        /* x labels */
+        const days = 30;
+        ctx.fillStyle = '#9595b0'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+        for (let d = 0; d < days; d += 5) {
+            const x = padding.left + (chartW / (days - 1)) * d;
+            ctx.fillText('Day ' + (d + 1), x, canvas.height - 10);
+        }
+
+        /* lines */
+        channels.forEach((ch, ci) => {
+            ctx.beginPath();
+            ctx.strokeStyle = colors[ci % colors.length];
+            ctx.lineWidth = 2;
+            const seed = ci * 17 + 42;
+            for (let d = 0; d < days; d++) {
+                const val = 40 + 30 * Math.sin((d + seed) * 0.3) + 15 * Math.cos((d + seed) * 0.15);
+                const x = padding.left + (chartW / (days - 1)) * d;
+                const y = padding.top + chartH - (val / 100) * chartH;
+                d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        });
+
+        /* legend */
+        ctx.textAlign = 'left';
+        channels.forEach((ch, ci) => {
+            const lx = padding.left + ci * 100;
+            ctx.fillStyle = colors[ci % colors.length];
+            ctx.fillRect(lx, 10, 12, 3);
+            ctx.fillStyle = '#e2e2f0'; ctx.font = '11px Inter';
+            ctx.fillText(ch, lx + 16, 14);
+        });
+    }
+
+    /* ── Attribution Model Switch ── */
+    function loadAttributionData(model) {
+        renderAttribution(model);
+    }
+
+    /* ── AI Insights Refresh ── */
+    async function refreshInsights() {
+        const btn = document.getElementById('btnRefreshInsights');
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Analyzing...';
+        try {
+            if (typeof MarketingAnalyticsService !== 'undefined' && MarketingAnalyticsService.getAIInsights) {
+                const insights = await MarketingAnalyticsService.getAIInsights();
+                if (insights && insights.length) { renderInsights(insights); return; }
+            }
+            await new Promise(r => setTimeout(r, 1500));
+            renderInsights(defaultInsights);
+        } catch (e) {
+            console.warn('AI insights refresh failed, using defaults:', e);
+            renderInsights(defaultInsights);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Refresh';
+        }
+    }
+
+    /* ── Report Generation ── */
+    function generateReport(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnGenerate');
+        const type = document.getElementById('reportType').value;
+        const range = document.getElementById('reportDateRange').value;
+        const sections = Array.from(document.querySelectorAll('input[name="sections"]:checked')).map(cb => cb.value);
+
+        btn.textContent = 'Generating...';
+        btn.disabled = true;
+
+        setTimeout(() => {
+            btn.textContent = 'Report Ready — Download';
+            btn.disabled = false;
+            console.log('Report generated:', { type, range, sections });
+            setTimeout(() => { btn.textContent = 'Generate Report'; }, 3000);
+        }, 2000);
+    }
+
+    /* ── Dashboard Initialization ── */
+    async function initDashboard(dateRange) {
+        try {
+            if (typeof MarketingAnalyticsService !== 'undefined') {
+                const data = await MarketingAnalyticsService.getDashboardData(dateRange);
+                if (data) {
+                    if (data.kpis) renderKPIs(data.kpis);
+                    if (data.funnel) renderFunnel(data.funnel);
+                    if (data.insights) renderInsights(data.insights);
+                    if (data.segments) renderSegments(data.segments);
+                    if (data.goals) renderGoals(data.goals);
+                }
+            }
+        } catch (e) {
+            console.warn('Service unavailable, rendering defaults:', e);
+        }
+
+        renderKPIs();
+        renderAttribution('first-touch');
+        renderFunnel();
+        renderInsights();
+        renderSegments();
+        renderGoals();
+        loadChannelChart('all');
+    }
+
+    /* ── Auth Protection & Init ── */
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            if (typeof Auth !== 'undefined' && Auth.requireAuth) {
+                const user = await Auth.requireAuth();
+                if (!user) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Auth check skipped:', e);
+        }
+
+        await initDashboard();
+
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.classList.add('hidden');
+        setTimeout(() => overlay.remove(), 300);
+    });
+</script>
+
+</body>
+</html>

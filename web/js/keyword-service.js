@@ -355,7 +355,9 @@
          * Save tracked keywords
          */
         saveTrackedKeywords(keywords) {
-            localStorage.setItem('seo-tracked-keywords', JSON.stringify(keywords));
+            const value = JSON.stringify(keywords);
+            localStorage.setItem('seo-tracked-keywords', value);
+            if (window.MarketingStore) { window.MarketingStore.set('keywords', 'seo-tracked-keywords', value).catch(function(){}); }
             this.dispatchUpdate();
         },
 
@@ -364,14 +366,15 @@
          */
         addKeywords(keywords) {
             const current = this.getTrackedKeywords();
+            const self = this;
             const newKeywords = keywords.map(kw => ({
                 id: this.generateId(),
                 keyword: typeof kw === 'string' ? kw : kw.keyword,
-                position: kw.position || this.simulatePosition(),
+                position: kw.position || null,
                 previousPosition: kw.previousPosition || null,
-                searchVolume: kw.searchVolume || this.estimateSearchVolume(kw.keyword || kw),
+                searchVolume: kw.searchVolume || 0,
                 difficulty: kw.difficulty || this.estimateDifficulty(kw.keyword || kw),
-                cpc: kw.cpc || this.estimateCPC(kw.keyword || kw),
+                cpc: kw.cpc || '0.00',
                 intent: kw.intent || this.determineIntent(kw.keyword || kw),
                 url: kw.url || null,
                 trend: kw.trend || 'stable',
@@ -384,6 +387,39 @@
             const uniqueNew = newKeywords.filter(k => !existingKeywords.has(k.keyword.toLowerCase()));
 
             this.saveTrackedKeywords([...current, ...uniqueNew]);
+
+            // Asynchronously fetch real metrics from API
+            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable() && uniqueNew.length > 0) {
+                const kwStrings = uniqueNew.map(function(k) { return k.keyword; });
+                Promise.all([
+                    window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(kwStrings).catch(function() { return null; }),
+                    window.ApiConnector.SEOTools.dataforseo.getRankings(kwStrings).catch(function() { return null; })
+                ]).then(function(apiResults) {
+                    const metrics = apiResults[0];
+                    const rankings = apiResults[1];
+                    if (metrics || rankings) {
+                        const all = self.getTrackedKeywords();
+                        const updated = all.map(function(k) {
+                            const metric = metrics && metrics.find(function(m) { return m.keyword === k.keyword; });
+                            const ranking = rankings && rankings.find(function(r) { return r.keyword === k.keyword; });
+                            if (metric || ranking) {
+                                return Object.assign({}, k, {
+                                    searchVolume: (metric && (metric.searchVolume || metric.search_volume)) || k.searchVolume,
+                                    difficulty: (metric && (metric.difficulty || metric.keyword_difficulty)) || k.difficulty,
+                                    cpc: (metric && metric.cpc) || k.cpc,
+                                    position: (ranking && ranking.position) || k.position,
+                                    lastUpdated: new Date().toISOString()
+                                });
+                            }
+                            return k;
+                        });
+                        self.saveTrackedKeywords(updated);
+                    }
+                }).catch(function(e) {
+                    console.warn('Failed to fetch keyword metrics from API:', e);
+                });
+            }
+
             return uniqueNew;
         },
 
@@ -417,18 +453,35 @@
          * Simulate position update (for demo/testing)
          */
         simulateRankingUpdate() {
-            const keywords = this.getTrackedKeywords().map(k => {
-                const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
-                const newPosition = Math.max(1, Math.min(100, k.position + change));
-                return {
-                    ...k,
-                    previousPosition: k.position,
-                    position: newPosition,
-                    trend: change < 0 ? 'up' : change > 0 ? 'down' : 'stable',
-                    lastUpdated: new Date().toISOString()
-                };
-            });
-            this.saveTrackedKeywords(keywords);
+            const keywords = this.getTrackedKeywords();
+            // Try real API data asynchronously when available
+            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable()) {
+                const self = this;
+                const keywordStrings = keywords.map(k => k.keyword);
+                window.ApiConnector.SEOTools.dataforseo.getRankings(keywordStrings)
+                    .then(function(rankings) {
+                        if (rankings && rankings.length > 0) {
+                            const current = self.getTrackedKeywords();
+                            const updated = current.map(function(k) {
+                                const ranking = rankings.find(function(r) { return r.keyword === k.keyword; });
+                                if (ranking && ranking.position) {
+                                    return Object.assign({}, k, {
+                                        previousPosition: k.position,
+                                        position: ranking.position,
+                                        trend: ranking.position < k.position ? 'up' : ranking.position > k.position ? 'down' : 'stable',
+                                        lastUpdated: new Date().toISOString()
+                                    });
+                                }
+                                return k;
+                            });
+                            self.saveTrackedKeywords(updated);
+                        }
+                    })
+                    .catch(function(e) {
+                        console.warn('DataForSEO rankings update failed:', e);
+                    });
+            }
+            // Return current keywords unchanged (no simulated random changes)
             return keywords;
         },
 
@@ -497,38 +550,35 @@
 
         // Utility methods
         generateId() {
-            return 'kw_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                const arr = new Uint8Array(7);
+                crypto.getRandomValues(arr);
+                return 'kw_' + Date.now().toString(36) + Array.from(arr, function(b) { return b.toString(36); }).join('').substr(0, 9);
+            }
+            return 'kw_' + Date.now().toString(36) + '_' + (Date.now() % 1000000).toString(36);
         },
 
         simulatePosition() {
-            // Weighted random - more likely to be 10-50 range
-            const rand = Math.random();
-            if (rand < 0.1) return Math.floor(Math.random() * 3) + 1;
-            if (rand < 0.3) return Math.floor(Math.random() * 7) + 4;
-            if (rand < 0.6) return Math.floor(Math.random() * 10) + 11;
-            if (rand < 0.85) return Math.floor(Math.random() * 30) + 21;
-            return Math.floor(Math.random() * 50) + 51;
+            // No simulated positions - return null when no real data is available
+            return null;
         },
 
         estimateSearchVolume(keyword) {
-            // Estimate based on keyword length and type
-            const words = keyword.split(' ').length;
-            const baseVolume = Math.floor(Math.random() * 5000) + 100;
-            // Long-tail keywords typically have lower volume
-            return Math.floor(baseVolume / (words * 0.7));
+            // Return 0 when no real API data is available
+            return 0;
         },
 
         estimateDifficulty(keyword) {
-            // Estimate based on keyword characteristics
+            // Deterministic estimate based on keyword characteristics (no random data)
             const words = keyword.split(' ').length;
             // Shorter keywords are typically more competitive
-            const baseDifficulty = Math.max(10, 90 - (words * 15) + Math.floor(Math.random() * 20));
+            const baseDifficulty = Math.max(10, 90 - (words * 15));
             return Math.min(95, Math.max(5, baseDifficulty));
         },
 
         estimateCPC(keyword) {
-            // Random CPC between $0.50 and $15
-            return (Math.random() * 14.5 + 0.5).toFixed(2);
+            // Return 0 when no real API data is available
+            return '0.00';
         },
 
         determineIntent(keyword) {
@@ -545,7 +595,7 @@
             if (kw.includes('login') || kw.includes('sign in') || kw.includes('official')) {
                 return 'navigational';
             }
-            return ['informational', 'commercial', 'transactional'][Math.floor(Math.random() * 3)];
+            return 'informational';
         },
 
         estimateTrafficFromPosition(position, searchVolume) {
@@ -587,6 +637,55 @@
                 ? seedKeywords
                 : seedKeywords.split(',').map(k => k.trim()).filter(k => k);
 
+            // Try real API data from DataForSEO
+            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable()) {
+                try {
+                    const apiResults = await window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(seeds);
+                    if (apiResults && apiResults.length > 0) {
+                        const mapped = apiResults.map(r => ({
+                            keyword: r.keyword,
+                            type: r.type || 'api',
+                            searchVolume: r.searchVolume || r.search_volume || 0,
+                            difficulty: r.difficulty || r.keyword_difficulty || 0,
+                            cpc: r.cpc || '0.00',
+                            intent: r.intent || this.determineSearchIntent(r.keyword, r.type || 'api'),
+                            trend: r.trend || 'stable',
+                            competition: r.competition || 'medium',
+                            opportunity: this.calculateOpportunity(r.searchVolume || r.search_volume || 0, r.difficulty || r.keyword_difficulty || 0)
+                        }));
+                        this.saveResearchResults(mapped);
+                        return mapped;
+                    }
+                } catch (e) {
+                    console.warn('DataForSEO keyword research failed, falling back:', e);
+                }
+            }
+
+            // Try SEMrush for keyword discovery
+            if (window.ApiConnector?.SEOTools?.semrush?.getOrganicKeywords) {
+                try {
+                    const semrushResults = await window.ApiConnector.SEOTools.semrush.getOrganicKeywords(seeds);
+                    if (semrushResults && semrushResults.length > 0) {
+                        const mapped = semrushResults.map(r => ({
+                            keyword: r.keyword,
+                            type: r.type || 'api',
+                            searchVolume: r.searchVolume || r.search_volume || 0,
+                            difficulty: r.difficulty || 0,
+                            cpc: r.cpc || '0.00',
+                            intent: r.intent || this.determineSearchIntent(r.keyword, r.type || 'api'),
+                            trend: r.trend || 'stable',
+                            competition: r.competition || 'medium',
+                            opportunity: this.calculateOpportunity(r.searchVolume || r.search_volume || 0, r.difficulty || 0)
+                        }));
+                        this.saveResearchResults(mapped);
+                        return mapped;
+                    }
+                } catch (e) {
+                    console.warn('SEMrush keyword discovery failed, falling back:', e);
+                }
+            }
+
+            // Fall back to local keyword generation (with zeros for unknown metrics)
             const results = [];
 
             for (const seed of seeds) {
@@ -648,20 +747,18 @@
         },
 
         createKeywordResult(keyword, type) {
-            const wordCount = keyword.split(' ').length;
-            const baseVolume = Math.floor(Math.random() * 10000) + 50;
-            const volume = Math.floor(baseVolume / (wordCount * 0.5));
+            const difficulty = this.calculateDifficulty(keyword, type);
 
             return {
                 keyword: keyword,
                 type: type,
-                searchVolume: volume,
-                difficulty: this.calculateDifficulty(keyword, type),
-                cpc: (Math.random() * 12 + 0.5).toFixed(2),
+                searchVolume: 0,
+                difficulty: difficulty,
+                cpc: '0.00',
                 intent: this.determineSearchIntent(keyword, type),
-                trend: this.determineTrend(),
-                competition: this.determineCompetition(),
-                opportunity: this.calculateOpportunity(volume, this.calculateDifficulty(keyword, type))
+                trend: 'stable',
+                competition: 'medium',
+                opportunity: this.calculateOpportunity(0, difficulty)
             };
         },
 
@@ -681,9 +778,7 @@
             // Commercial keywords are harder
             if (type === 'commercial') baseDifficulty += 10;
 
-            // Add some randomness
-            baseDifficulty += Math.floor(Math.random() * 20) - 10;
-
+            // No random variance - deterministic calculation
             return Math.max(5, Math.min(95, baseDifficulty));
         },
 
@@ -697,17 +792,13 @@
         },
 
         determineTrend() {
-            const rand = Math.random();
-            if (rand < 0.3) return 'up';
-            if (rand < 0.5) return 'down';
+            // Return stable when no real trend data is available
             return 'stable';
         },
 
         determineCompetition() {
-            const rand = Math.random();
-            if (rand < 0.2) return 'low';
-            if (rand < 0.6) return 'medium';
-            return 'high';
+            // Return medium when no real competition data is available
+            return 'medium';
         },
 
         calculateOpportunity(volume, difficulty) {
@@ -731,10 +822,12 @@
         },
 
         saveResearchResults(results) {
-            localStorage.setItem('seo-keyword-research', JSON.stringify({
+            const value = JSON.stringify({
                 results,
                 timestamp: new Date().toISOString()
-            }));
+            });
+            localStorage.setItem('seo-keyword-research', value);
+            if (window.MarketingStore) { window.MarketingStore.set('keywords', 'seo-keyword-research', value).catch(function(){}); }
         },
 
         getResearchResults() {

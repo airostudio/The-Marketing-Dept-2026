@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Hub | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #070711;
+            --bg2:       #0d0d1a;
+            --bg3:       #12121f;
+            --border:    rgba(255,255,255,0.08);
+            --border-h:  rgba(255,255,255,0.14);
+            --text:      #f1f5f9;
+            --text2:     #94a3b8;
+            --text3:     #64748b;
+            --purple:    #7c3aed;
+            --pink:      #ec4899;
+            --cyan:      #06b6d4;
+            --green:     #22c55e;
+            --card-bg:   rgba(255,255,255,0.03);
+            --glow-p:    rgba(124,58,237,0.25);
+            --glow-pk:   rgba(236,72,153,0.20);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.4); border-radius: 3px; }
+
+        /* ════════════════════════════════════════
+           NAVBAR
+        ════════════════════════════════════════ */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(7,7,17,0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 15px;
+            white-space: nowrap;
+        }
+
+        .nav-logo-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .nav-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text3);
+        }
+
+        .nav-breadcrumb span { color: var(--text3); }
+        .nav-breadcrumb strong { color: var(--text2); font-weight: 500; }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text2);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 7px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text);
+            background: rgba(255,255,255,0.06);
+        }
+
+        .nav-links a.active { color: #a78bfa; }
+
+        .nav-avatar {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        /* ════════════════════════════════════════
+           MAIN CONTENT
+        ════════════════════════════════════════ */
+        .main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .hero-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(124,58,237,0.12);
+            border: 1px solid rgba(124,58,237,0.30);
+            color: #a78bfa;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+
+        .hero-label::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #a78bfa;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hero h1 {
+            font-size: clamp(32px, 5vw, 52px);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #f1f5f9 30%, #a78bfa 70%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: 18px;
+            color: var(--text2);
+            margin-bottom: 32px;
+            font-weight: 400;
+        }
+
+        .hero-pills {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .pill-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .pill-green {
+            background: rgba(34,197,94,0.10);
+            border-color: rgba(34,197,94,0.30);
+            color: #4ade80;
+        }
+        .pill-green .pill-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+        .pill-purple {
+            background: rgba(124,58,237,0.10);
+            border-color: rgba(124,58,237,0.30);
+            color: #a78bfa;
+        }
+        .pill-purple .pill-dot { background: var(--purple); box-shadow: 0 0 6px var(--purple); }
+
+        .pill-cyan {
+            background: rgba(6,182,212,0.10);
+            border-color: rgba(6,182,212,0.30);
+            color: #22d3ee;
+        }
+        .pill-cyan .pill-dot { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); animation: pulse 1.8s infinite; }
+
+        /* ── Intelligence Banner ── */
+        .intel-banner {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .intel-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124,58,237,0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .intel-banner-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .intel-banner-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .intel-banner-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .intel-banner-title h2 {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .intel-banner-title p {
+            font-size: 13px;
+            color: var(--text2);
+            margin-top: 2px;
+        }
+
+        .btn-configure {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 12px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-configure:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(124,58,237,0.40);
+        }
+
+        .intel-modules {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .intel-module {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .module-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .dot-grey  { background: #475569; }
+
+        .module-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .module-info p {
+            font-size: 11px;
+            color: var(--text3);
+            line-height: 1.5;
+        }
+
+        .module-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .badge-configured {
+            background: rgba(34,197,94,0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34,197,94,0.25);
+        }
+
+        .badge-setup {
+            background: rgba(100,116,139,0.15);
+            color: var(--text3);
+            border: 1px solid rgba(100,116,139,0.20);
+        }
+
+        /* ── Section header ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .section-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .section-header p {
+            font-size: 13px;
+            color: var(--text2);
+            margin-top: 3px;
+        }
+
+        .section-count {
+            font-size: 12px;
+            color: var(--text3);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        /* ── Agent Grid ── */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .agent-card {
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            text-decoration: none;
+            color: var(--text);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .agent-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--card-glow, rgba(124,58,237,0.05)) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.25s;
+            pointer-events: none;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-h);
+            box-shadow: 0 16px 40px var(--glow-p), 0 0 0 1px rgba(124,58,237,0.15);
+        }
+
+        .agent-card:hover::before { opacity: 1; }
+
+        .agent-card.scotty-card {
+            --card-glow: rgba(124,58,237,0.08);
+            border-color: rgba(124,58,237,0.25);
+            background: rgba(124,58,237,0.04);
+        }
+
+        .agent-card.scotty-card:hover {
+            box-shadow: 0 16px 48px rgba(124,58,237,0.35), 0 0 0 1px rgba(124,58,237,0.30);
+        }
+
+        .card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .card-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #4ade80;
+            background: rgba(34,197,94,0.10);
+            border: 1px solid rgba(34,197,94,0.25);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .card-status-pill::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+        }
+
+        .card-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--purple);
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .scotty-card .card-subtitle { color: #a78bfa; }
+
+        .card-desc {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .card-arrow {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: var(--text3);
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .agent-card:hover .card-arrow {
+            color: var(--text2);
+            transform: translateX(3px);
+        }
+
+        /* ── CTA Section ── */
+        .cta-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.10) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .cta-section h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .cta-section p {
+            font-size: 15px;
+            color: var(--text2);
+            margin-bottom: 24px;
+        }
+
+        .btn-ask-scotty {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            color: white;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 14px 32px;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn-ask-scotty:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 36px rgba(124,58,237,0.50);
+        }
+
+        /* ── Animations ── */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .intel-modules { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 680px) {
+            .nav-links { display: none; }
+            .agent-grid { grid-template-columns: 1fr; }
+            .intel-modules { grid-template-columns: 1fr 1fr; }
+            .main { padding: 32px 16px 60px; }
+            .intel-banner { padding: 20px; }
+        }
+
+        @media (max-width: 480px) {
+            .intel-modules { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     NAVBAR
+════════════════════════════════════════ -->
+<nav class="navbar">
+    <div class="nav-inner">
+        <a href="/index.html" class="nav-logo">
+            <div class="nav-logo-icon">🧠</div>
+            Audema
+        </a>
+
+        <div class="nav-breadcrumb">
+            <span>/</span>
+            <strong>Hub</strong>
+        </div>
+
+        <div class="nav-links">
+            <a href="/hub.html" class="active">Hub</a>
+            <a href="/scotty.html">Scotty</a>
+            <a href="/intelligence/business-brain.html">Intelligence</a>
+            <a href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-avatar" title="User account">U</div>
+    </div>
+</nav>
+
+<!-- ════════════════════════════════════════
+     MAIN
+════════════════════════════════════════ -->
+<main class="main">
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-label">Agent Hub 2026</div>
+        <h1>Your Marketing AI Team</h1>
+        <p class="hero-sub">13 agents standing by — each a specialist, all working together</p>
+        <div class="hero-pills">
+            <span class="pill pill-green">
+                <span class="pill-dot"></span>
+                Intelligence Layer Active
+            </span>
+            <span class="pill pill-purple">
+                <span class="pill-dot"></span>
+                Scotty Orchestrating
+            </span>
+            <span class="pill pill-cyan">
+                <span class="pill-dot"></span>
+                All Systems Go
+            </span>
+        </div>
+    </section>
+
+    <!-- Intelligence Layer Banner -->
+    <section class="intel-banner">
+        <div class="intel-banner-top">
+            <div class="intel-banner-title">
+                <div class="intel-banner-icon">🛰️</div>
+                <div>
+                    <h2>Intelligence Layer</h2>
+                    <p>The shared context brain all 13 agents draw from</p>
+                </div>
+            </div>
+            <a href="/intelligence/business-brain.html" class="btn-configure">
+                ⚙️ Configure Intelligence
+            </a>
+        </div>
+        <div class="intel-modules">
+            <div class="intel-module">
+                <div class="module-status-dot dot-green"></div>
+                <div class="module-info">
+                    <h4>BusinessBrain</h4>
+                    <p>Company context, ICP, positioning, value props</p>
+                    <span class="module-badge badge-configured">Configured</span>
+                </div>
+            </div>
+            <div class="intel-module">
+                <div class="module-status-dot dot-green"></div>
+                <div class="module-info">
+                    <h4>Competitive Radar</h4>
+                    <p>Live competitor monitoring, gaps, and threat signals</p>
+                    <span class="module-badge badge-configured">Active</span>
+                </div>
+            </div>
+            <div class="intel-module">
+                <div class="module-status-dot dot-grey"></div>
+                <div class="module-info">
+                    <h4>Market Pulse</h4>
+                    <p>Industry trends, buyer signals, demand shifts</p>
+                    <span class="module-badge badge-setup">Needs Setup</span>
+                </div>
+            </div>
+            <div class="intel-module">
+                <div class="module-status-dot dot-grey"></div>
+                <div class="module-info">
+                    <h4>Strategic Brief</h4>
+                    <p>Current campaign goals, OKRs, and priorities</p>
+                    <span class="module-badge badge-setup">Needs Setup</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Agent Grid -->
+    <div class="section-header">
+        <div>
+            <h2>Specialist Agents</h2>
+            <p>Click any agent to open their workspace</p>
+        </div>
+        <span class="section-count">13 agents</span>
+    </div>
+
+    <div class="agent-grid">
+
+        <!-- Scotty -->
+        <a href="/scotty.html" class="agent-card scotty-card">
+            <div class="card-top">
+                <div class="card-icon">🤖</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Scotty</div>
+            <div class="card-subtitle">Orchestrator / AI CMO</div>
+            <p class="card-desc">Routes your requests to the right agents with strategic judgment. Thinks upstream before executing — understands WHY before WHAT.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Content Studio -->
+        <a href="/agents/content-studio-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">✍️</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Content Studio</div>
+            <div class="card-subtitle">Content Creation</div>
+            <p class="card-desc">Blog posts, copy, brand voice at scale. Long-form articles, landing pages, and on-brand messaging across every channel.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- SEO Intelligence -->
+        <a href="/agents/seo-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🔍</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">SEO Intelligence</div>
+            <div class="card-subtitle">Search Optimization</div>
+            <p class="card-desc">Rankings, keywords, technical audits. Keyword research, SERP analysis, site health monitoring, and content gap identification.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Email Engine -->
+        <a href="/agents/email-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">📧</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Email Engine</div>
+            <div class="card-subtitle">Email Marketing</div>
+            <p class="card-desc">Klaviyo-style flows, sequences, deliverability. Automated nurture campaigns, segmentation strategies, and subject line optimization.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Sales Intelligence -->
+        <a href="/agents/sales-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🎯</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Sales Intelligence</div>
+            <div class="card-subtitle">Prospecting & Outreach</div>
+            <p class="card-desc">Apollo-style prospecting, enrichment, outreach. ICP targeting, multi-touch sequences, and personalized outreach at scale.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Ad Creative Lab -->
+        <a href="/agents/ads-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🎨</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Ad Creative Lab</div>
+            <div class="card-subtitle">Paid Advertising</div>
+            <p class="card-desc">AdCreative-style ads, copy variants, A/B. Meta, Google, and LinkedIn ad copy with angle testing and performance briefs.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Social Studio -->
+        <a href="/agents/social-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">📱</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Social Studio</div>
+            <div class="card-subtitle">Social Media</div>
+            <p class="card-desc">Content calendar, platform-specific posts. LinkedIn, Instagram, X, and TikTok content tailored to each platform's native culture.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Analytics Brain -->
+        <a href="/agents/analytics-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">📊</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Analytics Brain</div>
+            <div class="card-subtitle">Data & Attribution</div>
+            <p class="card-desc">Attribution, Mutinex-style MMM, reporting. Marketing mix modeling, channel ROI analysis, and executive-ready dashboards.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Competitive Intelligence -->
+        <a href="/agents/competitive-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🕵️</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Competitive Intelligence</div>
+            <div class="card-subtitle">Competitor Monitoring</div>
+            <p class="card-desc">Crayon-style competitor monitoring. Track positioning changes, pricing moves, new features, and messaging shifts in real time.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Video Studio -->
+        <a href="/agents/video-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🎬</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Video Studio</div>
+            <div class="card-subtitle">Video Production</div>
+            <p class="card-desc">Scripts, Descript-style editing guides, thumbnails. YouTube strategy, short-form hooks, and production briefs for every format.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- CRO Lab -->
+        <a href="/agents/cro-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🧪</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">CRO Lab</div>
+            <div class="card-subtitle">Conversion Optimization</div>
+            <p class="card-desc">Conversion optimization, VWO-style testing. Landing page teardowns, hypothesis frameworks, and A/B test prioritization.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Compliance Guard -->
+        <a href="/agents/compliance-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🛡️</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Compliance Guard</div>
+            <div class="card-subtitle">Brand Safety & Legal</div>
+            <p class="card-desc">Brand safety, legal review, PunttAI-style. Checks copy for regulatory risk, brand voice alignment, and claim substantiation.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Enterprise Compliance Automation -->
+        <a href="/agents/compliance-automation.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">🔒</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Enterprise Compliance Automation</div>
+            <div class="card-subtitle">SOC 2 · ISO 27001 · GDPR</div>
+            <p class="card-desc">Eliminate compliance busywork. Automate evidence collection, continuous monitoring, security workflows. Close enterprise deals faster with audit-ready compliance.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+        <!-- Deck Maker -->
+        <a href="/agents/deck-agent.html" class="agent-card">
+            <div class="card-top">
+                <div class="card-icon">📽️</div>
+                <span class="card-status-pill">Ready</span>
+            </div>
+            <div class="card-name">Deck Maker</div>
+            <div class="card-subtitle">Presentations</div>
+            <p class="card-desc">Tome-style presentations, investor decks. Slide structure, narrative flow, and compelling storytelling for any audience.</p>
+            <span class="card-arrow">→</span>
+        </a>
+
+    </div>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <h3>Not sure where to start?</h3>
+        <p>Describe your goal and Scotty will route you to the right agent — or coordinate several at once.</p>
+        <a href="/scotty.html" class="btn-ask-scotty">
+            🤖 Ask Scotty
+        </a>
+    </section>
+
+</main>
+
+<!-- API Client (Backend Integration) -->
+<script src="js/api-client.js"></script>
+
+<script>
+  // ═══════════════════════════════════════════════════════════════
+  // AUTHENTICATION REQUIRED FOR AGENTS HUB
+  // Only authenticated users can access the agents dashboard
+  // ═══════════════════════════════════════════════════════════════
+
+  // Check if user is authenticated
+  if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+    // Redirect to login page
+    alert('Please login to access the agents dashboard');
+    window.location.href = 'auth.html';
+  } else {
+    // Load user info
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    console.log('✅ Authenticated as:', user.email);
+
+    // Add user menu to nav (if present)
+    const nav = document.querySelector('nav') || document.querySelector('header');
+    if (nav && !document.getElementById('userMenu')) {
+      const userMenu = document.createElement('div');
+      userMenu.id = 'userMenu';
+      userMenu.style.cssText = 'position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 16px;';
+
+      const userInfo = document.createElement('div');
+      userInfo.style.cssText = 'color: white; font-size: 0.9rem;';
+      userInfo.innerHTML = `<strong>${user.firstName || user.email}</strong>`;
+
+      const logoutBtn = document.createElement('button');
+      logoutBtn.textContent = 'Logout';
+      logoutBtn.style.cssText = 'background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s;';
+      logoutBtn.onmouseover = () => logoutBtn.style.background = 'rgba(255,255,255,0.15)';
+      logoutBtn.onmouseout = () => logoutBtn.style.background = 'rgba(255,255,255,0.1)';
+      logoutBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to logout?')) {
+          await window.apiClient.logout();
+          window.location.href = 'index.html';
+        }
+      });
+
+      userMenu.appendChild(userInfo);
+      userMenu.appendChild(logoutBtn);
+
+      if (nav.style.position !== 'relative') {
+        nav.style.position = 'relative';
+      }
+      nav.appendChild(userMenu);
+    }
+  }
+</script>
+
+</body>
+</html>

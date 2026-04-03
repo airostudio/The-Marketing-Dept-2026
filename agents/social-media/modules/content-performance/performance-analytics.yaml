@@ -1,0 +1,534 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL MEDIA AGENT - CONTENT PERFORMANCE MODULE
+# The Marketing Department 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+
+module:
+  id: "content-performance"
+  name: "Social Content Performance Analytics Engine"
+  version: "1.0.0"
+  category: "analytics_optimization"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-PLATFORM ANALYTICS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  cross_platform_analytics:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Unified Metrics
+    # ─────────────────────────────────────────────────────────────────────────
+
+    unified_metrics:
+      reach_metrics:
+        - metric: "Total Reach"
+          definition: "Unique accounts that saw content"
+          platforms: "All"
+          normalization: "De-duplicated across platforms"
+
+        - metric: "Impressions"
+          definition: "Total times content was displayed"
+          platforms: "All"
+
+        - metric: "Potential Reach"
+          definition: "Total followers across platforms"
+          platforms: "All"
+
+      engagement_metrics:
+        - metric: "Total Engagements"
+          definition: "Sum of all engagement actions"
+          components: ["Likes", "Comments", "Shares", "Saves", "Clicks"]
+
+        - metric: "Engagement Rate"
+          definition: "Engagements / Reach (or Impressions)"
+          calculation_options:
+            by_reach: "Engagements / Reach * 100"
+            by_impressions: "Engagements / Impressions * 100"
+            by_followers: "Engagements / Followers * 100"
+
+        - metric: "Viral Rate"
+          definition: "Shares / Impressions * 100"
+          importance: "Indicates content shareability"
+
+        - metric: "Amplification Rate"
+          definition: "Shares / Followers * 100"
+          importance: "Indicates audience activation"
+
+      conversion_metrics:
+        - metric: "Link Clicks"
+          definition: "Clicks on links in content"
+          platforms: ["All with link tracking"]
+
+        - metric: "Click-Through Rate (CTR)"
+          definition: "Link clicks / Impressions * 100"
+
+        - metric: "Conversions"
+          definition: "Actions completed from social"
+          tracking: "UTM + Analytics integration"
+
+        - metric: "Conversion Rate"
+          definition: "Conversions / Link clicks * 100"
+
+      audience_metrics:
+        - metric: "Follower Growth"
+          definition: "Net new followers"
+          breakdown: ["New followers", "Unfollows"]
+
+        - metric: "Follower Growth Rate"
+          definition: "(New - Lost) / Total * 100"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Platform-Specific Metrics
+    # ─────────────────────────────────────────────────────────────────────────
+
+    platform_metrics:
+      instagram:
+        feed_metrics:
+          - "Reach"
+          - "Impressions"
+          - "Likes"
+          - "Comments"
+          - "Saves"
+          - "Shares"
+          - "Profile visits"
+          - "Website clicks"
+
+        story_metrics:
+          - "Impressions"
+          - "Reach"
+          - "Replies"
+          - "Exits"
+          - "Link clicks"
+          - "Forward taps"
+          - "Back taps"
+
+        reel_metrics:
+          - "Plays"
+          - "Reach"
+          - "Likes"
+          - "Comments"
+          - "Saves"
+          - "Shares"
+          - "Accounts reached"
+
+      linkedin:
+        post_metrics:
+          - "Impressions"
+          - "Unique impressions"
+          - "Clicks"
+          - "Reactions"
+          - "Comments"
+          - "Shares"
+          - "Engagement rate"
+
+        page_metrics:
+          - "Page views"
+          - "Unique visitors"
+          - "Follower demographics"
+          - "Follower growth"
+
+      twitter:
+        tweet_metrics:
+          - "Impressions"
+          - "Engagements"
+          - "Engagement rate"
+          - "Retweets"
+          - "Quote tweets"
+          - "Likes"
+          - "Replies"
+          - "Link clicks"
+          - "Profile clicks"
+
+      tiktok:
+        video_metrics:
+          - "Views"
+          - "Likes"
+          - "Comments"
+          - "Shares"
+          - "Average watch time"
+          - "Watch full video %"
+          - "Traffic source"
+
+        profile_metrics:
+          - "Profile views"
+          - "Followers"
+          - "Following"
+
+      youtube:
+        video_metrics:
+          - "Views"
+          - "Watch time"
+          - "Average view duration"
+          - "Likes"
+          - "Dislikes"
+          - "Comments"
+          - "Shares"
+          - "Click-through rate"
+
+        channel_metrics:
+          - "Subscribers"
+          - "Total views"
+          - "Watch time"
+          - "Audience retention"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # POST-LEVEL PERFORMANCE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  post_performance:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Performance Scoring
+    # ─────────────────────────────────────────────────────────────────────────
+
+    performance_scoring:
+      score_model:
+        name: "Content Performance Score (CPS)"
+        scale: "0-100"
+
+        components:
+          engagement_score:
+            weight: 0.35
+            factors:
+              - "Engagement rate vs average"
+              - "Comment depth"
+              - "Share rate"
+
+          reach_score:
+            weight: 0.25
+            factors:
+              - "Reach vs average"
+              - "Viral coefficient"
+              - "New audience reached"
+
+          conversion_score:
+            weight: 0.25
+            factors:
+              - "CTR vs average"
+              - "Conversion rate"
+              - "Revenue attributed"
+
+          quality_score:
+            weight: 0.15
+            factors:
+              - "Sentiment of comments"
+              - "Meaningful interactions"
+              - "Save/bookmark rate"
+
+      scoring_tiers:
+        - tier: "Top Performer"
+          score_range: "85-100"
+          action: "Analyze for replication"
+
+        - tier: "High Performer"
+          score_range: "70-84"
+          action: "Promote/boost consideration"
+
+        - tier: "Average Performer"
+          score_range: "50-69"
+          action: "Standard optimization"
+
+        - tier: "Below Average"
+          score_range: "30-49"
+          action: "Analyze for learnings"
+
+        - tier: "Poor Performer"
+          score_range: "0-29"
+          action: "Archive/deprioritize"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Content Analysis
+    # ─────────────────────────────────────────────────────────────────────────
+
+    content_analysis:
+      analysis_dimensions:
+        by_content_type:
+          types: ["Image", "Video", "Carousel", "Text", "Story", "Reel", "Link"]
+          metrics: ["Avg engagement", "Avg reach", "Avg CTR"]
+
+        by_topic:
+          categories: ["Product", "Educational", "Entertainment", "Company", "Industry"]
+          metrics: ["Performance by topic"]
+
+        by_format:
+          formats: ["Square", "Vertical", "Horizontal", "Text length"]
+          metrics: ["Performance by format"]
+
+        by_timing:
+          dimensions: ["Day of week", "Time of day", "Season"]
+          metrics: ["Performance by timing"]
+
+        by_hashtags:
+          analysis: ["Hashtag performance", "Optimal hashtag count"]
+          metrics: ["Reach by hashtag set"]
+
+      pattern_identification:
+        - "Top performing content patterns"
+        - "Optimal posting patterns"
+        - "Audience preference patterns"
+        - "Seasonal patterns"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VIDEO ANALYTICS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  video_analytics:
+
+    view_metrics:
+      - "Total views"
+      - "Unique viewers"
+      - "View-through rate"
+      - "3-second views"
+      - "10-second views"
+      - "Complete views"
+
+    engagement_metrics:
+      - "Average watch time"
+      - "Watch time percentage"
+      - "Retention curve"
+      - "Drop-off points"
+      - "Replay rate"
+
+    performance_analysis:
+      hook_effectiveness:
+        definition: "First 3 seconds retention"
+        benchmark: ">70% retention"
+        optimization: "Test different hooks"
+
+      content_retention:
+        definition: "Middle section engagement"
+        benchmark: ">50% watch through"
+        optimization: "Pacing and content structure"
+
+      completion_rate:
+        definition: "Full video completion"
+        benchmark: "Platform-dependent"
+        optimization: "Optimal length, strong endings"
+
+    recommendations:
+      - "Optimal video length by platform"
+      - "Hook improvement suggestions"
+      - "Retention optimization tips"
+      - "Format recommendations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONTENT OPTIMIZATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  content_optimization:
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # A/B Testing
+    # ─────────────────────────────────────────────────────────────────────────
+
+    ab_testing:
+      test_elements:
+        - "Caption variations"
+        - "Hashtag sets"
+        - "Image variations"
+        - "Video thumbnails"
+        - "CTA variations"
+        - "Posting times"
+        - "Content formats"
+
+      test_methodology:
+        - "Control vs variant"
+        - "Statistical significance requirement"
+        - "Minimum sample size"
+        - "Test duration"
+
+      test_reporting:
+        - "Winner declaration"
+        - "Confidence level"
+        - "Performance difference"
+        - "Recommended action"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Hashtag Optimization
+    # ─────────────────────────────────────────────────────────────────────────
+
+    hashtag_optimization:
+      analysis:
+        - "Hashtag reach contribution"
+        - "Hashtag engagement impact"
+        - "Hashtag competition level"
+        - "Hashtag relevance score"
+
+      recommendations:
+        mix_strategy:
+          large_hashtags: "10-20% (1M+ posts)"
+          medium_hashtags: "40-50% (100K-1M posts)"
+          small_hashtags: "30-40% (10K-100K posts)"
+          branded_hashtags: "Always include"
+
+        optimization_rules:
+          - "Test different hashtag counts"
+          - "Rotate hashtag sets"
+          - "Track individual hashtag performance"
+          - "Remove underperformers"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Caption Optimization
+    # ─────────────────────────────────────────────────────────────────────────
+
+    caption_optimization:
+      analysis_factors:
+        - "Caption length"
+        - "Emoji usage"
+        - "Question inclusion"
+        - "CTA presence"
+        - "Hashtag placement"
+
+      best_practices:
+        instagram:
+          optimal_length: "138-150 characters for feed"
+          cta_placement: "Above fold or end"
+          hashtag_placement: "First comment or end"
+
+        linkedin:
+          optimal_length: "150-300 characters"
+          formatting: "Short paragraphs, bullet points"
+          cta: "Clear professional CTA"
+
+        twitter:
+          optimal_length: "70-100 characters"
+          hashtags: "1-2 maximum"
+          engagement: "Questions, polls"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PERFORMANCE PREDICTION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  performance_prediction:
+
+    prediction_model:
+      name: "Content Performance Predictor"
+
+      inputs:
+        content_features:
+          - "Content type"
+          - "Topic category"
+          - "Visual elements"
+          - "Caption characteristics"
+          - "Hashtag set"
+
+        timing_features:
+          - "Day of week"
+          - "Time of day"
+          - "Seasonality"
+
+        historical_features:
+          - "Similar content performance"
+          - "Recent engagement trends"
+          - "Audience activity patterns"
+
+      outputs:
+        - "Predicted engagement rate"
+        - "Predicted reach"
+        - "Confidence interval"
+        - "Optimization suggestions"
+
+    use_cases:
+      - "Pre-publish content scoring"
+      - "Optimal timing selection"
+      - "Content prioritization"
+      - "Resource allocation"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # REPORTING
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  reporting:
+
+    standard_reports:
+      - report: "Daily Performance Summary"
+        contents:
+          - "Posts published"
+          - "Total engagement"
+          - "Top performers"
+          - "Notable metrics"
+
+      - report: "Weekly Performance Report"
+        contents:
+          - "Week-over-week comparison"
+          - "Content performance breakdown"
+          - "Platform comparison"
+          - "Recommendations"
+
+      - report: "Monthly Performance Analysis"
+        contents:
+          - "Comprehensive metrics"
+          - "Trend analysis"
+          - "Top/bottom content"
+          - "Optimization opportunities"
+          - "Benchmarking"
+
+    custom_reports:
+      - "Campaign performance report"
+      - "Content type analysis"
+      - "Platform deep-dive"
+      - "Competitive comparison"
+
+    dashboards:
+      real_time:
+        - "Live engagement tracker"
+        - "Recent post performance"
+        - "Alert feed"
+
+      overview:
+        - "Cross-platform summary"
+        - "KPI scorecard"
+        - "Trend visualizations"
+
+      detailed:
+        - "Platform-specific metrics"
+        - "Content analysis"
+        - "Audience insights"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OUTPUTS & INTEGRATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  outputs:
+
+    to_content_strategy_agent:
+      - "Performance insights"
+      - "Content recommendations"
+      - "Topic performance"
+      - "Format recommendations"
+
+    to_scheduling_module:
+      - "Optimal posting times"
+      - "Frequency recommendations"
+      - "Platform prioritization"
+
+    to_engagement_module:
+      - "Top performing content"
+      - "Engagement patterns"
+      - "Audience insights"
+
+    to_analytics_agent:
+      - "Social performance data"
+      - "Conversion data"
+      - "Attribution data"
+
+    to_cmo_agent:
+      - "Executive dashboards"
+      - "Performance summaries"
+      - "Strategic insights"
+
+  integrations:
+    analytics_platforms:
+      - "Google Analytics 4"
+      - "Adobe Analytics"
+      - "Custom data warehouse"
+
+    social_platforms:
+      - "Native analytics APIs"
+      - "Business/Creator accounts"
+
+    visualization:
+      - "Tableau"
+      - "Looker"
+      - "Power BI"
+      - "Custom dashboards"

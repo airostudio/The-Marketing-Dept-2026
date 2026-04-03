@@ -1,6 +1,9 @@
 /**
  * Authentication Module
  * Handles user login, registration, and session management
+ *
+ * Uses Supabase for persistent authentication when configured,
+ * falls back to localStorage for demo/offline mode.
  */
 
 const Auth = {
@@ -9,9 +12,29 @@ const Auth = {
     SESSION_KEY: 'seo_agent_session',
 
     /**
+     * Check if Supabase is available and configured
+     */
+    useSupabase() {
+        return typeof window.Supabase !== 'undefined' && window.Supabase.isConfigured();
+    },
+
+    /**
      * Check if user is authenticated
      */
-    isAuthenticated() {
+    async isAuthenticated() {
+        // Try Supabase first
+        if (this.useSupabase()) {
+            try {
+                const session = await window.Supabase.Auth.getSession();
+                if (session) {
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Supabase auth check failed, falling back to local:', e);
+            }
+        }
+
+        // Fallback to local session
         const session = localStorage.getItem(this.SESSION_KEY);
         if (!session) return false;
 
@@ -29,9 +52,63 @@ const Auth = {
     },
 
     /**
+     * Synchronous check for immediate UI decisions
+     * For async operations, use isAuthenticated() instead
+     */
+    isAuthenticatedSync() {
+        // Check local session first (fast)
+        const session = localStorage.getItem(this.SESSION_KEY);
+        if (!session) return false;
+
+        try {
+            const sessionData = JSON.parse(session);
+            if (Date.now() > sessionData.expires) {
+                return false;
+            }
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    /**
      * Get current user data
      */
-    getUser() {
+    async getUser() {
+        // Try Supabase first
+        if (this.useSupabase()) {
+            try {
+                const user = await window.Supabase.Auth.getUser();
+                if (user) {
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
+                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
+                        plan: user.user_metadata?.plan || 'free',
+                        createdAt: user.created_at
+                    };
+                }
+            } catch (e) {
+                console.warn('Supabase getUser failed, falling back to local:', e);
+            }
+        }
+
+        // Fallback to local storage
+        const userData = localStorage.getItem(this.STORAGE_KEY);
+        if (!userData) return null;
+
+        try {
+            return JSON.parse(userData);
+        } catch {
+            return null;
+        }
+    },
+
+    /**
+     * Synchronous get user for immediate UI
+     */
+    getUserSync() {
         const userData = localStorage.getItem(this.STORAGE_KEY);
         if (!userData) return null;
 
@@ -45,20 +122,57 @@ const Auth = {
     /**
      * Login user
      */
-    login(email, password, remember = false) {
+    async login(email, password, remember = false) {
+        // Try Supabase first
+        if (this.useSupabase()) {
+            try {
+                const { user, session } = await window.Supabase.Auth.signIn(email, password);
+
+                if (user) {
+                    // Create local session for fast checks
+                    const sessionDuration = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+                    const localSession = {
+                        userId: user.id,
+                        email: user.email,
+                        created: Date.now(),
+                        expires: Date.now() + sessionDuration,
+                        source: 'supabase'
+                    };
+
+                    const userPublic = {
+                        id: user.id,
+                        email: user.email,
+                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
+                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
+                        plan: user.user_metadata?.plan || 'free',
+                        createdAt: user.created_at
+                    };
+
+                    localStorage.setItem(this.SESSION_KEY, JSON.stringify(localSession));
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
+
+                    return userPublic;
+                }
+            } catch (error) {
+                // If Supabase error is about invalid credentials, throw it
+                if (error.message?.includes('Invalid') || error.message?.includes('credentials')) {
+                    throw error;
+                }
+                console.warn('Supabase login failed, trying local auth:', error);
+            }
+        }
+
+        // Fallback to local authentication
         return new Promise((resolve, reject) => {
-            // Simulate API call delay
             setTimeout(() => {
-                // Get stored users
                 const users = this.getStoredUsers();
                 const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
                 if (!user) {
-                    reject(new Error('No account found with this email address'));
+                    reject(new Error('No account found with this email address. Please create an account first.'));
                     return;
                 }
 
-                // Simple password check (in real app, use proper hashing)
                 if (user.password !== this.hashPassword(password)) {
                     reject(new Error('Incorrect password'));
                     return;
@@ -70,10 +184,10 @@ const Auth = {
                     userId: user.id,
                     email: user.email,
                     created: Date.now(),
-                    expires: Date.now() + sessionDuration
+                    expires: Date.now() + sessionDuration,
+                    source: 'local'
                 };
 
-                // Store session and user data (without password)
                 const userPublic = { ...user };
                 delete userPublic.password;
 
@@ -88,24 +202,66 @@ const Auth = {
     /**
      * Register new user
      */
-    register(userData) {
+    async register(userData) {
+        const { firstname, lastname, email, password } = userData;
+
+        // Validation
+        if (!firstname || !lastname || !email || !password) {
+            throw new Error('All fields are required');
+        }
+
+        if (password.length < 8) {
+            throw new Error('Password must be at least 8 characters');
+        }
+
+        // Try Supabase first
+        if (this.useSupabase()) {
+            try {
+                const { user } = await window.Supabase.Auth.signUp(email, password, {
+                    firstname,
+                    lastname,
+                    first_name: firstname,
+                    last_name: lastname,
+                    plan: 'free'
+                });
+
+                if (user) {
+                    // Create local session
+                    const session = {
+                        userId: user.id,
+                        email: user.email,
+                        created: Date.now(),
+                        expires: Date.now() + 24 * 60 * 60 * 1000,
+                        source: 'supabase'
+                    };
+
+                    const userPublic = {
+                        id: user.id,
+                        email: user.email,
+                        firstname,
+                        lastname,
+                        plan: 'free',
+                        createdAt: user.created_at || new Date().toISOString()
+                    };
+
+                    localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
+
+                    return userPublic;
+                }
+            } catch (error) {
+                // If it's a duplicate email error, throw it
+                if (error.message?.includes('already') || error.message?.includes('exists')) {
+                    throw new Error('An account with this email already exists');
+                }
+                console.warn('Supabase registration failed, using local storage:', error);
+            }
+        }
+
+        // Fallback to local storage
         return new Promise((resolve, reject) => {
-            // Simulate API call delay
             setTimeout(() => {
-                const { firstname, lastname, email, password } = userData;
-
-                // Validation
-                if (!firstname || !lastname || !email || !password) {
-                    reject(new Error('All fields are required'));
-                    return;
-                }
-
-                if (password.length < 8) {
-                    reject(new Error('Password must be at least 8 characters'));
-                    return;
-                }
-
-                // Check if email already exists
+                // Check if email already exists locally
                 const users = this.getStoredUsers();
                 if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
                     reject(new Error('An account with this email already exists'));
@@ -132,7 +288,8 @@ const Auth = {
                     userId: newUser.id,
                     email: newUser.email,
                     created: Date.now(),
-                    expires: Date.now() + 24 * 60 * 60 * 1000
+                    expires: Date.now() + 24 * 60 * 60 * 1000,
+                    source: 'local'
                 };
 
                 const userPublic = { ...newUser };
@@ -149,13 +306,23 @@ const Auth = {
     /**
      * Logout user
      */
-    logout() {
+    async logout() {
+        // Try Supabase logout
+        if (this.useSupabase()) {
+            try {
+                await window.Supabase.Auth.signOut();
+            } catch (e) {
+                console.warn('Supabase logout failed:', e);
+            }
+        }
+
+        // Always clear local session
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
     },
 
     /**
-     * Get stored users (for demo purposes - in real app, this would be server-side)
+     * Get stored users (for local/demo mode)
      */
     getStoredUsers() {
         const users = localStorage.getItem('seo_agent_users');
@@ -179,6 +346,26 @@ const Auth = {
             hash = hash & hash;
         }
         return 'hash_' + Math.abs(hash).toString(16);
+    },
+
+    /**
+     * Get authentication mode info
+     */
+    getAuthMode() {
+        if (this.useSupabase()) {
+            return {
+                mode: 'supabase',
+                persistent: true,
+                crossDevice: true,
+                description: 'Using Supabase authentication (persistent across devices)'
+            };
+        }
+        return {
+            mode: 'local',
+            persistent: false,
+            crossDevice: false,
+            description: 'Using local demo mode (data stored in browser only)'
+        };
     }
 };
 
@@ -195,6 +382,14 @@ const AuthModal = {
 
         this.bindEvents();
         this.interceptDashboardLinks();
+        this.showAuthModeIndicator();
+    },
+
+    showAuthModeIndicator() {
+        const authMode = Auth.getAuthMode();
+        if (authMode.mode === 'local') {
+            console.info('Auth Mode: Local demo mode. For persistent login across devices, configure Supabase in Settings.');
+        }
     },
 
     bindEvents() {
@@ -251,7 +446,7 @@ const AuthModal = {
 
         dashboardLinks.forEach(link => {
             link.addEventListener('click', (e) => {
-                if (!Auth.isAuthenticated()) {
+                if (!Auth.isAuthenticatedSync()) {
                     e.preventDefault();
                     this.open('login');
                 }

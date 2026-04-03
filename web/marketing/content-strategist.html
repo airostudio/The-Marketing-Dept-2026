@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Strategist | Aduma Marketing</title>
+    <meta name="description" content="Plan, develop, and manage content strategies. Editorial calendar, content audits, brand voice, and user journey mapping.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="/marketing/content-strategist.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        /* Content Strategist Specific Styles */
+        .strategy-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 4px;
+            background: var(--color-bg-tertiary);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--color-text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Content Cards Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .content-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .content-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+        }
+
+        .content-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .content-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+
+        .content-card-type {
+            padding: 4px 10px;
+            background: var(--color-bg-tertiary);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+        }
+
+        .content-card-type.blog { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .content-card-type.video { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .content-card-type.social { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+        .content-card-type.email { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .content-card-type.whitepaper { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+
+        .content-card-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-bottom: 12px;
+        }
+
+        .content-card-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .content-card-desc {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .content-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .content-status {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .content-status.idea { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+        .content-status.planned { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .content-status.in-progress { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .content-status.review { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+        .content-status.approved { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .content-status.published { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+        /* Calendar Styles */
+        .calendar-container {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .calendar-nav-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .calendar-nav-btn:hover {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+
+        .calendar-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .calendar-day-header {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            background: var(--color-bg-tertiary);
+        }
+
+        .calendar-day {
+            min-height: 100px;
+            padding: 8px;
+            border: 1px solid var(--color-border);
+            border-top: none;
+            border-left: none;
+        }
+
+        .calendar-day:nth-child(7n) {
+            border-right: none;
+        }
+
+        .calendar-day.other-month {
+            background: var(--color-bg-tertiary);
+            opacity: 0.5;
+        }
+
+        .calendar-day.today {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .calendar-day-number {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .calendar-event {
+            padding: 4px 8px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .calendar-event.blog { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .calendar-event.video { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .calendar-event.social { background: rgba(236, 72, 153, 0.2); color: #ec4899; }
+        .calendar-event.email { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+        /* Kanban Board */
+        .kanban-board {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 16px;
+        }
+
+        .kanban-column {
+            flex: 0 0 280px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            max-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kanban-column-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .kanban-column-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kanban-count {
+            width: 24px;
+            height: 24px;
+            background: var(--color-bg-tertiary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        .kanban-items {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .kanban-item {
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .kanban-item:hover {
+            border-color: var(--color-primary);
+        }
+
+        .kanban-item-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .kanban-item-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Brand Voice Section */
+        .brand-voice-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .brand-voice-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .brand-voice-card h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tone-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tone-tag {
+            padding: 6px 14px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .tone-tag.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--color-primary);
+            color: var(--color-primary-light);
+        }
+
+        .do-dont-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .do-dont-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .do-dont-list li:last-child {
+            border-bottom: none;
+        }
+
+        .do-icon {
+            color: #10b981;
+        }
+
+        .dont-icon {
+            color: #ef4444;
+        }
+
+        /* Audit Section */
+        .audit-overview {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .audit-score-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .audit-score-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .audit-score-value.excellent { color: #10b981; }
+        .audit-score-value.good { color: #3b82f6; }
+        .audit-score-value.fair { color: #f59e0b; }
+        .audit-score-value.poor { color: #ef4444; }
+
+        .audit-score-label {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Journey Map */
+        .journey-map {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 16px;
+        }
+
+        .journey-stage {
+            flex: 0 0 220px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .journey-stage-header {
+            padding: 16px;
+            background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+            color: white;
+        }
+
+        .journey-stage-header h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 4px 0;
+        }
+
+        .journey-stage-header p {
+            font-size: 11px;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        .journey-stage-content {
+            padding: 16px;
+        }
+
+        .journey-content-types {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .journey-content-type {
+            padding: 3px 8px;
+            background: var(--color-bg-tertiary);
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--color-text-tertiary);
+        }
+
+        .journey-content-count {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--color-bg-tertiary);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        /* Ideas Backlog */
+        .ideas-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .idea-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+
+        .idea-item:hover {
+            border-color: var(--color-primary);
+        }
+
+        .idea-vote {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .idea-vote-btn {
+            width: 32px;
+            height: 32px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .idea-vote-btn:hover {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+
+        .idea-vote-count {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        .idea-content {
+            flex: 1;
+        }
+
+        .idea-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .idea-meta {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+        }
+
+        .idea-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            color: var(--color-text-tertiary);
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--color-text-secondary);
+            margin-bottom: 20px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            background: var(--color-bg-tertiary);
+            border: none;
+            border-radius: 8px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: calc(85vh - 140px);
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--color-border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        @media (max-width: 768px) {
+            .tabs-container {
+                overflow-x: auto;
+            }
+
+            .brand-voice-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .audit-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main sidebar navigation">
+            <div class="sidebar-header">
+                <a href="../index.html" class="sidebar-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 40 40" fill="none">
+                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
+                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                            <defs><linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">Aduma Marketing</span>
+                </a>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Overview</span>
+                    <a href="../dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">Aduma Marketing</span>
+                    <a href="cmo-dashboard.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+                        <span>CMO Dashboard</span>
+                    </a>
+                    <a href="content-strategist.html" class="nav-item active">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <span>Content Strategist</span>
+                        <span class="badge badge-new">NEW</span>
+                    </a>
+                    <a href="content-strategy.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <span>Content Strategy</span>
+                    </a>
+                    <a href="social-media.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>
+                        <span>Social Media</span>
+                    </a>
+                    <a href="paid-media.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <span>Paid Media</span>
+                    </a>
+                    <a href="analytics.html" class="nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <span>Analytics</span>
+                    </a>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="../settings.html" class="nav-item settings-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <div class="breadcrumb">
+                        <a href="../dashboard.html">Dashboard</a>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <span>Aduma Marketing</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        <span class="current">Content Strategist</span>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-primary" id="newContentBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
+                        New Content
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h1>Content Strategist</h1>
+                        <p>Plan, develop, and manage content to meet business goals and user needs</p>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="metrics-grid" id="quickStats">
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                            <span class="metric-card-title">Total Content</span>
+                        </div>
+                        <div class="metric-card-value" data-metric="total-content">0</div>
+                        <p class="metric-card-desc">Content pieces in system</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                            <span class="metric-card-title">Published</span>
+                        </div>
+                        <div class="metric-card-value" data-metric="published-content">0</div>
+                        <p class="metric-card-desc">Live content pieces</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                            <span class="metric-card-title">In Progress</span>
+                        </div>
+                        <div class="metric-card-value" data-metric="in-progress-content">0</div>
+                        <p class="metric-card-desc">Being worked on</p>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <div class="metric-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+                            <span class="metric-card-title">Content Pillars</span>
+                        </div>
+                        <div class="metric-card-value" data-metric="pillars-count">0</div>
+                        <p class="metric-card-desc">Core content themes</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="tabs-container">
+                    <button class="tab-btn active" data-tab="calendar">Editorial Calendar</button>
+                    <button class="tab-btn" data-tab="workflow">Workflow</button>
+                    <button class="tab-btn" data-tab="audit">Content Audit</button>
+                    <button class="tab-btn" data-tab="brand">Brand Voice</button>
+                    <button class="tab-btn" data-tab="journey">User Journey</button>
+                    <button class="tab-btn" data-tab="ideas">Ideas Backlog</button>
+                    <button class="tab-btn" data-tab="competitors">Competitors</button>
+                </div>
+
+                <!-- Tab: Editorial Calendar -->
+                <div class="tab-content active" data-tab-content="calendar">
+                    <div class="calendar-container">
+                        <div class="calendar-header">
+                            <div class="calendar-nav">
+                                <button class="calendar-nav-btn" id="prevMonth">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="15 18 9 12 15 6"/></svg>
+                                </button>
+                                <h3 class="calendar-title" id="calendarTitle">January 2026</h3>
+                                <button class="calendar-nav-btn" id="nextMonth">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
+                            </div>
+                            <button class="btn btn-outline" id="todayBtn">Today</button>
+                        </div>
+                        <div class="calendar-grid" id="calendarGrid">
+                            <!-- Calendar will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Workflow (Kanban) -->
+                <div class="tab-content" data-tab-content="workflow">
+                    <div class="kanban-board" id="kanbanBoard">
+                        <!-- Kanban columns will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Tab: Content Audit -->
+                <div class="tab-content" data-tab-content="audit">
+                    <div class="strategy-header">
+                        <h3>Content Performance Audit</h3>
+                        <button class="btn btn-primary" id="runAuditBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Run Audit
+                        </button>
+                    </div>
+                    <div class="audit-overview" id="auditOverview">
+                        <div class="audit-score-card">
+                            <div class="audit-score-value" data-metric="audit-overall">--</div>
+                            <div class="audit-score-label">Overall</div>
+                        </div>
+                        <div class="audit-score-card">
+                            <div class="audit-score-value" data-metric="audit-quality">--</div>
+                            <div class="audit-score-label">Quality</div>
+                        </div>
+                        <div class="audit-score-card">
+                            <div class="audit-score-value" data-metric="audit-seo">--</div>
+                            <div class="audit-score-label">SEO</div>
+                        </div>
+                        <div class="audit-score-card">
+                            <div class="audit-score-value" data-metric="audit-engagement">--</div>
+                            <div class="audit-score-label">Engagement</div>
+                        </div>
+                        <div class="audit-score-card">
+                            <div class="audit-score-value" data-metric="audit-freshness">--</div>
+                            <div class="audit-score-label">Freshness</div>
+                        </div>
+                    </div>
+                    <div class="data-table-card" id="auditRecommendations">
+                        <div class="data-table-header">
+                            <h3 class="data-table-title">Recommendations</h3>
+                        </div>
+                        <div id="recommendationsList" style="padding: 20px;">
+                            <p style="color: var(--color-text-tertiary);">Run an audit to see recommendations</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Brand Voice -->
+                <div class="tab-content" data-tab-content="brand">
+                    <div class="strategy-header">
+                        <h3>Brand Voice & Style Guide</h3>
+                        <button class="btn btn-outline" id="editBrandVoice">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit Guide
+                        </button>
+                    </div>
+                    <div class="brand-voice-grid">
+                        <div class="brand-voice-card">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                Tone of Voice
+                            </h4>
+                            <div class="tone-tags" id="toneTags">
+                                <span class="tone-tag active">Professional</span>
+                                <span class="tone-tag active">Friendly</span>
+                                <span class="tone-tag">Conversational</span>
+                                <span class="tone-tag">Authoritative</span>
+                                <span class="tone-tag">Empathetic</span>
+                            </div>
+                        </div>
+                        <div class="brand-voice-card">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                Brand Personality
+                            </h4>
+                            <div class="tone-tags" id="personalityTags">
+                                <span class="tone-tag active">Innovative</span>
+                                <span class="tone-tag active">Trustworthy</span>
+                                <span class="tone-tag">Bold</span>
+                                <span class="tone-tag">Approachable</span>
+                            </div>
+                        </div>
+                        <div class="brand-voice-card">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#10b981;"><polyline points="20 6 9 17 4 12"/></svg>
+                                Do's
+                            </h4>
+                            <ul class="do-dont-list" id="doList">
+                                <li><span class="do-icon">+</span> Use clear, simple language</li>
+                                <li><span class="do-icon">+</span> Back claims with data</li>
+                                <li><span class="do-icon">+</span> Address pain points directly</li>
+                                <li><span class="do-icon">+</span> Include actionable takeaways</li>
+                            </ul>
+                        </div>
+                        <div class="brand-voice-card">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#ef4444;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Don'ts
+                            </h4>
+                            <ul class="do-dont-list" id="dontList">
+                                <li><span class="dont-icon">-</span> Use jargon without explanation</li>
+                                <li><span class="dont-icon">-</span> Make exaggerated claims</li>
+                                <li><span class="dont-icon">-</span> Be condescending</li>
+                                <li><span class="dont-icon">-</span> Use passive voice excessively</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: User Journey -->
+                <div class="tab-content" data-tab-content="journey">
+                    <div class="strategy-header">
+                        <h3>User Journey Content Mapping</h3>
+                        <button class="btn btn-outline" id="viewGaps">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            View Content Gaps
+                        </button>
+                    </div>
+                    <div class="journey-map" id="journeyMap">
+                        <!-- Journey stages will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Tab: Ideas Backlog -->
+                <div class="tab-content" data-tab-content="ideas">
+                    <div class="strategy-header">
+                        <h3>Content Ideas Backlog</h3>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-outline" id="generateIdeasBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                AI Generate
+                            </button>
+                            <button class="btn btn-primary" id="addIdeaBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
+                                Add Idea
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ideas-list" id="ideasList">
+                        <!-- Ideas will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Tab: Competitors -->
+                <div class="tab-content" data-tab-content="competitors">
+                    <div class="strategy-header">
+                        <h3>Competitor Content Analysis</h3>
+                        <button class="btn btn-primary" id="addCompetitorBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
+                            Add Competitor
+                        </button>
+                    </div>
+                    <div class="content-grid" id="competitorsGrid">
+                        <!-- Competitors will be rendered here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Content Modal -->
+    <div class="modal-overlay" id="newContentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Content</h3>
+                <button class="modal-close" id="closeNewContentModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Title *</label>
+                    <input type="text" class="form-input" id="contentTitle" placeholder="Enter content title">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Content Type</label>
+                    <select class="form-select" id="contentType">
+                        <option value="blog">Blog Post</option>
+                        <option value="social">Social Media</option>
+                        <option value="email">Email</option>
+                        <option value="video">Video</option>
+                        <option value="landing-page">Landing Page</option>
+                        <option value="case-study">Case Study</option>
+                        <option value="whitepaper">Whitepaper</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="contentDescription" placeholder="Brief description of the content"></textarea>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Priority</label>
+                        <select class="form-select" id="contentPriority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" class="form-input" id="contentDueDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Keywords (comma separated)</label>
+                    <input type="text" class="form-input" id="contentKeywords" placeholder="seo, marketing, strategy">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelNewContent">Cancel</button>
+                <button class="btn btn-primary" id="saveNewContent">Create Content</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/supabase-client.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/marketing-store.js"></script>
+    <script src="../js/content-strategist-service.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        // Elements
+        var tabBtns = document.querySelectorAll('.tab-btn');
+        var tabContents = document.querySelectorAll('.tab-content');
+        var newContentBtn = document.getElementById('newContentBtn');
+        var newContentModal = document.getElementById('newContentModal');
+        var closeModalBtn = document.getElementById('closeNewContentModal');
+        var cancelContentBtn = document.getElementById('cancelNewContent');
+        var saveContentBtn = document.getElementById('saveNewContent');
+
+        // Calendar state
+        var currentDate = new Date();
+
+        // Initialize
+        init();
+
+        async function init() {
+            setupTabs();
+            setupModal();
+            await loadDashboardStats();
+            renderCalendar();
+            renderKanbanBoard();
+            renderJourneyMap();
+            renderIdeasList();
+            renderCompetitors();
+            loadAuditData();
+
+            // Setup event handlers
+            document.getElementById('prevMonth').addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+            });
+
+            document.getElementById('nextMonth').addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+            });
+
+            document.getElementById('todayBtn').addEventListener('click', function() {
+                currentDate = new Date();
+                renderCalendar();
+            });
+
+            document.getElementById('runAuditBtn').addEventListener('click', runContentAudit);
+            document.getElementById('addIdeaBtn').addEventListener('click', showAddIdeaModal);
+            document.getElementById('generateIdeasBtn').addEventListener('click', generateAIIdeas);
+            document.getElementById('addCompetitorBtn').addEventListener('click', showAddCompetitorModal);
+        }
+
+        // Tabs
+        function setupTabs() {
+            tabBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var tab = this.dataset.tab;
+
+                    tabBtns.forEach(function(b) { b.classList.remove('active'); });
+                    tabContents.forEach(function(c) { c.classList.remove('active'); });
+
+                    this.classList.add('active');
+                    document.querySelector('[data-tab-content="' + tab + '"]').classList.add('active');
+                });
+            });
+        }
+
+        // Modal
+        function setupModal() {
+            newContentBtn.addEventListener('click', function() {
+                newContentModal.classList.add('active');
+            });
+
+            closeModalBtn.addEventListener('click', closeModal);
+            cancelContentBtn.addEventListener('click', closeModal);
+
+            newContentModal.addEventListener('click', function(e) {
+                if (e.target === newContentModal) closeModal();
+            });
+
+            saveContentBtn.addEventListener('click', saveNewContent);
+        }
+
+        function closeModal() {
+            newContentModal.classList.remove('active');
+            document.getElementById('contentTitle').value = '';
+            document.getElementById('contentDescription').value = '';
+            document.getElementById('contentKeywords').value = '';
+        }
+
+        async function saveNewContent() {
+            var title = document.getElementById('contentTitle').value.trim();
+            if (!title) {
+                alert('Please enter a title');
+                return;
+            }
+
+            var keywords = document.getElementById('contentKeywords').value.split(',').map(function(k) {
+                return k.trim();
+            }).filter(function(k) { return k; });
+
+            var content = await window.ContentStrategist.Content.createContent({
+                title: title,
+                type: document.getElementById('contentType').value,
+                description: document.getElementById('contentDescription').value,
+                priority: document.getElementById('contentPriority').value,
+                dueDate: document.getElementById('contentDueDate').value || null,
+                keywords: keywords,
+                status: 'idea'
+            });
+
+            closeModal();
+            await loadDashboardStats();
+            renderKanbanBoard();
+            showToast('Content created successfully!');
+        }
+
+        // Dashboard Stats
+        async function loadDashboardStats() {
+            var stats = await window.ContentStrategist.getDashboardStats();
+
+            updateMetric('total-content', stats.contentStats.total);
+            updateMetric('published-content', stats.contentStats.published);
+            updateMetric('in-progress-content', stats.contentStats.byStatus['in-progress'] || 0);
+            updateMetric('pillars-count', stats.pillarsCount);
+        }
+
+        function updateMetric(name, value) {
+            var el = document.querySelector('[data-metric="' + name + '"]');
+            if (el) el.textContent = value;
+        }
+
+        // Calendar
+        function renderCalendar() {
+            var grid = document.getElementById('calendarGrid');
+            var title = document.getElementById('calendarTitle');
+
+            var year = currentDate.getFullYear();
+            var month = currentDate.getMonth();
+
+            title.textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            var firstDay = new Date(year, month, 1);
+            var lastDay = new Date(year, month + 1, 0);
+            var startDay = firstDay.getDay();
+            var daysInMonth = lastDay.getDate();
+
+            var html = '';
+
+            // Day headers
+            var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            days.forEach(function(day) {
+                html += '<div class="calendar-day-header">' + day + '</div>';
+            });
+
+            // Previous month days
+            var prevMonth = new Date(year, month, 0);
+            var prevDays = prevMonth.getDate();
+            for (var i = startDay - 1; i >= 0; i--) {
+                html += '<div class="calendar-day other-month"><span class="calendar-day-number">' + (prevDays - i) + '</span></div>';
+            }
+
+            // Current month days
+            var today = new Date();
+            for (var d = 1; d <= daysInMonth; d++) {
+                var isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                html += '<div class="calendar-day' + (isToday ? ' today' : '') + '" data-date="' + year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0') + '">';
+                html += '<span class="calendar-day-number">' + d + '</span>';
+                html += '</div>';
+            }
+
+            // Next month days
+            var totalCells = startDay + daysInMonth;
+            var remaining = 7 - (totalCells % 7);
+            if (remaining < 7) {
+                for (var n = 1; n <= remaining; n++) {
+                    html += '<div class="calendar-day other-month"><span class="calendar-day-number">' + n + '</span></div>';
+                }
+            }
+
+            grid.innerHTML = html;
+
+            // Load events
+            loadCalendarEvents();
+        }
+
+        async function loadCalendarEvents() {
+            var year = currentDate.getFullYear();
+            var month = currentDate.getMonth();
+            var start = new Date(year, month, 1).toISOString();
+            var end = new Date(year, month + 1, 0).toISOString();
+
+            var events = await window.ContentStrategist.Calendar.getEvents(start, end);
+
+            events.forEach(function(event) {
+                var date = event.date.split('T')[0];
+                var dayEl = document.querySelector('[data-date="' + date + '"]');
+                if (dayEl) {
+                    var eventEl = document.createElement('div');
+                    eventEl.className = 'calendar-event ' + event.type;
+                    eventEl.textContent = event.title;
+                    eventEl.title = event.title + ' (' + event.status + ')';
+                    dayEl.appendChild(eventEl);
+                }
+            });
+        }
+
+        // Kanban Board
+        async function renderKanbanBoard() {
+            var board = document.getElementById('kanbanBoard');
+            var statuses = [
+                { id: 'idea', name: 'Ideas', color: '#6b7280' },
+                { id: 'planned', name: 'Planned', color: '#3b82f6' },
+                { id: 'in-progress', name: 'In Progress', color: '#f59e0b' },
+                { id: 'review', name: 'Review', color: '#8b5cf6' },
+                { id: 'published', name: 'Published', color: '#10b981' }
+            ];
+
+            var content = await window.ContentStrategist.Content.getAllContent();
+
+            var html = '';
+            statuses.forEach(function(status) {
+                var items = content.filter(function(c) { return c.status === status.id; });
+
+                html += '<div class="kanban-column">';
+                html += '<div class="kanban-column-header">';
+                html += '<span class="kanban-column-title">' + status.name + ' <span class="kanban-count">' + items.length + '</span></span>';
+                html += '</div>';
+                html += '<div class="kanban-items" data-status="' + status.id + '">';
+
+                items.forEach(function(item) {
+                    html += '<div class="kanban-item" data-id="' + item.id + '">';
+                    html += '<div class="kanban-item-title">' + escapeHtml(item.title) + '</div>';
+                    html += '<div class="kanban-item-meta">';
+                    html += '<span class="content-card-type ' + item.type + '">' + item.type + '</span>';
+                    if (item.dueDate) {
+                        html += '<span>' + new Date(item.dueDate).toLocaleDateString() + '</span>';
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                });
+
+                html += '</div></div>';
+            });
+
+            board.innerHTML = html;
+        }
+
+        // Journey Map
+        async function renderJourneyMap() {
+            var container = document.getElementById('journeyMap');
+            var journey = await window.ContentStrategist.Journey.getJourneyMap();
+
+            var html = '';
+            journey.stages.forEach(function(stage, index) {
+                html += '<div class="journey-stage">';
+                html += '<div class="journey-stage-header">';
+                html += '<h4>' + stage.name + '</h4>';
+                html += '<p>' + stage.description + '</p>';
+                html += '</div>';
+                html += '<div class="journey-stage-content">';
+                html += '<div class="journey-content-types">';
+                stage.contentTypes.forEach(function(type) {
+                    html += '<span class="journey-content-type">' + type + '</span>';
+                });
+                html += '</div>';
+                html += '<div class="journey-content-count">';
+                html += '<span>Content pieces</span>';
+                html += '<strong>' + stage.content.length + '</strong>';
+                html += '</div>';
+                html += '</div></div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Ideas List
+        async function renderIdeasList() {
+            var container = document.getElementById('ideasList');
+            var ideas = await window.ContentStrategist.Ideas.getAll();
+
+            if (ideas.length === 0) {
+                container.innerHTML = '<div class="empty-state"><svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><h3>No Ideas Yet</h3><p>Start adding content ideas or let AI generate some for you.</p></div>';
+                return;
+            }
+
+            var html = '';
+            ideas.sort(function(a, b) { return b.votes - a.votes; }).forEach(function(idea) {
+                html += '<div class="idea-item" data-id="' + idea.id + '">';
+                html += '<div class="idea-vote">';
+                html += '<button class="idea-vote-btn" onclick="voteIdea(\'' + idea.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="18 15 12 9 6 15"/></svg></button>';
+                html += '<span class="idea-vote-count">' + idea.votes + '</span>';
+                html += '</div>';
+                html += '<div class="idea-content">';
+                html += '<div class="idea-title">' + escapeHtml(idea.title) + '</div>';
+                html += '<div class="idea-meta"><span class="content-card-type ' + idea.type + '">' + idea.type + '</span> &bull; ' + idea.source + '</div>';
+                html += '</div>';
+                html += '<div class="idea-actions">';
+                html += '<button class="btn btn-sm btn-primary" onclick="convertIdea(\'' + idea.id + '\')">Convert</button>';
+                html += '</div>';
+                html += '</div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Competitors
+        async function renderCompetitors() {
+            var container = document.getElementById('competitorsGrid');
+            var competitors = await window.ContentStrategist.Competitors.getAll();
+
+            if (competitors.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><h3>No Competitors Added</h3><p>Add competitors to analyze their content strategy.</p></div>';
+                return;
+            }
+
+            var html = '';
+            competitors.forEach(function(comp) {
+                html += '<div class="content-card">';
+                html += '<div class="content-card-header">';
+                html += '<h4 class="content-card-title">' + escapeHtml(comp.name) + '</h4>';
+                html += '</div>';
+                html += '<p class="content-card-desc">' + escapeHtml(comp.website) + '</p>';
+                html += '<div class="content-card-meta">';
+                html += '<span>' + comp.contentTypes.length + ' content types</span>';
+                html += '<span>' + comp.socialChannels.length + ' channels</span>';
+                html += '</div>';
+                html += '</div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Audit
+        function loadAuditData() {
+            var history = window.ContentStrategist.Audit.getAuditHistory();
+            if (history.length > 0) {
+                displayAuditResults(history[0]);
+            }
+        }
+
+        async function runContentAudit() {
+            var content = await window.ContentStrategist.Content.getAllContent();
+            if (content.length === 0) {
+                alert('No content to audit. Create some content first.');
+                return;
+            }
+
+            var results = await window.ContentStrategist.Audit.runAudit(content);
+            displayAuditResults(results);
+            showToast('Audit completed!');
+        }
+
+        function displayAuditResults(results) {
+            var scores = results.scores;
+
+            updateAuditScore('audit-overall', scores.overall);
+            updateAuditScore('audit-quality', scores.quality);
+            updateAuditScore('audit-seo', scores.seo);
+            updateAuditScore('audit-engagement', scores.engagement);
+            updateAuditScore('audit-freshness', scores.freshness);
+
+            var recList = document.getElementById('recommendationsList');
+            if (results.recommendations.length === 0) {
+                recList.innerHTML = '<p style="color: var(--color-success);">Great job! No major recommendations at this time.</p>';
+            } else {
+                var html = '';
+                results.recommendations.forEach(function(rec) {
+                    html += '<div style="padding: 16px; background: var(--color-bg-tertiary); border-radius: 8px; margin-bottom: 12px;">';
+                    html += '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">';
+                    html += '<span class="content-status ' + rec.priority + '">' + rec.priority + '</span>';
+                    html += '<strong>' + rec.title + '</strong>';
+                    html += '</div>';
+                    html += '<p style="margin: 0; color: var(--color-text-secondary); font-size: 13px;">' + rec.description + '</p>';
+                    html += '</div>';
+                });
+                recList.innerHTML = html;
+            }
+        }
+
+        function updateAuditScore(metric, score) {
+            var el = document.querySelector('[data-metric="' + metric + '"]');
+            if (el) {
+                el.textContent = score;
+                el.className = 'audit-score-value';
+                if (score >= 80) el.classList.add('excellent');
+                else if (score >= 60) el.classList.add('good');
+                else if (score >= 40) el.classList.add('fair');
+                else el.classList.add('poor');
+            }
+        }
+
+        // Helper functions
+        function escapeHtml(str) {
+            if (!str) return '';
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function showToast(message) {
+            var toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#10b981;color:white;padding:12px 24px;border-radius:8px;z-index:9999;';
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3000);
+        }
+
+        function showAddIdeaModal() {
+            var title = prompt('Enter content idea title:');
+            if (title) {
+                window.ContentStrategist.Ideas.add({ title: title, type: 'blog' }).then(function() {
+                    renderIdeasList();
+                    showToast('Idea added!');
+                });
+            }
+        }
+
+        async function generateAIIdeas() {
+            var topic = prompt('Enter a topic to generate ideas for:');
+            if (topic) {
+                var ideas = await window.ContentStrategist.Ideas.generateIdeas(topic, 5);
+                for (var i = 0; i < ideas.length; i++) {
+                    await window.ContentStrategist.Ideas.add(ideas[i]);
+                }
+                renderIdeasList();
+                showToast(ideas.length + ' ideas generated!');
+            }
+        }
+
+        function showAddCompetitorModal() {
+            var name = prompt('Enter competitor name:');
+            if (name) {
+                var website = prompt('Enter competitor website:');
+                window.ContentStrategist.Competitors.add({
+                    name: name,
+                    website: website || '',
+                    contentTypes: [],
+                    socialChannels: []
+                }).then(function() {
+                    renderCompetitors();
+                    showToast('Competitor added!');
+                });
+            }
+        }
+
+        // Global functions for onclick handlers
+        window.voteIdea = async function(id) {
+            await window.ContentStrategist.Ideas.vote(id);
+            renderIdeasList();
+        };
+
+        window.convertIdea = async function(id) {
+            await window.ContentStrategist.Ideas.convertToContent(id);
+            await loadDashboardStats();
+            renderIdeasList();
+            renderKanbanBoard();
+            showToast('Idea converted to content!');
+        };
+    })();
+    </script>
+</body>
+</html>
