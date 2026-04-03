@@ -988,5 +988,172 @@
         }
     })();
     </script>
+
+    <!-- Login Modal -->
+    <div id="settingsLoginModal" class="settings-login-modal" style="display: none;">
+        <div class="settings-login-overlay"></div>
+        <div class="settings-login-box">
+            <button class="settings-login-close" onclick="closeSettingsLogin()">&times;</button>
+            <h2>Admin Login Required</h2>
+            <p style="color: #6b7280; margin-bottom: 24px;">Please sign in to access settings</p>
+
+            <form id="settingsLoginForm" onsubmit="handleSettingsLogin(event)">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="settingsEmail" placeholder="admin@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="settingsPassword" placeholder="Enter password" required>
+                </div>
+                <div id="settingsLoginError" style="display: none; color: #ef4444; font-size: 14px; margin-bottom: 12px;"></div>
+                <button type="submit" class="settings-login-btn">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <style>
+    .settings-login-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .settings-login-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+
+    .settings-login-box {
+        position: relative;
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .settings-login-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #9ca3af;
+        cursor: pointer;
+        line-height: 1;
+        padding: 4px 8px;
+    }
+
+    .settings-login-close:hover {
+        color: #374151;
+    }
+
+    .settings-login-box h2 {
+        margin: 0 0 8px 0;
+        font-size: 24px;
+        color: #111827;
+    }
+
+    .settings-login-box .form-group {
+        margin-bottom: 16px;
+    }
+
+    .settings-login-box .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .settings-login-box .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 15px;
+    }
+
+    .settings-login-box .form-group input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .settings-login-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .settings-login-btn:hover {
+        transform: translateY(-2px);
+    }
+    </style>
+
+    <script>
+    function showSettingsLogin() {
+        document.getElementById('settingsLoginModal').style.display = 'flex';
+    }
+
+    function closeSettingsLogin() {
+        document.getElementById('settingsLoginModal').style.display = 'none';
+        document.getElementById('settingsLoginError').style.display = 'none';
+    }
+
+    async function handleSettingsLogin(event) {
+        event.preventDefault();
+
+        const email = document.getElementById('settingsEmail').value;
+        const password = document.getElementById('settingsPassword').value;
+        const errorEl = document.getElementById('settingsLoginError');
+
+        errorEl.style.display = 'none';
+
+        try {
+            if (window.apiClient) {
+                const result = await window.apiClient.signIn(email, password);
+                if (result.success) {
+                    closeSettingsLogin();
+                    location.reload();
+                } else {
+                    errorEl.textContent = result.error || 'Invalid credentials';
+                    errorEl.style.display = 'block';
+                }
+            } else {
+                window.location.href = '/auth.html';
+            }
+        } catch (error) {
+            errorEl.textContent = 'Login failed. Please try again.';
+            errorEl.style.display = 'block';
+        }
+    }
+
+    // Show login modal on page load if not authenticated
+    if (window.apiClient && !window.apiClient.isAuthenticated()) {
+        setTimeout(() => showSettingsLogin(), 500);
+    }
+    </script>
 </body>
 </html>
