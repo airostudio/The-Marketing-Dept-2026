@@ -413,7 +413,7 @@
         <a href="#pricing">Pricing</a>
       </div>
       <div class="nav-actions">
-        <a href="#" class="nav-sign-in" onclick="openLoginModal(event)">Sign In</a>
+        <a href="/dashboard.html" class="nav-sign-in">Sign In</a>
         <a href="/hub.html" class="nav-cta">Get Started</a>
       </div>
     </div>
@@ -938,7 +938,7 @@
         authBtn.style.cssText = 'background: linear-gradient(135deg, #7c3aed, #ec4899); padding: 10px 20px; border-radius: 6px; font-weight: 600;';
         authBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          openLoginModal();
+          window.location.href = 'auth.html';
         });
       }
 
@@ -980,184 +980,6 @@
       });
     }, { threshold: 0.4 });
     sections.forEach(s => sectionObserver.observe(s));
-  </script>
-
-  <!-- ══════════════════════════════════════
-       LOGIN MODAL
-  ══════════════════════════════════════ -->
-  <div id="loginModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="modal-close" onclick="closeLoginModal()">&times;</span>
-      <h2 style="margin-bottom: 8px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Admin Login</h2>
-      <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Sign in to access the dashboard</p>
-
-      <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="admin@audema.com.au" required>
-        </div>
-        <div class="form-group">
-          <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="Enter your password" required>
-        </div>
-        <div id="loginError" style="display: none; padding: 12px; background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444; border-radius: 6px; margin-bottom: 16px; color: #ef4444; font-size: 14px;"></div>
-        <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 8px; color: white; font-weight: 600; font-size: 16px; cursor: pointer; transition: transform 0.2s;">
-          Sign In
-        </button>
-      </form>
-
-      <div style="margin-top: 20px; text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-        <p style="color: #6b7280; font-size: 14px;">
-          Don't have an account? <a href="/auth.html" style="color: #667eea; font-weight: 600; text-decoration: none;">Sign up here</a>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <style>
-    .modal {
-      position: fixed;
-      z-index: 10000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(5px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: fadeIn 0.2s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes slideIn {
-      from { transform: translateY(-20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    .modal-content {
-      background: white;
-      padding: 40px;
-      border-radius: 16px;
-      max-width: 440px;
-      width: 90%;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      position: relative;
-      animation: slideIn 0.3s ease-out;
-    }
-
-    .modal-close {
-      position: absolute;
-      right: 20px;
-      top: 20px;
-      font-size: 32px;
-      font-weight: 300;
-      color: #9ca3af;
-      cursor: pointer;
-      transition: color 0.2s;
-      line-height: 1;
-    }
-
-    .modal-close:hover {
-      color: #374151;
-    }
-
-    .modal .form-group {
-      margin-bottom: 16px;
-    }
-
-    .modal .form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    .modal .form-group input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 15px;
-      transition: border-color 0.2s;
-    }
-
-    .modal .form-group input:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-    }
-  </style>
-
-  <script>
-    function openLoginModal(event) {
-      if (event) event.preventDefault();
-      document.getElementById('loginModal').style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeLoginModal() {
-      document.getElementById('loginModal').style.display = 'none';
-      document.body.style.overflow = 'auto';
-      document.getElementById('loginError').style.display = 'none';
-      document.getElementById('loginForm').reset();
-    }
-
-    // Close modal when clicking outside
-    document.addEventListener('click', function(event) {
-      const modal = document.getElementById('loginModal');
-      if (event.target === modal) {
-        closeLoginModal();
-      }
-    });
-
-    // Close modal on Escape key
-    document.addEventListener('keydown', function(event) {
-      if (event.key === 'Escape') {
-        closeLoginModal();
-      }
-    });
-
-    async function handleLogin(event) {
-      event.preventDefault();
-
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
-      const errorEl = document.getElementById('loginError');
-
-      errorEl.style.display = 'none';
-
-      try {
-        // Use existing auth system
-        if (window.apiClient) {
-          const result = await window.apiClient.signIn(email, password);
-          if (result.success) {
-            // Successful login - redirect to dashboard
-            window.location.href = '/hub.html';
-          } else {
-            errorEl.textContent = result.error || 'Invalid email or password';
-            errorEl.style.display = 'block';
-          }
-        } else {
-          // Fallback if apiClient not loaded - redirect to auth page
-          window.location.href = '/auth.html';
-        }
-      } catch (error) {
-        errorEl.textContent = error.message || 'Login failed. Please try again.';
-        errorEl.style.display = 'block';
-      }
-    }
   </script>
 </body>
 </html>
