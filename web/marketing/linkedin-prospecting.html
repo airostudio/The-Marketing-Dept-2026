@@ -334,6 +334,31 @@
                     </div>
                 </div>
 
+                <!-- Scotty ICP Advisor Panel -->
+                <div id="scottyICPPanel" style="margin-bottom:24px;background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(236,72,153,0.05));border:1px solid rgba(124,58,237,0.22);border-radius:12px;overflow:hidden;">
+                    <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid rgba(124,58,237,0.15);cursor:pointer;" onclick="toggleICPPanel()">
+                        <div style="width:30px;height:30px;background:linear-gradient(135deg,#7c3aed,#ec4899);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:#a78bfa;">Scotty — ICP Advisor</div>
+                            <div style="font-size:11px;color:rgba(167,139,250,0.6);">Prospect scoring · outreach strategy · Scotty orchestrates all lead gen</div>
+                        </div>
+                        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                            <span id="icpImportBadge" style="display:none;font-size:11px;padding:3px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:10px;color:#10b981;">ICP loaded from Sales Intel</span>
+                            <span id="icpPanelToggle" style="font-size:11px;color:rgba(167,139,250,0.5);">▼</span>
+                        </div>
+                    </div>
+                    <div id="icpPanelBody" style="padding:16px 18px;">
+                        <div id="icpAdvisorContent" style="font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:12px;">
+                            <em style="color:rgba(255,255,255,0.35);">Loading Scotty's ICP guidance…</em>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button onclick="loadScottyICPAdvice()" style="padding:6px 14px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:7px;color:#a78bfa;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;">↻ Refresh Guidance</button>
+                            <a href="/agents/sales-agent.html" style="padding:6px 14px;background:transparent;border:1px solid rgba(124,58,237,0.25);border-radius:7px;color:rgba(167,139,250,0.7);font-size:12px;font-weight:600;text-decoration:none;">→ Sales Intelligence Agent</a>
+                            <a href="/scotty.html" style="padding:6px 14px;background:transparent;border:1px solid rgba(124,58,237,0.25);border-radius:7px;color:rgba(167,139,250,0.7);font-size:12px;font-weight:600;text-decoration:none;">→ Open Scotty</a>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Filter Bar -->
                 <div class="filter-bar">
                     <input type="text" class="filter-input" id="searchInput" placeholder="Search by name, company, title...">
@@ -554,6 +579,10 @@ Jane Doe,Beta Inc,CEO,jane@beta.com,https://linkedin.com/in/janedoe
     </div>
 
     <script src="/js/ui.js"></script>
+    <script src="/js/intelligence-engine.js"></script>
+    <script src="/js/scotty-orchestrator.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/js/claude-service.js"></script>
     <script src="/js/linkedin-prospecting-service.js"></script>
     <script>
         // PHASE 1: Global CSV import state
@@ -810,6 +839,71 @@ Jane Doe,Beta Inc,CEO,jane@beta.com,https://linkedin.com/in/janedoe
             document.getElementById('conversionRate').textContent = stats.conversionRate + '%';
             document.getElementById('newProspectsTrend').textContent = '+' + stats.newThisWeek + ' this week';
         }
+
+        // ── Scotty ICP Advisor ────────────────────────────────────────────────
+        function toggleICPPanel() {
+            const body   = document.getElementById('icpPanelBody');
+            const toggle = document.getElementById('icpPanelToggle');
+            if (!body) return;
+            const hidden = body.style.display === 'none';
+            body.style.display = hidden ? 'block' : 'none';
+            if (toggle) toggle.textContent = hidden ? '▼' : '▶';
+        }
+
+        async function loadScottyICPAdvice() {
+            const contentEl = document.getElementById('icpAdvisorContent');
+            const badge     = document.getElementById('icpImportBadge');
+            if (!contentEl) return;
+
+            // Check for ICP export from Sales Intelligence Agent
+            const icpExport = window.ScottyOrchestrator && window.ScottyOrchestrator.getICPExport
+                ? window.ScottyOrchestrator.getICPExport()
+                : null;
+
+            if (icpExport) {
+                if (badge) badge.style.display = 'inline';
+            }
+
+            if (!window.ScottyOrchestrator || !window.ClaudeService) {
+                contentEl.innerHTML = '<em style="color:rgba(255,255,255,0.35);">Scotty not available. Ensure scotty-orchestrator.js is loaded.</em>';
+                return;
+            }
+
+            contentEl.innerHTML = '<em style="color:rgba(255,255,255,0.4);">Scotty is loading ICP guidance…</em>';
+
+            const icpContext = icpExport
+                ? `ICP Target: ${icpExport.targetRole || 'N/A'}, Industry: ${icpExport.industry || 'N/A'}, Pain Points: ${icpExport.painPoints || 'N/A'}`
+                : 'ICP as configured in BusinessBrain';
+
+            const task = `I am reviewing my LinkedIn prospect list. Provide a concise ICP scoring guide:
+1. What to look for to classify prospects as A/B/C tier
+2. Top 3 personalisation hooks for reaching out right now
+3. Which prospect statuses to prioritise this week
+
+${icpContext}
+
+Keep it brief and practical — this is a quick reference for the sales team.`;
+
+            let full = '';
+            await window.ScottyOrchestrator.orchestrateLeadGen({
+                task,
+                onChunk: (chunk) => {
+                    full += chunk;
+                    contentEl.innerHTML = typeof marked !== 'undefined'
+                        ? marked.parse(full)
+                        : full.replace(/\n/g, '<br>');
+                },
+                onDone: () => { /* complete */ },
+                onError: () => {
+                    contentEl.innerHTML = '<em style="color:rgba(255,255,255,0.35);">Could not load Scotty guidance. Check your API configuration.</em>';
+                },
+            });
+        }
+
+        // Auto-load Scotty ICP advice on page ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(loadScottyICPAdvice, 800);
+        });
     </script>
 </body>
 </html>

@@ -85,6 +85,30 @@
         .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
 
+        /* ── Scotty Brief Panel ── */
+        .scotty-panel { max-width: 1100px; margin: 0 auto 24px; padding: 0 32px; }
+        .scotty-brief { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 16px; overflow: hidden; }
+        .scotty-brief-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(124,58,237,0.2); cursor: pointer; user-select: none; }
+        .scotty-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+        .scotty-title { font-size: 13px; font-weight: 700; color: #a78bfa; }
+        .scotty-sub { font-size: 11px; color: rgba(167,139,250,0.6); margin-top: 1px; }
+        .scotty-collapse { margin-left: auto; color: rgba(167,139,250,0.5); font-size: 12px; padding: 4px 10px; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.2); border-radius: 6px; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .scotty-brief-body { padding: 20px; }
+        .scotty-loading { display: flex; align-items: center; gap: 10px; color: rgba(167,139,250,0.6); font-size: 13px; padding: 8px 0; }
+        .scotty-content { font-size: 13px; line-height: 1.75; color: rgba(255,255,255,0.85); max-height: 360px; overflow-y: auto; }
+        .scotty-content h1,.scotty-content h2,.scotty-content h3 { color: #a78bfa; margin: 14px 0 6px; font-size: 13px; }
+        .scotty-content p { margin-bottom: 8px; }
+        .scotty-content ul,.scotty-content ol { margin: 6px 0 8px 18px; }
+        .scotty-content li { margin-bottom: 3px; }
+        .scotty-content strong { color: #fff; }
+        .scotty-brief-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(124,58,237,0.15); }
+        .btn-scotty-refresh { padding: 6px 14px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); border-radius: 7px; color: #a78bfa; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-scotty-refresh:hover { background: rgba(124,58,237,0.25); }
+        .btn-scotty-link { padding: 6px 14px; background: transparent; border: 1px solid rgba(124,58,237,0.3); border-radius: 7px; color: rgba(167,139,250,0.7); font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.15s; }
+        .btn-scotty-link:hover { color: #a78bfa; }
+        .btn-export { display: none; padding: 6px 14px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 7px; color: var(--green); font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; margin-left: auto; }
+        .btn-export:hover { background: rgba(16,185,129,0.22); }
+
         @media (max-width: 900px) { .main-content { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero h1 { font-size: 30px; } }
     </style>
 </head>
@@ -111,6 +135,32 @@
     <p class="hero-tagline">Apollo-style prospecting, enrichment, and outreach at scale</p>
     <span class="powered-pill">⚡ Powered by Claude</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
+</div>
+
+<!-- ── Scotty Strategic Brief — mandatory orchestrator for all lead gen ── -->
+<div class="scotty-panel">
+    <div class="scotty-brief" id="scottyBrief">
+        <div class="scotty-brief-header" onclick="toggleScottyBrief()">
+            <div class="scotty-avatar">🤖</div>
+            <div>
+                <div class="scotty-title">Scotty — Lead Gen Brief</div>
+                <div class="scotty-sub">Strategic orchestration · all lead gen goes through Scotty first</div>
+            </div>
+            <button class="scotty-collapse" id="scottyCollapseBtn">▼ collapse</button>
+        </div>
+        <div class="scotty-brief-body" id="scottyBriefBody">
+            <div class="scotty-loading" id="scottyLoading">
+                <div class="dot-pulse"><span></span><span></span><span></span></div>
+                Scotty is analysing your ICP and market signals…
+            </div>
+            <div class="scotty-content" id="scottyContent" style="display:none;"></div>
+            <div class="scotty-brief-actions">
+                <button class="btn-scotty-refresh" onclick="agent.refreshScottyBrief()">↻ Refresh Brief</button>
+                <a class="btn-scotty-link" href="/scotty.html">Open Scotty →</a>
+                <button class="btn-export" id="exportProspectsBtn" onclick="agent.exportToProspects()">↗ Send ICP to Prospects</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="main-content">
@@ -196,15 +246,82 @@
 
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
+<script src="../js/scotty-orchestrator.js"></script>
 <script>
 class SalesAgent {
     constructor() {
         this.claudeService = window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
+        this.scottyOrchestrator = window.ScottyOrchestrator;
+        this._scottyBrief = null;  // cached Scotty strategic brief
+        this._lastStrategy = null; // cached last generated strategy
+
         this._checkIntelligence();
         this._loadICP();
         this._loadValueProp();
         this._loadPainPoints();
+        // Scotty is always consulted first — load brief on page init
+        this.loadScottyBrief();
+    }
+
+    async loadScottyBrief() {
+        if (!this.scottyOrchestrator) {
+            const loadingEl = document.getElementById('scottyLoading');
+            const contentEl = document.getElementById('scottyContent');
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (contentEl) {
+                contentEl.style.display = 'block';
+                contentEl.innerHTML = '<em style="color:rgba(255,255,255,0.35);">Scotty not loaded — ensure scotty-orchestrator.js is included.</em>';
+            }
+            return;
+        }
+
+        const loadingEl = document.getElementById('scottyLoading');
+        const contentEl = document.getElementById('scottyContent');
+
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (contentEl) { contentEl.style.display = 'none'; contentEl.innerHTML = ''; }
+
+        const taskType  = document.getElementById('taskType').value;
+        const role      = (document.getElementById('targetRole').value || '').replace(/✨\s?/, '').replace(' (from BusinessBrain ICP)', '').trim();
+        const industry  = (document.getElementById('industry').value  || '').replace(/✨\s?/, '').replace(' (from BusinessBrain ICP)', '').trim();
+
+        const task = `Generate a Lead Gen Brief for:
+Task Type: ${taskType}
+Target Role: ${role || 'as configured in BusinessBrain ICP'}
+Industry: ${industry || 'as configured in BusinessBrain ICP'}
+
+Provide strategic context, ICP A/B/C-tier qualification criteria, top outreach hooks, multi-touch cadence map, competitive displacement angles, A/B test variants, and expected pipeline impact.`;
+
+        let fullResponse = '';
+        await this.scottyOrchestrator.orchestrateLeadGen({
+            task,
+            onChunk: (chunk) => {
+                fullResponse += chunk;
+                if (contentEl) {
+                    contentEl.innerHTML = marked.parse(fullResponse);
+                    contentEl.style.display = 'block';
+                }
+                if (loadingEl) loadingEl.style.display = 'none';
+            },
+            onDone: () => {
+                this._scottyBrief = fullResponse;
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'block';
+            },
+            onError: () => {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) {
+                    contentEl.style.display = 'block';
+                    contentEl.innerHTML = '<em style="color:rgba(255,255,255,0.35);">Scotty brief unavailable. Configure the Intelligence Layer for data-driven lead gen.</em>';
+                }
+            },
+        });
+    }
+
+    refreshScottyBrief() {
+        this._scottyBrief = null;
+        this.loadScottyBrief();
     }
 
     _checkIntelligence() {
@@ -246,15 +363,17 @@ class SalesAgent {
     }
 
     _loadValueProp() {
-        // Auto-populate value proposition from BusinessBrain
+        // Auto-populate value proposition from BusinessBrain positioning.uniqueValue
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.positioning) {
+            if (data && data.positioning && data.positioning.uniqueValue) {
                 const textarea = document.getElementById('valueProp');
-                let valuePropText = data.positioning;
+                let valuePropText = data.positioning.uniqueValue;
 
-                if (data.valueProp && data.valueProp.primaryBenefit) {
-                    valuePropText += ` — ${data.valueProp.primaryBenefit}`;
+                // Append up to 2 differentiation points for richer context
+                if (Array.isArray(data.positioning.differentiation)) {
+                    const diffs = data.positioning.differentiation.filter(d => d && d.trim()).slice(0, 2);
+                    if (diffs.length > 0) valuePropText += ` — ${diffs.join('; ')}`;
                 }
 
                 textarea.value = `✨ ${valuePropText} (from BusinessBrain)`;
@@ -484,6 +603,30 @@ Create data-driven outreach strategies that:
         return triggers;
     }
 
+    exportToProspects() {
+        const clean = (id, suffix) =>
+            (document.getElementById(id).value || '')
+                .replace(/✨\s?/, '').replace(suffix, '').trim();
+
+        const icpExport = {
+            targetRole:  clean('targetRole', ' (from BusinessBrain ICP)'),
+            industry:    clean('industry',   ' (from BusinessBrain ICP)'),
+            valueProp:   clean('valueProp',  ' (from BusinessBrain)'),
+            painPoints:  clean('painPoints', ' (from BusinessBrain ICP)'),
+            taskType:    document.getElementById('taskType').value,
+            strategy:    this._lastStrategy  || '',
+            scottyBrief: this._scottyBrief   || '',
+        };
+
+        if (this.scottyOrchestrator && this.scottyOrchestrator.exportICPToProspecting) {
+            this.scottyOrchestrator.exportICPToProspecting(icpExport);
+        }
+
+        const btn = document.getElementById('exportProspectsBtn');
+        if (btn) { btn.textContent = '✓ ICP Exported!'; }
+        setTimeout(() => { window.open('/marketing/linkedin-prospecting.html', '_blank'); }, 700);
+    }
+
     _showSalesStrategyWarning(completionScore) {
         if (completionScore < 30) {
             const outputEl = document.getElementById('output');
@@ -556,19 +699,35 @@ Deliver a comprehensive ${taskType} strategy with:
 - Expected qualified pipeline increase (30-50% target)
 - Step-by-step implementation guidance${buyerIntentSignals}${prospectQualificationCriteria}${personalizationTriggers}`;
 
+        // Prepend Scotty's brief into the system prompt so every strategy is
+        // grounded in Scotty's strategic context, ICP criteria, and competitive angles.
+        let fullSystemPrompt = systemPrompt;
+        if (this._scottyBrief) {
+            fullSystemPrompt += `\n\n## SCOTTY'S LEAD GEN BRIEF (Strategic Context)\n` +
+                `${this._scottyBrief.substring(0, 2000)}\n\n` +
+                `Ensure the strategy aligns with Scotty's ICP criteria, hooks, cadence map, and competitive angles above.\n`;
+        }
+
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
             outputEl.innerHTML = '';
             try {
                 await this.claudeService.streamResponse({
-                    systemPrompt,
+                    systemPrompt: fullSystemPrompt,
                     messages: [{ role: 'user', content: userMessage }],
                     onChunk: (chunk) => {
                         fullResponse += chunk;
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Build Strategy'; }
+                    onDone: () => {
+                        runBtn.disabled = false;
+                        runBtn.textContent = 'Build Strategy';
+                        this._lastStrategy = fullResponse;
+                        // Reveal the "Send ICP to Prospects" export button
+                        const exportBtn = document.getElementById('exportProspectsBtn');
+                        if (exportBtn) exportBtn.style.display = 'inline-flex';
+                    },
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
@@ -585,6 +744,15 @@ Deliver a comprehensive ${taskType} strategy with:
 }
 
 const agent = new SalesAgent();
+
+function toggleScottyBrief() {
+    const body = document.getElementById('scottyBriefBody');
+    const btn  = document.getElementById('scottyCollapseBtn');
+    if (!body) return;
+    const collapsed = body.style.display === 'none';
+    body.style.display = collapsed ? 'block' : 'none';
+    if (btn) btn.textContent = collapsed ? '▼ collapse' : '▶ expand';
+}
 
 function copyOutput() {
     const text = document.getElementById('output').innerText;

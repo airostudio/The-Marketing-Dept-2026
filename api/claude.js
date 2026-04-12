@@ -102,6 +102,8 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      // Prevent nginx / Vercel edge from buffering SSE — bytes must flow immediately
+      res.setHeader('X-Accel-Buffering', 'no');
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -113,19 +115,30 @@ export default async function handler(req, res) {
         });
       }
 
+      // Keep-alive: send an SSE comment every 15 s while Claude is "thinking".
+      // SSE comments (lines starting with ':') are ignored by EventSource parsers
+      // but prevent CDN/proxy idle-timeout from killing the connection before the
+      // first real chunk arrives (Vercel edge default idle cutoff is ~30 s).
+      const keepAliveInterval = setInterval(() => {
+        try { res.write(': keep-alive\n\n'); } catch (_) { /* stream already closed */ }
+      }, 15000);
+
       // Stream the response back to the client
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        res.write(chunk);
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+        }
+      } finally {
+        clearInterval(keepAliveInterval);
+        res.end();
       }
-
-      res.end();
     } else {
       // Non-streaming response
       if (!response.ok) {
