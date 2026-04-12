@@ -126,6 +126,8 @@
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>
         <a class="nav-link" href="/scotty.html">Scotty</a>
+        <a class="nav-link" href="/marketing/ab-testing.html">A/B Tests</a>
+        <a class="nav-link" href="/marketing/linkedin-prospecting.html">Prospects</a>
     </div>
 </nav>
 
@@ -247,6 +249,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-orchestrator.js"></script>
+<script src="../js/ab-testing-service.js"></script>
 <script>
 class SalesAgent {
     constructor() {
@@ -308,6 +311,8 @@ Provide strategic context, ICP A/B/C-tier qualification criteria, top outreach h
                 this._scottyBrief = fullResponse;
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (contentEl) contentEl.style.display = 'block';
+                // Auto-import any A/B variants Scotty generated into the testing service
+                this._importABVariantsFromBrief(fullResponse);
             },
             onError: () => {
                 if (loadingEl) loadingEl.style.display = 'none';
@@ -322,6 +327,19 @@ Provide strategic context, ICP A/B/C-tier qualification criteria, top outreach h
     refreshScottyBrief() {
         this._scottyBrief = null;
         this.loadScottyBrief();
+    }
+
+    _importABVariantsFromBrief(briefText) {
+        // Auto-create A/B tests in ABTestingService from Scotty's generated variants
+        if (!window.ABTestingService || !briefText) return;
+        try {
+            const created = ABTestingService.importFromScottyBrief(briefText);
+            if (created.length > 0) {
+                console.log(`[SalesAgent] Auto-imported ${created.length} A/B test(s) from Scotty brief`);
+            }
+        } catch (e) {
+            console.warn('[SalesAgent] A/B import failed:', e.message);
+        }
     }
 
     _checkIntelligence() {

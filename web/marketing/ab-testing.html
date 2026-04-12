@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A/B Testing | Sales Tools | Audema</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+            --amber: #f59e0b; --red: #ef4444;
+            --bg: #070711; --surface: rgba(255,255,255,0.03);
+            --border: rgba(255,255,255,0.08); --text: #ffffff; --text2: rgba(255,255,255,0.55);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(7,7,17,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+        .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-bc { font-size: 14px; color: var(--text2); margin-left: 12px; }
+        .nav-actions { display: flex; gap: 8px; }
+        .nav-btn { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); cursor: pointer; background: transparent; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; border: none; }
+        .nav-btn-primary:hover { opacity: 0.88; color: #fff; }
+
+        .page { max-width: 1100px; margin: 0 auto; padding: 40px 32px 80px; }
+        .page-header { margin-bottom: 32px; }
+        .page-title { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+        .page-sub { font-size: 14px; color: var(--text2); }
+
+        /* Stats row */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .stat-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 700; }
+
+        /* New test form */
+        .new-test-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 32px; }
+        .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 16px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field { margin-bottom: 14px; }
+        .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .field-input, .field-select, .field-textarea { width: 100%; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); }
+        .field-textarea { resize: vertical; min-height: 64px; }
+        .field-select option { background: #13131f; }
+        .btn-create { padding: 10px 20px; background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; border-radius: 9px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.15s; }
+        .btn-create:hover { opacity: 0.85; }
+
+        /* Tests list */
+        .test-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+        .test-card-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+        .test-status-pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-active     { background: rgba(16,185,129,0.15); color: var(--green); }
+        .status-concluded  { background: rgba(148,163,184,0.12); color: #94a3b8; }
+        .status-paused     { background: rgba(245,158,11,0.15); color: var(--amber); }
+        .test-name { font-size: 15px; font-weight: 700; flex: 1; }
+        .test-meta { font-size: 12px; color: var(--text2); }
+        .test-body { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .variant-block { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+        .variant-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .variant-label-a { color: var(--cyan); }
+        .variant-label-b { color: var(--pink); }
+        .variant-text { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.8); margin-bottom: 12px; }
+        .variant-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .vstat { text-align: center; padding: 8px 4px; background: rgba(255,255,255,0.03); border-radius: 7px; }
+        .vstat-val { font-size: 18px; font-weight: 700; }
+        .vstat-lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+        .winner-banner { grid-column: 1/-1; padding: 10px 16px; border-radius: 9px; font-size: 13px; font-weight: 600; text-align: center; }
+        .winner-a  { background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); color: var(--cyan); }
+        .winner-b  { background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.3); color: var(--pink); }
+        .winner-tied { background: rgba(148,163,184,0.1); border: 1px solid rgba(148,163,184,0.25); color: #94a3b8; }
+        .winner-low  { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: var(--amber); }
+        .test-actions { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
+        .btn-sm { padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; border: 1px solid var(--border); background: transparent; color: var(--text2); transition: all 0.15s; }
+        .btn-sm:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+        .btn-danger { border-color: rgba(239,68,68,0.3); color: #ef4444; }
+        .btn-danger:hover { background: rgba(239,68,68,0.1); }
+        .btn-conclude { border-color: rgba(16,185,129,0.3); color: var(--green); }
+        .btn-conclude:hover { background: rgba(16,185,129,0.1); }
+
+        .empty-state { text-align: center; padding: 80px 20px; color: var(--text2); }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+
+        @media (max-width: 768px) { .stats-row { grid-template-columns: 1fr 1fr; } .form-row { grid-template-columns: 1fr; } .test-body { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div style="display:flex;align-items:center;">
+        <a class="nav-logo" href="/index.html">
+            <div class="nav-logo-icon">⚡</div>Audema
+        </a>
+        <span class="nav-bc">/ A/B Testing</span>
+    </div>
+    <div class="nav-actions">
+        <a class="nav-btn" href="linkedin-prospecting.html">← Prospects</a>
+        <a class="nav-btn" href="/agents/sales-agent.html">Sales Agent</a>
+        <a class="nav-btn" href="/scotty.html">Scotty</a>
+    </div>
+</nav>
+
+<div class="page">
+
+    <div class="page-header">
+        <h1 class="page-title">⚡ A/B Testing</h1>
+        <p class="page-sub">Track subject line and opening message variants. Scotty auto-imports variants from every lead gen brief.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-label">Active Tests</div><div class="stat-value" id="statActive">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Sends</div><div class="stat-value" id="statSends">—</div></div>
+        <div class="stat-card"><div class="stat-label">Best Response Rate</div><div class="stat-value" id="statBest">—</div></div>
+        <div class="stat-card"><div class="stat-label">Winners Declared</div><div class="stat-value" id="statWinners">—</div></div>
+    </div>
+
+    <!-- Create test -->
+    <div class="new-test-panel">
+        <div class="panel-title">+ Create New Test</div>
+        <div class="field">
+            <label class="field-label">Test Name</label>
+            <input class="field-input" id="newTestName" type="text" placeholder='e.g. "Q2 Subject Line — Pain vs Curiosity"'>
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label class="field-label">Variant A</label>
+                <textarea class="field-textarea" id="newVariantA" placeholder="Subject: Is [pain point] costing you deals?"></textarea>
+            </div>
+            <div class="field">
+                <label class="field-label">Variant B</label>
+                <textarea class="field-textarea" id="newVariantB" placeholder="Subject: How [Company] cut [metric] by 40%"></textarea>
+            </div>
+        </div>
+        <div class="form-row" style="margin-bottom:16px;">
+            <div class="field" style="margin-bottom:0;">
+                <label class="field-label">Test Type</label>
+                <select class="field-select" id="newTestType">
+                    <option value="subject_line">Subject Line</option>
+                    <option value="opening_line">Opening Line</option>
+                    <option value="cta">Call to Action</option>
+                    <option value="full_message">Full Message</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-create" onclick="createTest()">Create Test</button>
+    </div>
+
+    <!-- Tests list -->
+    <div id="testsList"></div>
+
+</div>
+
+<script src="/js/ab-testing-service.js"></script>
+<script>
+    function renderStats() {
+        const all     = ABTestingService.getAll();
+        const active  = all.filter(t => t.status === 'active').length;
+        const results = ABTestingService.getAllResults();
+        let totalSends = 0, bestRate = 0, winners = 0;
+        results.forEach(r => {
+            if (!r.A || !r.B) return;
+            totalSends += (r.A.sent + r.B.sent);
+            const best = Math.max(r.A.response_rate, r.B.response_rate);
+            if (best > bestRate) bestRate = best;
+            if (r.winner === 'A' || r.winner === 'B') winners++;
+        });
+        document.getElementById('statActive').textContent   = active;
+        document.getElementById('statSends').textContent    = totalSends;
+        document.getElementById('statBest').textContent     = bestRate ? bestRate + '%' : '—';
+        document.getElementById('statWinners').textContent  = winners;
+    }
+
+    function winnerBanner(r) {
+        if (r.winner === 'A') return `<div class="winner-banner winner-a">🏆 Variant A is winning — ${r.A.response_rate}% vs ${r.B.response_rate}% response rate (${r.confidence} confidence)</div>`;
+        if (r.winner === 'B') return `<div class="winner-banner winner-b">🏆 Variant B is winning — ${r.B.response_rate}% vs ${r.A.response_rate}% response rate (${r.confidence} confidence)</div>`;
+        if (r.winner === 'tied') return `<div class="winner-banner winner-tied">🤝 Too close to call — ${r.A.response_rate}% vs ${r.B.response_rate}% (${r.confidence} confidence)</div>`;
+        return `<div class="winner-banner winner-low">⏳ Insufficient data — need more sends to determine a winner</div>`;
+    }
+
+    function variantBlock(label, cssClass, text, stats) {
+        return `<div class="variant-block">
+            <div class="variant-label ${cssClass}">Variant ${label}</div>
+            <div class="variant-text">${text}</div>
+            <div class="variant-stats">
+                <div class="vstat"><div class="vstat-val">${stats.sent}</div><div class="vstat-lbl">Sent</div></div>
+                <div class="vstat"><div class="vstat-val" style="color:#10b981;">${stats.response_rate}%</div><div class="vstat-lbl">Response</div></div>
+                <div class="vstat"><div class="vstat-val" style="color:#8b5cf6;">${stats.meeting_rate}%</div><div class="vstat-lbl">Meeting</div></div>
+            </div>
+        </div>`;
+    }
+
+    function renderTests() {
+        const container = document.getElementById('testsList');
+        const results   = ABTestingService.getAllResults();
+
+        if (!results.length) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚡</div><p style="font-size:16px;margin-bottom:8px;">No A/B tests yet</p><p style="font-size:14px;">Create a test above or ask Scotty for a lead gen brief — variants are auto-imported.</p></div>`;
+            return;
+        }
+
+        container.innerHTML = results.map(r => {
+            if (!r.A) return '';
+            const t      = r.test;
+            const date   = new Date(t.createdAt).toLocaleDateString();
+            const scotty = t.scottyBriefId ? '<span style="font-size:11px;padding:2px 7px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.25);border-radius:10px;color:#a78bfa;margin-left:8px;">Scotty</span>' : '';
+            const typeLabel = { subject_line: 'Subject Line', opening_line: 'Opening Line', cta: 'CTA', full_message: 'Full Message' }[t.agentType] || t.agentType;
+
+            return `<div class="test-card">
+                <div class="test-card-header">
+                    <span class="test-status-pill status-${t.status}">${t.status}</span>
+                    <div class="test-name">${t.name}${scotty}</div>
+                    <div class="test-meta">${typeLabel} · ${date}</div>
+                </div>
+                <div class="test-body">
+                    ${variantBlock('A', 'variant-label-a', t.variantA, r.A)}
+                    ${variantBlock('B', 'variant-label-b', t.variantB, r.B)}
+                    ${winnerBanner(r)}
+                </div>
+                <div class="test-actions">
+                    ${t.status === 'active' ? `<button class="btn-sm btn-conclude" onclick="conclude('${t.id}')">Declare Winner</button>` : ''}
+                    ${t.status === 'active' ? `<button class="btn-sm" onclick="pause('${t.id}')">Pause</button>` : ''}
+                    ${t.status === 'paused' ? `<button class="btn-sm btn-conclude" onclick="resume('${t.id}')">Resume</button>` : ''}
+                    <button class="btn-sm btn-danger" onclick="del('${t.id}')">Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function createTest() {
+        const name    = document.getElementById('newTestName').value.trim();
+        const varA    = document.getElementById('newVariantA').value.trim();
+        const varB    = document.getElementById('newVariantB').value.trim();
+        const type    = document.getElementById('newTestType').value;
+        if (!name || !varA || !varB) { alert('Please fill in the test name and both variants.'); return; }
+        ABTestingService.createTest({ name, variantA: varA, variantB: varB, agentType: type });
+        document.getElementById('newTestName').value = '';
+        document.getElementById('newVariantA').value = '';
+        document.getElementById('newVariantB').value = '';
+        refresh();
+    }
+
+    function conclude(id) {
+        const w = prompt('Which variant won? Enter A or B (or leave blank for inconclusive):');
+        const winner = ['A','B'].includes(w?.toUpperCase()) ? w.toUpperCase() : 'inconclusive';
+        ABTestingService.concludeTest(id, winner);
+        refresh();
+    }
+
+    function pause(id)   { ABTestingService.updateTest(id, { status: 'paused'  }); refresh(); }
+    function resume(id)  { ABTestingService.updateTest(id, { status: 'active'  }); refresh(); }
+    function del(id)     { if (confirm('Delete this test and all send records?')) { ABTestingService.deleteTest(id); refresh(); } }
+
+    function refresh() { renderStats(); renderTests(); }
+    refresh();
+</script>
+</body>
+</html>

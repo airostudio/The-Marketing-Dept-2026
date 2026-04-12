@@ -442,7 +442,10 @@
 
                 <div class="form-group">
                     <label class="form-label">Email</label>
-                    <input type="email" class="form-input" id="email" placeholder="john@acmecorp.com">
+                    <div style="display:flex;align-items:center;gap:0;">
+                        <input type="email" class="form-input" id="email" placeholder="john@acmecorp.com" style="flex:1;">
+                    </div>
+                    <div id="emailVerificationBadge" style="margin-top:6px;min-height:22px;"></div>
                 </div>
 
                 <div class="form-group">
@@ -477,6 +480,31 @@
                     <label class="form-label">Tags</label>
                     <input type="text" class="form-input" id="tags" placeholder="enterprise, decision-maker, warm-lead">
                     <p class="form-hint">Separate tags with commas</p>
+                </div>
+
+                <!-- A/B Testing — assign variant when adding/editing a prospect -->
+                <div class="form-group" id="abTestGroup" style="border-top:1px solid #e2e8f0;padding-top:16px;">
+                    <label class="form-label" style="display:flex;align-items:center;gap:6px;">
+                        ⚡ A/B Test Assignment
+                        <span style="font-size:11px;font-weight:400;color:#94a3b8;">(optional — track which message variant was sent)</span>
+                    </label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+                        <div>
+                            <label style="font-size:12px;color:#64748b;font-weight:500;">Active Test</label>
+                            <select class="form-select" id="abTestSelect" style="margin-top:4px;font-size:13px;">
+                                <option value="">— No test assigned —</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#64748b;font-weight:500;">Variant Sent</label>
+                            <select class="form-select" id="abVariantSelect" style="margin-top:4px;font-size:13px;" disabled>
+                                <option value="">Select variant…</option>
+                                <option value="A">Variant A</option>
+                                <option value="B">Variant B</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="abVariantPreview" style="margin-top:8px;font-size:12px;color:#64748b;display:none;padding:8px;background:#f8fafc;border-radius:6px;"></div>
                 </div>
 
                 <div style="display:flex;gap:12px;margin-top:32px;">
@@ -583,6 +611,8 @@ Jane Doe,Beta Inc,CEO,jane@beta.com,https://linkedin.com/in/janedoe
     <script src="/js/scotty-orchestrator.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/js/claude-service.js"></script>
+    <script src="/js/email-verification-service.js"></script>
+    <script src="/js/ab-testing-service.js"></script>
     <script src="/js/linkedin-prospecting-service.js"></script>
     <script>
         // PHASE 1: Global CSV import state
@@ -609,6 +639,13 @@ Jane Doe,Beta Inc,CEO,jane@beta.com,https://linkedin.com/in/janedoe
             // Event listeners
             document.getElementById('addProspectBtn').addEventListener('click', () => {
                 LinkedInProspectingService.openModal();
+                // Reset verification badge when opening a new prospect form
+                const badge = document.getElementById('emailVerificationBadge');
+                if (badge) badge.innerHTML = '';
+                // Attach verify button (idempotent — won't duplicate if already attached)
+                if (window.EmailVerificationService) {
+                    EmailVerificationService.attachVerifyButton('email', 'emailVerificationBadge');
+                }
             });
 
             document.getElementById('closeModal').addEventListener('click', () => {
@@ -903,6 +940,59 @@ Keep it brief and practical — this is a quick reference for the sales team.`;
         // Auto-load Scotty ICP advice on page ready
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(loadScottyICPAdvice, 800);
+        });
+
+        // ── A/B Testing UI ────────────────────────────────────────────────────
+        function populateABTestDropdown() {
+            const sel = document.getElementById('abTestSelect');
+            if (!sel || !window.ABTestingService) return;
+            const tests = ABTestingService.getActiveTests();
+            // Preserve "no test" option
+            sel.innerHTML = '<option value="">— No test assigned —</option>';
+            tests.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value       = t.id;
+                opt.textContent = t.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateABTestDropdown();
+
+            const testSel    = document.getElementById('abTestSelect');
+            const variantSel = document.getElementById('abVariantSelect');
+            const preview    = document.getElementById('abVariantPreview');
+
+            if (testSel) {
+                testSel.addEventListener('change', () => {
+                    const testId = testSel.value;
+                    if (!testId) {
+                        variantSel.disabled = true;
+                        variantSel.value    = '';
+                        if (preview) preview.style.display = 'none';
+                        return;
+                    }
+                    variantSel.disabled = false;
+                    variantSel.dispatchEvent(new Event('change'));
+                });
+            }
+
+            if (variantSel) {
+                variantSel.addEventListener('change', () => {
+                    const testId  = testSel?.value;
+                    const variant = variantSel.value;
+                    if (!testId || !variant || !preview || !window.ABTestingService) {
+                        if (preview) preview.style.display = 'none';
+                        return;
+                    }
+                    const test = ABTestingService.getById(testId);
+                    if (!test) return;
+                    const text = variant === 'A' ? test.variantA : test.variantB;
+                    preview.textContent  = `${test.agentType === 'subject_line' ? 'Subject' : 'Opening'} ${variant}: "${text}"`;
+                    preview.style.display = 'block';
+                });
+            }
         });
     </script>
 </body>
