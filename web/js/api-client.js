@@ -50,14 +50,22 @@ class APIClient {
 
     try {
       const response = await fetch(url, config);
-      const result = await response.json();
+
+      // Safely parse — server may return HTML on errors (Vercel 404, nginx, etc.)
+      const text = await response.text();
+      let result;
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch (_) {
+        const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+        throw new Error(`Unexpected server response (${response.status}). The API may be unreachable. Details: ${preview}`);
+      }
 
       if (!response.ok) {
-        // Token expired - try to refresh
+        // Token expired — try to refresh once
         if (response.status === 401 && this.refreshToken && !options.skipRefresh) {
           const refreshed = await this.refreshAccessToken();
           if (refreshed) {
-            // Retry original request with new token
             return await this._request(method, endpoint, data, { ...options, skipRefresh: true });
           }
         }
@@ -68,6 +76,9 @@ class APIClient {
       return result.data || result;
 
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Cannot reach the server. Please check your connection or try again later.');
+      }
       console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
       throw error;
     }
