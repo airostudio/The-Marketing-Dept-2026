@@ -465,7 +465,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch (_) { throw new Error('Server error. Please try again.'); }
         if (!data.success) throw new Error(data.error || 'Request failed.');
         showSuccess('Check your email — a reset link has been sent.');
         btn.innerHTML = 'Send Reset Link';
@@ -498,7 +500,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, password }),
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch (_) { throw new Error('Server error. Please try again.'); }
         if (!data.success) throw new Error(data.error || 'Reset failed.');
         showSuccess('Password updated! Redirecting to login...');
         setTimeout(() => {
