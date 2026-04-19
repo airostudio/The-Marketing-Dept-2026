@@ -32,8 +32,21 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Security
-app.use(helmet());
+// Security headers
+app.use(helmet({
+  hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'"],
+      styleSrc:       ["'self'", "'unsafe-inline'"],
+      imgSrc:         ["'self'", 'data:', 'https:'],
+      connectSrc:     ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 
 // CORS
 app.use(cors({

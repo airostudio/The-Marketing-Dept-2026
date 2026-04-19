@@ -1,623 +1,312 @@
 /**
- * Authentication Module
- * Handles user login, registration, and session management
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * AUTH MODULE — Audema Marketing Platform
  *
- * Uses Supabase for persistent authentication when configured,
- * falls back to localStorage for demo/offline mode.
+ * Single source of truth for authentication state.
+ * All auth operations delegate to api-client.js (JWT backend).
+ *
+ * Storage keys (must match api-client.js):
+ *   localStorage['access_token']  — JWT access token
+ *   localStorage['refresh_token'] — JWT refresh token
+ *   localStorage['user']          — JSON user object
+ *
+ * Previous demo/Supabase fallback mode has been removed.
+ * All auth is now handled by the backend Express API via JWTs.
+ * ═══════════════════════════════════════════════════════════════════════════════
  */
+
+'use strict';
 
 const Auth = {
-    // Storage keys
-    STORAGE_KEY: 'seo_agent_user',
-    SESSION_KEY: 'seo_agent_session',
+  // ── State checks ──────────────────────────────────────────────────────────
 
-    /**
-     * Check if Supabase is available and configured
-     */
-    useSupabase() {
-        return typeof window.Supabase !== 'undefined' && window.Supabase.isConfigured();
-    },
+  /**
+   * Synchronous check — safe to call anywhere without await.
+   * Returns true only if an access token is present in storage.
+   * NOTE: does not validate the token signature (use isAuthenticated() for that).
+   */
+  isAuthenticatedSync() {
+    return !!localStorage.getItem('access_token');
+  },
 
-    /**
-     * Check if user is authenticated
-     */
-    async isAuthenticated() {
-        // Try Supabase first
-        if (this.useSupabase()) {
-            try {
-                const session = await window.Supabase.Auth.getSession();
-                if (session) {
-                    return true;
-                }
-            } catch (e) {
-                console.warn('Supabase auth check failed, falling back to local:', e);
-            }
-        }
+  /**
+   * Async check — verifies the stored token is still accepted by the backend.
+   * Falls back to sync check if apiClient is unavailable.
+   */
+  async isAuthenticated() {
+    if (!window.apiClient) return this.isAuthenticatedSync();
+    return window.apiClient.isAuthenticated();
+  },
 
-        // Fallback to local session
-        const session = localStorage.getItem(this.SESSION_KEY);
-        if (!session) return false;
+  // ── User data ─────────────────────────────────────────────────────────────
 
-        try {
-            const sessionData = JSON.parse(session);
-            // Check if session is expired (24 hours)
-            if (Date.now() > sessionData.expires) {
-                this.logout();
-                return false;
-            }
-            return true;
-        } catch {
-            return false;
-        }
-    },
-
-    /**
-     * Synchronous check for immediate UI decisions
-     * For async operations, use isAuthenticated() instead
-     */
-    isAuthenticatedSync() {
-        // Check local session first (fast)
-        const session = localStorage.getItem(this.SESSION_KEY);
-        if (!session) return false;
-
-        try {
-            const sessionData = JSON.parse(session);
-            if (Date.now() > sessionData.expires) {
-                return false;
-            }
-            return true;
-        } catch {
-            return false;
-        }
-    },
-
-    /**
-     * Get current user data
-     */
-    async getUser() {
-        // Try Supabase first
-        if (this.useSupabase()) {
-            try {
-                const user = await window.Supabase.Auth.getUser();
-                if (user) {
-                    return {
-                        id: user.id,
-                        email: user.email,
-                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
-                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
-                        plan: user.user_metadata?.plan || 'free',
-                        createdAt: user.created_at
-                    };
-                }
-            } catch (e) {
-                console.warn('Supabase getUser failed, falling back to local:', e);
-            }
-        }
-
-        // Fallback to local storage
-        const userData = localStorage.getItem(this.STORAGE_KEY);
-        if (!userData) return null;
-
-        try {
-            return JSON.parse(userData);
-        } catch {
-            return null;
-        }
-    },
-
-    /**
-     * Synchronous get user for immediate UI
-     */
-    getUserSync() {
-        const userData = localStorage.getItem(this.STORAGE_KEY);
-        if (!userData) return null;
-
-        try {
-            return JSON.parse(userData);
-        } catch {
-            return null;
-        }
-    },
-
-    /**
-     * Login user
-     */
-    async login(email, password, remember = false) {
-        // Try Supabase first
-        if (this.useSupabase()) {
-            try {
-                const { user, session } = await window.Supabase.Auth.signIn(email, password);
-
-                if (user) {
-                    // Create local session for fast checks
-                    const sessionDuration = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-                    const localSession = {
-                        userId: user.id,
-                        email: user.email,
-                        created: Date.now(),
-                        expires: Date.now() + sessionDuration,
-                        source: 'supabase'
-                    };
-
-                    const userPublic = {
-                        id: user.id,
-                        email: user.email,
-                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
-                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
-                        plan: user.user_metadata?.plan || 'free',
-                        createdAt: user.created_at
-                    };
-
-                    localStorage.setItem(this.SESSION_KEY, JSON.stringify(localSession));
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
-
-                    return userPublic;
-                }
-            } catch (error) {
-                // If Supabase error is about invalid credentials, throw it
-                if (error.message?.includes('Invalid') || error.message?.includes('credentials')) {
-                    throw error;
-                }
-                console.warn('Supabase login failed, trying local auth:', error);
-            }
-        }
-
-        // Fallback to local authentication
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                const users = this.getStoredUsers();
-                const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-                if (!user) {
-                    reject(new Error('No account found with this email address. Please create an account first.'));
-                    return;
-                }
-
-                if (user.password !== this.hashPassword(password)) {
-                    reject(new Error('Incorrect password'));
-                    return;
-                }
-
-                // Create session
-                const sessionDuration = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-                const session = {
-                    userId: user.id,
-                    email: user.email,
-                    created: Date.now(),
-                    expires: Date.now() + sessionDuration,
-                    source: 'local'
-                };
-
-                const userPublic = { ...user };
-                delete userPublic.password;
-
-                localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
-
-                resolve(userPublic);
-            }, 800);
-        });
-    },
-
-    /**
-     * Register new user
-     */
-    async register(userData) {
-        const { firstname, lastname, email, password } = userData;
-
-        // Validation
-        if (!firstname || !lastname || !email || !password) {
-            throw new Error('All fields are required');
-        }
-
-        if (password.length < 8) {
-            throw new Error('Password must be at least 8 characters');
-        }
-
-        // Try Supabase first
-        if (this.useSupabase()) {
-            try {
-                const { user } = await window.Supabase.Auth.signUp(email, password, {
-                    firstname,
-                    lastname,
-                    first_name: firstname,
-                    last_name: lastname,
-                    plan: 'free'
-                });
-
-                if (user) {
-                    // Create local session
-                    const session = {
-                        userId: user.id,
-                        email: user.email,
-                        created: Date.now(),
-                        expires: Date.now() + 24 * 60 * 60 * 1000,
-                        source: 'supabase'
-                    };
-
-                    const userPublic = {
-                        id: user.id,
-                        email: user.email,
-                        firstname,
-                        lastname,
-                        plan: 'free',
-                        createdAt: user.created_at || new Date().toISOString()
-                    };
-
-                    localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
-
-                    return userPublic;
-                }
-            } catch (error) {
-                // If it's a duplicate email error, throw it
-                if (error.message?.includes('already') || error.message?.includes('exists')) {
-                    throw new Error('An account with this email already exists');
-                }
-                console.warn('Supabase registration failed, using local storage:', error);
-            }
-        }
-
-        // Fallback to local storage
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                // Check if email already exists locally
-                const users = this.getStoredUsers();
-                if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-                    reject(new Error('An account with this email already exists'));
-                    return;
-                }
-
-                // Create user
-                const newUser = {
-                    id: 'user_' + Date.now(),
-                    firstname,
-                    lastname,
-                    email,
-                    password: this.hashPassword(password),
-                    plan: 'free',
-                    createdAt: new Date().toISOString()
-                };
-
-                // Store user
-                users.push(newUser);
-                localStorage.setItem('seo_agent_users', JSON.stringify(users));
-
-                // Auto login after registration
-                const session = {
-                    userId: newUser.id,
-                    email: newUser.email,
-                    created: Date.now(),
-                    expires: Date.now() + 24 * 60 * 60 * 1000,
-                    source: 'local'
-                };
-
-                const userPublic = { ...newUser };
-                delete userPublic.password;
-
-                localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
-
-                resolve(userPublic);
-            }, 1000);
-        });
-    },
-
-    /**
-     * Logout user
-     */
-    async logout() {
-        // Try Supabase logout
-        if (this.useSupabase()) {
-            try {
-                await window.Supabase.Auth.signOut();
-            } catch (e) {
-                console.warn('Supabase logout failed:', e);
-            }
-        }
-
-        // Always clear local session
-        localStorage.removeItem(this.SESSION_KEY);
-        localStorage.removeItem(this.STORAGE_KEY);
-    },
-
-    /**
-     * Get stored users (for local/demo mode)
-     */
-    getStoredUsers() {
-        const users = localStorage.getItem('seo_agent_users');
-        if (!users) return [];
-
-        try {
-            return JSON.parse(users);
-        } catch {
-            return [];
-        }
-    },
-
-    /**
-     * Simple hash function (for demo - use proper hashing in production)
-     */
-    hashPassword(password) {
-        let hash = 0;
-        for (let i = 0; i < password.length; i++) {
-            const char = password.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return 'hash_' + Math.abs(hash).toString(16);
-    },
-
-    /**
-     * Get authentication mode info
-     */
-    getAuthMode() {
-        if (this.useSupabase()) {
-            return {
-                mode: 'supabase',
-                persistent: true,
-                crossDevice: true,
-                description: 'Using Supabase authentication (persistent across devices)'
-            };
-        }
-        return {
-            mode: 'local',
-            persistent: false,
-            crossDevice: false,
-            description: 'Using local demo mode (data stored in browser only)'
-        };
+  /**
+   * Synchronous user read from localStorage cache.
+   * Returns the user object stored on last login/signup, or null.
+   */
+  getUserSync() {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
     }
+  },
+
+  /**
+   * Async user read — fetches fresh data from the backend.
+   * Falls back to cached data if the API call fails.
+   */
+  async getUser() {
+    if (!window.apiClient) return this.getUserSync();
+    try {
+      return await window.apiClient.getCurrentUser();
+    } catch (_) {
+      return this.getUserSync();
+    }
+  },
+
+  // ── Auth actions ──────────────────────────────────────────────────────────
+
+  /**
+   * Login with email + password.
+   * Stores tokens and user in localStorage via api-client.
+   * @param {string} email
+   * @param {string} password
+   * @returns {Promise<Object>} user object
+   */
+  async login(email, password) {
+    if (!window.apiClient) throw new Error('API client not initialised');
+    return window.apiClient.login(email, password);
+  },
+
+  /**
+   * Register a new account.
+   * @param {{firstname, lastname, email, password, organizationName}} userData
+   * @returns {Promise<Object>} user object
+   */
+  async register({ firstname, lastname, email, password, organizationName = 'My Organisation' }) {
+    if (!window.apiClient) throw new Error('API client not initialised');
+    return window.apiClient.signup(email, password, firstname, lastname, organizationName);
+  },
+
+  /**
+   * Logout — calls backend to invalidate the refresh token, then clears storage.
+   */
+  async logout() {
+    if (!window.apiClient) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      return;
+    }
+    await window.apiClient.logout();
+  },
+
+  /**
+   * Redirect to auth page if not authenticated.
+   * Call this at the top of any protected page.
+   * @param {string} [redirectTo] — path to return to after login (defaults to current page)
+   */
+  requireAuth(redirectTo) {
+    if (!this.isAuthenticatedSync()) {
+      const target = redirectTo || window.location.pathname;
+      sessionStorage.setItem('auth_redirect', target);
+      window.location.href = '/auth.html';
+    }
+  },
 };
 
-/**
- * Auth Modal Controller
- */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTH MODAL CONTROLLER
+// Used by pages that embed the auth modal rather than using auth.html standalone.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const AuthModal = {
-    modal: null,
-    currentTab: 'login',
+  modal:       null,
+  currentTab: 'login',
 
-    init() {
-        this.modal = document.getElementById('authModal');
-        if (!this.modal) return;
+  init() {
+    this.modal = document.getElementById('authModal');
+    if (!this.modal) return;
 
-        this.bindEvents();
-        this.interceptDashboardLinks();
-        this.showAuthModeIndicator();
-    },
+    this._bindEvents();
+    this._interceptDashboardLinks();
+  },
 
-    showAuthModeIndicator() {
-        const authMode = Auth.getAuthMode();
-        if (authMode.mode === 'local') {
-            console.info('Auth Mode: Local demo mode. For persistent login across devices, configure Supabase in Settings.');
+  // ── Public ────────────────────────────────────────────────────────────────
+
+  open(tab = 'login') {
+    if (!this.modal) return;
+    this._switchTab(tab);
+    this.modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const first = this.modal.querySelector(`.auth-form.active input:not([type="checkbox"])`);
+      if (first) first.focus();
+    }, 100);
+  },
+
+  close() {
+    if (!this.modal) return;
+    this.modal.classList.remove('active');
+    document.body.style.overflow = '';
+    this._clearErrors();
+    this._resetForms();
+  },
+
+  // ── Private ───────────────────────────────────────────────────────────────
+
+  _switchTab(tab) {
+    this.currentTab = tab;
+    this.modal.querySelectorAll('.auth-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    this.modal.querySelectorAll('.auth-form').forEach(f => {
+      f.classList.toggle('active', f.dataset.form === tab);
+    });
+    this._clearErrors();
+  },
+
+  _bindEvents() {
+    // Close
+    const closeBtn = document.getElementById('closeAuthModal');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.close());
+    this.modal.addEventListener('click', e => { if (e.target === this.modal) this.close(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && this.modal.classList.contains('active')) this.close();
+    });
+
+    // Tab switching
+    this.modal.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => this._switchTab(tab.dataset.tab));
+    });
+
+    // Password visibility toggles
+    this.modal.querySelectorAll('.toggle-password').forEach(btn => {
+      btn.addEventListener('click', () => this._togglePasswordVisibility(btn));
+    });
+
+    // Form submissions
+    const loginForm    = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    if (loginForm)    loginForm.addEventListener('submit',    e => this._handleLogin(e));
+    if (registerForm) registerForm.addEventListener('submit', e => this._handleRegister(e));
+  },
+
+  _interceptDashboardLinks() {
+    document.querySelectorAll('a[href="dashboard.html"], a[href="/dashboard.html"]').forEach(link => {
+      link.addEventListener('click', e => {
+        if (!Auth.isAuthenticatedSync()) {
+          e.preventDefault();
+          this.open('login');
         }
-    },
+      });
+    });
+  },
 
-    bindEvents() {
-        // Close button
-        const closeBtn = document.getElementById('closeAuthModal');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.close());
-        }
+  _togglePasswordVisibility(btn) {
+    const input     = btn.closest('.password-input-wrapper')?.querySelector('input');
+    const eyeOpen   = btn.querySelector('.eye-open');
+    const eyeClosed = btn.querySelector('.eye-closed');
+    if (!input) return;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    if (eyeOpen)   eyeOpen.style.display   = show ? 'none'  : 'block';
+    if (eyeClosed) eyeClosed.style.display = show ? 'block' : 'none';
+  },
 
-        // Click outside to close
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                this.close();
-            }
-        });
+  async _handleLogin(e) {
+    e.preventDefault();
+    const form   = e.target;
+    const btn    = form.querySelector('button[type="submit"]');
+    const errDiv = document.getElementById('loginError');
+    const email    = form.querySelector('#login-email')?.value    || form.querySelector('[name="email"]')?.value;
+    const password = form.querySelector('#login-password')?.value || form.querySelector('[name="password"]')?.value;
 
-        // Escape key to close
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.modal.classList.contains('active')) {
-                this.close();
-            }
-        });
+    btn.classList.add('loading');
+    btn.disabled = true;
+    this._clearErrors();
 
-        // Tab switching
-        const tabs = this.modal.querySelectorAll('.auth-tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                this.switchTab(tab.dataset.tab);
-            });
-        });
-
-        // Form submissions
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-
-        if (loginForm) {
-            loginForm.addEventListener('submit', (e) => this.handleLogin(e));
-        }
-
-        if (registerForm) {
-            registerForm.addEventListener('submit', (e) => this.handleRegister(e));
-        }
-
-        // Password visibility toggles
-        const toggleBtns = this.modal.querySelectorAll('.toggle-password');
-        toggleBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.togglePasswordVisibility(btn));
-        });
-    },
-
-    interceptDashboardLinks() {
-        // Find all dashboard links
-        const dashboardLinks = document.querySelectorAll('a[href="dashboard.html"], a[href="/dashboard.html"]');
-
-        dashboardLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                if (!Auth.isAuthenticatedSync()) {
-                    e.preventDefault();
-                    this.open('login');
-                }
-                // If authenticated, allow normal navigation
-            });
-        });
-    },
-
-    open(tab = 'login') {
-        if (!this.modal) return;
-
-        this.switchTab(tab);
-        this.modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-
-        // Focus first input
-        setTimeout(() => {
-            const firstInput = this.modal.querySelector(`.auth-form.active input:not([type="checkbox"])`);
-            if (firstInput) firstInput.focus();
-        }, 100);
-    },
-
-    close() {
-        if (!this.modal) return;
-
-        this.modal.classList.remove('active');
-        document.body.style.overflow = '';
-        this.clearErrors();
-        this.resetForms();
-    },
-
-    switchTab(tab) {
-        this.currentTab = tab;
-
-        // Update tabs
-        const tabs = this.modal.querySelectorAll('.auth-tab');
-        tabs.forEach(t => {
-            t.classList.toggle('active', t.dataset.tab === tab);
-        });
-
-        // Update forms
-        const forms = this.modal.querySelectorAll('.auth-form');
-        forms.forEach(form => {
-            form.classList.toggle('active', form.dataset.form === tab);
-        });
-
-        this.clearErrors();
-    },
-
-    togglePasswordVisibility(btn) {
-        const wrapper = btn.closest('.password-input-wrapper');
-        const input = wrapper.querySelector('input');
-        const eyeOpen = btn.querySelector('.eye-open');
-        const eyeClosed = btn.querySelector('.eye-closed');
-
-        if (input.type === 'password') {
-            input.type = 'text';
-            eyeOpen.style.display = 'none';
-            eyeClosed.style.display = 'block';
-        } else {
-            input.type = 'password';
-            eyeOpen.style.display = 'block';
-            eyeClosed.style.display = 'none';
-        }
-    },
-
-    async handleLogin(e) {
-        e.preventDefault();
-
-        const form = e.target;
-        const btn = form.querySelector('button[type="submit"]');
-        const errorDiv = document.getElementById('loginError');
-
-        const email = form.querySelector('#login-email').value;
-        const password = form.querySelector('#login-password').value;
-        const remember = form.querySelector('#remember-me').checked;
-
-        // Show loading state
-        btn.classList.add('loading');
-        btn.disabled = true;
-        this.clearErrors();
-
-        try {
-            const user = await Auth.login(email, password, remember);
-
-            // Success - redirect to dashboard
-            this.close();
-            window.location.href = 'dashboard.html';
-
-        } catch (error) {
-            errorDiv.textContent = error.message;
-            errorDiv.classList.add('visible');
-        } finally {
-            btn.classList.remove('loading');
-            btn.disabled = false;
-        }
-    },
-
-    async handleRegister(e) {
-        e.preventDefault();
-
-        const form = e.target;
-        const btn = form.querySelector('button[type="submit"]');
-        const errorDiv = document.getElementById('registerError');
-
-        const userData = {
-            firstname: form.querySelector('#register-firstname').value,
-            lastname: form.querySelector('#register-lastname').value,
-            email: form.querySelector('#register-email').value,
-            password: form.querySelector('#register-password').value
-        };
-
-        const termsAccepted = form.querySelector('#accept-terms').checked;
-
-        if (!termsAccepted) {
-            errorDiv.textContent = 'Please accept the Terms of Service and Privacy Policy';
-            errorDiv.classList.add('visible');
-            return;
-        }
-
-        // Show loading state
-        btn.classList.add('loading');
-        btn.disabled = true;
-        this.clearErrors();
-
-        try {
-            const user = await Auth.register(userData);
-
-            // Success - redirect to dashboard
-            this.close();
-            window.location.href = 'dashboard.html';
-
-        } catch (error) {
-            errorDiv.textContent = error.message;
-            errorDiv.classList.add('visible');
-        } finally {
-            btn.classList.remove('loading');
-            btn.disabled = false;
-        }
-    },
-
-    clearErrors() {
-        const errors = this.modal.querySelectorAll('.auth-error');
-        errors.forEach(err => {
-            err.textContent = '';
-            err.classList.remove('visible');
-        });
-    },
-
-    resetForms() {
-        const forms = this.modal.querySelectorAll('form');
-        forms.forEach(form => form.reset());
+    try {
+      await Auth.login(email, password);
+      this.close();
+      // Redirect to original destination or hub
+      const dest = sessionStorage.getItem('auth_redirect') || '/hub.html';
+      sessionStorage.removeItem('auth_redirect');
+      window.location.href = dest;
+    } catch (err) {
+      if (errDiv) { errDiv.textContent = err.message; errDiv.classList.add('visible'); }
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
     }
+  },
+
+  async _handleRegister(e) {
+    e.preventDefault();
+    const form   = e.target;
+    const btn    = form.querySelector('button[type="submit"]');
+    const errDiv = document.getElementById('registerError');
+
+    const userData = {
+      firstname:        form.querySelector('#register-firstname')?.value,
+      lastname:         form.querySelector('#register-lastname')?.value,
+      email:            form.querySelector('#register-email')?.value,
+      password:         form.querySelector('#register-password')?.value,
+      organizationName: form.querySelector('#register-org')?.value || 'My Organisation',
+    };
+
+    if (!form.querySelector('#accept-terms')?.checked) {
+      if (errDiv) { errDiv.textContent = 'Please accept the Terms of Service.'; errDiv.classList.add('visible'); }
+      return;
+    }
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+    this._clearErrors();
+
+    try {
+      await Auth.register(userData);
+      this.close();
+      const dest = sessionStorage.getItem('auth_redirect') || '/hub.html';
+      sessionStorage.removeItem('auth_redirect');
+      window.location.href = dest;
+    } catch (err) {
+      if (errDiv) { errDiv.textContent = err.message; errDiv.classList.add('visible'); }
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  },
+
+  _clearErrors() {
+    this.modal.querySelectorAll('.auth-error').forEach(el => {
+      el.textContent = '';
+      el.classList.remove('visible');
+    });
+  },
+
+  _resetForms() {
+    this.modal.querySelectorAll('form').forEach(f => f.reset());
+  },
 };
 
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-    AuthModal.init();
 
-    // Check if user was redirected from dashboard (needs to login)
-    if (sessionStorage.getItem('auth_redirect') === 'true') {
-        sessionStorage.removeItem('auth_redirect');
-        // Auto-open the login modal
-        setTimeout(() => {
-            if (AuthModal.modal) {
-                AuthModal.open('login');
-            }
-        }, 300);
-    }
+// ═══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  AuthModal.init();
+
+  // If page was reached via requireAuth redirect, auto-open login
+  const redirectDest = sessionStorage.getItem('auth_redirect');
+  if (redirectDest && AuthModal.modal) {
+    setTimeout(() => AuthModal.open('login'), 300);
+  }
 });
 
-// Export for use in other modules
-window.Auth = Auth;
+window.Auth      = Auth;
 window.AuthModal = AuthModal;

@@ -59,6 +59,17 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 
+CREATE TABLE password_reset_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) UNIQUE NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_hash ON password_reset_tokens(token_hash);
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 2. CUSTOMERS (CRM-like customer data)
 -- ═══════════════════════════════════════════════════════════════════════════════
