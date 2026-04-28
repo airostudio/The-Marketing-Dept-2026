@@ -1,11 +1,46 @@
 const express = require('express');
+const Joi = require('joi');
 const router = express.Router();
 const db = require('../config/database');
+
+const componentScoreSchema = Joi.object({
+  score: Joi.number().integer().min(0).max(100)
+}).unknown(true);
+
+const createHealthScoreSchema = Joi.object({
+  customerId: Joi.string().uuid().required(),
+  healthScore: Joi.number().integer().min(0).max(100).required(),
+  status: Joi.string().valid('green', 'yellow', 'red').required(),
+  churnRisk: Joi.number().min(0).max(1).required(),
+  components: Joi.object({
+    usage: componentScoreSchema,
+    nps: componentScoreSchema,
+    engagement: componentScoreSchema,
+    billing: componentScoreSchema
+  }).default({}),
+  usageMetrics: Joi.object().default({}),
+  engagementMetrics: Joi.object().default({}),
+  billingMetrics: Joi.object().default({}),
+  recommendations: Joi.array().default([])
+});
 
 // POST /api/health-scores - Calculate and save health score
 router.post('/', async (req, res) => {
   try {
-    const { customerId, healthScore, status, churnRisk, components, usageMetrics, engagementMetrics, billingMetrics, recommendations } = req.body;
+    const { error, value } = createHealthScoreSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ success: false, error: error.details[0].message });
+    }
+    const { customerId, healthScore, status, churnRisk, components, usageMetrics, engagementMetrics, billingMetrics, recommendations } = value;
+
+    // Verify customer belongs to this organization
+    const customerCheck = await db.query(
+      'SELECT id FROM customers WHERE id = $1 AND organization_id = $2',
+      [customerId, req.organizationId]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
 
     const result = await db.query(
       `INSERT INTO customer_health_scores (
@@ -16,9 +51,10 @@ router.post('/', async (req, res) => {
       RETURNING *`,
       [
         req.organizationId, customerId, healthScore, status, churnRisk,
-        components?.usage?.score, components?.nps?.score, components?.engagement?.score, components?.billing?.score,
-        JSON.stringify(usageMetrics || {}), JSON.stringify(engagementMetrics || {}),
-        JSON.stringify(billingMetrics || {}), JSON.stringify(recommendations || [])
+        components?.usage?.score ?? null, components?.nps?.score ?? null,
+        components?.engagement?.score ?? null, components?.billing?.score ?? null,
+        JSON.stringify(usageMetrics), JSON.stringify(engagementMetrics),
+        JSON.stringify(billingMetrics), JSON.stringify(recommendations)
       ]
     );
 
@@ -33,7 +69,16 @@ router.post('/', async (req, res) => {
 router.get('/:customerId', async (req, res) => {
   try {
     const { customerId } = req.params;
-    const { limit = 30 } = req.query;
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+
+    // Verify customer belongs to this organization
+    const customerCheck = await db.query(
+      'SELECT id FROM customers WHERE id = $1 AND organization_id = $2',
+      [customerId, req.organizationId]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
 
     const result = await db.query(
       `SELECT * FROM customer_health_scores

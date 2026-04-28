@@ -13,9 +13,8 @@ services:
     environment:
       POSTGRES_DB: audema
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-audema_dev_password}
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    # Do NOT expose 5432 to the host in production - services communicate on the internal network
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -38,10 +37,10 @@ services:
       DB_PORT: 5432
       DB_NAME: audema
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-audema_dev_password}
-      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret-in-production}
-      CORS_ORIGIN: http://localhost:8080
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN must be set}
     ports:
       - "3000:3000"
     depends_on:

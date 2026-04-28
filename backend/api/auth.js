@@ -3,6 +3,7 @@
  * Handles user signup, login, token refresh
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -11,6 +12,10 @@ const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VALIDATION SCHEMAS
@@ -116,11 +121,11 @@ router.post('/signup', async (req, res) => {
       const accessToken = generateAccessToken(user.id);
       const refreshToken = generateRefreshToken(user.id);
 
-      // Store refresh token
+      // Store hashed refresh token — raw token is returned to client only, never stored
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       await client.query(
         'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-        [user.id, refreshToken, expiresAt]
+        [user.id, hashToken(refreshToken), expiresAt]
       );
 
       await client.query('COMMIT');
@@ -212,11 +217,11 @@ router.post('/login', async (req, res) => {
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
-    // Store refresh token
+    // Store hashed refresh token — raw token is returned to client only
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     await db.query(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, refreshToken, expiresAt]
+      [user.id, hashToken(refreshToken), expiresAt]
     );
 
     // Update last login
@@ -265,14 +270,16 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    // Verify refresh token
+    // Verify refresh token signature
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-    // Check if token exists in database and hasn't expired
+    // Look up by hash — rotate: delete old, issue new
+    const tokenHash = hashToken(refreshToken);
     const result = await db.query(
-      `SELECT user_id FROM refresh_tokens
-       WHERE token = $1 AND expires_at > NOW()`,
-      [refreshToken]
+      `DELETE FROM refresh_tokens
+       WHERE token = $1 AND expires_at > NOW()
+       RETURNING user_id`,
+      [tokenHash]
     );
 
     if (result.rows.length === 0) {
@@ -284,13 +291,20 @@ router.post('/refresh', async (req, res) => {
 
     const userId = result.rows[0].user_id;
 
-    // Generate new access token
+    // Issue new access token and rotated refresh token
     const accessToken = generateAccessToken(userId);
+    const newRefreshToken = generateRefreshToken(userId);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await db.query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [userId, hashToken(newRefreshToken), expiresAt]
+    );
 
     res.json({
       success: true,
       data: {
-        accessToken
+        accessToken,
+        refreshToken: newRefreshToken
       }
     });
 
@@ -319,10 +333,9 @@ router.post('/logout', authenticate, async (req, res) => {
     const { refreshToken } = req.body;
 
     if (refreshToken) {
-      // Delete refresh token
       await db.query(
         'DELETE FROM refresh_tokens WHERE token = $1',
-        [refreshToken]
+        [hashToken(refreshToken)]
       );
     }
 

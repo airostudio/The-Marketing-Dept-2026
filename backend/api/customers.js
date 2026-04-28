@@ -46,62 +46,56 @@ const updateCustomerSchema = Joi.object({
 
 router.get('/', async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 50,
-      lifecycle_stage,
-      current_plan,
-      search
-    } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const { lifecycle_stage, current_plan, search } = req.query;
 
     const offset = (page - 1) * limit;
 
-    // Build query
-    let query = `
-      SELECT c.*, lch.health_score, lch.status AS health_status, lch.churn_risk
-      FROM customers c
-      LEFT JOIN latest_customer_health lch ON c.id = lch.customer_id
-      WHERE c.organization_id = $1
-    `;
-    const params = [req.organizationId];
+    // Build WHERE clause shared by both the data query and the count query
+    const filterParams = [req.organizationId];
+    let filterClause = 'WHERE c.organization_id = $1';
     let paramIndex = 2;
 
     if (lifecycle_stage) {
-      query += ` AND c.lifecycle_stage = $${paramIndex}`;
-      params.push(lifecycle_stage);
+      filterClause += ` AND c.lifecycle_stage = $${paramIndex}`;
+      filterParams.push(lifecycle_stage);
       paramIndex++;
     }
 
     if (current_plan) {
-      query += ` AND c.current_plan = $${paramIndex}`;
-      params.push(current_plan);
+      filterClause += ` AND c.current_plan = $${paramIndex}`;
+      filterParams.push(current_plan);
       paramIndex++;
     }
 
     if (search) {
-      query += ` AND (c.email ILIKE $${paramIndex} OR c.company_name ILIKE $${paramIndex} OR c.first_name ILIKE $${paramIndex} OR c.last_name ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
+      filterClause += ` AND (c.email ILIKE $${paramIndex} OR c.company_name ILIKE $${paramIndex} OR c.first_name ILIKE $${paramIndex} OR c.last_name ILIKE $${paramIndex})`;
+      filterParams.push(`%${search}%`);
       paramIndex++;
     }
 
-    query += ` ORDER BY c.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    const dataQuery = `
+      SELECT c.*, lch.health_score, lch.status AS health_status, lch.churn_risk
+      FROM customers c
+      LEFT JOIN latest_customer_health lch ON c.id = lch.customer_id
+      ${filterClause}
+      ORDER BY c.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    const result = await db.query(dataQuery, [...filterParams, limit, offset]);
 
-    const result = await db.query(query, params);
-
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) FROM customers WHERE organization_id = $1';
-    const countParams = [req.organizationId];
-    const countResult = await db.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].count);
+    // Count query uses the same filters for correct pagination totals
+    const countQuery = `SELECT COUNT(*) FROM customers c ${filterClause}`;
+    const countResult = await db.query(countQuery, filterParams);
+    const total = parseInt(countResult.rows[0].count, 10);
 
     res.json({
       success: true,
       data: {
         customers: result.rows,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page,
+          limit,
           total,
           totalPages: Math.ceil(total / limit)
         }

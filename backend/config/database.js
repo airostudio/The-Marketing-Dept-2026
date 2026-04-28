@@ -22,23 +22,20 @@ pool.on('connect', () => {
   console.log('✅ Database connected');
 });
 
+// Log the error but do NOT exit — let the request fail and the pool recover
 pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
-  process.exit(-1);
+  console.error('❌ Unexpected database pool error:', err.message);
 });
 
 /**
  * Execute a query with automatic error handling
  */
 async function query(text, params) {
-  const start = Date.now();
   try {
     const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('📊 Query executed:', { text, duration, rows: res.rowCount });
     return res;
   } catch (error) {
-    console.error('❌ Query error:', error);
+    console.error('❌ Query error:', error.message);
     throw error;
   }
 }

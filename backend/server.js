@@ -5,6 +5,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -35,10 +36,14 @@ const PORT = process.env.PORT || 3000;
 // Security
 app.use(helmet());
 
-// CORS
+// CORS — credentials:true requires an explicit origin, never a wildcard
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin || corsOrigin === '*') {
+  console.warn('⚠️  CORS_ORIGIN is not set or is wildcard — defaulting to no credentials mode');
+}
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: corsOrigin || false,
+  credentials: !!corsOrigin && corsOrigin !== '*'
 }));
 
 // Body parsing
@@ -50,20 +55,29 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Rate limiting
+// Rate limiting — general API limit
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: {
-    success: false,
-    error: 'Too many requests, please try again later'
-  }
+  message: { success: false, error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use('/api/', limiter);
 
-// Request ID (for debugging)
+// Stricter rate limit on auth endpoints to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { success: false, error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true
+});
+
+// Request ID (for debugging) — use crypto for uniqueness guarantee
 app.use((req, res, next) => {
-  req.id = Math.random().toString(36).substring(7);
+  req.id = crypto.randomUUID();
   res.setHeader('X-Request-ID', req.id);
   next();
 });
@@ -93,7 +107,7 @@ app.get('/health', async (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/customers', authenticate, customerRoutes);
 app.use('/api/health-scores', authenticate, healthScoreRoutes);
 app.use('/api/campaigns', authenticate, campaignRoutes);
@@ -110,7 +124,7 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler
+// Global error handler — never expose raw error messages or stack traces to clients
 app.use((err, req, res, next) => {
   console.error('❌ Error:', {
     requestId: req.id,
@@ -118,9 +132,12 @@ app.use((err, req, res, next) => {
     stack: err.stack
   });
 
-  res.status(err.status || 500).json({
+  const statusCode = err.status || 500;
+  const clientMessage = statusCode < 500 ? err.message : 'Internal server error';
+
+  res.status(statusCode).json({
     success: false,
-    error: err.message || 'Internal server error',
+    error: clientMessage,
     requestId: req.id
   });
 });
@@ -147,10 +164,12 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing server...');
+async function shutdown(signal) {
+  console.log(`${signal} received, closing server...`);
   await db.pool.end();
   process.exit(0);
-});
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

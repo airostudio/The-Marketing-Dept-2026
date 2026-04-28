@@ -373,32 +373,9 @@ CREATE TRIGGER update_icp_profiles_updated_at BEFORE UPDATE ON icp_profiles
 CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- ═══════════════════════════════════════════════════════════════════════════════
--- SEED DATA: Create demo organization and user
--- ═══════════════════════════════════════════════════════════════════════════════
-
--- Demo organization
-INSERT INTO organizations (id, name, slug, plan_type, status)
-VALUES (
-  '00000000-0000-0000-0000-000000000001',
-  'Demo Company',
-  'demo-company',
-  'enterprise',
-  'active'
-);
-
--- Demo user (password: "demo123" - bcrypt hash)
-INSERT INTO users (id, organization_id, email, password_hash, first_name, last_name, role, status)
-VALUES (
-  '00000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000001',
-  'demo@example.com',
-  '$2b$10$rRZN5EqLZqPOJqJqZqJqJeQqJqJqJqJqJqJqJqJqJqJqJqJqJ', -- demo123
-  'Demo',
-  'User',
-  'owner',
-  'active'
-);
+-- SEED DATA: intentionally empty.
+-- Create organizations and users via the /api/auth/signup endpoint or
+-- the admin setup script (see ADMIN_SETUP_GUIDE.md).
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- VIEWS: Convenient queries
