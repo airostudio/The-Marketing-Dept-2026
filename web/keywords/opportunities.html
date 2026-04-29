@@ -304,14 +304,16 @@
             }
 
             tbody.innerHTML = keywords.slice(0, 10).map(kw => {
-                const recommendations = [
-                    'Improve on-page SEO and add more content',
-                    'Build 2-3 quality backlinks',
-                    'Improve content depth and user engagement',
-                    'Optimize title and meta description',
-                    'Add internal links from high-authority pages'
-                ];
-                const recommendation = recommendations[Math.floor(Math.random() * recommendations.length)];
+                const pos = kw.position || 20;
+                const recommendation = pos <= 5
+                    ? 'Optimize title and meta description'
+                    : pos <= 7
+                        ? 'Add internal links from high-authority pages'
+                        : pos <= 10
+                            ? 'Build 2-3 quality backlinks'
+                            : pos <= 15
+                                ? 'Improve content depth and user engagement'
+                                : 'Improve on-page SEO and add more content';
 
                 return `
                     <tr>
