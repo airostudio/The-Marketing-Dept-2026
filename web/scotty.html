@@ -441,13 +441,20 @@
             color: #a78bfa;
             font-size: 13px;
             font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
             transition: all 0.2s;
         }
 
         .agent-rec-card:hover {
-            background: rgba(124,58,237,0.18);
+            background: rgba(124,58,237,0.22);
+            border-color: rgba(124,58,237,0.5);
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(124,58,237,0.25);
+        }
+
+        .agent-rec-card:active {
+            transform: translateY(0);
         }
 
         /* Typing indicator */
@@ -1044,7 +1051,7 @@ class ScottyChat {
     }
 
     _processScottyResponse(text, bubble) {
-        // Detect agent mentions and append recommendation cards
+        // Detect agent mentions and append dispatch cards
         const mentioned = AGENT_DIRECTORY.filter(agent =>
             text.toLowerCase().includes(agent.name.toLowerCase()) ||
             agent.tags.some(tag => text.toLowerCase().includes(tag))
@@ -1056,13 +1063,45 @@ class ScottyChat {
             const cards = document.createElement('div');
             cards.className = 'agent-rec-cards';
             topAgents.forEach(agent => {
-                const card = document.createElement('a');
+                const card = document.createElement('button');
                 card.className = 'agent-rec-card';
-                card.href = agent.url;
-                card.innerHTML = `${agent.emoji} ${agent.name} →`;
+                card.type = 'button';
+                card.innerHTML = `${agent.emoji} Launch ${agent.name} →`;
+                card.title = `Scotty will dispatch this task to ${agent.name}`;
+                card.addEventListener('click', () => {
+                    this._dispatchToAgent(agent, text);
+                });
                 cards.appendChild(card);
             });
             bubble.appendChild(cards);
+        }
+    }
+
+    _dispatchToAgent(agent, scottyResponseText) {
+        // Extract what to ask from Scotty's response — look for "What to Ask:" section
+        let task = '';
+        const whatToAskMatch = scottyResponseText.match(/\*\*What to Ask[^:]*:\*\*\s*([^\n*]+)/i);
+        if (whatToAskMatch) {
+            task = whatToAskMatch[1].trim();
+        } else {
+            // Fall back to user's last message as the task
+            const convo = this.conversations.find(c => c.id === this.currentConvoId);
+            const lastUser = convo && convo.messages.filter(m => m.role === 'user').slice(-1)[0];
+            task = lastUser ? lastUser.content : '';
+        }
+
+        // Build a concise strategic context for the agent's system prompt
+        const scottyContext = scottyResponseText.slice(0, 1200);
+
+        // Get the original user request
+        const convo = this.conversations.find(c => c.id === this.currentConvoId);
+        const lastUser = convo && convo.messages.filter(m => m.role === 'user').slice(-1)[0];
+        const userRequest = lastUser ? lastUser.content : '';
+
+        if (window.ScottyOrchestrator && typeof window.ScottyOrchestrator.dispatch === 'function') {
+            window.ScottyOrchestrator.dispatch(agent.key, task, scottyContext, userRequest);
+        } else {
+            window.location.href = agent.url;
         }
     }
 

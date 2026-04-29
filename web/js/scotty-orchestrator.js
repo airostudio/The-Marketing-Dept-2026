@@ -265,6 +265,36 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
+     DISPATCH — Send a task from Scotty to a specialist agent
+  ───────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Dispatch a task to a specialist agent.
+   * Stores a payload in localStorage then navigates to the agent page.
+   * The agent's scotty-intake.js reads this payload on load.
+   *
+   * @param {string} agentKey       — key from AGENT_ROUTES (e.g. 'seo')
+   * @param {string} task           — pre-filled task text for the agent's primary input
+   * @param {string} scottyContext  — Scotty's strategic brief to inject into the agent's system prompt
+   * @param {string} [userRequest]  — the original user message to Scotty
+   */
+  function dispatch(agentKey, task, scottyContext = '', userRequest = '') {
+    const url = AGENT_ROUTES[agentKey];
+    if (!url) { console.warn(`ScottyOrchestrator.dispatch: unknown agent "${agentKey}"`); return; }
+
+    const payload = {
+      agentKey,
+      task,
+      scottyContext,
+      userRequest,
+      timestamp: Date.now(),
+    };
+
+    localStorage.setItem('scotty_dispatch', JSON.stringify(payload));
+    window.location.href = url;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
      NAVIGATION HELPERS
   ───────────────────────────────────────────────────────────────────────── */
 
@@ -298,6 +328,7 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
 
   return {
     ask,
+    dispatch,
     goToScotty,
     goToHub,
     routeToAgent,
