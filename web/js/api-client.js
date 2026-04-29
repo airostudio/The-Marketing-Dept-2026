@@ -79,6 +79,10 @@ class APIClient {
       return result.data || result;
 
     } catch (error) {
+      // Network errors (no server, connection refused, CORS) → treat as unavailable
+      if (error instanceof TypeError || error.name === 'TypeError') {
+        error.isApiUnavailable = true;
+      }
       if (!error.isApiUnavailable) {
         console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
       }
