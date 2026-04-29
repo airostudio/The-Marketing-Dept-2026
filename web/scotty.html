@@ -633,7 +633,425 @@
             .input-area { padding: 12px 16px 16px; }
             .topbar-hub-link span { display: none; }
         }
+
+        /* ════════════════════════════════════════
+           INFO PANEL (right side)
+        ════════════════════════════════════════ */
+        .info-panel {
+            width: 300px;
+            min-width: 300px;
+            background: var(--bg2);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .info-panel-header {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .info-panel-title {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text3);
+        }
+
+        .info-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Quick Start CTA */
+        .quickstart-cta {
+            background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(236,72,153,0.12));
+            border: 1px solid rgba(124,58,237,0.30);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .quickstart-cta-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #c4b5fd;
+            margin-bottom: 6px;
+        }
+
+        .quickstart-cta-sub {
+            font-size: 11px;
+            color: var(--text3);
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .btn-quickstart {
+            width: 100%;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-quickstart:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(124,58,237,0.40);
+        }
+
+        /* Question box — shown when Scotty needs info */
+        .question-box {
+            background: rgba(245,158,11,0.08);
+            border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: none;
+        }
+
+        .question-box.visible { display: block; }
+
+        .question-box.pulsing {
+            animation: questionPulse 1.8s ease-in-out 4;
+        }
+
+        @keyframes questionPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+            50%       { box-shadow: 0 0 0 6px rgba(245,158,11,0.25); }
+        }
+
+        .question-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #fbbf24;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .question-dot {
+            width: 6px;
+            height: 6px;
+            background: #f59e0b;
+            border-radius: 50%;
+            box-shadow: 0 0 6px #f59e0b;
+            animation: dotPulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
+        .question-text {
+            font-size: 12px;
+            color: #fde68a;
+            line-height: 1.55;
+        }
+
+        .question-reply-btn {
+            margin-top: 10px;
+            width: 100%;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.30);
+            border-radius: 7px;
+            padding: 7px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: inherit;
+            color: #fbbf24;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .question-reply-btn:hover {
+            background: rgba(245,158,11,0.20);
+        }
+
+        /* Activity log */
+        .activity-section {
+            flex: 1;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text3);
+            margin-bottom: 8px;
+            padding: 0 2px;
+        }
+
+        .activity-log {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .activity-entry {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            font-size: 11px;
+            line-height: 1.45;
+            color: var(--text3);
+            animation: fadeInUp 0.2s ease;
+        }
+
+        .activity-icon {
+            flex-shrink: 0;
+            margin-top: 1px;
+            font-size: 12px;
+        }
+
+        .activity-empty {
+            font-size: 11px;
+            color: var(--text3);
+            font-style: italic;
+            padding: 4px 2px;
+        }
+
+        /* Agent roster */
+        .agent-roster {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .agent-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 7px;
+            transition: background 0.15s;
+        }
+
+        .agent-row:hover { background: rgba(255,255,255,0.03); }
+
+        .agent-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .agent-status-dot.wired   { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .agent-status-dot.ready   { background: var(--text3); }
+
+        .agent-row-emoji { font-size: 13px; flex-shrink: 0; }
+
+        .agent-row-name {
+            flex: 1;
+            font-size: 11px;
+            color: var(--text2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .agent-row.wired .agent-row-name { color: var(--text); }
+
+        .agent-row-badge {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+
+        .agent-row-badge.wired {
+            background: rgba(34,197,94,0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34,197,94,0.25);
+        }
+
+        .agent-row-badge.ready {
+            background: rgba(255,255,255,0.04);
+            color: var(--text3);
+            border: 1px solid var(--border);
+        }
+
+        @media (max-width: 1100px) { .info-panel { display: none; } }
+
+        /* ════════════════════════════════════════
+           QUICK START MODAL
+        ════════════════════════════════════════ */
+        .qs-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(7,7,17,0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+
+        .qs-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .qs-modal {
+            background: var(--bg2);
+            border: 1px solid var(--border-h);
+            border-radius: 18px;
+            width: 100%;
+            max-width: 520px;
+            padding: 32px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.60);
+            transform: translateY(16px);
+            transition: transform 0.25s;
+        }
+
+        .qs-overlay.open .qs-modal { transform: translateY(0); }
+
+        .qs-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .qs-icon {
+            width: 46px;
+            height: 46px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .qs-title {
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .qs-sub {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.5;
+        }
+
+        .qs-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .qs-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text3);
+            margin-bottom: 6px;
+        }
+
+        .qs-required::after {
+            content: ' *';
+            color: var(--pink);
+        }
+
+        .qs-input, .qs-textarea {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .qs-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+        .qs-input:focus, .qs-textarea:focus {
+            border-color: rgba(124,58,237,0.55);
+            background: rgba(124,58,237,0.06);
+        }
+
+        .qs-input::placeholder, .qs-textarea::placeholder { color: var(--text3); }
+
+        .qs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .qs-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .qs-skip {
+            background: none;
+            border: none;
+            color: var(--text3);
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .qs-skip:hover { color: var(--text2); }
+
+        .qs-submit {
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 24px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .qs-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(124,58,237,0.45);
+        }
+
+        .qs-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
     </style>
+
 </head>
 <body>
 
@@ -782,6 +1200,98 @@
         </div>
 
     </section>
+
+    <!-- ════════════════════════════════════════
+         INFO PANEL (right side)
+    ════════════════════════════════════════ -->
+    <aside class="info-panel" id="infoPanel">
+        <div class="info-panel-header">
+            <span class="info-panel-title">Mission Control</span>
+        </div>
+
+        <div class="info-panel-body" id="infoPanelBody">
+
+            <!-- Quick Start CTA (shown until dismissed or completed) -->
+            <div class="quickstart-cta" id="qsCta">
+                <div class="quickstart-cta-title">⚡ Quick Start</div>
+                <div class="quickstart-cta-sub">Give Scotty 4 pieces of info and he'll orchestrate everything from there.</div>
+                <button class="btn-quickstart" id="btnOpenQs">
+                    🚀 Set up in 60 seconds
+                </button>
+            </div>
+
+            <!-- Question box — pulses when Scotty needs input -->
+            <div class="question-box" id="questionBox">
+                <div class="question-label">
+                    <span class="question-dot"></span>
+                    Scotty needs your input
+                </div>
+                <div class="question-text" id="questionText"></div>
+                <button class="question-reply-btn" id="questionReplyBtn">
+                    Reply in chat ↗
+                </button>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="activity-section">
+                <div class="section-label">Background Activity</div>
+                <div class="activity-log" id="activityLog">
+                    <div class="activity-empty" id="activityEmpty">Waiting for first task…</div>
+                </div>
+            </div>
+
+            <!-- Agent Roster -->
+            <div>
+                <div class="section-label">Agents</div>
+                <div class="agent-roster" id="agentRoster">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </div>
+    </aside>
+</div>
+
+<!-- ════════════════════════════════════════
+     QUICK START MODAL
+════════════════════════════════════════ -->
+<div class="qs-overlay" id="qsOverlay" role="dialog" aria-modal="true" aria-labelledby="qsTitle">
+    <div class="qs-modal">
+        <div class="qs-header">
+            <div class="qs-icon">🚀</div>
+            <div>
+                <div class="qs-title" id="qsTitle">Quick Start</div>
+                <div class="qs-sub">Give Scotty the essentials — he'll brief every agent automatically.</div>
+            </div>
+        </div>
+
+        <div class="qs-fields">
+            <div class="qs-field">
+                <label class="qs-required" for="qsCompany">Company / Product name</label>
+                <input class="qs-input" id="qsCompany" type="text" placeholder="e.g. Acme — AI project management for ops teams" autocomplete="off">
+            </div>
+
+            <div class="qs-field">
+                <label class="qs-required" for="qsIcp">Who you're targeting (ICP)</label>
+                <input class="qs-input" id="qsIcp" type="text" placeholder="e.g. VP Ops at 50-200 person B2B SaaS companies">
+            </div>
+
+            <div class="qs-field">
+                <label for="qsCompetitors">Top 1-2 competitors</label>
+                <input class="qs-input" id="qsCompetitors" type="text" placeholder="e.g. Asana, Monday.com">
+            </div>
+
+            <div class="qs-field">
+                <label class="qs-required" for="qsGoal">What's your #1 marketing goal right now?</label>
+                <textarea class="qs-textarea" id="qsGoal" placeholder="e.g. Generate 50 SQLs/month from inbound. We're launching a new pricing page next month and need content + paid ads to support it."></textarea>
+            </div>
+        </div>
+
+        <div class="qs-footer">
+            <button class="qs-skip" id="qsSkip">Skip for now</button>
+            <button class="qs-submit" id="qsSubmit" disabled>Let's go →</button>
+        </div>
+    </div>
 </div>
 
 <!-- Load external services if available -->
@@ -986,6 +1496,10 @@ class ScottyChat {
         const chips = document.getElementById('promptChips');
         if (chips) chips.remove();
 
+        InfoPanel.hideQuestion();
+        InfoPanel.logActivity('💬', `You: ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}`);
+        InfoPanel.logActivity('⏳', 'Scotty is thinking…');
+
         this._appendUserMessage(text);
         this._showTypingIndicator();
         this.isWaiting = true;
@@ -1051,6 +1565,12 @@ class ScottyChat {
     }
 
     _processScottyResponse(text, bubble) {
+        // Surface any question into the info panel
+        InfoPanel.detectAndSurfaceQuestion(text);
+
+        // Log activity
+        InfoPanel.logActivity('🤖', `Scotty responded (${text.length} chars)`);
+
         // Detect agent mentions and append dispatch cards
         const mentioned = AGENT_DIRECTORY.filter(agent =>
             text.toLowerCase().includes(agent.name.toLowerCase()) ||
@@ -1060,6 +1580,9 @@ class ScottyChat {
         // Only show the first 3 most relevant agents as cards
         const topAgents = mentioned.slice(0, 3);
         if (topAgents.length > 0) {
+            // Log which agents were recommended
+            InfoPanel.logActivity('📋', `Recommended: ${topAgents.map(a => a.name).join(', ')}`);
+
             const cards = document.createElement('div');
             cards.className = 'agent-rec-cards';
             topAgents.forEach(agent => {
@@ -1097,6 +1620,10 @@ class ScottyChat {
         const convo = this.conversations.find(c => c.id === this.currentConvoId);
         const lastUser = convo && convo.messages.filter(m => m.role === 'user').slice(-1)[0];
         const userRequest = lastUser ? lastUser.content : '';
+
+        // Mark agent as wired in the roster
+        InfoPanel.markWired(agent.key);
+        InfoPanel.logActivity('🚀', `Dispatching to ${agent.name}…`);
 
         if (window.ScottyOrchestrator && typeof window.ScottyOrchestrator.dispatch === 'function') {
             window.ScottyOrchestrator.dispatch(agent.key, task, scottyContext, userRequest);
@@ -1304,9 +1831,243 @@ class ScottyChat {
     }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   INFO PANEL — Mission Control
+   Manages background activity log, question detection, agent roster.
+════════════════════════════════════════════════════════════════ */
+
+const InfoPanel = (() => {
+    const WIRED_KEY = 'scotty_wired_agents';
+
+    const ROSTER = [
+        { key: 'content',     emoji: '✍️',  name: 'Content Studio'          },
+        { key: 'seo',         emoji: '🔍',  name: 'SEO Intelligence'         },
+        { key: 'email',       emoji: '📧',  name: 'Email Engine'             },
+        { key: 'sales',       emoji: '🎯',  name: 'Sales Intelligence'       },
+        { key: 'ads',         emoji: '🎨',  name: 'Ad Creative Lab'          },
+        { key: 'social',      emoji: '📱',  name: 'Social Studio'            },
+        { key: 'analytics',   emoji: '📊',  name: 'Analytics Brain'          },
+        { key: 'competitive', emoji: '🕵️', name: 'Competitive Intel'        },
+        { key: 'video',       emoji: '🎬',  name: 'Video Studio'             },
+        { key: 'cro',         emoji: '🧪',  name: 'CRO Lab'                  },
+        { key: 'compliance',  emoji: '🛡️', name: 'Compliance Guard'         },
+        { key: 'deck',        emoji: '📽️', name: 'Deck Maker'               },
+        { key: 'linkedin',    emoji: '💼',  name: 'LinkedIn Outreach'        },
+    ];
+
+    function getWiredAgents() {
+        try { return JSON.parse(localStorage.getItem(WIRED_KEY) || '[]'); }
+        catch { return []; }
+    }
+
+    function markWired(agentKey) {
+        const wired = getWiredAgents();
+        if (!wired.includes(agentKey)) {
+            wired.push(agentKey);
+            localStorage.setItem(WIRED_KEY, JSON.stringify(wired));
+        }
+        renderRoster();
+    }
+
+    function renderRoster() {
+        const el = document.getElementById('agentRoster');
+        if (!el) return;
+        const wired = getWiredAgents();
+        el.innerHTML = ROSTER.map(a => {
+            const isWired = wired.includes(a.key);
+            return `
+            <div class="agent-row ${isWired ? 'wired' : ''}">
+                <span class="agent-status-dot ${isWired ? 'wired' : 'ready'}"></span>
+                <span class="agent-row-emoji">${a.emoji}</span>
+                <span class="agent-row-name">${a.name}</span>
+                <span class="agent-row-badge ${isWired ? 'wired' : 'ready'}">${isWired ? 'Active' : 'Ready'}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function logActivity(icon, text) {
+        const log = document.getElementById('activityLog');
+        const empty = document.getElementById('activityEmpty');
+        if (!log) return;
+        if (empty) empty.remove();
+
+        const entry = document.createElement('div');
+        entry.className = 'activity-entry';
+        entry.innerHTML = `<span class="activity-icon">${icon}</span><span>${text}</span>`;
+        log.prepend(entry);
+
+        // Keep last 20 entries
+        while (log.children.length > 20) log.removeChild(log.lastChild);
+    }
+
+    // Detect questions in Scotty's response and surface them in the panel
+    function detectAndSurfaceQuestion(text) {
+        const qBox = document.getElementById('questionBox');
+        const qText = document.getElementById('questionText');
+        if (!qBox || !qText) return;
+
+        // Look for lines ending with '?' — pick the most prominent one
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const questions = lines.filter(l => l.endsWith('?') && l.length > 20 && l.length < 200);
+        if (questions.length === 0) {
+            // No question — hide box if it was showing a previous one
+            return;
+        }
+
+        const q = questions[questions.length - 1]; // last question is usually the call-to-action
+        qText.textContent = q;
+        qBox.classList.add('visible');
+
+        // Trigger pulse animation (remove + re-add to restart it)
+        qBox.classList.remove('pulsing');
+        void qBox.offsetWidth; // force reflow
+        qBox.classList.add('pulsing');
+    }
+
+    function hideQuestion() {
+        const qBox = document.getElementById('questionBox');
+        if (qBox) {
+            qBox.classList.remove('visible', 'pulsing');
+        }
+    }
+
+    function focusReply() {
+        const input = document.getElementById('inputTextarea');
+        if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+        hideQuestion();
+    }
+
+    function init() {
+        renderRoster();
+
+        const replyBtn = document.getElementById('questionReplyBtn');
+        if (replyBtn) replyBtn.addEventListener('click', focusReply);
+    }
+
+    return { init, logActivity, detectAndSurfaceQuestion, hideQuestion, markWired, renderRoster };
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   QUICK START MODAL
+════════════════════════════════════════════════════════════════ */
+
+const QuickStart = (() => {
+    const DONE_KEY = 'scotty_quickstart_done';
+
+    function open() {
+        const overlay = document.getElementById('qsOverlay');
+        if (overlay) overlay.classList.add('open');
+    }
+
+    function close() {
+        const overlay = document.getElementById('qsOverlay');
+        if (overlay) overlay.classList.remove('open');
+    }
+
+    function isDone() {
+        return localStorage.getItem(DONE_KEY) === '1';
+    }
+
+    function markDone() {
+        localStorage.setItem(DONE_KEY, '1');
+        // Hide the CTA in the info panel
+        const cta = document.getElementById('qsCta');
+        if (cta) cta.style.display = 'none';
+    }
+
+    function buildContextFromForm() {
+        const company     = document.getElementById('qsCompany')?.value.trim()     || '';
+        const icp         = document.getElementById('qsIcp')?.value.trim()         || '';
+        const competitors = document.getElementById('qsCompetitors')?.value.trim() || '';
+        const goal        = document.getElementById('qsGoal')?.value.trim()        || '';
+
+        let msg = `Here's our context to kick things off:\n`;
+        if (company)     msg += `\n**Company/Product:** ${company}`;
+        if (icp)         msg += `\n**ICP:** ${icp}`;
+        if (competitors) msg += `\n**Competitors:** ${competitors}`;
+        if (goal)        msg += `\n\n**Current goal:** ${goal}`;
+        msg += `\n\nBased on this, what's the best place to start and which agents should I activate first?`;
+
+        return msg;
+    }
+
+    function init() {
+        const overlay   = document.getElementById('qsOverlay');
+        const openBtn   = document.getElementById('btnOpenQs');
+        const skipBtn   = document.getElementById('qsSkip');
+        const submitBtn = document.getElementById('qsSubmit');
+        const company   = document.getElementById('qsCompany');
+        const icp       = document.getElementById('qsIcp');
+        const goal      = document.getElementById('qsGoal');
+
+        if (!overlay) return;
+
+        // Open on button click
+        if (openBtn) openBtn.addEventListener('click', open);
+
+        // Close on skip
+        if (skipBtn) skipBtn.addEventListener('click', () => { close(); markDone(); });
+
+        // Close on overlay click
+        overlay.addEventListener('click', e => { if (e.target === overlay) { close(); markDone(); } });
+
+        // Keyboard
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && overlay.classList.contains('open')) { close(); markDone(); }
+        });
+
+        // Enable submit when required fields filled
+        function checkReady() {
+            const ready = (company?.value.trim().length > 2) &&
+                          (icp?.value.trim().length > 2) &&
+                          (goal?.value.trim().length > 5);
+            if (submitBtn) submitBtn.disabled = !ready;
+        }
+
+        [company, icp, goal].forEach(el => el?.addEventListener('input', checkReady));
+
+        // Submit → inject into chat and close
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                const msg = buildContextFromForm();
+                close();
+                markDone();
+
+                // Fire the message into Scotty's chat
+                const input = document.getElementById('inputTextarea');
+                if (input && window.scottyChat) {
+                    input.value = msg;
+                    window.scottyChat._handleSend();
+                }
+
+                // Log activity
+                InfoPanel.logActivity('🚀', 'Quick Start context submitted to Scotty');
+            });
+        }
+
+        // Auto-open on first visit (no quick-start done yet)
+        if (!isDone()) {
+            setTimeout(open, 800);
+        }
+
+        // If already done, hide the CTA card
+        if (isDone()) {
+            const cta = document.getElementById('qsCta');
+            if (cta) cta.style.display = 'none';
+        }
+    }
+
+    return { init, open, close };
+})();
+
 // Boot
 window.addEventListener('DOMContentLoaded', () => {
     window.scottyChat = new ScottyChat();
+    InfoPanel.init();
+    QuickStart.init();
 });
 </script>
 
