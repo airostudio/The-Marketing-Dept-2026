@@ -50,7 +50,18 @@ class APIClient {
 
     try {
       const response = await fetch(url, config);
-      const result = await response.json();
+
+      let result;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // Non-JSON response (e.g. HTML error page from a proxy/static server)
+        const text = await response.text();
+        const err = new Error(`API unavailable (${response.status})`);
+        err.isApiUnavailable = true;
+        throw err;
+      }
 
       if (!response.ok) {
         // Token expired - try to refresh
@@ -68,7 +79,9 @@ class APIClient {
       return result.data || result;
 
     } catch (error) {
-      console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
+      if (!error.isApiUnavailable) {
+        console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
+      }
       throw error;
     }
   }

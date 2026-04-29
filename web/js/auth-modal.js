@@ -329,19 +329,28 @@
     setLoading(btn, 'Signing in…');
 
     try {
-      if (window.apiClient) {
-        await window.apiClient.login(email, pwd);
-      } else if (window.Auth) {
-        await window.Auth.login(email, pwd);
-      } else {
-        throw new Error('Auth service not loaded.');
-      }
+      await _login(email, pwd);
       showSuccess('Signed in! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
       showError(err.message || 'Sign in failed. Check your credentials.');
       resetBtn(btn, 'Sign In');
     }
+  }
+
+  async function _login(email, pwd) {
+    if (window.apiClient) {
+      try {
+        return await window.apiClient.login(email, pwd);
+      } catch (err) {
+        if (err.isApiUnavailable && window.Auth) {
+          return await window.Auth.login(email, pwd);
+        }
+        throw err;
+      }
+    }
+    if (window.Auth) return await window.Auth.login(email, pwd);
+    throw new Error('Auth service not loaded.');
   }
 
   async function handleSignup(e) {
@@ -359,19 +368,28 @@
     setLoading(btn, 'Creating account…');
 
     try {
-      if (window.apiClient) {
-        await window.apiClient.signup(email, pwd, first, last, org);
-      } else if (window.Auth) {
-        await window.Auth.register(email, pwd, first, last, org);
-      } else {
-        throw new Error('Auth service not loaded.');
-      }
+      await _signup(email, pwd, first, last, org);
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
       showError(err.message || 'Sign up failed. Please try again.');
       resetBtn(btn, 'Create Account');
     }
+  }
+
+  async function _signup(email, pwd, first, last, org) {
+    if (window.apiClient) {
+      try {
+        return await window.apiClient.signup(email, pwd, first, last, org);
+      } catch (err) {
+        if (err.isApiUnavailable && window.Auth) {
+          return await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+        }
+        throw err;
+      }
+    }
+    if (window.Auth) return await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+    throw new Error('Auth service not loaded.');
   }
 
   function onSuccess() {
