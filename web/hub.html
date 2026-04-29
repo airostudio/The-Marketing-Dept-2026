@@ -916,6 +916,7 @@
 
 <!-- API Client (Backend Integration) -->
 <script src="js/api-client.js"></script>
+<script src="js/auth-modal.js"></script>
 
 <script>
   // ═══════════════════════════════════════════════════════════════
@@ -925,9 +926,8 @@
 
   // Check if user is authenticated
   if (!window.apiClient || !window.apiClient.isAuthenticated()) {
-    // Redirect to login page
-    alert('Please login to access the agents dashboard');
-    window.location.href = 'auth.html';
+    AuthModal.redirectTo = '/hub.html';
+    AuthModal.open('login');
   } else {
     // Load user info
     const user = JSON.parse(localStorage.getItem('user') || '{}');

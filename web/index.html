@@ -413,7 +413,7 @@
         <a href="#pricing">Pricing</a>
       </div>
       <div class="nav-actions">
-        <a href="/auth.html" class="nav-sign-in">Sign In</a>
+        <a href="#" class="nav-sign-in" onclick="event.preventDefault(); AuthModal.open('login')">Sign In</a>
         <a href="/hub.html" class="nav-cta">Get Started</a>
       </div>
     </div>
@@ -836,9 +836,9 @@
           </div>
 
           <!-- CTA Button -->
-          <a href="auth.html" class="btn-white" style="display: inline-block; padding: 18px 48px; font-size: 1.1rem; margin-top: 20px; box-shadow: 0 10px 40px rgba(124, 58, 237, 0.4); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 15px 50px rgba(124, 58, 237, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 40px rgba(124, 58, 237, 0.4)'">
+          <button onclick="AuthModal.open('signup')" class="btn-white" style="display: inline-block; padding: 18px 48px; font-size: 1.1rem; margin-top: 20px; box-shadow: 0 10px 40px rgba(124, 58, 237, 0.4); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 15px 50px rgba(124, 58, 237, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 40px rgba(124, 58, 237, 0.4)'">
             Start Your 14-Day Free Trial
-          </a>
+          </button>
 
           <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 20px;">
             No credit card required • Setup in 10 minutes
@@ -910,6 +910,7 @@
 
   <!-- API Client (Backend Integration) -->
   <script src="js/api-client.js"></script>
+  <script src="js/auth-modal.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -938,7 +939,7 @@
         authBtn.style.cssText = 'background: linear-gradient(135deg, #7c3aed, #ec4899); padding: 10px 20px; border-radius: 6px; font-weight: 600;';
         authBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          window.location.href = 'auth.html';
+          AuthModal.open('login');
         });
       }
 
@@ -980,6 +981,13 @@
       });
     }, { threshold: 0.4 });
     sections.forEach(s => sectionObserver.observe(s));
+
+    // Auto-open login modal if redirected from a protected page
+    if (sessionStorage.getItem('auth_redirect')) {
+      sessionStorage.removeItem('auth_redirect');
+      AuthModal.redirectTo = document.referrer || '/hub.html';
+      AuthModal.open('login');
+    }
   </script>
 </body>
 </html>
