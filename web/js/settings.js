@@ -1155,10 +1155,6 @@
             googleOAuthBtn.addEventListener('click', () => handleOAuth('google'));
         }
 
-        const githubOAuthBtn = document.getElementById('githubOAuth');
-        if (githubOAuthBtn) {
-            githubOAuthBtn.addEventListener('click', () => handleOAuth('github'));
-        }
     }
 
     async function testSupabaseConnection() {
