@@ -64,6 +64,13 @@ class APIClient {
       }
 
       if (!response.ok) {
+        // 404 = endpoint doesn't exist (no backend deployed) → treat as unavailable
+        if (response.status === 404) {
+          const err = new Error(`API endpoint not found (${endpoint})`);
+          err.isApiUnavailable = true;
+          throw err;
+        }
+
         // Token expired - try to refresh
         if (response.status === 401 && this.refreshToken && !options.skipRefresh) {
           const refreshed = await this.refreshAccessToken();

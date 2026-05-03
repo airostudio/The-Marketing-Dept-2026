@@ -343,7 +343,7 @@
       try {
         return await window.apiClient.login(email, pwd);
       } catch (err) {
-        if (err.isApiUnavailable && window.Auth) {
+        if (_isBackendUnavailable(err) && window.Auth) {
           const user = await window.Auth.login(email, pwd);
           _bridgeAuthSession(user);
           return user;
@@ -388,7 +388,7 @@
       try {
         return await window.apiClient.signup(email, pwd, first, last, org);
       } catch (err) {
-        if (err.isApiUnavailable && window.Auth) {
+        if (_isBackendUnavailable(err) && window.Auth) {
           const user = await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
           _bridgeAuthSession(user);
           return user;
@@ -402,6 +402,20 @@
       return user;
     }
     throw new Error('Auth service not loaded.');
+  }
+
+  // Returns true when the backend simply isn't deployed/reachable —
+  // network errors, 404 endpoints, non-JSON responses.
+  // Returns false for credential errors (wrong password, duplicate email)
+  // so those are shown to the user rather than silently falling back.
+  function _isBackendUnavailable(err) {
+    if (err.isApiUnavailable) return true;
+    // Credential / business-logic errors should surface to the user
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('password') || msg.includes('credential') ||
+        msg.includes('already') || msg.includes('exists') ||
+        msg.includes('invalid')) return false;
+    return true;
   }
 
   // Write a synthetic access_token so apiClient.isAuthenticated() also passes
