@@ -1,128 +1,154 @@
 /**
- * ═══════════════════════════════════════════════════════════════════
  * AUTH MODAL — Audema
  *
- * Self-contained login / sign-up modal. Include this script on any
- * page and call AuthModal.open() instead of redirecting to auth.html.
+ * Self-contained login / sign-up modal with built-in localStorage auth.
+ * No dependency on window.Auth, window.apiClient, or any external module.
  *
  * Usage:
  *   AuthModal.open('login')   — opens on login tab
  *   AuthModal.open('signup')  — opens on sign-up tab
  *   AuthModal.close()
  *
- * Options (set before calling open):
- *   AuthModal.onSuccess = (user) => { ... }   — custom callback after login
- *   AuthModal.redirectTo = '/hub.html'         — default redirect on success
+ * Options:
+ *   AuthModal.onSuccess = (user) => { ... }
+ *   AuthModal.redirectTo = '/hub.html'
  *
- * Auto-triggers:
- *   ?openAuth=login  or  ?openAuth=signup  in the URL
- * ═══════════════════════════════════════════════════════════════════
+ * Auto-triggers on ?openAuth=login or ?openAuth=signup in the URL.
  */
 
 (function () {
   'use strict';
 
+  // ─── Expose AuthModal immediately so auth.js cannot override it ───────────
+  // (auth.js also exports window.AuthModal; loading order matters)
+  var _open, _close;
+  window.AuthModal = {
+    open:       function (tab) { if (_open) _open(tab); },
+    close:      function ()    { if (_close) _close(); },
+    redirectTo: '/hub.html',
+    onSuccess:  null,
+  };
+
+  /* ─── Simple built-in auth store ─────────────────────────────────────────
+     Uses its own keys so it never conflicts with auth.js or api-client.js.
+     After a successful auth it also writes the keys those systems expect so
+     the hub/dashboard guards see a valid session.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  const STORE_KEY   = 'audema_users';
+  const SESSION_KEY = 'audema_session';
+
+  function _hash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+    }
+    return h.toString(36);
+  }
+
+  function _getUsers() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+  }
+
+  function _saveUsers(users) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(users));
+  }
+
+  function _createSession(user) {
+    const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname };
+
+    // Our own session key
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      userId: user.id, email: user.email,
+      expires: Date.now() + 24 * 60 * 60 * 1000,
+    }));
+
+    // Bridge keys for hub.html (apiClient guard)
+    const token = 'local_' + user.id;
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user', JSON.stringify(pub));
+    if (window.apiClient) window.apiClient.accessToken = token;
+
+    // Bridge keys for dashboard.html (Auth guard) and auth.js
+    localStorage.setItem('seo_agent_user', JSON.stringify(pub));
+    localStorage.setItem('seo_agent_session', JSON.stringify({
+      userId: user.id, email: user.email,
+      created: Date.now(),
+      expires: Date.now() + 24 * 60 * 60 * 1000,
+      source: 'local',
+    }));
+
+    return pub;
+  }
+
+  function authSignup(email, password, firstname, lastname) {
+    const users = _getUsers();
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+      throw new Error('An account with this email already exists.');
+    }
+    const user = {
+      id: 'u_' + Date.now(),
+      email, firstname, lastname,
+      password: _hash(password),
+    };
+    users.push(user);
+    _saveUsers(users);
+    return _createSession(user);
+  }
+
+  function authLogin(email, password) {
+    const users = _getUsers();
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) throw new Error('No account found. Please create an account first.');
+    if (user.password !== _hash(password)) throw new Error('Incorrect password.');
+    return _createSession(user);
+  }
+
+  /* ─── CSS ─────────────────────────────────────────────────────────────── */
+
   const CSS = `
     #auth-modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(7, 7, 17, 0.82);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.22s ease;
+      position: fixed; inset: 0;
+      background: rgba(7,7,17,0.82);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
     }
-    #auth-modal-overlay.am-open {
-      opacity: 1;
-      pointer-events: all;
-    }
+    #auth-modal-overlay.am-open { opacity: 1; pointer-events: all; }
     #auth-modal-box {
-      background: #fff;
-      border-radius: 16px;
+      background: #fff; border-radius: 16px;
       box-shadow: 0 32px 80px rgba(0,0,0,0.50);
-      width: 100%;
-      max-width: 440px;
-      overflow: hidden;
-      transform: translateY(18px) scale(0.97);
-      transition: transform 0.22s ease;
+      width: 100%; max-width: 440px; overflow: hidden;
+      transform: translateY(18px) scale(0.97); transition: transform 0.22s ease;
     }
-    #auth-modal-overlay.am-open #auth-modal-box {
-      transform: translateY(0) scale(1);
-    }
+    #auth-modal-overlay.am-open #auth-modal-box { transform: translateY(0) scale(1); }
     .am-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      padding: 28px 32px 24px;
-      text-align: center;
-      position: relative;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: #fff; padding: 28px 32px 24px; text-align: center; position: relative;
     }
-    .am-header h2 {
-      font-size: 24px;
-      font-weight: 800;
-      margin-bottom: 4px;
-      font-family: inherit;
-    }
-    .am-header p {
-      opacity: 0.88;
-      font-size: 13px;
-      font-family: inherit;
-    }
+    .am-header h2 { font-size: 24px; font-weight: 800; margin-bottom: 4px; font-family: inherit; }
+    .am-header p  { opacity: 0.88; font-size: 13px; font-family: inherit; }
     .am-close {
-      position: absolute;
-      top: 14px;
-      right: 16px;
-      background: rgba(255,255,255,0.18);
-      border: none;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      font-size: 17px;
-      line-height: 1;
-      cursor: pointer;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-      font-family: inherit;
+      position: absolute; top: 14px; right: 16px;
+      background: rgba(255,255,255,0.18); border: none; border-radius: 50%;
+      width: 30px; height: 30px; font-size: 17px; line-height: 1; cursor: pointer;
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; font-family: inherit;
     }
     .am-close:hover { background: rgba(255,255,255,0.30); }
-    .am-tabs {
-      display: flex;
-      border-bottom: 1px solid #e5e7eb;
-    }
+    .am-tabs { display: flex; border-bottom: 1px solid #e5e7eb; }
     .am-tab {
-      flex: 1;
-      padding: 14px;
-      text-align: center;
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      color: #6b7280;
-      transition: all 0.18s;
-      font-family: inherit;
+      flex: 1; padding: 14px; text-align: center; background: none; border: none;
+      border-bottom: 2px solid transparent; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #6b7280;
+      transition: all 0.18s; font-family: inherit;
     }
-    .am-tab.am-active {
-      color: #667eea;
-      border-bottom-color: #667eea;
-    }
+    .am-tab.am-active { color: #667eea; border-bottom-color: #667eea; }
     .am-body { padding: 28px 32px 24px; }
     .am-alert {
-      padding: 11px 14px;
-      border-radius: 7px;
-      margin-bottom: 18px;
-      font-size: 13px;
-      display: none;
-      font-family: inherit;
+      padding: 11px 14px; border-radius: 7px; margin-bottom: 18px;
+      font-size: 13px; display: none; font-family: inherit;
     }
     .am-alert.am-show { display: block; }
     .am-alert.am-error   { background: #fee2e2; color: #dc2626; }
@@ -131,69 +157,41 @@
     .am-form.am-active { display: block; }
     .am-field { margin-bottom: 16px; }
     .am-field label {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #374151;
-      font-family: inherit;
+      display: block; margin-bottom: 5px;
+      font-size: 13px; font-weight: 600; color: #374151; font-family: inherit;
     }
     .am-field input {
-      width: 100%;
-      padding: 11px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
-      color: #111;
+      width: 100%; padding: 11px 14px;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 14px; font-family: inherit; color: #111;
       transition: border-color 0.18s, box-shadow 0.18s;
-      outline: none;
-      box-sizing: border-box;
+      outline: none; box-sizing: border-box;
     }
     .am-field input:focus {
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102,126,234,0.12);
+      border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.12);
     }
     .am-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .am-submit {
-      width: 100%;
-      padding: 13px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: #fff; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
       transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .am-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(102,126,234,0.4); }
+    .am-submit:hover  { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(102,126,234,0.4); }
     .am-submit:active { transform: translateY(0); box-shadow: none; }
     .am-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
     .am-spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: am-spin 0.7s linear infinite;
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: am-spin 0.7s linear infinite;
     }
     @keyframes am-spin { to { transform: rotate(360deg); } }
     .am-note {
-      margin-top: 18px;
-      padding: 10px 12px;
-      background: #f3f4f6;
-      border-radius: 7px;
-      font-size: 12px;
-      color: #6b7280;
-      text-align: center;
-      font-family: inherit;
+      margin-top: 18px; padding: 10px 12px; background: #f3f4f6;
+      border-radius: 7px; font-size: 12px; color: #6b7280;
+      text-align: center; font-family: inherit;
     }
     @media (max-width: 480px) {
       #auth-modal-box { border-radius: 14px; }
@@ -203,25 +201,24 @@
     }
   `;
 
+  /* ─── HTML ────────────────────────────────────────────────────────────── */
+
   const HTML = `
     <div id="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="am-title">
       <div id="auth-modal-box">
         <div class="am-header">
-          <h2 id="am-title">🚀 Audema</h2>
+          <h2 id="am-title">Audema</h2>
           <p>Your AI Marketing Department</p>
           <button class="am-close" id="am-close-btn" aria-label="Close">&times;</button>
         </div>
-
         <div class="am-tabs">
           <button class="am-tab am-active" data-tab="login">Sign In</button>
           <button class="am-tab" data-tab="signup">Create Account</button>
         </div>
-
         <div class="am-body">
           <div class="am-alert am-error"   id="am-error"></div>
           <div class="am-alert am-success" id="am-success"></div>
 
-          <!-- LOGIN -->
           <form class="am-form am-active" id="am-login-form" novalidate>
             <div class="am-field">
               <label for="am-login-email">Email</label>
@@ -234,7 +231,6 @@
             <button type="submit" class="am-submit" id="am-login-btn">Sign In</button>
           </form>
 
-          <!-- SIGNUP -->
           <form class="am-form" id="am-signup-form" novalidate>
             <div class="am-row">
               <div class="am-field">
@@ -261,120 +257,98 @@
             <button type="submit" class="am-submit" id="am-signup-btn">Create Account</button>
           </form>
 
-          <div class="am-note">🔒 Secure • Data stored in your account • Access from any device</div>
+          <div class="am-note">Secure &bull; Data stored in your account &bull; Access from any device</div>
         </div>
       </div>
     </div>
   `;
 
-  function inject() {
-    if (document.getElementById('auth-modal-overlay')) return; // already injected
+  /* ─── Injection ───────────────────────────────────────────────────────── */
 
-    // CSS
-    const style = document.createElement('style');
+  var _injected = false;
+
+  function inject() {
+    if (_injected || document.getElementById('auth-modal-overlay')) { _injected = true; return; }
+    _injected = true;
+
+    var style = document.createElement('style');
     style.textContent = CSS;
     document.head.appendChild(style);
 
-    // HTML
-    const wrap = document.createElement('div');
+    var wrap = document.createElement('div');
     wrap.innerHTML = HTML;
     document.body.appendChild(wrap.firstElementChild);
 
     bindEvents();
-    checkUrlParam();
   }
 
+  /* ─── Events ──────────────────────────────────────────────────────────── */
+
   function bindEvents() {
-    const overlay = document.getElementById('auth-modal-overlay');
+    var overlay = document.getElementById('auth-modal-overlay');
+    if (!overlay) return;
 
-    // Close button
-    document.getElementById('am-close-btn').addEventListener('click', close);
-
-    // Overlay click → close
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    // Keyboard Escape → close
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && overlay.classList.contains('am-open')) close();
+    document.getElementById('am-close-btn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && overlay.classList.contains('am-open')) closeModal();
     });
-
-    // Tab switching
-    overlay.querySelectorAll('.am-tab').forEach(tab => {
-      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    overlay.querySelectorAll('.am-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () { switchTab(tab.dataset.tab); });
     });
-
-    // Login submit
     document.getElementById('am-login-form').addEventListener('submit', handleLogin);
-
-    // Signup submit
     document.getElementById('am-signup-form').addEventListener('submit', handleSignup);
   }
 
   function switchTab(tab) {
-    document.querySelectorAll('.am-tab').forEach(t =>
-      t.classList.toggle('am-active', t.dataset.tab === tab));
-    document.querySelectorAll('.am-form').forEach(f =>
-      f.classList.toggle('am-active', f.id === `am-${tab}-form`));
+    document.querySelectorAll('.am-tab').forEach(function (t) {
+      t.classList.toggle('am-active', t.dataset.tab === tab);
+    });
+    document.querySelectorAll('.am-form').forEach(function (f) {
+      f.classList.toggle('am-active', f.id === 'am-' + tab + '-form');
+    });
     clearMessages();
   }
 
-  async function handleLogin(e) {
+  /* ─── Handlers ────────────────────────────────────────────────────────── */
+
+  function handleLogin(e) {
     e.preventDefault();
     clearMessages();
-    const email = document.getElementById('am-login-email').value.trim();
-    const pwd   = document.getElementById('am-login-pwd').value;
+    var email = document.getElementById('am-login-email').value.trim();
+    var pwd   = document.getElementById('am-login-pwd').value;
     if (!email || !pwd) { showError('Please fill in all fields.'); return; }
 
-    const btn = document.getElementById('am-login-btn');
+    var btn = document.getElementById('am-login-btn');
     setLoading(btn, 'Signing in…');
 
     try {
-      await _login(email, pwd);
+      authLogin(email, pwd);
       showSuccess('Signed in! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
-      showError(err.message || 'Sign in failed. Check your credentials.');
+      showError(err.message || 'Sign in failed.');
       resetBtn(btn, 'Sign In');
     }
   }
 
-  async function _login(email, pwd) {
-    if (window.apiClient) {
-      try {
-        return await window.apiClient.login(email, pwd);
-      } catch (err) {
-        if (_isBackendUnavailable(err) && window.Auth) {
-          const user = await window.Auth.login(email, pwd);
-          _bridgeAuthSession(user);
-          return user;
-        }
-        throw err;
-      }
-    }
-    if (window.Auth) {
-      const user = await window.Auth.login(email, pwd);
-      _bridgeAuthSession(user);
-      return user;
-    }
-    throw new Error('Auth service not loaded.');
-  }
-
-  async function handleSignup(e) {
+  function handleSignup(e) {
     e.preventDefault();
     clearMessages();
-    const first = document.getElementById('am-first').value.trim();
-    const last  = document.getElementById('am-last').value.trim();
-    const email = document.getElementById('am-signup-email').value.trim();
-    const pwd   = document.getElementById('am-signup-pwd').value;
-    const org   = document.getElementById('am-org').value.trim();
+    var first = document.getElementById('am-first').value.trim();
+    var last  = document.getElementById('am-last').value.trim();
+    var email = document.getElementById('am-signup-email').value.trim();
+    var pwd   = document.getElementById('am-signup-pwd').value;
+    var org   = document.getElementById('am-org').value.trim();
+
     if (!first || !last || !email || !pwd || !org) { showError('Please fill in all fields.'); return; }
     if (pwd.length < 8) { showError('Password must be at least 8 characters.'); return; }
 
-    const btn = document.getElementById('am-signup-btn');
+    var btn = document.getElementById('am-signup-btn');
     setLoading(btn, 'Creating account…');
 
     try {
-      await _signup(email, pwd, first, last, org);
+      authSignup(email, pwd, first, last);
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -383,62 +357,19 @@
     }
   }
 
-  async function _signup(email, pwd, first, last, org) {
-    if (window.apiClient) {
-      try {
-        return await window.apiClient.signup(email, pwd, first, last, org);
-      } catch (err) {
-        if (_isBackendUnavailable(err) && window.Auth) {
-          const user = await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
-          _bridgeAuthSession(user);
-          return user;
-        }
-        throw err;
-      }
-    }
-    if (window.Auth) {
-      const user = await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
-      _bridgeAuthSession(user);
-      return user;
-    }
-    throw new Error('Auth service not loaded.');
-  }
-
-  // Returns true when the backend simply isn't deployed/reachable —
-  // network errors, 404 endpoints, non-JSON responses.
-  // Returns false for credential errors (wrong password, duplicate email)
-  // so those are shown to the user rather than silently falling back.
-  function _isBackendUnavailable(err) {
-    if (err.isApiUnavailable) return true;
-    // Credential / business-logic errors should surface to the user
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('password') || msg.includes('credential') ||
-        msg.includes('already') || msg.includes('exists') ||
-        msg.includes('invalid')) return false;
-    return true;
-  }
-
-  // Write a synthetic access_token so apiClient.isAuthenticated() also passes
-  // after a window.Auth (localStorage) login. Keeps both guards happy.
-  function _bridgeAuthSession(user) {
-    if (!user) return;
-    const token = 'local_' + (user.id || user.email || Date.now());
-    localStorage.setItem('access_token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    if (window.apiClient) window.apiClient.accessToken = token;
-  }
+  /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
   function onSuccess() {
-    if (typeof AuthModal.onSuccess === 'function') {
-      AuthModal.onSuccess();
+    if (typeof window.AuthModal.onSuccess === 'function') {
+      window.AuthModal.onSuccess();
     } else {
-      window.location.href = AuthModal.redirectTo || '/hub.html';
+      window.location.href = window.AuthModal.redirectTo || '/hub.html';
     }
   }
 
   function setLoading(btn, label) {
     btn.disabled = true;
-    btn.innerHTML = `${label} <span class="am-spinner"></span>`;
+    btn.innerHTML = label + ' <span class="am-spinner"></span>';
   }
 
   function resetBtn(btn, label) {
@@ -447,68 +378,78 @@
   }
 
   function showError(msg) {
-    const el = document.getElementById('am-error');
+    var el = document.getElementById('am-error');
+    if (!el) return;
     el.textContent = msg;
     el.classList.add('am-show');
   }
 
   function showSuccess(msg) {
-    const el = document.getElementById('am-success');
+    var el = document.getElementById('am-success');
+    if (!el) return;
     el.textContent = msg;
     el.classList.add('am-show');
   }
 
   function clearMessages() {
-    document.getElementById('am-error')?.classList.remove('am-show');
-    document.getElementById('am-success')?.classList.remove('am-show');
+    var err = document.getElementById('am-error');
+    var suc = document.getElementById('am-success');
+    if (err) err.classList.remove('am-show');
+    if (suc) suc.classList.remove('am-show');
   }
 
-  // Auto-open if URL has ?openAuth=login or ?openAuth=signup
+  /* ─── Open / Close ────────────────────────────────────────────────────── */
+
+  function openModal(tab) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { _doOpen(tab); });
+    } else {
+      _doOpen(tab);
+    }
+  }
+
+  function _doOpen(tab) {
+    inject();
+    clearMessages();
+    if (tab) switchTab(tab);
+    var overlay = document.getElementById('auth-modal-overlay');
+    if (overlay) {
+      overlay.classList.add('am-open');
+      setTimeout(function () {
+        var first = overlay.querySelector('.am-form.am-active input');
+        if (first) first.focus();
+      }, 220);
+    }
+  }
+
+  function closeModal() {
+    var overlay = document.getElementById('auth-modal-overlay');
+    if (overlay) overlay.classList.remove('am-open');
+  }
+
+  /* ─── URL param auto-open ─────────────────────────────────────────────── */
+
   function checkUrlParam() {
-    const param = new URLSearchParams(window.location.search).get('openAuth');
+    var param = new URLSearchParams(window.location.search).get('openAuth');
     if (param === 'login' || param === 'signup') {
-      open(param);
-      // Clean URL without reload
-      const url = new URL(window.location.href);
+      openModal(param);
+      var url = new URL(window.location.href);
       url.searchParams.delete('openAuth');
       history.replaceState(null, '', url.toString());
     }
   }
 
-  function open(tab) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => _open(tab));
-    } else {
-      _open(tab);
-    }
-  }
+  /* ─── Boot ────────────────────────────────────────────────────────────── */
 
-  function _open(tab) {
-    inject();
-    clearMessages();
-    if (tab) switchTab(tab);
-    const overlay = document.getElementById('auth-modal-overlay');
-    if (overlay) {
-      overlay.classList.add('am-open');
-      // Focus the first input in the active form
-      setTimeout(() => {
-        const active = overlay.querySelector('.am-form.am-active input');
-        if (active) active.focus();
-      }, 220);
-    }
-  }
+  // Wire up the already-exposed AuthModal
+  _open  = openModal;
+  _close = closeModal;
 
-  function close() {
-    const overlay = document.getElementById('auth-modal-overlay');
-    if (overlay) overlay.classList.remove('am-open');
-  }
-
-  // Initialise once DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', inject);
+    document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); });
   } else {
     inject();
+    checkUrlParam();
   }
 
-  window.AuthModal = { open, close, redirectTo: '/hub.html', onSuccess: null };
 })();
