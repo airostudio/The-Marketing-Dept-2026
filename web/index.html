@@ -412,8 +412,8 @@
         <a href="#agents">Agents</a>
         <a href="#pricing">Pricing</a>
       </div>
-      <div class="nav-actions">
-        <a href="/?openAuth=login" class="nav-sign-in" onclick="event.preventDefault(); AuthModal.open('login')">Sign In</a>
+      <div class="nav-actions" id="nav-actions">
+        <a href="/?openAuth=login" class="nav-sign-in" id="nav-sign-in" onclick="event.preventDefault(); AuthModal.open('login')">Sign In</a>
         <a href="/hub.html" class="nav-cta">Get Started</a>
       </div>
     </div>
@@ -918,32 +918,14 @@
     // No authentication required to view landing page
     // ═══════════════════════════════════════════════════════════════
 
-    // Add Login/Signup or Dashboard button to nav
-    const nav = document.querySelector('.nav-links');
-    if (nav && !document.getElementById('authBtn')) {
-      const authBtn = document.createElement('a');
-      authBtn.id = 'authBtn';
-      authBtn.href = '#';
-
-      if (window.apiClient && window.apiClient.isAuthenticated()) {
-        // User is logged in - show Dashboard button
-        authBtn.textContent = 'Go to Dashboard';
-        authBtn.style.cssText = 'background: linear-gradient(135deg, #7c3aed, #ec4899); padding: 10px 20px; border-radius: 6px; font-weight: 600;';
-        authBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          window.location.href = 'hub.html';
-        });
-      } else {
-        // User is NOT logged in - show Login button
-        authBtn.textContent = 'Login / Sign Up';
-        authBtn.style.cssText = 'background: linear-gradient(135deg, #7c3aed, #ec4899); padding: 10px 20px; border-radius: 6px; font-weight: 600;';
-        authBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          AuthModal.open('login');
-        });
+    // Update Sign In link based on persistent login state
+    if (AuthModal.isLoggedIn()) {
+      const signInLink = document.getElementById('nav-sign-in');
+      if (signInLink) {
+        signInLink.textContent = 'Go to Hub';
+        signInLink.href = '/hub.html';
+        signInLink.onclick = null;
       }
-
-      nav.appendChild(authBtn);
     }
 
     // ═══════════════════════════════════════════════════════════════

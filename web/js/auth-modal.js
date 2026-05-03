@@ -37,6 +37,7 @@
 
   const STORE_KEY   = 'audema_users';
   const SESSION_KEY = 'audema_session';
+  const TTL         = 30 * 24 * 60 * 60 * 1000; // 30 days
 
   function _hash(str) {
     let h = 0;
@@ -57,10 +58,10 @@
   function _createSession(user) {
     const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname };
 
-    // Our own session key
+    // Our own session key (30-day persistent)
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       userId: user.id, email: user.email,
-      expires: Date.now() + 24 * 60 * 60 * 1000,
+      expires: Date.now() + TTL,
     }));
 
     // Bridge keys for hub.html (apiClient guard)
@@ -74,7 +75,7 @@
     localStorage.setItem('seo_agent_session', JSON.stringify({
       userId: user.id, email: user.email,
       created: Date.now(),
-      expires: Date.now() + 24 * 60 * 60 * 1000,
+      expires: Date.now() + TTL,
       source: 'local',
     }));
 
@@ -427,15 +428,34 @@
     if (overlay) overlay.classList.remove('am-open');
   }
 
+  /* ─── Session check ──────────────────────────────────────────────────── */
+
+  function isLoggedIn() {
+    // Primary check: our own session key with expiry
+    try {
+      var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (s && s.expires > Date.now()) return true;
+    } catch (e) {}
+    // Fallback: a bridge token written by a previous login still exists
+    return !!localStorage.getItem('access_token');
+  }
+
   /* ─── URL param auto-open ─────────────────────────────────────────────── */
 
   function checkUrlParam() {
     var param = new URLSearchParams(window.location.search).get('openAuth');
     if (param === 'login' || param === 'signup') {
-      openModal(param);
+      // Clean the URL regardless
       var url = new URL(window.location.href);
       url.searchParams.delete('openAuth');
       history.replaceState(null, '', url.toString());
+
+      // Already logged in → go straight to hub, don't show modal
+      if (isLoggedIn()) {
+        window.location.href = window.AuthModal.redirectTo || '/hub.html';
+        return;
+      }
+      openModal(param);
     }
   }
 
@@ -444,6 +464,7 @@
   // Wire up the already-exposed AuthModal
   _open  = openModal;
   _close = closeModal;
+  window.AuthModal.isLoggedIn = isLoggedIn;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); });
