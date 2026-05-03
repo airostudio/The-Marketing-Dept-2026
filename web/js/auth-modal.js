@@ -344,12 +344,18 @@
         return await window.apiClient.login(email, pwd);
       } catch (err) {
         if (err.isApiUnavailable && window.Auth) {
-          return await window.Auth.login(email, pwd);
+          const user = await window.Auth.login(email, pwd);
+          _bridgeAuthSession(user);
+          return user;
         }
         throw err;
       }
     }
-    if (window.Auth) return await window.Auth.login(email, pwd);
+    if (window.Auth) {
+      const user = await window.Auth.login(email, pwd);
+      _bridgeAuthSession(user);
+      return user;
+    }
     throw new Error('Auth service not loaded.');
   }
 
@@ -383,13 +389,29 @@
         return await window.apiClient.signup(email, pwd, first, last, org);
       } catch (err) {
         if (err.isApiUnavailable && window.Auth) {
-          return await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+          const user = await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+          _bridgeAuthSession(user);
+          return user;
         }
         throw err;
       }
     }
-    if (window.Auth) return await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+    if (window.Auth) {
+      const user = await window.Auth.register({ email, password: pwd, firstname: first, lastname: last });
+      _bridgeAuthSession(user);
+      return user;
+    }
     throw new Error('Auth service not loaded.');
+  }
+
+  // Write a synthetic access_token so apiClient.isAuthenticated() also passes
+  // after a window.Auth (localStorage) login. Keeps both guards happy.
+  function _bridgeAuthSession(user) {
+    if (!user) return;
+    const token = 'local_' + (user.id || user.email || Date.now());
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    if (window.apiClient) window.apiClient.accessToken = token;
   }
 
   function onSuccess() {

@@ -1134,15 +1134,17 @@
     <script>
         // Dashboard Protection - Redirect if not authenticated
         (function() {
-            if (!Auth.isAuthenticatedSync()) {
-                // Redirect to landing page with message
+            const _authOk = Auth.isAuthenticatedSync() ||
+                            (window.apiClient && window.apiClient.isAuthenticated());
+            if (!_authOk) {
                 sessionStorage.setItem('auth_redirect', 'true');
                 window.location.href = '/index.html';
                 return;
             }
 
-            // Update user info in sidebar
-            const user = Auth.getUserSync();
+            // Update user info in sidebar — try both storage keys
+            const user = Auth.getUserSync() ||
+                         JSON.parse(localStorage.getItem('user') || 'null');
             if (user) {
                 const userName = document.querySelector('[data-metric="user-name"]');
                 const userInitials = document.querySelector('[data-metric="user-initials"]');

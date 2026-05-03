@@ -925,14 +925,20 @@
   // Only authenticated users can access the agents dashboard
   // ═══════════════════════════════════════════════════════════════
 
-  // Check if user is authenticated
-  if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+  // Check if user is authenticated — accept either auth system
+  const _apiAuthed  = window.apiClient && window.apiClient.isAuthenticated();
+  const _authAuthed = window.Auth && window.Auth.isAuthenticatedSync();
+  if (!_apiAuthed && !_authAuthed) {
     AuthModal.redirectTo = '/hub.html';
     AuthModal.open('login');
   } else {
-    // Load user info
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    console.log('✅ Authenticated as:', user.email);
+    // Load user info — try both storage keys
+    const user = JSON.parse(
+      localStorage.getItem('user') ||
+      localStorage.getItem('seo_agent_user') ||
+      '{}'
+    );
+    console.log('✅ Authenticated as:', user.email || user.email);
 
     // Add user menu to nav (if present)
     const nav = document.querySelector('nav') || document.querySelector('header');
@@ -943,7 +949,7 @@
 
       const userInfo = document.createElement('div');
       userInfo.style.cssText = 'color: white; font-size: 0.9rem;';
-      userInfo.innerHTML = `<strong>${user.firstName || user.email}</strong>`;
+      userInfo.innerHTML = `<strong>${user.firstName || user.firstname || user.email}</strong>`;
 
       const logoutBtn = document.createElement('button');
       logoutBtn.textContent = 'Logout';
