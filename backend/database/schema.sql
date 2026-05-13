@@ -341,6 +341,74 @@ CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
+-- 11. SEO PROJECTS (Wizard output — one row per tracked website)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS seo_projects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Basic info
+  project_name VARCHAR(255) NOT NULL,
+  website_url TEXT NOT NULL,
+  industry VARCHAR(100),
+  business_type VARCHAR(100),
+
+  -- Target settings
+  target_country VARCHAR(10),
+  target_language VARCHAR(10),
+  additional_regions TEXT[] DEFAULT '{}',
+
+  -- Crawl settings
+  sitemap_url TEXT,
+  robots_txt_url TEXT,
+  crawl_depth INTEGER DEFAULT 3,
+  max_pages INTEGER DEFAULT 1000,
+  crawl_frequency VARCHAR(20) DEFAULT 'weekly',
+  page_types TEXT[] DEFAULT '{}',
+  tech_checks TEXT[] DEFAULT '{}',
+  exclude_patterns TEXT,
+
+  -- Keywords
+  seed_keywords TEXT[] DEFAULT '{}',
+  brand_keywords TEXT[] DEFAULT '{}',
+  keyword_update_frequency VARCHAR(20) DEFAULT 'weekly',
+  search_engine VARCHAR(20) DEFAULT 'google',
+  additional_engines TEXT[] DEFAULT '{}',
+
+  -- Competitors (stored as JSONB array of {name, url})
+  competitors JSONB DEFAULT '[]',
+
+  -- Goals
+  traffic_goal INTEGER,
+  keyword_goal INTEGER,
+  backlink_goal INTEGER,
+  da_goal INTEGER,
+
+  -- Alerts
+  alert_channels TEXT[] DEFAULT '{}',
+  alert_types TEXT[] DEFAULT '{}',
+  alert_frequency VARCHAR(20) DEFAULT 'daily',
+  alert_email VARCHAR(255),
+
+  -- Third-party integrations. Credentials should be encrypted at rest at
+  -- the application layer — this column stores the encrypted blob.
+  integrations JSONB DEFAULT '{}',
+
+  -- Status
+  is_active BOOLEAN DEFAULT TRUE,
+  last_audit_at TIMESTAMP WITH TIME ZONE,
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_projects_organization ON seo_projects(organization_id);
+CREATE INDEX IF NOT EXISTS idx_seo_projects_user ON seo_projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_seo_projects_is_active ON seo_projects(is_active);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
 -- TRIGGERS: Auto-update updated_at timestamps
 -- ═══════════════════════════════════════════════════════════════════════════════
 
@@ -371,6 +439,9 @@ CREATE TRIGGER update_icp_profiles_updated_at BEFORE UPDATE ON icp_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_seo_projects_updated_at BEFORE UPDATE ON seo_projects
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ═══════════════════════════════════════════════════════════════════════════════

@@ -619,11 +619,13 @@
             }
         }
 
-        // Fallback to localStorage
+        // Fallback to localStorage. Persist the full project object under
+        // a dedicated key so the analyzer can read it without ProjectService.
         const projects = JSON.parse(localStorage.getItem('seo-projects') || '[]');
         projects.push(project);
         localStorage.setItem('seo-projects', JSON.stringify(projects));
         localStorage.setItem('seo-current-project', project.id);
+        localStorage.setItem('seo-current-project-data', JSON.stringify(project));
 
         return project;
     }
@@ -658,14 +660,13 @@
             completeStep.classList.add('active');
         }
 
-        // Hide footer
+        // Hide the wizard footer and the step progress bar entirely — its
+        // visual fill at 100% reads as "analysis complete" to users, which is
+        // not what's happening here. Setup is complete; analysis runs next.
         document.querySelector('.wizard-footer').style.display = 'none';
-
-        // Update progress to 100%
-        elements.progressFill.style.width = '100%';
-        elements.progressSteps.forEach(step => {
-            step.classList.add('completed');
-        });
+        const wizardProgress = document.querySelector('.wizard-progress');
+        if (wizardProgress) wizardProgress.style.display = 'none';
+        elements.progressSteps.forEach(step => step.classList.add('completed'));
 
         // Populate summary
         document.getElementById('summaryProjectName').textContent = project.projectName || '-';

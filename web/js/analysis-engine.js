@@ -129,50 +129,39 @@
     const elements = {};
 
     function initElements() {
-        elements.progressBar = document.getElementById('analysisProgressBar');
-        elements.progressPercent = document.getElementById('analysisProgressPercent');
-        elements.activityLog = document.getElementById('activityLog');
+        // IDs match analyzing.html. Keep this in sync if either side changes.
+        elements.progressBar = document.getElementById('progressBar');
+        elements.progressPercent = document.getElementById('progressPercent');
+        elements.activityLog = document.getElementById('liveLog');
         elements.siteUrl = document.getElementById('siteUrl');
         elements.siteMeta = document.getElementById('siteMeta');
         elements.siteStatus = document.getElementById('siteStatus');
-        elements.taskList = document.getElementById('taskList');
-        elements.statsPages = document.getElementById('statsPages');
-        elements.statsIssues = document.getElementById('statsIssues');
-        elements.statsKeywords = document.getElementById('statsKeywords');
-        elements.statsBacklinks = document.getElementById('statsBacklinks');
+        elements.taskList = document.getElementById('tasksList');
+        elements.statsPages = document.getElementById('statPages');
+        elements.statsIssues = document.getElementById('statIssues');
+        elements.statsKeywords = document.getElementById('statKeywords');
+        elements.statsBacklinks = document.getElementById('statBacklinks');
         elements.completionOverlay = document.getElementById('completionOverlay');
         elements.finalScore = document.getElementById('finalScore');
         elements.finalIssues = document.getElementById('finalIssues');
         elements.finalPages = document.getElementById('finalPages');
+        elements.timeRemaining = document.getElementById('timeRemaining');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function init() {
+    async function init() {
         initElements();
 
-        // Get project data
-        const projectData = localStorage.getItem('seo-current-project');
-        if (projectData) {
-            try {
-                state.projectData = JSON.parse(projectData);
-            } catch (e) {
-                state.projectData = { url: projectData, name: 'Analysis' };
-            }
-        }
+        state.projectData = await resolveProject();
 
-        // If no project data, try to get from pending audit
-        if (!state.projectData) {
-            const pendingAudit = localStorage.getItem('seo-pending-audit');
-            if (pendingAudit) {
-                try {
-                    state.projectData = JSON.parse(pendingAudit);
-                } catch (e) {
-                    state.projectData = { url: pendingAudit, name: 'Analysis' };
-                }
-            }
+        // Normalise field names. The wizard uses `websiteUrl` / `projectName`;
+        // older code uses `url` / `name`. Accept either, expose `url`/`name`.
+        if (state.projectData) {
+            state.projectData.url = state.projectData.url || state.projectData.websiteUrl;
+            state.projectData.name = state.projectData.name || state.projectData.projectName;
         }
 
         if (!state.projectData || !state.projectData.url) {
@@ -199,6 +188,64 @@
         addLog(`Starting analysis for ${state.projectData.url}`, 'info');
 
         startAnalysis();
+    }
+
+    async function resolveProject() {
+        // 1. Ask ProjectService — it abstracts Supabase / backend / localStorage.
+        try {
+            if (window.ProjectService?.getCurrentProject) {
+                const proj = await window.ProjectService.getCurrentProject();
+                if (proj && (proj.url || proj.websiteUrl)) return proj;
+            }
+        } catch (e) {
+            console.warn('[analysis] ProjectService.getCurrentProject failed:', e);
+        }
+
+        // 2. Look up the project ID stored by the wizard and resolve via the
+        //    list of saved projects. The wizard now also writes the full
+        //    project under `seo-current-project-data`.
+        try {
+            const fullProject = localStorage.getItem('seo-current-project-data');
+            if (fullProject) {
+                const parsed = JSON.parse(fullProject);
+                if (parsed && (parsed.url || parsed.websiteUrl)) return parsed;
+            }
+        } catch (_) { /* ignore */ }
+
+        try {
+            const currentId = localStorage.getItem('seo-current-project');
+            if (currentId) {
+                // The key may hold either a bare ID or a full JSON object,
+                // depending on how it was set.
+                try {
+                    const parsed = JSON.parse(currentId);
+                    if (parsed && typeof parsed === 'object' && (parsed.url || parsed.websiteUrl)) {
+                        return parsed;
+                    }
+                } catch (_) { /* not JSON — treat as ID */ }
+
+                const projects = JSON.parse(localStorage.getItem('seo-projects') || '[]');
+                const found = projects.find((p) => p && p.id === currentId);
+                if (found) return found;
+            }
+        } catch (e) {
+            console.warn('[analysis] localStorage project lookup failed:', e);
+        }
+
+        // 3. Pending-audit fallback (legacy).
+        try {
+            const pending = localStorage.getItem('seo-pending-audit');
+            if (pending && pending !== 'true') {
+                try {
+                    const parsed = JSON.parse(pending);
+                    if (parsed && (parsed.url || parsed.websiteUrl)) return parsed;
+                } catch (_) {
+                    return { url: pending, name: 'Analysis' };
+                }
+            }
+        } catch (_) { /* ignore */ }
+
+        return null;
     }
 
     function initTaskList() {
@@ -655,10 +702,18 @@
     }
 
     function updateStats() {
-        if (elements.statsPages) elements.statsPages.textContent = state.counters.pages;
-        if (elements.statsIssues) elements.statsIssues.textContent = state.counters.issues;
-        if (elements.statsKeywords) elements.statsKeywords.textContent = state.counters.keywords;
-        if (elements.statsBacklinks) elements.statsBacklinks.textContent = state.counters.backlinks;
+        // HTML stat containers wrap a .stat-value child — write into that, not
+        // the container itself (which would erase the label).
+        function setStat(container, value) {
+            if (!container) return;
+            const valueEl = container.querySelector('.stat-value');
+            if (valueEl) valueEl.textContent = value;
+            else container.textContent = value;
+        }
+        setStat(elements.statsPages, state.counters.pages);
+        setStat(elements.statsIssues, state.counters.issues);
+        setStat(elements.statsKeywords, state.counters.keywords);
+        setStat(elements.statsBacklinks, state.counters.backlinks);
     }
 
     function updateTaskStatus(taskId, status) {

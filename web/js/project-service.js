@@ -166,10 +166,33 @@
 
     /**
      * Create a new project
+     *
+     * Persistence priority:
+     *   1. Audema Express backend at /api/projects (requires a real JWT)
+     *   2. Supabase (if configured and authenticated)
+     *   3. localStorage (offline / demo fallback)
      */
     async function createProject(projectData) {
         const client = getSupabase();
         const userId = await getCurrentUserId();
+
+        // 1. Try the Express backend first — that's where the schema lives now.
+        if (window.apiClient && window.apiClient.accessToken &&
+            !String(window.apiClient.accessToken).startsWith('local_')) {
+            try {
+                const saved = await window.apiClient.post('/projects', projectData);
+                const projects = getProjectsFromLocalStorage();
+                projects.unshift(saved);
+                localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+                console.log('[ProjectService] Project created via backend:', saved.id);
+                return saved;
+            } catch (e) {
+                if (!e.isApiUnavailable) {
+                    console.error('[ProjectService] Backend create failed:', e);
+                }
+                // Fall through to Supabase / localStorage.
+            }
+        }
 
         // Generate a local ID for localStorage fallback
         const localId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);

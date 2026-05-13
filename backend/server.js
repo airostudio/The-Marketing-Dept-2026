@@ -28,6 +28,8 @@ const lifecycleRoutes = require('./api/lifecycle');
 const dealRoutes = require('./api/deals');
 const icpRoutes = require('./api/icp');
 const integrationRoutes = require('./api/integrations');
+const projectRoutes = require('./api/projects');
+const diagnosticsRoutes = require('./api/diagnostics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -139,6 +141,8 @@ app.use('/api/lifecycle', authenticate, lifecycleRoutes);
 app.use('/api/deals', authenticate, dealRoutes);
 app.use('/api/icp', authenticate, icpRoutes);
 app.use('/api/integrations', authenticate, integrationRoutes);
+app.use('/api/projects', authenticate, projectRoutes);
+app.use('/api/diagnostics', authenticate, diagnosticsRoutes);
 
 // 404 handler
 app.use((req, res) => {
