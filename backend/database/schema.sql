@@ -2,6 +2,9 @@
 -- DATABASE SCHEMA — Audema Marketing Platform
 -- PostgreSQL schema for multi-tenant B2B SaaS marketing automation platform.
 --
+-- This file is fully idempotent: safe to run on a fresh database or to re-run
+-- against an existing one (e.g. after a Docker container restart).
+--
 -- Architecture:
 --   - Multi-tenant: Organizations → Users → Customers
 --   - Customer lifecycle: Health scores, campaigns, lifecycle stages
@@ -16,7 +19,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. ORGANIZATIONS & USERS (Multi-Tenant)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   slug VARCHAR(255) UNIQUE NOT NULL,
@@ -27,10 +30,10 @@ CREATE TABLE organizations (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_organizations_slug ON organizations(slug);
-CREATE INDEX idx_organizations_status ON organizations(status);
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON organizations(slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status);
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -44,11 +47,11 @@ CREATE TABLE users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_organization ON users(organization_id);
-CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_organization ON users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token VARCHAR(512) UNIQUE NOT NULL,
@@ -56,14 +59,14 @@ CREATE TABLE refresh_tokens (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 2. CUSTOMERS (CRM-like customer data)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -95,16 +98,16 @@ CREATE TABLE customers (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_customers_organization ON customers(organization_id);
-CREATE INDEX idx_customers_email ON customers(email);
-CREATE INDEX idx_customers_lifecycle_stage ON customers(lifecycle_stage);
-CREATE INDEX idx_customers_current_plan ON customers(current_plan);
+CREATE INDEX IF NOT EXISTS idx_customers_organization ON customers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_customers_lifecycle_stage ON customers(lifecycle_stage);
+CREATE INDEX IF NOT EXISTS idx_customers_current_plan ON customers(current_plan);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 3. CUSTOMER HEALTH SCORES
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE customer_health_scores (
+CREATE TABLE IF NOT EXISTS customer_health_scores (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -132,16 +135,16 @@ CREATE TABLE customer_health_scores (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_health_scores_organization ON customer_health_scores(organization_id);
-CREATE INDEX idx_health_scores_customer ON customer_health_scores(customer_id);
-CREATE INDEX idx_health_scores_status ON customer_health_scores(status);
-CREATE INDEX idx_health_scores_calculated_at ON customer_health_scores(calculated_at);
+CREATE INDEX IF NOT EXISTS idx_health_scores_organization ON customer_health_scores(organization_id);
+CREATE INDEX IF NOT EXISTS idx_health_scores_customer ON customer_health_scores(customer_id);
+CREATE INDEX IF NOT EXISTS idx_health_scores_status ON customer_health_scores(status);
+CREATE INDEX IF NOT EXISTS idx_health_scores_calculated_at ON customer_health_scores(calculated_at);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 4. NPS RESPONSES
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE nps_responses (
+CREATE TABLE IF NOT EXISTS nps_responses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -154,16 +157,16 @@ CREATE TABLE nps_responses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_nps_organization ON nps_responses(organization_id);
-CREATE INDEX idx_nps_customer ON nps_responses(customer_id);
-CREATE INDEX idx_nps_category ON nps_responses(category);
-CREATE INDEX idx_nps_recorded_at ON nps_responses(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_nps_organization ON nps_responses(organization_id);
+CREATE INDEX IF NOT EXISTS idx_nps_customer ON nps_responses(customer_id);
+CREATE INDEX IF NOT EXISTS idx_nps_category ON nps_responses(category);
+CREATE INDEX IF NOT EXISTS idx_nps_recorded_at ON nps_responses(recorded_at);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 5. CAMPAIGNS (Email, social, paid media)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE campaigns (
+CREATE TABLE IF NOT EXISTS campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
@@ -186,16 +189,16 @@ CREATE TABLE campaigns (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_campaigns_organization ON campaigns(organization_id);
-CREATE INDEX idx_campaigns_customer ON campaigns(customer_id);
-CREATE INDEX idx_campaigns_type ON campaigns(campaign_type);
-CREATE INDEX idx_campaigns_status ON campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_organization ON campaigns(organization_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_customer ON campaigns(customer_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_type ON campaigns(campaign_type);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 6. LIFECYCLE STAGE HISTORY
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE lifecycle_stage_history (
+CREATE TABLE IF NOT EXISTS lifecycle_stage_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -208,15 +211,15 @@ CREATE TABLE lifecycle_stage_history (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_lifecycle_history_organization ON lifecycle_stage_history(organization_id);
-CREATE INDEX idx_lifecycle_history_customer ON lifecycle_stage_history(customer_id);
-CREATE INDEX idx_lifecycle_history_timestamp ON lifecycle_stage_history(timestamp);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_history_organization ON lifecycle_stage_history(organization_id);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_history_customer ON lifecycle_stage_history(customer_id);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_history_timestamp ON lifecycle_stage_history(timestamp);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 7. REVENUE & DEALS
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE deals (
+CREATE TABLE IF NOT EXISTS deals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
@@ -241,16 +244,16 @@ CREATE TABLE deals (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_deals_organization ON deals(organization_id);
-CREATE INDEX idx_deals_customer ON deals(customer_id);
-CREATE INDEX idx_deals_stage ON deals(stage);
-CREATE INDEX idx_deals_expected_close_date ON deals(expected_close_date);
+CREATE INDEX IF NOT EXISTS idx_deals_organization ON deals(organization_id);
+CREATE INDEX IF NOT EXISTS idx_deals_customer ON deals(customer_id);
+CREATE INDEX IF NOT EXISTS idx_deals_stage ON deals(stage);
+CREATE INDEX IF NOT EXISTS idx_deals_expected_close_date ON deals(expected_close_date);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 8. ICP DATA (Ideal Customer Profile)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE icp_profiles (
+CREATE TABLE IF NOT EXISTS icp_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -280,13 +283,13 @@ CREATE TABLE icp_profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_icp_organization ON icp_profiles(organization_id);
+CREATE INDEX IF NOT EXISTS idx_icp_organization ON icp_profiles(organization_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 9. INTEGRATIONS (Third-party API credentials)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE integrations (
+CREATE TABLE IF NOT EXISTS integrations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -307,15 +310,15 @@ CREATE TABLE integrations (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_integrations_organization ON integrations(organization_id);
-CREATE INDEX idx_integrations_provider ON integrations(provider);
-CREATE INDEX idx_integrations_status ON integrations(status);
+CREATE INDEX IF NOT EXISTS idx_integrations_organization ON integrations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_integrations_provider ON integrations(provider);
+CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 10. AUDIT LOGS (Track all data changes)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -335,10 +338,10 @@ CREATE TABLE audit_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_audit_logs_organization ON audit_logs(organization_id);
-CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_organization ON audit_logs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 11. SEO PROJECTS (Wizard output — one row per tracked website)
@@ -410,6 +413,9 @@ CREATE INDEX IF NOT EXISTS idx_seo_projects_is_active ON seo_projects(is_active)
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- TRIGGERS: Auto-update updated_at timestamps
+--
+-- PostgreSQL has no CREATE TRIGGER IF NOT EXISTS, so we DROP first.
+-- This is safe: triggers hold no data.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -420,27 +426,35 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations;
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_customers_updated_at ON customers;
 CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_campaigns_updated_at ON campaigns;
 CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_deals_updated_at ON deals;
 CREATE TRIGGER update_deals_updated_at BEFORE UPDATE ON deals
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_icp_profiles_updated_at ON icp_profiles;
 CREATE TRIGGER update_icp_profiles_updated_at BEFORE UPDATE ON icp_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_integrations_updated_at ON integrations;
 CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_seo_projects_updated_at ON seo_projects;
 CREATE TRIGGER update_seo_projects_updated_at BEFORE UPDATE ON seo_projects
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -462,14 +476,14 @@ CREATE TRIGGER update_seo_projects_updated_at BEFORE UPDATE ON seo_projects
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Latest health score for each customer
-CREATE VIEW latest_customer_health AS
+CREATE OR REPLACE VIEW latest_customer_health AS
 SELECT DISTINCT ON (customer_id)
   chs.*
 FROM customer_health_scores chs
 ORDER BY customer_id, calculated_at DESC;
 
 -- Customer summary (with latest health)
-CREATE VIEW customer_summary AS
+CREATE OR REPLACE VIEW customer_summary AS
 SELECT
   c.*,
   lch.health_score,
@@ -480,7 +494,7 @@ FROM customers c
 LEFT JOIN latest_customer_health lch ON c.id = lch.customer_id;
 
 -- Organization metrics
-CREATE VIEW organization_metrics AS
+CREATE OR REPLACE VIEW organization_metrics AS
 SELECT
   o.id AS organization_id,
   o.name AS organization_name,
