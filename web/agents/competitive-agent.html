@@ -167,6 +167,11 @@
                 <label class="field-label">Recent Competitor Activity to Analyze</label>
                 <textarea class="field-textarea" id="recentActivity" style="min-height:80px;" placeholder="Paste recent competitor content: website copy, pricing page, press releases, social posts, job listings, product announcements, ad copy..."></textarea>
             </div>
+            <div id="seoStatusBanner" style="display:none; margin: 12px 0; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; border: 1px solid;">
+                <span id="seoStatusIcon" style="margin-right:6px;"></span>
+                <span id="seoStatusText"></span>
+                <a id="seoStatusLink" href="/project-wizard.html" style="margin-left:6px; font-weight:600; text-decoration:underline;"></a>
+            </div>
             <button class="btn-run" id="runBtn" onclick="runAnalysis()">
                 <span id="btnIcon">🔭</span>
                 <span id="btnText">Analyze</span>
@@ -309,6 +314,45 @@
         return bundle ? (bundle.completeness || 0) : 0;
     }
 
+    // Render the SEO API status as a non-blocking inline banner. Green when
+    // Ahrefs or SEMrush keys are detected (in APP_CONFIG or on the active
+    // project), amber otherwise. Replaces the old confirm() popup.
+    function renderSeoStatusBanner() {
+        const banner = document.getElementById('seoStatusBanner');
+        const icon   = document.getElementById('seoStatusIcon');
+        const text   = document.getElementById('seoStatusText');
+        const link   = document.getElementById('seoStatusLink');
+        if (!banner) return;
+
+        const hasAhrefs  = !!window.ApiConnector?.SEOTools?.ahrefs?.isAvailable?.();
+        const hasSemrush = !!window.ApiConnector?.SEOTools?.semrush?.isAvailable?.();
+        const tools = [];
+        if (hasAhrefs)  tools.push('Ahrefs');
+        if (hasSemrush) tools.push('SEMrush');
+
+        if (tools.length > 0) {
+            banner.style.background    = 'rgba(16,185,129,0.08)';
+            banner.style.borderColor   = 'rgba(16,185,129,0.30)';
+            banner.style.color         = '#34d399';
+            icon.textContent           = '✅';
+            text.textContent           = `Pulling keyword and backlink data from ${tools.join(' + ')}.`;
+            link.textContent           = '';
+            link.style.display         = 'none';
+        } else {
+            banner.style.background    = 'rgba(245,158,11,0.08)';
+            banner.style.borderColor   = 'rgba(245,158,11,0.30)';
+            banner.style.color         = '#fbbf24';
+            icon.textContent           = '⚠️';
+            text.textContent           = 'No SEO API keys detected. Running messaging/positioning analysis only.';
+            link.textContent           = 'Connect Ahrefs or SEMrush →';
+            link.style.color           = '#f59e0b';
+            link.style.display         = 'inline';
+        }
+        banner.style.display = 'block';
+    }
+
+    document.addEventListener('DOMContentLoaded', renderSeoStatusBanner);
+
     async function runAnalysis() {
         const task = document.getElementById('task').value;
         const competitors = document.getElementById('competitors').value.trim();
@@ -321,15 +365,7 @@
             return;
         }
 
-        // Strategic Validation: SEO APIs
-        const hasSEOTools = window.ApiConnector?.SEOTools?.ahrefs?.isAvailable() ||
-                           window.ApiConnector?.SEOTools?.semrush?.isAvailable();
-
-        if (!hasSEOTools && !sessionStorage.getItem('competitive-seo-warning-dismissed')) {
-            const proceed = confirm('⚠️ SEO APIs (Ahrefs, SEMrush) not configured.\n\nFor keyword gap analysis, backlink data, and traffic potential scoring, configure SEO tool APIs in Settings → API Keys.\n\nProceed with messaging/positioning analysis only?');
-            if (!proceed) return;
-            sessionStorage.setItem('competitive-seo-warning-dismissed', 'true');
-        }
+        renderSeoStatusBanner();
 
         // Strategic Validation: Intelligence Layer
         const completeness = getIntelligenceCompleteness();

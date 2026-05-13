@@ -36,6 +36,30 @@
     return !!getConfig(path);
   }
 
+  // Read an integration credential off the active SEO project. The wizard
+  // saves integrations as { ahrefs: { 'API Key': '...' } } keyed by the form
+  // label, so we look up whichever shape is present. Returns '' if no
+  // project, no integration, or no value.
+  function getProjectIntegrationValue(provider, fieldNames) {
+    try {
+      var project = (window.ProjectService && typeof window.ProjectService.getCurrentProjectSync === 'function')
+        ? window.ProjectService.getCurrentProjectSync()
+        : null;
+      if (!project) {
+        var raw = localStorage.getItem('seo-current-project-data');
+        if (raw) project = JSON.parse(raw);
+      }
+      if (!project || !project.integrations) return '';
+      var creds = project.integrations[provider];
+      if (!creds || typeof creds !== 'object') return '';
+      for (var i = 0; i < fieldNames.length; i++) {
+        var v = creds[fieldNames[i]];
+        if (v && String(v).trim()) return String(v).trim();
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   // ---- Cache helpers using localStorage ----
 
   function cacheKey(namespace, key) {
@@ -807,11 +831,13 @@
       var BASE = 'https://apiv2.ahrefs.com';
 
       function getApiToken() {
-        return getConfig('seo.ahrefs.apiToken') || getConfig('ahrefs.apiToken');
+        return getConfig('seo.ahrefs.apiToken')
+            || getConfig('ahrefs.apiToken')
+            || getProjectIntegrationValue('ahrefs', ['apiToken', 'apiKey', 'API Key', 'token']);
       }
 
       function isAvailable() {
-        return apiEnabled('seo.ahrefs') && !!getApiToken();
+        return !!getApiToken();
       }
 
       function ahrefsFetch(endpoint, params, cacheKeyStr, ttl) {
@@ -875,11 +901,13 @@
       var BASE = 'https://api.semrush.com';
 
       function getApiKey() {
-        return getConfig('seo.semrush.apiKey') || getConfig('semrush.apiKey');
+        return getConfig('seo.semrush.apiKey')
+            || getConfig('semrush.apiKey')
+            || getProjectIntegrationValue('semrush', ['apiKey', 'API Key', 'token']);
       }
 
       function isAvailable() {
-        return apiEnabled('seo.semrush') && !!getApiKey();
+        return !!getApiKey();
       }
 
       function semrushFetch(params, cacheKeyStr, ttl) {
