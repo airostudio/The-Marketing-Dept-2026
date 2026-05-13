@@ -50,9 +50,27 @@ class APIClient {
 
     try {
       const response = await fetch(url, config);
-      const result = await response.json();
+
+      let result;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // Non-JSON response (e.g. HTML error page from a proxy/static server)
+        const text = await response.text();
+        const err = new Error(`API unavailable (${response.status})`);
+        err.isApiUnavailable = true;
+        throw err;
+      }
 
       if (!response.ok) {
+        // 404 = endpoint doesn't exist (no backend deployed) → treat as unavailable
+        if (response.status === 404) {
+          const err = new Error(`API endpoint not found (${endpoint})`);
+          err.isApiUnavailable = true;
+          throw err;
+        }
+
         // Token expired - try to refresh
         if (response.status === 401 && this.refreshToken && !options.skipRefresh) {
           const refreshed = await this.refreshAccessToken();
@@ -68,7 +86,13 @@ class APIClient {
       return result.data || result;
 
     } catch (error) {
-      console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
+      // Network errors (no server, connection refused, CORS) → treat as unavailable
+      if (error instanceof TypeError || error.name === 'TypeError') {
+        error.isApiUnavailable = true;
+      }
+      if (!error.isApiUnavailable) {
+        console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
+      }
       throw error;
     }
   }

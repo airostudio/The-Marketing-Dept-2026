@@ -1536,8 +1536,6 @@ ${tone.closing}`;
         }
 
         showProcessing('Checking grammar...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
         const issues = checkGrammar(content);
         displayProofreadResults(issues);
 
