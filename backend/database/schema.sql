@@ -374,31 +374,17 @@ CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SEED DATA: Create demo organization and user
+-- SEED DATA
 -- ═══════════════════════════════════════════════════════════════════════════════
-
--- Demo organization
-INSERT INTO organizations (id, name, slug, plan_type, status)
-VALUES (
-  '00000000-0000-0000-0000-000000000001',
-  'Demo Company',
-  'demo-company',
-  'enterprise',
-  'active'
-);
-
--- Demo user (password: "demo123" - bcrypt hash)
-INSERT INTO users (id, organization_id, email, password_hash, first_name, last_name, role, status)
-VALUES (
-  '00000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000001',
-  'demo@example.com',
-  '$2b$10$rRZN5EqLZqPOJqJqZqJqJeQqJqJqJqJqJqJqJqJqJqJqJqJqJ', -- demo123
-  'Demo',
-  'User',
-  'owner',
-  'active'
-);
+--
+-- NOTE: A previous seed inserted a demo user with a placeholder bcrypt hash that
+-- could never be matched by bcrypt.compare(). It was removed because (a) it gave
+-- a false sense of a working login and (b) shipping a seeded demo account is a
+-- production hazard.
+--
+-- To create an account against a fresh database, hit POST /api/auth/signup. The
+-- transaction in backend/api/auth.js creates the organization and user atomically.
+-- ═══════════════════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- VIEWS: Convenient queries

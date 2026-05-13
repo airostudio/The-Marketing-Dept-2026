@@ -38,8 +38,10 @@ class APIClient {
       }
     };
 
-    // Add auth token if available
-    if (this.accessToken && !options.skipAuth) {
+    // Add auth token if available. Synthetic offline tokens (prefix "local_")
+    // are demo-only — never send them over the wire; the backend would reject
+    // them anyway and a leaked one is useless without a real session.
+    if (this.accessToken && !options.skipAuth && !this.accessToken.startsWith('local_')) {
       config.headers.Authorization = `Bearer ${this.accessToken}`;
     }
 

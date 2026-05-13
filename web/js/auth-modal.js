@@ -64,11 +64,21 @@
       expires: Date.now() + TTL,
     }));
 
-    // Bridge keys for hub.html (apiClient guard)
+    // Bridge keys for hub.html (apiClient guard). We use a clearly-fake
+    // "local_…" token so api-client.js can refuse to send it over the wire;
+    // it only exists to satisfy the client-side "is the user logged in?" check
+    // while running in offline/demo mode. The real backend auth path writes
+    // a real JWT to the same key via the backend login flow.
     const token = 'local_' + user.id;
-    localStorage.setItem('access_token', token);
+    if (!localStorage.getItem('access_token') ||
+        (localStorage.getItem('access_token') || '').startsWith('local_')) {
+      localStorage.setItem('access_token', token);
+    }
     localStorage.setItem('user', JSON.stringify(pub));
-    if (window.apiClient) window.apiClient.accessToken = token;
+    if (window.apiClient && (!window.apiClient.accessToken ||
+        window.apiClient.accessToken.startsWith('local_'))) {
+      window.apiClient.accessToken = token;
+    }
 
     // Bridge keys for dashboard.html (Auth guard) and auth.js
     localStorage.setItem('seo_agent_user', JSON.stringify(pub));
