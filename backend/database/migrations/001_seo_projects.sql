@@ -2,10 +2,55 @@
 -- Migration: add seo_projects table
 -- Apply with:  psql $DATABASE_URL -f backend/database/migrations/001_seo_projects.sql
 --
--- Idempotent — safe to run repeatedly.
+-- Fully idempotent and self-contained. Safe to run against a fresh database,
+-- against an existing schema, or repeatedly — it will only create what's
+-- missing. No need to apply schema.sql first.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ─── Prerequisite tables ─────────────────────────────────────────────────────
+-- seo_projects has FKs to organizations(id) and users(id). Make sure both
+-- exist before we reference them, otherwise PostgreSQL fails with:
+--   ERROR: 42P01: relation "organizations" does not exist
+
+CREATE TABLE IF NOT EXISTS organizations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) UNIQUE NOT NULL,
+  plan_type VARCHAR(50) NOT NULL DEFAULT 'basic',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  role VARCHAR(50) NOT NULL DEFAULT 'member',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  last_login_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ─── Shared trigger function ─────────────────────────────────────────────────
+-- The seo_projects trigger below calls this. CREATE OR REPLACE is idempotent.
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ─── seo_projects ────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS seo_projects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -61,10 +106,6 @@ CREATE INDEX IF NOT EXISTS idx_seo_projects_organization ON seo_projects(organiz
 CREATE INDEX IF NOT EXISTS idx_seo_projects_user ON seo_projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_seo_projects_is_active ON seo_projects(is_active);
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_seo_projects_updated_at') THEN
-    CREATE TRIGGER update_seo_projects_updated_at BEFORE UPDATE ON seo_projects
-      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-  END IF;
-END$$;
+DROP TRIGGER IF EXISTS update_seo_projects_updated_at ON seo_projects;
+CREATE TRIGGER update_seo_projects_updated_at BEFORE UPDATE ON seo_projects
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
