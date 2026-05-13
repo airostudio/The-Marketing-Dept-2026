@@ -321,7 +321,7 @@
             background: rgba(255,255,255,0.04);
         }
 
-        /* ── Intelligence Warning Banner ── */
+        /* ── Intelligence Banner ── */
         .intel-warning {
             display: flex;
             align-items: center;
@@ -333,11 +333,19 @@
             color: #fbbf24;
             flex-shrink: 0;
         }
+        .intel-warning.intel-ok {
+            background: rgba(16,185,129,0.08);
+            border-bottom-color: rgba(16,185,129,0.20);
+            color: #34d399;
+        }
 
         .intel-warning a {
             color: #f59e0b;
             font-weight: 600;
             text-decoration: underline;
+        }
+        .intel-warning.intel-ok a {
+            color: #10b981;
         }
 
         .intel-warning-close {
@@ -1189,11 +1197,11 @@
             </div>
         </div>
 
-        <!-- Intelligence warning (shown when not configured) -->
+        <!-- Intelligence banner: green when configured, amber when not -->
         <div class="intel-warning" id="intelWarning" style="display:none;">
-            ⚠️ Intelligence Layer not configured. Scotty is working blind.
-            Set up BusinessBrain →
-            <a href="/intelligence/business-brain.html">Configure Now</a>
+            <span id="intelWarningIcon">⚠️</span>
+            <span id="intelWarningMsg">Intelligence Layer not configured. Scotty is working blind. Set up BusinessBrain →</span>
+            <a href="/intelligence/business-brain.html" id="intelWarningLink">Configure Now</a>
             <button class="intel-warning-close" id="intelWarningClose">✕</button>
         </div>
 
@@ -1501,17 +1509,34 @@ class ScottyChat {
 
     _checkIntelligenceEngine() {
         const engine = window.IntelligenceEngine;
-        if (engine && typeof engine.isConfigured === 'function' && engine.isConfigured()) {
-            this.intelConfigured = true;
+        const configured = !!(engine && typeof engine.isConfigured === 'function' && engine.isConfigured());
+        this.intelConfigured = configured;
+
+        const warn    = this.intelWarn;
+        const icon    = document.getElementById('intelWarningIcon');
+        const msg     = document.getElementById('intelWarningMsg');
+        const link    = document.getElementById('intelWarningLink');
+
+        if (configured) {
             this.intelDot.classList.remove('warn');
             this.intelText.textContent = 'Intelligence: Active';
             this.intelBadge.classList.remove('unconfigured');
+
+            warn.classList.add('intel-ok');
+            if (icon) icon.textContent = '✅';
+            if (msg)  msg.textContent  = 'Scotty is using your Business Brain.';
+            if (link) { link.textContent = 'View Setup'; link.href = '/intelligence/business-brain.html'; }
+            warn.style.display = 'flex';
         } else {
-            this.intelConfigured = false;
             this.intelDot.classList.add('warn');
             this.intelText.textContent = 'Intelligence: Not configured';
             this.intelBadge.classList.add('unconfigured');
-            this.intelWarn.style.display = 'flex';
+
+            warn.classList.remove('intel-ok');
+            if (icon) icon.textContent = '⚠️';
+            if (msg)  msg.textContent  = 'Intelligence Layer not configured. Scotty is working blind. Set up BusinessBrain →';
+            if (link) { link.textContent = 'Configure Now'; link.href = '/intelligence/business-brain.html'; }
+            warn.style.display = 'flex';
         }
     }
 

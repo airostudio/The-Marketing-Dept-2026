@@ -526,6 +526,11 @@ class CompetitiveRadar {
     return this._load().competitors;
   }
 
+  /** @returns {boolean} true if at least one competitor has been added */
+  hasData() {
+    return this._load().competitors.length > 0;
+  }
+
   /**
    * Return a single competitor by ID.
    * @param {string} id
@@ -726,6 +731,11 @@ class MarketPulse {
   getActiveSignals() {
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
     return this.getSignals({ afterMs: thirtyDaysAgo });
+  }
+
+  /** @returns {boolean} true if at least one signal has been logged */
+  hasData() {
+    return this._load().signals.length > 0;
   }
 
   /**
@@ -1318,6 +1328,27 @@ class IntelligenceEngine {
     }
 
     return this.briefs.create({ initiative, ...briefData });
+  }
+
+  /**
+   * Returns true if BusinessBrain has enough data to be useful.
+   * Delegates to BusinessBrain.isConfigured() so callers on the facade work correctly.
+   * @returns {boolean}
+   */
+  isConfigured() {
+    return this.brain.isConfigured();
+  }
+
+  /**
+   * Returns true if the given context store has data.
+   * @param {'business'|'competitive'|'market'} type
+   * @returns {boolean}
+   */
+  hasContext(type) {
+    if (type === 'business')     return this.brain.isConfigured();
+    if (type === 'competitive')  return this.radar.hasData();
+    if (type === 'market')       return this.pulse.hasData();
+    return false;
   }
 
   /**
