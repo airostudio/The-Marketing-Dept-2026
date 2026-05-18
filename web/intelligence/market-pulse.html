@@ -268,10 +268,9 @@
   const SIGNALS_KEY = 'tmd_pulse_signals';
   const GAPS_KEY = 'tmd_pulse_gaps';
 
+  // Always use local storage directly (tmd_pulse_signals / tmd_pulse_gaps)
+  // so the schema matches what intelligence-sync.js writes.
   function getPulse() {
-    if (window.IntelligenceEngine && window.IntelligenceEngine.pulse) {
-      return window.IntelligenceEngine.pulse;
-    }
     return {
       getSignals: () => JSON.parse(localStorage.getItem(SIGNALS_KEY) || '[]'),
       saveSignals: (data) => localStorage.setItem(SIGNALS_KEY, JSON.stringify(data)),
@@ -655,6 +654,13 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
   }
 
   // ── Init ──────────────────────────────────────────────────────────
+  // Re-render if intelligence-sync.js writes new signals after this script runs
+  document.addEventListener('intelligence:synced', function () {
+    renderLibrary();
+    renderPatterns();
+    renderGaps();
+  });
+
   renderLibrary();
   renderPatterns();
   renderGaps();

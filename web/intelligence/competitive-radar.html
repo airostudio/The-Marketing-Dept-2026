@@ -206,12 +206,8 @@
   let selectedCompetitorId = null;
   let activeTab = 'moves';
 
-  // ── IntelligenceEngine shim ────────────────────────────────────────────
+  // ── Storage (always local — tmd_radar — to match intelligence-sync.js) ───
   function getEngine() {
-    if (window.IntelligenceEngine && window.IntelligenceEngine.radar) {
-      return window.IntelligenceEngine.radar;
-    }
-    // Local fallback backed by localStorage
     const KEY = 'tmd_radar';
     return {
       getAll: () => JSON.parse(localStorage.getItem(KEY) || '[]'),
@@ -219,9 +215,9 @@
       addCompetitor(comp) {
         const all = this.getAll();
         comp.id = 'c_' + Date.now();
-        comp.moves = [];
-        comp.borrowedIdeas = [];
-        comp.marketGaps = [];
+        comp.moves = comp.moves || [];
+        comp.borrowedIdeas = comp.borrowedIdeas || [];
+        comp.marketGaps = comp.marketGaps || [];
         all.push(comp);
         this.save(all);
         return comp;
@@ -694,6 +690,12 @@ Be specific and sharp. 3-4 sentences per section.`;
   }
 
   // ── Init ─────────────────────────────────────────────────────────────
+  // Re-render if intelligence-sync.js imports new competitors after this script runs
+  document.addEventListener('intelligence:synced', function () {
+    renderCompetitorList();
+    if (selectedCompetitorId) renderMainPanel();
+  });
+
   renderCompetitorList();
 })();
 </script>

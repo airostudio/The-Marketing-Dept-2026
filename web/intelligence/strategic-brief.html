@@ -691,9 +691,57 @@ Synthesize all of this into a sharp, strategic brief that could be handed direct
     setTimeout(() => t.remove(), 2500);
   }
 
+  // ── Pre-fill form from synced brief seed ──────────────────────────
+  function prefillFromSyncedSeed() {
+    try {
+      const briefs = JSON.parse(localStorage.getItem('intel_strategic_briefs') || 'null');
+      const seed   = Array.isArray(briefs) ? briefs.find(b => b.addedBy === 'sync') : null;
+      if (!seed || !seed.context) return;
+
+      // Only pre-fill fields that are still empty
+      function fillIfEmpty(id, value) {
+        if (!value) return;
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) el.value = value;
+      }
+
+      // Parse context lines from the seed
+      const ctx   = seed.context;
+      const match = (re) => { const m = ctx.match(re); return m ? m[1].trim() : ''; };
+
+      fillIfEmpty('f-initiative',  seed.title.replace(' — Initial Campaign Brief', '').trim());
+      fillIfEmpty('f-audience',    match(/Company:\s*(.+)/));
+      fillIfEmpty('f-icp',         match(/Industry:\s*(.+)/));
+
+      // Pull strong signals from market pulse as seed for f-signals
+      const pulseSignals = JSON.parse(localStorage.getItem('tmd_pulse_signals') || '[]');
+      const strongSignals = pulseSignals.filter(s => s.strength === 'Strong').slice(0, 3);
+      if (strongSignals.length) {
+        const el = document.getElementById('f-signals');
+        if (el && !el.value.trim()) {
+          el.value = strongSignals.map(s => `• ${(s.content || s.title || '').slice(0, 120)}`).join('\n');
+        }
+      }
+
+      // Pull competitive gaps from radar as seed for f-gap
+      const radar = JSON.parse(localStorage.getItem('tmd_radar') || '[]');
+      if (radar.length) {
+        const el = document.getElementById('f-gap');
+        if (el && !el.value.trim()) {
+          const names = radar.slice(0, 3).map(c => c.name).filter(Boolean).join(', ');
+          if (names) el.value = `Competitors in your space: ${names}. Identify what gap they leave uncovered.`;
+        }
+      }
+    } catch (_) {}
+  }
+
   // ── Init ──────────────────────────────────────────────────────────
   renderAgentsGrid();
   renderHistory();
+  prefillFromSyncedSeed();
+
+  // Re-run prefill if sync fires after init
+  document.addEventListener('intelligence:synced', prefillFromSyncedSeed);
 })();
 </script>
 </body>

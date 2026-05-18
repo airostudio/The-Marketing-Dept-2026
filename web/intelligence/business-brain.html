@@ -1484,6 +1484,15 @@
   } else {
     init();
   }
+
+  // Re-populate form if intelligence-sync.js writes new brain data after init runs
+  document.addEventListener('intelligence:synced', function (e) {
+    if (!e.detail || !e.detail.brain) return; // nothing new written for brain
+    const existing = window.IntelligenceEngine
+      ? window.IntelligenceEngine.brain.load()
+      : (JSON.parse(localStorage.getItem('intel_business_brain') || '{}'));
+    populateForm(existing);
+  });
   </script>
 
 </body>
