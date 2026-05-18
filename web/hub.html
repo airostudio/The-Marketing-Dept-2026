@@ -338,6 +338,19 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        a.intel-module:hover {
+            border-color: rgba(124,58,237,0.4);
+            background: rgba(124,58,237,0.06);
+        }
+
+        a.intel-module.needs-setup:hover {
+            border-color: rgba(245,158,11,0.45);
+            background: rgba(245,158,11,0.05);
         }
 
         .module-status-dot {
@@ -379,10 +392,17 @@
         }
 
         .badge-setup {
-            background: rgba(100,116,139,0.15);
-            color: var(--text3);
-            border: 1px solid rgba(100,116,139,0.20);
+            background: rgba(245,158,11,0.12);
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.30);
+            cursor: pointer;
         }
+
+        .badge-setup::after {
+            content: ' →';
+        }
+
+        .dot-amber { background: #f59e0b; }
 
         /* ── Section header ── */
         .section-header {
@@ -686,39 +706,39 @@
                 ⚙️ Configure Intelligence
             </a>
         </div>
-        <div class="intel-modules">
-            <div class="intel-module">
-                <div class="module-status-dot dot-green"></div>
+        <div class="intel-modules" id="intelModules">
+            <a href="/intelligence/business-brain.html" class="intel-module" id="modBrain">
+                <div class="module-status-dot dot-grey" id="dotBrain"></div>
                 <div class="module-info">
-                    <h4>BusinessBrain</h4>
+                    <h4>Business Brain</h4>
                     <p>Company context, ICP, positioning, value props</p>
-                    <span class="module-badge badge-configured">Configured</span>
+                    <span class="module-badge badge-setup" id="badgeBrain">Needs Setup</span>
                 </div>
-            </div>
-            <div class="intel-module">
-                <div class="module-status-dot dot-green"></div>
+            </a>
+            <a href="/intelligence/competitive-radar.html" class="intel-module" id="modRadar">
+                <div class="module-status-dot dot-grey" id="dotRadar"></div>
                 <div class="module-info">
                     <h4>Competitive Radar</h4>
                     <p>Live competitor monitoring, gaps, and threat signals</p>
-                    <span class="module-badge badge-configured">Active</span>
+                    <span class="module-badge badge-setup" id="badgeRadar">Needs Setup</span>
                 </div>
-            </div>
-            <div class="intel-module">
-                <div class="module-status-dot dot-grey"></div>
+            </a>
+            <a href="/intelligence/market-pulse.html" class="intel-module needs-setup" id="modPulse">
+                <div class="module-status-dot dot-grey" id="dotPulse"></div>
                 <div class="module-info">
                     <h4>Market Pulse</h4>
                     <p>Industry trends, buyer signals, demand shifts</p>
-                    <span class="module-badge badge-setup">Needs Setup</span>
+                    <span class="module-badge badge-setup" id="badgePulse">Needs Setup</span>
                 </div>
-            </div>
-            <div class="intel-module">
-                <div class="module-status-dot dot-grey"></div>
+            </a>
+            <a href="/intelligence/strategic-brief.html" class="intel-module needs-setup" id="modBrief">
+                <div class="module-status-dot dot-grey" id="dotBrief"></div>
                 <div class="module-info">
                     <h4>Strategic Brief</h4>
                     <p>Current campaign goals, OKRs, and priorities</p>
-                    <span class="module-badge badge-setup">Needs Setup</span>
+                    <span class="module-badge badge-setup" id="badgeBrief">Needs Setup</span>
                 </div>
-            </div>
+            </a>
         </div>
     </section>
 
@@ -971,6 +991,53 @@
       nav.appendChild(userMenu);
     }
   }
+
+  // ── Intelligence Layer status — read real localStorage state ─────────────
+  (function updateIntelStatus() {
+    function safeRead(key) {
+      try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+    }
+
+    function setModule(dotId, badgeId, moduleId, isConfigured, configuredLabel) {
+      const dot   = document.getElementById(dotId);
+      const badge = document.getElementById(badgeId);
+      const mod   = document.getElementById(moduleId);
+      if (!dot || !badge || !mod) return;
+
+      if (isConfigured) {
+        dot.className   = 'module-status-dot dot-green';
+        badge.className = 'module-badge badge-configured';
+        badge.textContent = configuredLabel;
+        badge.style.removeProperty('cursor');
+        mod.classList.remove('needs-setup');
+      } else {
+        dot.className   = 'module-status-dot dot-amber';
+        badge.className = 'module-badge badge-setup';
+        badge.textContent = 'Needs Setup';
+        mod.classList.add('needs-setup');
+      }
+    }
+
+    // BusinessBrain — configured if it has a company name
+    const brain = safeRead('intel_business_brain');
+    const brainOk = !!(brain && (brain.company?.name || brain.companyName));
+    setModule('dotBrain', 'badgeBrain', 'modBrain', brainOk, 'Configured');
+
+    // Competitive Radar — active if any competitors logged
+    const radar = safeRead('intel_competitive_radar');
+    const radarOk = Array.isArray(radar) ? radar.length > 0 : !!(radar && Object.keys(radar).length);
+    setModule('dotRadar', 'badgeRadar', 'modRadar', radarOk, 'Active');
+
+    // Market Pulse — active if any signals logged
+    const pulse = safeRead('intel_market_pulse');
+    const pulseOk = Array.isArray(pulse) ? pulse.length > 0 : !!(pulse && Object.keys(pulse).length);
+    setModule('dotPulse', 'badgePulse', 'modPulse', pulseOk, 'Active');
+
+    // Strategic Brief — active if any briefs saved
+    const briefs = safeRead('intel_strategic_briefs');
+    const briefsOk = Array.isArray(briefs) ? briefs.length > 0 : !!(briefs && Object.keys(briefs).length);
+    setModule('dotBrief', 'badgeBrief', 'modBrief', briefsOk, 'Active');
+  })();
 </script>
 
 </body>
