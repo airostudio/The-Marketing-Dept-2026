@@ -279,31 +279,66 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     async function startAnalysis() {
-        // Validate URL format before doing anything
+        // Step 1: format check (no network)
+        const raw = (state.projectData.url || '').trim();
+        const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
         let parsedUrl;
         try {
-            const raw = state.projectData.url;
-            // Ensure it has a protocol so URL() can parse it
-            const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
             parsedUrl = new URL(withProto);
-            // Must have a real-looking hostname (at least one dot, no spaces)
-            if (!parsedUrl.hostname.includes('.') || parsedUrl.hostname.includes(' ')) {
-                throw new Error('Invalid hostname');
+            if (!parsedUrl.hostname.includes('.') || /\s/.test(parsedUrl.hostname)) {
+                throw new Error('bad hostname');
             }
-            // Normalise — use the version with protocol
-            state.projectData.url = withProto;
         } catch {
-            addLog('Invalid URL — please enter a valid website address (e.g. https://example.com)', 'error');
-            if (elements.progressPercent) elements.progressPercent.textContent = 'Invalid URL';
-            if (elements.siteStatus) {
-                elements.siteStatus.innerHTML = '<span>Invalid URL</span>';
-                elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
-                elements.siteStatus.style.color = '#ef4444';
-            }
+            showUrlError('Invalid URL — enter a real website address (e.g. https://example.com)');
             return;
+        }
+        state.projectData.url = withProto;
+
+        // Step 2: live reachability check via our serverless proxy (real HTTP probe,
+        //         no CORS issues, gives us the actual status code + page title)
+        addLog('Checking if site is reachable...', 'info');
+        if (elements.progressPercent) elements.progressPercent.textContent = 'Checking URL...';
+
+        try {
+            const checkResp = await fetch(
+                `/api/check-url?url=${encodeURIComponent(withProto)}`,
+                { signal: AbortSignal.timeout(20000) }
+            );
+            const check = await checkResp.json();
+
+            if (!check.reachable) {
+                const msg = check.error ||
+                    (check.status ? `Site returned HTTP ${check.status}` : 'Site could not be reached');
+                showUrlError(msg);
+                return;
+            }
+
+            // Use the real page title if we got one
+            if (check.title && !state.projectData.name) {
+                state.projectData.name = check.title;
+                if (elements.siteMeta) elements.siteMeta.textContent = check.title;
+            }
+
+            addLog(`Site confirmed reachable (HTTP ${check.status})`, 'success');
+        } catch (e) {
+            // If the check endpoint itself fails (e.g. dev env without Vercel),
+            // fall through and let the crawler attempt it — don't block the user.
+            addLog('Pre-check skipped (probe endpoint unavailable) — attempting crawl', 'warning');
+            console.warn('[analysis] /api/check-url unavailable:', e.message);
         }
 
         await runRealAnalysis();
+    }
+
+    function showUrlError(message) {
+        addLog(message, 'error');
+        if (elements.progressPercent) elements.progressPercent.textContent = 'Failed';
+        if (elements.progressBar) elements.progressBar.style.width = '0%';
+        if (elements.siteStatus) {
+            elements.siteStatus.innerHTML = `<span>${message.includes('HTTP') ? 'Error' : 'Unreachable'}</span>`;
+            elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
+            elements.siteStatus.style.color = '#ef4444';
+        }
     }
 
     async function runRealAnalysis() {
@@ -436,22 +471,10 @@
             completeAnalysis();
 
         } catch (error) {
-            addLog('Analysis error: ' + error.message, 'error');
             console.error('Analysis failed:', error);
-
             state.isComplete = true;
             state.progress = 0;
-
-            if (elements.progressBar) elements.progressBar.style.width = '0%';
-            if (elements.progressPercent) elements.progressPercent.textContent = 'Failed';
-
-            if (elements.siteStatus) {
-                elements.siteStatus.innerHTML = '<span>Unreachable</span>';
-                elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
-                elements.siteStatus.style.color = '#ef4444';
-            }
-
-            addLog('Could not reach the website. Please verify the URL is correct and publicly accessible, then try again.', 'error');
+            showUrlError(error.message || 'Analysis failed — please verify the URL and try again.');
         }
     }
 
