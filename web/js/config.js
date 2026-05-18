@@ -10,8 +10,8 @@ window.APP_CONFIG = {
     // ═══════════════════════════════════════════════════════════════════════════
     // SUPABASE CONFIGURATION
     // ═══════════════════════════════════════════════════════════════════════════
-    SUPABASE_URL: 'https://gbitapjzewhkzljqfvyc.supabase.co',
-    SUPABASE_ANON_KEY: 'sb_publishable_-dlc_CGlPW_gpLe6rsIluw_C77wSDuV',
+    SUPABASE_URL: '',      // Set SUPABASE_URL in Vercel environment variables
+    SUPABASE_ANON_KEY: '', // Set SUPABASE_ANON_KEY in Vercel environment variables
 
     // ═══════════════════════════════════════════════════════════════════════════
     // GOOGLE APIs
@@ -19,7 +19,7 @@ window.APP_CONFIG = {
     GOOGLE: {
         // Google Cloud Console: https://console.cloud.google.com/apis/credentials
         // Enable: PageSpeed Insights API, Search Console API, Analytics API
-        API_KEY: 'AIzaSyDvXzQ1p9Upy4kZmgFrQMhtkNUQ0poke1M',  // For PageSpeed Insights (optional - works without key but with rate limits)
+        API_KEY: '',  // Set GOOGLE_PAGESPEED_API_KEY in Vercel environment variables — never here
 
         // OAuth 2.0 Client ID for Search Console & Analytics
         // Create at: https://console.cloud.google.com/apis/credentials

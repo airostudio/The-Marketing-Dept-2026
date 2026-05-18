@@ -663,109 +663,44 @@
         }
     }
 
-    // Google PageSpeed Insights
+    // Google PageSpeed Insights — key lives in Vercel env var GOOGLE_PAGESPEED_API_KEY
     function initPageSpeedInsights(savedConfig) {
+        const statusEl    = document.getElementById('pagespeedStatus');
+        const testBtn     = document.getElementById('testPagespeed');
         const apiKeyInput = document.getElementById('pagespeedApiKey');
-        const testBtn = document.getElementById('testPagespeed');
-        const saveBtn = document.getElementById('savePagespeed');
-        const removeBtn = document.getElementById('removePagespeed');
-        const statusEl = document.getElementById('pagespeedStatus');
 
-        if (!saveBtn) return;
-
-        // Load saved config
-        if (savedConfig && savedConfig.apiKey) {
-            if (apiKeyInput) apiKeyInput.value = savedConfig.apiKey;
-            updatePagespeedStatusUI(statusEl, true, savedConfig.savedAt);
-            saveBtn.textContent = 'Update';
-            if (removeBtn) removeBtn.style.display = 'inline-flex';
+        // Hide API key input — credentials are managed server-side only
+        if (apiKeyInput) {
+            const wrap = apiKeyInput.closest('.form-group') || apiKeyInput.parentElement;
+            if (wrap) wrap.style.display = 'none';
         }
-
-        // Test API key
-        if (testBtn) {
-            testBtn.addEventListener('click', async function() {
-                const apiKey = apiKeyInput?.value.trim();
-
-                if (!apiKey) {
-                    showNotification('Missing API Key', 'Please enter your PageSpeed Insights API key', 'error');
-                    return;
-                }
-
-                // Show loading state
-                testBtn.disabled = true;
-                testBtn.innerHTML = '<span class="spinner"></span> Testing...';
-
-                try {
-                    // Test the API key with a simple request
-                    const testUrl = 'https://www.google.com';
-                    const response = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(testUrl)}&key=${apiKey}&strategy=mobile&category=performance`);
-
-                    if (response.ok) {
-                        showNotification('API Key Valid', 'PageSpeed Insights API key is working correctly', 'success');
-                        updatePagespeedStatusUI(statusEl, true);
-                    } else if (response.status === 400 || response.status === 403) {
-                        throw new Error('Invalid API key or API not enabled');
-                    } else {
-                        throw new Error(`API returned status ${response.status}`);
-                    }
-                } catch (error) {
-                    showNotification('API Key Invalid', error.message || 'Could not verify API key', 'error');
-                    updatePagespeedStatusUI(statusEl, false);
-                } finally {
-                    testBtn.disabled = false;
-                    testBtn.innerHTML = `
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                        </svg>
-                        Test API Key
-                    `;
-                }
-            });
-        }
-
-        // Save API key
-        saveBtn.addEventListener('click', function() {
-            const apiKey = apiKeyInput?.value.trim();
-
-            if (!apiKey) {
-                showNotification('Missing API Key', 'Please enter your PageSpeed Insights API key', 'error');
-                return;
-            }
-
-            const settings = getIntegrationSettings();
-            settings['pagespeed'] = {
-                apiKey: apiKey,
-                savedAt: new Date().toISOString()
-            };
-            saveIntegrationSettings(settings);
-
-            // Also save to a separate key for easy access by other modules
-            localStorage.setItem('pagespeed-api-key', apiKey);
-
-            updatePagespeedStatusUI(statusEl, true);
-            saveBtn.textContent = 'Update';
-            if (removeBtn) removeBtn.style.display = 'inline-flex';
-
-            showNotification('Saved', 'PageSpeed Insights API key saved', 'success');
+        ['savePagespeed', 'removePagespeed'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
         });
 
-        // Remove API key
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                if (!confirm('Remove PageSpeed Insights API key?')) return;
+        // Always show as configured — key is on the server
+        updatePagespeedStatusUI(statusEl, true);
 
-                const settings = getIntegrationSettings();
-                delete settings['pagespeed'];
-                saveIntegrationSettings(settings);
-
-                localStorage.removeItem('pagespeed-api-key');
-
-                if (apiKeyInput) apiKeyInput.value = '';
-                updatePagespeedStatusUI(statusEl, false);
-                saveBtn.textContent = 'Save';
-                removeBtn.style.display = 'none';
-
-                showNotification('Removed', 'API key removed. Using free tier.', 'info');
+        // Test button verifies the proxy is reachable
+        if (testBtn) {
+            testBtn.addEventListener('click', async function() {
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing…';
+                try {
+                    const r = await fetch('/api/pagespeed?url=https%3A%2F%2Fwww.google.com&strategy=mobile');
+                    if (r.status < 500) {
+                        showNotification('Connected', 'PageSpeed API is reachable and configured.', 'success');
+                        updatePagespeedStatusUI(statusEl, true);
+                    } else {
+                        throw new Error('Server returned ' + r.status);
+                    }
+                } catch (e) {
+                    showNotification('Connection failed', e.message, 'error');
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.textContent = 'Test Connection';
+                }
             });
         }
     }
@@ -1024,9 +959,10 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     function initSupabaseSettings() {
-        // Load saved Supabase config
-        const supabaseUrl = localStorage.getItem('supabase-url') || '';
-        const supabaseAnonKey = localStorage.getItem('supabase-anon-key') || '';
+        // Supabase credentials are managed via Vercel env vars (SUPABASE_URL, SUPABASE_ANON_KEY)
+        // No client-side storage — hide the input fields
+        const supabaseUrl = '';
+        const supabaseAnonKey = '';
 
         const urlInput = document.getElementById('supabaseUrl');
         const anonKeyInput = document.getElementById('supabaseAnonKey');
@@ -1227,14 +1163,12 @@
         const url = urlInput.value.trim();
         const anonKey = anonKeyInput.value.trim();
 
-        localStorage.setItem('supabase-url', url);
-        localStorage.setItem('supabase-anon-key', anonKey);
-
+        // Supabase credentials live in Vercel env vars — nothing to save client-side
         if (typeof window.Supabase !== 'undefined') {
             window.Supabase.setConfig(url, anonKey);
         }
 
-        showNotification('Configuration Saved', 'Supabase configuration has been saved', 'success');
+        showNotification('Configuration Saved', 'Supabase configuration updated', 'success');
         updateSupabaseConnectionStatus();
     }
 
@@ -1256,8 +1190,9 @@
             text.textContent = 'Connecting...';
         } else {
             // Check current config and connection state
-            const url = localStorage.getItem('supabase-url');
-            const anonKey = localStorage.getItem('supabase-anon-key');
+            // Supabase credentials are in Vercel env vars — check connection state directly
+            const url = true; // Always assume configured on server
+            const anonKey = true;
 
             if (url && anonKey) {
                 // Check if already connected

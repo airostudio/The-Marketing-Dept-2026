@@ -715,13 +715,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          var url = baseUrl() + endpoint + buildQueryString(params || {});
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + getApiKey(),
-              'Content-Type': 'application/json'
-            }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
@@ -776,13 +773,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          var url = BASE + endpoint + buildQueryString(params || {});
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + getApiKey(),
-              'Content-Type': 'application/json'
-            }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'sendgrid', endpoint: endpoint, params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
@@ -845,14 +839,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          params = params || {};
-          params.token = getApiToken();
-          params.output = 'json';
-          var url = BASE + endpoint + buildQueryString(params);
-
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
@@ -915,13 +905,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          params = params || {};
-          params.key = getApiKey();
-          var url = BASE + '/' + buildQueryString(params);
-
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
@@ -981,13 +968,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry(BASE + endpoint, {
+          return fetchWithRetry('/api/integration', {
             method: 'POST',
-            headers: {
-              'Authorization': authHeader(),
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
