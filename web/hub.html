@@ -993,7 +993,7 @@
   }
 
   // ── Intelligence Layer status — read real localStorage state ─────────────
-  (function updateIntelStatus() {
+  function updateIntelStatus() {
     function safeRead(key) {
       try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
     }
@@ -1023,21 +1023,29 @@
     const brainOk = !!(brain && (brain.company?.name || brain.companyName));
     setModule('dotBrain', 'badgeBrain', 'modBrain', brainOk, 'Configured');
 
-    // Competitive Radar — active if any competitors logged
-    const radar = safeRead('intel_competitive_radar');
-    const radarOk = Array.isArray(radar) ? radar.length > 0 : !!(radar && Object.keys(radar).length);
+    // Competitive Radar — active if any competitors exist (stored in tmd_radar as array)
+    const radar = safeRead('tmd_radar');
+    const radarOk = Array.isArray(radar) && radar.length > 0;
     setModule('dotRadar', 'badgeRadar', 'modRadar', radarOk, 'Active');
 
-    // Market Pulse — active if any signals logged
-    const pulse = safeRead('intel_market_pulse');
-    const pulseOk = Array.isArray(pulse) ? pulse.length > 0 : !!(pulse && Object.keys(pulse).length);
+    // Market Pulse — active if any signals exist (stored in tmd_pulse_signals as array)
+    const pulse = safeRead('tmd_pulse_signals');
+    const pulseOk = Array.isArray(pulse) && pulse.length > 0;
     setModule('dotPulse', 'badgePulse', 'modPulse', pulseOk, 'Active');
 
-    // Strategic Brief — active if any briefs saved
+    // Strategic Brief — active if any briefs saved (intel_strategic_briefs is array of briefs)
     const briefs = safeRead('intel_strategic_briefs');
-    const briefsOk = Array.isArray(briefs) ? briefs.length > 0 : !!(briefs && Object.keys(briefs).length);
+    const briefsOk = Array.isArray(briefs) ? briefs.length > 0 : !!(briefs && Object.keys(briefs).length > 0);
     setModule('dotBrief', 'badgeBrief', 'modBrief', briefsOk, 'Active');
-  })();
+  }
+
+  // Run on load and whenever another tab writes to the intelligence stores
+  updateIntelStatus();
+  window.addEventListener('storage', function (e) {
+    if (['intel_business_brain','tmd_radar','tmd_pulse_signals','intel_strategic_briefs'].includes(e.key)) {
+      updateIntelStatus();
+    }
+  });
 </script>
 
 </body>
