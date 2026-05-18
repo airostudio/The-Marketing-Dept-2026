@@ -279,6 +279,30 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     async function startAnalysis() {
+        // Validate URL format before doing anything
+        let parsedUrl;
+        try {
+            const raw = state.projectData.url;
+            // Ensure it has a protocol so URL() can parse it
+            const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+            parsedUrl = new URL(withProto);
+            // Must have a real-looking hostname (at least one dot, no spaces)
+            if (!parsedUrl.hostname.includes('.') || parsedUrl.hostname.includes(' ')) {
+                throw new Error('Invalid hostname');
+            }
+            // Normalise — use the version with protocol
+            state.projectData.url = withProto;
+        } catch {
+            addLog('Invalid URL — please enter a valid website address (e.g. https://example.com)', 'error');
+            if (elements.progressPercent) elements.progressPercent.textContent = 'Invalid URL';
+            if (elements.siteStatus) {
+                elements.siteStatus.innerHTML = '<span>Invalid URL</span>';
+                elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
+                elements.siteStatus.style.color = '#ef4444';
+            }
+            return;
+        }
+
         await runRealAnalysis();
     }
 
@@ -287,27 +311,29 @@
 
         try {
             // Task 1: Site Crawl
+            let crawlError = null;
             await runTask('crawl', async () => {
-                addLog('Starting real site crawl...', 'info');
-
-                if (typeof window.SEOAudit !== 'undefined') {
-                    const crawlResults = await performRealCrawl(url);
-                    state.data.pages = crawlResults.pages || [];
-                    state.data.issues = crawlResults.issues || [];
+                try {
+                    if (typeof window.SEOAudit !== 'undefined') {
+                        const crawlResults = await performRealCrawl(url);
+                        state.data.pages = crawlResults.pages || [];
+                        state.data.issues = crawlResults.issues || [];
+                    } else {
+                        addLog('Using direct fetch crawl...', 'info');
+                        const simpleData = await performSimpleCrawl(url);
+                        state.data.pages = simpleData.pages;
+                        state.data.issues = simpleData.issues;
+                    }
                     state.counters.pages = state.data.pages.length;
                     state.counters.issues = state.data.issues.length;
-                } else {
-                    // Fallback: Simple fetch
-                    addLog('Crawler not loaded, using simple fetch...', 'warning');
-                    const simpleData = await performSimpleCrawl(url);
-                    state.data.pages = simpleData.pages;
-                    state.data.issues = simpleData.issues;
-                    state.counters.pages = state.data.pages.length;
-                    state.counters.issues = state.data.issues.length;
+                    updateStats();
+                } catch (err) {
+                    crawlError = err;
                 }
-
-                updateStats();
             });
+
+            // Abort the entire analysis if the site couldn't be crawled
+            if (crawlError) throw crawlError;
 
             // Task 2: Performance Analysis
             await runTask('performance', async () => {
@@ -413,18 +439,19 @@
             addLog('Analysis error: ' + error.message, 'error');
             console.error('Analysis failed:', error);
 
-            // Show error state - no fake data fallback
             state.isComplete = true;
             state.progress = 0;
 
-            if (elements.progressBar) {
-                elements.progressBar.style.width = '0%';
-            }
-            if (elements.progressPercent) {
-                elements.progressPercent.textContent = 'Analysis Failed';
+            if (elements.progressBar) elements.progressBar.style.width = '0%';
+            if (elements.progressPercent) elements.progressPercent.textContent = 'Failed';
+
+            if (elements.siteStatus) {
+                elements.siteStatus.innerHTML = '<span>Unreachable</span>';
+                elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
+                elements.siteStatus.style.color = '#ef4444';
             }
 
-            addLog('Analysis could not be completed. Please check your website URL and try again.', 'error');
+            addLog('Could not reach the website. Please verify the URL is correct and publicly accessible, then try again.', 'error');
         }
     }
 
@@ -484,10 +511,40 @@
         const issues = [];
 
         try {
-            // Try to fetch the page via CORS proxy
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const html = await response.text();
+            // Try to fetch the page via CORS proxy with a timeout
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+
+            let html = '';
+            let fetchOk = false;
+
+            try {
+                // Primary proxy
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (response.ok) {
+                    const json = await response.json();
+                    // allorigins /get returns { contents, status: { http_code } }
+                    if (json.status?.http_code >= 200 && json.status?.http_code < 400 && json.contents) {
+                        html = json.contents;
+                        fetchOk = true;
+                    } else if (json.status?.http_code === 0 || json.status?.http_code >= 400) {
+                        throw new Error(`Site returned HTTP ${json.status?.http_code || 'unreachable'}`);
+                    }
+                }
+            } catch (fetchErr) {
+                clearTimeout(timeout);
+                if (fetchErr.name === 'AbortError') {
+                    throw new Error('Request timed out — site may be down or blocking crawlers');
+                }
+                throw fetchErr;
+            }
+
+            if (!fetchOk || !html || html.length < 100) {
+                throw new Error('Site returned no content — check the URL and try again');
+            }
 
             // Parse HTML
             const parser = new DOMParser();
@@ -571,17 +628,8 @@
             addLog(`Found ${pages.length} pages`, 'success');
 
         } catch (error) {
-            addLog('Crawl failed: ' + error.message, 'error');
-            // Return at least the main URL
-            pages.push({ url: url, title: 'Homepage', status: 0 });
-            issues.push({
-                severity: 'critical',
-                category: 'technical',
-                title: 'Site Unreachable',
-                description: 'Could not fetch the website content',
-                url: url,
-                recommendation: 'Check if the site is accessible'
-            });
+            // Re-throw so runRealAnalysis can catch it and abort with a visible error
+            throw error;
         }
 
         return { pages, issues };
@@ -667,17 +715,37 @@
 
         state.currentTask = taskId;
         updateTaskStatus(taskId, 'active');
-
-        // Log task start
         addLog(`Starting ${task.name}...`, 'info');
+
+        // Cycle through the task's progress messages while the executor runs.
+        // Each message is shown for ~(totalTime / messageCount) ms so they spread
+        // evenly across the task's expected duration.
+        const messages = task.messages || [];
+        let msgIdx = 0;
+        const baseWeight = TASKS
+            .filter(t => state.completedTasks.includes(t.id))
+            .reduce((sum, t) => sum + t.weight, 0);
+        const msgInterval = messages.length > 0
+            ? setInterval(() => {
+                if (msgIdx < messages.length) {
+                    addLog(messages[msgIdx++], 'info');
+                    // Animate progress smoothly within the task's weight slice
+                    const frac = msgIdx / messages.length;
+                    state.progress = Math.min(baseWeight + task.weight * frac, 99);
+                    updateProgress();
+                }
+            }, 1200)
+            : null;
 
         try {
             await executor();
         } catch (error) {
             addLog(`Error in ${task.name}: ${error.message}`, 'error');
+        } finally {
+            if (msgInterval) clearInterval(msgInterval);
         }
 
-        // Update progress
+        // Ensure progress reaches the task's full weight after it completes
         const completedWeight = TASKS
             .filter(t => state.completedTasks.includes(t.id) || t.id === taskId)
             .reduce((sum, t) => sum + t.weight, 0);
