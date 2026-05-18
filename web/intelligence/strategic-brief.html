@@ -385,6 +385,7 @@
 
     const radarContext = getRadarContext();
     const pulseContext = getPulseContext();
+    const brainContext = getBrainContext();
 
     if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
       // Compile manual brief
@@ -452,10 +453,13 @@ ${icp || 'Not specified'}
 SUCCESS METRIC:
 ${success || 'Not specified'}
 
---- COMPETITIVE CONTEXT FROM RADAR ---
+--- BUSINESS INTELLIGENCE (from Business Brain) ---
+${brainContext || 'Not configured — set up Business Brain for richer output.'}
+
+--- COMPETITIVE CONTEXT (from Competitive Radar) ---
 ${radarContext}
 
---- STRONG MARKET SIGNALS FROM PULSE ---
+--- MARKET SIGNALS (from Market Pulse) ---
 ${pulseContext}
 
 Synthesize all of this into a sharp, strategic brief that could be handed directly to an AI agent to execute. Be specific. Cut vagueness. Every section should push thinking forward, not restate inputs.`;
@@ -691,57 +695,103 @@ Synthesize all of this into a sharp, strategic brief that could be handed direct
     setTimeout(() => t.remove(), 2500);
   }
 
-  // ── Pre-fill form from synced brief seed ──────────────────────────
-  function prefillFromSyncedSeed() {
-    try {
-      const briefs = JSON.parse(localStorage.getItem('intel_strategic_briefs') || 'null');
-      const seed   = Array.isArray(briefs) ? briefs.find(b => b.addedBy === 'sync') : null;
-      if (!seed || !seed.context) return;
+  // ── Pre-fill form from Business Brain + Intelligence Layer ────────
+  function fillIfEmpty(id, value) {
+    if (!value) return;
+    const el = document.getElementById(id);
+    if (el && !el.value.trim()) el.value = value;
+  }
 
-      // Only pre-fill fields that are still empty
-      function fillIfEmpty(id, value) {
-        if (!value) return;
-        const el = document.getElementById(id);
-        if (el && !el.value.trim()) el.value = value;
+  function prefillFromBrain() {
+    try {
+      const brain = JSON.parse(localStorage.getItem('intel_business_brain') || 'null');
+
+      if (brain) {
+        // Audience: ICP role + industry
+        const role     = brain.icp?.primaryBuyer?.role || '';
+        const industry = brain.icp?.primaryBuyer?.industry || brain.company?.industry || '';
+        const compSize = brain.icp?.primaryBuyer?.companySize || '';
+        if (role || industry) {
+          const audience = [role, compSize, industry].filter(Boolean).join(', ');
+          fillIfEmpty('f-audience', audience);
+        }
+
+        // ICP: pain points
+        const pains = (brain.icp?.painPoints || []).filter(Boolean);
+        if (pains.length) fillIfEmpty('f-icp', pains.join(' | '));
+
+        // Differentiation: UVP + differentiators
+        const uvp   = brain.positioning?.uniqueValue || '';
+        const diffs = (brain.positioning?.differentiation || []).filter(Boolean);
+        if (uvp) fillIfEmpty('f-differentiation', uvp);
+        else if (diffs.length) fillIfEmpty('f-differentiation', diffs.join('\n'));
+
+        // Why now: current challenge + quarterly focus
+        const challenge = brain.objectives?.currentChallenge || '';
+        const q1Focus   = brain.objectives?.q1Focus || '';
+        if (challenge) fillIfEmpty('f-why-now', challenge);
+        else if (q1Focus) fillIfEmpty('f-why-now', q1Focus);
+
+        // Outcome: annual goal
+        if (brain.objectives?.annualGoal) fillIfEmpty('f-outcome', brain.objectives.annualGoal);
+
+        // Initiative: company name as prefix hint
+        if (brain.company?.name) fillIfEmpty('f-initiative', brain.company.name + ' — ');
       }
 
-      // Parse context lines from the seed
-      const ctx   = seed.context;
-      const match = (re) => { const m = ctx.match(re); return m ? m[1].trim() : ''; };
+      // Gap: competitor positioning gap from Brain, then radar competitor names
+      const brainGap = brain?.positioning?.competitorGap || '';
+      if (brainGap) {
+        fillIfEmpty('f-gap', brainGap);
+      } else {
+        const radarComps = JSON.parse(localStorage.getItem('tmd_radar') || '[]');
+        if (radarComps.length) {
+          const names = radarComps.slice(0, 3).map(c => c.name).filter(Boolean).join(', ');
+          if (names) fillIfEmpty('f-gap', `Competitors: ${names}. What are they NOT addressing that we can own?`);
+        }
+      }
 
-      fillIfEmpty('f-initiative',  seed.title.replace(' — Initial Campaign Brief', '').trim());
-      fillIfEmpty('f-audience',    match(/Company:\s*(.+)/));
-      fillIfEmpty('f-icp',         match(/Industry:\s*(.+)/));
-
-      // Pull strong signals from market pulse as seed for f-signals
+      // Signals: strong market pulse signals
       const pulseSignals = JSON.parse(localStorage.getItem('tmd_pulse_signals') || '[]');
       const strongSignals = pulseSignals.filter(s => s.strength === 'Strong').slice(0, 3);
       if (strongSignals.length) {
-        const el = document.getElementById('f-signals');
-        if (el && !el.value.trim()) {
-          el.value = strongSignals.map(s => `• ${(s.content || s.title || '').slice(0, 120)}`).join('\n');
-        }
-      }
-
-      // Pull competitive gaps from radar as seed for f-gap
-      const radar = JSON.parse(localStorage.getItem('tmd_radar') || '[]');
-      if (radar.length) {
-        const el = document.getElementById('f-gap');
-        if (el && !el.value.trim()) {
-          const names = radar.slice(0, 3).map(c => c.name).filter(Boolean).join(', ');
-          if (names) el.value = `Competitors in your space: ${names}. Identify what gap they leave uncovered.`;
-        }
+        fillIfEmpty('f-signals',
+          strongSignals.map(s => `• ${(s.content || s.title || '').slice(0, 120)}`).join('\n')
+        );
       }
     } catch (_) {}
+  }
+
+  // ── Add Brain context to the Claude system prompt ──────────────────
+  function getBrainContext() {
+    try {
+      const brain = JSON.parse(localStorage.getItem('intel_business_brain') || 'null');
+      if (!brain) return '';
+      const lines = [
+        brain.company?.name        ? `Company: ${brain.company.name}` : '',
+        brain.company?.industry    ? `Industry: ${brain.company.industry}` : '',
+        brain.positioning?.uniqueValue ? `UVP: ${brain.positioning.uniqueValue.slice(0,200)}` : '',
+        (brain.icp?.primaryBuyer?.role || brain.icp?.primaryBuyer?.industry)
+          ? `ICP: ${[brain.icp.primaryBuyer.role, brain.icp.primaryBuyer.industry].filter(Boolean).join(', ')}` : '',
+        (brain.icp?.painPoints || []).filter(Boolean).length
+          ? `Key pains: ${brain.icp.painPoints.filter(Boolean).slice(0,2).join(' | ')}` : '',
+        (brain.positioning?.differentiation || []).filter(Boolean).length
+          ? `Differentiators: ${brain.positioning.differentiation.filter(Boolean).slice(0,2).join(' | ')}` : '',
+        brain.positioning?.competitorGap
+          ? `Competitive gap: ${brain.positioning.competitorGap.slice(0,200)}` : '',
+      ].filter(Boolean).join('\n');
+      return lines ? `\n\nBUSINESS CONTEXT (from Business Brain):\n${lines}` : '';
+    } catch (_) { return ''; }
   }
 
   // ── Init ──────────────────────────────────────────────────────────
   renderAgentsGrid();
   renderHistory();
-  prefillFromSyncedSeed();
+  prefillFromBrain();
 
-  // Re-run prefill if sync fires after init
-  document.addEventListener('intelligence:synced', prefillFromSyncedSeed);
+  // Re-run when Brain saves or sync fires
+  document.addEventListener('brain:saved', prefillFromBrain);
+  document.addEventListener('intelligence:synced', prefillFromBrain);
 })();
 </script>
 </body>

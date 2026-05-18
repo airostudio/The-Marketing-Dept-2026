@@ -1380,6 +1380,9 @@
       badge.textContent = 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       badge.className = 'autosave-badge saved';
 
+      // Push brain data to all dependent stores immediately on every save
+      pushBrainToOtherStores(brainData);
+
       if (!silent) {
         showSaveStatus('success', `Business Brain saved. Intelligence score: ${score}%. ${score >= 60 ? 'Scotty is ready to use your context.' : 'Add more detail to improve Scotty\'s judgment.'}`);
       }
@@ -1390,6 +1393,69 @@
       document.getElementById('autosaveBadge').textContent = 'Save error';
       document.getElementById('autosaveBadge').className = 'autosave-badge';
     }
+  }
+
+  /**
+   * Push brain data to every other Intelligence Layer store.
+   * Called on every save (including autosave) so all layers stay in sync
+   * the moment the user types — no manual re-entry required.
+   */
+  function pushBrainToOtherStores(brain) {
+    let radarChanged = 0;
+
+    // ── 1. Competitors → tmd_radar ──────────────────────────────────────────
+    const brainComps = brain.competitors || [];
+    if (brainComps.length) {
+      const existing = safeRead('tmd_radar') || [];
+      const existingUrls  = new Set(existing.map(c => normaliseUrl(c.url)));
+      const existingNames = new Set(existing.map(c => (c.name || '').toLowerCase().trim()));
+
+      brainComps.forEach(bc => {
+        if (!bc.name) return;
+        const normName = bc.name.toLowerCase().trim();
+        const normUrl  = normaliseUrl(bc.url);
+        if (existingNames.has(normName) || (normUrl && existingUrls.has(normUrl))) return;
+
+        existing.push({
+          id:            'c_brain_' + Date.now() + '_' + radarChanged,
+          name:          bc.name,
+          url:           bc.url || '',
+          positioning:   bc.positioning || '',
+          audience:      bc.audience || '',
+          messages:      (bc.theyAreStrongAt || []).join('\n'),
+          tone:          '',
+          moves:         (bc.recentMoves || []),
+          borrowedIdeas: [],
+          marketGaps:    (bc.theyAreWeakAt || []).map(w => ({ id: 'g_' + Date.now(), description: w, date: new Date().toISOString() })),
+          addedBy:       'brain',
+        });
+        existingNames.add(normName);
+        if (normUrl) existingUrls.add(normUrl);
+        radarChanged++;
+      });
+
+      if (radarChanged) safeWrite('tmd_radar', existing);
+    }
+
+    // ── 2. Notify other open pages so they re-render immediately ────────────
+    try {
+      document.dispatchEvent(new CustomEvent('brain:saved', {
+        detail: { brain, radarChanged }
+      }));
+    } catch (_) {}
+  }
+
+  function normaliseUrl(url) {
+    if (!url) return '';
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+  }
+
+  function safeRead(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+  }
+
+  function safeWrite(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
   }
 
   function saveBrain() {

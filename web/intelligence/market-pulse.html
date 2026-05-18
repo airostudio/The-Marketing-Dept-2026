@@ -341,7 +341,20 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="loading"></span>Analyzing...';
 
-    const systemPrompt = `You are a strategic marketing analyst for Audema - Your AI Marketing Department. You analyze market signals with precise, actionable strategic intelligence. Be specific and direct. No filler.`;
+    // Inject Business Brain context so Claude knows what industry/ICP to frame signals for
+    const brainCtx = (() => {
+      try {
+        const b = JSON.parse(localStorage.getItem('intel_business_brain') || 'null');
+        if (!b) return '';
+        return [
+          b.company?.name     ? `Company: ${b.company.name}` : '',
+          b.company?.industry ? `Industry: ${b.company.industry}` : '',
+          b.icp?.primaryBuyer?.role ? `ICP: ${b.icp.primaryBuyer.role}` : '',
+        ].filter(Boolean).join(' | ');
+      } catch { return ''; }
+    })();
+
+    const systemPrompt = `You are a strategic marketing analyst for Audema - Your AI Marketing Department.${brainCtx ? ` Context: ${brainCtx}.` : ''} You analyze market signals with precise, actionable strategic intelligence. Be specific and direct. No filler.`;
 
     const userMessage = `Analyze this market signal:
 

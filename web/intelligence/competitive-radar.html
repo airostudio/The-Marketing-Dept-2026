@@ -689,14 +689,65 @@ Be specific and sharp. 3-4 sentences per section.`;
     setTimeout(() => t.remove(), 2500);
   }
 
+  // ── Pull competitors from Business Brain on load ─────────────────────
+  function pullFromBrain() {
+    try {
+      const brain = JSON.parse(localStorage.getItem('intel_business_brain') || 'null');
+      if (!brain || !Array.isArray(brain.competitors)) return 0;
+
+      const existing = radar().getAll();
+      const existingUrls  = new Set(existing.map(c => normaliseUrl(c.url)));
+      const existingNames = new Set(existing.map(c => (c.name || '').toLowerCase().trim()));
+      let added = 0;
+
+      brain.competitors.forEach(bc => {
+        if (!bc.name) return;
+        const normName = bc.name.toLowerCase().trim();
+        const normUrl  = normaliseUrl(bc.url);
+        if (existingNames.has(normName) || (normUrl && existingUrls.has(normUrl))) return;
+
+        const comp = {
+          id:            'c_brain_' + Date.now() + '_' + added,
+          name:          bc.name,
+          url:           bc.url || '',
+          positioning:   bc.positioning || '',
+          audience:      bc.audience || '',
+          messages:      (bc.theyAreStrongAt || []).join('\n'),
+          tone:          '',
+          moves:         bc.recentMoves || [],
+          borrowedIdeas: [],
+          marketGaps:    (bc.theyAreWeakAt || []).map(w => ({
+            id: 'g_' + Date.now(), description: w, date: new Date().toISOString()
+          })),
+          addedBy:       'brain',
+        };
+        radar().addCompetitor(comp);
+        existingNames.add(normName);
+        if (normUrl) existingUrls.add(normUrl);
+        added++;
+      });
+
+      return added;
+    } catch (_) { return 0; }
+  }
+
+  function normaliseUrl(url) {
+    if (!url) return '';
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+  }
+
   // ── Init ─────────────────────────────────────────────────────────────
-  // Re-render if intelligence-sync.js imports new competitors after this script runs
+  pullFromBrain();   // seed from Brain on page load
+  renderCompetitorList();
+
+  // Re-render when Brain saves or sync fires
+  document.addEventListener('brain:saved', function (e) {
+    if (pullFromBrain() > 0) renderCompetitorList();
+  });
   document.addEventListener('intelligence:synced', function () {
     renderCompetitorList();
     if (selectedCompetitorId) renderMainPanel();
   });
-
-  renderCompetitorList();
 })();
 </script>
 </body>
