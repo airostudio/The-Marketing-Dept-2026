@@ -190,6 +190,7 @@
         <div class="panel-header">
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
+                <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(139,92,246,0.3);">⬇ Buffer CSV</button>
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
@@ -514,6 +515,68 @@ function downloadOutput() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `social-${platform}-${Date.now()}.txt`; a.click();
 }
+
+// ── Buffer / Hootsuite CSV Export ──────────────────────────────────────────
+
+function parsePostsFromOutput(text) {
+    // Split on post separators: "## Post N", "---", or "**Post N**"
+    const sections = text.split(/\n(?:---+|={3,}|\*{2}Post \d+|#{1,3}\s*Post \d+)/i)
+        .map(s => s.trim()).filter(s => s.length > 40);
+    if (sections.length < 2) {
+        // Fallback: treat whole output as one post
+        return [{ content: text.trim(), hashtags: '', time: '10:00 AM' }];
+    }
+    return sections.map(section => {
+        const lines = section.split('\n').map(l => l.trim()).filter(Boolean);
+        const hashtagLine = lines.find(l => /#[A-Za-z]/.test(l)) || '';
+        const timeLine = lines.find(l => /posting time|best time|\d{1,2}:\d{2}/i.test(l)) || '';
+        const timeMatch = timeLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+        const body = lines
+            .filter(l => !/#[A-Za-z]/.test(l) && !/posting time|best time|why this|^hook:/i.test(l) && !l.startsWith('**') && l.length > 10)
+            .join(' ').trim();
+        return {
+            content: body || section.substring(0, 280),
+            hashtags: hashtagLine.replace(/\*\*/g, '').trim(),
+            time: timeMatch ? timeMatch[1] : '10:00 AM'
+        };
+    });
+}
+
+function exportCalendarCSV() {
+    const outputEl = document.getElementById('output');
+    if (!outputEl || outputEl.querySelector('.output-empty')) { alert('Generate content first.'); return; }
+    const text = outputEl.innerText || outputEl.textContent;
+    const posts = parsePostsFromOutput(text);
+    const platform = getSelectedPlatform();
+    const today = new Date();
+
+    // Buffer-compatible CSV format
+    const rows = [['Date', 'Time', 'Profile', 'Message', 'Link', 'Image URL']];
+    posts.forEach((post, i) => {
+        const d = new Date(today); d.setDate(today.getDate() + i * 2);
+        const dateStr = d.toISOString().split('T')[0];
+        const msg = (post.content + (post.hashtags ? '\n\n' + post.hashtags : '')).replace(/\r?\n/g, '\\n');
+        rows.push([dateStr, post.time, platform, '"' + msg.replace(/"/g, '""') + '"', '', '']);
+    });
+
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `social-calendar-${platform.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.csv`; a.click();
+}
+
+// Show CSV button once output is populated
+const _csvObserver = new MutationObserver(() => {
+    const out = document.getElementById('output');
+    const btn = document.getElementById('csvBtn');
+    if (btn && out && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
+        btn.style.display = '';
+    }
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const out = document.getElementById('output');
+    if (out) _csvObserver.observe(out, { childList: true, subtree: true });
+});
 </script>
 </body>
 </html>

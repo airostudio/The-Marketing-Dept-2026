@@ -438,6 +438,7 @@
         <div class="panel-header">
             <span class="panel-title">Generated Content</span>
             <div style="display:flex;gap:8px;">
+                <button class="btn-icon" id="wpBtn" onclick="showWpModal()" style="display:none;color:#818cf8;border-color:rgba(99,102,241,0.3);">⬆ WordPress</button>
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
@@ -693,6 +694,96 @@ function downloadOutput() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `content-studio-${type}-${Date.now()}.txt`; a.click();
 }
+
+// ── WordPress Publish Integration ──────────────────────────────────────────
+
+function showWpModal() {
+    let modal = document.getElementById('wp-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wp-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        modal.innerHTML = `
+<div style="background:#13131f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:440px;max-width:92vw;">
+    <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;">Publish to WordPress</h3>
+    <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:24px;">Your credentials stay in your browser — never sent to our servers.</p>
+    <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">WordPress Site URL</label>
+        <input id="wp-url" type="url" placeholder="https://yoursite.com" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">Username</label>
+        <input id="wp-username" type="text" placeholder="admin" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="margin-bottom:22px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">
+            Application Password
+            <a href="https://wordpress.org/documentation/article/application-passwords/" target="_blank" rel="noopener" style="color:#818cf8;font-size:10px;margin-left:6px;font-weight:600;text-transform:none;letter-spacing:0;">How to create →</a>
+        </label>
+        <input id="wp-password" type="password" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="display:flex;gap:10px;">
+        <button onclick="doPublishToWP()" style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:8px;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Publish as Draft</button>
+        <button onclick="document.getElementById('wp-modal').style.display='none'" style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;">Cancel</button>
+    </div>
+    <div id="wp-status" style="margin-top:14px;font-size:13px;line-height:1.5;"></div>
+</div>`;
+        document.body.appendChild(modal);
+        // Restore saved URL/username
+        const saved = sessionStorage.getItem('wp_config');
+        if (saved) try { const c = JSON.parse(saved); document.getElementById('wp-url').value = c.url || ''; document.getElementById('wp-username').value = c.username || ''; } catch(e) {}
+    } else {
+        modal.style.display = 'flex';
+    }
+}
+
+async function doPublishToWP() {
+    const url = (document.getElementById('wp-url').value || '').trim().replace(/\/$/, '');
+    const username = (document.getElementById('wp-username').value || '').trim();
+    const password = (document.getElementById('wp-password').value || '').trim();
+    const statusEl = document.getElementById('wp-status');
+    if (!url || !username || !password) { statusEl.innerHTML = '<span style="color:#ef4444;">Please fill in all fields.</span>'; return; }
+
+    sessionStorage.setItem('wp_config', JSON.stringify({ url, username }));
+
+    const outputEl = document.getElementById('output');
+    const rawText = outputEl ? (outputEl.innerText || outputEl.textContent) : '';
+    const lines = rawText.split('\n').filter(l => l.trim());
+    const title = (lines[0] || 'Draft Post').replace(/^#+\s*/, '');
+    const body = lines.slice(1).join('\n\n');
+    const htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(body) : body.replace(/\n/g, '<br>');
+
+    statusEl.innerHTML = '<span style="color:#f59e0b;">Publishing…</span>';
+    try {
+        const resp = await fetch(url + '/wp-json/wp/v2/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa(username + ':' + password) },
+            body: JSON.stringify({ title, content: htmlBody, status: 'draft', format: 'standard' })
+        });
+        if (resp.ok) {
+            const post = await resp.json();
+            statusEl.innerHTML = `<span style="color:#10b981;">✅ Draft created!</span> <a href="${post.link}" target="_blank" rel="noopener" style="color:#818cf8;text-decoration:underline;">View in WordPress →</a>`;
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            statusEl.innerHTML = `<span style="color:#ef4444;">Error ${resp.status}: ${err.message || resp.statusText}</span>`;
+        }
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:#ef4444;">Connection failed. Check URL and that REST API is enabled: ${e.message}</span>`;
+    }
+}
+
+// Show WordPress button once output is populated
+const _wpObserver = new MutationObserver(() => {
+    const out = document.getElementById('output');
+    const wpBtn = document.getElementById('wpBtn');
+    if (wpBtn && out && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
+        wpBtn.style.display = '';
+    }
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const out = document.getElementById('output');
+    if (out) _wpObserver.observe(out, { childList: true, subtree: true });
+});
 </script>
 </body>
 </html>
