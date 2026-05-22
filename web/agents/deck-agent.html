@@ -116,7 +116,7 @@
     </div>
 </nav>
 
-<section class="hero">
+<section class="hero" data-agent="slate">
     <span class="hero-emoji">📊</span>
     <h1 class="hero-title">Deck Maker</h1>
     <p class="hero-tagline">Tome-style presentations, investor decks, and pitch structures that close deals and raise rounds</p>
@@ -265,6 +265,7 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
@@ -1012,6 +1013,25 @@ Respond with ONLY the image prompt, no other text.`;
     }
 
     // Chart.js Image Generation
+    function parseChartDataFromBullets(bullets, title) {
+        const pairs = [];
+        bullets.forEach(b => {
+            const match = b.match(/^([^:–\-]+?)\s*[:–\-]\s*[\$£€]?([\d,]+(?:\.\d+)?)\s*[%xkKmMbB]?/i);
+            if (match) {
+                const label = match[1].trim().substring(0, 18);
+                const value = parseFloat(match[2].replace(/,/g, ''));
+                if (!isNaN(value) && label) pairs.push({ label, value });
+            }
+        });
+        if (pairs.length >= 2) {
+            return { chartLabels: pairs.map(p => p.label), chartData: pairs.map(p => p.value) };
+        }
+        // Derive labels from slide title words when no numeric data found
+        const words = title.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
+        const labels = words.length >= 4 ? words.slice(0, 4) : ['Category A', 'Category B', 'Category C', 'Category D'];
+        return { chartLabels: labels, chartData: [42, 28, 18, 12] };
+    }
+
     async function generateChartImage(chartType, data, labels, title) {
         return new Promise((resolve) => {
             // Create temporary canvas
@@ -1193,9 +1213,7 @@ Respond with ONLY the image prompt, no other text.`;
             });
 
             if (needsChart) {
-                // Generate sample chart (in real implementation, would parse data from bullets)
-                const chartData = [45, 30, 15, 10];
-                const chartLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
+                const { chartData, chartLabels } = parseChartDataFromBullets(slide.bullets || [], slide.title);
                 const chartType = slide.visualSuggestion.toLowerCase().includes('pie') ? 'pie' : 'bar';
 
                 try {

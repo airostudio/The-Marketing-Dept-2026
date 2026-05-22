@@ -546,6 +546,7 @@ Output only the finished content — no preamble, no "Here is your content:", ju
     function displayProofreadResults(data, label) {
         const resultsEl = document.getElementById('proofreadResults');
         const issues = data.issues || [];
+        state.lastIssues = issues;
         const scoreColor = data.score >= 80 ? '#10B981' : data.score >= 60 ? '#F59E0B' : '#EF4444';
 
         let html = `
@@ -573,7 +574,22 @@ Output only the finished content — no preamble, no "Here is your content:", ju
         resultsEl.innerHTML = html;
     }
 
-    function handleApplyFixes() { showAlert('Auto-fix coming soon! Use the Edit tab to apply suggestions manually.', 'info'); }
+    async function handleApplyFixes() {
+        const content = state.currentContent;
+        const issues = state.lastIssues || [];
+        if (!content) { showAlert('No content to fix. Generate or paste content first.', 'warning'); return; }
+        if (!issues.length) { showAlert('Run a Grammar, Style, or Tone check first to identify issues.', 'info'); return; }
+        const claudeService = getClaudeService();
+        const issueList = issues.map(i => `- "${i.text || ''}" → ${i.suggestion || i.message || ''}`).join('\n');
+        const systemPrompt = 'You are an expert editor. Apply the provided fixes to the content precisely and return only the corrected content with no explanation.';
+        const userMessage = `Apply these fixes to the content below:\n\nFIXES:\n${issueList}\n\nCONTENT:\n${content}`;
+        try {
+            showAlert('Applying fixes…', 'info');
+            await streamAndUpdateOutput(systemPrompt, userMessage);
+        } catch (err) {
+            showAlert('Could not apply fixes: ' + err.message, 'error');
+        }
+    }
 
     // ─── Display & state ──────────────────────────────────────────────────────
 

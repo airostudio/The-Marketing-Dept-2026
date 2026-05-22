@@ -1175,14 +1175,8 @@ Format with clear sections, use the data provided, and write in a confident narr
         });
     }
 
-    // Fallback streaming simulation when ClaudeService is not loaded
     async function streamFallback(prompt, element) {
-        element.textContent = '';
-        const placeholder = '[ClaudeService not loaded] Configure /js/claude-service.js to enable AI responses.\n\nPrompt that would be sent:\n\n' + prompt.substring(0, 300) + '...';
-        for (let i = 0; i < placeholder.length; i++) {
-            element.textContent += placeholder[i];
-            await new Promise(r => setTimeout(r, 10));
-        }
+        element.innerHTML = '<p style="color:#ef4444;padding:16px;font-weight:600;">AI service unavailable — please refresh the page. If this persists, check your network connection or contact support.</p>';
     }
 </script>
 </body>
