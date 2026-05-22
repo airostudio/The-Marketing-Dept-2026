@@ -12,6 +12,8 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #ec4899;
+            --agent-color-rgb: 236,72,153;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --bg: #070711; --border: rgba(255,255,255,0.08);
             --text: #ffffff; --text2: rgba(255,255,255,0.6);
@@ -35,9 +37,9 @@
 
         .hero { padding: 64px 32px 48px; max-width: 900px; margin: 0 auto; text-align: center; }
         .hero-emoji { font-size: 56px; margin-bottom: 16px; display: block; }
-        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--pink), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 18px; color: var(--text2); margin-bottom: 24px; }
-        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--pink); }
+        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(var(--agent-color-rgb),0.12); border: 1px solid rgba(var(--agent-color-rgb),0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--agent-color); }
         .intelligence-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); margin-left: 8px; }
 
         .main-content { max-width: 1100px; margin: 0 auto; padding: 0 32px 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -49,12 +51,12 @@
         .field-group { margin-bottom: 16px; }
         .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--pink); background: rgba(236,72,153,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #13131f; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--pink), var(--purple)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
+        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--purple)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
         .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-icon { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
@@ -66,12 +68,12 @@
         .output-area ul, .output-area ol { margin: 8px 0 10px 20px; }
         .output-area li { margin-bottom: 4px; }
         .output-area strong { color: #fff; }
-        .output-area code { background: rgba(236,72,153,0.15); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-area code { background: rgba(var(--agent-color-rgb),0.15); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
         .output-area hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
         .output-empty { color: var(--text2); text-align: center; padding: 60px 20px; font-style: italic; }
 
         .typing-indicator { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 20px; }
-        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--pink); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
+        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--agent-color); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
         .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
         .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes pulse { 0%,100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
@@ -80,7 +82,7 @@
         .features-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
         .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .feature-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, box-shadow 0.2s; }
-        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(236,72,153,0.12); }
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(var(--agent-color-rgb),0.12); }
         .feature-icon { font-size: 28px; margin-bottom: 12px; }
         .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
@@ -97,7 +99,7 @@
             Audema
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Email Engine</span>
+        <span class="nav-breadcrumb"><span style="color:#ec4899;font-weight:700;letter-spacing:1px;">NOVA</span> · Email Engine</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>

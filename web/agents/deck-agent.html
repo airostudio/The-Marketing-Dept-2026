@@ -11,6 +11,8 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #7c3aed;
+            --agent-color-rgb: 124,58,237;
             --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --border: rgba(255,255,255,0.08); --text: #f1f5f9;
@@ -32,13 +34,13 @@
         .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
 
         .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
-        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(124,58,237,0.14) 0%, transparent 70%); pointer-events: none; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(var(--agent-color-rgb),0.14) 0%, transparent 70%); pointer-events: none; }
         .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
         .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
         .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
         .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
-        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-claude { background: rgba(var(--agent-color-rgb),0.15); border-color: rgba(var(--agent-color-rgb),0.3); color: #a78bfa; }
         .pill-inspired { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--cyan); }
 
         .main-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
@@ -56,13 +58,13 @@
         .field-group { margin-bottom: 14px; }
         .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #1a1a2e; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
         .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
-        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(var(--agent-color-rgb),0.35); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
         .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
@@ -89,7 +91,7 @@
         .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
         .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
-        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,58,237,0.3); box-shadow: 0 12px 32px rgba(124,58,237,0.1); }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(var(--agent-color-rgb),0.3); box-shadow: 0 12px 32px rgba(var(--agent-color-rgb),0.1); }
         .feature-icon { font-size: 24px; margin-bottom: 10px; }
         .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
@@ -107,7 +109,7 @@
             <span>Audema</span>
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Deck Maker</span>
+        <span class="nav-breadcrumb"><span style="color:#7c3aed;font-weight:700;letter-spacing:1px;">SLATE</span> · Deck Maker</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Agent Hub</a>

@@ -12,6 +12,8 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #8b5cf6;
+            --agent-color-rgb: 139,92,246;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --bg: #070711; --border: rgba(255,255,255,0.08);
             --text: #ffffff; --text2: rgba(255,255,255,0.6);
@@ -35,7 +37,7 @@
 
         .hero { padding: 64px 32px 48px; max-width: 900px; margin: 0 auto; text-align: center; }
         .hero-emoji { font-size: 56px; margin-bottom: 16px; display: block; }
-        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 18px; color: var(--text2); margin-bottom: 24px; }
         .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: #a78bfa; }
         .intelligence-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); margin-left: 8px; }
@@ -49,7 +51,7 @@
         .field-group { margin-bottom: 16px; }
         .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(124,58,237,0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #13131f; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -65,7 +67,7 @@
         .platform-btn.active { border-color: var(--purple); color: var(--purple); background: rgba(124,58,237,0.1); }
         .platform-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
 
-        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
+        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
         .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-icon { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
@@ -83,7 +85,7 @@
         .output-empty { color: var(--text2); text-align: center; padding: 60px 20px; font-style: italic; }
 
         .typing-indicator { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 20px; }
-        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--purple); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
+        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--agent-color); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
         .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
         .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes pulse { 0%,100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
@@ -114,7 +116,7 @@
             Audema
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Social Studio</span>
+        <span class="nav-breadcrumb"><span style="color:#8b5cf6;font-weight:700;letter-spacing:1px;">PULSE</span> · Social Studio</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>
@@ -190,7 +192,7 @@
         <div class="panel-header">
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
-                <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(139,92,246,0.3);">⬇ Buffer CSV</button>
+                <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(var(--agent-color-rgb),0.3);">⬇ Buffer CSV</button>
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
