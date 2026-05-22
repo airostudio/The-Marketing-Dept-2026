@@ -260,6 +260,35 @@
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
     })();
 
+    function populateFromIntelligence() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return;
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data) return;
+
+        // Auto-populate target persona from ICP
+        const personaEl = document.getElementById('persona');
+        if (personaEl && !personaEl.value.trim() && data.icp && data.icp.primaryBuyer) {
+            const b = data.icp.primaryBuyer;
+            const parts = [b.role, b.companySize && b.companySize + ' companies', b.industry].filter(Boolean);
+            if (parts.length) {
+                personaEl.value = '✨ ' + parts.join(', ') + ' (from BusinessBrain ICP)';
+                personaEl.style.color = '#3b82f6';
+            }
+        }
+
+        // Auto-populate value prop from Brain positioning
+        const vpEl = document.getElementById('valueProp');
+        if (vpEl && !vpEl.value.trim()) {
+            const vp = [data.positioning, data.valueProp && data.valueProp.primaryBenefit].filter(Boolean).join(' — ');
+            if (vp) {
+                vpEl.value = '✨ ' + vp + ' (from BusinessBrain)';
+                vpEl.style.color = '#3b82f6';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', populateFromIntelligence);
+
     async function generateOutreach() {
         const task = document.getElementById('task').value;
         const persona = document.getElementById('persona').value.trim();

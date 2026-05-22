@@ -444,7 +444,49 @@
         banner.style.display = 'block';
     }
 
-    document.addEventListener('DOMContentLoaded', renderSeoStatusBanner);
+    function populateFromIntelligence() {
+        if (!window.IntelligenceEngine) return;
+
+        // Auto-populate competitor names from Competitive Radar
+        if (window.IntelligenceEngine.radar) {
+            const radarCompetitors = window.IntelligenceEngine.radar.getAll();
+            if (radarCompetitors && radarCompetitors.length > 0) {
+                const el = document.getElementById('competitors');
+                if (el && !el.value.trim()) {
+                    const names = radarCompetitors.map(c => c.name).filter(Boolean).join('\n');
+                    if (names) {
+                        el.value = names;
+                        el.style.color = '#14b8a6';
+                        el.title = 'Auto-populated from Competitive Radar';
+                    }
+                }
+            }
+        }
+
+        // Auto-populate company brief from Business Brain
+        if (window.IntelligenceEngine.brain) {
+            const data = window.IntelligenceEngine.brain.load();
+            if (data) {
+                const el = document.getElementById('yourBrief');
+                if (el && !el.value.trim()) {
+                    const parts = [];
+                    if (data.company && data.company.name) parts.push(data.company.name);
+                    if (data.product && data.product.name) parts.push(data.product.name);
+                    if (data.positioning) parts.push(data.positioning);
+                    if (data.icp && data.icp.persona) parts.push('Target: ' + data.icp.persona);
+                    if (parts.length > 0) {
+                        el.value = '✨ ' + parts.join(' — ') + ' (from BusinessBrain)';
+                        el.style.color = '#14b8a6';
+                    }
+                }
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderSeoStatusBanner();
+        populateFromIntelligence();
+    });
 
     async function runAnalysis() {
         const task = document.getElementById('task').value;
