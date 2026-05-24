@@ -36,7 +36,7 @@ function isRateLimited(ip) {
   return bucket.count > RL_MAX;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers so the browser client can call this from any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
