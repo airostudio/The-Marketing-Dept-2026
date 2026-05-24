@@ -281,6 +281,19 @@
     }
   };
 
+  // Real portrait images (populated as they become available)
+  var AGENT_IMGS = {
+    rex:   '/assets/agents/rex.png',
+    blaze: '/assets/agents/blaze.png',
+    nova:  '/assets/agents/nova.png',
+    reel:  '/assets/agents/reel.png'
+  };
+
+  // Attach img path to each agent that has one
+  Object.keys(AGENT_IMGS).forEach(function(id) {
+    if (AGENTS[id]) AGENTS[id].img = AGENT_IMGS[id];
+  });
+
   // Export for external use (e.g. hub card rendering)
   window.AgentCharacters = AGENTS;
 
@@ -293,12 +306,24 @@
     if (!agent) return;
 
     var color = agent.color;
-    var svgHTML = '<svg viewBox="0 0 160 190" xmlns="http://www.w3.org/2000/svg">' + agent.svg(color) + '</svg>';
 
-    // Build character frame
+    // Build character frame — real image if available, SVG fallback
     var frame = document.createElement('div');
     frame.className = 'char-frame';
-    frame.innerHTML = svgHTML;
+
+    if (agent.img) {
+      var img = document.createElement('img');
+      img.src = agent.img;
+      img.alt = agent.name;
+      img.className = 'char-photo';
+      // On error fall back to SVG
+      img.onerror = function() {
+        this.outerHTML = '<svg viewBox="0 0 160 190" xmlns="http://www.w3.org/2000/svg">' + agent.svg(color) + '</svg>';
+      };
+      frame.appendChild(img);
+    } else {
+      frame.innerHTML = '<svg viewBox="0 0 160 190" xmlns="http://www.w3.org/2000/svg">' + agent.svg(color) + '</svg>';
+    }
 
     // Wrap existing hero children into hero-body
     var body = document.createElement('div');
@@ -338,12 +363,15 @@
       var style = document.createElement('style');
       style.id = 'agent-hero-style';
       style.textContent =
-        '.char-frame{flex-shrink:0}' +
+        '.char-frame{flex-shrink:0;position:relative}' +
         '.char-frame svg{width:132px;height:157px;display:block;filter:drop-shadow(0 10px 30px ' + color + '70)}' +
+        '.char-photo{width:160px;height:200px;object-fit:cover;object-position:center top;border-radius:12px;display:block;' +
+          'box-shadow:0 12px 40px ' + color + '50,0 0 0 1px ' + color + '30}' +
         '.hero-body{flex:1;min-width:0}' +
         '.agent-codename{display:block;font-size:10px;font-weight:900;letter-spacing:5px;text-transform:uppercase;margin-bottom:10px;opacity:0.85}' +
         '@media(max-width:680px){' +
           '.char-frame svg{width:104px;height:124px}' +
+          '.char-photo{width:120px;height:150px}' +
           '[data-agent]{flex-direction:column!important;text-align:center!important;padding:28px 20px 24px!important;gap:16px!important}' +
           '[data-agent] h1,[data-agent] .hero-title,[data-agent] .hero-tagline{text-align:center!important;margin-left:0!important}' +
           '[data-agent] .hero-pills{justify-content:center!important}' +

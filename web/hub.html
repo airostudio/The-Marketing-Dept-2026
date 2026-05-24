@@ -501,26 +501,85 @@
         /* Portrait cards */
         .card-portrait-area {
             border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding: 20px 20px 0;
-            height: 140px;
-            background: rgba(0,0,0,0.18);
+            height: 210px;
+            background: rgba(0,0,0,0.25);
             position: relative;
             overflow: hidden;
         }
 
-        .card-portrait-area::before {
+        .card-portrait-area::after {
             content: '';
             position: absolute;
-            inset: 0;
-            background: radial-gradient(ellipse at 50% 120%, var(--card-glow, rgba(124,58,237,0.12)) 0%, transparent 70%);
+            bottom: 0; left: 0; right: 0;
+            height: 70px;
+            background: linear-gradient(to top, var(--bg2, #0d0d1a) 0%, transparent 100%);
             pointer-events: none;
+            z-index: 2;
         }
 
-        .card-portrait { width: 90px; height: 120px; position: relative; z-index: 1; flex-shrink: 0; }
-        .card-portrait svg { width: 100%; height: 100%; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5)); }
+        .card-portrait {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center top;
+            display: block;
+            transition: transform 0.4s ease;
+        }
+
+        .agent-card:hover .card-portrait { transform: scale(1.05); }
+
+        /* Team banner */
+        .team-banner {
+            width: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 32px;
+            position: relative;
+            height: 240px;
+            border: 1px solid var(--border);
+        }
+
+        .team-banner img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 25%;
+        }
+
+        .team-banner-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to right, rgba(7,7,17,0.88) 0%, rgba(7,7,17,0.4) 55%, rgba(7,7,17,0.05) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 36px;
+        }
+
+        .team-banner-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #a78bfa;
+            margin-bottom: 10px;
+        }
+
+        .team-banner-title {
+            font-size: 30px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #f1f5f9 40%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .team-banner-sub {
+            font-size: 14px;
+            color: var(--text2);
+        }
 
         .card-body {
             padding: 14px 18px 40px;
@@ -768,6 +827,16 @@
         <span class="section-count">13 specialists + Scotty</span>
     </div>
 
+    <!-- Team banner -->
+    <div class="team-banner">
+        <img src="/assets/agents/agents-1024.png" alt="The Audema AI Marketing Team">
+        <div class="team-banner-overlay">
+            <div class="team-banner-label">Your AI Marketing Department</div>
+            <div class="team-banner-title">The Full Squad</div>
+            <div class="team-banner-sub">14 specialists. One shared intelligence layer.</div>
+        </div>
+    </div>
+
     <div class="agents-wrap">
 
         <!-- Scotty — featured full-width -->
@@ -790,7 +859,7 @@
             <!-- INK · Content Studio -->
             <a href="/agents/content-studio-agent.html" class="agent-card" data-char="ink" style="--card-glow:rgba(99,102,241,0.10);--card-border:rgba(99,102,241,0.35);--card-shadow:rgba(99,102,241,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-ink"></div>
+                    <img class="card-portrait" src="/assets/agents/ink.png" alt="INK" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #6366f122 0%, #6366f108 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#6366f1;opacity:0.15;letter-spacing:-2px;\">INK</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -806,7 +875,7 @@
             <!-- REX · SEO Intelligence -->
             <a href="/agents/seo-agent.html" class="agent-card" data-char="rex" style="--card-glow:rgba(6,182,212,0.10);--card-border:rgba(6,182,212,0.35);--card-shadow:rgba(6,182,212,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-rex"></div>
+                    <img class="card-portrait" src="/assets/agents/rex.png" alt="REX" loading="lazy">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -822,7 +891,7 @@
             <!-- NOVA · Email Engine -->
             <a href="/agents/email-agent.html" class="agent-card" data-char="nova" style="--card-glow:rgba(236,72,153,0.10);--card-border:rgba(236,72,153,0.35);--card-shadow:rgba(236,72,153,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-nova"></div>
+                    <img class="card-portrait" src="/assets/agents/nova.png" alt="NOVA" loading="lazy">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -838,7 +907,7 @@
             <!-- CHASE · Sales Intelligence -->
             <a href="/agents/sales-agent.html" class="agent-card" data-char="chase" style="--card-glow:rgba(16,185,129,0.10);--card-border:rgba(16,185,129,0.35);--card-shadow:rgba(16,185,129,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-chase"></div>
+                    <img class="card-portrait" src="/assets/agents/chase.png" alt="CHASE" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #10b98122 0%, #10b98108 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#10b981;opacity:0.15;letter-spacing:-2px;\">CHASE</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -854,7 +923,7 @@
             <!-- BLAZE · Ad Creative Lab -->
             <a href="/agents/ads-agent.html" class="agent-card" data-char="blaze" style="--card-glow:rgba(249,115,22,0.10);--card-border:rgba(249,115,22,0.35);--card-shadow:rgba(249,115,22,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-blaze"></div>
+                    <img class="card-portrait" src="/assets/agents/blaze.png" alt="BLAZE" loading="lazy">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -870,7 +939,7 @@
             <!-- PULSE · Social Studio -->
             <a href="/agents/social-agent.html" class="agent-card" data-char="pulse" style="--card-glow:rgba(139,92,246,0.10);--card-border:rgba(139,92,246,0.35);--card-shadow:rgba(139,92,246,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-pulse"></div>
+                    <img class="card-portrait" src="/assets/agents/pulse.png" alt="PULSE" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #8b5cf622 0%, #8b5cf608 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#8b5cf6;opacity:0.15;letter-spacing:-2px;\">PULSE</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -886,7 +955,7 @@
             <!-- VERA · Analytics Brain -->
             <a href="/agents/analytics-agent.html" class="agent-card" data-char="vera" style="--card-glow:rgba(245,158,11,0.10);--card-border:rgba(245,158,11,0.35);--card-shadow:rgba(245,158,11,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-vera"></div>
+                    <img class="card-portrait" src="/assets/agents/vera.png" alt="VERA" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #f59e0b22 0%, #f59e0b08 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#f59e0b;opacity:0.15;letter-spacing:-2px;\">VERA</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -902,7 +971,7 @@
             <!-- SCOUT · Competitive Intelligence -->
             <a href="/agents/competitive-agent.html" class="agent-card" data-char="scout" style="--card-glow:rgba(20,184,166,0.10);--card-border:rgba(20,184,166,0.35);--card-shadow:rgba(20,184,166,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-scout"></div>
+                    <img class="card-portrait" src="/assets/agents/scout.png" alt="SCOUT" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #14b8a622 0%, #14b8a608 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#14b8a6;opacity:0.15;letter-spacing:-2px;\">SCOUT</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -918,7 +987,7 @@
             <!-- REEL · Video Studio -->
             <a href="/agents/video-agent.html" class="agent-card" data-char="reel" style="--card-glow:rgba(6,182,212,0.10);--card-border:rgba(6,182,212,0.35);--card-shadow:rgba(6,182,212,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-reel"></div>
+                    <img class="card-portrait" src="/assets/agents/reel.png" alt="REEL" loading="lazy">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -934,7 +1003,7 @@
             <!-- LIFT · CRO Lab -->
             <a href="/agents/cro-agent.html" class="agent-card" data-char="lift" style="--card-glow:rgba(239,68,68,0.10);--card-border:rgba(239,68,68,0.35);--card-shadow:rgba(239,68,68,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-lift"></div>
+                    <img class="card-portrait" src="/assets/agents/lift.png" alt="LIFT" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #ef444422 0%, #ef444408 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#ef4444;opacity:0.15;letter-spacing:-2px;\">LIFT</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -950,7 +1019,7 @@
             <!-- SHIELD · Compliance Guard -->
             <a href="/agents/compliance-agent.html" class="agent-card" data-char="shield" style="--card-glow:rgba(100,116,139,0.10);--card-border:rgba(100,116,139,0.35);--card-shadow:rgba(100,116,139,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-shield"></div>
+                    <img class="card-portrait" src="/assets/agents/shield.png" alt="SHIELD" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #64748b22 0%, #64748b08 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#64748b;opacity:0.15;letter-spacing:-2px;\">SHIELD</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -966,7 +1035,7 @@
             <!-- LOCK · Enterprise Compliance -->
             <a href="/agents/compliance-automation.html" class="agent-card" data-char="lock" style="--card-glow:rgba(71,85,105,0.10);--card-border:rgba(71,85,105,0.35);--card-shadow:rgba(71,85,105,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-lock"></div>
+                    <img class="card-portrait" src="/assets/agents/lock.png" alt="LOCK" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #47556922 0%, #47556908 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#475569;opacity:0.15;letter-spacing:-2px;\">LOCK</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -982,7 +1051,7 @@
             <!-- SLATE · Deck Maker -->
             <a href="/agents/deck-agent.html" class="agent-card" data-char="slate" style="--card-glow:rgba(124,58,237,0.10);--card-border:rgba(124,58,237,0.35);--card-shadow:rgba(124,58,237,0.14);">
                 <div class="card-portrait-area">
-                    <div class="card-portrait" id="portrait-slate"></div>
+                    <img class="card-portrait" src="/assets/agents/slate.png" alt="SLATE" loading="lazy" onerror="this.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';this.parentElement.style.background='linear-gradient(160deg, #7c3aed22 0%, #7c3aed08 100%)';this.outerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:900;color:#7c3aed;opacity:0.15;letter-spacing:-2px;\">SLATE</div>'">
                 </div>
                 <div class="card-body">
                     <div class="card-top-row">
@@ -1009,27 +1078,8 @@
 
 </main>
 
-<!-- Agent Characters (pop-art portraits) -->
+<!-- Agent Characters -->
 <script src="js/agent-characters.js"></script>
-<script>
-  (function renderHubPortraits() {
-    function inject() {
-      document.querySelectorAll('[data-char]').forEach(function(card) {
-        var id = card.dataset.char;
-        var agent = window.AgentCharacters && window.AgentCharacters[id];
-        if (!agent) return;
-        var portrait = card.querySelector('.card-portrait');
-        if (!portrait || portrait.querySelector('svg')) return;
-        portrait.innerHTML = '<svg viewBox="0 0 160 190" xmlns="http://www.w3.org/2000/svg">' + agent.svg(agent.color) + '</svg>';
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', inject);
-    } else {
-      inject();
-    }
-  })();
-</script>
 
 <!-- API Client (Backend Integration) -->
 <script src="js/api-client.js"></script>
