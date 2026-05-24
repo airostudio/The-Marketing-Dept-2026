@@ -301,7 +301,10 @@
 
   // Per-agent photo adjustments (zoom/position for characters that sit small in frame)
   var AGENT_PHOTO_STYLE = {
-    ink: 'transform:scale(1.45);transform-origin:center 30%;'
+    ink:   'transform:scale(1.45);transform-origin:center 30%;',
+    rex:   'transform:scale(1.38);transform-origin:center 25%;',
+    nova:  'transform:scale(1.38);transform-origin:center 25%;',
+    chase: 'transform:scale(1.38);transform-origin:center 25%;'
   };
 
   // Attach img path to each agent that has one
