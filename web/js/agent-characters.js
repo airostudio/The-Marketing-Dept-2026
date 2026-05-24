@@ -300,12 +300,7 @@
   };
 
   // Per-agent photo adjustments (zoom/position for characters that sit small in frame)
-  var AGENT_PHOTO_STYLE = {
-    ink:   'object-position:32% top;',
-    rex:   'object-position:39% top;',
-    nova:  'object-position:8% top;',
-    chase: 'object-position:46% top;'
-  };
+  var AGENT_PHOTO_STYLE = {};
 
   // Attach img path to each agent that has one
   Object.keys(AGENT_IMGS).forEach(function(id) {
