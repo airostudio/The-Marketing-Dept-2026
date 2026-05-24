@@ -299,6 +299,11 @@
     slate:  '/assets/agents/slate.png'
   };
 
+  // Per-agent photo adjustments (zoom/position for characters that sit small in frame)
+  var AGENT_PHOTO_STYLE = {
+    ink: 'transform:scale(1.45);transform-origin:center 30%;'
+  };
+
   // Attach img path to each agent that has one
   Object.keys(AGENT_IMGS).forEach(function(id) {
     if (AGENTS[id]) AGENTS[id].img = AGENT_IMGS[id];
@@ -326,6 +331,7 @@
       img.src = agent.img;
       img.alt = agent.name;
       img.className = 'char-photo';
+      if (AGENT_PHOTO_STYLE[agentId]) img.style.cssText += AGENT_PHOTO_STYLE[agentId];
       // On error fall back to SVG
       img.onerror = function() {
         this.outerHTML = '<svg viewBox="0 0 160 190" xmlns="http://www.w3.org/2000/svg">' + agent.svg(color) + '</svg>';
