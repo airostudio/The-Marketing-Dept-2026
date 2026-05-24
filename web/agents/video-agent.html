@@ -498,9 +498,11 @@
             context += `→ Adjust language, examples, and references to match this demographic.\n`;
         }
 
-        if (data.icp.language && data.icp.language.length > 0) {
+        const _vidIcpLang = Array.isArray(data.icp.language) ? data.icp.language :
+            (data.icp.language ? String(data.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+        if (_vidIcpLang.length > 0) {
             context += `\n**Audience Language Patterns (use in script):**\n`;
-            data.icp.language.forEach(lang => {
+            _vidIcpLang.forEach(lang => {
                 context += `- "${lang}"\n`;
             });
             context += `→ Mirror this language in the video script for relatability.\n`;

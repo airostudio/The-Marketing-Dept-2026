@@ -971,7 +971,9 @@ BUSINESS MODEL: ${model}`;
                     prompt += `- Role/Title: ${firmographics.role}\n`;
                     if (firmographics.companySize) prompt += `- Company Size: ${firmographics.companySize}\n`;
                     if (firmographics.industry) prompt += `- Industry: ${firmographics.industry}\n`;
-                    if (firmographics.language.length > 0) prompt += `- Language: ${firmographics.language.join(', ')}\n`;
+                    const _anaLang = Array.isArray(firmographics.language) ? firmographics.language :
+                        (firmographics.language ? String(firmographics.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                    if (_anaLang.length > 0) prompt += `- Language: ${_anaLang.join(', ')}\n`;
 
                     prompt += `\n→ Create segments that map to sub-segments of this ICP, considering pain point severity, buyer journey stage, and firmographic attributes.\n`;
                 }

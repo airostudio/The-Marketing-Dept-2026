@@ -401,10 +401,12 @@ Use markdown. Separate emails with horizontal rules (---).
                 if (painPoints[2]) hooks += `- Email 4+: Emotional resolution ("Imagine never dealing with ${painPoints[2]} again")\n`;
             }
 
-            if (context.icp.firmographics.language && context.icp.firmographics.language.length > 0) {
+            const _emailLang = Array.isArray(context?.icp?.firmographics?.language) ? context.icp.firmographics.language :
+                (context?.icp?.firmographics?.language ? String(context.icp.firmographics.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+            if (_emailLang.length > 0) {
                 hooks += `\n**ICP Language (Use Their Words in Body Copy):**\n`;
                 hooks += `Your ICP describes problems using language like:\n`;
-                context.icp.firmographics.language.forEach(lang => {
+                _emailLang.forEach(lang => {
                     hooks += `- "${lang}"\n`;
                 });
                 hooks += `\nUse these exact phrases in email body copy for instant recognition.\n`;

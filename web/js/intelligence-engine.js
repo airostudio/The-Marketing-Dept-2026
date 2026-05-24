@@ -1096,7 +1096,8 @@ class IntelligenceEngine {
       role:        buyer.role || '',
       companySize: buyer.companySize || '',
       industry:    buyer.industry || '',
-      language:    brain.icp?.language || []
+      language:    Array.isArray(brain.icp?.language) ? brain.icp.language :
+                   (brain.icp?.language ? String(brain.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : [])
     };
   }
 

@@ -309,10 +309,12 @@ class SocialAgent {
                     hooks += `\n`;
                 }
 
-                if (icp.language && icp.language.length > 0) {
+                const _socialLang = Array.isArray(icp.language) ? icp.language :
+                    (icp.language ? String(icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                if (_socialLang.length > 0) {
                     hooks += `**Audience Language Patterns:**\n`;
                     hooks += `Your ICP describes their problems using:\n`;
-                    icp.language.forEach(lang => {
+                    _socialLang.forEach(lang => {
                         hooks += `- "${lang}"\n`;
                     });
                     hooks += `Mirror this language in your hooks and copy.\n\n`;
@@ -404,10 +406,12 @@ class SocialAgent {
         let hashtags = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp && data.icp.language && data.icp.language.length > 0) {
+            const _hashLang = Array.isArray(data?.icp?.language) ? data.icp.language :
+                (data?.icp?.language ? String(data.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+            if (_hashLang.length > 0) {
                 hashtags += `\n\n**Hashtag Strategy:**\n`;
                 hashtags += `Base hashtags on ICP language patterns:\n`;
-                data.icp.language.slice(0, 3).forEach(lang => {
+                _hashLang.slice(0, 3).forEach(lang => {
                     const hashtagSuggestion = lang.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
                     hashtags += `- Consider: #${hashtagSuggestion}\n`;
                 });

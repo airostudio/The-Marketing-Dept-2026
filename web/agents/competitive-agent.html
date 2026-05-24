@@ -335,9 +335,11 @@
         if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
             context += `Their Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
         }
-        if (data.icp.language && data.icp.language.length > 0) {
+        const _icpLang = Array.isArray(data.icp.language) ? data.icp.language :
+            (data.icp.language ? String(data.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+        if (_icpLang.length > 0) {
             context += `\n**ICP Search Language Patterns:**\n`;
-            data.icp.language.forEach(lang => {
+            _icpLang.forEach(lang => {
                 context += `- "${lang}"\n`;
             });
             context += `→ Generate keywords that match how our ICP searches.\n`;

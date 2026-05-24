@@ -326,18 +326,21 @@ Provide actionable, competitive SEO analysis that:
             if (data && data.icp) {
                 const icp = data.icp;
 
-                if ((icp.language && icp.language.length > 0) || (icp.painPoints && icp.painPoints.filter(p => p).length > 0)) {
+                const langArr = Array.isArray(icp.language) ? icp.language :
+                    (icp.language ? String(icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                const painArr = Array.isArray(icp.painPoints) ? icp.painPoints.filter(p => p) : [];
+
+                if (langArr.length > 0 || painArr.length > 0) {
                     searchIntent += `\n\n## ICP SEARCH INTENT (How Your Buyers Search)\n`;
 
-                    if (icp.language && icp.language.length > 0) {
+                    if (langArr.length > 0) {
                         searchIntent += `Your ICP describes their problems using language like:\n`;
-                        searchIntent += icp.language.map(lang => `- "${lang}"`).join('\n') + '\n\n';
+                        searchIntent += langArr.map(lang => `- "${lang}"`).join('\n') + '\n\n';
                     }
 
-                    if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
-                        const painPoints = icp.painPoints.filter(p => p);
+                    if (painArr.length > 0) {
                         searchIntent += `Their main pain points:\n`;
-                        searchIntent += painPoints.map(pain => `- ${pain}`).join('\n') + '\n\n';
+                        searchIntent += painArr.map(pain => `- ${pain}`).join('\n') + '\n\n';
                     }
 
                     searchIntent += `**Translate these into search intent keywords.** What would they type into Google when looking for a solution? Generate long-tail keyword variations that match this language.\n`;
