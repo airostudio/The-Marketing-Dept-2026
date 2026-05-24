@@ -52,7 +52,8 @@ const ClaudeService = (() => {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `API error ${response.status}`);
+        const errMsg = errData.error?.message || (typeof errData.error === 'string' ? errData.error : null) || `API error ${response.status}`;
+        throw new Error(errMsg);
       }
 
       const reader = response.body.getReader();
@@ -78,8 +79,10 @@ const ClaudeService = (() => {
               if (outputEl) outputEl.textContent = fullText;
               if (onChunk) onChunk(text, fullText);
             }
-          } catch (_) {
-            // ignore parse errors on partial lines
+          } catch (parseErr) {
+            // Only ignore JSON parse errors on partial lines — re-throw callback errors
+            if (parseErr instanceof SyntaxError) continue;
+            throw parseErr;
           }
         }
       }

@@ -420,6 +420,15 @@ Provide actionable, competitive SEO analysis that:
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
 
+        const resetUI = (errMsg) => {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Analyze';
+            if (errMsg) outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
+                <strong>Error:</strong> ${errMsg}<br><br>
+                <small style="opacity:0.7;">Open browser console (F12) for details. Check that the API is deployed and the Anthropic key is set in Vercel environment variables.</small>
+            </div>`;
+        };
+
         // Get intelligence context
         let contextBundle = null;
         if (this.intelligenceEngine) {
@@ -436,17 +445,25 @@ Provide actionable, competitive SEO analysis that:
 
         runBtn.disabled = true;
         runBtn.textContent = 'Analyzing...';
-
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Running ${taskType}...</div>`;
 
-        const systemPrompt = this.buildSystemPrompt(contextBundle);
-        const icpSearchIntent = this.buildICPSearchIntent(contextBundle);
-        const competitorSEOContext = this.buildCompetitorSEOContext(contextBundle);
+        // Hard backstop: if nothing resolves in 60s, surface an error
+        const timeoutId = setTimeout(() => {
+            if (runBtn.disabled) {
+                console.error('[SEOAgent] Stream timed out after 60s');
+                resetUI('Request timed out after 60 seconds. The API may be unreachable or overloaded.');
+            }
+        }, 60000);
 
-        let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
-        if (audience) userMessage += `\nTarget Audience: ${audience}`;
-        if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
-        userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
+        try {
+            const systemPrompt = this.buildSystemPrompt(contextBundle);
+            const icpSearchIntent = this.buildICPSearchIntent(contextBundle);
+            const competitorSEOContext = this.buildCompetitorSEOContext(contextBundle);
+
+            let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
+            if (audience) userMessage += `\nTarget Audience: ${audience}`;
+            if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
+            userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
 - High-priority keyword opportunities (with difficulty and search intent)
 - Content gaps to fill
 - Technical SEO fixes
@@ -454,30 +471,45 @@ Provide actionable, competitive SEO analysis that:
 
 Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOContext}`;
 
-        if (this.claudeService && this.claudeService.streamResponse) {
+            if (!this.claudeService || !this.claudeService.streamResponse) {
+                clearTimeout(timeoutId);
+                outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
+                    <strong style="color:#fff;">Claude API not configured.</strong><br><br>
+                    Add your API key in <a href="/settings.html" style="color:#06b6d4;">Settings</a> to enable AI analysis.
+                </div>`;
+                runBtn.disabled = false; runBtn.textContent = 'Analyze';
+                return;
+            }
+
             let fullResponse = '';
             outputEl.innerHTML = '';
-            try {
-                await this.claudeService.streamResponse({
-                    systemPrompt,
-                    messages: [{ role: 'user', content: userMessage }],
-                    onChunk: (chunk) => {
-                        fullResponse += chunk;
+
+            await this.claudeService.streamResponse({
+                systemPrompt,
+                messages: [{ role: 'user', content: userMessage }],
+                onChunk: (chunk) => {
+                    fullResponse += chunk;
+                    try {
                         outputEl.innerHTML = marked.parse(fullResponse);
-                        outputEl.scrollTop = outputEl.scrollHeight;
-                    },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Analyze'; }
-                });
-            } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                runBtn.disabled = false; runBtn.textContent = 'Analyze';
-            }
-        } else {
-            outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
-                <strong style="color:#fff;">Claude API not configured.</strong><br><br>
-                Add your API key in <a href="/settings.html" style="color:#06b6d4;">Settings</a> to enable AI analysis.
-            </div>`;
-            runBtn.disabled = false; runBtn.textContent = 'Analyze';
+                    } catch (_) {
+                        outputEl.textContent = fullResponse;
+                    }
+                    outputEl.scrollTop = outputEl.scrollHeight;
+                },
+                onDone: () => {
+                    clearTimeout(timeoutId);
+                    runBtn.disabled = false;
+                    runBtn.textContent = 'Analyze';
+                    if (!fullResponse.trim()) {
+                        outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Check Vercel function logs for errors.</div>`;
+                    }
+                }
+            });
+
+        } catch (e) {
+            clearTimeout(timeoutId);
+            console.error('[SEOAgent] run() error:', e);
+            resetUI(e.message || 'Unknown error — open browser console for details');
         }
     }
 }
