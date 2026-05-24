@@ -1029,7 +1029,7 @@
   <div class="save-section">
     <div class="save-card">
       <div class="save-card-text">
-        <h3>Ready to activate your intelligence foundation?</h3>
+        <h3 id="saveCardHeading">Ready to activate your intelligence foundation?</h3>
         <p id="saveCardSubtext">Complete all 5 sections and save — Scotty will use this context before every decision.</p>
       </div>
       <button class="btn-save" onclick="saveBrain()">
@@ -1535,6 +1535,16 @@
     const score = window.IntelligenceEngine.brain.getCompletionScore();
     updateScoreUI(score);
     updateTabCompleteness();
+
+    // If data is already saved, reflect that in the badge and save card heading
+    if (score > 0) {
+      const badge = document.getElementById('autosaveBadge');
+      badge.textContent = 'All changes saved';
+      badge.className = 'autosave-badge saved';
+
+      const heading = document.getElementById('saveCardHeading');
+      if (heading) heading.textContent = 'Intelligence foundation active';
+    }
 
     // Listen for changes to update tab completeness
     document.querySelectorAll('[data-path], .chip').forEach(el => {
