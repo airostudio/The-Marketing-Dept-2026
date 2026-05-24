@@ -293,8 +293,10 @@
     vera:   '/assets/agents/vera.png',
     scout:  '/assets/agents/scout.png',
     shield: '/assets/agents/shield.png',
-    lock:   '/assets/agents/lock.png'
-    // chase, lift, slate — images coming
+    lock:   '/assets/agents/lock.png',
+    chase:  '/assets/agents/chase.png',
+    lift:   '/assets/agents/lift.png',
+    slate:  '/assets/agents/slate.png'
   };
 
   // Attach img path to each agent that has one
