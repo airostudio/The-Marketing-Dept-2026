@@ -281,23 +281,20 @@
     }
   };
 
-  // Real portrait images (populated as they become available)
+  // Real portrait images
   var AGENT_IMGS = {
-    rex:   '/assets/agents/rex.png',
-    blaze: '/assets/agents/blaze.png',
-    nova:  '/assets/agents/nova.png',
-    reel:  '/assets/agents/reel.png',
-    // Add remaining agents here as images are uploaded:
-    // pulse:  '/assets/agents/pulse.png',
-    // ink:    '/assets/agents/ink.png',
-    // chase:  '/assets/agents/chase.png',
-    // mex:    '/assets/agents/mex.png',
-    // vera:   '/assets/agents/vera.png',
-    // lift:   '/assets/agents/lift.png',
-    // scout:  '/assets/agents/scout.png',
-    // shield: '/assets/agents/shield.png',
-    // lock:   '/assets/agents/lock.png',
-    // slate:  '/assets/agents/slate.png'
+    rex:    '/assets/agents/rex.png',
+    blaze:  '/assets/agents/blaze.png',
+    nova:   '/assets/agents/nova.png',
+    reel:   '/assets/agents/reel.png',
+    pulse:  '/assets/agents/pulse.png',
+    ink:    '/assets/agents/ink.png',
+    mex:    '/assets/agents/mex.png',
+    vera:   '/assets/agents/vera.png',
+    scout:  '/assets/agents/scout.png',
+    shield: '/assets/agents/shield.png',
+    lock:   '/assets/agents/lock.png'
+    // chase, lift, slate — images coming
   };
 
   // Attach img path to each agent that has one
