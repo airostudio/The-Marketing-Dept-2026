@@ -1745,11 +1745,106 @@
         init();
     }
 
-    // Expose for external use
-    window.SEOAudit = {
-        start: startAudit,
-        getResults: () => AuditState.issues,
-        getState: () => AuditState
+    /**
+     * Programmatic constructor API used by analysis-engine.js and api-production.js:
+     *   const audit = new window.SEOAudit(url, { maxPages, maxDepth, checkBrokenLinks, onProgress, onComplete, onError });
+     *   audit.start();
+     */
+    function SEOAuditConstructor(url, options = {}) {
+        this.url     = url;
+        this.options = options;
+    }
+
+    SEOAuditConstructor.prototype.start = async function () {
+        const { maxPages = AUDIT_CONFIG.maxPages, maxDepth = AUDIT_CONFIG.maxDepth,
+                onProgress, onComplete, onError } = this.options;
+        const url = this.url;
+
+        if (AuditState.isRunning) {
+            if (onError) onError(new Error('An audit is already running.'));
+            return;
+        }
+
+        // Reset state
+        AuditState.isRunning = true;
+        AuditState.progress = 0;
+        AuditState.pagesCrawled = 0;
+        AuditState.totalPagesToCheck = 0;
+        AuditState.issues = [];
+        AuditState.startTime = Date.now();
+        AuditState.currentUrl = url;
+        AuditState.crawledUrls = new Set();
+        AuditState.pendingUrls = [];
+        AuditState.brokenLinks = [];
+        AuditState.allLinks = [];
+        AuditState.pageData = {};
+
+        const fireProgress = (msg) => {
+            if (onProgress) onProgress({
+                crawledUrls: [...AuditState.crawledUrls],
+                pagesCrawled: AuditState.pagesCrawled,
+                issues: AuditState.issues,
+                message: msg
+            });
+        };
+
+        try {
+            fireProgress('Checking security...');
+            await checkSecurity(url);
+
+            fireProgress('Checking robots.txt...');
+            await checkRobotsTxt(url);
+
+            fireProgress('Checking sitemap...');
+            const sitemapUrls = await checkSitemap(url);
+
+            fireProgress('Discovering pages...');
+            AuditState.pendingUrls.push({ url: normalizeUrl(url), depth: 0 });
+            if (sitemapUrls && sitemapUrls.length > 0) {
+                sitemapUrls.slice(0, Math.floor(maxPages / 2)).forEach(u => {
+                    if (!AuditState.crawledUrls.has(u)) {
+                        AuditState.pendingUrls.push({ url: u, depth: 1 });
+                    }
+                });
+            }
+
+            // Override maxDepth for this run
+            const origMaxDepth = AUDIT_CONFIG.maxDepth;
+            AUDIT_CONFIG.maxDepth = maxDepth;
+
+            await crawlPages(url, maxPages);
+            AUDIT_CONFIG.maxDepth = origMaxDepth;
+
+            fireProgress('Verifying links...');
+            await verifyLinks();
+
+            fireProgress('Analysing results...');
+            generateSummaryIssues();
+
+            AuditState.isRunning = false;
+
+            if (onComplete) onComplete({
+                crawledUrls: [...AuditState.crawledUrls],
+                issues: AuditState.issues,
+                pageData: AuditState.pageData,
+                pageTitles: Object.fromEntries(
+                    Object.entries(AuditState.pageData).map(([k, v]) => [k, v.title || ''])
+                ),
+                brokenLinks: AuditState.brokenLinks,
+                duration: Date.now() - AuditState.startTime
+            });
+
+        } catch (error) {
+            AuditState.isRunning = false;
+            console.error('[SEOAudit] Crawl error:', error);
+            if (onError) onError(error);
+        }
     };
+
+    // Expose both constructor (for programmatic use) and legacy object (for UI use)
+    window.SEOAudit = SEOAuditConstructor;
+    window.SEOAudit.start      = startAudit;
+    window.SEOAudit.getResults = () => AuditState.issues;
+    window.SEOAudit.getState   = () => AuditState;
 
 })();
