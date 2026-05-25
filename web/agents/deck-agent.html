@@ -330,23 +330,27 @@
     }
 
     function buildCompetitivePositioningContext() {
-        if (!window.IntelligenceEngine?.radar) return '';
-        const data = window.IntelligenceEngine.radar.load();
-        if (!data?.competitors || data.competitors.length === 0) return '';
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
 
-        let context = '\n\n**COMPETITIVE POSITIONING CONTEXT:**\n';
-        context += `Known Competitors: ${data.competitors.map(c => c.name).join(', ')}\n`;
+        const brainComps = (data?.competitors || []).map(c => c.name || c).filter(Boolean);
+        const gap        = data?.positioning?.competitorGap      || '';
+        const notLike    = data?.positioning?.notLikeCompetitors || '';
 
-        if (data.positioning) {
-            context += `\nOur Positioning: ${data.positioning}\n`;
-        }
+        let radarComps = [];
+        try {
+            const rd = window.IntelligenceEngine.radar?.load?.();
+            if (rd?.competitors?.length) radarComps = rd.competitors.map(c => c.name || c);
+        } catch (_) {}
 
-        context += `\n**Competitive Slide Recommendations:**\n`;
-        context += `- Create a differentiation slide showing why we're different/better\n`;
-        context += `- Include competitive matrix or comparison table\n`;
-        context += `- Focus on unique capabilities competitors lack\n`;
-        context += `- Avoid direct competitor bashing (professional comparison only)\n`;
+        const allComps = [...new Set([...brainComps, ...radarComps])].filter(Boolean);
+        if (!allComps.length && !gap) return '';
 
+        let context = '\n\n**COMPETITIVE POSITIONING:**\n';
+        if (allComps.length) context += `Known Competitors: ${allComps.join(', ')}\n`;
+        if (gap)     context += `Positioning Gap We Own: ${gap}\n`;
+        if (notLike) context += `How We Differ: ${notLike}\n`;
+        context += `\n**Include:** differentiation slide, competitive matrix, unique capabilities slide.\n`;
         return context;
     }
 
@@ -367,16 +371,12 @@
     function buildIndustryMarketContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.industry) return '';
+        const industry = data?.company?.industry || data?.industry;
+        if (!industry) return '';
 
         let context = '\n\n**INDUSTRY & MARKET CONTEXT:**\n';
-        context += `Industry: ${data.industry}\n`;
-        context += `\n**Market Opportunity Slide:**\n`;
-        context += `- Include ${data.industry} market size (TAM/SAM/SOM)\n`;
-        context += `- Industry growth trends and drivers\n`;
-        context += `- Key pain points in ${data.industry}\n`;
-        context += `- Regulatory or technology shifts creating opportunity\n`;
-
+        context += `Industry: ${industry}\n`;
+        context += `\n**Market Opportunity Slide:** include ${industry} market size (TAM/SAM/SOM), growth trends, and key pain points.\n`;
         return context;
     }
 
