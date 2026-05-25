@@ -680,6 +680,130 @@ Respond ONLY with valid JSON matching this exact structure (no markdown fences):
     });
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     AUTOMATION ASSESSMENT
+     Scotty reviews completed agent work and plans executable automation steps.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Scotty reviews all completed agent results and plans automation actions.
+   * Returns { assessment: string, automations: Array } or throws.
+   */
+  async function assessAndPlanAutomation(plan, results, contextBundle) {
+    if (!window.ClaudeService) throw new Error('Claude API not configured. Add your API key in Settings.');
+
+    const resultsSummary = (results || [])
+      .filter(r => r && r.text)
+      .slice(0, 6)
+      .map(r => `### ${r.task.taskName}\n${r.text.slice(0, 700)}`)
+      .join('\n\n---\n\n');
+
+    const ctxSnippet = (contextBundle && contextBundle.isReady)
+      ? (contextBundle.businessContext || '').slice(0, 400)
+      : 'No business context configured.';
+
+    const systemPrompt = `You are Scotty, the AI CMO. You have just reviewed completed marketing analysis and must identify the highest-impact automation actions the platform can execute right now.
+
+Rules:
+- Identify 4-6 specific automation actions, each producing a tangible deliverable
+- Each automation runs inline via Claude — no external API or tool access required
+- agentKey must be one of: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, deck
+- prompt must be a specific 2-3 sentence instruction telling the agent exactly what to CREATE as a deployable asset (not analyse — CREATE)
+- Prioritise by impact: the user should feel they got a week's work done in 5 minutes
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "assessment": "2-3 sentence CMO-level summary: what the agents accomplished and what the single biggest opportunity is now",
+  "automations": [
+    {
+      "id": "auto_email_seq",
+      "agentKey": "email",
+      "title": "Build 5-Email Lead Nurture Sequence",
+      "description": "Ready-to-deploy email copy based on the ICP and competitive analysis just completed",
+      "impact": "High",
+      "timeEstimate": "~2 min",
+      "deliverable": "5 complete email templates",
+      "prompt": "Write a complete 5-email lead nurture sequence for [specific ICP from context]. Email 1: pain-hook. Email 2: reframe. Email 3: proof. Email 4: objection. Email 5: direct ask. Each email: subject A+B, preview text, full body (150-200 words), CTA. Use brand voice — direct, no fluff."
+    }
+  ]
+}`;
+
+    const result = await window.ClaudeService.callAgent({
+      systemPrompt,
+      messages: [{
+        role: 'user',
+        content: `Mission: ${plan.missionTitle || 'Marketing Campaign'}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work:\n${resultsSummary}`,
+      }],
+    });
+
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Automation assessment returned unexpected format');
+    return JSON.parse(jsonMatch[0]);
+  }
+
+  /**
+   * Execute a single automation step — streams the generated deliverable.
+   */
+  async function executeAutomationStep(auto, contextBundle, { onChunk, onDone, onError } = {}) {
+    if (!window.ClaudeService) throw new Error('Claude API not configured');
+    const systemPrompt = getAgentInlinePrompt(auto.agentKey, contextBundle);
+    return window.ClaudeService.streamResponse({
+      systemPrompt,
+      messages: [{ role: 'user', content: auto.prompt }],
+      onChunk,
+      onDone,
+      onError,
+    });
+  }
+
+  /**
+   * Scotty reviews a single completed agent task and plans automation.
+   * Used when the user returns to Scotty after dispatching to an individual agent.
+   */
+  async function assessSingleAgentResult(agentKey, taskName, resultText, contextBundle) {
+    if (!window.ClaudeService) throw new Error('Claude API not configured');
+
+    const ctxSnippet = (contextBundle && contextBundle.isReady)
+      ? (contextBundle.businessContext || '').slice(0, 300)
+      : '';
+
+    const systemPrompt = `You are Scotty, the AI CMO. An agent just completed a task and you need to identify follow-on automation actions that will turn the analysis into deployable assets.
+
+Identify 2-4 concrete follow-on automations. Each must:
+- Produce a tangible deliverable the user can immediately use
+- Logically follow from the completed work
+- Be executable inline via Claude
+
+Respond ONLY with valid JSON:
+{
+  "assessment": "2 sentences: what was accomplished and the immediate next step",
+  "automations": [
+    {
+      "id": "auto_followon",
+      "agentKey": "email",
+      "title": "Create Outreach Sequence",
+      "description": "Turn the analysis into a 5-step outreach sequence",
+      "impact": "High",
+      "timeEstimate": "~2 min",
+      "deliverable": "5 outreach templates",
+      "prompt": "Based on this analysis, write..."
+    }
+  ]
+}`;
+
+    const result = await window.ClaudeService.callAgent({
+      systemPrompt,
+      messages: [{
+        role: 'user',
+        content: `Completed agent: ${agentKey} — ${taskName}\n\nContext: ${ctxSnippet}\n\nCompleted work:\n${resultText.slice(0, 1200)}`,
+      }],
+    });
+
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Assessment returned unexpected format');
+    return JSON.parse(jsonMatch[0]);
+  }
+
   return {
     ask,
     dispatch,
@@ -696,6 +820,9 @@ Respond ONLY with valid JSON matching this exact structure (no markdown fences):
     generateMissionPlan,
     executeAgentTask,
     getAgentInlinePrompt,
+    assessAndPlanAutomation,
+    executeAutomationStep,
+    assessSingleAgentResult,
     AGENT_ROUTES,
     AGENT_DESCRIPTIONS,
   };
