@@ -465,6 +465,7 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a video content strategist and scriptwriter specializing in high-converting video scripts that maximize audience engagement and traffic potential. Create complete video scripts with: hook (0-5 seconds), intro, main content with timestamps, B-roll suggestions, talking points, transition notes, CTA, and thumbnail concept. Include editing notes for pacing and cuts. Format as a production script. When ICP context is provided, target the script specifically to that audience's pain points and language patterns. When brand voice is provided, match the tone and style throughout the script.`;
 
@@ -646,6 +647,7 @@ Format as a proper production script with clear section headers and timestamps.`
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'video', taskType: videoType || 'Video Script', content: text, topic: topic || '' });
 
                         // Add video generation button if Tavus API available
                         if (window.ApiConnector?.VideoGeneration?.tavus?.isAvailable()) {

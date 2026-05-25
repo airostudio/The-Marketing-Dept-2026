@@ -775,6 +775,7 @@
 <script src="/js/claude-service.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
+<script src="/js/agent-history.js"></script>
 <script>
     const AGENT_ID = 'analytics-brain';
 
@@ -1104,6 +1105,7 @@ Format with clear sections, use the data provided, and write in a confident narr
                     result += chunk;
                     outBody.textContent = result;
                 });
+                if (window.AgentHistory && result.trim()) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: result });
             } else {
                 await streamFallback(prompt, outBody);
             }

@@ -193,6 +193,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 class SEOAgent {
     constructor() {
@@ -503,6 +504,7 @@ Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOCo
                     clearTimeout(timeoutId);
                     runBtn.disabled = false;
                     runBtn.textContent = 'Analyze';
+                    if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'seo', taskType, content: fullResponse, topic: urlTopic });
                     if (!fullResponse.trim()) {
                         outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Check Vercel function logs for errors.</div>`;
                     }

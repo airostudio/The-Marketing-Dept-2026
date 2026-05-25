@@ -200,6 +200,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 class SalesAgent {
     constructor() {
@@ -572,7 +573,7 @@ Deliver a comprehensive ${taskType} strategy with:
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Build Strategy'; }
+                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Build Strategy'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'sales', taskType, content: fullResponse, topic: document.getElementById('targetRole')?.value?.trim() || '' }); }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;

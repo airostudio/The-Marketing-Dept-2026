@@ -211,6 +211,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 class EmailAgent {
     constructor() {
@@ -585,7 +586,7 @@ Include a brief strategy overview at the top explaining the sequence flow.${icpE
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Sequence'; }
+                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Sequence'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'email', taskType: 'Email Sequence', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' }); }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;

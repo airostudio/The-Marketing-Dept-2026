@@ -252,6 +252,7 @@
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a brand compliance and legal review specialist with expertise in FTC regulations, GDPR, CCPA, HIPAA, financial services compliance, and industry-specific regulatory frameworks. Review the provided content for: brand voice consistency, unsubstantiated claims, competitor disparagement risks, regulatory compliance issues (GDPR, FTC, CCPA, industry-specific), accessibility concerns, and reputational risks. When industry/ICP context is provided, apply industry-specific regulatory requirements (HIPAA for healthcare, SEC/FINRA for finance, FTC Green Guides for sustainability claims). Provide specific line-by-line feedback with severity ratings (critical = legal risk, warning = brand/regulatory risk, suggestion = improvement opportunity) and corrected versions that preserve intent while removing compliance risk.`;
 
@@ -490,6 +491,7 @@ Provide a fully corrected version of the content with all issues resolved.`;
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'compliance', taskType: reviewType || 'Compliance Review', content: text, topic: (content || '').slice(0, 80) });
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;

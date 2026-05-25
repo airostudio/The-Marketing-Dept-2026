@@ -243,6 +243,7 @@
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a CRO expert who has optimized hundreds of landing pages and increased conversion rates by 200%+ on average. You specialize in hypothesis-driven testing, conversion psychology, and statistical analysis. Analyze the provided page/context and give: specific element changes with expected impact, A/B test design with hypothesis and success metrics, prioritized list by effort/impact, psychological principles being leveraged, and statistical significance guidance. When ICP context is provided, tailor all recommendations to that specific audience's pain points, objections, and buying journey. Be specific — not generic advice. Name actual words to change, specific elements to move or remove, and exact copy suggestions.`;
 
@@ -435,6 +436,7 @@ Be specific — name actual words to change, specific elements to move or remove
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'cro', taskType: task || 'CRO Analysis', content: text, topic: pageDesc || '' });
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;

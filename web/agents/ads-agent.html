@@ -215,6 +215,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 // Platform pill selection (single select)
 document.querySelectorAll('.platform-pill').forEach(pill => {
@@ -621,7 +622,7 @@ Deliverables:
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Ad Variants'; }
+                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Ad Variants'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'ads', taskType: (typeof getSelectedPlatform === 'function' ? getSelectedPlatform() : 'Ad') + ' Variants', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' }); }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
