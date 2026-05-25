@@ -123,7 +123,7 @@
     <h1 class="hero-title">Deck Maker</h1>
     <p class="hero-tagline">Tome-style presentations, investor decks, and pitch structures that close deals and raise rounds</p>
     <div class="hero-pills">
-        <span class="pill pill-claude">Powered by Claude</span>
+        <span class="pill pill-claude">Powered by Gemini</span>
         <span class="pill pill-inspired">Inspired by Tome AI · Beautiful.ai · Gamma</span>
     </div>
 </section>
@@ -273,8 +273,11 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/gemini-service.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion. When company intelligence (value prop, ICP, competitors, metrics) is provided, use it to create company-specific content — not generic placeholders. Tailor tone and messaging to the target audience (investors want ROI/traction, customers want benefits/proof, board wants strategy/metrics).`;
+
+    const SPELLCHECK_PROMPT = `You are a professional proofreader for business presentations. Fix ONLY spelling, grammar, and punctuation errors. Preserve all markdown formatting exactly. Do not change wording, structure, or content. Return the full corrected text with no commentary.`;
 
     (function checkIntel() {
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
@@ -516,7 +519,48 @@ Make all content specific to ${company || 'this company'} — no generic filler.
         const outputBody = document.getElementById('outputBody');
 
         try {
-            if (window.ClaudeService) {
+            if (window.GeminiService) {
+                // Phase 1: Generate deck structure via streaming
+                const rawText = await new Promise((resolve, reject) => {
+                    window.GeminiService.streamResponse({
+                        systemPrompt: SYSTEM_PROMPT,
+                        messages: [{ role: 'user', content: userPrompt }],
+                        onChunk: (chunk, accumulated) => {
+                            outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated) + '<span class="streaming-cursor"></span>';
+                        },
+                        onDone:  (text) => resolve(text),
+                        onError: (err)  => reject(err),
+                    });
+                });
+
+                // Phase 2: Spell-check pass
+                document.getElementById('btnText').textContent = 'Spell-checking…';
+                outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(rawText) : rawText) +
+                    '<div style="margin-top:12px;padding:10px 14px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);border-radius:8px;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:8px;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>✏️ Spell-checking all slides…</div>';
+
+                let finalText = rawText;
+                try {
+                    const checked = await window.GeminiService.callAgent({
+                        systemPrompt: SPELLCHECK_PROMPT,
+                        messages: [{ role: 'user', content: rawText }],
+                        model: 'gemini-1.5-flash',
+                    });
+                    if (checked && checked.length >= rawText.length * 0.5) {
+                        finalText = checked;
+                    }
+                } catch (spellErr) {
+                    console.warn('Spell-check pass failed, using original:', spellErr.message);
+                }
+
+                // Phase 3: Render final proofread content
+                outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(finalText) : finalText;
+                window.currentDeckData = { text: finalText, company: company || 'Presentation', deckType, audience };
+                document.getElementById('downloadBtn').style.display = 'block';
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: finalText, topic: company || keyMessage || deckType });
+                }
+
+            } else if (window.ClaudeService) {
                 let fullText = '';
                 await window.ClaudeService.streamResponse({
                     systemPrompt: SYSTEM_PROMPT,
@@ -527,23 +571,10 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
-                        // Store deck data for PPTX export
-                        window.currentDeckData = {
-                            text: text,
-                            company: company || 'Presentation',
-                            deckType: deckType,
-                            audience: audience
-                        };
-                        // Show download button
+                        window.currentDeckData = { text, company: company || 'Presentation', deckType, audience };
                         document.getElementById('downloadBtn').style.display = 'block';
-                        // Save to agent history
                         if (window.AgentHistory) {
-                            window.AgentHistory.save({
-                                agentKey: 'deck',
-                                taskType: deckType,
-                                content: text,
-                                topic: company || keyMessage || deckType,
-                            });
+                            window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: text, topic: company || keyMessage || deckType });
                         }
                     },
                     onError: (err) => {
@@ -551,7 +582,7 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                     }
                 });
             } else {
-                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Gemini or Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
             }
         } catch (e) {
             outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
@@ -739,8 +770,8 @@ Respond with JSON format for easy parsing.`;
     function parseDeckStructure(markdownText) {
         const slides = [];
 
-        // Split by slide markers (## Slide or **Slide)
-        const slidePattern = /(?:^|\n)(?:\*\*)?Slide\s+(\d+):\s+(.+?)(?:\*\*)?(?:\n|$)/gi;
+        // Handle: **Slide N: Title**, ## Slide N: Title, ### Slide N - Title, plain Slide N: Title
+        const slidePattern = /(?:^|\n)(?:#{1,4}\s*)?(?:\*{1,2})?Slide\s+(\d+)\s*[:\-–—]\s*(.+?)(?:\*{1,2})?(?=\n|$)/gim;
         const matches = [...markdownText.matchAll(slidePattern)];
 
         for (let i = 0; i < matches.length; i++) {
