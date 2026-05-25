@@ -210,6 +210,7 @@
                 <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
             </div>
         </div>
+        <div id="intelWarningBanner" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:#fbbf24;align-items:center;gap:8px;"></div>
         <div id="outputArea">
             <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc. Then download as editable PowerPoint with AI-generated visual design.</div>
         </div>
@@ -268,6 +269,7 @@
 <script src="../js/pptxgen.bundle.js"></script>
 <script src="../js/chart.umd.min.js"></script>
 <script src="../js/agent-characters.js"></script>
+<script src="../js/agent-history.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
@@ -282,15 +284,21 @@
     function buildValuePropContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.value_prop) return '';
+        const uvp = data?.positioning?.uniqueValue || data?.value_prop;
+        const diffs = [
+            data?.positioning?.differentiation?.[0],
+            data?.positioning?.differentiation?.[1],
+            data?.positioning?.differentiation?.[2],
+        ].filter(Boolean);
+        if (!uvp && !diffs.length) return '';
 
-        let context = '\n\n**VALUE PROPOSITION CONTEXT:**\n';
-        context += `Value Prop: ${data.value_prop}\n`;
+        let context = '\n\n**VALUE PROPOSITION & DIFFERENTIATION:**\n';
+        if (uvp) context += `Unique Value Proposition: ${uvp}\n`;
+        if (diffs.length) context += `Key Differentiators:\n${diffs.map(d => `- ${d}`).join('\n')}\n`;
         context += `\n**Use this to frame:**\n`;
         context += `- Problem slide (what pain point does this address?)\n`;
         context += `- Solution slide (how does value prop solve the problem?)\n`;
-        context += `- Key message reinforcement throughout deck\n`;
-
+        context += `- Key message reinforcement throughout\n`;
         return context;
     }
 
@@ -299,29 +307,25 @@
         const data = window.IntelligenceEngine.brain.load();
         if (!data?.icp) return '';
 
-        let context = '\n\n**ICP AUDIENCE CONTEXT:**\n';
-        context += `Target ICP: ${data.icp.persona}\n`;
+        const role       = data.icp.primaryBuyer?.role || '';
+        const compSize   = data.icp.primaryBuyer?.companySize || '';
+        const industry   = data.icp.primaryBuyer?.industry || '';
+        const pains      = [data.icp.painPoints?.[0], data.icp.painPoints?.[1], data.icp.painPoints?.[2]].filter(Boolean);
+        const reasonChose = data.icp.reasonChose || '';
+        const biggestFear = data.icp.biggestFear || '';
 
-        if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
-            context += `\n**Enterprise B2B Deck Guidelines:**\n`;
-            context += `- Lead with ROI and business impact\n`;
-            context += `- Include security, compliance, scalability slides\n`;
-            context += `- Use data-driven proof (metrics, case studies)\n`;
-            context += `- Professional, formal tone in speaker notes\n`;
-        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('smb')) {
-            context += `\n**SMB Deck Guidelines:**\n`;
-            context += `- Lead with ease of use and quick time-to-value\n`;
-            context += `- Keep it simple and actionable\n`;
-            context += `- Pricing transparency important\n`;
-            context += `- Friendly, approachable tone\n`;
-        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('consumer')) {
-            context += `\n**B2C Deck Guidelines:**\n`;
-            context += `- Lead with emotional benefit and lifestyle impact\n`;
-            context += `- Visual storytelling over data\n`;
-            context += `- Social proof (user testimonials, ratings)\n`;
-            context += `- Conversational, engaging tone\n`;
-        }
+        if (!role && !pains.length) return '';
 
+        let context = '\n\n**ICP & AUDIENCE CONTEXT:**\n';
+        if (role) context += `Primary Buyer: ${role}`;
+        if (compSize) context += ` at ${compSize} companies`;
+        if (industry) context += ` in ${industry}`;
+        context += '\n';
+        if (pains.length) context += `Key Pain Points:\n${pains.map(p => `- ${p}`).join('\n')}\n`;
+        if (reasonChose) context += `Why They Choose Us: ${reasonChose}\n`;
+        if (biggestFear) context += `Biggest Fear: ${biggestFear}\n`;
+
+        context += `\n**Deck Guidance:** Frame every slide around the ${role || 'buyer'}'s perspective and their specific pain points above.\n`;
         return context;
     }
 
@@ -349,22 +353,14 @@
     function buildBrandVoiceContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.voice) return '';
+        const voiceTone = data?.positioning?.voiceAndTone;
+        const neverSay  = data?.positioning?.thingsWeNeverSay;
+        if (!voiceTone?.length && !neverSay) return '';
 
-        let context = '\n\n**BRAND VOICE CONTEXT:**\n';
-        context += `Brand Voice: ${data.brand.voice}\n`;
-        context += `\n**Apply to speaker notes:**\n`;
-
-        if (data.brand.voice.toLowerCase().includes('professional') || data.brand.voice.toLowerCase().includes('formal')) {
-            context += `- Use formal, professional language\n`;
-            context += `- Avoid slang and casual expressions\n`;
-            context += `- Data-driven, authoritative tone\n`;
-        } else if (data.brand.voice.toLowerCase().includes('friendly') || data.brand.voice.toLowerCase().includes('casual')) {
-            context += `- Use conversational, approachable language\n`;
-            context += `- OK to use analogies and storytelling\n`;
-            context += `- Warm, human tone\n`;
-        }
-
+        let context = '\n\n**BRAND VOICE & TONE:**\n';
+        if (voiceTone?.length) context += `Voice & Tone: ${Array.isArray(voiceTone) ? voiceTone.join(', ') : voiceTone}\n`;
+        if (neverSay) context += `Things We Never Say: ${neverSay}\n`;
+        context += `\n**Apply this voice consistently across all slide copy and speaker notes.**\n`;
         return context;
     }
 
@@ -391,30 +387,20 @@
         let context = '';
         let hasSocialProof = false;
 
-        if (data?.customers && data.customers.length > 0) {
-            context += '\n\n**SOCIAL PROOF - CUSTOMER LOGOS:**\n';
-            context += `Featured Customers: ${data.customers.slice(0, 10).join(', ')}\n`;
-            context += `\n**Traction Slide:**\n`;
-            context += `- Include customer logo slide\n`;
-            context += `- Highlight notable brands or enterprise customers\n`;
+        const customers = Array.isArray(data?.customers) ? data.customers : [];
+        const testimonials = Array.isArray(data?.testimonials) ? data.testimonials : [];
+
+        if (customers.length > 0) {
+            context += '\n\n**SOCIAL PROOF — CUSTOMER LOGOS:**\n';
+            context += `Featured Customers: ${customers.slice(0, 12).join(', ')}\n`;
+            context += `\n**Use these in:** Customer logo slide, traction slide, credibility bar.\n`;
             hasSocialProof = true;
         }
 
-        if (data?.testimonials && data.testimonials.length > 0) {
-            context += '\n\n**SOCIAL PROOF - TESTIMONIALS:**\n';
-            context += `${data.testimonials.length} testimonials available\n`;
-            context += `\n**Use in:**\n`;
-            context += `- Customer success slide (quote + attribution)\n`;
-            context += `- Problem validation (customer describing pain point)\n`;
-            hasSocialProof = true;
-        }
-
-        if (data?.case_studies && data.case_studies.length > 0) {
-            context += '\n\n**SOCIAL PROOF - CASE STUDIES:**\n';
-            context += `${data.case_studies.length} case studies available\n`;
-            context += `\n**Use in:**\n`;
-            context += `- Proof slide (before/after metrics)\n`;
-            context += `- Industry-specific success stories\n`;
+        if (testimonials.length > 0) {
+            context += '\n\n**SOCIAL PROOF — TESTIMONIALS:**\n';
+            testimonials.slice(0, 3).forEach(t => { context += `"${t}"\n`; });
+            context += `\n**Use in:** Social proof slide, problem validation slide, customer success slide.\n`;
             hasSocialProof = true;
         }
 
@@ -424,45 +410,27 @@
     function buildMetricsContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
+        if (!data?.metrics) return '';
 
         let context = '';
         let hasMetrics = false;
 
-        if (data?.metrics) {
-            context += '\n\n**COMPANY METRICS (for traction slide):**\n';
+        context += '\n\n**COMPANY METRICS (traction slide):**\n';
+        if (data.metrics.arr)          { context += `- Revenue / ARR: ${data.metrics.arr}\n`;        hasMetrics = true; }
+        if (data.metrics.growth_rate)  { context += `- Growth Rate: ${data.metrics.growth_rate}\n`;  hasMetrics = true; }
+        if (data.metrics.customers)    { context += `- Active Customers: ${data.metrics.customers}\n`; hasMetrics = true; }
+        if (data.metrics.retention)    { context += `- Retention: ${data.metrics.retention}\n`;       hasMetrics = true; }
+        if (data.metrics.nps)          { context += `- NPS / CSAT: ${data.metrics.nps}\n`;           hasMetrics = true; }
 
-            if (data.metrics.arr || data.metrics.revenue) {
-                context += `- Revenue/ARR: ${data.metrics.arr || data.metrics.revenue}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.growth_rate) {
-                context += `- Growth Rate: ${data.metrics.growth_rate}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.customers || data.metrics.users) {
-                context += `- Customers/Users: ${data.metrics.customers || data.metrics.users}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.retention) {
-                context += `- Retention Rate: ${data.metrics.retention}\n`;
-                hasMetrics = true;
-            }
-        }
-
-        if (hasMetrics) {
-            context += `\n**Use in traction slide to show momentum**\n`;
-        }
-
+        if (!hasMetrics) return '';
+        context += `\n**Use these numbers in the traction slide to show momentum. Be specific — use the exact figures above.**\n`;
         return context;
     }
 
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return (bundle?.completionScore || 0) / 100;
     }
 
     async function buildDeck() {
@@ -478,14 +446,13 @@
             return;
         }
 
-        // Strategic Validation Warnings
+        // Strategic Validation Warnings — inline, non-blocking
         const completeness = getIntelligenceCompleteness();
         if (completeness < 0.3) {
-            const alreadyWarned = sessionStorage.getItem('deckMaker_noIntel_warned');
-            if (!alreadyWarned) {
-                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor company-specific decks (value prop slides, competitive positioning, customer logos, metrics), configure:\n• Value Proposition\n• ICP Definition\n• Competitor Data\n• Customer List\n• Company Metrics\n\nProceed with generic deck structure?`);
-                if (!proceed) return;
-                sessionStorage.setItem('deckMaker_noIntel_warned', 'true');
+            const warnEl = document.getElementById('intelWarningBanner');
+            if (warnEl) {
+                warnEl.style.display = 'flex';
+                warnEl.innerHTML = `⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete — deck will use generic structure. <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;">Add company data →</a>`;
             }
         }
 
@@ -569,6 +536,15 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                         };
                         // Show download button
                         document.getElementById('downloadBtn').style.display = 'block';
+                        // Save to agent history
+                        if (window.AgentHistory) {
+                            window.AgentHistory.save({
+                                agentKey: 'deck',
+                                taskType: deckType,
+                                content: text,
+                                topic: company || keyMessage || deckType,
+                            });
+                        }
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;

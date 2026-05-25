@@ -337,7 +337,14 @@ class BusinessBrain {
       { val: data.objectives?.q1Focus,                 weight: 6 },
       { val: data.objectives?.annualGoal,              weight: 6 },
       { val: data.objectives?.currentChallenge,        weight: 4 },
-      { val: data.objectives?.bestLeadChannels?.length, weight: 4 }
+      { val: data.objectives?.bestLeadChannels?.length, weight: 4 },
+
+      // Traction & Social Proof — weight 15
+      { val: data.metrics?.arr,                        weight: 4 },
+      { val: data.metrics?.customers,                  weight: 3 },
+      { val: data.metrics?.growth_rate,                weight: 3 },
+      { val: data.customers?.length,                   weight: 3 },
+      { val: data.testimonials?.length,                weight: 2 }
     ];
 
     const totalWeight = checks.reduce((s, c) => s + c.weight, 0);

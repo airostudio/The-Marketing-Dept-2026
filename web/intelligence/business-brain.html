@@ -692,6 +692,9 @@
       <button class="tab-btn" role="tab" data-tab="4" aria-selected="false">
         <span class="tab-dot"></span>Strategic Objectives
       </button>
+      <button class="tab-btn" role="tab" data-tab="5" aria-selected="false">
+        <span class="tab-dot"></span>Traction &amp; Proof
+      </button>
     </nav>
   </div>
 
@@ -1016,6 +1019,61 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           Competitive Landscape
         </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(5)">
+          Traction &amp; Proof
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 6: Traction & Social Proof -->
+    <section class="section-panel" id="section-5" role="tabpanel">
+      <h2 class="section-heading">Traction &amp; Social Proof</h2>
+      <p class="section-subheading">The numbers and names that make decks and pitches credible. Used by the Deck Maker, Sales agents, and content agents to add real proof to every output.</p>
+
+      <div class="field-group">
+        <label for="metrics-arr">Revenue / ARR</label>
+        <input type="text" id="metrics-arr" data-path="metrics.arr" placeholder="e.g. $2.4M ARR, £800k revenue, $500k MRR">
+        <span class="field-hint">Used in traction slides and sales decks.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-growth">Growth Rate</label>
+        <input type="text" id="metrics-growth" data-path="metrics.growth_rate" placeholder="e.g. 3× YoY, 15% MoM, 180% net revenue retention">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-customers">Active Customers / Users</label>
+        <input type="text" id="metrics-customers" data-path="metrics.customers" placeholder="e.g. 420 customers, 12,000 active users, 38 enterprise accounts">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-retention">Retention Rate</label>
+        <input type="text" id="metrics-retention" data-path="metrics.retention" placeholder="e.g. 94% logo retention, 112% NRR, &lt;2% monthly churn">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-nps">NPS Score</label>
+        <input type="text" id="metrics-nps" data-path="metrics.nps" placeholder="e.g. NPS 72, CSAT 4.8/5">
+      </div>
+
+      <div class="field-group">
+        <label for="customers-list">Key Customers / Client Names</label>
+        <textarea id="customers-list" data-path="customers" class="tall" placeholder="List your notable customers or clients — one per line. These will appear in social proof slides and logo slides.&#10;&#10;e.g.&#10;Atlassian&#10;Canva&#10;SafetyCulture&#10;REA Group&#10;Afterpay"></textarea>
+        <span class="field-hint">One customer per line. Agents use this for logo slides and social proof sections.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="testimonials-list">Key Testimonials</label>
+        <textarea id="testimonials-list" data-path="testimonials" class="tall" placeholder="Add 1-3 of your strongest customer quotes. Include the name, title, and company.&#10;&#10;e.g.&#10;&quot;We went from 0 to 80 qualified demos in 90 days.&quot; — Sarah Chen, VP Marketing, Acme Corp&#10;&quot;Best decision we made this year.&quot; — James O'Brien, CEO, Startup Co"></textarea>
+        <span class="field-hint">These appear in proof slides, case study sections, and outreach copy.</span>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Strategic Objectives
+        </button>
         <button class="btn-save" onclick="saveBrain()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save Business Brain
@@ -1030,7 +1088,7 @@
     <div class="save-card">
       <div class="save-card-text">
         <h3 id="saveCardHeading">Ready to activate your intelligence foundation?</h3>
-        <p id="saveCardSubtext">Complete all 5 sections and save — Scotty will use this context before every decision.</p>
+        <p id="saveCardSubtext">Complete all 6 sections and save — Scotty will use this context for all decisions.</p>
       </div>
       <button class="btn-save" onclick="saveBrain()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -1150,6 +1208,13 @@
       const path = el.dataset.path;
       let value = el.value.trim();
 
+      // customers and testimonials store as arrays (one per line)
+      if (path === 'customers' || path === 'testimonials') {
+        const arr = value.split('\n').map(s => s.trim()).filter(Boolean);
+        if (arr.length) setByPath(brain, path, arr);
+        return;
+      }
+
       // Handle array index paths like painPoints.0
       const arrayMatch = path.match(/^(.+)\.(\d+)$/);
       if (arrayMatch) {
@@ -1193,7 +1258,9 @@
         const arr = getByPath(brain, arrayMatch[1]);
         value = Array.isArray(arr) ? (arr[parseInt(arrayMatch[2], 10)] || '') : '';
       } else {
-        value = getByPath(brain, path) || '';
+        value = getByPath(brain, path);
+        if (value === undefined || value === null) value = '';
+        if (Array.isArray(value)) value = value.join('\n');
       }
 
       el.value = value;
