@@ -168,7 +168,7 @@
      * Create a new project
      *
      * Persistence priority:
-     *   1. Audema Express backend at /api/projects (requires a real JWT)
+     *   1. Aduma Express backend at /api/projects (requires a real JWT)
      *   2. Supabase (if configured and authenticated)
      *   3. localStorage (offline / demo fallback)
      */

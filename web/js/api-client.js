@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * API CLIENT — Audema Marketing Platform
+ * API CLIENT — Aduma Marketing Platform
  * Frontend wrapper for backend REST API calls.
  *
  * Replaces localStorage with persistent backend storage.

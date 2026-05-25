@@ -1,6 +1,6 @@
 /**
  * agent-characters.js
- * Pop-art character portraits for every Audema marketing agent.
+ * Pop-art character portraits for every Aduma marketing agent.
  * Add data-agent="rex" (or any agent ID below) to any .hero element to activate.
  * The script auto-initialises on DOMContentLoaded.
  */

@@ -1,5 +1,5 @@
 /**
- * AUTH MODAL — Audema
+ * AUTH MODAL — Aduma
  *
  * Self-contained login / sign-up modal with built-in localStorage auth.
  * No dependency on window.Auth, window.apiClient, or any external module.
@@ -35,8 +35,8 @@
      the hub/dashboard guards see a valid session.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const STORE_KEY   = 'audema_users';
-  const SESSION_KEY = 'audema_session';
+  const STORE_KEY   = 'aduma_users';
+  const SESSION_KEY = 'aduma_session';
   const TTL         = 30 * 24 * 60 * 60 * 1000; // 30 days
 
   function _hash(str) {
@@ -218,7 +218,7 @@
     <div id="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="am-title">
       <div id="auth-modal-box">
         <div class="am-header">
-          <h2 id="am-title">Audema</h2>
+          <h2 id="am-title">Aduma</h2>
           <p>Your AI Marketing Department</p>
           <button class="am-close" id="am-close-btn" aria-label="Close">&times;</button>
         </div>

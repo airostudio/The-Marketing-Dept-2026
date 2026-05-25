@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * CLAUDE SERVICE — Audema - Your AI Marketing Department
+ * CLAUDE SERVICE — Aduma - Your AI Marketing Department
  * Streaming AI responses via Claude claude-sonnet-4-6
  * ═══════════════════════════════════════════════════════════════════════════════
  */
