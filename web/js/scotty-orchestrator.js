@@ -628,26 +628,43 @@ Competitive: ${(contextBundle.competitiveLandscape || '').slice(0, 250)}
 Market signals: ${(contextBundle.marketSignals || '').slice(0, 200)}`
       : 'No Intelligence Layer configured. Plan for a generic B2B SaaS company.';
 
-    const systemPrompt = `You are a senior marketing operations director. Given a goal, select the 5–7 most impactful specialist agents and define exactly what each should produce.
+    const systemPrompt = `You are a senior marketing operations director planning an autonomous, end-to-end marketing mission. Every task will execute automatically without human intervention — so make each task self-contained and immediately executable.
 
 Available agents: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, deck
 
-Rules:
-- Always include seo and competitive as baseline
-- Add 3–5 more based on the goal
-- Make task objectives and userPrompts specific, not generic
-- userPrompt should be 2–3 sentences that tell the agent exactly what to produce for THIS business
+Agent capabilities:
+- sales: ICP research, prospect lists, outreach strategies, lead qualification
+- email: Full email copy (subject lines, body, CTAs), sequences, campaigns
+- content: Blog posts, landing page copy, case studies, thought leadership
+- seo: Keywords, technical audit, meta tags, rankings strategy
+- competitive: Competitor analysis, positioning gaps, battlecards
+- ads: Google/Meta/LinkedIn ad copy and creative variants
+- social: Social posts, content calendar, platform-native copy
+- linkedin: LinkedIn outreach sequences, connection requests, InMail
+- analytics: KPIs, attribution, reporting frameworks
+- cro: Conversion optimisation, A/B test designs, landing page audits
+- deck: Pitch decks, sales presentations, one-pagers
+- video: Video scripts, thumbnails, YouTube strategy
+- compliance: Brand safety, legal review, GDPR, FTC checks
 
-Respond ONLY with valid JSON matching this exact structure (no markdown fences):
+Rules:
+- Select the 4–7 agents that best match the goal — do NOT always default to seo+competitive
+- For prospect/outreach goals: prioritise sales → email → linkedin → content
+- For campaign goals: prioritise content → ads → email → social
+- userPrompt must be a complete, self-contained instruction (3–5 sentences) that the agent can execute without any additional input
+- Make userPrompts specific to the goal context, not generic marketing boilerplate
+- Each task should produce a distinct, usable deliverable
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
 {
-  "missionTitle": "15 words max describing the campaign",
-  "missionSummary": "2 sentences describing what this orchestration will produce and why it matters",
+  "missionTitle": "15 words max",
+  "missionSummary": "2 sentences: what will be produced and the business impact",
   "tasks": [
     {
-      "agentKey": "seo",
-      "taskName": "Keyword & Content Gap Analysis",
+      "agentKey": "sales",
+      "taskName": "Victorian Tradie Prospect Strategy",
       "objective": "one sentence",
-      "userPrompt": "2-3 sentences of specific instruction for this agent"
+      "userPrompt": "3-5 sentences of specific, self-contained instruction"
     }
   ]
 }`;

@@ -1208,6 +1208,76 @@
             font-size: 12px;
             margin: 8px 0 4px;
         }
+        /* ── Autonomous status bar (replaces the old run button) ─── */
+        .mission-auto-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: 13px;
+            color: #10b981;
+            font-weight: 500;
+        }
+        .mission-auto-bar.complete {
+            background: rgba(16,185,129,0.12);
+            border-color: rgba(16,185,129,0.4);
+        }
+        .mission-auto-bar.aborted {
+            background: rgba(239,68,68,0.08);
+            border-color: rgba(239,68,68,0.2);
+            color: #ef4444;
+        }
+        .mission-auto-bar span { flex: 1; }
+        .mission-auto-pulse {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            flex-shrink: 0;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        .mission-auto-bar.complete .mission-auto-pulse { animation: none; background: #10b981; }
+        .mission-auto-bar.aborted .mission-auto-pulse { animation: none; background: #ef4444; }
+        .mission-abort-btn {
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 6px;
+            color: #f87171;
+            font-size: 11px;
+            padding: 3px 9px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .mission-abort-btn:hover { background: rgba(239,68,68,0.2); }
+        /* Automation queue list */
+        .auto-queue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+        .auto-queue-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #94a3b8;
+            padding: 4px 0;
+        }
+        .auto-queue-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .auto-queue-dot.pending  { background: #334155; }
+        .auto-queue-dot.running  { background: #f59e0b; animation: pulse 1s infinite; }
+        .auto-queue-dot.done     { background: #10b981; }
+        .auto-queue-dot.error    { background: #ef4444; }
+        .auto-queue-name { flex: 1; }
+        .auto-step-dot.error { background: #ef4444; }
         .mission-run-btn {
             width: 100%;
             padding: 12px 20px;
@@ -2024,33 +2094,32 @@ class ScottyChat {
         const contextBundle = this._getContextBundle();
         const orch = window.ScottyOrchestrator;
 
-        // Step 1: Show "Scotty is planning…" bubble
+        // Show planning bubble
         const { bubble: planningBubble } = this._createScottyBubble();
         planningBubble.innerHTML = '⚡ <strong>Building your mission plan…</strong>';
-        InfoPanel.logActivity('🧠', 'Generating mission plan across all agents…');
+        InfoPanel.logActivity('🧠', 'Generating autonomous mission plan…');
         this._scrollToBottom();
 
         let plan;
         try {
             plan = await orch.generateMissionPlan(userGoal, contextBundle);
         } catch (err) {
-            planningBubble.innerHTML = `❌ <strong>Mission plan failed:</strong> ${err.message}`;
+            planningBubble.innerHTML = `❌ <strong>Mission plan failed:</strong> ${this._escapeHtml(err.message)}`;
             this.isWaiting = false;
             this.btnSend.disabled = false;
             return;
         }
 
-        // Step 2: Replace planning bubble with mission panel
         planningBubble.innerHTML = '';
-        planningBubble.style.background = 'transparent';
-        planningBubble.style.border = 'none';
-        planningBubble.style.padding = '0';
+        planningBubble.style.cssText = 'background:transparent;border:none;padding:0;';
 
         const agentEmojis = {
             seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
             social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
             video:'🎬', compliance:'🛡️', deck:'📽️'
         };
+
+        const total = (plan.tasks || []).length;
 
         const missionEl = document.createElement('div');
         missionEl.className = 'mission-panel';
@@ -2062,6 +2131,11 @@ class ScottyChat {
                     <div class="mission-summary">${this._escapeHtml(plan.missionSummary || '')}</div>
                 </div>
             </div>
+            <div class="mission-auto-bar" id="missionAutoBar">
+                <div class="mission-auto-pulse"></div>
+                <span id="missionAutoText">Launching ${total} agents autonomously…</span>
+                <button class="mission-abort-btn" id="missionAbortBtn">✕ Abort</button>
+            </div>
             <div class="mission-task-list" id="missionTaskList">
                 ${(plan.tasks || []).map((t, i) => `
                     <div class="mission-task" id="missionTask${i}">
@@ -2072,20 +2146,17 @@ class ScottyChat {
                                 <div class="task-name">${this._escapeHtml(t.taskName)}</div>
                                 <div class="task-objective">${this._escapeHtml(t.objective || '')}</div>
                             </div>
-                            <div class="task-status-label" id="taskLabel${i}">Pending</div>
+                            <div class="task-status-label" id="taskLabel${i}">Queued</div>
                         </div>
                         <div class="task-result" id="taskResult${i}"></div>
                     </div>
                 `).join('')}
             </div>
-            <button class="mission-run-btn" id="missionRunBtn">
-                ⚡ Run All ${(plan.tasks || []).length} Agents Now
-            </button>
-            <div class="mission-progress" id="missionProgress">
+            <div class="mission-progress visible" id="missionProgress">
                 <div class="mission-progress-bar-wrap">
                     <div class="mission-progress-bar" id="missionProgressBar" style="width:0%"></div>
                 </div>
-                <span id="missionProgressLabel">0/${(plan.tasks || []).length} complete</span>
+                <span id="missionProgressLabel">Starting…</span>
             </div>
             <div class="mission-report" id="missionReport">
                 <div class="mission-report-title">📋 Mission Complete — Full Report Ready</div>
@@ -2099,105 +2170,133 @@ class ScottyChat {
         planningBubble.appendChild(missionEl);
         this._scrollToBottom();
 
-        InfoPanel.logActivity('📋', `Mission plan ready: ${(plan.tasks || []).length} agents queued`);
+        InfoPanel.logActivity('🚀', `Autonomous mission: ${total} agents queued`);
 
-        // Store results for report compilation
-        const results = new Array((plan.tasks || []).length).fill(null);
+        // Abort flag
+        let aborted = false;
+        missionEl.querySelector('#missionAbortBtn').addEventListener('click', () => {
+            aborted = true;
+            missionEl.querySelector('#missionAutoText').textContent = 'Aborted by user.';
+            missionEl.querySelector('#missionAutoBar').classList.add('aborted');
+            this.isWaiting = false;
+            this.btnSend.disabled = false;
+        });
 
-        // Wire the Run button
-        const runBtn = missionEl.querySelector('#missionRunBtn');
-        runBtn.addEventListener('click', async () => {
-            runBtn.disabled = true;
-            runBtn.textContent = '⏳ Running agents…';
+        // Execute all tasks autonomously
+        const results = new Array(total).fill(null);
+        const progressBar  = missionEl.querySelector('#missionProgressBar');
+        const progressLabel = missionEl.querySelector('#missionProgressLabel');
+        const autoText = missionEl.querySelector('#missionAutoText');
 
-            const progressEl = missionEl.querySelector('#missionProgress');
-            const progressBar = missionEl.querySelector('#missionProgressBar');
-            const progressLabel = missionEl.querySelector('#missionProgressLabel');
-            progressEl.classList.add('visible');
+        for (let i = 0; i < total; i++) {
+            if (aborted) break;
 
-            const total = plan.tasks.length;
-            InfoPanel.logActivity('🚀', `Starting orchestration — ${total} agents`);
+            const task = plan.tasks[i];
+            const dot      = missionEl.querySelector(`#taskDot${i}`);
+            const label    = missionEl.querySelector(`#taskLabel${i}`);
+            const resultEl = missionEl.querySelector(`#taskResult${i}`);
 
-            for (let i = 0; i < total; i++) {
-                const task = plan.tasks[i];
-                const dot = missionEl.querySelector(`#taskDot${i}`);
-                const label = missionEl.querySelector(`#taskLabel${i}`);
-                const resultEl = missionEl.querySelector(`#taskResult${i}`);
+            dot.className = 'task-status-dot running';
+            label.textContent = 'Running…';
+            label.className = 'task-status-label running';
+            resultEl.classList.add('visible');
+            resultEl.textContent = '';
+            if (autoText) autoText.textContent = `${agentEmojis[task.agentKey] || '🤖'} ${task.taskName} (${i + 1}/${total})`;
+            InfoPanel.logActivity(agentEmojis[task.agentKey] || '🤖', `Running ${task.taskName}…`);
+            this._scrollToBottom();
 
-                // Mark running
-                dot.className = 'task-status-dot running';
-                label.textContent = 'Running…';
-                label.className = 'task-status-label running';
-                resultEl.classList.add('visible');
-                resultEl.textContent = '';
-                InfoPanel.logActivity(agentEmojis[task.agentKey] || '🤖', `Running ${task.taskName}…`);
-                this._scrollToBottom();
-
-                let fullText = '';
+            // Execute with one automatic retry on failure
+            let fullText = '';
+            let succeeded = false;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                fullText = '';
                 try {
                     await orch.executeAgentTask(task, contextBundle, {
                         onChunk: (chunk) => {
+                            if (aborted) return;
                             fullText += chunk;
                             resultEl.innerHTML = this._renderMarkdownSimple(fullText);
                             this._scrollToBottom();
                         },
-                        onDone: (text) => { fullText = text; },
-                        onError: (err) => { fullText = `Error: ${err.message}`; }
+                        onDone:  (text) => { fullText = text; },
+                        onError: (err)  => { throw err; },
                     });
+                    succeeded = true;
+                    break;
                 } catch (err) {
-                    fullText = `⚠️ Agent error: ${err.message}`;
+                    if (attempt === 0) {
+                        resultEl.innerHTML = `<em style="color:#f59e0b">⚠️ Retrying after error: ${this._escapeHtml(err.message)}</em>`;
+                        await new Promise(r => setTimeout(r, 3000));
+                    } else {
+                        fullText = `⚠️ Failed after retry: ${err.message}`;
+                        resultEl.innerHTML = `<span style="color:#ef4444">${this._escapeHtml(fullText)}</span>`;
+                    }
                 }
-
-                results[i] = { task, text: fullText };
-                dot.className = 'task-status-dot done';
-                label.textContent = '✓ Done';
-                label.className = 'task-status-label done';
-                InfoPanel.markWired(task.agentKey);
-                InfoPanel.logActivity('✅', `${task.taskName} complete`);
-
-                const pct = Math.round(((i + 1) / total) * 100);
-                progressBar.style.width = pct + '%';
-                progressLabel.textContent = `${i + 1}/${total} complete`;
             }
 
-            // All done
-            runBtn.textContent = '✅ All Agents Complete';
-            missionEl.querySelector('#missionReport').classList.add('visible');
-            InfoPanel.logActivity('🏁', 'Mission complete — report ready');
-            this._scrollToBottom();
+            results[i] = { task, text: fullText };
 
-            // Unlock chat immediately so user can keep working
-            this.isWaiting = false;
-            this.btnSend.disabled = false;
+            if (succeeded) {
+                dot.className  = 'task-status-dot done';
+                label.textContent = '✓ Done';
+                label.className = 'task-status-label done';
+                // Save successful output to History
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({
+                        agentKey: task.agentKey,
+                        taskType: task.taskName,
+                        content:  fullText,
+                        topic:    task.objective || userGoal,
+                    });
+                }
+                InfoPanel.markWired(task.agentKey);
+                InfoPanel.logActivity('✅', `${task.taskName} complete`);
+            } else {
+                dot.className  = 'task-status-dot error';
+                label.textContent = '⚠️ Failed';
+                label.className = 'task-status-label error';
+                InfoPanel.logActivity('⚠️', `${task.taskName} failed — continuing`);
+            }
 
-            // Auto-trigger Scotty's automation assessment
-            this._runAutomationAssessment(plan, results, contextBundle, missionEl);
+            const pct = Math.round(((i + 1) / total) * 100);
+            progressBar.style.width = pct + '%';
+            progressLabel.textContent = `${i + 1}/${total} complete`;
+        }
 
-            // Wire report action buttons
-            const fullReport = this._compileMissionReport(plan, results);
+        if (aborted) return;
 
-            missionEl.querySelector('#missionCopyBtn').addEventListener('click', () => {
-                navigator.clipboard.writeText(fullReport).then(() => {
-                    missionEl.querySelector('#missionCopyBtn').textContent = '✅ Copied!';
-                    setTimeout(() => { missionEl.querySelector('#missionCopyBtn').textContent = '📋 Copy Full Report'; }, 2000);
-                });
+        // All agents done
+        missionEl.querySelector('#missionAutoBar').classList.add('complete');
+        if (autoText) autoText.textContent = `All ${total} agents complete ✓`;
+        missionEl.querySelector('#missionReport').classList.add('visible');
+        InfoPanel.logActivity('🏁', 'All agents complete — running automation phase');
+        this._scrollToBottom();
+
+        // Wire report buttons
+        const fullReport = this._compileMissionReport(plan, results);
+        missionEl.querySelector('#missionCopyBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(fullReport).then(() => {
+                missionEl.querySelector('#missionCopyBtn').textContent = '✅ Copied!';
+                setTimeout(() => { missionEl.querySelector('#missionCopyBtn').textContent = '📋 Copy Full Report'; }, 2000);
             });
-
-            missionEl.querySelector('#missionDownloadBtn').addEventListener('click', () => {
-                const blob = new Blob([fullReport], { type: 'text/markdown' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `scotty-mission-${Date.now()}.md`;
-                a.click();
-            });
-
-            missionEl.querySelector('#missionExpandAllBtn').addEventListener('click', () => {
-                missionEl.querySelectorAll('.task-result').forEach(el => el.classList.add('visible'));
-            });
-
-            // Save to conversation
-            this._finaliseResponse(userGoal, `[Mission Complete: ${plan.missionTitle}]\n\n${plan.missionSummary}`);
         });
+        missionEl.querySelector('#missionDownloadBtn').addEventListener('click', () => {
+            const blob = new Blob([fullReport], { type: 'text/markdown' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `scotty-mission-${Date.now()}.md`;
+            a.click();
+        });
+        missionEl.querySelector('#missionExpandAllBtn').addEventListener('click', () => {
+            missionEl.querySelectorAll('.task-result').forEach(el => el.classList.add('visible'));
+        });
+
+        this._finaliseResponse(userGoal, `[Mission Complete: ${plan.missionTitle}]\n\n${plan.missionSummary}`);
+        this.isWaiting = false;
+        this.btnSend.disabled = false;
+
+        // Autonomous automation phase — no clicks required
+        this._runAutomationAssessment(plan, results, contextBundle, missionEl);
     }
 
     /* ── AUTOMATION ASSESSMENT ──────────────────────────────────────────────── */
@@ -2232,9 +2331,14 @@ class ScottyChat {
     }
 
     _renderAutomationPanel(containerEl, automationPlan, contextBundle) {
-        const orch = window.ScottyOrchestrator;
+        const autos = (automationPlan.automations || []);
+        // Sort: High first, then Medium, then Low. Auto-run all by default.
+        const sorted = [...autos].sort((a, b) => {
+            const rank = { High: 0, Medium: 1, Low: 2 };
+            return (rank[a.impact] ?? 1) - (rank[b.impact] ?? 1);
+        });
+
         const impactColor = { High: '#10b981', Medium: '#f59e0b', Low: '#94a3b8' };
-        const autos = automationPlan.automations || [];
 
         containerEl.innerHTML = `
             <div class="assessment-header">
@@ -2244,71 +2348,46 @@ class ScottyChat {
                     <div class="assessment-text">${this._escapeHtml(automationPlan.assessment || '')}</div>
                 </div>
             </div>
-            <div class="assessment-question">Ready to automate the top recommendations?</div>
-            <div class="automation-cards" id="automationCardsList">
-                ${autos.map((a, i) => `
-                    <label class="automation-card">
-                        <input type="checkbox" checked class="auto-checkbox" data-idx="${i}">
-                        <div class="auto-card-body">
-                            <div class="auto-card-top">
-                                <span class="auto-title">${this._escapeHtml(a.title)}</span>
-                                <span class="auto-impact" style="color:${impactColor[a.impact] || '#94a3b8'}">${this._escapeHtml(a.impact || '')} impact</span>
-                            </div>
-                            <div class="auto-desc">${this._escapeHtml(a.description || '')}</div>
-                            <div class="auto-meta">
-                                <span>📦 ${this._escapeHtml(a.deliverable || '')}</span>
-                                <span>⏱ ${this._escapeHtml(a.timeEstimate || '')}</span>
-                            </div>
-                        </div>
-                    </label>`).join('')}
+            <div class="mission-auto-bar" style="margin:14px 0 10px;">
+                <div class="mission-auto-pulse"></div>
+                <span id="autoPhaseText">Executing ${sorted.length} automation${sorted.length !== 1 ? 's' : ''} autonomously…</span>
+                <button class="mission-abort-btn" id="autoAbortBtn">✕ Stop</button>
             </div>
-            <div class="automation-actions-row">
-                <button class="automate-now-btn" id="automateNowBtn">⚡ Automate Selected (${autos.length})</button>
-                <button class="automate-skip-btn" id="automateSkipBtn">Skip for now</button>
+            <div class="auto-queue-list">
+                ${sorted.map((a, i) => `
+                    <div class="auto-queue-item" id="autoQueue${i}">
+                        <span class="auto-queue-dot pending" id="autoQDot${i}"></span>
+                        <span class="auto-queue-name">${this._escapeHtml(a.title)}</span>
+                        <span class="auto-impact" style="color:${impactColor[a.impact] || '#94a3b8'};font-size:11px;margin-left:auto">${this._escapeHtml(a.impact || '')} impact</span>
+                    </div>`).join('')}
             </div>
             <div class="auto-execution-panel" id="autoExecPanel"></div>`;
 
-        InfoPanel.logActivity('🤖', `Scotty identified ${autos.length} automation opportunities`);
+        InfoPanel.logActivity('⚡', `Auto-executing ${sorted.length} optimisations`);
 
-        // Update count label as checkboxes change
-        const nowBtn = containerEl.querySelector('#automateNowBtn');
-        containerEl.querySelectorAll('.auto-checkbox').forEach(cb => {
-            cb.addEventListener('change', () => {
-                const n = containerEl.querySelectorAll('.auto-checkbox:checked').length;
-                nowBtn.textContent = `⚡ Automate Selected (${n})`;
-            });
+        let aborted = false;
+        containerEl.querySelector('#autoAbortBtn').addEventListener('click', () => {
+            aborted = true;
+            containerEl.querySelector('#autoPhaseText').textContent = 'Automation stopped by user.';
+            containerEl.querySelector('#autoAbortBtn').style.display = 'none';
+            InfoPanel.logActivity('⏹', 'Automation stopped');
         });
 
-        containerEl.querySelector('#automateSkipBtn').addEventListener('click', () => {
-            containerEl.querySelector('.automation-cards').style.display = 'none';
-            containerEl.querySelector('.automation-actions-row').style.display = 'none';
-            InfoPanel.logActivity('⏭', 'Automation skipped');
-        });
-
-        nowBtn.addEventListener('click', () => {
-            const selected = [...containerEl.querySelectorAll('.auto-checkbox:checked')]
-                .map(cb => autos[parseInt(cb.dataset.idx)])
-                .filter(Boolean);
-            if (!selected.length) return;
-            this._executeAutomations(selected, contextBundle, containerEl);
-        });
+        // Start immediately — no button click needed
+        this._executeAutomationsAuto(sorted, contextBundle, containerEl, () => aborted);
     }
 
-    async _executeAutomations(selected, contextBundle, containerEl) {
+    async _executeAutomationsAuto(autos, contextBundle, containerEl, abortFn) {
         const orch = window.ScottyOrchestrator;
-        const nowBtn = containerEl.querySelector('#automateNowBtn');
-        const skipBtn = containerEl.querySelector('#automateSkipBtn');
         const execPanel = containerEl.querySelector('#autoExecPanel');
+        const phaseText = containerEl.querySelector('#autoPhaseText');
 
-        nowBtn.disabled = true;
-        nowBtn.textContent = '⏳ Running automations…';
-        if (skipBtn) skipBtn.style.display = 'none';
-        execPanel.innerHTML = '';
+        for (let i = 0; i < autos.length; i++) {
+            if (abortFn && abortFn()) break;
 
-        InfoPanel.logActivity('⚡', `Starting ${selected.length} automations`);
-
-        for (let i = 0; i < selected.length; i++) {
-            const auto = selected[i];
+            const auto = autos[i];
+            const qDot = containerEl.querySelector(`#autoQDot${i}`);
+            if (qDot) { qDot.className = 'auto-queue-dot running'; }
 
             const stepEl = document.createElement('div');
             stepEl.className = 'auto-step';
@@ -2316,63 +2395,94 @@ class ScottyChat {
                 <div class="auto-step-header">
                     <div class="auto-step-dot running"></div>
                     <span class="auto-step-title">${this._escapeHtml(auto.title)}</span>
-                    <span class="auto-step-status running">Running…</span>
+                    <span class="auto-step-status running" id="autoStat${i}">Running…</span>
                 </div>
                 <div class="auto-step-result" id="autoStepResult${i}"></div>`;
             execPanel.appendChild(stepEl);
             this._scrollToBottom();
 
             const resultEl = stepEl.querySelector(`#autoStepResult${i}`);
-            const dot = stepEl.querySelector('.auto-step-dot');
-            const statusEl = stepEl.querySelector('.auto-step-status');
+            const dot      = stepEl.querySelector('.auto-step-dot');
+            const statusEl = stepEl.querySelector(`#autoStat${i}`);
 
+            // Execute with one retry
             let fullText = '';
-            try {
-                await orch.executeAutomationStep(auto, contextBundle, {
-                    onChunk: (chunk) => {
-                        fullText += chunk;
-                        resultEl.innerHTML = this._renderMarkdownSimple(fullText);
-                        this._scrollToBottom();
-                    },
-                    onDone: (text) => { fullText = text; },
-                    onError: (err) => { fullText = `⚠️ ${err.message}`; resultEl.textContent = fullText; }
-                });
-            } catch (err) {
-                fullText = `⚠️ ${err.message}`;
-                resultEl.textContent = fullText;
+            let succeeded = false;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                fullText = '';
+                try {
+                    await orch.executeAutomationStep(auto, contextBundle, {
+                        onChunk: (chunk) => {
+                            if (abortFn && abortFn()) return;
+                            fullText += chunk;
+                            resultEl.innerHTML = this._renderMarkdownSimple(fullText);
+                            this._scrollToBottom();
+                        },
+                        onDone:  (text) => { fullText = text; },
+                        onError: (err)  => { throw err; },
+                    });
+                    succeeded = true;
+                    break;
+                } catch (err) {
+                    if (attempt === 0) {
+                        resultEl.innerHTML = `<em style="color:#f59e0b">⚠️ Retrying…</em>`;
+                        await new Promise(r => setTimeout(r, 3000));
+                    } else {
+                        fullText = `⚠️ Failed: ${err.message}`;
+                        resultEl.innerHTML = `<span style="color:#ef4444">${this._escapeHtml(fullText)}</span>`;
+                    }
+                }
             }
 
-            dot.className = 'auto-step-dot done';
-            statusEl.textContent = '✓ Done';
-            statusEl.className = 'auto-step-status done';
-            InfoPanel.logActivity('✅', `Automated: ${auto.title}`);
+            if (succeeded) {
+                dot.className = 'auto-step-dot done';
+                statusEl.textContent = '✓ Done';
+                statusEl.className = 'auto-step-status done';
+                if (qDot) qDot.className = 'auto-queue-dot done';
+                InfoPanel.logActivity('✅', `Automated: ${auto.title}`);
 
-            // Save to agent history
-            if (window.AgentHistory) {
-                window.AgentHistory.save({
-                    agentKey: auto.agentKey,
-                    taskType: `Automated: ${auto.title}`,
-                    content: fullText,
-                    topic: auto.title,
+                // Save to history
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({
+                        agentKey: auto.agentKey,
+                        taskType: `Automated: ${auto.title}`,
+                        content:  fullText,
+                        topic:    auto.title,
+                    });
+                }
+
+                // Download button
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'auto-step-download';
+                dlBtn.textContent = '⬇️ Download';
+                dlBtn.addEventListener('click', () => {
+                    const blob = new Blob([fullText], { type: 'text/markdown' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${auto.id || 'automation'}-${Date.now()}.md`;
+                    a.click();
                 });
+                stepEl.querySelector('.auto-step-header').appendChild(dlBtn);
+            } else {
+                dot.className = 'auto-step-dot error';
+                statusEl.textContent = '⚠️ Failed';
+                statusEl.className = 'auto-step-status error';
+                if (qDot) qDot.className = 'auto-queue-dot error';
+                InfoPanel.logActivity('⚠️', `Automation failed: ${auto.title} — continuing`);
             }
 
-            // Add download button
-            const dlBtn = document.createElement('button');
-            dlBtn.className = 'auto-step-download';
-            dlBtn.textContent = '⬇️ Download';
-            dlBtn.addEventListener('click', () => {
-                const blob = new Blob([fullText], { type: 'text/markdown' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `${auto.id || 'automation'}-${Date.now()}.md`;
-                a.click();
-            });
-            stepEl.querySelector('.auto-step-header').appendChild(dlBtn);
+            if (phaseText) phaseText.textContent = `${i + 1}/${autos.length} automations complete`;
         }
 
-        nowBtn.textContent = '✅ All Automations Complete';
-        InfoPanel.logActivity('🏁', `${selected.length} automation(s) complete — saved to History`);
+        if (abortFn && abortFn()) return;
+
+        // All automations done
+        if (phaseText) phaseText.textContent = `All ${autos.length} automations complete ✓`;
+        const autoBar = containerEl.querySelector('.mission-auto-bar');
+        if (autoBar) autoBar.classList.add('complete');
+        const abortBtn = containerEl.querySelector('#autoAbortBtn');
+        if (abortBtn) abortBtn.style.display = 'none';
+        InfoPanel.logActivity('🏁', `All ${autos.length} automation(s) complete — saved to History`);
         this._scrollToBottom();
     }
 
