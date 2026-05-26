@@ -773,6 +773,7 @@
 </div>
 
 <script src="/js/claude-service.js"></script>
+<script src="/js/gemini-service.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
 <script src="/js/agent-history.js"></script>
@@ -1098,17 +1099,30 @@ Format with clear sections, use the data provided, and write in a confident narr
         outCard.style.display = 'block';
         outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Analyzing with Analytics Brain AI...</div>';
 
+        const aiService = window.GeminiService || window.ClaudeService;
+        if (!aiService) {
+            outBody.innerHTML = '<div style="color:#ef4444;padding:20px;">AI service not configured. Check your API keys in Settings.</div>';
+            return;
+        }
+
         try {
-            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
-                let result = '';
-                await ClaudeService.callAgent(AGENT_ID, prompt, {}, (chunk) => {
-                    result += chunk;
-                    outBody.textContent = result;
-                });
-                if (window.AgentHistory && result.trim()) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: result });
-            } else {
-                await streamFallback(prompt, outBody);
-            }
+            let result = '';
+            await aiService.streamResponse({
+                systemPrompt: 'You are Analytics Brain AI, an expert marketing analytics consultant. Analyze the provided data and deliver specific, data-driven insights with concrete recommendations.',
+                messages: [{ role: 'user', content: prompt }],
+                onChunk: (chunk, accumulated) => {
+                    result = accumulated;
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(result) : result;
+                },
+                onDone: (text) => {
+                    result = text;
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(result) : result;
+                    if (window.AgentHistory && result.trim()) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: result });
+                },
+                onError: (err) => {
+                    outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
+                },
+            });
         } catch (err) {
             outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
         }
@@ -1128,15 +1142,24 @@ Format with clear sections, use the data provided, and write in a confident narr
         cursor.className = 'streaming-cursor';
         aiDiv.appendChild(cursor);
 
+        const aiService = window.GeminiService || window.ClaudeService;
         try {
-            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
-                let result = '';
-                await ClaudeService.callAgent(AGENT_ID, msg, { tab: 'chat' }, (chunk) => {
-                    result += chunk;
-                    aiDiv.textContent = result;
+            if (aiService && aiService.streamResponse) {
+                await aiService.streamResponse({
+                    systemPrompt: 'You are Analytics Brain AI, an expert marketing analytics assistant. Answer questions about marketing analytics, attribution, and performance concisely and helpfully.',
+                    messages: [{ role: 'user', content: msg }],
+                    onChunk: (chunk, accumulated) => {
+                        aiDiv.textContent = accumulated;
+                    },
+                    onDone: (text) => {
+                        aiDiv.textContent = text;
+                    },
+                    onError: () => {
+                        aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
+                    },
                 });
             } else {
-                await streamFallback(`You are Analytics Brain AI, an expert marketing analytics assistant. Answer this question concisely and helpfully: ${msg}`, aiDiv);
+                aiDiv.textContent = 'AI service not configured. Check your API keys in Settings.';
             }
         } catch (err) {
             aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';

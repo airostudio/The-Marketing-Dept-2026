@@ -1,19 +1,20 @@
 /**
- * GeminiService — frontend client for /api/gemini
- * Mirrors the ClaudeService interface: streamResponse() and callAgent()
+ * OpenAIService — frontend client for /api/openai (GPT-4o)
+ * Mirrors the ClaudeService/GeminiService interface: streamResponse() and callAgent()
+ * Used by: Ad Creative Lab (BLAZE), Social Studio (PULSE)
  */
-window.GeminiService = (function () {
+window.OpenAIService = (function () {
   'use strict';
 
   async function streamResponse({ systemPrompt, messages, model, onChunk, onDone, onError }) {
     try {
-      const res = await fetch('/api/gemini', {
+      const res = await fetch('/api/openai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
           systemPrompt,
-          model: model || 'gemini-2.5-pro',
+          model: model || 'gpt-4o',
           stream: true,
         }),
       });
@@ -49,7 +50,7 @@ window.GeminiService = (function () {
               if (onChunk) onChunk(parsed.text, accumulated);
             }
           } catch (e) {
-            if (onError && e.message !== 'Unexpected token') onError(e);
+            if (onError && !(e instanceof SyntaxError)) onError(e);
           }
         }
       }
@@ -65,7 +66,7 @@ window.GeminiService = (function () {
       streamResponse({
         systemPrompt,
         messages,
-        model: model || 'gemini-2.5-pro',
+        model: model || 'gpt-4o',
         onDone:  (text) => resolve(text),
         onError: (err)  => reject(err),
       });

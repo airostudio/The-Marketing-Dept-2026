@@ -485,6 +485,7 @@ Provide a fully corrected version of the content with all issues resolved.`;
                 await window.ClaudeService.streamResponse({
                     systemPrompt: SYSTEM_PROMPT,
                     messages: [{ role: 'user', content: userPrompt }],
+                    model: 'claude-opus-4-7',
                     onChunk: (chunk, accumulated) => {
                         fullText = accumulated;
                         outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';

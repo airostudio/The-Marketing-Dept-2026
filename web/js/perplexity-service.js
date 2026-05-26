@@ -1,19 +1,23 @@
 /**
- * GeminiService — frontend client for /api/gemini
+ * PerplexityService — frontend client for /api/perplexity (Sonar Pro)
  * Mirrors the ClaudeService interface: streamResponse() and callAgent()
+ * Used by: Competitive Intelligence (SCOUT)
+ *
+ * Perplexity Sonar Pro has live web search built in — responses include
+ * real-time competitor data with cited sources.
  */
-window.GeminiService = (function () {
+window.PerplexityService = (function () {
   'use strict';
 
-  async function streamResponse({ systemPrompt, messages, model, onChunk, onDone, onError }) {
+  async function streamResponse({ systemPrompt, messages, model, onChunk, onDone, onError, onCitations }) {
     try {
-      const res = await fetch('/api/gemini', {
+      const res = await fetch('/api/perplexity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
           systemPrompt,
-          model: model || 'gemini-2.5-pro',
+          model: model || 'sonar-pro',
           stream: true,
         }),
       });
@@ -48,8 +52,11 @@ window.GeminiService = (function () {
               accumulated += parsed.text;
               if (onChunk) onChunk(parsed.text, accumulated);
             }
+            if (parsed.citations && onCitations) {
+              onCitations(parsed.citations);
+            }
           } catch (e) {
-            if (onError && e.message !== 'Unexpected token') onError(e);
+            if (onError && !(e instanceof SyntaxError)) onError(e);
           }
         }
       }
@@ -65,7 +72,7 @@ window.GeminiService = (function () {
       streamResponse({
         systemPrompt,
         messages,
-        model: model || 'gemini-2.5-pro',
+        model: model || 'sonar-pro',
         onDone:  (text) => resolve(text),
         onError: (err)  => reject(err),
       });

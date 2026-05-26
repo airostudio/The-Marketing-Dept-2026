@@ -25,7 +25,7 @@ const ClaudeService = (() => {
    * @param {Function} [opts.onError]      – called with Error
    * @returns {Promise<string>}            – resolves with full response text
    */
-  async function streamResponse({ systemPrompt, messages, outputEl, onStart, onChunk, onDone, onError }) {
+  async function streamResponse({ systemPrompt, messages, model, outputEl, onStart, onChunk, onDone, onError }) {
     if (outputEl) outputEl.textContent = '';
 
     let fullText = '';
@@ -34,7 +34,7 @@ const ClaudeService = (() => {
       if (onStart) onStart();
 
       const body = {
-        model: MODEL,
+        model: model || MODEL,
         max_tokens: MAX_TOKENS,
         stream: true,
         messages: messages || [],
@@ -105,9 +105,9 @@ const ClaudeService = (() => {
    * @param {Array}   opts.messages
    * @returns {Promise<string>}
    */
-  async function callAgent({ systemPrompt, messages }) {
+  async function callAgent({ systemPrompt, messages, model }) {
     const body = {
-      model: MODEL,
+      model: model || MODEL,
       max_tokens: MAX_TOKENS,
       messages: messages || [],
       stream: false,

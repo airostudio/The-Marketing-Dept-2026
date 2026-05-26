@@ -615,6 +615,24 @@ ${ctx}
 Use markdown with clear sections. Be specific and actionable. No filler.`;
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     SERVICE ROUTING
+     Each agent type gets the AI model best suited to its task.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  function getServiceForAgent(agentKey) {
+    if (['seo', 'analytics', 'deck'].includes(agentKey) && window.GeminiService) {
+      return window.GeminiService;
+    }
+    if (['ads', 'social'].includes(agentKey) && window.OpenAIService) {
+      return window.OpenAIService;
+    }
+    if (agentKey === 'competitive' && window.PerplexityService) {
+      return window.PerplexityService;
+    }
+    return window.ClaudeService;
+  }
+
   /**
    * Generate a multi-agent mission plan via Claude.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
@@ -672,6 +690,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     const result = await window.ClaudeService.callAgent({
       systemPrompt,
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
+      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -687,8 +706,9 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     if (!window.ClaudeService) throw new Error('Claude API not configured');
 
     const systemPrompt = getAgentInlinePrompt(task.agentKey, contextBundle);
+    const service = getServiceForAgent(task.agentKey);
 
-    return window.ClaudeService.streamResponse({
+    return service.streamResponse({
       systemPrompt,
       messages: [{ role: 'user', content: task.userPrompt }],
       onChunk,
@@ -751,6 +771,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
         role: 'user',
         content: `Mission: ${plan.missionTitle || 'Marketing Campaign'}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work:\n${resultsSummary}`,
       }],
+      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -764,7 +785,8 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   async function executeAutomationStep(auto, contextBundle, { onChunk, onDone, onError } = {}) {
     if (!window.ClaudeService) throw new Error('Claude API not configured');
     const systemPrompt = getAgentInlinePrompt(auto.agentKey, contextBundle);
-    return window.ClaudeService.streamResponse({
+    const service = getServiceForAgent(auto.agentKey);
+    return service.streamResponse({
       systemPrompt,
       messages: [{ role: 'user', content: auto.prompt }],
       onChunk,
@@ -814,6 +836,7 @@ Respond ONLY with valid JSON:
         role: 'user',
         content: `Completed agent: ${agentKey} — ${taskName}\n\nContext: ${ctxSnippet}\n\nCompleted work:\n${resultText.slice(0, 1200)}`,
       }],
+      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);

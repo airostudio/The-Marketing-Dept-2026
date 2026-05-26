@@ -1,27 +1,29 @@
 /**
- * api/gemini.js
- * Vercel serverless function — proxies requests to Google Gemini API.
- * API key stored exclusively in GEMINI_API_KEY environment variable.
+ * api/openai.js
+ * Vercel serverless function — proxies requests to OpenAI API.
+ * API key stored exclusively in OPENAI_API_KEY environment variable.
  *
  * Body: { messages, systemPrompt, model?, stream? }
  * Streaming: SSE chunks  → data: {"text":"..."}\n\n  …  data: [DONE]\n\n
  * Non-streaming: JSON    → { "text": "..." }
  */
 
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured in environment variables.' });
+    return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in environment variables.' });
   }
 
   const {
     messages    = [],
     systemPrompt,
-    model       = 'gemini-2.5-pro',
+    model       = 'gpt-4o',
     stream      = true,
   } = req.body || {};
 
@@ -29,39 +31,37 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'messages array is required' });
   }
 
-  // Map OpenAI-style messages → Gemini format
-  const contents = messages.map(m => ({
-    role:  m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content || '' }],
-  }));
+  // Build OpenAI message array (system prompt as first message)
+  const openaiMessages = [];
+  if (systemPrompt) openaiMessages.push({ role: 'system', content: systemPrompt });
+  openaiMessages.push(...messages);
 
-  const geminiBody = {
-    contents,
-    generationConfig: {
-      maxOutputTokens: 8192,
-      temperature:     0.7,
-    },
+  const body = {
+    model,
+    messages: openaiMessages,
+    max_tokens: 4096,
+    temperature: 0.7,
   };
 
-  if (systemPrompt) {
-    geminiBody.system_instruction = { parts: [{ text: systemPrompt }] };
-  }
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+  };
 
   /* ── Non-streaming ───────────────────────────────────────────────────────── */
   if (!stream) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     try {
-      const r = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(geminiBody),
+      const r = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...body, stream: false }),
       });
       if (!r.ok) {
         const errText = await r.text();
         return res.status(r.status).json({ error: errText });
       }
       const data = await r.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const text = data.choices?.[0]?.message?.content || '';
       return res.json({ text });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -69,18 +69,16 @@ module.exports = async function handler(req, res) {
   }
 
   /* ── Streaming (SSE) ─────────────────────────────────────────────────────── */
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
-
-  res.setHeader('Content-Type',     'text/event-stream');
-  res.setHeader('Cache-Control',    'no-cache');
-  res.setHeader('Connection',       'keep-alive');
-  res.setHeader('X-Accel-Buffering','no');
+  res.setHeader('Content-Type',      'text/event-stream');
+  res.setHeader('Cache-Control',     'no-cache');
+  res.setHeader('Connection',        'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
 
   try {
-    const r = await fetch(url, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(geminiBody),
+    const r = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ...body, stream: true }),
     });
 
     if (!r.ok) {
@@ -100,7 +98,7 @@ module.exports = async function handler(req, res) {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop() || '';           // keep incomplete last line
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
@@ -108,7 +106,7 @@ module.exports = async function handler(req, res) {
         if (!json || json === '[DONE]') continue;
         try {
           const parsed = JSON.parse(json);
-          const text   = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          const text   = parsed.choices?.[0]?.delta?.content;
           if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
         } catch (_) {}
       }

@@ -317,6 +317,7 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/perplexity-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
@@ -596,17 +597,31 @@ For each competitor, sales-ready format:
         const outputBody = document.getElementById('outputBody');
 
         try {
-            if (window.ClaudeService) {
+            const aiService = window.PerplexityService || window.ClaudeService;
+            if (aiService) {
                 let fullText = '';
-                await window.ClaudeService.streamResponse({
+                await aiService.streamResponse({
                     systemPrompt: SYSTEM_PROMPT,
                     messages: [{ role: 'user', content: userPrompt }],
                     onChunk: (chunk, accumulated) => {
                         fullText = accumulated;
                         outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
                     },
+                    onCitations: (citations) => {
+                        if (citations && citations.length) {
+                            const citList = citations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
+                            const existing = outputBody.querySelector('.citations-block');
+                            if (existing) existing.remove();
+                            const el = document.createElement('div');
+                            el.className = 'citations-block';
+                            el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
+                            outputBody.appendChild(el);
+                        }
+                    },
                     onDone: (text) => {
+                        const citBlock = outputBody.querySelector('.citations-block');
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        if (citBlock) outputBody.appendChild(citBlock);
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'competitive', taskType: task || 'Competitive Analysis', content: text, topic: competitors || '' });
                     },
                     onError: (err) => {
@@ -614,7 +629,7 @@ For each competitor, sales-ready format:
                     }
                 });
             } else {
-                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
             }
         } catch (e) {
             outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
