@@ -717,20 +717,32 @@ function renderProspects() {
         // Enrichment display
         let enrichHtml = '';
         if (p.enriched) {
-            const emailsHtml = (p.emails||[]).slice(0,2).map(e =>
-                `<span class="enrichment-email">${e.email}</span> <span class="enrichment-meta">${e.confidence}%</span>`
-            ).join('<br>');
-            const crawlEmailsHtml = (p.crawlEmails||[]).slice(0,2).map(e =>
+            // Merge all email sources, dedup, generic-first
+            const GENERIC = ['contact','info','hello','hi','sales','enquiries','enquiry','support','admin','office','mail'];
+            const allEmailSet = new Set();
+            (p.emails||[]).forEach(e => allEmailSet.add(typeof e === 'object' ? e.email : e));
+            (p.crawlEmails||[]).forEach(e => allEmailSet.add(e));
+            (p.profileEmails||[]).forEach(e => allEmailSet.add(e));
+            const allEmails = [...allEmailSet].sort((a,b) => {
+                const ag = GENERIC.some(g => a.split('@')[0].startsWith(g)) ? 0 : 1;
+                const bg = GENERIC.some(g => b.split('@')[0].startsWith(g)) ? 0 : 1;
+                return ag - bg;
+            });
+            const emailsHtml = allEmails.slice(0,3).map(e =>
                 `<span class="enrichment-email">${e}</span>`
-            ).join('<br>');
-            const socialsHtml = p.crawlSocials ? Object.entries(p.crawlSocials).slice(0,3).map(([k,v]) =>
-                `<a href="${v}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px">${k}</a>`
-            ).join(' · ') : '';
+            ).join(' &nbsp;');
+
+            // Merge all social sources
+            const allSocials = {...(p.profileSocials||{}), ...(p.crawlSocials||{})};
+            const socialsHtml = Object.entries(allSocials).slice(0,4).map(([k,v]) =>
+                `<a href="${v}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:capitalize">${k}</a>`
+            ).join(' · ');
+
             enrichHtml = `<div class="enrichment-bar">
                 <strong>⚡ Enriched</strong>
                 ${p.placesRating ? `⭐ ${p.placesRating} (${p.placesReviews||0} reviews) &nbsp;` : ''}
-                ${emailsHtml || crawlEmailsHtml || '<span class="enrichment-meta">No emails found</span>'}
-                ${socialsHtml ? `<br>${socialsHtml}` : ''}
+                ${emailsHtml || '<span class="enrichment-meta">No emails found</span>'}
+                ${socialsHtml ? `<br><span style="color:var(--text2)">Profiles:</span> ${socialsHtml}` : ''}
             </div>`;
         }
 
@@ -859,7 +871,63 @@ async function enrichProspect(idx) {
         } catch(e) { console.warn('Crawl failed:', e.message); }
     }
 
-    // Step 3 — Hunter.io: domain-level email discovery (broader database)
+    // Step 3 — Profile search: use Perplexity to search Google/web for the business's
+    //           public profiles and any email addresses visible in search results
+    try {
+        const r = await fetch('/api/profile-search', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: p.name, city: p.city, country: p.country })
+        });
+        if (r.ok) {
+            const d = await r.json();
+            if (d.emails && d.emails.length) {
+                updates.profileEmails = d.emails;
+                if (!p.email && !updates.email) updates.email = d.emails[0];
+            }
+            if (d.socials && Object.keys(d.socials).length) {
+                // Merge with any socials already found in the website crawl
+                updates.profileSocials = d.socials;
+                // Fill in any missing social links from crawl
+                if (updates.crawlSocials) {
+                    updates.crawlSocials = {...d.socials, ...updates.crawlSocials};
+                }
+            }
+        }
+    } catch(e) { console.warn('Profile search failed:', e.message); }
+
+    // Step 4 — Social page crawl: crawl discovered Facebook/Instagram pages for
+    //           any email addresses they list publicly on their profile
+    const allSocials = {...(updates.profileSocials||{}), ...(updates.crawlSocials||{})};
+    const crawlableSocials = ['facebook', 'instagram', 'twitter']
+        .map(k => allSocials[k])
+        .filter(Boolean);
+
+    for (const socialUrl of crawlableSocials) {
+        try {
+            const r = await fetch('/api/crawl', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url: socialUrl })
+            });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.emails && d.emails.length) {
+                    const existing = new Set([
+                        ...(updates.crawlEmails||[]),
+                        ...(updates.profileEmails||[]),
+                    ]);
+                    const newEmails = d.emails.filter(e => !existing.has(e));
+                    if (newEmails.length) {
+                        updates.crawlEmails = [...(updates.crawlEmails||[]), ...newEmails];
+                        if (!p.email && !updates.email) updates.email = newEmails[0];
+                    }
+                }
+            }
+        } catch(e) { /* social pages often block crawlers — silent fail */ }
+    }
+
+    // Step 5 — Hunter.io: domain-level email discovery (broader database)
     if (websiteUrl) {
         try {
             const r = await fetch('/api/hunter', {
@@ -871,7 +939,6 @@ async function enrichProspect(idx) {
                 const d = await r.json();
                 if (d.emails && d.emails.length) {
                     updates.emails = d.emails;
-                    // Prefer crawl email if already found, otherwise use Hunter's best
                     if (!p.email && !updates.email) updates.email = d.emails[0].email;
                 }
             }
@@ -886,7 +953,11 @@ async function enrichProspect(idx) {
 
     renderProspects();
 
-    const emailCount = (updates.emails?.length || 0) + (updates.crawlEmails?.length || 0);
+    const emailCount = new Set([
+        ...(updates.emails||[]).map(e => typeof e === 'object' ? e.email : e),
+        ...(updates.crawlEmails||[]),
+        ...(updates.profileEmails||[]),
+    ]).size;
     showToast(emailCount
         ? `${p.name}: ${emailCount} email${emailCount>1?'s':''} found`
         : `${p.name} enriched — no emails found`
@@ -963,8 +1034,29 @@ function renderPipe() {
         const sc = {new:'s-new',contacted:'s-contacted',qualified:'s-qualified',proposal:'s-proposal',won:'s-won',lost:'s-lost'}[p.status]||'s-new';
         const tagLabel = {no_website:'No Website',facebook_only:'Facebook Only',outdated:'Outdated Site',has_website:'Has Website'}[p.websiteStatus]||'';
 
-        const emailsHtml = (p.emails||[]).map(e =>
-            `<div style="font-size:12px"><span style="color:var(--green)">${escHtml(e.email)}</span> <span style="color:var(--text2)">${e.confidence}% confidence · ${e.position||e.type||'contact'}</span></div>`
+        // Merge all email sources for pipeline detail
+        const GENERIC_P = ['contact','info','hello','hi','sales','enquiries','enquiry','support','admin','office','mail'];
+        const pipeEmailSet = new Map(); // email → source label
+        (p.emails||[]).forEach(e => {
+            const addr = typeof e === 'object' ? e.email : e;
+            const meta = typeof e === 'object' ? `Hunter · ${e.confidence}% · ${e.position||e.type||'contact'}` : 'Hunter';
+            if (!pipeEmailSet.has(addr)) pipeEmailSet.set(addr, meta);
+        });
+        (p.crawlEmails||[]).forEach(e => { if (!pipeEmailSet.has(e)) pipeEmailSet.set(e, 'Website crawl'); });
+        (p.profileEmails||[]).forEach(e => { if (!pipeEmailSet.has(e)) pipeEmailSet.set(e, 'Web search'); });
+        const sortedPipeEmails = [...pipeEmailSet.entries()].sort(([a],[b]) => {
+            const ag = GENERIC_P.some(g => a.split('@')[0].startsWith(g)) ? 0 : 1;
+            const bg = GENERIC_P.some(g => b.split('@')[0].startsWith(g)) ? 0 : 1;
+            return ag - bg;
+        });
+        const emailsHtml = sortedPipeEmails.map(([addr, src]) =>
+            `<div style="font-size:12px"><span style="color:var(--green)">${escHtml(addr)}</span> <span style="color:var(--text2)">${escHtml(src)}</span></div>`
+        ).join('');
+
+        // Merge all social sources for pipeline detail
+        const allSocialsP = {...(p.profileSocials||{}), ...(p.crawlSocials||{})};
+        const socialsDetailHtml = Object.entries(allSocialsP).map(([k,v]) =>
+            `<a href="${escHtml(v)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:12px;text-transform:capitalize;display:inline-block;margin-right:10px">${escHtml(k)}</a>`
         ).join('');
 
         return `<div class="pipe-row" id="pr-${p.id}">
@@ -985,6 +1077,7 @@ function renderPipe() {
                     <div class="detail-item"><label>Added</label><p>${p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—'}</p></div>
                 </div>
                 ${emailsHtml ? `<div style="margin-bottom:12px"><label>Discovered Emails</label><div style="margin-top:6px">${emailsHtml}</div></div>` : ''}
+                ${socialsDetailHtml ? `<div style="margin-bottom:12px"><label>Social Profiles</label><div style="margin-top:6px">${socialsDetailHtml}</div></div>` : ''}
                 ${p.opportunityReason ? `<p style="font-size:12px;color:var(--text2);margin-bottom:12px;font-style:italic">${escHtml(p.opportunityReason)}</p>` : ''}
                 <div style="margin-bottom:10px">
                     <label>Notes</label>
@@ -1048,7 +1141,13 @@ async function genOutreach() {
     const typeMap = {cold_email:'Cold Email',followup:'Follow-Up Email',linkedin_connect:'LinkedIn Connect Note',linkedin_dm:'LinkedIn DM',phone_script:'Phone Script',proposal:'Proposal Email',sequence:'Full 5-Touch Outreach Sequence'};
     const toneMap = {friendly:'friendly and casual',professional:'professional and formal',direct:'direct and concise',consultative:'consultative and helpful'};
 
-    const emailsCtx = (prospect.emails||[]).slice(0,2).map(e => `${e.email} (${e.confidence}% confidence)`).join(', ');
+    const allEmailsCtx = new Set();
+    (prospect.emails||[]).slice(0,2).forEach(e => allEmailsCtx.add(typeof e === 'object' ? e.email : e));
+    (prospect.crawlEmails||[]).slice(0,2).forEach(e => allEmailsCtx.add(e));
+    (prospect.profileEmails||[]).slice(0,2).forEach(e => allEmailsCtx.add(e));
+    const emailsCtx = [...allEmailsCtx].slice(0,3).join(', ');
+    const allSocialsCtx = {...(prospect.profileSocials||{}), ...(prospect.crawlSocials||{})};
+    const socialsCtx = Object.entries(allSocialsCtx).map(([k,v]) => `${k}: ${v}`).join(', ');
 
     const systemPrompt = `You are an expert B2B sales copywriter specialising in small business outreach.
 Write highly personalised, compliant outreach that:
@@ -1068,6 +1167,7 @@ Phone: ${prospect.phone || 'unknown'}
 Website Status: ${prospect.websiteStatus || 'no_website'}
 Google Rating: ${prospect.placesRating ? `${prospect.placesRating} stars (${prospect.placesReviews} reviews)` : 'unknown'}
 Contact Emails: ${emailsCtx || 'unknown'}
+Social Profiles: ${socialsCtx || 'unknown'}
 Opportunity: ${prospect.opportunityReason || 'lacks digital presence'}
 
 My Offer: ${offer}
