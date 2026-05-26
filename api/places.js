@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'GOOGLE_PLACES_API_KEY not configured' });
 
-    const { query } = req.body || {};
+    const { query, regionCode, languageCode } = req.body || {};
     if (!query) return res.status(400).json({ error: 'query required' });
 
     const fieldMask = [
@@ -34,8 +34,8 @@ module.exports = async (req, res) => {
             },
             body: JSON.stringify({
                 textQuery: query,
-                languageCode: 'en-AU',
-                regionCode: 'AU',
+                languageCode: languageCode || 'en',
+                ...(regionCode ? { regionCode } : {}),
                 maxResultCount: 1
             })
         });
