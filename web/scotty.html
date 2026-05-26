@@ -2954,7 +2954,11 @@ class ScottyChat {
 
     _scrollToBottom() {
         requestAnimationFrame(() => {
-            this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+            const el = this.messagesEl;
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceFromBottom < 160) {
+                el.scrollTop = el.scrollHeight;
+            }
         });
     }
 
