@@ -32,59 +32,37 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     const DomainAuthority = {
-        // Known high-authority domains
-        knownDomains: {
-            'google.com': 99, 'youtube.com': 98, 'facebook.com': 97, 'twitter.com': 95,
-            'linkedin.com': 96, 'instagram.com': 94, 'wikipedia.org': 98, 'github.com': 95,
-            'medium.com': 92, 'reddit.com': 91, 'amazon.com': 96, 'apple.com': 97,
-            'microsoft.com': 96, 'forbes.com': 94, 'nytimes.com': 95, 'bbc.com': 94,
-            'cnn.com': 93, 'huffpost.com': 91, 'techcrunch.com': 92, 'mashable.com': 89,
-            'wired.com': 91, 'theverge.com': 90, 'arstechnica.com': 88, 'engadget.com': 87,
-            'producthunt.com': 85, 'hackernews.com': 86, 'stackoverflow.com': 93,
-            'quora.com': 89, 'tumblr.com': 88, 'pinterest.com': 92, 'wordpress.com': 90,
-            'blogger.com': 87, 'wordpress.org': 89, 'drupal.org': 82, 'w3.org': 91,
-            'mozilla.org': 89, 'apache.org': 87, 'gnu.org': 84, 'mit.edu': 95,
-            'stanford.edu': 94, 'harvard.edu': 94, 'berkeley.edu': 93, 'ox.ac.uk': 93,
-            'moz.com': 89, 'ahrefs.com': 88, 'semrush.com': 87, 'neilpatel.com': 78,
-            'backlinko.com': 76, 'searchengineland.com': 85, 'searchenginejournal.com': 84,
-            'hubspot.com': 91, 'salesforce.com': 90, 'mailchimp.com': 86, 'shopify.com': 89,
-            'entrepreneur.com': 86, 'inc.com': 88, 'businessinsider.com': 90
-        },
-
-        estimate(domain) {
+            estimate(domain) {
             // Clean domain
             domain = domain.replace(/^www\./, '').toLowerCase();
 
-            // Check known domains (reference estimates)
-            if (this.knownDomains[domain]) {
-                return this.knownDomains[domain];
-            }
-
-            // Try real API for domain rating
-            try {
-                if (window.ApiConnector && window.ApiConnector.SEOTools && window.ApiConnector.SEOTools.ahrefs && window.ApiConnector.SEOTools.ahrefs.getDomainRating) {
-                    var rating = window.ApiConnector.SEOTools.ahrefs.getDomainRating(domain);
-                    if (typeof rating === 'number' && rating > 0) {
-                        return rating;
-                    }
-                }
-            } catch (e) {
-                // Fall through to TLD-based estimate
-            }
-
-            // Estimate based on TLD (base value only, no random variance)
+            // Estimate based on TLD only — use lookupLive() for real values
             const tld = domain.split('.').pop();
             let baseDA = 30;
-
-            // Educational/Government domains tend to have higher authority
             if (tld === 'edu') baseDA = 65;
             else if (tld === 'gov') baseDA = 70;
             else if (tld === 'org') baseDA = 45;
             else if (tld === 'net') baseDA = 35;
             else if (tld === 'io') baseDA = 40;
             else if (tld === 'co') baseDA = 35;
-
             return baseDA;
+        },
+
+        async lookupLive(domain) {
+            try {
+                const r = await fetch('/api/domain-metrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain })
+                });
+                if (r.ok) {
+                    const data = await r.json();
+                    if (typeof data.domainRating === 'number') return data.domainRating;
+                }
+            } catch (e) {
+                // Network error — fall through
+            }
+            return null;
         },
 
         getRating(da) {
@@ -531,25 +509,10 @@
 
         /**
          * Get resource page opportunities
+         * Returns saved opportunities only — no hardcoded fake data
          */
         getResourcePageOpportunities() {
-            const resourceDomains = [
-                { domain: 'resources.example.com', da: 65, type: 'Resource page' },
-                { domain: 'links.marketing-guide.com', da: 58, type: 'Link roundup' },
-                { domain: 'tools.seo-directory.net', da: 52, type: 'Tool directory' },
-                { domain: 'best-of.business-blog.com', da: 48, type: 'Best of list' },
-                { domain: 'curated.industry-news.io', da: 55, type: 'Curated list' }
-            ];
-
-            return resourceDomains.map(r => ({
-                id: this.generateId(),
-                sourceDomain: r.domain,
-                domainAuthority: r.da,
-                type: r.type,
-                priority: this.calculatePriority(r.da),
-                reason: `${r.type} - Good fit for your content`,
-                suggestedOutreach: `Reach out about getting listed on their ${r.type.toLowerCase()}`
-            }));
+            return this.getSavedOpportunities().filter(o => o.type === 'resource_page');
         },
 
         /**
@@ -567,27 +530,10 @@
 
         /**
          * Get guest post opportunities
+         * Returns saved opportunities only — no hardcoded fake data
          */
         getGuestPostOpportunities() {
-            const guestPostSites = [
-                { domain: 'marketing-insights.com', da: 62, accepts: 'Marketing, SEO' },
-                { domain: 'tech-business-blog.io', da: 55, accepts: 'Technology, Business' },
-                { domain: 'startup-stories.net', da: 48, accepts: 'Startups, Entrepreneurship' },
-                { domain: 'digital-marketing-today.com', da: 58, accepts: 'Digital Marketing' },
-                { domain: 'business-growth-hub.io', da: 52, accepts: 'Business, Growth' },
-                { domain: 'seo-world-magazine.net', da: 60, accepts: 'SEO, Content Marketing' }
-            ];
-
-            return guestPostSites.map(site => ({
-                id: this.generateId(),
-                sourceDomain: site.domain,
-                domainAuthority: site.da,
-                type: 'guest_post',
-                accepts: site.accepts,
-                priority: this.calculatePriority(site.da),
-                reason: `Accepts guest posts about: ${site.accepts}`,
-                suggestedOutreach: 'Pitch a relevant guest post topic with unique insights'
-            }));
+            return this.getSavedOpportunities().filter(o => o.type === 'guest_post');
         },
 
         /**

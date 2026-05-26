@@ -910,7 +910,8 @@ Format clearly with sections and be specific with numbers.`;
             const budget = document.getElementById('mmm-budget').value.trim();
             const goal = document.getElementById('mmm-goal').value;
             if (!data) return null;
-            return `You are an expert marketing mix modeling consultant.
+
+            let prompt = `You are an expert marketing mix modeling consultant.
 
 Analyze this marketing budget allocation and provide MMM insights:
 
@@ -918,18 +919,26 @@ CURRENT ALLOCATION:
 ${data}
 
 TOTAL MONTHLY BUDGET: ${budget || 'Not specified'}
-BUSINESS GOAL: ${goal}
+BUSINESS GOAL: ${goal}`;
+
+            prompt += buildICPAttributionContext();
+            prompt += buildCompetitiveBenchmarkContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+
+            prompt += `
 
 Provide:
 1. Current State Assessment - efficiency score per channel
 2. ROI Ranking - rank all channels by return
 3. Saturation Analysis - which channels are over/under-invested
-4. Optimal Reallocation - specific budget shifts with rationale
+4. Optimal Reallocation - specific budget shifts with rationale (prioritise channels reaching our ICP if provided)
 5. Projected Impact - estimated improvement from reallocation
 6. Channel synergies to leverage
 7. 3-month roadmap for implementation
 
 Be specific with numbers and percentages.`;
+
+            return prompt;
         },
         segmentation: () => {
             const customers = document.getElementById('seg-customers').value.trim();
@@ -1049,25 +1058,35 @@ Be direct, specific, and data-driven.`;
             const audience = document.getElementById('report-audience').value;
             const focus = document.getElementById('report-focus').value.trim();
             if (!data) return null;
-            return `You are an expert marketing communications director writing for senior leadership.
+
+            let prompt = `You are an expert marketing communications director writing for senior leadership.
 
 Write a complete ${type} for a ${audience} audience.
 
 DATA & METRICS:
 ${data}
 
-${focus ? `KEY NARRATIVE: ${focus}` : ''}
+${focus ? `KEY NARRATIVE: ${focus}` : ''}`;
+
+            prompt += buildICPAttributionContext();
+            prompt += buildValuePropConversionContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+
+            prompt += `
 
 Write a polished, professional report that:
 - Opens with a compelling executive summary
 - Tells a coherent data story (not just a list of numbers)
-- Highlights wins prominently
+- Highlights wins prominently (tie to ICP conversion effectiveness if context provided)
 - Addresses challenges honestly with context
-- Includes clear next steps and asks
+- Includes clear next steps and asks (aligned to value prop priorities if available)
 - Uses appropriate language for ${audience}
 - Ends with a forward-looking outlook
+- Matches brand voice style if provided
 
 Format with clear sections, use the data provided, and write in a confident narrative style.`;
+
+            return prompt;
         }
     };
 
@@ -1080,12 +1099,26 @@ Format with clear sections, use the data provided, and write in a confident narr
             }
         }
 
-        // Strategic Validation: Intelligence Layer
+        // Strategic Validation: Intelligence Layer (hard block for ICP-dependent tabs)
         const completeness = getIntelligenceCompleteness();
-        if (completeness < 0.3 && !sessionStorage.getItem('analytics-intelligence-warning-dismissed')) {
-            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific analytics insights, configure BusinessBrain with:\n• ICP Definition (persona, pain points, firmographics)\n• Value Propositions\n• Buyer Journey Stages\n\nThis will enable attribution by ICP stage, segmentation by pain point, and value prop-driven conversion analysis.\n\nProceed with generic analysis?`);
-            if (!proceed) return;
-            sessionStorage.setItem('analytics-intelligence-warning-dismissed', 'true');
+        if (completeness < 0.2 && ['attribution', 'segmentation'].includes(tabId)) {
+            const outCard = document.getElementById('out-' + tabId);
+            const outBody = document.getElementById('out-' + tabId + '-body');
+            outCard.style.display = 'block';
+            outBody.innerHTML = `<div style="padding:24px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);border-radius:10px;color:#f87171;">
+                <div style="font-weight:700;margin-bottom:8px;font-size:15px;">⛔ BusinessBrain Configuration Required</div>
+                <div style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);">
+                    <strong>${tabId === 'attribution' ? 'Campaign Attribution' : 'Customer Segmentation'}</strong> analysis requires ICP data to be meaningful.<br>
+                    <strong>Current completion: ${Math.round(completeness * 100)}%</strong> (minimum 20% required)<br><br>
+                    Without ICP definition, attribution cannot be mapped to buyer journey stages, and segmentation cannot align to real personas.<br><br>
+                    <strong>Configure in BusinessBrain:</strong><br>
+                    • ICP Definition (persona, pain points, firmographics)<br>
+                    • Value Propositions<br>
+                    • Buyer Journey Stages<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#f87171;font-weight:600;text-decoration:underline;">→ Configure BusinessBrain now</a>
+                </div>
+            </div>`;
+            return;
         }
 
         const prompt = workspacePrompts[tabId]();

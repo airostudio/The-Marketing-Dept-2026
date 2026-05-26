@@ -413,41 +413,50 @@
         return bundle ? (bundle.completeness || 0) : 0;
     }
 
-    // Render the SEO API status as a non-blocking inline banner. Green when
-    // Ahrefs or SEMrush keys are detected (in APP_CONFIG or on the active
-    // project), amber otherwise. Replaces the old confirm() popup.
-    function renderSeoStatusBanner() {
+    // Render the SEO API status as a non-blocking inline banner.
+    // Probes /api/domain-metrics to check whether server-side SEO keys are configured.
+    async function renderSeoStatusBanner() {
         const banner = document.getElementById('seoStatusBanner');
         const icon   = document.getElementById('seoStatusIcon');
         const text   = document.getElementById('seoStatusText');
         const link   = document.getElementById('seoStatusLink');
         if (!banner) return;
 
-        const hasAhrefs  = !!window.ApiConnector?.SEOTools?.ahrefs?.isAvailable?.();
-        const hasSemrush = !!window.ApiConnector?.SEOTools?.semrush?.isAvailable?.();
-        const tools = [];
-        if (hasAhrefs)  tools.push('Ahrefs');
-        if (hasSemrush) tools.push('SEMrush');
-
-        if (tools.length > 0) {
-            banner.style.background    = 'rgba(16,185,129,0.08)';
-            banner.style.borderColor   = 'rgba(16,185,129,0.30)';
-            banner.style.color         = '#34d399';
-            icon.textContent           = '✅';
-            text.textContent           = `Pulling keyword and backlink data from ${tools.join(' + ')}.`;
-            link.textContent           = '';
-            link.style.display         = 'none';
-        } else {
-            banner.style.background    = 'rgba(245,158,11,0.08)';
-            banner.style.borderColor   = 'rgba(245,158,11,0.30)';
-            banner.style.color         = '#fbbf24';
-            icon.textContent           = '⚠️';
-            text.textContent           = 'No SEO API keys detected. Running messaging/positioning analysis only.';
-            link.textContent           = 'Connect Ahrefs or SEMrush →';
-            link.style.color           = '#f59e0b';
-            link.style.display         = 'inline';
+        try {
+            const r = await fetch('/api/domain-metrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain: 'example.com' }),
+                signal: AbortSignal.timeout(5000)
+            });
+            if (r.ok) {
+                const data = await r.json();
+                if (data.provider && data.provider !== 'none') {
+                    banner.style.background  = 'rgba(16,185,129,0.08)';
+                    banner.style.borderColor = 'rgba(16,185,129,0.30)';
+                    banner.style.color       = '#34d399';
+                    icon.textContent         = '✅';
+                    text.textContent         = `Live domain metrics active via ${data.provider.charAt(0).toUpperCase() + data.provider.slice(1)}.`;
+                    link.textContent         = '';
+                    link.style.display       = 'none';
+                    banner.style.display     = 'block';
+                    return;
+                }
+            }
+        } catch (e) {
+            // API unreachable — fall through to amber
         }
-        banner.style.display = 'block';
+
+        banner.style.background  = 'rgba(245,158,11,0.08)';
+        banner.style.borderColor = 'rgba(245,158,11,0.30)';
+        banner.style.color       = '#fbbf24';
+        icon.textContent         = '⚠️';
+        text.textContent         = 'No SEO API keys detected. Running messaging/positioning analysis only.';
+        link.textContent         = 'Add AHREFS_API_KEY to Vercel env →';
+        link.href                = '/settings.html';
+        link.style.color         = '#f59e0b';
+        link.style.display       = 'inline';
+        banner.style.display     = 'block';
     }
 
     function populateFromIntelligence() {
@@ -508,12 +517,22 @@
 
         renderSeoStatusBanner();
 
-        // Strategic Validation: Intelligence Layer
+        // Intelligence Layer completeness — show inline warning but do not block
         const completeness = getIntelligenceCompleteness();
-        if (completeness < 0.3 && !sessionStorage.getItem('competitive-intelligence-warning-dismissed')) {
-            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific competitive analysis with keyword suggestions matching your ICP's search patterns, configure:\n• ICP Definition (persona, pain points, search language)\n• Value Propositions\n• Competitive Radar\n\nProceed with generic analysis?`);
-            if (!proceed) return;
-            sessionStorage.setItem('competitive-intelligence-warning-dismissed', 'true');
+        if (completeness < 0.3) {
+            const banner = document.getElementById('seoStatusBanner');
+            if (banner && banner.style.display !== 'none') {
+                banner.style.background  = 'rgba(245,158,11,0.08)';
+                banner.style.borderColor = 'rgba(245,158,11,0.30)';
+                banner.style.color       = '#fbbf24';
+                document.getElementById('seoStatusIcon').textContent = '⚠️';
+                document.getElementById('seoStatusText').textContent = `Intelligence Layer ${Math.round(completeness * 100)}% complete — analysis will be generic without ICP data.`;
+                const link = document.getElementById('seoStatusLink');
+                link.textContent = 'Configure BusinessBrain →';
+                link.href = '/intelligence/business-brain.html';
+                link.style.color = '#f59e0b';
+                link.style.display = 'inline';
+            }
         }
 
         // Build Intelligence Layer Context

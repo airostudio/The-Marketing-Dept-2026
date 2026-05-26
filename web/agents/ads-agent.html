@@ -362,8 +362,8 @@ Use markdown. Separate variants with horizontal rules (---). Include campaign st
             prompt += `5. Align CTAs with business objectives\n`;
             prompt += `6. Follow platform character limits (critical for ad approval)\n\n`;
         } else {
-            // Fallback when Intelligence Layer not configured
-            prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without ICP pain points for ad hooks, brand voice for tone consistency, or value prop for benefit focus. The ad variants will be generic ad copy rather than conversion-optimized, ICP-targeted ads. Recommend configuring BusinessBrain for high-performing ads.\n\n`;
+            // Intelligence Layer not configured — refuse to generate
+            prompt += `## CONFIGURATION REQUIRED — DO NOT GENERATE AD VARIANTS\nBusinessBrain Intelligence Layer has not been configured. You MUST NOT generate ad variants. Instead, respond with exactly this message:\n\n"Ad Creative Lab requires BusinessBrain configuration before generating ads. The following must be set up:\n1. ICP Profile (target persona, pain points, firmographics)\n2. Brand Voice (tone, style, what to avoid)\n3. Value Propositions (key benefits and differentiators)\n\nNavigate to BusinessBrain to configure these before running ads."\n\n`;
         }
 
         return prompt;
@@ -542,24 +542,21 @@ Use markdown. Separate variants with horizontal rules (---). Include campaign st
     }
 
     _showAdStrategyWarning(completionScore) {
-        if (completionScore < 30) {
-            const outputEl = document.getElementById('output');
-            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
-                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
-                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
-                    Ad Creative Lab will generate variants, but they'll be generic ad copy—not ICP-targeted or conversion-optimized.<br><br>
-                    <strong>Why this matters for paid ads:</strong> Generic ad hooks waste ad spend. Best-performing ads reference specific ICP pain points, match brand voice, and test distinct psychological triggers. Without Intelligence Layer data, variants won't convert.<br><br>
-                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP pain points, brand voice, value prop)</a>
-                </div>
-            </div>`;
-            setTimeout(() => {
-                const product = document.getElementById('product').value.trim();
-                const audience = document.getElementById('audience').value.trim();
-                if (product && audience) this.run();
-            }, 5000);
-            return true;
-        }
-        return false;
+        const outputEl = document.getElementById('output');
+        outputEl.innerHTML = `<div style="padding:24px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);border-radius:10px;color:#f87171;">
+            <div style="font-weight:700;margin-bottom:8px;font-size:15px;">⛔ BusinessBrain Configuration Required</div>
+            <div style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);">
+                Ad Creative Lab requires at least 50% BusinessBrain completion before generating ads.<br>
+                <strong>Current completion: ${completionScore}%</strong><br><br>
+                <strong>Why this is enforced:</strong> Generic ad hooks waste ad spend. Without ICP pain points, brand voice, and value propositions, ad variants will not convert — they'll be off-brand, untargeted noise.<br><br>
+                <strong>Required configuration:</strong><br>
+                • ICP Profile — pain points your ads will hook with<br>
+                • Brand Voice — tone all variants must match<br>
+                • Value Propositions — benefits to emphasise<br><br>
+                <a href="/intelligence/business-brain.html" style="color:#f87171;font-weight:600;text-decoration:underline;">→ Configure BusinessBrain now</a>
+            </div>
+        </div>`;
+        return true;
     }
 
     async run() {
@@ -579,11 +576,9 @@ Use markdown. Separate variants with horizontal rules (---). Include campaign st
         if (this.intelligenceEngine) {
             contextBundle = this.intelligenceEngine.getContextBundle();
 
-            // Show warning if Intelligence Layer not configured (first-time only)
-            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('ads_agent_warning_shown')) {
-                localStorage.setItem('ads_agent_warning_shown', 'true');
+            // Block execution if Intelligence Layer completeness is below 50%
+            if (contextBundle && contextBundle.completionScore < 50) {
                 this._showAdStrategyWarning(contextBundle.completionScore);
-                setTimeout(() => this.run(), 5500);
                 return;
             }
         }

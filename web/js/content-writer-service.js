@@ -463,7 +463,11 @@ ${template.structure ? '\nStructure: ' + template.structure.join(' → ') : ''}
 
 Output only the finished content — no preamble, no "Here is your content:", just the content itself.${brainContext}`;
 
-        return await streamAndUpdateOutput(systemPrompt, `Create ${template.name || params.useCase} content about: ${params.inputTopic}`);
+        const content = await streamAndUpdateOutput(systemPrompt, `Create ${template.name || params.useCase} content about: ${params.inputTopic}`);
+        if (!content || !content.trim()) {
+            throw new Error('AI returned empty content. Please try again.');
+        }
+        return content;
     }
 
     // ─── Refinement actions ───────────────────────────────────────────────────
