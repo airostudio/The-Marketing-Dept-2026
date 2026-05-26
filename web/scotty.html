@@ -1180,16 +1180,89 @@
             50% { opacity: 0.5; transform: scale(1.3); }
         }
         .task-emoji { font-size: 16px; }
-        .task-name { font-size: 13px; font-weight: 600; color: #e2e8f0; flex: 1; }
-        .task-objective { font-size: 11px; color: #64748b; }
+        .task-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+        .task-objective { font-size: 11px; color: #64748b; margin-top: 1px; }
+        .task-service-badge {
+            display: inline-block;
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-top: 4px;
+            letter-spacing: 0.02em;
+        }
+        .task-live-status {
+            font-size: 10px;
+            color: #f59e0b;
+            margin-top: 3px;
+            min-height: 14px;
+        }
+        .task-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
         .task-status-label {
             font-size: 11px;
             color: #64748b;
             font-weight: 500;
-            flex-shrink: 0;
+            white-space: nowrap;
         }
         .task-status-label.running { color: #f59e0b; }
         .task-status-label.done { color: #10b981; }
+        .task-agent-link {
+            font-size: 10px;
+            color: rgba(139,92,246,0.7);
+            text-decoration: none;
+            padding: 2px 7px;
+            border: 1px solid rgba(139,92,246,0.25);
+            border-radius: 5px;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .task-agent-link:hover { color: #a78bfa; border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.08); }
+        .task-agent-link.done { color: #10b981; border-color: rgba(16,185,129,0.35); }
+        .task-result-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+        .task-view-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 7px;
+            color: #a78bfa;
+            font-size: 12px;
+            text-decoration: none;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .task-view-btn:hover { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.5); }
+        .task-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 7px;
+            color: rgba(255,255,255,0.55);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .task-action-btn:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
         .task-result {
             display: none;
             padding: 12px 14px;
@@ -2121,6 +2194,26 @@ class ScottyChat {
             social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
             video:'🎬', compliance:'🛡️', deck:'📽️'
         };
+        const agentRoutes = {
+            content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
+            email:'/agents/email-agent.html', sales:'/agents/sales-agent.html',
+            ads:'/agents/ads-agent.html', social:'/agents/social-agent.html',
+            analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
+            video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
+            compliance:'/agents/compliance-agent.html', deck:'/agents/deck-agent.html',
+            linkedin:'/agents/linkedin-agent.html',
+        };
+        const agentDisplayNames = {
+            seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
+            ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
+            compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
+            sales:'Sales Intelligence', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        };
+        const serviceNames = {
+            seo:'Gemini 2.5 Pro', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
+            ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
+            compliance:'Claude Opus 4.7',
+        };
 
         const total = (plan.tasks || []).length;
 
@@ -2145,11 +2238,16 @@ class ScottyChat {
                         <div class="mission-task-header" onclick="this.nextElementSibling.classList.toggle('visible')">
                             <div class="task-status-dot" id="taskDot${i}"></div>
                             <div class="task-emoji">${agentEmojis[t.agentKey] || '🤖'}</div>
-                            <div>
+                            <div style="flex:1;min-width:0;">
                                 <div class="task-name">${this._escapeHtml(t.taskName)}</div>
                                 <div class="task-objective">${this._escapeHtml(t.objective || '')}</div>
+                                <div class="task-service-badge">${serviceNames[t.agentKey] || 'Claude Sonnet'}</div>
+                                <div class="task-live-status" id="taskLiveStatus${i}"></div>
                             </div>
-                            <div class="task-status-label" id="taskLabel${i}">Queued</div>
+                            <div class="task-right">
+                                <div class="task-status-label" id="taskLabel${i}">Queued</div>
+                                <a href="${agentRoutes[t.agentKey] || '#'}" target="_blank" class="task-agent-link" id="taskAgentLink${i}" onclick="event.stopPropagation()" title="Open ${agentDisplayNames[t.agentKey] || t.agentKey}">${agentDisplayNames[t.agentKey] || t.agentKey} →</a>
+                            </div>
                         </div>
                         <div class="task-result" id="taskResult${i}"></div>
                     </div>
@@ -2195,17 +2293,21 @@ class ScottyChat {
             if (aborted) break;
 
             const task = plan.tasks[i];
-            const dot      = missionEl.querySelector(`#taskDot${i}`);
-            const label    = missionEl.querySelector(`#taskLabel${i}`);
-            const resultEl = missionEl.querySelector(`#taskResult${i}`);
+            const dot        = missionEl.querySelector(`#taskDot${i}`);
+            const label      = missionEl.querySelector(`#taskLabel${i}`);
+            const resultEl   = missionEl.querySelector(`#taskResult${i}`);
+            const liveStatus = missionEl.querySelector(`#taskLiveStatus${i}`);
+            const agentLink  = missionEl.querySelector(`#taskAgentLink${i}`);
 
             dot.className = 'task-status-dot running';
             label.textContent = 'Running…';
             label.className = 'task-status-label running';
             resultEl.classList.add('visible');
-            resultEl.textContent = '';
+            resultEl.innerHTML = '';
+            const svcName = serviceNames[task.agentKey] || 'Claude Sonnet';
+            if (liveStatus) liveStatus.textContent = `⚡ Calling ${svcName}…`;
             if (autoText) autoText.textContent = `${agentEmojis[task.agentKey] || '🤖'} ${task.taskName} (${i + 1}/${total})`;
-            InfoPanel.logActivity(agentEmojis[task.agentKey] || '🤖', `Running ${task.taskName}…`);
+            InfoPanel.logActivity(agentEmojis[task.agentKey] || '🤖', `Running ${task.taskName} via ${svcName}…`);
             this._scrollToBottom();
 
             // Execute with one automatic retry on failure
@@ -2218,6 +2320,7 @@ class ScottyChat {
                         onChunk: (chunk) => {
                             if (aborted) return;
                             fullText += chunk;
+                            if (liveStatus) liveStatus.textContent = `⚡ Receiving from ${svcName}…`;
                             resultEl.innerHTML = this._renderMarkdownSimple(fullText);
                             this._scrollToBottom();
                         },
@@ -2228,6 +2331,7 @@ class ScottyChat {
                     break;
                 } catch (err) {
                     if (attempt === 0) {
+                        if (liveStatus) liveStatus.textContent = `⚠️ Retrying…`;
                         resultEl.innerHTML = `<em style="color:#f59e0b">⚠️ Retrying after error: ${this._escapeHtml(err.message)}</em>`;
                         await new Promise(r => setTimeout(r, 3000));
                     } else {
@@ -2243,6 +2347,38 @@ class ScottyChat {
                 dot.className  = 'task-status-dot done';
                 label.textContent = '✓ Done';
                 label.className = 'task-status-label done';
+                if (liveStatus) liveStatus.textContent = '';
+                if (agentLink) agentLink.classList.add('done');
+
+                // Action buttons: View in Agent, Copy, Download
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-result-actions';
+                const agentUrl  = agentRoutes[task.agentKey] || '#';
+                const agentName = agentDisplayNames[task.agentKey] || task.agentKey;
+                actionsEl.innerHTML = `<a href="${agentUrl}" target="_blank" class="task-view-btn">→ Open in ${this._escapeHtml(agentName)}</a>`;
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'task-action-btn';
+                copyBtn.textContent = '📋 Copy';
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(fullText).then(() => {
+                        copyBtn.textContent = '✅ Copied!';
+                        setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
+                    });
+                });
+                actionsEl.appendChild(copyBtn);
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'task-action-btn';
+                dlBtn.textContent = '⬇️ Download';
+                dlBtn.addEventListener('click', () => {
+                    const blob = new Blob([fullText], { type: 'text/markdown' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${task.agentKey}-${Date.now()}.md`;
+                    a.click();
+                });
+                actionsEl.appendChild(dlBtn);
+                resultEl.appendChild(actionsEl);
+
                 // Save successful output to History
                 if (window.AgentHistory) {
                     window.AgentHistory.save({
@@ -2258,6 +2394,7 @@ class ScottyChat {
                 dot.className  = 'task-status-dot error';
                 label.textContent = '⚠️ Failed';
                 label.className = 'task-status-label error';
+                if (liveStatus) liveStatus.textContent = '';
                 InfoPanel.logActivity('⚠️', `${task.taskName} failed — continuing`);
             }
 

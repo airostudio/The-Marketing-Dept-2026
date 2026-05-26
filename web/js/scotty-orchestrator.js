@@ -339,6 +339,16 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
     'whole team', 'all specialists', 'full playbook', 'complete plan',
     'run all', 'launch everything', 'full audit', 'marketing audit',
     'comprehensive', 'entire team', 'every agent', 'coordinate everything',
+    // Natural campaign / outreach phrasing
+    'build a campaign', 'create a campaign', 'launch a campaign', 'run a campaign',
+    'build me a campaign', 'create me a campaign', 'plan a campaign',
+    'campaign to find', 'campaign to get', 'campaign for',
+    'find businesses', 'find leads', 'find prospects', 'find customers', 'find clients',
+    'find tradie', 'find tradies', 'find contractors', 'find plumbers', 'find builders',
+    'build a plan', 'create a plan', 'marketing plan', 'go to market', 'growth plan',
+    'generate leads', 'lead generation', 'outreach campaign', 'prospecting campaign',
+    'reach out to', 'target businesses', 'find 50', 'find 100', 'find 20', 'find 30',
+    'don\'t have a website', 'no website', 'need a website', 'needs a website',
   ];
 
   function isOrchestrationIntent(text) {
