@@ -322,28 +322,38 @@
 
         let context = '\n\n**COMPANY INTELLIGENCE CONTEXT:**\n';
 
-        if (data.industry) {
-            context += `Industry: ${data.industry}\n`;
-
-            // Industry-specific compliance requirements
-            if (data.industry.toLowerCase().includes('healthcare') || data.industry.toLowerCase().includes('health')) {
+        const industry = data.company?.industry || '';
+        if (industry) {
+            context += `Industry: ${industry}\n`;
+            if (industry.toLowerCase().includes('healthcare') || industry.toLowerCase().includes('health')) {
                 context += `⚠️ Healthcare industry requires HIPAA compliance, BAA agreements, and PHI protection.\n`;
             }
-            if (data.industry.toLowerCase().includes('finance') || data.industry.toLowerCase().includes('fintech')) {
+            if (industry.toLowerCase().includes('finance') || industry.toLowerCase().includes('fintech')) {
                 context += `⚠️ Financial services require SOX compliance, PCI DSS (if handling payments), and enhanced security controls.\n`;
             }
         }
 
-        if (data.icp) {
-            context += `\nTarget Market: ${data.icp.persona}\n`;
-            if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
+        const role = data.icp?.primaryBuyer?.role || '';
+        if (role) {
+            context += `\nTarget Buyer: ${role}`;
+            const buyerCo = data.icp?.primaryBuyer?.companySize;
+            if (buyerCo) context += ` at ${buyerCo} companies`;
+            context += '\n';
+            if (role.toLowerCase().includes('enterprise') || (buyerCo || '').toLowerCase().includes('enterprise')) {
                 context += `🎯 Enterprise B2B sales — compliance is critical for closing deals. Prioritize SOC 2, security questionnaires, and trust center.\n`;
             }
         }
 
-        if (data.brand?.name) {
-            context += `\nCompany: ${data.brand.name}\n`;
+        const painPoints = (data.icp?.painPoints || []).filter(p => p && p.trim());
+        if (painPoints.length) {
+            context += `\nKey Customer Pain Points:\n${painPoints.slice(0, 3).map(p => `- ${p}`).join('\n')}\n`;
         }
+
+        const companyName = data.company?.name || '';
+        if (companyName) context += `\nCompany: ${companyName}\n`;
+
+        const stage = data.company?.stage || '';
+        if (stage) context += `Stage: ${stage}\n`;
 
         return context;
     }

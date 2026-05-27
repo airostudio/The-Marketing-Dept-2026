@@ -258,10 +258,16 @@
         if (!data?.icp) return '';
 
         let context = '\n\n**ICP CONTEXT FOR CRO:**\n';
-        context += `Target Persona: ${data.icp.persona}\n`;
+        const role = data.icp?.primaryBuyer?.role || '';
+        const companySize = data.icp?.primaryBuyer?.companySize || '';
+        if (role) {
+            context += `Target Persona: ${role}`;
+            if (companySize) context += ` at ${companySize} companies`;
+            context += '\n';
+        }
 
-        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
-            const painPoints = data.icp.painPoints.filter(p => p);
+        const painPoints = (data.icp?.painPoints || []).filter(p => p && p.trim());
+        if (painPoints.length > 0) {
             context += `\n**Pain Points (address on landing page):**\n`;
             painPoints.forEach((pain, i) => {
                 context += `${i + 1}. "${pain}"\n`;
@@ -269,24 +275,25 @@
             context += `→ CRO Recommendation: Headline should address #1 pain point. Social proof should show how you solve these pains.\n`;
         }
 
-        if (data.icp.objections && data.icp.objections.length > 0) {
-            context += `\n**Common Objections (overcome with trust signals):**\n`;
-            data.icp.objections.forEach((obj, i) => {
-                context += `${i + 1}. "${obj}"\n`;
-            });
-            context += `→ CRO Recommendation: Add FAQ section, risk-reversal guarantees, or testimonials that address these objections.\n`;
+        const biggestFear = data.icp?.biggestFear || '';
+        if (biggestFear) {
+            context += `\n**Biggest Fear / Objection:**\n`;
+            context += `"${biggestFear}"\n`;
+            context += `→ CRO Recommendation: Add trust signals, risk-reversal guarantees, or testimonials that address this fear.\n`;
         }
 
-        if (data.icp.demographics) {
-            context += `\nDemographics: ${data.icp.demographics}\n`;
-            context += `→ CRO Recommendation: Adjust imagery, language complexity, and examples to match this demographic.\n`;
+        const reasonChose = data.icp?.reasonChose || '';
+        if (reasonChose) {
+            context += `\n**Why They Choose Us:** ${reasonChose}\n`;
+            context += `→ CRO Recommendation: Lead with this reason — it's your proven conversion message.\n`;
         }
 
-        if (data.icp.buyerJourney) {
-            context += `\n**Buyer Journey Stage:**\n`;
-            context += `Awareness: "${data.icp.buyerJourney.awareness}"\n`;
-            context += `Consideration: "${data.icp.buyerJourney.consideration}"\n`;
-            context += `Decision: "${data.icp.buyerJourney.decision}"\n`;
+        const journey = data.icp?.buyerJourney || {};
+        if (journey.aware || journey.consider || journey.decide) {
+            context += `\n**Buyer Journey:**\n`;
+            if (journey.aware)    context += `Awareness: "${journey.aware}"\n`;
+            if (journey.consider) context += `Consideration: "${journey.consider}"\n`;
+            if (journey.decide)   context += `Decision: "${journey.decide}"\n`;
             context += `→ CRO Recommendation: Match page messaging to buyer journey stage. Early stage = education, late stage = risk reduction.\n`;
         }
 
@@ -296,37 +303,44 @@
     function buildValuePropCRO() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.product?.valueProps || data.product.valueProps.length === 0) return '';
+        if (!data?.positioning) return '';
+
+        const uniqueValue = data.positioning?.uniqueValue || '';
+        const differentiation = (data.positioning?.differentiation || []).filter(d => d && d.trim());
+        if (!uniqueValue && differentiation.length === 0) return '';
 
         let context = '\n\n**VALUE PROPOSITIONS (must appear prominently):**\n';
-        data.product.valueProps.forEach((vp, i) => {
-            context += `${i + 1}. ${vp}\n`;
+        if (uniqueValue) context += `Primary: ${uniqueValue}\n`;
+        differentiation.forEach((d, i) => {
+            context += `${i + 1}. ${d}\n`;
         });
-        context += `→ CRO Recommendation: Hero section should communicate #1 value prop. Benefits section should expand on all value props with proof points.\n`;
+        context += `→ CRO Recommendation: Hero section should communicate the primary value prop. Benefits section should expand with proof points.\n`;
         return context;
     }
 
     function buildCompetitivePositioningCRO() {
         if (!window.IntelligenceEngine?.radar) return '';
-        const data = window.IntelligenceEngine.radar.load();
-        if (!data?.competitors || data.competitors.length === 0) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll ? window.IntelligenceEngine.radar.getAll() : [];
+        if (!competitors.length) return '';
 
         let context = '\n\n**COMPETITIVE POSITIONING FOR CRO:**\n';
 
-        // Find competitive gaps/weaknesses
-        const competitorWeaknesses = [];
-        data.competitors.forEach(comp => {
-            if (comp.weaknesses && comp.weaknesses.length > 0) {
-                competitorWeaknesses.push(...comp.weaknesses);
+        const opportunities = [];
+        competitors.forEach(comp => {
+            if (comp.gaps && comp.gaps.length > 0) {
+                comp.gaps.forEach(g => {
+                    const opp = g.opportunity || g.gap || '';
+                    if (opp) opportunities.push(opp);
+                });
             }
         });
 
-        if (competitorWeaknesses.length > 0) {
-            context += `**Competitor Weaknesses (highlight our strengths here):**\n`;
-            [...new Set(competitorWeaknesses)].slice(0, 5).forEach((weakness, i) => {
-                context += `${i + 1}. ${weakness}\n`;
+        if (opportunities.length > 0) {
+            context += `**Competitive Gaps We Can Win (highlight our strengths here):**\n`;
+            [...new Set(opportunities)].slice(0, 5).forEach((opp, i) => {
+                context += `${i + 1}. ${opp}\n`;
             });
-            context += `→ CRO Recommendation: Add comparison section or "Why Choose Us" that directly addresses competitor weaknesses.\n`;
+            context += `→ CRO Recommendation: Add comparison section or "Why Choose Us" that directly addresses these competitive gaps.\n`;
         }
 
         return context;
@@ -335,24 +349,29 @@
     function buildBrandVoiceCRO() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.voice) return '';
+        const voiceAndTone = (data?.positioning?.voiceAndTone || []).filter(v => v && v.trim());
+        if (voiceAndTone.length === 0) return '';
 
+        const voiceStr = voiceAndTone.join(', ').toLowerCase();
         let context = '\n\n**BRAND VOICE FOR CRO COPY:**\n';
-        context += `Tone: ${data.brand.voice}\n`;
+        context += `Tone: ${voiceAndTone.join(', ')}\n`;
 
-        if (data.brand.voice.toLowerCase().includes('professional')) {
+        if (voiceStr.includes('professional') || voiceStr.includes('formal')) {
             context += `→ CRO Recommendation: Use formal language, industry terms, data-driven proof points. Avoid slang.\n`;
-        } else if (data.brand.voice.toLowerCase().includes('casual')) {
+        } else if (voiceStr.includes('casual') || voiceStr.includes('conversational')) {
             context += `→ CRO Recommendation: Use conversational language, contractions, relatable examples. Friendly CTAs like "Let's do this!"\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('humor')) {
+        if (voiceStr.includes('humor') || voiceStr.includes('wit')) {
             context += `→ CRO Recommendation: Add witty microcopy, playful CTAs, light humor in error messages.\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('empowering')) {
+        if (voiceStr.includes('empower') || voiceStr.includes('bold')) {
             context += `→ CRO Recommendation: Use action-oriented language, success stories, "you can do this" messaging.\n`;
         }
+
+        const neverSay = data?.positioning?.thingsWeNeverSay || '';
+        if (neverSay) context += `\nAvoid language like: "${neverSay}"\n`;
 
         return context;
     }
