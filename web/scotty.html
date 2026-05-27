@@ -1610,6 +1610,67 @@
         .orchestrate-chip:hover {
             background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(79,70,229,0.25)) !important;
         }
+
+        /* ── Boot Sequence Terminal ───────────────────────────────────────── */
+        .boot-terminal {
+            font-family: 'JetBrains Mono', 'Courier New', 'Consolas', monospace;
+            background: linear-gradient(160deg, #060a14 0%, #080d1c 100%);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 10px;
+            padding: 22px 26px 26px;
+            margin: 8px 4px;
+            min-height: 260px;
+            box-shadow: 0 0 40px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .boot-terminal::before {
+            content: '● ● ●';
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            font-size: 9px;
+            letter-spacing: 5px;
+            color: rgba(255,255,255,0.15);
+        }
+        .boot-terminal::after {
+            content: 'SCOTTY · SYSTEM INIT';
+            position: absolute;
+            top: 9px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: rgba(99,130,220,0.4);
+        }
+        .boot-line { line-height: 1.75; font-size: 12.5px; min-height: 1.75em; }
+        .boot-ascii  { color: #3b82f6; font-size: 10px; letter-spacing: 1px; line-height: 1.4; }
+        .boot-header { color: #93c5fd; font-size: 11px; letter-spacing: 3px; font-weight: 600; margin-top: 4px; }
+        .boot-divider { border: none; border-top: 1px solid rgba(59,130,246,0.15); margin: 10px 0 8px; }
+        .boot-spacer  { height: 28px; }
+        .boot-step    { color: #64748b; font-size: 12px; }
+        .boot-ok      { color: #22c55e; font-size: 12px; }
+        .boot-warn    { color: #f59e0b; font-size: 12px; }
+        .boot-dim     { color: #334155; font-size: 11px; }
+        .boot-agent-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; line-height: 1.75; }
+        .boot-agent-name { color: #cbd5e1; flex: 1; }
+        .boot-status-ok   { color: #22c55e; font-size: 10px; letter-spacing: 1.5px; font-weight: 600; }
+        .boot-status-upd  { color: #38bdf8; font-size: 10px; letter-spacing: 1.5px; font-weight: 600; animation: boot-pulse 0.6s ease-out; }
+        .boot-dots    { color: #334155; min-width: 24px; display: inline-block; }
+        .boot-summary {
+            color: #60a5fa; font-size: 11.5px; letter-spacing: 1.5px;
+            text-align: center; margin-top: 6px; padding: 6px 0;
+            border-top: 1px solid rgba(59,130,246,0.15);
+        }
+        .boot-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 20px;
+            margin: 4px 0;
+        }
+        @keyframes boot-pulse { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes boot-fade-out { to { opacity: 0; transform: translateY(-6px); } }
+        .boot-fade-out { animation: boot-fade-out 0.45s ease forwards; }
     </style>
 
 </head>
@@ -1921,12 +1982,227 @@ Always respond with:
 
 Format your agent recommendations clearly. Be direct, strategic, and specific. No generic advice. Think like a CMO who has seen this play out before.`;
 
+// ── SCOTTY BOOT SEQUENCE ──────────────────────────────────────────────────────
+const ScottyBoot = (() => {
+    const MANIFEST_KEY = 'scotty_system_manifest_v1';
+
+    const AGENT_META = {
+        content:     { emoji: '✍️',  label: 'Content Studio'         },
+        seo:         { emoji: '🔍',  label: 'SEO Intelligence'        },
+        email:       { emoji: '📧',  label: 'Email Engine'            },
+        sales:       { emoji: '🎯',  label: 'Chase — Sales Intel'     },
+        ads:         { emoji: '📣',  label: 'Ad Creative Lab'         },
+        social:      { emoji: '📱',  label: 'Social Studio'           },
+        analytics:   { emoji: '📊',  label: 'Analytics Brain'         },
+        competitive: { emoji: '⚡',  label: 'Competitive Intel'       },
+        video:       { emoji: '🎬',  label: 'Video Studio'            },
+        cro:         { emoji: '🔬',  label: 'CRO Lab'                 },
+        compliance:  { emoji: '⚖️',  label: 'Compliance Guard'        },
+        deck:        { emoji: '🎨',  label: 'Deck Maker'              },
+        linkedin:    { emoji: '💼',  label: 'LinkedIn Outreach'       },
+    };
+
+    function _hash(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 16777619) >>> 0;
+        }
+        return h.toString(16).padStart(8, '0');
+    }
+
+    function _buildManifest() {
+        const orch = window.ScottyOrchestrator;
+        if (!orch) return { routes: {}, descs: {}, prompts: {} };
+        const routes  = orch.AGENT_ROUTES       || {};
+        const descs   = orch.AGENT_DESCRIPTIONS || {};
+        const prompts = {};
+        for (const key of Object.keys(routes)) {
+            const p = typeof orch.getAgentInlinePrompt === 'function'
+                ? orch.getAgentInlinePrompt(key, {}) : '';
+            prompts[key] = (p || '').substring(0, 200);
+        }
+        return { routes, descs, prompts };
+    }
+
+    function _check() {
+        const manifest = _buildManifest();
+        const hash     = _hash(JSON.stringify(manifest));
+        const stored   = localStorage.getItem(MANIFEST_KEY);
+        return { hash, manifest, needsUpdate: stored !== hash, isFirstBoot: !stored };
+    }
+
+    function _commit(hash) {
+        localStorage.setItem(MANIFEST_KEY, hash);
+    }
+
+    const _delay = ms => new Promise(r => setTimeout(r, ms));
+
+    function _typewrite(el, text, speed = 16) {
+        return new Promise(resolve => {
+            let i = 0;
+            const tick = () => {
+                el.textContent += text[i++];
+                if (i < text.length) setTimeout(tick, speed);
+                else resolve();
+            };
+            tick();
+        });
+    }
+
+    async function run(messagesEl) {
+        const { hash, manifest, needsUpdate, isFirstBoot } = _check();
+        const agentKeys = Object.keys(manifest.routes || AGENT_META);
+
+        // Build terminal in the messages area
+        messagesEl.innerHTML = '';
+        const term = document.createElement('div');
+        term.className = 'boot-terminal';
+        term.id = 'scottyBoot';
+        messagesEl.appendChild(term);
+
+        const addLine = (cls = '') => {
+            const el = document.createElement('div');
+            el.className = 'boot-line' + (cls ? ' ' + cls : '');
+            term.appendChild(el);
+            term.scrollTop = term.scrollHeight;
+            return el;
+        };
+        const addDivider = () => {
+            const hr = document.createElement('hr');
+            hr.className = 'boot-divider';
+            term.appendChild(hr);
+        };
+        const print = async (text, cls = '', speed = 16, pause = 50) => {
+            const el = addLine(cls);
+            await _typewrite(el, text, speed);
+            await _delay(pause);
+            return el;
+        };
+
+        // ── Header ────────────────────────────────────────────────────────────
+        await _delay(220);
+        await print('  ███████╗ ██████╗ ██████╗ ████████╗████████╗██╗   ██╗', 'boot-ascii', 5, 0);
+        await print('  ██╔════╝██╔════╝██╔═══██╗╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝', 'boot-ascii', 5, 0);
+        await print('  ███████╗██║     ██║   ██║   ██║      ██║    ╚████╔╝ ', 'boot-ascii', 5, 0);
+        await print('  ╚════██║██║     ██║   ██║   ██║      ██║     ╚██╔╝  ', 'boot-ascii', 5, 0);
+        await print('  ███████║╚██████╗╚██████╔╝   ██║      ██║      ██║   ', 'boot-ascii', 5, 0);
+        await print('  ╚══════╝ ╚═════╝ ╚═════╝    ╚═╝      ╚═╝      ╚═╝   ', 'boot-ascii', 5, 0);
+        await _delay(80);
+        await print('  AUTONOMOUS MARKETING OS  ·  SYSTEM INITIALISATION', 'boot-header', 10, 120);
+        addDivider();
+
+        if (!needsUpdate) {
+            // ── Quick-check path ─────────────────────────────────────────────
+            await print(`▸ Computing agent manifest…`, 'boot-step', 20, 80);
+            const hashEl = addLine('boot-dim');
+            await _typewrite(hashEl, `  checksum: 0x${hash}`);
+            await _delay(150);
+            const okEl = addLine('boot-ok');
+            await _typewrite(okEl, `✓ All ${agentKeys.length} agents verified — no changes detected`);
+            await _delay(300);
+            await print('▸ Intelligence Layer…', 'boot-step', 20, 80);
+            const ieOkEl = addLine('boot-ok');
+            await _typewrite(ieOkEl, '✓ Context pipelines nominal');
+            await _delay(500);
+        } else {
+            // ── Full update path ─────────────────────────────────────────────
+            await print('▸ Computing agent manifest checksum…', 'boot-step', 18, 100);
+            const hashEl = addLine('boot-dim');
+            await _typewrite(hashEl, `  0x${hash}`, 10);
+            await _delay(180);
+
+            const flagEl = addLine(isFirstBoot ? 'boot-warn' : 'boot-warn');
+            await _typewrite(flagEl,
+                isFirstBoot
+                    ? '! First initialisation — loading full agent network'
+                    : '! Agent manifest updated — synchronising all systems',
+                14);
+            await _delay(320);
+            addDivider();
+
+            await print('▸ Synchronising agent network…', 'boot-step', 18, 60);
+            await _delay(60);
+
+            // Render agent grid (2 columns)
+            const grid = document.createElement('div');
+            grid.className = 'boot-grid';
+            term.appendChild(grid);
+
+            const rowEls = {};
+            for (const key of agentKeys) {
+                const meta = AGENT_META[key] || { emoji: '🤖', label: key };
+                const row = document.createElement('div');
+                row.className = 'boot-agent-row';
+                row.innerHTML = `<span class="boot-dim">▸</span><span class="boot-agent-name">${meta.emoji} ${meta.label}</span><span class="boot-dots">…</span>`;
+                grid.appendChild(row);
+                rowEls[key] = row;
+            }
+            await _delay(200);
+
+            // Animate each agent row sequentially
+            for (const key of agentKeys) {
+                const meta  = AGENT_META[key] || { emoji: '🤖', label: key };
+                const row   = rowEls[key];
+                const pause = 180 + Math.random() * 160;
+                // Animate dots
+                let dot = 0;
+                const iv = setInterval(() => {
+                    row.querySelector('.boot-dots').textContent = ['·  ', '·· ', '···', ' ··', '  ·'][dot++ % 5];
+                }, 70);
+                await _delay(pause);
+                clearInterval(iv);
+                row.innerHTML = `<span class="boot-ok">✓</span><span class="boot-agent-name">${meta.emoji} ${meta.label}</span><span class="boot-status-upd">UPDATED</span>`;
+                term.scrollTop = term.scrollHeight;
+                await _delay(30);
+            }
+            await _delay(300);
+            addDivider();
+
+            // Context checks
+            await print('▸ Verifying Intelligence Layer…', 'boot-step', 18, 80);
+            const hasIE = typeof window.IntelligenceEngine !== 'undefined';
+            const ieEl  = addLine(hasIE ? 'boot-ok' : 'boot-warn');
+            await _typewrite(ieEl,
+                hasIE ? '✓ Intelligence Engine online' : '⚠ Intelligence Engine not detected — reduced context', 14);
+            await _delay(120);
+
+            await print('▸ Wiring multi-agent orchestration…', 'boot-step', 18, 80);
+            const orchEl = addLine('boot-ok');
+            await _typewrite(orchEl, '✓ Orchestration pipelines armed', 14);
+            await _delay(120);
+
+            await print('▸ Loading context databases…', 'boot-step', 18, 80);
+            const ctxEl = addLine('boot-ok');
+            await _typewrite(ctxEl, '✓ Business Brain · Competitive Intel · Market Signals', 14);
+            await _delay(300);
+            addDivider();
+
+            const summEl = addLine('boot-summary');
+            await _typewrite(summEl,
+                `━━  ${agentKeys.length} AGENTS ONLINE  ·  ALL SYSTEMS NOMINAL  ━━`, 12);
+        }
+
+        await _delay(900);
+        _commit(hash);
+
+        // Fade out the terminal then restore the welcome message
+        term.classList.add('boot-fade-out');
+        await _delay(460);
+    }
+
+    return { run };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class ScottyChat {
     constructor() {
         this.conversations = [];
         this.currentConvoId = this._generateId();
         this.isWaiting = false;
         this.intelConfigured = false;
+        this.bootComplete = false;
 
         this._bindElements();
         this._bindEvents();
@@ -1992,7 +2268,35 @@ class ScottyChat {
         });
     }
 
-    init() {
+    async init() {
+        // Lock input during boot
+        this.isWaiting = true;
+        if (this.btnSend) this.btnSend.disabled = true;
+        if (this.inputEl) {
+            this.inputEl.disabled = true;
+            this.inputEl.placeholder = 'Initialising systems…';
+        }
+
+        // Hide the static welcome message while boot runs
+        const welcomeMsg = document.getElementById('welcomeMsg');
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+        // Run boot sequence
+        await ScottyBoot.run(this.messagesEl);
+
+        // Restore welcome message and re-enable input
+        const bootEl = document.getElementById('scottyBoot');
+        if (bootEl) bootEl.remove();
+        if (welcomeMsg) welcomeMsg.style.display = '';
+
+        this.isWaiting = false;
+        this.bootComplete = true;
+        if (this.btnSend) this.btnSend.disabled = false;
+        if (this.inputEl) {
+            this.inputEl.disabled = false;
+            this.inputEl.placeholder = 'Describe what you\'re trying to achieve…';
+        }
+
         this._loadConversations();
         this._checkIntelligenceEngine();
         this._updateContextBar();
