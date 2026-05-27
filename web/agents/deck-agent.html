@@ -135,6 +135,91 @@
             font-size:8px; opacity:0.5; margin-top:4px;
             font-style:italic; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
         }
+
+        /* ── Template Picker ───────────────────────────────────── */
+        .template-picker-wrap {
+            max-width:1100px; margin:0 auto 40px; padding:0 32px;
+        }
+        .template-picker-header {
+            display:flex; align-items:flex-end; justify-content:space-between;
+            margin-bottom:20px; gap:16px;
+        }
+        .template-picker-header h2 {
+            font-size:18px; font-weight:800; color:var(--text); margin-bottom:4px;
+        }
+        .template-picker-header p { font-size:13px; color:var(--text2); }
+        .template-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(155px, 1fr));
+            gap:14px;
+        }
+        .template-card {
+            cursor:pointer; border-radius:12px; overflow:hidden;
+            border:2px solid transparent;
+            background:var(--card-bg);
+            transition:border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+        }
+        .template-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(0,0,0,0.4); }
+        .template-card.selected {
+            border-color:var(--agent-color);
+            box-shadow:0 0 0 1px var(--agent-color), 0 12px 32px rgba(124,58,237,0.3);
+        }
+        .template-card.selected .tmpl-selected-ring {
+            opacity:1;
+        }
+        /* Mini 16:9 slide */
+        .tmpl-slide {
+            aspect-ratio:16/9; position:relative; overflow:hidden;
+            border-radius:0; transition:none;
+        }
+        .tmpl-slide-bg { position:absolute; inset:0; }
+        .tmpl-top-bar { position:absolute; top:0; left:0; right:0; height:30%; }
+        .tmpl-left-bar { position:absolute; top:0; left:0; bottom:0; width:6%; }
+        .tmpl-accent-stripe { position:absolute; bottom:0; left:0; right:0; height:4%; }
+        .tmpl-title-area { position:absolute; top:18%; left:8%; right:8%; }
+        .tmpl-line-thick {
+            height:10%; border-radius:2px; margin-bottom:5%;
+            background:rgba(255,255,255,0.85);
+        }
+        .tmpl-line-thin {
+            height:6%; border-radius:1px; margin-bottom:3%;
+            background:rgba(255,255,255,0.45); width:70%;
+        }
+        .tmpl-line-thin.w50 { width:50%; }
+        .tmpl-circle {
+            position:absolute; bottom:10%; right:8%;
+            width:18%; aspect-ratio:1; border-radius:50%;
+            opacity:0.35;
+        }
+        .tmpl-selected-ring {
+            position:absolute; inset:0; opacity:0;
+            transition:opacity 0.15s;
+            border:3px solid var(--agent-color);
+            border-radius:0; pointer-events:none;
+        }
+        .tmpl-check {
+            position:absolute; top:6px; right:6px;
+            width:20px; height:20px; border-radius:50%;
+            background:var(--agent-color); color:#fff;
+            font-size:11px; font-weight:900;
+            display:flex; align-items:center; justify-content:center;
+            opacity:0; transition:opacity 0.15s;
+        }
+        .template-card.selected .tmpl-check { opacity:1; }
+        /* Card label area */
+        .tmpl-info { padding:10px 12px 12px; }
+        .tmpl-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px; }
+        .tmpl-desc { font-size:11px; color:var(--text2); margin-bottom:7px; line-height:1.4; }
+        .tmpl-tags { display:flex; gap:5px; flex-wrap:wrap; }
+        .tmpl-tag {
+            font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px;
+            letter-spacing:0.3px; text-transform:uppercase;
+        }
+        .tmpl-tag-dark  { background:rgba(0,0,0,0.4); color:#94a3b8; }
+        .tmpl-tag-light { background:rgba(255,255,255,0.08); color:#94a3b8; }
+        .tmpl-tag-year  { background:rgba(124,58,237,0.2); color:#a78bfa; border:1px solid rgba(124,58,237,0.3); }
+        @media(max-width:900px){ .template-grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; } }
+        @media(max-width:600px){ .template-picker-wrap { padding:0 16px; } }
     </style>
 </head>
 <body>
@@ -256,6 +341,20 @@
         <div id="slidePreviewSection" style="display:none" class="preview-section"></div>
     </div>
 
+</div>
+
+<!-- Template Picker — injected by JS below -->
+<div class="template-picker-wrap" id="templatePickerWrap">
+    <div class="template-picker-header">
+        <div>
+            <h2>Choose Your Template</h2>
+            <p>Modern 2026 designs — select a template to apply it to your deck</p>
+        </div>
+        <div style="font-size:11px;color:var(--text3);text-align:right;">
+            <span id="selectedTemplateName" style="color:var(--agent-color);font-weight:600;"></span>
+        </div>
+    </div>
+    <div class="template-grid" id="templateGrid"></div>
 </div>
 
 <div class="features-wrap">
@@ -721,7 +820,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
                 outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(finalText) : finalText;
                 window.currentDeckData = { text: finalText, company: company || 'Presentation', deckType, audience };
                 const previewSlides = parseDeckStructure(finalText);
-                renderSlidePreview(previewSlides, resolveDesign(deckType, '', []));
+                renderSlidePreview(previewSlides, (window.selectedTemplateKey && window.selectedTemplateKey !== 'auto' && TEMPLATES[window.selectedTemplateKey]) ? TEMPLATES[window.selectedTemplateKey] : resolveDesign(deckType, '', []));
                 document.getElementById('downloadBtn').style.display = 'block';
                 if (window.AgentHistory) {
                     window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: finalText, topic: company || keyMessage || deckType });
@@ -740,7 +839,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                         window.currentDeckData = { text, company: company || 'Presentation', deckType, audience };
                         const previewSlides = parseDeckStructure(text);
-                        renderSlidePreview(previewSlides, resolveDesign(deckType, '', []));
+                        renderSlidePreview(previewSlides, (window.selectedTemplateKey && window.selectedTemplateKey !== 'auto' && TEMPLATES[window.selectedTemplateKey]) ? TEMPLATES[window.selectedTemplateKey] : resolveDesign(deckType, '', []));
                         document.getElementById('downloadBtn').style.display = 'block';
                         if (window.AgentHistory) {
                             window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: text, topic: company || keyMessage || deckType });
@@ -759,6 +858,193 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
             btn.disabled = false;
             document.getElementById('btnIcon').textContent = '📊';
             document.getElementById('btnText').textContent = 'Build Deck Structure';
+        }
+    }
+
+    // ============================================
+    // 2026 TEMPLATE LIBRARY
+    // ============================================
+    const TEMPLATES = {
+        auto: {
+            _auto: true,
+            name: 'Auto',
+            desc: 'Deck-type adaptive',
+            tags: ['smart', 'adaptive'],
+            preview: { bg: '0F172A', bar: '7C3AED', accent: 'EC4899', stripe: '06B6D4' }
+        },
+        midnight: {
+            name: 'Midnight',
+            desc: 'Dark mode · Electric blue',
+            tags: ['dark', '2026'],
+            preview: { bg: '080D1E', bar: '4361EE', accent: '00D4FF', stripe: '4361EE' },
+            colors: { primary: '4361EE', secondary: '3B82F6', titleBg: '080D1E', background: '0F172A', text: 'E2E8F0', light: '1E293B', accent1: '00D4FF', accent2: '7C3AED', muted: '475569' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        aurora: {
+            name: 'Aurora',
+            desc: 'Deep violet · Rose glow',
+            tags: ['bold', '2026'],
+            preview: { bg: '1A0533', bar: '7C3AED', accent: 'EC4899', stripe: 'A855F7' },
+            colors: { primary: '7C3AED', secondary: 'A855F7', titleBg: '1A0533', background: 'FFFFFF', text: '1E293B', light: 'F5F3FF', accent1: 'EC4899', accent2: '06B6D4', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+        obsidian: {
+            name: 'Obsidian',
+            desc: 'Pure black · Gold luxury',
+            tags: ['dark', 'premium', '2026'],
+            preview: { bg: '000000', bar: '1A1A1A', accent: 'D4AF37', stripe: 'B8960C' },
+            colors: { primary: '1A1A1A', secondary: '2A2A2A', titleBg: '000000', background: 'FAFAFA', text: '111111', light: 'F3F4F6', accent1: 'D4AF37', accent2: 'A0A0A0', muted: 'E5E7EB' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        solar: {
+            name: 'Solar',
+            desc: 'Amber fire · Bold energy',
+            tags: ['light', '2026'],
+            preview: { bg: '1C0A00', bar: 'EA580C', accent: 'F59E0B', stripe: 'F97316' },
+            colors: { primary: 'EA580C', secondary: 'DC2626', titleBg: '1C0A00', background: 'FFFFFF', text: '1C1917', light: 'FFF7ED', accent1: 'F59E0B', accent2: '84CC16', muted: 'FED7AA' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        glacier: {
+            name: 'Glacier',
+            desc: 'Arctic teal · Clean white',
+            tags: ['light', 'minimal', '2026'],
+            preview: { bg: '083344', bar: '0891B2', accent: '10B981', stripe: '22D3EE' },
+            colors: { primary: '0891B2', secondary: '0E7490', titleBg: '083344', background: 'FFFFFF', text: '0F172A', light: 'ECFEFF', accent1: '10B981', accent2: '6366F1', muted: 'CFFAFE' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        cobalt: {
+            name: 'Cobalt',
+            desc: 'Royal blue · Corporate',
+            tags: ['light', '2026'],
+            preview: { bg: '0F1F5C', bar: '2563EB', accent: '06B6D4', stripe: '1D4ED8' },
+            colors: { primary: '1D4ED8', secondary: '1E40AF', titleBg: '0F1F5C', background: 'FFFFFF', text: '111827', light: 'EFF6FF', accent1: '0891B2', accent2: '10B981', muted: 'DBEAFE' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        prism: {
+            name: 'Prism',
+            desc: 'Violet → Cyan · Tech',
+            tags: ['bold', 'tech', '2026'],
+            preview: { bg: '0F0C29', bar: '6D28D9', accent: '06B6D4', stripe: 'EC4899' },
+            colors: { primary: '6D28D9', secondary: '7C3AED', titleBg: '0F0C29', background: 'FFFFFF', text: '1E293B', light: 'F5F3FF', accent1: '06B6D4', accent2: 'EC4899', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+        forest: {
+            name: 'Forest',
+            desc: 'Deep green · Gold leaf',
+            tags: ['light', 'premium', '2026'],
+            preview: { bg: '052E16', bar: '166534', accent: 'CA8A04', stripe: '15803D' },
+            colors: { primary: '166534', secondary: '15803D', titleBg: '052E16', background: 'FFFFFF', text: '14532D', light: 'F0FDF4', accent1: 'CA8A04', accent2: '0891B2', muted: 'BBF7D0' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'split'
+        },
+        rose: {
+            name: 'Rose',
+            desc: 'Crimson · Warm white',
+            tags: ['bold', '2026'],
+            preview: { bg: '4C0519', bar: 'E11D48', accent: 'F97316', stripe: 'BE123C' },
+            colors: { primary: 'E11D48', secondary: 'BE123C', titleBg: '4C0519', background: 'FFFFFF', text: '0F172A', light: 'FFF1F2', accent1: 'F97316', accent2: 'FACC15', muted: 'FFE4E6' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        slate: {
+            name: 'Slate',
+            desc: 'Dark slate · Neon teal',
+            tags: ['dark', '2026'],
+            preview: { bg: '020617', bar: '0F172A', accent: '14B8A6', stripe: '818CF8' },
+            colors: { primary: '1E293B', secondary: '334155', titleBg: '020617', background: '0F172A', text: 'E2E8F0', light: '1E293B', accent1: '14B8A6', accent2: '818CF8', muted: '475569' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        ivory: {
+            name: 'Ivory',
+            desc: 'Ultra-minimal · Warm white',
+            tags: ['light', 'minimal', '2026'],
+            preview: { bg: '18181B', bar: '27272A', accent: '71717A', stripe: '52525B' },
+            colors: { primary: '18181B', secondary: '3F3F46', titleBg: '18181B', background: 'FAFAF9', text: '1C1917', light: 'F5F5F4', accent1: '78716C', accent2: '44403C', muted: 'E7E5E4' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        neon: {
+            name: 'Neon',
+            desc: 'Pure black · Neon green',
+            tags: ['dark', 'tech', '2026'],
+            preview: { bg: '000000', bar: '111111', accent: '4ADE80', stripe: '22C55E' },
+            colors: { primary: '16A34A', secondary: '15803D', titleBg: '000000', background: '0A0A0A', text: 'E5E7EB', light: '171717', accent1: '4ADE80', accent2: '22D3EE', muted: '374151' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'bold'
+        },
+    };
+
+    // ── Template picker rendering ─────────────────────────────────────────
+    window.selectedTemplateKey = 'auto';
+
+    function buildTemplateMiniSlide(t) {
+        const p = t.preview || { bg: '0F172A', bar: '7C3AED', accent: '06B6D4', stripe: '7C3AED' };
+        return `<div class="tmpl-slide">
+            <div class="tmpl-slide-bg" style="background:#${p.bg}"></div>
+            <div class="tmpl-top-bar" style="background:#${p.bg}"></div>
+            <div class="tmpl-left-bar" style="background:#${p.bar}"></div>
+            <div class="tmpl-accent-stripe" style="background:#${p.accent}"></div>
+            <div class="tmpl-title-area">
+                <div class="tmpl-line-thick" style="background:rgba(255,255,255,0.82)"></div>
+                <div class="tmpl-line-thin" style="background:rgba(255,255,255,0.45)"></div>
+                <div class="tmpl-line-thin w50" style="background:rgba(255,255,255,0.35)"></div>
+            </div>
+            <div class="tmpl-circle" style="background:#${p.accent}"></div>
+            <div style="position:absolute;bottom:12%;left:8%;width:20%;height:4%;border-radius:1px;background:#${p.stripe};opacity:0.8"></div>
+            <div class="tmpl-selected-ring"></div>
+            <div class="tmpl-check">✓</div>
+        </div>`;
+    }
+
+    function initTemplatePicker() {
+        const grid = document.getElementById('templateGrid');
+        if (!grid) return;
+
+        const TAG_CLASSES = { dark: 'tmpl-tag tmpl-tag-dark', light: 'tmpl-tag tmpl-tag-light', minimal: 'tmpl-tag tmpl-tag-light', bold: 'tmpl-tag tmpl-tag-light', tech: 'tmpl-tag tmpl-tag-light', premium: 'tmpl-tag tmpl-tag-light', smart: 'tmpl-tag tmpl-tag-light', adaptive: 'tmpl-tag tmpl-tag-light', '2026': 'tmpl-tag tmpl-tag-year' };
+
+        grid.innerHTML = Object.entries(TEMPLATES).map(([key, t]) => `
+            <div class="template-card${key === 'auto' ? ' selected' : ''}" id="tmpl-${key}" onclick="selectTemplate('${key}')">
+                ${buildTemplateMiniSlide(t)}
+                <div class="tmpl-info">
+                    <div class="tmpl-name">${t.name}</div>
+                    <div class="tmpl-desc">${t.desc}</div>
+                    <div class="tmpl-tags">${(t.tags||[]).map(tag => `<span class="${TAG_CLASSES[tag] || 'tmpl-tag tmpl-tag-light'}">${tag}</span>`).join('')}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    function selectTemplate(key) {
+        window.selectedTemplateKey = key;
+
+        // Update card states
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        const card = document.getElementById(`tmpl-${key}`);
+        if (card) {
+            card.classList.add('selected');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        // Update label
+        const nameEl = document.getElementById('selectedTemplateName');
+        if (nameEl) nameEl.textContent = key === 'auto' ? '' : `${TEMPLATES[key]?.name || ''} selected`;
+
+        // Live-update slide preview if deck already generated
+        if (window.currentDeckData) {
+            const slides = parseDeckStructure(window.currentDeckData.text);
+            if (slides.length) {
+                const design = key === 'auto'
+                    ? resolveDesign(window.currentDeckData.deckType, '', [])
+                    : TEMPLATES[key];
+                renderSlidePreview(slides, design);
+            }
         }
     }
 
@@ -926,6 +1212,11 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     }
 
     async function generateVisualDesign(deckData) {
+        // Selected template overrides deck-type theme
+        const key = window.selectedTemplateKey;
+        if (key && key !== 'auto' && TEMPLATES[key] && !TEMPLATES[key]._auto) {
+            return TEMPLATES[key];
+        }
         const brandData = window.IntelligenceEngine?.brain?.load();
         const industry = brandData?.industry || '';
         const brandColors = (brandData?.brand?.colors || []).filter(Boolean);
@@ -2181,6 +2472,9 @@ Respond with ONLY the image prompt, no other text.`;
             btn.disabled = false;
         }
     }
+
+    // Boot template picker on DOM ready
+    document.addEventListener('DOMContentLoaded', initTemplatePicker);
 </script>
 </body>
 </html>
