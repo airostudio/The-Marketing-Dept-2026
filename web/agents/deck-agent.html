@@ -853,9 +853,37 @@ Respond with JSON format for easy parsing.`;
     function parseDeckStructure(markdownText) {
         const slides = [];
 
-        // Handle: **Slide N: Title**, ## Slide N: Title, ### Slide N - Title, plain Slide N: Title
-        const slidePattern = /(?:^|\n)(?:#{1,4}\s*)?(?:\*{1,2})?Slide\s+(\d+)\s*[:\-–—]\s*(.+?)(?:\*{1,2})?(?=\n|$)/gim;
-        const matches = [...markdownText.matchAll(slidePattern)];
+        // Strategy 1: explicit "Slide N:" / "Slide N -" headers (most reliable)
+        // Handles: **Slide N: Title**, ## Slide N: Title, ### Slide N – Title, plain Slide N: Title
+        let slidePattern = /(?:^|\n)(?:#{1,4}\s*)?(?:\*{1,2})?Slide\s+(\d+)\s*[:\-–—]\s*(.+?)(?:\*{1,2})?(?=\n|$)/gim;
+        let matches = [...markdownText.matchAll(slidePattern)];
+
+        // Strategy 2: numbered markdown headings — ## 1. Title or ### 2. Title
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)#{1,4}\s+(\d+)[.:]\s+(.+?)(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Strategy 3: bold numbered — **1. Title** or **1: Title**
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)\*{1,2}(\d+)[.:]\s+(.+?)\*{0,2}(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Strategy 4: bare numbered lines at line-start with plausible title length
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)(\d+)[.:]\s+([A-Z].{3,80})(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Deduplicate by slide number (keep first occurrence)
+        const seen = new Set();
+        matches = matches.filter(m => {
+            const n = parseInt(m[1]);
+            if (seen.has(n)) return false;
+            seen.add(n);
+            return true;
+        });
 
         for (let i = 0; i < matches.length; i++) {
             const match = matches[i];
@@ -1412,7 +1440,7 @@ Respond with ONLY the image prompt, no other text.`;
                 text: b,
                 options: {
                     bullet: true,
-                    color: design.colors.text.replace('#', ''),
+                    color: hex(design.colors.text),
                     fontSize: design.typography.body.size,
                     fontFace: design.typography.body.font,
                     paraSpaceAfter: 12
@@ -1422,7 +1450,7 @@ Respond with ONLY the image prompt, no other text.`;
             slide.addText(bulletText, {
                 x: 0.8, y: 1.5, w: 8.5, h: 4.0,
                 fontSize: design.typography.body.size,
-                color: design.colors.text.replace('#', ''),
+                color: hex(design.colors.text),
                 fontFace: design.typography.body.font
             });
         }
@@ -1448,7 +1476,8 @@ Respond with ONLY the image prompt, no other text.`;
             const slides = parseDeckStructure(window.currentDeckData.text);
 
             if (slides.length === 0) {
-                alert('Could not parse deck structure. Please ensure the deck has been generated first.');
+                alert('Could not parse slide structure from the generated deck.\n\nTip: Try regenerating — the AI occasionally uses a format the parser cannot read. If this happens repeatedly, check the browser console for the raw markdown.');
+                console.warn('[Slate] parseDeckStructure returned 0 slides. Raw markdown:\n', window.currentDeckData.text);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 return;
@@ -1472,7 +1501,7 @@ Respond with ONLY the image prompt, no other text.`;
             // Show image prompt instructions
             if (imagePrompts.length > 0) {
                 setTimeout(() => {
-                    alert(`PowerPoint downloaded! 🎉\n\nAI image prompts have been added to speaker notes for slides 1-3. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.\n\nTip: Configure Unsplash API key in settings for automatic stock images.`);
+                    alert(`PowerPoint downloaded!\n\nAI image prompts have been added to the speaker notes for all ${slides.length} slide${slides.length !== 1 ? 's' : ''}. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.`);
                 }, 500);
             }
 
