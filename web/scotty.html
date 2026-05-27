@@ -1618,8 +1618,9 @@
             border: 1px solid rgba(59,130,246,0.25);
             border-radius: 10px;
             padding: 22px 26px 26px;
-            margin: 8px 4px;
+            margin: 8px 4px 16px;
             min-height: 260px;
+            max-height: 2000px;
             box-shadow: 0 0 40px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
             position: relative;
             overflow: hidden;
@@ -1669,8 +1670,6 @@
             margin: 4px 0;
         }
         @keyframes boot-pulse { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        @keyframes boot-fade-out { to { opacity: 0; transform: translateY(-6px); } }
-        .boot-fade-out { animation: boot-fade-out 0.45s ease forwards; }
     </style>
 
 </head>
@@ -2054,12 +2053,11 @@ const ScottyBoot = (() => {
         const { hash, manifest, needsUpdate, isFirstBoot } = _check();
         const agentKeys = Object.keys(manifest.routes || AGENT_META);
 
-        // Build terminal in the messages area
-        messagesEl.innerHTML = '';
+        // Prepend terminal so existing DOM children (welcomeMsg) stay in the tree
         const term = document.createElement('div');
         term.className = 'boot-terminal';
         term.id = 'scottyBoot';
-        messagesEl.appendChild(term);
+        messagesEl.insertBefore(term, messagesEl.firstChild);
 
         const addLine = (cls = '') => {
             const el = document.createElement('div');
@@ -2073,6 +2071,15 @@ const ScottyBoot = (() => {
             hr.className = 'boot-divider';
             term.appendChild(hr);
         };
+        // stamp — renders the full line instantly (used for ASCII art / preformatted rows)
+        const stamp = async (text, cls = '', pause = 55) => {
+            const el = addLine(cls);
+            el.textContent = text;
+            term.scrollTop = term.scrollHeight;
+            await _delay(pause);
+            return el;
+        };
+        // print — typewriter effect (used for status lines)
         const print = async (text, cls = '', speed = 16, pause = 50) => {
             const el = addLine(cls);
             await _typewrite(el, text, speed);
@@ -2080,15 +2087,14 @@ const ScottyBoot = (() => {
             return el;
         };
 
-        // ── Header ────────────────────────────────────────────────────────────
+        // ── Header — stamped whole rows so box-drawing renders correctly ─────
         await _delay(220);
-        await print('  ███████╗ ██████╗ ██████╗ ████████╗████████╗██╗   ██╗', 'boot-ascii', 5, 0);
-        await print('  ██╔════╝██╔════╝██╔═══██╗╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝', 'boot-ascii', 5, 0);
-        await print('  ███████╗██║     ██║   ██║   ██║      ██║    ╚████╔╝ ', 'boot-ascii', 5, 0);
-        await print('  ╚════██║██║     ██║   ██║   ██║      ██║     ╚██╔╝  ', 'boot-ascii', 5, 0);
-        await print('  ███████║╚██████╗╚██████╔╝   ██║      ██║      ██║   ', 'boot-ascii', 5, 0);
-        await print('  ╚══════╝ ╚═════╝ ╚═════╝    ╚═╝      ╚═╝      ╚═╝   ', 'boot-ascii', 5, 0);
-        await _delay(80);
+        await stamp('  ███████╗ ██████╗ ██████╗ ████████╗████████╗██╗   ██╗', 'boot-ascii', 45);
+        await stamp('  ██╔════╝██╔════╝██╔═══██╗╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝', 'boot-ascii', 45);
+        await stamp('  ███████╗██║     ██║   ██║   ██║      ██║    ╚████╔╝ ', 'boot-ascii', 45);
+        await stamp('  ╚════██║██║     ██║   ██║   ██║      ██║     ╚██╔╝  ', 'boot-ascii', 45);
+        await stamp('  ███████║╚██████╗╚██████╔╝   ██║      ██║      ██║   ', 'boot-ascii', 45);
+        await stamp('  ╚══════╝ ╚═════╝ ╚═════╝    ╚═╝      ╚═╝      ╚═╝   ', 'boot-ascii', 60);
         await print('  AUTONOMOUS MARKETING OS  ·  SYSTEM INITIALISATION', 'boot-header', 10, 120);
         addDivider();
 
@@ -2183,12 +2189,9 @@ const ScottyBoot = (() => {
                 `━━  ${agentKeys.length} AGENTS ONLINE  ·  ALL SYSTEMS NOMINAL  ━━`, 12);
         }
 
-        await _delay(900);
+        await _delay(600);
         _commit(hash);
-
-        // Fade out the terminal then restore the welcome message
-        term.classList.add('boot-fade-out');
-        await _delay(460);
+        // Terminal stays in place — dismissed when user sends first message
     }
 
     return { run };
@@ -2284,10 +2287,11 @@ class ScottyChat {
         // Run boot sequence
         await ScottyBoot.run(this.messagesEl);
 
-        // Restore welcome message and re-enable input
-        const bootEl = document.getElementById('scottyBoot');
-        if (bootEl) bootEl.remove();
-        if (welcomeMsg) welcomeMsg.style.display = '';
+        // Reveal welcome message below the terminal and scroll it into view
+        if (welcomeMsg) {
+            welcomeMsg.style.display = '';
+            welcomeMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
 
         this.isWaiting = false;
         this.bootComplete = true;
@@ -2381,9 +2385,20 @@ class ScottyChat {
     }
 
     sendMessage(text) {
-        // Remove prompt chips after first user message
+        // Remove prompt chips and boot terminal on first user message
         const chips = document.getElementById('promptChips');
         if (chips) chips.remove();
+
+        const bootEl = document.getElementById('scottyBoot');
+        if (bootEl) {
+            bootEl.style.transition = 'opacity 0.3s ease, max-height 0.4s ease, padding 0.4s ease, margin 0.4s ease';
+            bootEl.style.overflow = 'hidden';
+            bootEl.style.opacity = '0';
+            bootEl.style.maxHeight = '0';
+            bootEl.style.padding = '0';
+            bootEl.style.margin = '0';
+            setTimeout(() => bootEl.remove(), 420);
+        }
 
         InfoPanel.hideQuestion();
         InfoPanel.logActivity('💬', `You: ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}`);
