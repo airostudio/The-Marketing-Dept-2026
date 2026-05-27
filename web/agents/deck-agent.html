@@ -98,6 +98,43 @@
 
         @media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
         @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } }
+
+        /* ── Slide Preview ─────────────────────────────────────── */
+        .preview-section { margin-top: 24px; }
+        .preview-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .preview-header h3 { font-size:14px; font-weight:600; color:var(--text); }
+        .preview-meta { font-size:12px; color:var(--text2); }
+        .slide-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+        .slide-card {
+            border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);
+            aspect-ratio:16/9; position:relative; cursor:default;
+            transition:transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        .slide-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.35); }
+        .slide-accent-bar { position:absolute; left:0; top:0; width:5px; height:100%; }
+        .slide-num-badge {
+            position:absolute; top:8px; right:8px;
+            background:rgba(0,0,0,0.35); color:#fff;
+            font-size:9px; font-weight:700; padding:2px 6px; border-radius:10px; letter-spacing:0.5px;
+        }
+        .slide-inner { padding:12px 12px 10px 16px; height:100%; display:flex; flex-direction:column; }
+        .slide-card-title {
+            font-size:11px; font-weight:700; line-height:1.3;
+            margin-bottom:6px; overflow:hidden;
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+        }
+        .slide-card-bullets { list-style:none; flex:1; overflow:hidden; }
+        .slide-card-bullets li {
+            font-size:9px; line-height:1.5; opacity:0.75;
+            overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+            padding-left:10px; position:relative;
+        }
+        .slide-card-bullets li::before { content:'•'; position:absolute; left:0; opacity:0.6; }
+        .slide-card-visual {
+            font-size:8px; opacity:0.5; margin-top:4px;
+            font-style:italic; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -214,6 +251,7 @@
         <div id="outputArea">
             <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc. Then download as editable PowerPoint with AI-generated visual design.</div>
         </div>
+        <div id="slidePreviewSection" style="display:none" class="preview-section"></div>
     </div>
 
 </div>
@@ -444,6 +482,9 @@
         const audience = document.getElementById('audience').value;
         const dataPoints = document.getElementById('dataPoints').value.trim();
 
+        const prevSection = document.getElementById('slidePreviewSection');
+        if (prevSection) prevSection.style.display = 'none';
+
         if (!keyMessage && !company) {
             alert('Please enter a key message or company name.');
             return;
@@ -555,6 +596,8 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                 // Phase 3: Render final proofread content
                 outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(finalText) : finalText;
                 window.currentDeckData = { text: finalText, company: company || 'Presentation', deckType, audience };
+                const previewSlides = parseDeckStructure(finalText);
+                renderSlidePreview(previewSlides, generateFallbackDesign(deckType, '', []));
                 document.getElementById('downloadBtn').style.display = 'block';
                 if (window.AgentHistory) {
                     window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: finalText, topic: company || keyMessage || deckType });
@@ -572,6 +615,8 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                         window.currentDeckData = { text, company: company || 'Presentation', deckType, audience };
+                        const previewSlides = parseDeckStructure(text);
+                        renderSlidePreview(previewSlides, generateFallbackDesign(deckType, '', []));
                         document.getElementById('downloadBtn').style.display = 'block';
                         if (window.AgentHistory) {
                             window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: text, topic: company || keyMessage || deckType });
@@ -591,6 +636,44 @@ Make all content specific to ${company || 'this company'} — no generic filler.
             document.getElementById('btnIcon').textContent = '📊';
             document.getElementById('btnText').textContent = 'Build Deck Structure';
         }
+    }
+
+    // PptxGenJS expects 6-char hex without '#'
+    const hex = c => ((c || '').replace(/^#/, '') || 'FFFFFF').toUpperCase().slice(0, 6);
+
+    function renderSlidePreview(slides, design) {
+        const section = document.getElementById('slidePreviewSection');
+        if (!section || !slides.length) return;
+        const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const bg = design.colors.background || '#ffffff';
+        const primary = design.colors.primary || '#6366f1';
+        const textCol = design.colors.text || '#1e293b';
+        const isLight = (() => {
+            const c = bg.replace('#','');
+            const r=parseInt(c.substring(0,2),16),g=parseInt(c.substring(2,4),16),b=parseInt(c.substring(4,6),16);
+            return (r*299+g*587+b*114)/1000 > 128;
+        })();
+
+        section.innerHTML = `
+            <div class="preview-header">
+                <h3>🎨 Slide Preview <span style="font-weight:400;color:var(--text2);font-size:12px;">(${slides.length} slides)</span></h3>
+                <span class="preview-meta">Visual approximation of downloaded deck</span>
+            </div>
+            <div class="slide-grid">
+            ${slides.map((slide, i) => {
+                const bullets = (slide.bullets||[]).slice(0,4).map(b => `<li>${esc(b)}</li>`).join('');
+                return `<div class="slide-card" style="background:${bg}">
+                    <div class="slide-accent-bar" style="background:${primary}"></div>
+                    <div class="slide-num-badge">${i+1}</div>
+                    <div class="slide-inner">
+                        <div class="slide-card-title" style="color:${primary}">${esc(slide.title)}</div>
+                        <ul class="slide-card-bullets" style="color:${textCol}">${bullets}</ul>
+                        ${slide.visualSuggestion ? `<div class="slide-card-visual" style="color:${textCol}">📊 ${esc(slide.visualSuggestion.slice(0,60))}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('')}
+            </div>`;
+        section.style.display = 'block';
     }
 
     function copyOutput() {
@@ -830,12 +913,12 @@ Respond with JSON format for easy parsing.`;
         // Define master slide with design
         pptx.defineSlideMaster({
             title: 'MASTER_SLIDE',
-            background: { color: design.colors.background },
+            background: { color: hex(design.colors.background) },
             objects: [
                 {
                     rect: {
                         x: 0, y: 0, w: '100%', h: '100%',
-                        fill: { color: design.colors.background }
+                        fill: { color: hex(design.colors.background) }
                     }
                 }
             ]
@@ -843,7 +926,7 @@ Respond with JSON format for easy parsing.`;
 
         // Title Slide
         const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        titleSlide.background = { fill: design.colors.primary };
+        titleSlide.background = { fill: hex(design.colors.primary) };
 
         titleSlide.addText(deckData.company, {
             x: 0.5, y: 2.0, w: 9.0, h: 1.5,
@@ -871,7 +954,7 @@ Respond with JSON format for easy parsing.`;
                 x: 0.5, y: 0.5, w: 9.0, h: 0.8,
                 fontSize: design.typography.heading.size,
                 bold: true,
-                color: design.colors.primary.replace('#', ''),
+                color: hex(design.colors.primary),
                 fontFace: design.typography.heading.font
             });
 
@@ -881,7 +964,7 @@ Respond with JSON format for easy parsing.`;
                     text: b,
                     options: {
                         bullet: true,
-                        color: design.colors.text.replace('#', ''),
+                        color: hex(design.colors.text),
                         fontSize: design.typography.body.size,
                         fontFace: design.typography.body.font,
                         paraSpaceAfter: 12
@@ -891,7 +974,7 @@ Respond with JSON format for easy parsing.`;
                 contentSlide.addText(bulletText, {
                     x: 0.8, y: 1.5, w: 8.5, h: 4.0,
                     fontSize: design.typography.body.size,
-                    color: design.colors.text.replace('#', ''),
+                    color: hex(design.colors.text),
                     fontFace: design.typography.body.font
                 });
             }
@@ -905,14 +988,14 @@ Respond with JSON format for easy parsing.`;
             contentSlide.addText(`${idx + 1}`, {
                 x: 9.2, y: 7.0, w: 0.5, h: 0.3,
                 fontSize: 12,
-                color: design.colors.text.replace('#', ''),
+                color: hex(design.colors.text),
                 align: 'right'
             });
         });
 
         // Thank You / Closing Slide
         const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        closingSlide.background = { fill: design.colors.primary };
+        closingSlide.background = { fill: hex(design.colors.primary) };
 
         closingSlide.addText('Thank You', {
             x: 0.5, y: 2.5, w: 9.0, h: 1.5,
@@ -990,10 +1073,27 @@ Respond with ONLY the image prompt, no other text.`;
         return imagePrompts;
     }
 
-    // Unsplash image fetching would require a /api/unsplash Vercel proxy (key in env var).
-    // Not currently wired into the deck flow.
-    async function fetchUnsplashImage(query, orientation = 'landscape') {
-        return null;
+    async function fetchUnsplashImage(query) {
+        try {
+            const r = await fetch('/api/unsplash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, count: 1 })
+            });
+            if (!r.ok) return null;
+            const d = await r.json();
+            if (!d.photos || !d.photos.length) return null;
+            // Return data URL by fetching the image through the browser
+            const imgResp = await fetch(d.photos[0].url);
+            if (!imgResp.ok) return null;
+            const blob = await imgResp.blob();
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve({ dataUrl: reader.result, credit: d.photos[0].credit });
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+            });
+        } catch { return null; }
     }
 
     // Chart.js Image Generation
@@ -1140,12 +1240,12 @@ Respond with ONLY the image prompt, no other text.`;
         // Define master slide with design
         pptx.defineSlideMaster({
             title: 'MASTER_SLIDE',
-            background: { color: design.colors.background },
+            background: { color: hex(design.colors.background) },
             objects: [
                 {
                     rect: {
                         x: 0, y: 0, w: '100%', h: '100%',
-                        fill: { color: design.colors.background }
+                        fill: { color: hex(design.colors.background) }
                     }
                 }
             ]
@@ -1153,7 +1253,7 @@ Respond with ONLY the image prompt, no other text.`;
 
         // Title Slide
         const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        titleSlide.background = { fill: design.colors.primary };
+        titleSlide.background = { fill: hex(design.colors.primary) };
 
         titleSlide.addText(deckData.company, {
             x: 0.5, y: 2.0, w: 9.0, h: 1.5,
@@ -1188,11 +1288,22 @@ Respond with ONLY the image prompt, no other text.`;
             const icon = suggestIconsForSlide(slide);
             const iconSymbol = icon !== 'fa-circle' ? '●' : ''; // Simplified for PPTX
 
+            contentSlide.addShape(pptx.ShapeType.rect, {
+                x: 0, y: 0, w: 0.06, h: 7.5,
+                fill: { color: hex(design.colors.primary) },
+                line: { color: hex(design.colors.primary) }
+            });
+            contentSlide.addShape(pptx.ShapeType.rect, {
+                x: 0.06, y: 7.35, w: 9.94, h: 0.04,
+                fill: { color: hex(design.colors.accent1 || design.colors.secondary || design.colors.primary) },
+                line: { color: hex(design.colors.accent1 || design.colors.secondary || design.colors.primary) }
+            });
+
             contentSlide.addText(`${iconSymbol} ${slide.title}`, {
-                x: 0.5, y: 0.5, w: 9.0, h: 0.8,
+                x: 0.7, y: 0.5, w: 9.0, h: 0.8,
                 fontSize: design.typography.heading.size,
                 bold: true,
-                color: design.colors.primary.replace('#', ''),
+                color: hex(design.colors.primary),
                 fontFace: design.typography.heading.font
             });
 
@@ -1214,7 +1325,7 @@ Respond with ONLY the image prompt, no other text.`;
                             text: b,
                             options: {
                                 bullet: true,
-                                color: design.colors.text.replace('#', ''),
+                                color: hex(design.colors.text),
                                 fontSize: 16,
                                 fontFace: design.typography.body.font
                             }
@@ -1223,7 +1334,7 @@ Respond with ONLY the image prompt, no other text.`;
                         contentSlide.addText(bulletText, {
                             x: 0.5, y: 1.5, w: 4.5, h: 4.5,
                             fontSize: 16,
-                            color: design.colors.text.replace('#', ''),
+                            color: hex(design.colors.text),
                             fontFace: design.typography.body.font,
                             valign: 'top'
                         });
@@ -1253,18 +1364,29 @@ Respond with ONLY the image prompt, no other text.`;
             contentSlide.addText(`${idx + 1}`, {
                 x: 9.2, y: 7.0, w: 0.5, h: 0.3,
                 fontSize: 12,
-                color: design.colors.text.replace('#', ''),
+                color: hex(design.colors.text),
                 align: 'right'
             });
         }
 
-        // Thank You / Closing Slide
-        const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        closingSlide.background = { fill: design.colors.primary };
+        // Closing Slide — message tailored to deck type
+        const CLOSING_MESSAGES = {
+            'Investor Pitch': "Let's Build the Future Together",
+            'Sales Deck': 'Ready to Get Started?',
+            'Marketing Strategy': "Let's Execute",
+            'Quarterly Review': 'Questions & Discussion',
+            'Product Launch': 'Coming Soon',
+            'Partnership Proposal': "Let's Talk",
+            'Conference Talk': "Thank You — Let's Connect",
+        };
+        const closingMsg = CLOSING_MESSAGES[deckData.deckType] || 'Thank You';
 
-        closingSlide.addText('Thank You', {
+        const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+        closingSlide.background = { fill: hex(design.colors.primary) };
+
+        closingSlide.addText(closingMsg, {
             x: 0.5, y: 2.5, w: 9.0, h: 1.5,
-            fontSize: 48,
+            fontSize: 44,
             bold: true,
             color: 'FFFFFF',
             align: 'center',
@@ -1334,7 +1456,7 @@ Respond with ONLY the image prompt, no other text.`;
 
             // Step 3: Generate AI image prompts (for DALL-E/Midjourney)
             btn.innerHTML = '<span class="spinner"></span> Creating Image Prompts...';
-            const imagePrompts = await generateImagePrompts(slides.slice(0, 3), window.currentDeckData.deckType); // First 3 slides only for performance
+            const imagePrompts = await generateImagePrompts(slides, window.currentDeckData.deckType);
 
             // Step 4: Create PowerPoint with advanced visuals
             btn.innerHTML = '<span class="spinner"></span> Building PowerPoint...';
