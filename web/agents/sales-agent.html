@@ -533,6 +533,7 @@ const Store = {
         renderPipe();
     },
     upd(id, patch) { const d = this.load().map(p => p.id == id ? {...p, ...patch} : p); this.save(d); },
+    updByName(name, city, patch) { const d = this.load().map(p => (p.name === name && p.city === city) ? {...p, ...patch} : p); this.save(d); },
     del(id) { this.save(this.load().filter(p => p.id != id)); renderPipe(); },
     clear() { this.save([]); renderPipe(); },
 };
@@ -947,11 +948,12 @@ async function enrichProspect(idx) {
 
     updates.enriched = true;
 
-    // Merge into session array and update pipeline store if already added
+    // Merge into session array; write back to pipeline store if prospect was already added
     discoveredProspects[idx] = {...p, ...updates};
-    Store.upd(p.id, updates); // no-op if not in pipeline yet
+    Store.updByName(p.name, p.city, updates);
 
     renderProspects();
+    renderPipe(); // refresh pipeline immediately so enriched data appears without tab switch
 
     const emailCount = new Set([
         ...(updates.emails||[]).map(e => typeof e === 'object' ? e.email : e),
