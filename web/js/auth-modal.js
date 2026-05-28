@@ -471,10 +471,20 @@
 
   /* ─── Boot ────────────────────────────────────────────────────────────── */
 
+  function authLogout() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('seo_agent_user');
+    localStorage.removeItem('seo_agent_session');
+  }
+
   // Wire up the already-exposed AuthModal
   _open  = openModal;
   _close = closeModal;
   window.AuthModal.isLoggedIn = isLoggedIn;
+  window.AuthModal.logout     = authLogout;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); });
