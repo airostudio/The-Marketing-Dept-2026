@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connecting — The Marketing Dept</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #050510;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      text-align: center;
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    .logo-ring {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(168,85,247,.25) 0%, rgba(6,182,212,.15) 100%);
+      border: 1px solid rgba(168,85,247,.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .logo-ring svg { color: #c084fc; }
+
+    /* Spinning orbit ring */
+    .orbit {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: #c084fc;
+      border-right-color: #06b6d4;
+      animation: spin 1.2s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+
+    p { font-size: .875rem; color: #94a3b8; line-height: 1.6; }
+
+    .dots span {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #7c3aed;
+      margin: 0 2px;
+      animation: dot 1.2s ease-in-out infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .2s; background: #8b5cf6; }
+    .dots span:nth-child(3) { animation-delay: .4s; background: #06b6d4; }
+    @keyframes dot {
+      0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+      40%           { transform: scale(1);  opacity: 1;   }
+    }
+
+    .error-box {
+      display: none;
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      color: #fca5a5;
+      font-size: .8rem;
+    }
+
+    .retry-link {
+      display: inline-block;
+      margin-top: 12px;
+      color: #c084fc;
+      text-decoration: none;
+      font-size: .8rem;
+    }
+    .retry-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-ring">
+      <div class="orbit"></div>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+
+    <h1 id="title">Connecting your account</h1>
+    <p id="subtitle">Signing you in to The Marketing Dept via your Webese account&hellip;</p>
+
+    <div class="dots" style="margin-top:16px">
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="error-box" id="errorBox">
+      <p id="errorMsg">Something went wrong. Please try again.</p>
+      <a class="retry-link" href="javascript:history.back()">← Go back to Webese</a>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const params   = new URLSearchParams(window.location.search)
+      const token    = params.get('token')
+      const errorParam = params.get('error')
+
+      function showError(msg) {
+        document.getElementById('title').textContent = 'Connection failed'
+        document.getElementById('subtitle').textContent = ''
+        document.querySelector('.dots').style.display = 'none'
+        const box = document.getElementById('errorBox')
+        document.getElementById('errorMsg').textContent = msg || 'Authentication failed. Please try again.'
+        box.style.display = 'block'
+      }
+
+      if (errorParam) {
+        const messages = {
+          missing_token:  'No authentication token was provided.',
+          invalid_token:  'Your sign-in link has expired. Please go back and try again.',
+          misconfigured:  'The Marketing Dept is not yet configured. Please contact support.',
+          supabase_error: 'There was a problem setting up your account. Please try again.',
+          no_link:        'Could not generate a sign-in link. Please try again.',
+          network_error:  'Network error. Please check your connection and try again.',
+        }
+        showError(messages[errorParam] || 'An unexpected error occurred.')
+        return
+      }
+
+      if (!token) {
+        showError('No authentication token provided. Please launch from Webese.')
+        return
+      }
+
+      // Hand off to the server-side SSO handler which validates the JWT,
+      // generates a Supabase magic link, and redirects here.
+      // (The server does a 302 directly; this page is shown while that
+      // redirect chain resolves — or as an error fallback.)
+      window.location.href = '/api/sso?token=' + encodeURIComponent(token)
+    })()
+  </script>
+</body>
+</html>
