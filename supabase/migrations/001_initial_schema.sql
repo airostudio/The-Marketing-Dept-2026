@@ -1,35 +1,45 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Aduma Marketing Platform — Supabase Schema
--- Run this in the Supabase SQL Editor to create all required tables.
--- RLS policies ensure each user can only access their own rows.
+--
+-- Safe to run on an existing Supabase project:
+--   • Uses CREATE TABLE IF NOT EXISTS everywhere
+--   • Uses ALTER TABLE ADD COLUMN IF NOT EXISTS for existing tables
+--   • Wraps every policy in a DO block — skips if already exists,
+--     and only creates the policy when the required column is present
+--   • Never drops or truncates anything
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Enable UUID extension (usually already on)
 create extension if not exists "uuid-ossp";
 
--- ─── profiles ────────────────────────────────────────────────────────────────
--- Table already exists — only add columns that may be missing.
--- Your existing rows and data are untouched.
-alter table if exists profiles add column if not exists firstname   text;
-alter table if exists profiles add column if not exists lastname    text;
-alter table if exists profiles add column if not exists plan        text default 'free';
-alter table if exists profiles add column if not exists created_at  timestamptz default now();
-alter table if exists profiles add column if not exists updated_at  timestamptz default now();
+-- ─── helper: create a policy only when safe ───────────────────────────────────
+-- Usage: call _safe_policy('tablename', 'policy name', 'policy SQL');
+create or replace function _safe_policy(tbl text, pol text, sql text)
+returns void language plpgsql as $$
+begin
+  if not exists (
+    select 1 from pg_policies where tablename = tbl and policyname = pol
+  ) then
+    execute sql;
+  end if;
+exception when others then
+  raise notice 'Skipped policy "%" on %: %', pol, tbl, sqlerrm;
+end;
+$$;
 
--- Enable RLS if not already on (safe to run repeatedly)
+-- ════════════════════════════════════════════════════════════════════════════
+-- PROFILES  (table already exists — patch only)
+-- ════════════════════════════════════════════════════════════════════════════
+alter table if exists profiles add column if not exists firstname  text;
+alter table if exists profiles add column if not exists lastname   text;
+alter table if exists profiles add column if not exists plan       text default 'free';
+alter table if exists profiles add column if not exists updated_at timestamptz default now();
+
 alter table if exists profiles enable row level security;
 
--- Add policy only if it doesn't exist
-do $$ begin
-  if not exists (
-    select 1 from pg_policies
-    where tablename = 'profiles' and policyname = 'Users manage own profile'
-  ) then
-    execute 'create policy "Users manage own profile" on profiles for all using (auth.uid() = id)';
-  end if;
-end $$;
+select _safe_policy('profiles', 'Users manage own profile',
+  'create policy "Users manage own profile" on profiles for all using (auth.uid() = id)');
 
--- Auto-create/update profile on signup — only writes columns that exist
+-- Trigger: auto-create profile row on signup
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
@@ -48,43 +58,108 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- ─── projects ─────────────────────────────────────────────────────────────────
+-- ════════════════════════════════════════════════════════════════════════════
+-- PROJECTS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists projects (
-  id            uuid primary key default uuid_generate_v4(),
-  user_id       uuid not null references auth.users on delete cascade,
-  name          text not null,
-  website_url   text,
-  keywords      jsonb default '[]',
-  competitors   jsonb default '[]',
-  settings      jsonb default '{}',
-  created_at    timestamptz default now(),
-  updated_at    timestamptz default now()
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references auth.users on delete cascade,
+  name        text,
+  website_url text,
+  keywords    jsonb default '[]',
+  competitors jsonb default '[]',
+  settings    jsonb default '{}',
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
 );
-alter table projects enable row level security;
-create policy "Users manage own projects"
-  on projects for all using (auth.uid() = user_id);
+-- Patch existing table: add user_id if the column is missing
+alter table if exists projects add column if not exists user_id     uuid references auth.users on delete cascade;
+alter table if exists projects add column if not exists website_url text;
+alter table if exists projects add column if not exists keywords    jsonb default '[]';
+alter table if exists projects add column if not exists competitors jsonb default '[]';
+alter table if exists projects add column if not exists settings    jsonb default '{}';
+alter table if exists projects add column if not exists updated_at  timestamptz default now();
+
+alter table if exists projects enable row level security;
 create index if not exists projects_user_id_idx on projects(user_id);
 
--- ─── audits ───────────────────────────────────────────────────────────────────
-create table if not exists audits (
-  id          uuid primary key default uuid_generate_v4(),
-  project_id  uuid not null references projects on delete cascade,
-  score       int,
-  status      text default 'pending',
-  data        jsonb default '{}',
-  created_at  timestamptz default now()
-);
-alter table audits enable row level security;
-create policy "Users manage own audits"
-  on audits for all using (
-    exists (select 1 from projects where projects.id = audits.project_id and projects.user_id = auth.uid())
-  );
-create index if not exists audits_project_id_idx on audits(project_id);
+select _safe_policy('projects', 'Users manage own projects',
+  'create policy "Users manage own projects" on projects for all using (auth.uid() = user_id)');
 
--- ─── audit_issues ─────────────────────────────────────────────────────────────
+-- ════════════════════════════════════════════════════════════════════════════
+-- KEYWORDS  (table already exists — patch only)
+-- Add user_id directly so the policy doesn't depend on the projects join
+-- ════════════════════════════════════════════════════════════════════════════
+create table if not exists keywords (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  project_id uuid references projects on delete cascade,
+  keyword    text,
+  volume     int,
+  difficulty int,
+  position   int,
+  data       jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table if exists keywords add column if not exists user_id    uuid references auth.users on delete cascade;
+alter table if exists keywords add column if not exists project_id uuid references projects on delete cascade;
+alter table if exists keywords add column if not exists volume     int;
+alter table if exists keywords add column if not exists difficulty int;
+alter table if exists keywords add column if not exists position   int;
+alter table if exists keywords add column if not exists data       jsonb default '{}';
+alter table if exists keywords add column if not exists updated_at timestamptz default now();
+
+alter table if exists keywords enable row level security;
+create index if not exists keywords_user_id_idx    on keywords(user_id);
+create index if not exists keywords_project_id_idx on keywords(project_id);
+
+select _safe_policy('keywords', 'Users manage own keywords',
+  'create policy "Users manage own keywords" on keywords for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- KEYWORD RANKINGS
+-- ════════════════════════════════════════════════════════════════════════════
+create table if not exists keyword_rankings (
+  id          uuid primary key default uuid_generate_v4(),
+  keyword_id  uuid references keywords on delete cascade,
+  user_id     uuid references auth.users on delete cascade,
+  position    int,
+  url         text,
+  recorded_at timestamptz default now()
+);
+alter table if exists keyword_rankings add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists keyword_rankings enable row level security;
+
+select _safe_policy('keyword_rankings', 'Users manage own keyword rankings',
+  'create policy "Users manage own keyword rankings" on keyword_rankings for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- AUDITS
+-- ════════════════════════════════════════════════════════════════════════════
+create table if not exists audits (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  project_id uuid references projects on delete cascade,
+  score      int,
+  status     text default 'pending',
+  data       jsonb default '{}',
+  created_at timestamptz default now()
+);
+alter table if exists audits add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists audits enable row level security;
+create index if not exists audits_user_id_idx on audits(user_id);
+
+select _safe_policy('audits', 'Users manage own audits',
+  'create policy "Users manage own audits" on audits for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- AUDIT ISSUES
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists audit_issues (
   id          uuid primary key default uuid_generate_v4(),
-  audit_id    uuid not null references audits on delete cascade,
+  audit_id    uuid references audits on delete cascade,
+  user_id     uuid references auth.users on delete cascade,
   type        text,
   severity    text,
   title       text,
@@ -93,251 +168,252 @@ create table if not exists audit_issues (
   data        jsonb default '{}',
   created_at  timestamptz default now()
 );
-alter table audit_issues enable row level security;
-create policy "Users manage own audit issues"
-  on audit_issues for all using (
-    exists (
-      select 1 from audits
-      join projects on projects.id = audits.project_id
-      where audits.id = audit_issues.audit_id and projects.user_id = auth.uid()
-    )
-  );
+alter table if exists audit_issues add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists audit_issues enable row level security;
 
--- ─── keywords ─────────────────────────────────────────────────────────────────
--- Table already exists (empty) — add any missing columns and wire up RLS.
-create table if not exists keywords (
-  id          uuid primary key default uuid_generate_v4(),
-  project_id  uuid references projects on delete cascade,
-  keyword     text not null,
-  volume      int,
-  difficulty  int,
-  position    int,
-  data        jsonb default '{}',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
-);
-alter table if exists keywords add column if not exists project_id  uuid references projects on delete cascade;
-alter table if exists keywords add column if not exists volume      int;
-alter table if exists keywords add column if not exists difficulty  int;
-alter table if exists keywords add column if not exists position    int;
-alter table if exists keywords add column if not exists data        jsonb default '{}';
-alter table if exists keywords add column if not exists created_at  timestamptz default now();
-alter table if exists keywords add column if not exists updated_at  timestamptz default now();
-alter table if exists keywords enable row level security;
-do $$ begin
-  if not exists (
-    select 1 from pg_policies
-    where tablename = 'keywords' and policyname = 'Users manage own keywords'
-  ) then
-    execute $p$create policy "Users manage own keywords" on keywords for all using (
-      exists (select 1 from projects where projects.id = keywords.project_id and projects.user_id = auth.uid())
-    )$p$;
-  end if;
-end $$;
-create index if not exists keywords_project_id_idx on keywords(project_id);
+select _safe_policy('audit_issues', 'Users manage own audit issues',
+  'create policy "Users manage own audit issues" on audit_issues for all using (auth.uid() = user_id)');
 
--- ─── keyword_rankings ─────────────────────────────────────────────────────────
-create table if not exists keyword_rankings (
-  id           uuid primary key default uuid_generate_v4(),
-  keyword_id   uuid not null references keywords on delete cascade,
-  position     int,
-  url          text,
-  recorded_at  timestamptz default now()
-);
-alter table keyword_rankings enable row level security;
-create policy "Users manage own keyword rankings"
-  on keyword_rankings for all using (
-    exists (
-      select 1 from keywords
-      join projects on projects.id = keywords.project_id
-      where keywords.id = keyword_rankings.keyword_id and projects.user_id = auth.uid()
-    )
-  );
-
--- ─── competitors ──────────────────────────────────────────────────────────────
+-- ════════════════════════════════════════════════════════════════════════════
+-- COMPETITORS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists competitors (
-  id          uuid primary key default uuid_generate_v4(),
-  project_id  uuid not null references projects on delete cascade,
-  domain      text not null,
-  name        text,
-  data        jsonb default '{}',
-  created_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  project_id uuid references projects on delete cascade,
+  domain     text,
+  name       text,
+  data       jsonb default '{}',
+  created_at timestamptz default now()
 );
-alter table competitors enable row level security;
-create policy "Users manage own competitors"
-  on competitors for all using (
-    exists (select 1 from projects where projects.id = competitors.project_id and projects.user_id = auth.uid())
-  );
+alter table if exists competitors add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists competitors enable row level security;
 
--- ─── backlinks ────────────────────────────────────────────────────────────────
+select _safe_policy('competitors', 'Users manage own competitors',
+  'create policy "Users manage own competitors" on competitors for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- BACKLINKS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists backlinks (
-  id           uuid primary key default uuid_generate_v4(),
-  project_id   uuid not null references projects on delete cascade,
-  source_url   text not null,
-  target_url   text not null,
-  anchor_text  text,
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid references auth.users on delete cascade,
+  project_id    uuid references projects on delete cascade,
+  source_url    text,
+  target_url    text,
+  anchor_text   text,
   domain_rating int,
-  discovered_at timestamptz default now(),
-  unique (source_url, target_url)
+  discovered_at timestamptz default now()
 );
-alter table backlinks enable row level security;
-create policy "Users manage own backlinks"
-  on backlinks for all using (
-    exists (select 1 from projects where projects.id = backlinks.project_id and projects.user_id = auth.uid())
-  );
+alter table if exists backlinks add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists backlinks enable row level security;
 
--- ─── alerts ───────────────────────────────────────────────────────────────────
+select _safe_policy('backlinks', 'Users manage own backlinks',
+  'create policy "Users manage own backlinks" on backlinks for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ALERTS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists alerts (
-  id          uuid primary key default uuid_generate_v4(),
-  project_id  uuid not null references projects on delete cascade,
-  type        text,
-  severity    text default 'info',
-  title       text,
-  message     text,
-  read        boolean default false,
-  read_at     timestamptz,
-  created_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  project_id uuid references projects on delete cascade,
+  type       text,
+  severity   text default 'info',
+  title      text,
+  message    text,
+  read       boolean default false,
+  read_at    timestamptz,
+  created_at timestamptz default now()
 );
-alter table alerts enable row level security;
-create policy "Users manage own alerts"
-  on alerts for all using (
-    exists (select 1 from projects where projects.id = alerts.project_id and projects.user_id = auth.uid())
-  );
+alter table if exists alerts add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists alerts enable row level security;
 
--- ─── user_settings ────────────────────────────────────────────────────────────
+select _safe_policy('alerts', 'Users manage own alerts',
+  'create policy "Users manage own alerts" on alerts for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- USER SETTINGS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists user_settings (
-  user_id     uuid primary key references auth.users on delete cascade,
-  settings    jsonb default '{}',
-  updated_at  timestamptz default now()
+  user_id    uuid primary key references auth.users on delete cascade,
+  settings   jsonb default '{}',
+  updated_at timestamptz default now()
 );
-alter table user_settings enable row level security;
-create policy "Users manage own settings"
-  on user_settings for all using (auth.uid() = user_id);
+alter table if exists user_settings enable row level security;
 
--- ─── customers ────────────────────────────────────────────────────────────────
+select _safe_policy('user_settings', 'Users manage own settings',
+  'create policy "Users manage own settings" on user_settings for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- CUSTOMERS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists customers (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  name        text,
-  email       text,
-  company     text,
-  status      text default 'active',
-  data        jsonb default '{}',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  name       text,
+  email      text,
+  company    text,
+  status     text default 'active',
+  data       jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
-alter table customers enable row level security;
-create policy "Users manage own customers"
-  on customers for all using (auth.uid() = user_id);
+alter table if exists customers add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists customers enable row level security;
 create index if not exists customers_user_id_idx on customers(user_id);
 
--- ─── health_scores ────────────────────────────────────────────────────────────
+select _safe_policy('customers', 'Users manage own customers',
+  'create policy "Users manage own customers" on customers for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- HEALTH SCORES
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists health_scores (
-  id           uuid primary key default uuid_generate_v4(),
-  customer_id  uuid not null references customers on delete cascade,
-  score        int,
-  data         jsonb default '{}',
-  created_at   timestamptz default now()
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references auth.users on delete cascade,
+  customer_id uuid references customers on delete cascade,
+  score       int,
+  data        jsonb default '{}',
+  created_at  timestamptz default now()
 );
-alter table health_scores enable row level security;
-create policy "Users manage own health scores"
-  on health_scores for all using (
-    exists (select 1 from customers where customers.id = health_scores.customer_id and customers.user_id = auth.uid())
-  );
+alter table if exists health_scores add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists health_scores enable row level security;
 
--- ─── campaigns ────────────────────────────────────────────────────────────────
+select _safe_policy('health_scores', 'Users manage own health scores',
+  'create policy "Users manage own health scores" on health_scores for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- CAMPAIGNS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists campaigns (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  name        text,
-  status      text default 'draft',
-  type        text,
-  data        jsonb default '{}',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  name       text,
+  status     text default 'draft',
+  type       text,
+  data       jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
-alter table campaigns enable row level security;
-create policy "Users manage own campaigns"
-  on campaigns for all using (auth.uid() = user_id);
+alter table if exists campaigns add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists campaigns enable row level security;
 
--- ─── lifecycle_events ─────────────────────────────────────────────────────────
+select _safe_policy('campaigns', 'Users manage own campaigns',
+  'create policy "Users manage own campaigns" on campaigns for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE EVENTS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists lifecycle_events (
-  id           uuid primary key default uuid_generate_v4(),
-  customer_id  uuid not null references customers on delete cascade,
-  from_stage   text,
-  to_stage     text,
-  metadata     jsonb default '{}',
-  created_at   timestamptz default now()
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references auth.users on delete cascade,
+  customer_id uuid references customers on delete cascade,
+  from_stage  text,
+  to_stage    text,
+  metadata    jsonb default '{}',
+  created_at  timestamptz default now()
 );
-alter table lifecycle_events enable row level security;
-create policy "Users manage own lifecycle events"
-  on lifecycle_events for all using (
-    exists (select 1 from customers where customers.id = lifecycle_events.customer_id and customers.user_id = auth.uid())
-  );
+alter table if exists lifecycle_events add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists lifecycle_events enable row level security;
 
--- ─── deals ────────────────────────────────────────────────────────────────────
+select _safe_policy('lifecycle_events', 'Users manage own lifecycle events',
+  'create policy "Users manage own lifecycle events" on lifecycle_events for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- DEALS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists deals (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  name        text,
-  amount      numeric,
-  stage       text default 'prospecting',
-  data        jsonb default '{}',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  name       text,
+  amount     numeric,
+  stage      text default 'prospecting',
+  data       jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
-alter table deals enable row level security;
-create policy "Users manage own deals"
-  on deals for all using (auth.uid() = user_id);
+alter table if exists deals add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists deals enable row level security;
 
--- ─── icp_profiles ─────────────────────────────────────────────────────────────
+select _safe_policy('deals', 'Users manage own deals',
+  'create policy "Users manage own deals" on deals for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ICP PROFILES
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists icp_profiles (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  name        text,
-  data        jsonb default '{}',
-  created_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  name       text,
+  data       jsonb default '{}',
+  created_at timestamptz default now()
 );
-alter table icp_profiles enable row level security;
-create policy "Users manage own ICP profiles"
-  on icp_profiles for all using (auth.uid() = user_id);
+alter table if exists icp_profiles add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists icp_profiles enable row level security;
 
--- ─── integrations ─────────────────────────────────────────────────────────────
+select _safe_policy('icp_profiles', 'Users manage own ICP profiles',
+  'create policy "Users manage own ICP profiles" on icp_profiles for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- INTEGRATIONS
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists integrations (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  provider    text not null,
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  provider   text,
   credentials jsonb default '{}',
-  updated_at  timestamptz default now(),
-  unique (user_id, provider)
+  updated_at timestamptz default now()
 );
-alter table integrations enable row level security;
-create policy "Users manage own integrations"
-  on integrations for all using (auth.uid() = user_id);
+alter table if exists integrations add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists integrations enable row level security;
 
--- ─── brand_data ───────────────────────────────────────────────────────────────
--- Persists Business Brain / Intelligence Engine data server-side
+-- Unique constraint on user_id + provider (safe to add if missing)
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'integrations_user_id_provider_key'
+  ) then
+    alter table integrations add constraint integrations_user_id_provider_key unique (user_id, provider);
+  end if;
+exception when others then
+  raise notice 'integrations unique constraint already exists, skipping';
+end $$;
+
+select _safe_policy('integrations', 'Users manage own integrations',
+  'create policy "Users manage own integrations" on integrations for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- BRAND DATA  (Business Brain / Intelligence Engine)
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists brand_data (
-  user_id     uuid primary key references auth.users on delete cascade,
-  data        jsonb not null default '{}',
-  updated_at  timestamptz default now()
+  user_id    uuid primary key references auth.users on delete cascade,
+  data       jsonb not null default '{}',
+  updated_at timestamptz default now()
 );
-alter table brand_data enable row level security;
-create policy "Users manage own brand data"
-  on brand_data for all using (auth.uid() = user_id);
+alter table if exists brand_data enable row level security;
 
--- ─── agent_history ────────────────────────────────────────────────────────────
--- Persists AI agent output history across devices
+select _safe_policy('brand_data', 'Users manage own brand data',
+  'create policy "Users manage own brand data" on brand_data for all using (auth.uid() = user_id)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- AGENT HISTORY
+-- ════════════════════════════════════════════════════════════════════════════
 create table if not exists agent_history (
-  id          uuid primary key default uuid_generate_v4(),
-  user_id     uuid not null references auth.users on delete cascade,
-  agent_id    text not null,
-  title       text,
-  content     text,
-  data        jsonb default '{}',
-  created_at  timestamptz default now()
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users on delete cascade,
+  agent_id   text,
+  title      text,
+  content    text,
+  data       jsonb default '{}',
+  created_at timestamptz default now()
 );
-alter table agent_history enable row level security;
-create policy "Users manage own agent history"
-  on agent_history for all using (auth.uid() = user_id);
+alter table if exists agent_history add column if not exists user_id uuid references auth.users on delete cascade;
+alter table if exists agent_history enable row level security;
 create index if not exists agent_history_user_agent_idx on agent_history(user_id, agent_id);
+
+select _safe_policy('agent_history', 'Users manage own agent history',
+  'create policy "Users manage own agent history" on agent_history for all using (auth.uid() = user_id)');
+
+-- ─── cleanup helper function ──────────────────────────────────────────────────
+drop function if exists _safe_policy(text, text, text);
