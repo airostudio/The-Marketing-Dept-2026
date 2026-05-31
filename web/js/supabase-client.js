@@ -908,6 +908,234 @@
 
             if (error) throw error;
             return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // CUSTOMERS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getCustomers(userId, filters = {}) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            let q = client.from('customers').select('*').eq('user_id', userId);
+            if (filters.status) q = q.eq('status', filters.status);
+            q = q.order('created_at', { ascending: false });
+            const { data, error } = await q;
+            if (error) throw error;
+            return data;
+        },
+
+        async createCustomer(customer) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('customers').insert(customer).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        async updateCustomer(customerId, updates) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('customers')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', customerId).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        async deleteCustomer(customerId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { error } = await client.from('customers').delete().eq('id', customerId);
+            if (error) throw error;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // HEALTH SCORES
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async saveHealthScore(data) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data: row, error } = await client.from('health_scores').insert(data).select().single();
+            if (error) throw error;
+            return row;
+        },
+
+        async getHealthScoreHistory(customerId, limit = 30) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('health_scores')
+                .select('*').eq('customer_id', customerId)
+                .order('created_at', { ascending: false }).limit(limit);
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // CAMPAIGNS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getCampaigns(userId, filters = {}) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            let q = client.from('campaigns').select('*').eq('user_id', userId);
+            if (filters.status) q = q.eq('status', filters.status);
+            q = q.order('created_at', { ascending: false });
+            const { data, error } = await q;
+            if (error) throw error;
+            return data;
+        },
+
+        async createCampaign(campaign) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('campaigns').insert(campaign).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // LIFECYCLE EVENTS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async addLifecycleEvent(event) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('lifecycle_events').insert(event).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        async getLifecycleHistory(customerId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('lifecycle_events')
+                .select('*').eq('customer_id', customerId)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // DEALS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getDeals(userId, filters = {}) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            let q = client.from('deals').select('*').eq('user_id', userId);
+            if (filters.stage) q = q.eq('stage', filters.stage);
+            q = q.order('created_at', { ascending: false });
+            const { data, error } = await q;
+            if (error) throw error;
+            return data;
+        },
+
+        async createDeal(deal) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('deals').insert(deal).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // ICP PROFILES
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getIcpProfiles(userId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('icp_profiles')
+                .select('*').eq('user_id', userId)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data;
+        },
+
+        async createIcpProfile(profile) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('icp_profiles').insert(profile).select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // INTEGRATIONS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getIntegrations(userId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('integrations')
+                .select('*').eq('user_id', userId);
+            if (error) throw error;
+            return data;
+        },
+
+        async upsertIntegration(integration) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('integrations')
+                .upsert({ ...integration, updated_at: new Date().toISOString() },
+                    { onConflict: 'user_id,provider' })
+                .select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // BRAND DATA (Intelligence Engine / Business Brain persistence)
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async getBrandData(userId) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('brand_data')
+                .select('*').eq('user_id', userId).single();
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
+        },
+
+        async saveBrandData(userId, brandData) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('brand_data')
+                .upsert({
+                    user_id: userId,
+                    data: brandData,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' })
+                .select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // AGENT HISTORY (persistent across devices)
+        // ─────────────────────────────────────────────────────────────────────────
+
+        async saveAgentHistory(userId, agentId, entry) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            const { data, error } = await client.from('agent_history')
+                .insert({ user_id: userId, agent_id: agentId, ...entry })
+                .select().single();
+            if (error) throw error;
+            return data;
+        },
+
+        async getAgentHistory(userId, agentId, limit = 50) {
+            const client = getClient();
+            if (!client) throw new Error('Supabase not configured');
+            let q = client.from('agent_history').select('*').eq('user_id', userId);
+            if (agentId) q = q.eq('agent_id', agentId);
+            q = q.order('created_at', { ascending: false }).limit(limit);
+            const { data, error } = await q;
+            if (error) throw error;
+            return data;
         }
     };
 

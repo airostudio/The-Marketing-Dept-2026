@@ -92,14 +92,77 @@
     return pub;
   }
 
-  function authSignup(email, password, firstname, lastname) {
-    const users = _getUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+  // Build a public user object from a Supabase user record
+  function _pubFromSupabase(user) {
+    return {
+      id:        user.id,
+      email:     user.email,
+      firstname: (user.user_metadata && (user.user_metadata.firstname || user.user_metadata.first_name)) || '',
+      lastname:  (user.user_metadata && (user.user_metadata.lastname  || user.user_metadata.last_name))  || '',
+    };
+  }
+
+  // Write all localStorage keys using a real Supabase session (real JWT replaces local_ token)
+  function _createSessionFromSupabase(user, session) {
+    var pub   = _pubFromSupabase(user);
+    var token = (session && session.access_token) || ('local_' + user.id);
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      userId: user.id, email: user.email,
+      expires: Date.now() + TTL,
+      source: 'supabase',
+    }));
+    localStorage.setItem('access_token', token);
+    if (session && session.refresh_token) localStorage.setItem('refresh_token', session.refresh_token);
+    localStorage.setItem('user', JSON.stringify(pub));
+    localStorage.setItem('seo_agent_user', JSON.stringify(pub));
+    localStorage.setItem('seo_agent_session', JSON.stringify({
+      userId: user.id, email: user.email,
+      created: Date.now(),
+      expires: Date.now() + TTL,
+      source: 'supabase',
+    }));
+
+    if (window.apiClient) {
+      window.apiClient.accessToken  = token;
+      window.apiClient.refreshToken = (session && session.refresh_token) || null;
+    }
+    return pub;
+  }
+
+  function _isCredentialError(err) {
+    return !!(err && err.message && err.message.toLowerCase().match(/invalid|credentials|password|email/));
+  }
+
+  async function authSignup(email, password, firstname, lastname) {
+    // Try Supabase first when configured
+    if (window.Supabase && window.Supabase.isConfigured()) {
+      try {
+        var result = await window.Supabase.Auth.signUp(email, password, {
+          firstname: firstname, first_name: firstname,
+          lastname:  lastname,  last_name:  lastname,
+          plan: 'free',
+        });
+        if (result && result.user) {
+          return _createSessionFromSupabase(result.user, result.session);
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('already') || err.message.includes('exists'))) {
+          throw new Error('An account with this email already exists.');
+        }
+        // Network / config error — fall through to local
+        console.warn('[AuthModal] Supabase signup failed, using local auth:', err.message);
+      }
+    }
+
+    // Local fallback
+    var users = _getUsers();
+    if (users.find(function(u) { return u.email.toLowerCase() === email.toLowerCase(); })) {
       throw new Error('An account with this email already exists.');
     }
-    const user = {
+    var user = {
       id: 'u_' + Date.now(),
-      email, firstname, lastname,
+      email: email, firstname: firstname, lastname: lastname,
       password: _hash(password),
     };
     users.push(user);
@@ -107,9 +170,26 @@
     return _createSession(user);
   }
 
-  function authLogin(email, password) {
-    const users = _getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  async function authLogin(email, password) {
+    // Try Supabase first when configured
+    if (window.Supabase && window.Supabase.isConfigured()) {
+      try {
+        var result = await window.Supabase.Auth.signIn(email, password);
+        if (result && result.user) {
+          return _createSessionFromSupabase(result.user, result.session);
+        }
+      } catch (err) {
+        if (_isCredentialError(err)) {
+          throw new Error('Incorrect email or password.');
+        }
+        // Network / config error — fall through to local
+        console.warn('[AuthModal] Supabase login failed, using local auth:', err.message);
+      }
+    }
+
+    // Local fallback
+    var users = _getUsers();
+    var user = users.find(function(u) { return u.email.toLowerCase() === email.toLowerCase(); });
     if (!user) throw new Error('No account found. Please create an account first.');
     if (user.password !== _hash(password)) throw new Error('Incorrect password.');
     return _createSession(user);
@@ -323,7 +403,7 @@
 
   /* ─── Handlers ────────────────────────────────────────────────────────── */
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     clearMessages();
     var email = document.getElementById('am-login-email').value.trim();
@@ -334,7 +414,7 @@
     setLoading(btn, 'Signing in…');
 
     try {
-      authLogin(email, pwd);
+      await authLogin(email, pwd);
       showSuccess('Signed in! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -343,7 +423,7 @@
     }
   }
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
     clearMessages();
     var first = document.getElementById('am-first').value.trim();
@@ -359,7 +439,7 @@
     setLoading(btn, 'Creating account…');
 
     try {
-      authSignup(email, pwd, first, last);
+      await authSignup(email, pwd, first, last);
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -472,6 +552,10 @@
   /* ─── Boot ────────────────────────────────────────────────────────────── */
 
   function authLogout() {
+    // Sign out of Supabase when connected (fire-and-forget; don't block UI)
+    if (window.Supabase && window.Supabase.isConnected()) {
+      window.Supabase.Auth.signOut().catch(function() {});
+    }
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');

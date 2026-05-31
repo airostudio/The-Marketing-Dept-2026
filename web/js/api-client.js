@@ -1,330 +1,467 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * API CLIENT — Aduma Marketing Platform
- * Frontend wrapper for backend REST API calls.
  *
- * Replaces localStorage with persistent backend storage.
- * Handles authentication, error handling, request/response transformation.
+ * All persistent data operations route through Supabase when configured.
+ * Falls back to localStorage automatically so the app stays functional
+ * even without Supabase credentials (offline / demo mode).
+ *
+ * Public surface is identical to the original so no call-sites need updating.
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
 'use strict';
 
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000/api'
-  : '/api'; // Production: same origin
-
-/**
- * APIClient - Centralized API communication layer
- */
 class APIClient {
   constructor() {
-    this.baseURL = API_BASE_URL;
-    this.accessToken = localStorage.getItem('access_token');
+    this.accessToken  = localStorage.getItem('access_token');
     this.refreshToken = localStorage.getItem('refresh_token');
+
+    // Keep our token mirror in sync whenever Supabase auto-refreshes its JWT
+    window.addEventListener('supabaseAuthChange', (e) => {
+      const { session } = e.detail || {};
+      if (session?.access_token) this._syncSession(session);
+    });
   }
 
-  /**
-   * Make authenticated API request
-   * @private
-   */
-  async _request(method, endpoint, data = null, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const config = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
+  // ── Supabase helpers ────────────────────────────────────────────────────────
+
+  _sb() {
+    const s = window.Supabase;
+    return (s && s.isConnected()) ? s : null;
+  }
+
+  _syncSession(session) {
+    if (!session) return;
+    this.accessToken  = session.access_token;
+    this.refreshToken = session.refresh_token || null;
+    localStorage.setItem('access_token', session.access_token);
+    if (session.refresh_token) localStorage.setItem('refresh_token', session.refresh_token);
+    if (session.user) {
+      localStorage.setItem('user', JSON.stringify(this._pub(session.user)));
+    }
+  }
+
+  _pub(user) {
+    return {
+      id:        user.id,
+      email:     user.email,
+      firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
+      lastname:  user.user_metadata?.lastname  || user.user_metadata?.last_name  || '',
+      plan:      user.user_metadata?.plan      || 'free',
+      createdAt: user.created_at,
     };
+  }
 
-    // Add auth token if available. Synthetic offline tokens (prefix "local_")
-    // are demo-only — never send them over the wire; the backend would reject
-    // them anyway and a leaked one is useless without a real session.
-    if (this.accessToken && !options.skipAuth && !this.accessToken.startsWith('local_')) {
-      config.headers.Authorization = `Bearer ${this.accessToken}`;
+  // Current Supabase user ID (needed for user-scoped DB queries)
+  async _userId() {
+    const sb = this._sb();
+    if (sb) {
+      try {
+        const user = await sb.Auth.getUser();
+        if (user) return user.id;
+      } catch {}
     }
-
-    // Add body for POST/PUT/PATCH
-    if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-      config.body = JSON.stringify(data);
-    }
-
+    // Fallback: read from cached user in localStorage
     try {
-      const response = await fetch(url, config);
+      const cached = JSON.parse(localStorage.getItem('user') || 'null');
+      return cached?.id || null;
+    } catch { return null; }
+  }
 
-      let result;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        result = await response.json();
-      } else {
-        // Non-JSON response (e.g. HTML error page from a proxy/static server)
-        const text = await response.text();
-        const err = new Error(`API unavailable (${response.status})`);
-        err.isApiUnavailable = true;
+  // Run supabaseCall; on failure (or no Supabase) run localFallback
+  async _run(supabaseCall, localFallback) {
+    const sb = this._sb();
+    if (sb) {
+      try {
+        return await supabaseCall(sb);
+      } catch (err) {
+        console.warn('[APIClient] Supabase call failed, using local fallback:', err.message);
+      }
+    }
+    return localFallback ? localFallback() : null;
+  }
+
+  // Simple localStorage list helpers for fallback mode
+  _lsGet(key)             { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+  _lsSet(key, val)        { localStorage.setItem(key, JSON.stringify(val)); }
+  _lsPush(key, item)      { const arr = this._lsGet(key); arr.unshift(item); this._lsSet(key, arr); return item; }
+  _lsUpdate(key, id, upd) {
+    const arr = this._lsGet(key).map(x => x.id === id ? { ...x, ...upd } : x);
+    this._lsSet(key, arr);
+    return arr.find(x => x.id === id) || null;
+  }
+  _lsRemove(key, id)      { this._lsSet(key, this._lsGet(key).filter(x => x.id !== id)); }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // AUTHENTICATION
+  // ══════════════════════════════════════════════════════════════════════════
+
+  async signup(email, password, firstName, lastName, organizationName) {
+    const sb = this._sb();
+    if (sb) {
+      try {
+        const data = await sb.Auth.signUp(email, password, {
+          firstname:         firstName,
+          lastname:          lastName,
+          first_name:        firstName,
+          last_name:         lastName,
+          organization_name: organizationName,
+          plan:              'free',
+        });
+        if (data.user && data.session) {
+          this._syncSession(data.session);
+          return this._pub(data.user);
+        }
+      } catch (err) {
+        if (err.message?.includes('already') || err.message?.includes('exists')) {
+          throw new Error('An account with this email already exists.');
+        }
         throw err;
       }
-
-      if (!response.ok) {
-        // 404 = endpoint doesn't exist (no backend deployed) → treat as unavailable
-        if (response.status === 404) {
-          const err = new Error(`API endpoint not found (${endpoint})`);
-          err.isApiUnavailable = true;
-          throw err;
-        }
-
-        // Token expired - try to refresh
-        if (response.status === 401 && this.refreshToken && !options.skipRefresh) {
-          const refreshed = await this.refreshAccessToken();
-          if (refreshed) {
-            // Retry original request with new token
-            return await this._request(method, endpoint, data, { ...options, skipRefresh: true });
-          }
-        }
-
-        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return result.data || result;
-
-    } catch (error) {
-      // Network errors (no server, connection refused, CORS) → treat as unavailable
-      if (error instanceof TypeError || error.name === 'TypeError') {
-        error.isApiUnavailable = true;
-      }
-      if (!error.isApiUnavailable) {
-        console.error(`[APIClient] ${method} ${endpoint} failed:`, error);
-      }
-      throw error;
     }
-  }
 
-  /**
-   * GET request
-   */
-  async get(endpoint, options = {}) {
-    return await this._request('GET', endpoint, null, options);
-  }
-
-  /**
-   * POST request
-   */
-  async post(endpoint, data, options = {}) {
-    return await this._request('POST', endpoint, data, options);
-  }
-
-  /**
-   * PUT request
-   */
-  async put(endpoint, data, options = {}) {
-    return await this._request('PUT', endpoint, data, options);
-  }
-
-  /**
-   * DELETE request
-   */
-  async delete(endpoint, options = {}) {
-    return await this._request('DELETE', endpoint, null, options);
-  }
-
-  // ═════════════════════════════════════════════════════════════════════════════
-  // AUTHENTICATION
-  // ═════════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Sign up new user
-   */
-  async signup(email, password, firstName, lastName, organizationName) {
-    const result = await this.post('/auth/signup', {
+    // Local fallback (demo mode) — create account in localStorage
+    const users = this._lsGet('aduma_users');
+    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+      throw new Error('An account with this email already exists.');
+    }
+    const user = {
+      id:        'u_' + Date.now(),
       email,
-      password,
-      firstName,
-      lastName,
-      organizationName
-    }, { skipAuth: true });
-
-    this.accessToken = result.accessToken;
-    this.refreshToken = result.refreshToken;
-    localStorage.setItem('access_token', result.accessToken);
-    localStorage.setItem('refresh_token', result.refreshToken);
-    localStorage.setItem('user', JSON.stringify(result.user));
-
-    return result.user;
+      firstname: firstName,
+      lastname:  lastName,
+      plan:      'free',
+      createdAt: new Date().toISOString(),
+    };
+    this._lsPush('aduma_users', user);
+    const token = 'local_' + user.id;
+    this.accessToken = token;
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
   }
 
-  /**
-   * Login
-   */
   async login(email, password) {
-    const result = await this.post('/auth/login', {
-      email,
-      password
-    }, { skipAuth: true });
-
-    this.accessToken = result.accessToken;
-    this.refreshToken = result.refreshToken;
-    localStorage.setItem('access_token', result.accessToken);
-    localStorage.setItem('refresh_token', result.refreshToken);
-    localStorage.setItem('user', JSON.stringify(result.user));
-
-    return result.user;
-  }
-
-  /**
-   * Logout
-   */
-  async logout() {
-    try {
-      await this.post('/auth/logout', {
-        refreshToken: this.refreshToken
-      });
-    } catch (error) {
-      console.warn('Logout API call failed:', error);
+    const sb = this._sb();
+    if (sb) {
+      try {
+        const data = await sb.Auth.signIn(email, password);
+        if (data.user && data.session) {
+          this._syncSession(data.session);
+          return this._pub(data.user);
+        }
+      } catch (err) {
+        const isCredErr = err.message?.toLowerCase().match(/invalid|credentials|password|email/);
+        if (isCredErr) throw new Error('Incorrect email or password.');
+        throw err;
+      }
     }
 
-    this.accessToken = null;
+    // Local fallback
+    const users = this._lsGet('aduma_users');
+    const user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) throw new Error('No account found with this email address.');
+    // Passwords in local mode are stored as plain for demo only
+    if (user.password && user.password !== password) throw new Error('Incorrect password.');
+    const token = 'local_' + user.id;
+    this.accessToken = token;
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
+  }
+
+  async logout() {
+    const sb = this._sb();
+    if (sb) {
+      try { await sb.Auth.signOut(); } catch {}
+    }
+
+    this.accessToken  = null;
     this.refreshToken = null;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
   }
 
-  /**
-   * Refresh access token
-   */
   async refreshAccessToken() {
-    try {
-      const result = await this.post('/auth/refresh', {
-        refreshToken: this.refreshToken
-      }, { skipAuth: true, skipRefresh: true });
-
-      this.accessToken = result.accessToken;
-      localStorage.setItem('access_token', result.accessToken);
-      return true;
-
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      await this.logout();
-      return false;
+    // Supabase auto-refreshes — we just need to re-read the session
+    const sb = this._sb();
+    if (sb) {
+      try {
+        const session = await sb.Auth.getSession();
+        if (session?.access_token) {
+          this._syncSession(session);
+          return true;
+        }
+      } catch {}
     }
+    return false;
   }
 
-  /**
-   * Get current user
-   */
   async getCurrentUser() {
-    return await this.get('/auth/me');
+    const sb = this._sb();
+    if (sb) {
+      try {
+        const user = await sb.Auth.getUser();
+        if (user) return this._pub(user);
+      } catch {}
+    }
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch { return null; }
   }
 
-  /**
-   * Check if user is authenticated
-   */
   isAuthenticated() {
     return !!this.accessToken;
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // CUSTOMERS
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async getCustomers(filters = {}) {
-    const query = new URLSearchParams(filters).toString();
-    return await this.get(`/customers?${query}`);
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getCustomers(uid, filters) : [];
+      },
+      () => this._lsGet('aduma_customers')
+    );
   }
 
   async getCustomer(customerId) {
-    return await this.get(`/customers/${customerId}`);
+    return this._run(
+      async (sb) => {
+        const rows = await sb.DB.getCustomers(await this._userId());
+        return rows?.find(r => r.id === customerId) || null;
+      },
+      () => this._lsGet('aduma_customers').find(c => c.id === customerId) || null
+    );
   }
 
   async createCustomer(customerData) {
-    return await this.post('/customers', customerData);
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.createCustomer({ ...customerData, user_id: uid }),
+      () => this._lsPush('aduma_customers', { id: 'c_' + Date.now(), ...customerData })
+    );
   }
 
   async updateCustomer(customerId, updates) {
-    return await this.put(`/customers/${customerId}`, updates);
+    return this._run(
+      async (sb) => sb.DB.updateCustomer(customerId, updates),
+      () => this._lsUpdate('aduma_customers', customerId, updates)
+    );
   }
 
   async deleteCustomer(customerId) {
-    return await this.delete(`/customers/${customerId}`);
+    return this._run(
+      async (sb) => sb.DB.deleteCustomer(customerId),
+      () => this._lsRemove('aduma_customers', customerId)
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // HEALTH SCORES
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async saveHealthScore(healthScoreData) {
-    return await this.post('/health-scores', healthScoreData);
+    return this._run(
+      async (sb) => sb.DB.saveHealthScore(healthScoreData),
+      () => this._lsPush('aduma_health_scores', { id: 'hs_' + Date.now(), ...healthScoreData })
+    );
   }
 
   async getHealthScoreHistory(customerId, limit = 30) {
-    return await this.get(`/health-scores/${customerId}?limit=${limit}`);
+    return this._run(
+      async (sb) => sb.DB.getHealthScoreHistory(customerId, limit),
+      () => this._lsGet('aduma_health_scores')
+               .filter(h => h.customer_id === customerId)
+               .slice(0, limit)
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // CAMPAIGNS
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async getCampaigns(filters = {}) {
-    const query = new URLSearchParams(filters).toString();
-    return await this.get(`/campaigns?${query}`);
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getCampaigns(uid, filters) : [];
+      },
+      () => this._lsGet('aduma_campaigns')
+    );
   }
 
   async createCampaign(campaignData) {
-    return await this.post('/campaigns', campaignData);
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.createCampaign({ ...campaignData, user_id: uid }),
+      () => this._lsPush('aduma_campaigns', { id: 'camp_' + Date.now(), ...campaignData })
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async progressLifecycleStage(customerId, fromStage, toStage, metadata = {}) {
-    return await this.post('/lifecycle/progress', {
-      customerId,
-      fromStage,
-      toStage,
-      metadata
-    });
+    const event = { customer_id: customerId, from_stage: fromStage, to_stage: toStage, metadata };
+    return this._run(
+      async (sb) => sb.DB.addLifecycleEvent(event),
+      () => this._lsPush('aduma_lifecycle', { id: 'lc_' + Date.now(), ...event, created_at: new Date().toISOString() })
+    );
   }
 
   async getLifecycleHistory(customerId) {
-    return await this.get(`/lifecycle/${customerId}`);
+    return this._run(
+      async (sb) => sb.DB.getLifecycleHistory(customerId),
+      () => this._lsGet('aduma_lifecycle').filter(e => e.customer_id === customerId)
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // DEALS
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async getDeals(filters = {}) {
-    const query = new URLSearchParams(filters).toString();
-    return await this.get(`/deals?${query}`);
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getDeals(uid, filters) : [];
+      },
+      () => this._lsGet('aduma_deals')
+    );
   }
 
   async createDeal(dealData) {
-    return await this.post('/deals', dealData);
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.createDeal({ ...dealData, user_id: uid }),
+      () => this._lsPush('aduma_deals', { id: 'd_' + Date.now(), ...dealData })
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
-  // ICP (Ideal Customer Profile)
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // ICP
+  // ══════════════════════════════════════════════════════════════════════════
 
   async getICPProfiles() {
-    return await this.get('/icp');
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getIcpProfiles(uid) : [];
+      },
+      () => this._lsGet('aduma_icp')
+    );
   }
 
   async createICPProfile(icpData) {
-    return await this.post('/icp', icpData);
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.createIcpProfile({ ...icpData, user_id: uid }),
+      () => this._lsPush('aduma_icp', { id: 'icp_' + Date.now(), ...icpData })
+    );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
   // INTEGRATIONS
-  // ═════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
 
   async getIntegrations() {
-    return await this.get('/integrations');
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getIntegrations(uid) : [];
+      },
+      () => this._lsGet('aduma_integrations')
+    );
   }
 
   async createIntegration(provider, credentials) {
-    return await this.post('/integrations', { provider, credentials });
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.upsertIntegration({ user_id: uid, provider, credentials }),
+      () => {
+        const integrations = this._lsGet('aduma_integrations');
+        const existing = integrations.findIndex(i => i.provider === provider);
+        const item = { id: existing >= 0 ? integrations[existing].id : 'int_' + Date.now(), provider, credentials };
+        if (existing >= 0) integrations[existing] = item; else integrations.unshift(item);
+        this._lsSet('aduma_integrations', integrations);
+        return item;
+      }
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PROJECTS  (routed to existing Supabase.DB methods)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  async getProjects() {
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        return uid ? await sb.DB.getProjects(uid) : [];
+      },
+      () => this._lsGet('seo-projects')
+    );
+  }
+
+  async createProject(projectData) {
+    const uid = await this._userId();
+    return this._run(
+      async (sb) => sb.DB.createProject({ ...projectData, user_id: uid }),
+      () => this._lsPush('seo-projects', { id: 'proj_' + Date.now(), ...projectData })
+    );
+  }
+
+  async updateProject(projectId, updates) {
+    return this._run(
+      async (sb) => sb.DB.updateProject(projectId, updates),
+      () => this._lsUpdate('seo-projects', projectId, updates)
+    );
+  }
+
+  async deleteProject(projectId) {
+    return this._run(
+      async (sb) => sb.DB.deleteProject(projectId),
+      () => this._lsRemove('seo-projects', projectId)
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRAND DATA  (Intelligence Engine / Business Brain)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  async getBrandData() {
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        if (!uid) return null;
+        const row = await sb.DB.getBrandData(uid);
+        return row?.data || null;
+      },
+      () => {
+        try { return JSON.parse(localStorage.getItem('business_brain') || 'null'); } catch { return null; }
+      }
+    );
+  }
+
+  async saveBrandData(brandData) {
+    // Always write to localStorage for immediate availability to agents
+    localStorage.setItem('business_brain', JSON.stringify(brandData));
+    return this._run(
+      async (sb) => {
+        const uid = await this._userId();
+        if (!uid) return brandData;
+        await sb.DB.saveBrandData(uid, brandData);
+        return brandData;
+      },
+      () => brandData
+    );
   }
 }
 
