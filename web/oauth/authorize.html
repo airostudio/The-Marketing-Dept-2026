@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authorize — Aduma</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+      width: 100%;
+      max-width: 440px;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-logo {
+      width: 44px;
+      height: 44px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .header-text h1 { color: #fff; font-size: 20px; font-weight: 700; }
+    .header-text p  { color: rgba(255,255,255,0.75); font-size: 13px; margin-top: 2px; }
+
+    /* ── App info ── */
+    .app-info {
+      padding: 24px 32px 0;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .app-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #06b6d4, #0891b2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .app-info-text h2 { font-size: 17px; font-weight: 700; color: #111827; }
+    .app-info-text p  { font-size: 13px; color: #6b7280; margin-top: 3px; }
+
+    .arrow-connector {
+      font-size: 20px;
+      color: #d1d5db;
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+
+    .aduma-badge {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    /* ── Body ── */
+    .body { padding: 20px 32px 0; }
+
+    .asking-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .scope-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+    .scope-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .scope-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .scope-icon.brand    { background: #ede9fe; }
+    .scope-icon.generate { background: #dcfce7; }
+    .scope-icon.seo      { background: #fef9c3; }
+
+    .scope-item h3 { font-size: 14px; font-weight: 600; color: #111827; }
+    .scope-item p  { font-size: 13px; color: #6b7280; margin-top: 2px; }
+
+    /* ── User info ── */
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 16px 0 0;
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #6366f1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .user-pill span { font-size: 13px; color: #374151; }
+    .user-pill span strong { font-weight: 600; }
+
+    /* ── Warning ── */
+    .warning {
+      display: flex;
+      gap: 8px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #92400e;
+    }
+
+    /* ── Actions ── */
+    .actions {
+      padding: 20px 32px 28px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-deny {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .btn-deny:hover { background: #e5e7eb; }
+
+    .btn-allow {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+    }
+    .btn-allow:hover  { opacity: 0.92; transform: translateY(-1px); }
+    .btn-allow:active { transform: none; }
+    .btn-allow:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ── States ── */
+    .state { padding: 40px 32px; text-align: center; display: none; }
+    .state.active { display: block; }
+
+    .state-icon { font-size: 48px; margin-bottom: 16px; }
+    .state h2   { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+    .state p    { font-size: 14px; color: #6b7280; line-height: 1.6; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin: 0 32px 16px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    #mainContent { display: none; }
+    #mainContent.show { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <!-- Not logged in -->
+  <div class="state active" id="stateNotLoggedIn">
+    <div class="state-icon">🔒</div>
+    <h2>Sign in to Aduma first</h2>
+    <p>You need to be logged in to your Aduma account to authorize this connection.</p>
+    <div style="margin-top:20px;">
+      <button class="btn btn-allow" style="width:100%;" onclick="redirectToLogin()">Go to Login</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="state" id="stateLoading">
+    <div class="spinner"></div>
+    <h2>Authorizing…</h2>
+    <p>Securely connecting your account to Webese.</p>
+  </div>
+
+  <!-- Success -->
+  <div class="state" id="stateSuccess">
+    <div class="state-icon">✅</div>
+    <h2>Connected!</h2>
+    <p>Your Aduma brand data is now available in Webese. Redirecting you back…</p>
+  </div>
+
+  <!-- Denied -->
+  <div class="state" id="stateDenied">
+    <div class="state-icon">❌</div>
+    <h2>Access denied</h2>
+    <p>You cancelled the connection. Webese will not have access to your Aduma data.</p>
+  </div>
+
+  <!-- Error -->
+  <div class="state" id="stateError">
+    <div class="state-icon">⚠️</div>
+    <h2>Something went wrong</h2>
+    <p id="errorDetail">An unexpected error occurred. Please try again.</p>
+    <div style="margin-top:16px;">
+      <button class="btn btn-allow" style="width:100%;" onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Main consent UI -->
+  <div id="mainContent">
+
+    <div class="header">
+      <div class="header-logo">🚀</div>
+      <div class="header-text">
+        <h1>Aduma</h1>
+        <p>AI Marketing Platform</p>
+      </div>
+    </div>
+
+    <div class="app-info">
+      <div class="app-icon">🌐</div>
+      <div class="app-info-text">
+        <h2 id="appName">Webese</h2>
+        <p id="appDomain"></p>
+      </div>
+      <div class="arrow-connector">⟷</div>
+      <div class="aduma-badge">🚀</div>
+    </div>
+
+    <div class="body">
+      <p style="font-size:15px; color:#374151; margin: 16px 0 12px; line-height:1.5;">
+        <strong id="appName2">Webese</strong> wants to access your Aduma account to:
+      </p>
+
+      <div class="error-msg" id="inlineError"></div>
+
+      <ul class="scope-list" id="scopeList"></ul>
+
+      <div class="user-pill" id="userPill">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span>Authorizing as <strong id="userEmail">…</strong></span>
+      </div>
+
+      <div class="warning">
+        <span>⚠️</span>
+        <span>Only authorize apps you trust. Aduma will never share your password.</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-deny"  id="btnDeny"  onclick="deny()">Deny</button>
+      <button class="btn btn-allow" id="btnAllow" onclick="allow()">Allow Access</button>
+    </div>
+
+  </div><!-- /mainContent -->
+
+</div><!-- /card -->
+
+<script>
+  // ── Scope display metadata ────────────────────────────────────────────────
+  const SCOPE_META = {
+    'brand:read': {
+      icon:  '🎨',
+      cls:   'brand',
+      title: 'Read your brand identity',
+      desc:  'Voice & tone, value proposition, ICP, and positioning data from Business Brain.',
+    },
+    'generate:write': {
+      icon:  '✍️',
+      cls:   'generate',
+      title: 'Generate copy on your behalf',
+      desc:  'Create headlines, body copy, CTAs, and meta descriptions tuned to your brand.',
+    },
+    'seo:read': {
+      icon:  '🔍',
+      cls:   'seo',
+      title: 'Access SEO preferences',
+      desc:  'Target keywords, focus topics, and page optimization targets.',
+    },
+  };
+
+  // ── Parse URL params ──────────────────────────────────────────────────────
+  const params       = new URLSearchParams(window.location.search);
+  const clientId     = params.get('client_id')    || '';
+  const redirectUri  = params.get('redirect_uri') || '';
+  const scope        = params.get('scope')        || 'brand:read generate:write';
+  const state        = params.get('state')        || '';
+  const appName      = params.get('app_name')     || 'Webese';
+
+  // ── Auth check ────────────────────────────────────────────────────────────
+  function getSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem('aduma_session') || 'null');
+      if (s && s.expires > Date.now()) return s;
+    } catch {}
+    return null;
+  }
+
+  function getUser() {
+    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+  }
+
+  function getBrandSnapshot() {
+    // Pull Business Brain data from localStorage
+    try {
+      const bb = JSON.parse(localStorage.getItem('business_brain') || 'null');
+      if (bb) return bb;
+      // Fallback: intelligence engine keys
+      const ie = JSON.parse(localStorage.getItem('tmd_intelligence_engine') || 'null');
+      return ie;
+    } catch { return null; }
+  }
+
+  function redirectToLogin() {
+    const returnUrl = encodeURIComponent(window.location.href);
+    window.location.href = '/index.html?openAuth=login&return=' + returnUrl;
+  }
+
+  function showState(id) {
+    document.querySelectorAll('.state').forEach(el => el.classList.remove('active'));
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+    document.getElementById('mainContent').classList.remove('show');
+  }
+
+  function showMain() {
+    document.querySelectorAll('.state').forEach(el => el.classList.remove('active'));
+    document.getElementById('mainContent').classList.add('show');
+  }
+
+  function showInlineError(msg) {
+    const el = document.getElementById('inlineError');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  (function boot() {
+    // Basic param validation
+    if (!clientId || !redirectUri) {
+      document.getElementById('errorDetail').textContent =
+        'Missing required OAuth parameters (client_id, redirect_uri).';
+      showState('stateError');
+      return;
+    }
+
+    const session = getSession();
+    if (!session) {
+      showState('stateNotLoggedIn');
+      return;
+    }
+
+    // Populate UI
+    const user = getUser();
+    const email = session.email || user?.email || 'your account';
+    const initial = email[0].toUpperCase();
+
+    document.getElementById('userAvatar').textContent = initial;
+    document.getElementById('userEmail').textContent  = email;
+
+    document.querySelectorAll('#appName, #appName2').forEach(el => el.textContent = appName);
+    try {
+      document.getElementById('appDomain').textContent = new URL(redirectUri).hostname;
+    } catch {}
+
+    // Render scopes
+    const list   = document.getElementById('scopeList');
+    const scopes = scope.split(' ').filter(s => SCOPE_META[s]);
+    if (scopes.length === 0) {
+      document.getElementById('errorDetail').textContent = 'No valid scopes requested.';
+      showState('stateError');
+      return;
+    }
+    scopes.forEach(s => {
+      const m  = SCOPE_META[s];
+      const li = document.createElement('li');
+      li.className = 'scope-item';
+      li.innerHTML = `
+        <div class="scope-icon ${m.cls}">${m.icon}</div>
+        <div>
+          <h3>${m.title}</h3>
+          <p>${m.desc}</p>
+        </div>`;
+      list.appendChild(li);
+    });
+
+    showMain();
+  })();
+
+  // ── Allow ─────────────────────────────────────────────────────────────────
+  async function allow() {
+    const btn = document.getElementById('btnAllow');
+    btn.disabled    = true;
+    btn.textContent = 'Connecting…';
+
+    const session       = getSession();
+    const user          = getUser();
+    const brandSnapshot = getBrandSnapshot();
+
+    try {
+      const res = await fetch('/api/oauth-authorize', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id:       clientId,
+          redirect_uri:    redirectUri,
+          scope,
+          state,
+          user_id:         session?.userId || user?.id || 'unknown',
+          user_email:      session?.email  || user?.email || '',
+          brand_snapshot:  brandSnapshot,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showInlineError(data.error || 'Authorization failed. Please try again.');
+        btn.disabled    = false;
+        btn.textContent = 'Allow Access';
+        return;
+      }
+
+      showState('stateSuccess');
+      // Redirect after short delay so user sees success state
+      setTimeout(() => { window.location.href = data.redirect_url; }, 1200);
+
+    } catch (err) {
+      showInlineError('Network error. Please check your connection and try again.');
+      btn.disabled    = false;
+      btn.textContent = 'Allow Access';
+    }
+  }
+
+  // ── Deny ──────────────────────────────────────────────────────────────────
+  function deny() {
+    showState('stateDenied');
+    try {
+      const url = new URL(redirectUri);
+      url.searchParams.set('error', 'access_denied');
+      if (state) url.searchParams.set('state', state);
+      setTimeout(() => { window.location.href = url.toString(); }, 1500);
+    } catch {}
+  }
+</script>
+</body>
+</html>
