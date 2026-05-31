@@ -8,19 +8,28 @@
 create extension if not exists "uuid-ossp";
 
 -- ─── profiles ────────────────────────────────────────────────────────────────
-create table if not exists profiles (
-  id          uuid primary key references auth.users on delete cascade,
-  firstname   text,
-  lastname    text,
-  plan        text default 'free',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
-);
-alter table profiles enable row level security;
-create policy "Users manage own profile"
-  on profiles for all using (auth.uid() = id);
+-- Table already exists — only add columns that may be missing.
+-- Your existing rows and data are untouched.
+alter table if exists profiles add column if not exists firstname   text;
+alter table if exists profiles add column if not exists lastname    text;
+alter table if exists profiles add column if not exists plan        text default 'free';
+alter table if exists profiles add column if not exists created_at  timestamptz default now();
+alter table if exists profiles add column if not exists updated_at  timestamptz default now();
 
--- Auto-create profile on signup
+-- Enable RLS if not already on (safe to run repeatedly)
+alter table if exists profiles enable row level security;
+
+-- Add policy only if it doesn't exist
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where tablename = 'profiles' and policyname = 'Users manage own profile'
+  ) then
+    execute 'create policy "Users manage own profile" on profiles for all using (auth.uid() = id)';
+  end if;
+end $$;
+
+-- Auto-create/update profile on signup — only writes columns that exist
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
@@ -95,9 +104,10 @@ create policy "Users manage own audit issues"
   );
 
 -- ─── keywords ─────────────────────────────────────────────────────────────────
+-- Table already exists (empty) — add any missing columns and wire up RLS.
 create table if not exists keywords (
   id          uuid primary key default uuid_generate_v4(),
-  project_id  uuid not null references projects on delete cascade,
+  project_id  uuid references projects on delete cascade,
   keyword     text not null,
   volume      int,
   difficulty  int,
@@ -106,11 +116,24 @@ create table if not exists keywords (
   created_at  timestamptz default now(),
   updated_at  timestamptz default now()
 );
-alter table keywords enable row level security;
-create policy "Users manage own keywords"
-  on keywords for all using (
-    exists (select 1 from projects where projects.id = keywords.project_id and projects.user_id = auth.uid())
-  );
+alter table if exists keywords add column if not exists project_id  uuid references projects on delete cascade;
+alter table if exists keywords add column if not exists volume      int;
+alter table if exists keywords add column if not exists difficulty  int;
+alter table if exists keywords add column if not exists position    int;
+alter table if exists keywords add column if not exists data        jsonb default '{}';
+alter table if exists keywords add column if not exists created_at  timestamptz default now();
+alter table if exists keywords add column if not exists updated_at  timestamptz default now();
+alter table if exists keywords enable row level security;
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where tablename = 'keywords' and policyname = 'Users manage own keywords'
+  ) then
+    execute $p$create policy "Users manage own keywords" on keywords for all using (
+      exists (select 1 from projects where projects.id = keywords.project_id and projects.user_id = auth.uid())
+    )$p$;
+  end if;
+end $$;
 create index if not exists keywords_project_id_idx on keywords(project_id);
 
 -- ─── keyword_rankings ─────────────────────────────────────────────────────────
