@@ -136,6 +136,59 @@
         .detail-item label { font-size: 11px; color: var(--text2); }
         .detail-item p { font-size: 13px; margin-top: 2px; }
 
+        /* ── Stage progress bar ── */
+        .stage-progress { display: flex; align-items: center; gap: 0; margin-bottom: 16px; }
+        .stage-node { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+        .stage-node-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); border: 2px solid rgba(255,255,255,0.12); transition: all 0.2s; }
+        .stage-node.done .stage-node-dot  { background: var(--green); border-color: var(--green); }
+        .stage-node.active .stage-node-dot { background: #fff; border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+        .stage-node-label { font-size: 10px; color: var(--text2); margin-top: 4px; text-align: center; white-space: nowrap; }
+        .stage-node.done .stage-node-label  { color: var(--green); }
+        .stage-node.active .stage-node-label { color: var(--text); font-weight: 600; }
+        .stage-connector { flex: 1; height: 2px; background: var(--border); margin-bottom: 14px; }
+        .stage-connector.done { background: var(--green); }
+
+        /* ── Next action box ── */
+        .next-action-box { background: rgba(var(--green-rgb),0.05); border: 1px solid rgba(var(--green-rgb),0.2); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .next-action-box.won  { background: rgba(var(--green-rgb),0.08); border-color: rgba(var(--green-rgb),0.35); }
+        .next-action-box.lost { background: rgba(239,68,68,0.05); border-color: rgba(239,68,68,0.2); }
+        .na-icon { font-size: 24px; flex-shrink: 0; }
+        .na-body { flex: 1; min-width: 0; }
+        .na-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 3px; }
+        .na-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .na-desc  { font-size: 12px; color: var(--text2); line-height: 1.5; }
+        .na-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .btn-next { padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--green); color: #000; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-next:hover { background: #0da874; }
+        .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-next-ghost { padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: none; color: var(--text2); transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-next-ghost:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        /* ── Inline quick-send panel ── */
+        .quick-send-panel { display: none; background: rgba(0,0,0,0.3); border: 1px solid rgba(var(--green-rgb),0.25); border-radius: 10px; padding: 16px; margin-top: 12px; }
+        .quick-send-panel.open { display: block; }
+        .qs-header { font-size: 13px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .qs-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 16px; line-height: 1; }
+        .qs-close:hover { color: var(--text); }
+        .qs-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; }
+        .qs-row label { flex-shrink: 0; margin-bottom: 0; line-height: 32px; }
+        .qs-status { font-size: 12px; color: var(--text2); min-height: 18px; margin-top: 8px; }
+        .qs-status.ok   { color: var(--green); }
+        .qs-status.err  { color: #ef4444; }
+
+        /* ── Activity log ── */
+        .activity-log { margin-top: 14px; }
+        .activity-log-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
+        .activity-item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text2); flex-shrink: 0; margin-top: 3px; }
+        .activity-dot.email { background: var(--cyan); }
+        .activity-dot.stage { background: var(--purple); }
+        .activity-dot.note  { background: var(--orange); }
+        .activity-text { flex: 1; color: var(--text2); line-height: 1.4; }
+        .activity-text strong { color: var(--text); }
+        .activity-time { font-size: 11px; color: rgba(255,255,255,0.25); flex-shrink: 0; }
+
         /* OUTREACH */
         .outreach-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
         .outreach-output { background: rgba(var(--green-rgb),0.04); border: 1px solid rgba(var(--green-rgb),0.15); border-radius: 12px; padding: 20px; min-height: 300px; font-size: 14px; line-height: 1.8; }
@@ -1061,6 +1114,89 @@ function renderPipe() {
             `<a href="${escHtml(v)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:12px;text-transform:capitalize;display:inline-block;margin-right:10px">${escHtml(k)}</a>`
         ).join('');
 
+        // ── Stage progress bar ──
+        const STAGES = ['new','contacted','qualified','proposal','won'];
+        const stageIdx = STAGES.indexOf(p.status);
+        const stageProgressHtml = p.status === 'lost' ? '' : (() => {
+            const nodes = STAGES.map((s, i) => {
+                const cls = i < stageIdx ? 'done' : i === stageIdx ? 'active' : '';
+                const labels = {new:'New',contacted:'Contacted',qualified:'Qualified',proposal:'Proposal Sent',won:'Won 🎉'};
+                return `<div class="stage-node ${cls}"><div class="stage-node-dot"></div><div class="stage-node-label">${labels[s]}</div></div>`;
+            });
+            const connectors = STAGES.slice(0,-1).map((_,i) =>
+                `<div class="stage-connector ${i < stageIdx ? 'done' : ''}"></div>`
+            );
+            // interleave
+            const parts = [];
+            nodes.forEach((n,i) => { parts.push(n); if (connectors[i]) parts.push(connectors[i]); });
+            return `<div class="stage-progress">${parts.join('')}</div>`;
+        })();
+
+        // ── Next action definition per stage ──
+        const NA = {
+            new:       { icon:'📧', label:'Next Step', title:'Send your introduction', desc:'You have the contact info. Send a personalised cold email introducing your offer. Keep it short — one pain point, one result, one ask.', btnLabel:'Generate & Send Intro Email', btnFn:`openQuickSend('${p.id}','intro')`, altLabel:'Generate Email Copy Only', altFn:`startOutreachFromPipe(${JSON.stringify(p).replace(/'/g,"&#39;")})` },
+            contacted: { icon:'📞', label:'Next Step', title:'Follow up or qualify', desc:`It's been a while since first contact. Reach out again with a fresh angle or a value-add. If they reply, move to Qualified.`, btnLabel:'Send Follow-Up Email', btnFn:`openQuickSend('${p.id}','followup')`, altLabel:'Log a Call', altFn:`logActivity('${p.id}','call','Logged a call')` },
+            qualified: { icon:'📄', label:'Next Step', title:'Send your proposal', desc:'This prospect fits your ICP. Time to put a number on it — send a tailored proposal or a short pricing overview with clear next steps.', btnLabel:'Generate Proposal Email', btnFn:`openQuickSend('${p.id}','proposal')`, altLabel:'Mark as Proposal Sent', altFn:`advanceStage('${p.id}')` },
+            proposal:  { icon:'🔔', label:'Next Step', title:'Follow up on your proposal', desc:"Don't wait for them to come back. Send a timely follow-up 3–5 days after the proposal. Address likely objections proactively.", btnLabel:'Send Proposal Follow-Up', btnFn:`openQuickSend('${p.id}','proposal_followup')`, altLabel:'Mark as Won', altFn:`setStage('${p.id}','won')` },
+            won:       { icon:'🎉', label:'Closed', title:'Deal won!', desc:'Congratulations. Log what worked so you can replicate it.', btnLabel:null, altLabel:null },
+            lost:      { icon:'💡', label:'Post-mortem', title:'Why was it lost?', desc:'Log the reason and decide whether to nurture long-term.', btnLabel:null, altLabel:null },
+        };
+        const na = NA[p.status] || NA.new;
+        const naClass = p.status === 'won' ? 'won' : p.status === 'lost' ? 'lost' : '';
+        const naHtml = `<div class="next-action-box ${naClass}">
+            <div class="na-icon">${na.icon}</div>
+            <div class="na-body">
+                <div class="na-label">${na.label}</div>
+                <div class="na-title">${na.title}</div>
+                <div class="na-desc">${na.desc}</div>
+                ${na.btnLabel || na.altLabel ? `<div class="na-actions">
+                    ${na.btnLabel ? `<button class="btn-next" onclick="${na.btnFn}">${na.btnLabel}</button>` : ''}
+                    ${na.altLabel ? `<button class="btn-next-ghost" onclick="${na.altFn}">${na.altLabel}</button>` : ''}
+                </div>` : ''}
+            </div>
+        </div>`;
+
+        // ── Activity log ──
+        const acts = (p.activities || []).slice().reverse().slice(0, 8);
+        const actHtml = acts.length ? `<div class="activity-log">
+            <div class="activity-log-title">Activity History</div>
+            ${acts.map(a => `<div class="activity-item">
+                <div class="activity-dot ${a.type}"></div>
+                <div class="activity-text"><strong>${escHtml(a.label||a.type)}</strong>${a.detail ? ' — ' + escHtml(a.detail) : ''}</div>
+                <div class="activity-time">${relativeTime(a.ts)}</div>
+            </div>`).join('')}
+        </div>` : '';
+
+        // ── Quick send panel (hidden until openQuickSend) ──
+        const primaryEmail = sortedPipeEmails.length ? sortedPipeEmails[0][0] : (p.email || '');
+        const emailOptions = sortedPipeEmails.length
+            ? sortedPipeEmails.map(([addr]) => `<option value="${escHtml(addr)}">${escHtml(addr)}</option>`).join('')
+            : (p.email ? `<option value="${escHtml(p.email)}">${escHtml(p.email)}</option>` : '<option value="">— no email found —</option>');
+
+        const quickSendHtml = `<div class="quick-send-panel" id="qs-${p.id}">
+            <div class="qs-header">
+                <span>✉ Quick Send</span>
+                <button class="qs-close" onclick="closeQuickSend('${p.id}')">✕</button>
+            </div>
+            <div style="margin-bottom:10px">
+                <label>To</label>
+                <select id="qs-to-${p.id}">${emailOptions}</select>
+            </div>
+            <div style="margin-bottom:10px">
+                <label>Subject</label>
+                <input id="qs-subj-${p.id}" type="text" placeholder="Generating…">
+            </div>
+            <div style="margin-bottom:10px">
+                <label>Message</label>
+                <textarea id="qs-body-${p.id}" rows="7" placeholder="Generating personalised copy…"></textarea>
+            </div>
+            <div class="qs-status" id="qs-status-${p.id}"></div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn-next" id="qs-send-btn-${p.id}" onclick="sendFromPipeline('${p.id}')">Send Email</button>
+                <button class="btn-next-ghost" onclick="closeQuickSend('${p.id}')">Cancel</button>
+            </div>
+        </div>`;
+
         return `<div class="pipe-row" id="pr-${p.id}">
             <div class="pipe-row-header" onclick="togglePipeRow('${p.id}')">
                 <div class="pipe-row-name">${escHtml(p.name)}</div>
@@ -1070,9 +1206,12 @@ function renderPipe() {
                 <span style="color:var(--text2);font-size:12px">▼</span>
             </div>
             <div class="pipe-row-detail" id="prd-${p.id}">
+                ${stageProgressHtml}
+                ${naHtml}
+                ${quickSendHtml}
                 <div class="detail-grid">
-                    <div class="detail-item"><label>Phone</label><p>${escHtml(p.phone||'—')}</p></div>
-                    <div class="detail-item"><label>Email</label><p>${p.email ? `<span style="color:var(--green)">${escHtml(p.email)}</span>` : '—'}</p></div>
+                    <div class="detail-item"><label>Phone</label><p>${p.phone ? `<a href="tel:${escHtml(p.phone)}" style="color:var(--cyan)">${escHtml(p.phone)}</a>` : '—'}</p></div>
+                    <div class="detail-item"><label>Primary Email</label><p>${p.email ? `<span style="color:var(--green)">${escHtml(p.email)}</span>` : '—'}</p></div>
                     <div class="detail-item"><label>Website</label><p>${p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--cyan)">${escHtml(p.website)}</a>` : '—'}</p></div>
                     <div class="detail-item"><label>Google Rating</label><p>${p.placesRating ? `⭐ ${p.placesRating} (${p.placesReviews||0} reviews)` : '—'}</p></div>
                     <div class="detail-item"><label>Opportunity Score</label><p>${p.opportunityScore||'—'}/10</p></div>
@@ -1083,16 +1222,16 @@ function renderPipe() {
                 ${p.opportunityReason ? `<p style="font-size:12px;color:var(--text2);margin-bottom:12px;font-style:italic">${escHtml(p.opportunityReason)}</p>` : ''}
                 <div style="margin-bottom:10px">
                     <label>Notes</label>
-                    <textarea rows="2" placeholder="Add notes..." style="margin-top:4px" onchange="Store.upd(${p.id},{notes:this.value})">${escHtml(p.notes||'')}</textarea>
+                    <textarea rows="2" placeholder="Add notes…" style="margin-top:4px" onchange="Store.upd(${p.id},{notes:this.value});logActivity('${p.id}','note',this.value.slice(0,60))">${escHtml(p.notes||'')}</textarea>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                    <label style="margin:0">Status:</label>
-                    <select style="width:auto;flex-shrink:0" onchange="Store.upd(${p.id},{status:this.value});renderPipe()">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--border)">
+                    <label style="margin:0">Stage:</label>
+                    <select style="width:auto;flex-shrink:0" onchange="setStage('${p.id}',this.value)">
                         ${['new','contacted','qualified','proposal','won','lost'].map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}
                     </select>
-                    <button class="btn btn-sm btn-ghost" onclick='startOutreachFromPipe(${JSON.stringify(p).replace(/'/g,"&#39;")})'>✉ Outreach</button>
                     <button class="btn btn-sm btn-danger" onclick="Store.del(${p.id})">Remove</button>
                 </div>
+                ${actHtml}
             </div>
         </div>`;
     }).join('');
@@ -1116,6 +1255,175 @@ function startOutreachFromPipe(p) {
         const sel = document.getElementById('out-prospect');
         for (const opt of sel.options) { if (opt.text.startsWith(p.name)) { sel.value = opt.value; break; } }
     }, 100);
+}
+
+// ── PIPELINE PROGRESSION HELPERS ─────────────────────────────────────────────
+
+function relativeTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    if (diff < 60000)     return 'just now';
+    if (diff < 3600000)   return Math.floor(diff/60000) + 'm ago';
+    if (diff < 86400000)  return Math.floor(diff/3600000) + 'h ago';
+    if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
+    return new Date(ts).toLocaleDateString();
+}
+
+function logActivity(prospectId, type, detail) {
+    const all = Store.load();
+    const p = all.find(x => x.id == prospectId);
+    if (!p) return;
+    const activities = p.activities || [];
+    activities.push({ type, label: type, detail: detail || '', ts: new Date().toISOString() });
+    Store.upd(prospectId, { activities });
+}
+
+const STAGE_ORDER = ['new','contacted','qualified','proposal','won'];
+
+function setStage(prospectId, newStage) {
+    const all = Store.load();
+    const p = all.find(x => x.id == prospectId);
+    if (!p || p.status === newStage) return;
+    Store.upd(prospectId, { status: newStage });
+    logActivity(prospectId, 'stage', `Moved to ${newStage}`);
+    renderPipe();
+}
+
+function advanceStage(prospectId) {
+    const all = Store.load();
+    const p = all.find(x => x.id == prospectId);
+    if (!p) return;
+    const idx = STAGE_ORDER.indexOf(p.status);
+    if (idx === -1 || idx >= STAGE_ORDER.length - 1) return;
+    setStage(prospectId, STAGE_ORDER[idx + 1]);
+}
+
+// ── QUICK SEND (inline email) ─────────────────────────────────────────────────
+
+const EMAIL_PROMPTS = {
+    intro: (p) => `Write a short, personalized cold email to ${p.name} in ${p.city||p.country||'their city'}.
+They are in the ${p.industry||'local business'} industry.${p.opportunityReason ? ' Context: ' + p.opportunityReason : ''}
+The email should: introduce the sender as a web/digital marketing specialist, reference one specific thing about their business (website status: ${p.websiteStatus||'unknown'}), state one concrete benefit, and close with a single low-friction ask (15-minute call).
+Keep it under 120 words. No salesy language. Output: Subject line on the first line starting with "Subject:", then a blank line, then the email body. No placeholders like [Name] — write it as if the sender's name is "us" or sign off naturally.`,
+
+    followup: (p) => `Write a short follow-up cold email to ${p.name} (${p.industry||'local business'}, ${p.city||''}).
+This is the second touch — they haven't replied. Use a fresh angle: share a quick insight, ask a different question, or mention a relevant result.
+Under 80 words. First line: "Subject: ..." then blank line, then body.`,
+
+    proposal: (p) => `Write a short email to ${p.name} transitioning from qualification to sending a proposal.
+Context: ${p.opportunityReason||`${p.industry} business in ${p.city||p.country||'their area'}`}.
+Mention you're attaching/linking a proposal, set a clear next step (call to review). Under 100 words.
+First line: "Subject: ..." then blank line, then body.`,
+
+    proposal_followup: (p) => `Write a brief follow-up email for ${p.name} checking in on a proposal sent a few days ago.
+Address one likely objection (budget or timing). Keep it warm, not pushy. Under 80 words.
+First line: "Subject: ..." then blank line, then body.`,
+};
+
+async function openQuickSend(prospectId, emailType) {
+    const all = Store.load();
+    const p = all.find(x => x.id == prospectId);
+    if (!p) return;
+
+    // Show panel
+    const panel = document.getElementById('qs-' + prospectId);
+    if (!panel) return;
+    panel.classList.add('open');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const subjEl  = document.getElementById('qs-subj-' + prospectId);
+    const bodyEl  = document.getElementById('qs-body-' + prospectId);
+    const statusEl = document.getElementById('qs-status-' + prospectId);
+    const sendBtn  = document.getElementById('qs-send-btn-' + prospectId);
+
+    subjEl.value = '';
+    bodyEl.value = '';
+    statusEl.className = 'qs-status';
+    statusEl.textContent = 'Generating personalised copy…';
+    if (sendBtn) sendBtn.disabled = true;
+
+    try {
+        const promptFn = EMAIL_PROMPTS[emailType] || EMAIL_PROMPTS.intro;
+        const prompt = promptFn(p);
+        const svc = window.ClaudeService;
+        if (!svc) throw new Error('Claude service not available — enter copy manually.');
+
+        const raw = await svc.complete(prompt, { maxTokens: 400 });
+        const lines = raw.split('\n');
+        const subjLine = lines.find(l => l.toLowerCase().startsWith('subject:'));
+        const subj = subjLine ? subjLine.replace(/^subject:\s*/i, '').trim() : `Quick question about ${p.name}`;
+        const body = lines.filter(l => !l.toLowerCase().startsWith('subject:')).join('\n').replace(/^\n+/, '');
+
+        subjEl.value = subj;
+        bodyEl.value = body;
+        statusEl.textContent = '';
+    } catch (err) {
+        statusEl.textContent = err.message || 'Generation failed — add copy manually.';
+        subjEl.value = `Quick question about ${p.name}`;
+        bodyEl.value = '';
+    } finally {
+        if (sendBtn) sendBtn.disabled = false;
+    }
+}
+
+function closeQuickSend(prospectId) {
+    document.getElementById('qs-' + prospectId)?.classList.remove('open');
+}
+
+async function sendFromPipeline(prospectId) {
+    const all = Store.load();
+    const p = all.find(x => x.id == prospectId);
+    if (!p) return;
+
+    const toEl    = document.getElementById('qs-to-' + prospectId);
+    const subjEl  = document.getElementById('qs-subj-' + prospectId);
+    const bodyEl  = document.getElementById('qs-body-' + prospectId);
+    const statusEl = document.getElementById('qs-status-' + prospectId);
+    const sendBtn  = document.getElementById('qs-send-btn-' + prospectId);
+
+    const to      = toEl?.value?.trim();
+    const subject = subjEl?.value?.trim();
+    const text    = bodyEl?.value?.trim();
+
+    if (!to)      { statusEl.className = 'qs-status err'; statusEl.textContent = 'Select an email address.'; return; }
+    if (!subject) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Subject is required.'; return; }
+    if (!text)    { statusEl.className = 'qs-status err'; statusEl.textContent = 'Message body is required.'; return; }
+
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner"></span> Sending…';
+    statusEl.className = 'qs-status';
+    statusEl.textContent = '';
+
+    const html = text.split('\n\n').map(para =>
+        `<p style="margin:0 0 12px">${para.replace(/\n/g,'<br>')}</p>`
+    ).join('');
+
+    try {
+        const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, subject, html, text, prospectId: String(prospectId) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Send failed');
+
+        statusEl.className = 'qs-status ok';
+        statusEl.textContent = `✓ Sent to ${to} (${data.dailySent}/${data.dailyLimit} today)`;
+
+        // Log activity + auto-advance stage
+        logActivity(prospectId, 'email', `Emailed: ${subject}`);
+        const fresh = Store.load().find(x => x.id == prospectId);
+        if (fresh && fresh.status === 'new') advanceStage(prospectId);
+        else renderPipe();
+
+        setTimeout(() => closeQuickSend(prospectId), 2000);
+    } catch (err) {
+        statusEl.className = 'qs-status err';
+        statusEl.textContent = err.message;
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = 'Send Email';
+    }
 }
 
 // ── OUTREACH ──────────────────────────────────────────────────────────────────
