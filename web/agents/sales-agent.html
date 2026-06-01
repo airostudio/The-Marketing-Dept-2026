@@ -189,7 +189,23 @@
         .activity-text strong { color: var(--text); }
         .activity-time { font-size: 11px; color: rgba(255,255,255,0.25); flex-shrink: 0; }
 
-        /* OUTREACH */
+        /* ── Sort + select toolbar ── */
+        .pipe-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .pipe-select-all { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+        .sort-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); color: var(--text2); background: none; transition: all 0.15s; white-space: nowrap; }
+        .sort-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+        .sort-btn.active { border-color: rgba(var(--green-rgb),0.4); color: var(--green); background: rgba(var(--green-rgb),0.07); }
+        .sort-arrow { font-size: 10px; }
+
+        /* ── Bulk action bar ── */
+        .bulk-bar { display: none; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(var(--green-rgb),0.07); border: 1px solid rgba(var(--green-rgb),0.2); border-radius: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .bulk-bar.visible { display: flex; }
+        .bulk-count { font-size: 13px; font-weight: 700; color: var(--green); flex: 1; min-width: 80px; }
+        .bulk-stage-sel { width: auto; font-size: 12px; padding: 5px 8px; }
+
+        /* ── Row checkbox ── */
+        .pipe-row-cb { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+        .pipe-row.selected-row { border-color: rgba(var(--green-rgb),0.35); background: rgba(var(--green-rgb),0.04); }
         .outreach-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
         .outreach-output { background: rgba(var(--green-rgb),0.04); border: 1px solid rgba(var(--green-rgb),0.15); border-radius: 12px; padding: 20px; min-height: 300px; font-size: 14px; line-height: 1.8; }
 
@@ -374,6 +390,8 @@
         <button class="btn btn-ghost btn-sm" onclick="clearPipeline()">🗑 Clear All</button>
     </div>
     <div id="pipe-stats" class="pipe-stats"></div>
+
+    <!-- Stage filter chips -->
     <div class="pipe-filters">
         <button class="pipe-filter active" onclick="setPipeFilter('all',this)">All</button>
         <button class="pipe-filter" onclick="setPipeFilter('new',this)">New</button>
@@ -383,6 +401,36 @@
         <button class="pipe-filter" onclick="setPipeFilter('won',this)">Won</button>
         <button class="pipe-filter" onclick="setPipeFilter('lost',this)">Lost</button>
     </div>
+
+    <!-- Sort + select-all toolbar -->
+    <div class="pipe-toolbar">
+        <input type="checkbox" class="pipe-select-all" id="pipeSelectAll" title="Select all" onchange="toggleSelectAll(this.checked)">
+        <span style="font-size:12px;color:var(--text2);margin-right:4px;">Sort:</span>
+        <button class="sort-btn" id="sort-name"    onclick="setSort('name')">Name <span class="sort-arrow" id="sa-name"></span></button>
+        <button class="sort-btn" id="sort-status"  onclick="setSort('status')">Stage <span class="sort-arrow" id="sa-status"></span></button>
+        <button class="sort-btn active" id="sort-score" onclick="setSort('score')">Score <span class="sort-arrow" id="sa-score">↓</span></button>
+        <button class="sort-btn" id="sort-added"   onclick="setSort('added')">Date Added <span class="sort-arrow" id="sa-added"></span></button>
+    </div>
+
+    <!-- Bulk action bar (visible when rows are selected) -->
+    <div class="bulk-bar" id="bulkBar">
+        <span class="bulk-count" id="bulkCount">0 selected</span>
+        <span style="font-size:12px;color:var(--text2);">Move to:</span>
+        <select class="bulk-stage-sel" id="bulkStageSel">
+            <option value="">— stage —</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="qualified">Qualified</option>
+            <option value="proposal">Proposal</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" onclick="bulkMoveStage()">Apply</button>
+        <button class="btn btn-sm btn-ghost" onclick="bulkExportCSV()">⬇ Export</button>
+        <button class="btn btn-sm btn-danger" onclick="bulkDelete()">🗑 Delete</button>
+        <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="clearSelection()">✕ Deselect</button>
+    </div>
+
     <div id="pipe-list"></div>
 </div>
 
@@ -1048,13 +1096,135 @@ function exportCSV() {
 }
 
 // ── PIPELINE ──────────────────────────────────────────────────────────────────
-let pipeFilter = 'all';
+let pipeFilter  = 'all';
+let pipeSort    = 'score';   // name | status | score | added
+let pipeSortDir = 'desc';    // asc | desc
+let selectedIds = new Set();
 
 function setPipeFilter(f, el) {
     pipeFilter = f;
     document.querySelectorAll('.pipe-filter').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
+    clearSelection();
     renderPipe();
+}
+
+function setSort(key) {
+    if (pipeSort === key) {
+        pipeSortDir = pipeSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        pipeSort    = key;
+        pipeSortDir = key === 'added' ? 'desc' : 'asc';
+    }
+    // Update button styles + arrows
+    ['name','status','score','added'].forEach(k => {
+        const btn = document.getElementById('sort-' + k);
+        const arr = document.getElementById('sa-' + k);
+        if (!btn || !arr) return;
+        if (k === pipeSort) {
+            btn.classList.add('active');
+            arr.textContent = pipeSortDir === 'asc' ? '↑' : '↓';
+        } else {
+            btn.classList.remove('active');
+            arr.textContent = '';
+        }
+    });
+    renderPipe();
+}
+
+function sortProspects(arr) {
+    const STAGE_ORDER = {new:0,contacted:1,qualified:2,proposal:3,won:4,lost:5};
+    return [...arr].sort((a, b) => {
+        let va, vb;
+        if (pipeSort === 'name')   { va = (a.name||'').toLowerCase(); vb = (b.name||'').toLowerCase(); }
+        if (pipeSort === 'status') { va = STAGE_ORDER[a.status]??9;   vb = STAGE_ORDER[b.status]??9; }
+        if (pipeSort === 'score')  { va = a.opportunityScore||0;       vb = b.opportunityScore||0; }
+        if (pipeSort === 'added')  { va = new Date(a.addedAt||0);      vb = new Date(b.addedAt||0); }
+        if (va < vb) return pipeSortDir === 'asc' ? -1 :  1;
+        if (va > vb) return pipeSortDir === 'asc' ?  1 : -1;
+        return 0;
+    });
+}
+
+// ── Multi-select ──────────────────────────────────────────────────────────────
+function toggleSelectAll(checked) {
+    const list = document.getElementById('pipe-list');
+    if (!list) return;
+    list.querySelectorAll('.pipe-row-cb').forEach(cb => {
+        cb.checked = checked;
+        const id = cb.dataset.id;
+        if (checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        document.getElementById('pr-' + id)?.classList.toggle('selected-row', checked);
+    });
+    updateBulkBar();
+}
+
+function toggleRowSelect(cb) {
+    const id = cb.dataset.id;
+    if (cb.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    document.getElementById('pr-' + id)?.classList.toggle('selected-row', cb.checked);
+    updateBulkBar();
+    // Sync select-all checkbox state
+    const allCbs = document.querySelectorAll('.pipe-row-cb');
+    const allChecked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
+    const selAll = document.getElementById('pipeSelectAll');
+    if (selAll) { selAll.checked = allChecked; selAll.indeterminate = !allChecked && selectedIds.size > 0; }
+}
+
+function updateBulkBar() {
+    const bar   = document.getElementById('bulkBar');
+    const count = document.getElementById('bulkCount');
+    if (!bar) return;
+    const n = selectedIds.size;
+    bar.classList.toggle('visible', n > 0);
+    if (count) count.textContent = n + ' selected';
+}
+
+function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('.pipe-row-cb').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.pipe-row.selected-row').forEach(r => r.classList.remove('selected-row'));
+    const selAll = document.getElementById('pipeSelectAll');
+    if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
+    updateBulkBar();
+}
+
+function bulkMoveStage() {
+    const stage = document.getElementById('bulkStageSel').value;
+    if (!stage || !selectedIds.size) return;
+    selectedIds.forEach(id => setStage(id, stage));
+    document.getElementById('bulkStageSel').value = '';
+    clearSelection();
+}
+
+function bulkDelete() {
+    if (!selectedIds.size) return;
+    if (!confirm(`Delete ${selectedIds.size} prospect${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    selectedIds.forEach(id => {
+        const all = Store.load();
+        Store.save(all.filter(p => String(p.id) !== String(id)));
+    });
+    selectedIds.clear();
+    renderPipe();
+}
+
+function bulkExportCSV() {
+    const all = Store.load();
+    const rows = all.filter(p => selectedIds.has(String(p.id)));
+    if (!rows.length) return;
+    const headers = ['Name','Industry','City','Country','Phone','Email','Website','Stage','Score','Opportunity Reason'];
+    const csv = [headers, ...rows.map(p => [
+        p.name, p.industry, p.city, p.country, p.phone, p.email,
+        p.website, p.status, p.opportunityScore, p.opportunityReason
+    ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`))].map(r => r.join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([csv], {type:'text/csv'})),
+        download: `pipeline-export-${Date.now()}.csv`
+    });
+    a.click();
+    showToast(`${rows.length} records exported`);
 }
 
 function renderPipe() {
@@ -1076,7 +1246,8 @@ function renderPipe() {
         ].map(s => `<div class="pipe-stat"><div class="pipe-stat-val" style="color:${s.color}">${s.val}</div><div class="pipe-stat-label">${s.label}</div></div>`).join('');
     }
 
-    const filtered = pipeFilter === 'all' ? all : all.filter(p => p.status === pipeFilter);
+    const preFiltered = pipeFilter === 'all' ? all : all.filter(p => p.status === pipeFilter);
+    const filtered = sortProspects(preFiltered);
     const list = document.getElementById('pipe-list');
     if (!list) return;
 
@@ -1197,8 +1368,10 @@ function renderPipe() {
             </div>
         </div>`;
 
-        return `<div class="pipe-row" id="pr-${p.id}">
+        const isSelected = selectedIds.has(String(p.id));
+        return `<div class="pipe-row${isSelected ? ' selected-row' : ''}" id="pr-${p.id}">
             <div class="pipe-row-header" onclick="togglePipeRow('${p.id}')">
+                <input type="checkbox" class="pipe-row-cb" data-id="${p.id}" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation();toggleRowSelect(this)">
                 <div class="pipe-row-name">${escHtml(p.name)}</div>
                 <div class="pipe-row-meta">${escHtml(p.city||'')} ${escHtml(p.country||'')} · ${escHtml(p.industry||'')}</div>
                 ${tagLabel ? `<div class="pipe-row-meta" style="flex:0;white-space:nowrap">${tagLabel}</div>` : ''}
