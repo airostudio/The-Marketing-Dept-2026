@@ -1521,7 +1521,10 @@ async function openQuickSend(prospectId, emailType) {
         const svc = window.ClaudeService;
         if (!svc) throw new Error('Claude service not available — enter copy manually.');
 
-        const raw = await svc.complete(prompt, { maxTokens: 400 });
+        const raw = await svc.callAgent({
+            systemPrompt: 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble, no sign-off placeholder.',
+            messages: [{ role: 'user', content: prompt }],
+        });
         const lines = raw.split('\n');
         const subjLine = lines.find(l => l.toLowerCase().startsWith('subject:'));
         const subj = subjLine ? subjLine.replace(/^subject:\s*/i, '').trim() : `Quick question about ${p.name}`;
