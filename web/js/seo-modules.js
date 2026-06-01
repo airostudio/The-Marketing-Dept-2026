@@ -151,8 +151,8 @@
 
                         if (attempt < CONFIG.retryAttempts) {
                             await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
-                            continue;
                         }
+                        continue; // body consumed by response.text() — never reach response.json()
                     }
 
                     const data = await response.json();
