@@ -140,6 +140,18 @@
     .lead-card.status-called { border-left: 3px solid var(--amber); }
     .lead-card.status-booked { border-left: 3px solid var(--indigo); }
     .lead-card.status-closed { border-left: 3px solid var(--text3); }
+    /* ── Enrichment / verification badges ── */
+    .ev-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 7px; border-radius:20px; border:1px solid; }
+    .ev-valid   { background:rgba(16,185,129,.12); color:#10b981; border-color:rgba(16,185,129,.3); }
+    .ev-risky   { background:rgba(245,158,11,.12); color:#f59e0b; border-color:rgba(245,158,11,.3); }
+    .ev-invalid { background:rgba(239,68,68,.12);  color:#ef4444; border-color:rgba(239,68,68,.3); }
+    .ev-unknown { background:rgba(107,114,128,.1); color:#9ca3af; border-color:rgba(107,114,128,.3); }
+    .ev-loading { background:rgba(99,102,241,.1);  color:#818cf8; border-color:rgba(99,102,241,.3); animation:pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    .enrich-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:5px; }
+    .enrich-chip { font-size:11px; color:var(--text2); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; padding:2px 8px; }
+    .social-link { font-size:11px; color:var(--indigo); text-decoration:none; }
+    .social-link:hover { text-decoration:underline; }
     .lead-name    { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
     .lead-meta    { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
     .lead-contact { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
@@ -667,8 +679,9 @@
               <tr>
                 <th>Name</th>
                 <th>Company</th>
-                <th>Title</th>
+                <th>Title / Seniority</th>
                 <th>Email</th>
+                <th>Profile</th>
                 <th>Trigger / Signal</th>
                 <th>Campaign</th>
                 <th>Status</th>
@@ -923,6 +936,30 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal('prospectModal')">Cancel</button>
         <button class="btn btn-primary" onclick="saveProspect()">Save Prospect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SEND EMAIL MODAL ── -->
+<div class="modal-overlay" id="sendEmailModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✉️ Send Cold Email</div><button class="modal-close" onclick="closeModal('sendEmailModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">To</label>
+        <input class="form-input" id="seToEmail" placeholder="prospect@company.com" type="email">
+        <input type="hidden" id="seProspectId">
+      </div>
+      <div class="form-group"><label class="form-label">Subject *</label><input class="form-input" id="seSubject" placeholder="Quick question about {{company}}"></div>
+      <div class="form-group">
+        <label class="form-label">Message *</label>
+        <textarea class="form-textarea" id="seBody" rows="8" placeholder="Write your email here…&#10;&#10;Use {{firstName}}, {{company}}, {{title}} as placeholders."></textarea>
+      </div>
+      <div id="seStatus" style="font-size:13px;color:var(--text2);min-height:20px;"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('sendEmailModal')">Cancel</button>
+        <button class="btn btn-primary" id="seSendBtn" onclick="dispatchEmail()">Send Email</button>
       </div>
     </div>
   </div>
@@ -1249,28 +1286,106 @@ function saveProspect() {
   const name = document.getElementById('pName').value.trim();
   const company = document.getElementById('pCompany').value.trim();
   if (!name || !company) { alert('Name and company are required.'); return; }
-  prospects.push({
+  const p = {
     id: uid(), name, company,
     title:    document.getElementById('pTitle').value.trim(),
     email:    document.getElementById('pEmail').value.trim(),
     trigger:  document.getElementById('pTrigger').value.trim(),
     campaign: document.getElementById('pCampaign').value,
     status:   document.getElementById('pStatus').value,
-    createdAt: new Date().toISOString()
-  });
+    createdAt: new Date().toISOString(),
+    enriched: false,
+    emailVerification: null,
+    linkedin: null, twitter: null,
+    companyLinkedin: null, companySize: null,
+    industry: null, employeeCount: null,
+    fundingStage: null, location: null,
+    techStack: [], seniorityLevel: null, isDecisionMaker: false,
+  };
+  prospects.push(p);
   LS.set(K.PROSPECTS, prospects);
   closeModal('prospectModal');
   ['pName','pCompany','pTitle','pEmail','pTrigger'].forEach(id => document.getElementById(id).value = '');
-  renderProspects(); refreshStats(); toast('Prospect added');
+  renderProspects(); refreshStats(); toast('Prospect added — enriching profile…');
+  enrichProspect(p.id);
 }
+
+async function enrichProspect(id) {
+  const idx = prospects.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const p = prospects[idx];
+
+  // Mark enrichment in progress so badge shows spinner
+  prospects[idx].enriching = true;
+  LS.set(K.PROSPECTS, prospects);
+  renderProspects();
+
+  try {
+    const body = {
+      name:    p.name,
+      company: p.company,
+      title:   p.title || undefined,
+    };
+    if (p.email) body.email = p.email;
+
+    const res = await fetch('/api/lead-enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('Enrichment API error');
+    const data = await res.json();
+
+    Object.assign(prospects[idx], {
+      enriching:         false,
+      enriched:          true,
+      // Use found email if we didn't have one
+      email:             p.email || data.email || p.email,
+      emailVerification: data.emailVerification || null,
+      linkedin:          data.person?.linkedin  || null,
+      twitter:           data.person?.twitter   || null,
+      seniorityLevel:    data.person?.seniorityLevel || null,
+      isDecisionMaker:   data.person?.isDecisionMaker || false,
+      companyLinkedin:   data.company?.linkedin  || null,
+      companySize:       data.company?.companySize || null,
+      industry:          data.company?.industry  || null,
+      employeeCount:     data.company?.employeeCount || null,
+      fundingStage:      data.company?.fundingStage || null,
+      location:          data.company?.location  || null,
+      techStack:         data.company?.techStack  || [],
+    });
+  } catch (e) {
+    prospects[idx].enriching = false;
+    console.warn('[LeadEnrich] failed:', e.message);
+  }
+
+  LS.set(K.PROSPECTS, prospects);
+  renderProspects();
+}
+
 function deleteProspect(id) {
   if (!confirm('Remove this prospect?')) return;
   prospects = prospects.filter(p => p.id !== id); LS.set(K.PROSPECTS, prospects); renderProspects();
 }
+
+function evBadge(ev, enriching) {
+  if (enriching) return '<span class="ev-badge ev-loading">⟳ Verifying…</span>';
+  if (!ev)       return '<span class="ev-badge ev-unknown">? Unverified</span>';
+  const map = {
+    valid:   { cls:'ev-valid',   icon:'✓', label:'Verified' },
+    risky:   { cls:'ev-risky',   icon:'⚠', label:'Risky' },
+    invalid: { cls:'ev-invalid', icon:'✕', label:'Invalid' },
+    unknown: { cls:'ev-unknown', icon:'?', label:'Unknown' },
+  };
+  const m = map[ev.status] || map.unknown;
+  const score = ev.score !== null ? ` ${ev.score}%` : '';
+  return `<span class="ev-badge ${m.cls}" title="Type: ${ev.type || '?'} | Disposable: ${ev.disposable}">${m.icon} ${m.label}${score}</span>`;
+}
+
 function renderProspects() {
   const tbody = document.getElementById('prospectsTable');
   if (prospects.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px;">No prospects yet. Add one above or import a list.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px;">No prospects yet. Add one above or import a list.</td></tr>';
     return;
   }
   const sm = {
@@ -1283,17 +1398,117 @@ function renderProspects() {
   const cName = id => { const c = campaigns.find(x => x.id === id); return c ? c.name : '–'; };
   tbody.innerHTML = prospects.map(p => {
     const st = sm[p.status] || { cls:'ps-pending', label: p.status };
+
+    // Title + seniority
+    const seniorityTag = p.isDecisionMaker
+      ? '<span style="font-size:10px;background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:1px 6px;margin-left:4px;">Decision Maker</span>'
+      : (p.seniorityLevel ? `<span style="font-size:10px;color:var(--text3);margin-left:4px;">${esc(p.seniorityLevel)}</span>` : '');
+    const titleCell = `${esc(p.title) || '–'}${seniorityTag}`;
+
+    // Email cell with verification badge
+    const emailCell = p.email
+      ? `<div><a href="mailto:${esc(p.email)}" style="color:var(--indigo);text-decoration:none;">${esc(p.email)}</a></div>
+         <div style="margin-top:3px;">${evBadge(p.emailVerification, p.enriching)}</div>`
+      : (p.enriching
+          ? '<span class="ev-badge ev-loading">⟳ Looking up…</span>'
+          : '<span style="color:var(--text3);font-size:12px;">–</span>');
+
+    // Profile chips: LinkedIn, Twitter, company info
+    const chips = [];
+    if (p.linkedin)       chips.push(`<a href="${esc(p.linkedin)}" target="_blank" class="social-link">🔗 LinkedIn</a>`);
+    if (p.twitter)        chips.push(`<a href="${esc(p.twitter)}"  target="_blank" class="social-link">𝕏 Twitter</a>`);
+    if (p.companyLinkedin) chips.push(`<a href="${esc(p.companyLinkedin)}" target="_blank" class="social-link">🏢 Co. Page</a>`);
+    if (p.industry)       chips.push(`<span class="enrich-chip">${esc(p.industry)}</span>`);
+    if (p.companySize)    chips.push(`<span class="enrich-chip">👥 ${esc(p.companySize)}</span>`);
+    if (p.location)       chips.push(`<span class="enrich-chip">📍 ${esc(p.location)}</span>`);
+    if (p.fundingStage)   chips.push(`<span class="enrich-chip">💰 ${esc(p.fundingStage)}</span>`);
+    if (p.techStack?.length) chips.push(`<span class="enrich-chip" title="${esc(p.techStack.join(', '))}">🛠 ${p.techStack.slice(0,2).map(esc).join(', ')}${p.techStack.length > 2 ? ` +${p.techStack.length-2}` : ''}</span>`);
+    const profileCell = chips.length
+      ? `<div class="enrich-row">${chips.join('')}</div>`
+      : (p.enriching ? '<span style="font-size:11px;color:var(--text3);">⟳ Enriching…</span>' : '<span style="color:var(--text3);font-size:12px;">–</span>');
+
+    // Actions
+    const sendBtn = p.email
+      ? `<button class="btn btn-ghost btn-sm" onclick="openSendEmail('${p.id}')" title="Send cold email">✉</button>`
+      : '';
+    const reEnrichBtn = p.enriched && !p.enriching
+      ? `<button class="btn btn-ghost btn-sm" onclick="enrichProspect('${p.id}')" title="Re-enrich profile">↻</button>`
+      : '';
+
     return `<tr>
-      <td>${esc(p.name)}</td>
-      <td>${esc(p.company)}</td>
-      <td style="color:var(--text2)">${esc(p.title)}</td>
-      <td>${p.email ? `<a href="mailto:${esc(p.email)}" style="color:var(--indigo);text-decoration:none;">${esc(p.email)}</a>` : '–'}</td>
+      <td style="font-weight:600;">${esc(p.name)}</td>
+      <td style="color:var(--text2)">${esc(p.company)}</td>
+      <td style="color:var(--text2);font-size:12px;">${titleCell}</td>
+      <td style="font-size:12px;">${emailCell}</td>
+      <td style="font-size:12px;">${profileCell}</td>
       <td style="color:var(--amber);font-size:12px;">${esc(p.trigger) || '–'}</td>
       <td style="color:var(--text2);font-size:12px;">${esc(cName(p.campaign))}</td>
       <td><span class="pill ${st.cls}">${st.label}</span></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
+      <td style="display:flex;gap:4px;align-items:center;">${sendBtn}${reEnrichBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
     </tr>`;
   }).join('');
+}
+
+// ── Send email ────────────────────────────────────────────────────────────────
+function openSendEmail(prospectId) {
+  const p = prospects.find(x => x.id === prospectId);
+  if (!p) return;
+  document.getElementById('seProspectId').value = prospectId;
+  document.getElementById('seToEmail').value    = p.email || '';
+  document.getElementById('seSubject').value    = `Quick question about ${p.company}`;
+  const firstName = p.name.split(' ')[0];
+  document.getElementById('seBody').value = `Hi ${firstName},\n\nI noticed ${p.company}${p.trigger ? ` — ${p.trigger}` : ''}. Many ${p.industry || 'companies'} are facing challenges we've helped solve.\n\nWould you be open to a quick 15-minute call to see if it's relevant?\n\nBest,\n{{senderName}}`;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+async function dispatchEmail() {
+  const btn = document.getElementById('seSendBtn');
+  const statusEl = document.getElementById('seStatus');
+  const to = document.getElementById('seToEmail').value.trim();
+  const subject = document.getElementById('seSubject').value.trim();
+  const rawBody = document.getElementById('seBody').value.trim();
+  const prospectId = document.getElementById('seProspectId').value;
+
+  if (!to || !subject || !rawBody) { statusEl.textContent = 'To, subject, and message are required.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  statusEl.textContent = '';
+
+  // Simple HTML wrap
+  const html = rawBody.split('\n\n').map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+
+  try {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html, text: rawBody, prospectId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Send failed');
+
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = `✓ Sent! (${data.dailySent}/${data.dailyLimit} today)`;
+
+    // Log outreach in prospect activities
+    const idx = prospects.findIndex(p => p.id === prospectId);
+    if (idx !== -1) {
+      if (!prospects[idx].activities) prospects[idx].activities = [];
+      prospects[idx].activities.push({ id: 'act_'+Date.now(), type:'email_sent', timestamp: new Date().toISOString(), subject, to });
+      if (prospects[idx].status === 'pending') prospects[idx].status = 'inseq';
+      LS.set(K.PROSPECTS, prospects);
+      renderProspects();
+    }
+
+    setTimeout(() => closeModal('sendEmailModal'), 1500);
+  } catch (err) {
+    statusEl.style.color = 'var(--red, #ef4444)';
+    statusEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Email';
+  }
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────────
