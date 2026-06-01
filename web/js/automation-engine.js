@@ -392,7 +392,7 @@ Output ONLY valid JSON. No markdown, no explanation.`;
   }
 
   /**
-   * Schedule emails via ESP API (Mailchimp, SendGrid, etc.)
+   * Schedule emails via ESP API (Mailchimp, Resend, etc.)
    * @private
    */
   async _scheduleViaESP(emailSequence, sendSchedule, config) {

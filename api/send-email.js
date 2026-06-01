@@ -2,27 +2,32 @@
  * Send Email API — Vercel serverless function
  *
  * POST {
- *   to:       string,          // recipient email
- *   toName?:  string,
- *   subject:  string,
- *   html:     string,          // HTML body
- *   text?:    string,          // plain text fallback
- *   prospectId?: string,       // for logging
+ *   to:          string,   // recipient email
+ *   toName?:     string,
+ *   subject:     string,
+ *   html:        string,   // HTML body
+ *   text?:       string,   // plain text fallback
+ *   replyTo?:    string,   // reply-to address
+ *   prospectId?: string,   // for activity logging
  *   sequenceId?: string,
  *   stepIndex?:  number,
  * }
  *
- * Enforces a 50 emails/day per-environment send budget to protect deliverability.
- * All credentials read from Vercel env vars — nothing client-side.
+ * Sends via Resend (resend.com). Enforces a 50 emails/day budget to protect deliverability.
+ * All credentials live exclusively in Vercel environment variables.
+ *
+ * Required env vars:
+ *   RESEND_API_KEY      — Resend API key (re_...)
+ *   RESEND_FROM_EMAIL   — verified sender address, e.g. hello@yourdomain.com
+ *   RESEND_FROM_NAME    — (optional) sender display name, defaults to "Aduma"
  */
 
 'use strict';
 
-const DAILY_SEND_LIMIT = 50;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 10;
+const DAILY_SEND_LIMIT   = 50;
+const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX     = 10;
 
-// In-memory counters (reset on cold start; good enough for Vercel's edge)
 const rateBuckets   = new Map();
 let dailySendCount  = 0;
 let dailyWindowDate = new Date().toDateString();
@@ -32,10 +37,11 @@ function getClientIp(req) {
   if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
   return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
 }
+
 function checkRateLimit(ip) {
   const now = Date.now();
   let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
+  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
     b = { windowStart: now, count: 0 };
     rateBuckets.set(ip, b);
   }
@@ -62,62 +68,59 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
-  if (!checkDailyLimit())  return res.status(429).json({ error: `Daily send limit of ${DAILY_SEND_LIMIT} emails reached. Resets at midnight.` });
+  if (!checkRateLimit(ip))
+    return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  if (!checkDailyLimit())
+    return res.status(429).json({ error: `Daily send limit of ${DAILY_SEND_LIMIT} reached. Resets at midnight.` });
 
-  const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'SENDGRID_API_KEY not configured' });
+  const apiKey    = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const fromName  = process.env.RESEND_FROM_NAME || 'Aduma';
 
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const fromName  = process.env.SENDGRID_FROM_NAME || 'Aduma';
-  if (!fromEmail) return res.status(500).json({ error: 'SENDGRID_FROM_EMAIL not configured' });
+  if (!apiKey)    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
+  if (!fromEmail) return res.status(500).json({ error: 'RESEND_FROM_EMAIL not configured' });
 
-  const { to, toName, subject, html, text, prospectId, sequenceId, stepIndex } = req.body || {};
+  const { to, toName, subject, html, text, replyTo, prospectId, sequenceId, stepIndex } = req.body || {};
 
-  if (!to || !subject || !html) {
+  if (!to || !subject || !html)
     return res.status(400).json({ error: 'to, subject, and html are required' });
-  }
-  // Basic email format check
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-    return res.status(400).json({ error: 'Invalid recipient email address' });
-  }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))
+    return res.status(400).json({ error: 'Invalid recipient email address' });
+
+  // Resend payload — https://resend.com/docs/api-reference/emails/send-email
   const payload = {
-    personalizations: [{
-      to: [{ email: to, ...(toName ? { name: toName } : {}) }],
-    }],
-    from: { email: fromEmail, name: fromName },
+    from:    `${fromName} <${fromEmail}>`,
+    to:      toName ? [`${toName} <${to}>`] : [to],
     subject,
-    content: [
-      { type: 'text/html',  value: html },
-      ...(text ? [{ type: 'text/plain', value: text }] : []),
+    html,
+    ...(text    ? { text }                       : {}),
+    ...(replyTo ? { reply_to: replyTo }          : {}),
+    // Resend tags for filtering / webhooks
+    tags: [
+      ...(prospectId  ? [{ name: 'prospect_id',  value: prospectId  }] : []),
+      ...(sequenceId  ? [{ name: 'sequence_id',  value: sequenceId  }] : []),
+      ...(stepIndex !== undefined ? [{ name: 'step_index', value: String(stepIndex) }] : []),
     ],
-    tracking_settings: {
-      click_tracking:  { enable: true },
-      open_tracking:   { enable: true },
-    },
-    // Custom args for webhook correlation
-    custom_args: {
-      ...(prospectId  ? { prospect_id:  prospectId  } : {}),
-      ...(sequenceId  ? { sequence_id:  sequenceId  } : {}),
-      ...(stepIndex !== undefined ? { step_index: String(stepIndex) } : {}),
-    },
   };
 
   try {
-    const upstream = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
+    const upstream = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type':  'application/json',
       },
-      body: JSON.stringify(payload),
+      body:   JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     });
 
-    if (upstream.status === 202) {
+    const data = await upstream.json().catch(() => ({}));
+
+    if (upstream.ok) {
       return res.json({
         success:    true,
+        id:         data.id,      // Resend email ID for tracking
         to,
         subject,
         dailySent:  dailySendCount,
@@ -125,10 +128,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // SendGrid errors come as JSON in the body
-    let errBody = {};
-    try { errBody = await upstream.json(); } catch {}
-    const errMsg = errBody?.errors?.[0]?.message || `SendGrid error ${upstream.status}`;
+    // Resend error format: { name, message, statusCode }
+    const errMsg = data.message || data.name || `Resend error ${upstream.status}`;
     return res.status(upstream.status).json({ error: errMsg });
 
   } catch (err) {

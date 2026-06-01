@@ -4,7 +4,7 @@
  * Routes authenticated requests to external marketing APIs.
  * All credentials are read from Vercel environment variables — never from the client.
  *
- * Supported services: ahrefs | semrush | dataforseo | mailchimp | sendgrid
+ * Supported services: ahrefs | semrush | dataforseo | mailchimp | resend
  *
  * Request body: { service, endpoint, params, method, body }
  * Response:     upstream JSON (or error JSON)
@@ -81,10 +81,10 @@ async function callMailchimp(endpoint, params, method, body) {
   });
 }
 
-async function callSendGrid(endpoint, params, method, body) {
-  const key = process.env.SENDGRID_API_KEY;
-  if (!key) throw Object.assign(new Error('SENDGRID_API_KEY not configured'), { status: 503 });
-  const url = `https://api.sendgrid.com/v3${endpoint}${qs(params)}`;
+async function callResend(endpoint, params, method, body) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw Object.assign(new Error('RESEND_API_KEY not configured'), { status: 503 });
+  const url = `https://api.resend.com${endpoint}${qs(params)}`;
   return fetch(url, {
     method: method || 'GET',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -92,7 +92,7 @@ async function callSendGrid(endpoint, params, method, body) {
   });
 }
 
-const SERVICES = { ahrefs: callAhrefs, semrush: callSemrush, dataforseo: callDataForSEO, mailchimp: callMailchimp, sendgrid: callSendGrid };
+const SERVICES = { ahrefs: callAhrefs, semrush: callSemrush, dataforseo: callDataForSEO, mailchimp: callMailchimp, resend: callResend };
 
 // ── Handler ─────────────────────────────────────────────────────────────────
 

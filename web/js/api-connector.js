@@ -755,28 +755,24 @@
       };
     })();
 
-    // ---- SendGrid ----
-    var sendgrid = (function() {
-      var NS = 'sg';
-      var BASE = 'https://api.sendgrid.com/v3';
-
-      function getApiKey() {
-        return getConfig('email.sendgrid.apiKey') || getConfig('sendgrid.apiKey');
-      }
+    // ---- Resend ----
+    var resend = (function() {
+      var NS = 'resend';
 
       function isAvailable() {
-        return apiEnabled('email.sendgrid') && !!getApiKey();
+        // Resend credentials live server-side only; always reachable via /api/integration
+        return apiEnabled('email.resend') !== false;
       }
 
-      function sgFetch(endpoint, params, cacheKeyStr, ttl) {
-        return safeCall('EmailMarketing.sendgrid', function() {
+      function resendFetch(endpoint, params, cacheKeyStr, ttl) {
+        return safeCall('EmailMarketing.resend', function() {
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
           return fetchWithRetry('/api/integration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'sendgrid', endpoint: endpoint, params: params || {}, method: 'GET' })
+            body: JSON.stringify({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
@@ -784,32 +780,29 @@
         });
       }
 
-      function getStats(dateRange) {
-        var params = {
-          aggregated_by: 'day'
-        };
-        if (dateRange) {
-          params.start_date = formatDate(dateRange.start || dateRange.startDate);
-          params.end_date = formatDate(dateRange.end || dateRange.endDate);
-        }
-        var key = 'stats_' + (dateRange ? JSON.stringify(dateRange) : 'all');
-        return sgFetch('/stats', params, key);
+      // List sent emails (Resend GET /emails)
+      function getEmails(params) {
+        var key = 'emails_' + JSON.stringify(params || {});
+        return resendFetch('/emails', params || {}, key, 5 * 60 * 1000);
       }
 
-      function getCategories() {
-        return sgFetch('/categories', { limit: 100, offset: 0 }, 'categories', 15 * 60 * 1000);
+      // Fetch single email by Resend ID
+      function getEmail(id) {
+        return resendFetch('/emails/' + id, {}, 'email_' + id, 5 * 60 * 1000);
       }
 
       return {
         isAvailable: isAvailable,
-        getStats: getStats,
-        getCategories: getCategories
+        getEmails:   getEmails,
+        getEmail:    getEmail,
       };
     })();
 
     return {
       mailchimp: mailchimp,
-      sendgrid: sendgrid
+      resend:    resend,
+      // Legacy alias so existing callers referencing .sendgrid still resolve
+      sendgrid:  resend,
     };
   })();
 
@@ -1265,7 +1258,7 @@
     if (Social.linkedin.isAvailable()) integrations.push('Social.linkedin');
     if (Social.tiktok.isAvailable()) integrations.push('Social.tiktok');
     if (EmailMarketing.mailchimp.isAvailable()) integrations.push('EmailMarketing.mailchimp');
-    if (EmailMarketing.sendgrid.isAvailable()) integrations.push('EmailMarketing.sendgrid');
+    if (EmailMarketing.resend.isAvailable())   integrations.push('EmailMarketing.resend');
     if (SEOTools.ahrefs.isAvailable()) integrations.push('SEOTools.ahrefs');
     if (SEOTools.semrush.isAvailable()) integrations.push('SEOTools.semrush');
     if (SEOTools.dataforseo.isAvailable()) integrations.push('SEOTools.dataforseo');

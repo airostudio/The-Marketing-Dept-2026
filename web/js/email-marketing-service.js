@@ -285,12 +285,12 @@
         if (!campaign) { console.warn(TAG, 'Campaign not found', id); return null; }
         var s = campaign.stats;
 
-        // Background refresh from real API when available (Mailchimp or SendGrid)
+        // Background refresh from real API when available (Mailchimp or Resend)
         if (window.ApiConnector && window.ApiConnector.EmailMarketing) {
             var mc = window.ApiConnector.EmailMarketing.mailchimp;
-            var sg = window.ApiConnector.EmailMarketing.sendgrid;
+            var rs = window.ApiConnector.EmailMarketing.resend;
             var provider = (mc && mc.isAvailable && mc.isAvailable()) ? mc
-                         : (sg && sg.isAvailable && sg.isAvailable()) ? sg
+                         : (rs && rs.isAvailable && rs.isAvailable()) ? rs
                          : null;
             if (provider && provider.getCampaignStats) {
                 provider.getCampaignStats(id)
@@ -332,12 +332,12 @@
     async function getCampaignStatsAsync(id) {
         console.log(TAG, 'getCampaignStatsAsync', id);
 
-        // Try real API first (Mailchimp or SendGrid)
+        // Try real API first (Mailchimp or Resend)
         if (window.ApiConnector && window.ApiConnector.EmailMarketing) {
             var mc = window.ApiConnector.EmailMarketing.mailchimp;
-            var sg = window.ApiConnector.EmailMarketing.sendgrid;
+            var rs = window.ApiConnector.EmailMarketing.resend;
             var provider = (mc && mc.isAvailable && mc.isAvailable()) ? mc
-                         : (sg && sg.isAvailable && sg.isAvailable()) ? sg
+                         : (rs && rs.isAvailable && rs.isAvailable()) ? rs
                          : null;
             if (provider && provider.getCampaignStats) {
                 try {
