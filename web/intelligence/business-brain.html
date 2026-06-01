@@ -611,6 +611,167 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+
+    /* ── Auto-fill panel ─────────────────────────────────────────────────────── */
+    .autofill-bar {
+      max-width: 880px;
+      margin: 0 auto 8px;
+      padding: 0 32px;
+    }
+
+    .autofill-trigger {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 18px;
+      background: rgba(168,85,247,0.06);
+      border: 1px solid rgba(168,85,247,0.22);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+    .autofill-trigger:hover { background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.38); }
+    .autofill-trigger.open { border-radius: 12px 12px 0 0; }
+
+    .autofill-trigger-icon { color: #a855f7; flex-shrink: 0; }
+    .autofill-trigger-label { flex: 1; }
+    .autofill-trigger-title { font-size: 0.87rem; font-weight: 700; color: rgba(255,255,255,0.9); }
+    .autofill-trigger-sub { font-size: 0.76rem; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 1px; }
+    .autofill-trigger-caret { color: rgba(255,255,255,0.3); flex-shrink: 0; transition: transform 0.2s; }
+    .autofill-trigger.open .autofill-trigger-caret { transform: rotate(180deg); }
+
+    .autofill-body {
+      display: none;
+      padding: 18px 18px 20px;
+      border: 1px solid rgba(168,85,247,0.22);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      background: rgba(10,7,20,0.6);
+    }
+    .autofill-body.open { display: block; }
+
+    .autofill-url-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .autofill-url-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.87rem;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .autofill-url-input:focus { border-color: rgba(168,85,247,0.5); }
+    .autofill-url-input::placeholder { color: rgba(255,255,255,0.28); }
+
+    .autofill-analyze-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+      font-family: inherit;
+    }
+    .autofill-analyze-btn:hover { opacity: 0.88; }
+    .autofill-analyze-btn:disabled { opacity: 0.45; cursor: wait; }
+
+    .autofill-status {
+      margin-top: 11px;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.45);
+      min-height: 18px;
+    }
+    .autofill-status.loading { color: #a855f7; }
+    .autofill-status.error   { color: #ef4444; }
+
+    .autofill-preview {
+      margin-top: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .autofill-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .autofill-preview-title { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.65); }
+    .autofill-count-badge {
+      font-size: 0.73rem;
+      font-weight: 700;
+      color: #10b981;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.22);
+      padding: 2px 9px;
+      border-radius: 50px;
+    }
+    .autofill-items {
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .autofill-item {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 10px;
+      align-items: baseline;
+      font-size: 0.81rem;
+    }
+    .autofill-item-key { color: rgba(255,255,255,0.38); font-weight: 600; }
+    .autofill-item-val { color: rgba(255,255,255,0.82); line-height: 1.45; }
+    .autofill-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      flex-wrap: wrap;
+    }
+    .autofill-apply-btn {
+      padding: 7px 15px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .autofill-apply-safe {
+      background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.12));
+      border: 1px solid rgba(168,85,247,0.32);
+      color: #c4b5fd;
+    }
+    .autofill-apply-safe:hover { background: linear-gradient(135deg, rgba(168,85,247,0.28), rgba(236,72,153,0.22)); }
+    .autofill-apply-all {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.55);
+    }
+    .autofill-apply-all:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); }
+    .autofill-cite-note { font-size: 0.73rem; color: rgba(255,255,255,0.25); margin-left: auto; }
+
+    /* Social link fields in Company Basics */
+    .social-fields { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -645,6 +806,31 @@
       This is the strategic foundation every AI agent on the platform draws from.
       The more you fill in, the smarter every decision Scotty makes.
     </p>
+  </div>
+
+  <!-- ── Auto-fill panel ──────────────────────────────────────────────────── -->
+  <div class="autofill-bar">
+    <button class="autofill-trigger" id="autofillTrigger" onclick="toggleAutofill()" type="button">
+      <span class="autofill-trigger-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v3l2 2"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <div class="autofill-trigger-label">
+        <div class="autofill-trigger-title">Auto-fill from your website &amp; socials</div>
+        <div class="autofill-trigger-sub">Scan your website and social profiles to pre-populate company details, ICP, positioning &amp; competitors</div>
+      </div>
+      <svg class="autofill-trigger-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+
+    <div class="autofill-body" id="autofillBody">
+      <div class="autofill-url-row">
+        <input type="url" class="autofill-url-input" id="autofillUrlInput"
+          placeholder="https://yourcompany.com" autocomplete="url">
+        <button class="autofill-analyze-btn" id="autofillAnalyzeBtn"
+          onclick="runAutofill()" type="button">Analyze Website</button>
+      </div>
+      <div class="autofill-status" id="autofillStatus"></div>
+      <div class="autofill-preview" id="autofillPreview" style="display:none"></div>
+    </div>
   </div>
 
   <!-- ── Intelligence score card ───────────────────────────────────────────── -->
@@ -720,6 +906,23 @@
       <div class="field-group">
         <label for="company-description">What you do — explain it like you're talking to a smart friend</label>
         <textarea id="company-description" data-path="company.description" class="tall" placeholder="We help B2B SaaS companies turn their blog into a pipeline engine by writing SEO content that actually converts — not just ranks."></textarea>
+      </div>
+
+      <div class="field-row social-fields">
+        <div>
+          <label for="company-website">Website URL</label>
+          <input type="url" id="company-website" data-path="company.website" placeholder="https://yourcompany.com">
+        </div>
+        <div>
+          <label for="company-linkedin">LinkedIn Company Page</label>
+          <input type="url" id="company-linkedin" data-path="company.linkedin" placeholder="https://linkedin.com/company/...">
+        </div>
+      </div>
+
+      <div class="field-group social-fields">
+        <label for="company-twitter">Twitter / X</label>
+        <input type="text" id="company-twitter" data-path="company.twitter" placeholder="@yourhandle or https://x.com/yourhandle">
+        <span class="field-hint">Social profiles are used by the auto-fill scanner and competitive research agents.</span>
       </div>
 
       <div class="field-row">
@@ -1586,6 +1789,199 @@
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
       btn.classList.toggle('complete', !!checks[i]);
     });
+  }
+
+  /* ── Auto-fill from website ─────────────────────────────────────────────── */
+
+  let _autofillResult = null;
+
+  function toggleAutofill() {
+    const trigger = document.getElementById('autofillTrigger');
+    const body    = document.getElementById('autofillBody');
+    const open    = body.classList.toggle('open');
+    trigger.classList.toggle('open', open);
+
+    // Pre-fill URL from project data or existing brain.company.website
+    if (open && !document.getElementById('autofillUrlInput').value) {
+      const brain = safeRead('intel_business_brain');
+      const proj  = safeRead('seo-current-project-data');
+      const url   = brain?.company?.website
+        || proj?.websiteUrl || proj?.website || proj?.url || '';
+      if (url) document.getElementById('autofillUrlInput').value = url;
+    }
+  }
+
+  async function runAutofill() {
+    const url    = document.getElementById('autofillUrlInput').value.trim();
+    const btn    = document.getElementById('autofillAnalyzeBtn');
+    const status = document.getElementById('autofillStatus');
+    const preview= document.getElementById('autofillPreview');
+
+    if (!url) {
+      status.textContent = 'Enter your website URL first.';
+      status.className   = 'autofill-status error';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing…';
+    status.textContent = 'Researching your website and social profiles — this takes 15–30 seconds…';
+    status.className   = 'autofill-status loading';
+    preview.style.display = 'none';
+
+    try {
+      const res  = await fetch('/api/enrich-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Analysis failed');
+
+      _autofillResult = data;
+      status.textContent = '';
+      status.className   = 'autofill-status';
+      _renderAutofillPreview(data);
+
+    } catch (err) {
+      status.textContent = 'Could not analyze website: ' + err.message;
+      status.className   = 'autofill-status error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analyze Website';
+    }
+  }
+
+  function _renderAutofillPreview(d) {
+    const preview = document.getElementById('autofillPreview');
+
+    const rows = [];
+    if (d.company?.name)          rows.push(['Company name',   d.company.name]);
+    if (d.company?.tagline)       rows.push(['Tagline',        d.company.tagline]);
+    if (d.company?.description)   rows.push(['Description',    d.company.description.slice(0, 130) + (d.company.description.length > 130 ? '…' : '')]);
+    if (d.company?.industry)      rows.push(['Industry',       d.company.industry]);
+    if (d.company?.stage)         rows.push(['Stage',          d.company.stage]);
+    if (d.company?.revenueModel)  rows.push(['Revenue model',  d.company.revenueModel]);
+    if (d.icp?.primaryBuyerRole)  rows.push(['ICP role',       d.icp.primaryBuyerRole]);
+    if (d.icp?.primaryBuyerIndustry) rows.push(['ICP industry', d.icp.primaryBuyerIndustry]);
+    if (d.icp?.painPoints?.[0])   rows.push(['Pain point 1',   d.icp.painPoints[0].slice(0, 110) + '…']);
+    if (d.positioning?.uniqueValue) rows.push(['Value prop',   d.positioning.uniqueValue.slice(0, 120) + '…']);
+    if (d.positioning?.differentiation?.filter(Boolean).length) {
+      rows.push(['Differentiators', d.positioning.differentiation.filter(Boolean).join(' · ')]);
+    }
+    if (d.competitors?.length)    rows.push(['Competitors',    d.competitors.map(c => c.name).filter(Boolean).join(', ')]);
+    if (d.socials?.linkedin)      rows.push(['LinkedIn',       d.socials.linkedin]);
+    if (d.socials?.twitter)       rows.push(['Twitter / X',    d.socials.twitter]);
+
+    preview.style.display = 'block';
+    preview.innerHTML = `
+      <div class="autofill-preview-head">
+        <span class="autofill-preview-title">What we found</span>
+        <span class="autofill-count-badge">${rows.length} fields detected</span>
+      </div>
+      <div class="autofill-items">
+        ${rows.map(([k, v]) => `
+          <div class="autofill-item">
+            <span class="autofill-item-key">${escHtml(k)}</span>
+            <span class="autofill-item-val">${escHtml(v)}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="autofill-actions">
+        <button class="autofill-apply-btn autofill-apply-safe" type="button"
+          onclick="applyAutofill(false)">Apply to empty fields</button>
+        <button class="autofill-apply-btn autofill-apply-all" type="button"
+          onclick="applyAutofill(true)">Overwrite all fields</button>
+        ${(d.citations?.length || 0) > 0 ? `<span class="autofill-cite-note">${d.citations.length} sources used</span>` : ''}
+      </div>`;
+  }
+
+  function applyAutofill(overwrite) {
+    const d = _autofillResult;
+    if (!d) return;
+
+    function fillField(path, value) {
+      if (!value && value !== 0) return;
+      const el = document.querySelector(`[data-path="${path}"]`);
+      if (!el) return;
+      if (!overwrite && el.value && el.value.trim()) return;
+      el.value = value;
+    }
+
+    function fillSelect(path, value) {
+      if (!value) return;
+      const sel = document.querySelector(`[data-path="${path}"]`);
+      if (!sel) return;
+      if (!overwrite && sel.value) return;
+      const opt = Array.from(sel.options).find(o => o.value === value);
+      if (opt) sel.value = value;
+    }
+
+    // Company basics
+    fillField('company.name',        d.company?.name);
+    fillField('company.tagline',     d.company?.tagline);
+    fillField('company.description', d.company?.description);
+    fillField('company.website',     d.socials?.website);
+    fillField('company.linkedin',    d.socials?.linkedin);
+    fillField('company.twitter',     d.socials?.twitter);
+    fillSelect('company.industry',   d.company?.industry);
+    fillSelect('company.stage',      d.company?.stage);
+    fillSelect('company.teamSize',   d.company?.teamSize);
+    fillSelect('company.revenueModel', d.company?.revenueModel);
+
+    // ICP
+    fillField('icp.primaryBuyer.role',     d.icp?.primaryBuyerRole);
+    fillField('icp.primaryBuyer.industry', d.icp?.primaryBuyerIndustry);
+    fillSelect('icp.primaryBuyer.companySize', d.icp?.primaryBuyerCompanySize);
+
+    (d.icp?.painPoints || []).forEach((pain, i) => fillField(`icp.painPoints.${i}`, pain));
+
+    // Positioning
+    fillField('positioning.uniqueValue', d.positioning?.uniqueValue);
+    (d.positioning?.differentiation || []).forEach((diff, i) => fillField(`positioning.differentiation.${i}`, diff));
+
+    // Voice & tone chips — merge in, never remove existing selections
+    if (d.positioning?.voiceAndTone?.length) {
+      document.querySelectorAll('#tone-chips .chip').forEach(chip => {
+        if (d.positioning.voiceAndTone.includes(chip.dataset.value) && !chip.classList.contains('selected')) {
+          chip.classList.add('selected');
+        }
+      });
+    }
+
+    // Competitors — add new ones (don't duplicate)
+    if (d.competitors?.length) {
+      const existingNames = new Set(competitors.map(c => c.name.toLowerCase().trim()));
+      d.competitors.forEach(comp => {
+        if (!comp.name) return;
+        if (existingNames.has(comp.name.toLowerCase().trim())) return;
+        if (competitors.length >= 5) return;
+        competitors.push({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          name: comp.name,
+          url:  comp.url || '',
+          positioning: '',
+          strongAt: '',
+          weakAt: '',
+          borrowAndImprove: '',
+        });
+        existingNames.add(comp.name.toLowerCase().trim());
+      });
+      renderCompetitors();
+    }
+
+    recalcScore();
+    scheduleAutosave();
+    updateTabCompleteness();
+
+    // Replace action buttons with confirmation message
+    const actions = document.querySelector('#autofillPreview .autofill-actions');
+    if (actions) {
+      actions.innerHTML = '<span style="color:#10b981;font-size:0.83rem;font-weight:700;">✓ Applied to form — review each section and save when ready.</span>';
+    }
+
+    // Jump to Company Basics so the user sees the result
+    setTimeout(() => goToTab(0), 800);
   }
 
   /* ── Initialise on load ──────────────────────────────────────────────────── */
