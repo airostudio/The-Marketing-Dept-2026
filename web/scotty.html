@@ -1703,27 +1703,6 @@
                     <div class="convo-time">Just now</div>
                 </div>
             </div>
-            <div class="convo-item" data-id="q4">
-                <span class="convo-icon">📋</span>
-                <div class="convo-info">
-                    <div class="convo-title">Q4 campaign strategy</div>
-                    <div class="convo-time">2 hours ago</div>
-                </div>
-            </div>
-            <div class="convo-item" data-id="li">
-                <span class="convo-icon">🎯</span>
-                <div class="convo-info">
-                    <div class="convo-title">LinkedIn outreach plan</div>
-                    <div class="convo-time">Yesterday</div>
-                </div>
-            </div>
-            <div class="convo-item" data-id="comp">
-                <span class="convo-icon">🕵️</span>
-                <div class="convo-info">
-                    <div class="convo-title">Competitor analysis deep dive</div>
-                    <div class="convo-time">3 days ago</div>
-                </div>
-            </div>
         </div>
 
         <div class="sidebar-bottom">
@@ -2315,6 +2294,7 @@ class ScottyChat {
         } catch (e) {
             this.conversations = [];
         }
+        this._renderConvoList();
     }
 
     _saveConversations() {
@@ -2322,6 +2302,78 @@ class ScottyChat {
             const toSave = this.conversations.slice(-20); // keep last 20
             localStorage.setItem('scotty_conversations', JSON.stringify(toSave));
         } catch (e) { /* ignore */ }
+        this._renderConvoList();
+    }
+
+    _renderConvoList() {
+        // Remove all saved-conversation items (keep the "current / new" item at the top)
+        const currentItem = this.convoList.querySelector('[data-id="current"]');
+        this.convoList.querySelectorAll('[data-id]').forEach(el => {
+            if (el.dataset.id !== 'current') el.remove();
+        });
+
+        if (!this.conversations.length) return;
+
+        const icons = ['💬', '📋', '🎯', '📊', '🗂️', '🔍', '✍️', '📣'];
+
+        this.conversations.forEach((convo, i) => {
+            const title = (convo.title || 'Conversation').slice(0, 42);
+            const icon  = icons[i % icons.length];
+            const time  = this._relativeTime(convo.updatedAt || convo.createdAt);
+            const isActive = convo.id === this.currentConvoId;
+
+            const el = document.createElement('div');
+            el.className = 'convo-item' + (isActive ? ' active' : '');
+            el.dataset.id = convo.id;
+            el.innerHTML = `
+                <span class="convo-icon">${icon}</span>
+                <div class="convo-info">
+                    <div class="convo-title">${this._escapeHtml(title)}</div>
+                    <div class="convo-time">${time}</div>
+                </div>`;
+
+            el.addEventListener('click', () => this._switchConversation(convo.id));
+            this.convoList.appendChild(el);
+        });
+    }
+
+    _switchConversation(id) {
+        if (id === this.currentConvoId) return;
+
+        const convo = this.conversations.find(c => c.id === id);
+        if (!convo) return;
+
+        this.currentConvoId = id;
+
+        // Update active state in sidebar
+        this.convoList.querySelectorAll('.convo-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === id);
+        });
+
+        // Clear chat and replay all saved messages
+        this.messagesEl.innerHTML = '';
+        convo.messages.forEach(m => {
+            if (m.role === 'user') {
+                this._appendUserMessage(m.content);
+            } else {
+                const { bubble } = this._createScottyBubble();
+                bubble.innerHTML = typeof marked !== 'undefined'
+                    ? marked.parse(m.content)
+                    : this._escapeHtml(m.content);
+            }
+        });
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
+
+    _relativeTime(ts) {
+        if (!ts) return '';
+        const diff = Date.now() - ts;
+        if (diff < 60000)      return 'Just now';
+        if (diff < 3600000)    return Math.floor(diff / 60000) + 'm ago';
+        if (diff < 86400000)   return Math.floor(diff / 3600000) + 'h ago';
+        if (diff < 172800000)  return 'Yesterday';
+        if (diff < 604800000)  return Math.floor(diff / 86400000) + 'd ago';
+        return new Date(ts).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
     }
 
     _checkIntelligenceEngine() {
@@ -3315,17 +3367,15 @@ class ScottyChat {
             });
         }
 
-        // Update sidebar
-        const newItem = document.createElement('div');
-        newItem.className = 'convo-item active';
-        newItem.innerHTML = `
-            <span class="convo-icon">💬</span>
-            <div class="convo-info">
-                <div class="convo-title">New conversation</div>
-                <div class="convo-time">Just now</div>
-            </div>`;
-        document.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
-        this.convoList.insertBefore(newItem, this.convoList.firstChild);
+        // Update sidebar — re-render saved list then mark current item active
+        this._renderConvoList();
+        const currentItem = this.convoList.querySelector('[data-id="current"]');
+        this.convoList.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
+        if (currentItem) {
+            currentItem.querySelector('.convo-title').textContent = 'New conversation';
+            currentItem.querySelector('.convo-time').textContent  = 'Just now';
+            currentItem.classList.add('active');
+        }
         this.inputEl.focus();
     }
 
