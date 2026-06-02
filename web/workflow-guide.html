@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How Aduma Works — Beginner's Workflow Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #070711;
+      color: #e4e4e7;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top nav ─────────────────────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(7,7,17,0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 0 32px;
+    }
+    .top-nav-inner {
+      max-width: 860px; margin: 0 auto;
+      padding: 14px 0;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .back-link {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .back-link:hover { color: #fff; }
+    .nav-title { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+
+    /* ── Page wrapper ────────────────────────────────────────────────────────── */
+    .page { max-width: 860px; margin: 0 auto; padding: 48px 32px 100px; }
+
+    /* ── Hero ────────────────────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 24px 0 56px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      margin-bottom: 56px;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #a855f7;
+      background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.25);
+      padding: 5px 14px; border-radius: 50px; margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3rem); font-weight: 800;
+      line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 16px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub {
+      font-size: 1.05rem; color: rgba(255,255,255,0.55);
+      max-width: 560px; margin: 0 auto 28px; line-height: 1.65;
+    }
+    .time-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.8rem; color: rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 6px 14px; border-radius: 50px;
+    }
+
+    /* ── Table of contents ──────────────────────────────────────────────────── */
+    .toc {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 56px;
+    }
+    .toc-title {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-bottom: 16px;
+    }
+    .toc-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .toc-list li { display: flex; align-items: center; gap: 10px; }
+    .toc-list a {
+      color: rgba(255,255,255,0.65); text-decoration: none;
+      font-size: 0.9rem; font-weight: 500; transition: color 0.15s;
+      display: flex; align-items: center; gap: 10px; padding: 4px 0;
+    }
+    .toc-list a:hover { color: #fff; }
+    .toc-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3);
+      font-size: 0.7rem; font-weight: 800; color: #a855f7;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* ── Section ─────────────────────────────────────────────────────────────── */
+    .section { margin-bottom: 64px; scroll-margin-top: 80px; }
+
+    .section-header {
+      display: flex; align-items: flex-start; gap: 18px;
+      margin-bottom: 28px;
+    }
+    .step-bubble {
+      width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+    }
+    .step-bubble.purple { background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.25); }
+    .step-bubble.pink   { background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.22); }
+    .step-bubble.blue   { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.22); }
+    .step-bubble.green  { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.2); }
+    .step-bubble.orange { background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.2); }
+    .step-bubble.teal   { background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.22); }
+    .step-bubble.yellow { background: rgba(234,179,8,0.12);  border: 1px solid rgba(234,179,8,0.2); }
+    .step-bubble.rose   { background: rgba(244,63,94,0.12);  border: 1px solid rgba(244,63,94,0.22); }
+
+    .section-header-text { flex: 1; }
+    .step-label {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 4px;
+    }
+    .section h2 {
+      font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
+      line-height: 1.2; margin-bottom: 6px;
+    }
+    .section-subtitle { font-size: 0.9rem; color: rgba(255,255,255,0.45); }
+
+    /* ── Content blocks ──────────────────────────────────────────────────────── */
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card p, .card li {
+      font-size: 0.9rem; color: rgba(255,255,255,0.65); line-height: 1.65;
+    }
+    .card ul { padding-left: 18px; display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+
+    .highlight-card {
+      background: rgba(168,85,247,0.06);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin-bottom: 16px;
+    }
+    .highlight-card p { font-size: 0.9rem; color: rgba(255,255,255,0.75); line-height: 1.65; }
+
+    .tip-card {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: rgba(16,185,129,0.05);
+      border: 1px solid rgba(16,185,129,0.18);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .tip-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .tip-card p { font-size: 0.87rem; color: rgba(255,255,255,0.7); line-height: 1.6; }
+    .tip-card strong { color: #10b981; }
+
+    .warn-card {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: rgba(234,179,8,0.05);
+      border: 1px solid rgba(234,179,8,0.18);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .warn-card p { font-size: 0.87rem; color: rgba(255,255,255,0.7); line-height: 1.6; }
+    .warn-card strong { color: #eab308; }
+
+    /* ── Steps list ──────────────────────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .step-item {
+      display: grid; grid-template-columns: 28px 1fr;
+      gap: 14px; align-items: flex-start;
+    }
+    .step-dot {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3);
+      font-size: 0.72rem; font-weight: 800; color: #a855f7;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .step-item-text { font-size: 0.9rem; color: rgba(255,255,255,0.7); line-height: 1.6; }
+    .step-item-text strong { color: rgba(255,255,255,0.92); }
+
+    /* ── Agent grid ──────────────────────────────────────────────────────────── */
+    .agent-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .agent-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 16px;
+    }
+    .agent-name { font-size: 0.82rem; font-weight: 800; margin-bottom: 3px; }
+    .agent-role { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
+    .agent-desc { font-size: 0.8rem; color: rgba(255,255,255,0.6); line-height: 1.45; }
+
+    /* ── Flow diagram ─────────────────────────────────────────────────────────── */
+    .flow {
+      display: flex; align-items: center; gap: 0;
+      flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .flow-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 10px 16px;
+      font-size: 0.82rem; font-weight: 600;
+      color: rgba(255,255,255,0.8);
+      white-space: nowrap;
+    }
+    .flow-arrow {
+      font-size: 1rem; color: rgba(255,255,255,0.2);
+      padding: 0 8px; flex-shrink: 0;
+    }
+
+    /* ── Divider ──────────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 48px 0;
+    }
+
+    /* ── CTA bottom ──────────────────────────────────────────────────────────── */
+    .cta-section {
+      background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(236,72,153,0.08));
+      border: 1px solid rgba(168,85,247,0.25);
+      border-radius: 20px; padding: 36px;
+      text-align: center; margin-top: 56px;
+    }
+    .cta-section h3 { font-size: 1.4rem; font-weight: 800; margin-bottom: 10px; }
+    .cta-section p { color: rgba(255,255,255,0.55); font-size: 0.9rem; margin-bottom: 24px; }
+    .cta-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+    .cta-link {
+      padding: 10px 20px; border-radius: 10px;
+      font-size: 0.85rem; font-weight: 700; text-decoration: none;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .cta-link.primary {
+      background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff;
+    }
+    .cta-link.secondary {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.75);
+    }
+    .cta-link:hover { opacity: 0.85; }
+
+    /* ── Code / path ──────────────────────────────────────────────────────────── */
+    code {
+      font-family: 'Courier New', monospace;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 5px; padding: 1px 7px;
+      font-size: 0.83em; color: #c4b5fd;
+    }
+
+    @media (max-width: 600px) {
+      .page { padding: 32px 20px 80px; }
+      .section-header { flex-direction: column; gap: 12px; }
+      .agent-grid { grid-template-columns: 1fr; }
+      .flow { gap: 8px; }
+      .flow-arrow { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top nav -->
+  <nav class="top-nav">
+    <div class="top-nav-inner">
+      <a href="/hub.html" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Hub
+      </a>
+      <span class="nav-title">Workflow Guide</span>
+    </div>
+  </nav>
+
+  <div class="page">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        Beginner's Guide
+      </div>
+      <h1>How <span>Aduma</span> Works</h1>
+      <p class="hero-sub">
+        A step-by-step walkthrough of your AI marketing department — from first login to fully automated campaigns.
+        No experience needed.
+      </p>
+      <div class="time-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        15 minute read
+      </div>
+    </div>
+
+    <!-- Table of contents -->
+    <div class="toc">
+      <div class="toc-title">What's in this guide</div>
+      <ul class="toc-list">
+        <li><a href="#overview"><span class="toc-num">0</span> The big picture — what Aduma actually does</a></li>
+        <li><a href="#step1"><span class="toc-num">1</span> Sign up &amp; log in</a></li>
+        <li><a href="#step2"><span class="toc-num">2</span> Set up your project (the Project Wizard)</a></li>
+        <li><a href="#step3"><span class="toc-num">3</span> Build your Business Brain (intelligence foundation)</a></li>
+        <li><a href="#step4"><span class="toc-num">4</span> Meet Scotty — your AI CMO</a></li>
+        <li><a href="#step5"><span class="toc-num">5</span> Your 13 specialist agents</a></li>
+        <li><a href="#step6"><span class="toc-num">6</span> Finding and managing leads</a></li>
+        <li><a href="#step7"><span class="toc-num">7</span> The sales pipeline</a></li>
+        <li><a href="#step8"><span class="toc-num">8</span> SEO &amp; website health</a></li>
+        <li><a href="#step9"><span class="toc-num">9</span> Content &amp; marketing tools</a></li>
+        <li><a href="#step10"><span class="toc-num">10</span> Monitoring &amp; analytics</a></li>
+        <li><a href="#tips"><span class="toc-num">★</span> Tips for getting the most out of Aduma</a></li>
+      </ul>
+    </div>
+
+
+    <!-- ── SECTION 0: Overview ──────────────────────────────────────────────── -->
+    <section class="section" id="overview">
+      <div class="section-header">
+        <div class="step-bubble purple">🧠</div>
+        <div class="section-header-text">
+          <div class="step-label">Before you start</div>
+          <h2>The big picture</h2>
+          <div class="section-subtitle">What Aduma is and why it works differently</div>
+        </div>
+      </div>
+
+      <div class="highlight-card">
+        <p><strong style="color:#c4b5fd">Think of Aduma as hiring a full marketing department — except every person is an AI specialist</strong> who never sleeps, never forgets your brand strategy, and gets smarter the more context you give them.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏗️ The three layers of Aduma</div>
+        <ul>
+          <li><strong>Layer 1 — Intelligence Foundation:</strong> Your Business Brain. This is where you describe your company, your ideal customer, and your competitive position. Every agent reads this before acting.</li>
+          <li><strong>Layer 2 — Scotty (your AI CMO):</strong> The orchestrator. Scotty reads your Business Brain and coordinates all 13 agents to execute campaigns, strategy, and tasks on your behalf.</li>
+          <li><strong>Layer 3 — Specialist Agents:</strong> 13 individual AI experts (SEO, content, email, ads, sales, social, analytics, and more) that execute specific tasks and report back.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📐 The golden rule</div>
+        <p>The more you fill in your Business Brain, the smarter every agent becomes. A half-filled Brain produces generic output. A fully filled Brain produces output that sounds like it knows your company inside and out.</p>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Key insight:</strong> You don't need to use every tool. Start with the Business Brain, then talk to Scotty. Scotty will direct you to the right agents for your specific goals.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 1: Sign up ───────────────────────────────────────────────── -->
+    <section class="section" id="step1">
+      <div class="section-header">
+        <div class="step-bubble blue">🔐</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 1</div>
+          <h2>Sign up &amp; log in</h2>
+          <div class="section-subtitle">Getting into the platform for the first time</div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step-item">
+          <div class="step-dot">1</div>
+          <div class="step-item-text">Go to <code>/auth.html</code> and create your account with an email and password.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-dot">2</div>
+          <div class="step-item-text">After signing in, you'll land on the <strong>Hub</strong> — the central control panel that shows all your agents and tools.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-dot">3</div>
+          <div class="step-item-text">You'll notice an <strong>Intelligence Score</strong> of 0% at the top of the Hub. That's your goal — fill in the Business Brain to raise it above 60% before doing anything else.</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Tip:</strong> If you don't have a Supabase backend set up, the platform still works fully using your browser's local storage. Your data saves automatically.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 2: Project Wizard ────────────────────────────────────────── -->
+    <section class="section" id="step2">
+      <div class="section-header">
+        <div class="step-bubble orange">⚙️</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 2</div>
+          <h2>Set up your project</h2>
+          <div class="section-subtitle">The Project Wizard connects your website to the platform</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 What the wizard does</div>
+        <p>The Project Wizard tells the platform what website to monitor, analyse, and optimise. It runs a background check on your site and imports your competitor list automatically.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🪜 The 6 wizard steps</div>
+        <div class="steps" style="margin-top:12px">
+          <div class="step-item">
+            <div class="step-dot">1</div>
+            <div class="step-item-text"><strong>Basic Info</strong> — Your project name, website URL, industry, target country, and language.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">2</div>
+            <div class="step-item-text"><strong>Website Analysis Settings</strong> — How deeply to crawl your site (sitemap URL, crawl depth, which page types to scan).</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">3</div>
+            <div class="step-item-text"><strong>Competitors</strong> — Add up to 5 competitor URLs. The platform will track them and alert you when they change.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">4</div>
+            <div class="step-item-text"><strong>Keywords</strong> — Seed keywords you want to rank for, plus brand keywords and how often to check rankings.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">5</div>
+            <div class="step-item-text"><strong>Integrations</strong> — Connect Google Analytics, Search Console, Ahrefs, or SEMrush if you have them (all optional).</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">6</div>
+            <div class="step-item-text"><strong>Goals &amp; Alerts</strong> — Set traffic targets, keyword ranking goals, and how often you want email reports.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="warn-card">
+        <div class="tip-icon">⚠️</div>
+        <p><strong>Don't skip this step.</strong> The SEO dashboard, health score, and several agents depend on your project URL to function. It only takes 5 minutes.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 3: Business Brain ─────────────────────────────────────────── -->
+    <section class="section" id="step3">
+      <div class="section-header">
+        <div class="step-bubble purple">🧬</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 3 — Most important</div>
+          <h2>Build your Business Brain</h2>
+          <div class="section-subtitle">The intelligence foundation that every agent reads before acting</div>
+        </div>
+      </div>
+
+      <div class="highlight-card">
+        <p>The Business Brain is a strategic document about your company — who you serve, what problem you solve, how you're different, and what your goals are. Fill it in once. Every agent uses it forever.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">✨ Auto-fill from your website</div>
+        <p>At the top of the Business Brain page, click <strong>"Auto-fill from your website &amp; socials"</strong>. Enter your website URL and click <strong>Analyze Website</strong>. Within 20–30 seconds, the platform will pre-populate your company name, description, industry, ICP, competitors, and social profiles by scanning your website and LinkedIn.</p>
+        <ul style="margin-top:10px">
+          <li>Review what was found in the preview panel</li>
+          <li>Click <strong>"Apply to empty fields"</strong> to fill in only blank fields (safe)</li>
+          <li>Or <strong>"Overwrite all fields"</strong> if you want to start fresh</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📂 The 6 Brain sections</div>
+        <div class="steps" style="margin-top:12px">
+          <div class="step-item">
+            <div class="step-dot">1</div>
+            <div class="step-item-text"><strong>Company Basics</strong> — Name, tagline, what you do, industry, stage, team size, revenue model, website &amp; social links.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">2</div>
+            <div class="step-item-text"><strong>Your Customer (ICP)</strong> — Who your ideal customer is. Their job title, company size, the industry they're in, their 3 biggest pain points, and the language they use when describing their problem.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">3</div>
+            <div class="step-item-text"><strong>Positioning &amp; Voice</strong> — Your unique value proposition, 3 differentiators from competitors, your brand voice/tone (select chips), and phrases you never say.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">4</div>
+            <div class="step-item-text"><strong>Competitive Landscape</strong> — Up to 5 competitors with their positioning, strengths, weaknesses, and a gap opportunity only you can fill.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">5</div>
+            <div class="step-item-text"><strong>Strategic Objectives</strong> — Your #1 focus this quarter, 12-month goal, biggest marketing challenge, and which channels drive your best leads.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">6</div>
+            <div class="step-item-text"><strong>Traction &amp; Proof</strong> — Revenue, growth rate, customer count, key client names, and testimonials. Used in sales decks and outreach.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Aim for 60% or above.</strong> Watch the ring score in the top-left as you type — at 60% Scotty gains enough context to make real strategic decisions. At 80%+ every output becomes noticeably sharper.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 4: Scotty ─────────────────────────────────────────────────── -->
+    <section class="section" id="step4">
+      <div class="section-header">
+        <div class="step-bubble pink">🤖</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 4</div>
+          <h2>Meet Scotty — your AI CMO</h2>
+          <div class="section-subtitle">The orchestrator who coordinates all 13 agents on your behalf</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🎯 What Scotty does</div>
+        <p>Scotty is the main conversational AI you talk to. Unlike a simple chatbot, Scotty reads your entire Business Brain before every conversation, then decides which specialist agents to call and in what order to achieve your goal.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💬 How to use Scotty</div>
+        <div class="steps" style="margin-top:12px">
+          <div class="step-item">
+            <div class="step-dot">1</div>
+            <div class="step-item-text">Open <strong>Scotty</strong> from the Hub. You'll see a terminal-style boot sequence as Scotty loads your Business Brain intelligence.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">2</div>
+            <div class="step-item-text">Type your goal naturally. Examples: <em>"I want to get 50 demo calls this quarter"</em> or <em>"Write me a cold email sequence for SaaS founders"</em> or <em>"What should I focus on this week?"</em></div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">3</div>
+            <div class="step-item-text">For complex goals, Scotty will build a <strong>Mission Plan</strong> — a list of tasks it will execute across multiple agents, shown as a live checklist.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">4</div>
+            <div class="step-item-text">Each task completes and the results appear in the <strong>Returned Work</strong> panel — ready to copy, edit, or send.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📁 Conversation history</div>
+        <p>All your conversations are saved in the left sidebar, sorted by most recent. Click any past conversation to reload it. Scotty never forgets what you talked about.</p>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Start here.</strong> If you're unsure what to do first, just tell Scotty your biggest current marketing challenge. It will tell you exactly which tools to use and in what order.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 5: The 13 agents ──────────────────────────────────────────── -->
+    <section class="section" id="step5">
+      <div class="section-header">
+        <div class="step-bubble teal">⚡</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 5</div>
+          <h2>Your 13 specialist agents</h2>
+          <div class="section-subtitle">Each one is an expert in their domain, available from the Hub</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">📍 Finding your agents</div>
+        <p>Go to <strong>Hub</strong> — the large grid of agent cards is your team. Click any agent to open their workspace. Every workspace has its own tools, settings, and AI chat interface.</p>
+      </div>
+
+      <div class="agent-grid">
+        <div class="agent-card">
+          <div class="agent-name">🤖 SCOTTY</div>
+          <div class="agent-role">AI CMO / Orchestrator</div>
+          <div class="agent-desc">Coordinates all other agents. Start here for any strategic goal.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">✍️ INK</div>
+          <div class="agent-role">Content Studio</div>
+          <div class="agent-desc">Writes blog posts, landing pages, social copy, and any content asset.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🔍 REX</div>
+          <div class="agent-role">SEO Intelligence</div>
+          <div class="agent-desc">Keyword research, on-page optimisation, and technical SEO fixes.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">📧 NOVA</div>
+          <div class="agent-role">Email Engine</div>
+          <div class="agent-desc">Email sequences, newsletters, drip campaigns, and A/B copy.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">💼 CHASE</div>
+          <div class="agent-role">Sales Intelligence</div>
+          <div class="agent-desc">Lead discovery, pipeline management, cold outreach, and follow-ups.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🔥 BLAZE</div>
+          <div class="agent-role">Ad Creative Lab</div>
+          <div class="agent-desc">Google Ads, Meta ads, LinkedIn ads copy, and creative briefs.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">📱 PULSE</div>
+          <div class="agent-role">Social Studio</div>
+          <div class="agent-desc">Social media posts, captions, hashtags, and content calendars.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">📊 VERA</div>
+          <div class="agent-role">Analytics Brain</div>
+          <div class="agent-desc">Interprets your data, spots trends, and recommends what to do next.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🕵️ SCOUT</div>
+          <div class="agent-role">Competitive Intelligence</div>
+          <div class="agent-desc">Tracks competitor moves, messaging changes, and market gaps.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🎬 REEL</div>
+          <div class="agent-role">Video Studio</div>
+          <div class="agent-desc">Video scripts, YouTube descriptions, thumbnails briefs, and storyboards.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🎯 LIFT</div>
+          <div class="agent-role">CRO Lab</div>
+          <div class="agent-desc">Conversion optimisation — landing pages, CTAs, and A/B test ideas.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">🛡️ SHIELD</div>
+          <div class="agent-role">Compliance Guard</div>
+          <div class="agent-desc">Reviews content for legal and regulatory compliance before publishing.</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-name">📊 SLATE</div>
+          <div class="agent-role">Deck Maker</div>
+          <div class="agent-desc">Creates pitch decks, investor decks, and sales presentations.</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>You don't need to use all 13.</strong> Start with Scotty, CHASE (sales), and INK (content). Add more agents as your needs grow.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 6: Lead generation ───────────────────────────────────────── -->
+    <section class="section" id="step6">
+      <div class="section-header">
+        <div class="step-bubble green">🎯</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 6</div>
+          <h2>Finding &amp; enriching leads</h2>
+          <div class="section-subtitle">How to build a prospect list and get rich contact profiles</div>
+        </div>
+      </div>
+
+      <div class="flow" style="margin-bottom:20px">
+        <div class="flow-box">Find prospects</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">Verify emails</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">Enrich profiles</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">Add to pipeline</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📥 Where to find leads</div>
+        <p>Go to <strong>Marketing → Lead Generation</strong>. This workspace has multiple tabs:</p>
+        <ul style="margin-top:8px">
+          <li><strong>Inbox</strong> — Warm leads already showing interest signals</li>
+          <li><strong>Signals</strong> — Intent data: who is actively researching solutions like yours</li>
+          <li><strong>Campaigns</strong> — Trigger-based sequences that activate when a lead does something</li>
+          <li><strong>Prospects</strong> — Your full prospect list with status, score, and enriched profiles</li>
+          <li><strong>Channels</strong> — Which lead sources are performing best</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔍 What happens when you add a prospect</div>
+        <div class="steps" style="margin-top:10px">
+          <div class="step-item">
+            <div class="step-dot">1</div>
+            <div class="step-item-text">You add a name, email, and company. The platform <strong>automatically verifies the email</strong> via Hunter.io (valid / risky / invalid badge appears instantly).</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">2</div>
+            <div class="step-item-text">Within seconds, Perplexity AI <strong>enriches the profile</strong> — pulling their LinkedIn URL, seniority level, company size, industry, tech stack, and funding stage.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">3</div>
+            <div class="step-item-text">A <strong>Decision Maker</strong> badge appears if the contact holds a senior enough title. This helps you prioritise who to contact first.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-dot">4</div>
+            <div class="step-item-text">Click the <strong>send email icon</strong> to draft a cold email directly from the prospect's profile. The AI writes it using your Business Brain context.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Tip:</strong> Use SCOUT (Competitive Intelligence agent) to find prospects that your competitors are targeting but you aren't. This is often the fastest source of high-quality leads.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 7: Sales pipeline ─────────────────────────────────────────── -->
+    <section class="section" id="step7">
+      <div class="section-header">
+        <div class="step-bubble rose">💼</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 7</div>
+          <h2>The sales pipeline (CHASE)</h2>
+          <div class="section-subtitle">Moving prospects from cold contact to closed deal</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 The 5 pipeline stages</div>
+        <div class="flow" style="flex-wrap:wrap; gap:6px; margin-top:10px">
+          <div class="flow-box" style="font-size:0.78rem; background:rgba(255,255,255,0.04)">🆕 New</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box" style="font-size:0.78rem; background:rgba(59,130,246,0.1)">📨 Contacted</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box" style="font-size:0.78rem; background:rgba(168,85,247,0.1)">✅ Qualified</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box" style="font-size:0.78rem; background:rgba(249,115,22,0.1)">📋 Proposal</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box" style="font-size:0.78rem; background:rgba(16,185,129,0.1)">🏆 Won</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ What each pipeline row shows</div>
+        <ul>
+          <li><strong>Stage progress bar</strong> — visual indicator of where the prospect is in the journey</li>
+          <li><strong>Next action box</strong> — tells you exactly what to do next to advance this deal (e.g. "Send intro email", "Send proposal")</li>
+          <li><strong>Quick Send</strong> — click to generate and send a stage-appropriate email in one click</li>
+          <li><strong>Activity log</strong> — a timeline of every interaction: emails sent, stage changes, notes</li>
+          <li><strong>AI score</strong> — a 0–100 lead quality score based on enrichment data</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🛠️ Pipeline tools</div>
+        <ul>
+          <li><strong>Sort</strong> — Sort prospects by name, status, score, or date added (click sort buttons at top)</li>
+          <li><strong>Multi-select</strong> — Tick checkboxes on multiple rows to bulk-move stage, export CSV, or delete</li>
+          <li><strong>Bulk export</strong> — Export your entire selected prospect list as a CSV at any time</li>
+        </ul>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Quick win:</strong> When a prospect moves from New → Contacted automatically after you send an intro email. The platform tracks this so you always know who has and hasn't heard from you.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 8: SEO ────────────────────────────────────────────────────── -->
+    <section class="section" id="step8">
+      <div class="section-header">
+        <div class="step-bubble yellow">📈</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 8</div>
+          <h2>SEO &amp; website health</h2>
+          <div class="section-subtitle">Monitoring and improving your organic search performance</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🖥️ The SEO Dashboard</div>
+        <p>Your main dashboard shows a live overview of your website's health: organic traffic, keyword rankings, backlink count, and Core Web Vitals scores. Red = urgent, amber = needs attention, green = good.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔧 SEO tools available</div>
+        <ul>
+          <li><strong>Automated Audits</strong> — Full technical scan: broken links, missing meta tags, duplicate content, speed issues</li>
+          <li><strong>Core Web Vitals</strong> — Google's speed and UX scores (LCP, CLS, FID) for mobile and desktop</li>
+          <li><strong>Keyword Tracking</strong> — Daily ranking updates for your tracked keywords</li>
+          <li><strong>Backlink Analysis</strong> — Who links to you, new links gained, links lost</li>
+          <li><strong>Broken Links</strong> — 404 errors on your site that are damaging rankings</li>
+          <li><strong>Indexing Status</strong> — Which pages Google has indexed and which it hasn't</li>
+          <li><strong>Mobile Friendliness</strong> — How well your site performs on phones</li>
+          <li><strong>Competitor Analysis</strong> — Side-by-side comparison with your tracked competitors</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🛠️ Quick fix tools</div>
+        <ul>
+          <li><strong>Meta Tag Generator</strong> — Creates optimised title tags and descriptions for any page</li>
+          <li><strong>Schema Markup Generator</strong> — Adds structured data that Google can read</li>
+          <li><strong>Robots.txt Generator</strong> — Controls what Google crawls on your site</li>
+          <li><strong>Redirect Mapper</strong> — Manages 301 redirects when you move pages</li>
+        </ul>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Ask REX first.</strong> Before manually investigating SEO issues, open the REX agent and describe what you want to improve. REX will run the relevant analysis and tell you exactly what to fix in priority order.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 9: Content & marketing ───────────────────────────────────── -->
+    <section class="section" id="step9">
+      <div class="section-header">
+        <div class="step-bubble purple">✍️</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 9</div>
+          <h2>Content &amp; marketing tools</h2>
+          <div class="section-subtitle">Creating assets, campaigns, and strategies at scale</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📝 Content creation</div>
+        <ul>
+          <li><strong>INK (Content Studio Agent)</strong> — Ask it to write anything: blog posts, landing page copy, email sequences, social posts. It reads your Business Brain so everything matches your brand voice.</li>
+          <li><strong>AI Content Writer</strong> — Standalone tool for quick one-off content pieces with saved history</li>
+          <li><strong>Content Strategy</strong> — Build a 3, 6, or 12-month content calendar aligned with your keywords and ICP</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📣 Campaign management</div>
+        <ul>
+          <li><strong>Email Marketing</strong> — Design sequences, set triggers, and send campaigns via Resend (all tracked)</li>
+          <li><strong>Social Media</strong> — Schedule posts across LinkedIn, Twitter, Instagram, and more</li>
+          <li><strong>Paid Media</strong> — Brief ad creatives, write ad copy, and track campaign performance</li>
+          <li><strong>LinkedIn Prospecting</strong> — Personalised LinkedIn outreach sequences for B2B sales</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Strategy tools</div>
+        <ul>
+          <li><strong>CMO Dashboard</strong> — Executive overview of all marketing activity in one view</li>
+          <li><strong>Product Marketing</strong> — Go-to-market planning, positioning, and launch playbooks</li>
+          <li><strong>Brand &amp; Positioning</strong> — Manage your brand guidelines and messaging hierarchy</li>
+          <li><strong>Marketing Overview</strong> — Channel performance summary across all campaigns</li>
+        </ul>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <p><strong>Workflow tip:</strong> Use <strong>Content Strategy</strong> to plan what to create, then hand the brief to <strong>INK</strong> to write it. The two tools are designed to work together.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION 10: Monitoring ─────────────────────────────────────────────── -->
+    <section class="section" id="step10">
+      <div class="section-header">
+        <div class="step-bubble teal">📡</div>
+        <div class="section-header-text">
+          <div class="step-label">Step 10</div>
+          <h2>Monitoring &amp; analytics</h2>
+          <div class="section-subtitle">Keeping a pulse on everything, getting alerted when things change</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔔 Alerts system</div>
+        <p>The <strong>Alerts</strong> page notifies you when something important changes: a keyword drops 5+ positions, a backlink is lost, a competitor changes their homepage messaging, or your health score falls. You can configure what triggers an alert in the Project Wizard (Step 6).</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 VERA (Analytics Agent)</div>
+        <p>VERA is your data interpreter. Rather than staring at charts yourself, ask VERA a question: <em>"Why did traffic drop last week?"</em> or <em>"Which pages are converting best?"</em>. VERA analyses your data and gives you a plain English answer with a recommendation.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🌐 Intelligence layer monitoring</div>
+        <ul>
+          <li><strong>Market Pulse</strong> — Live signals from your market: what's trending, what buyers are searching for, what messaging is resonating</li>
+          <li><strong>Competitive Radar</strong> — Real-time tracking of competitor website changes, new content, and pricing moves</li>
+          <li><strong>Competitive Command</strong> — Full battlecard builder and gap analysis tool</li>
+          <li><strong>SEO Pulse</strong> — Real-time view of your most important SEO metrics updated daily</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔧 System Diagnostics</div>
+        <p>Visit <strong>Settings → Diagnostics</strong> at any time to check that all integrations are connected and working. Each service (Claude AI, Resend, Hunter.io, Perplexity, Google PageSpeed, Supabase) gets a green / amber / red status badge with a plain-English explanation of any issues.</p>
+      </div>
+    </section>
+
+
+    <!-- ── SECTION: Tips ──────────────────────────────────────────────────────── -->
+    <hr class="divider">
+    <section class="section" id="tips">
+      <div class="section-header">
+        <div class="step-bubble green">⭐</div>
+        <div class="section-header-text">
+          <div class="step-label">Pro tips</div>
+          <h2>Getting the most out of Aduma</h2>
+          <div class="section-subtitle">The habits that separate power users from casual users</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">1. Fill the Brain first, always</div>
+        <p>Before running any campaign or asking any agent for content, make sure your Business Brain is above 60%. It takes 15 minutes and multiplies the quality of every output you get afterward.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">2. Talk to Scotty like a person, not a command line</div>
+        <p>Say <em>"I need 20 qualified leads by end of month — what's my best play?"</em> not <em>"generate leads"</em>. The more context you give, the better the mission plan Scotty builds.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">3. The pipeline is your north star</div>
+        <p>Revenue comes from deals in the pipeline. Check the CHASE pipeline every morning. Look at the "Next Action" box on each prospect — do those things before anything else.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">4. Let auto-fill do the heavy lifting</div>
+        <p>When adding new prospects to the lead list, let the platform auto-enrich them first. The enriched profiles (LinkedIn, seniority, tech stack) tell you whether they're worth pursuing before you spend time on outreach.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">5. Review the Alerts page weekly</div>
+        <p>Monday morning, open Alerts. Fix any red issues before starting new work. A broken page or dropped keyword costs you every day you ignore it.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">6. Use Diagnostics when things feel off</div>
+        <p>If an agent gives poor results or something stops working, go to Diagnostics first. It'll tell you if an API key is missing or a service is down — saves 20 minutes of guessing.</p>
+      </div>
+    </section>
+
+
+    <!-- ── CTA ─────────────────────────────────────────────────────────────────── -->
+    <div class="cta-section">
+      <h3>Ready to get started?</h3>
+      <p>Follow the steps in order — Business Brain first, then Scotty, then the agents. You'll have your first campaign running within an hour.</p>
+      <div class="cta-links">
+        <a href="/intelligence/business-brain.html" class="cta-link primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+          Start with Business Brain
+        </a>
+        <a href="/scotty.html" class="cta-link secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
+          Open Scotty
+        </a>
+        <a href="/hub.html" class="cta-link secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          View all agents
+        </a>
+      </div>
+    </div>
+
+  </div><!-- /.page -->
+</body>
+</html>
