@@ -74,11 +74,41 @@ module.exports = async (req, res) => {
         }
     }
 
+    // Try DataForSEO backlinks summary
+    const dfsLogin = process.env.DATAFORSEO_LOGIN;
+    const dfsPass  = process.env.DATAFORSEO_PASSWORD;
+    if (dfsLogin && dfsPass) {
+        try {
+            const auth = Buffer.from(`${dfsLogin}:${dfsPass}`).toString('base64');
+            const r = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Basic ${auth}` },
+                body: JSON.stringify([{ target: cleanDomain, include_subdomains: true, limit: 1 }]),
+                signal: AbortSignal.timeout(10000),
+            });
+            if (r.ok) {
+                const data = await r.json();
+                const item = data.tasks?.[0]?.result?.[0];
+                if (item) {
+                    return res.json({
+                        domain: cleanDomain,
+                        domainRating: item.rank != null ? Math.round(item.rank) : null,
+                        backlinks:    item.backlinks   || null,
+                        refDomains:   item.referring_domains || null,
+                        provider:     'dataforseo',
+                    });
+                }
+            }
+        } catch (e) {
+            // fall through
+        }
+    }
+
     // No SEO API keys configured
     return res.json({
         domain: cleanDomain,
         domainRating: null,
         provider: 'none',
-        message: 'Add AHREFS_API_KEY or MOZ_API_KEY + MOZ_ACCESS_ID to Vercel environment variables to enable live domain metrics.'
+        message: 'Add DATAFORSEO_LOGIN + DATAFORSEO_PASSWORD to Vercel environment variables to enable live domain metrics.',
     });
 };

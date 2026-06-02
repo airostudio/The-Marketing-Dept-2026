@@ -414,6 +414,71 @@
         return bundle ? (bundle.completeness || 0) : 0;
     }
 
+    // Extract domain strings from competitor input + radar URLs
+    function extractCompetitorDomains(competitorText) {
+        const domains = [];
+        const domainRe = /(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z]{2,})+)/gi;
+        let m;
+        while ((m = domainRe.exec(competitorText)) !== null) {
+            domains.push(m[1].toLowerCase());
+        }
+        // Also pull URLs from the competitive radar
+        if (window.IntelligenceEngine?.radar) {
+            window.IntelligenceEngine.radar.getAll().forEach(c => {
+                if (c.url) {
+                    const dm = c.url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase().trim();
+                    if (dm) domains.push(dm);
+                }
+            });
+        }
+        return [...new Set(domains)].slice(0, 5);
+    }
+
+    // Fetch live DataForSEO metrics and format them as a prompt section
+    async function buildScoutDataContext(competitorText) {
+        const domains = extractCompetitorDomains(competitorText);
+        if (!domains.length) return '';
+        try {
+            const r = await fetch('/api/scout-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains }),
+                signal: AbortSignal.timeout(25000),
+            });
+            if (!r.ok) return '';
+            const data = await r.json();
+            if (!data.metrics) return '';
+
+            let section = '\n\n**LIVE SEO METRICS (DataForSEO — use these numbers in your analysis):**\n';
+            let hasData = false;
+            Object.values(data.metrics).forEach(m => {
+                if (!m) return;
+                section += `\n### ${m.domain}\n`;
+                if (m.backlinks) {
+                    section += `- Domain Rank: ${m.backlinks.rank ?? 'N/A'}/100\n`;
+                    section += `- Backlinks: ${m.backlinks.backlinks?.toLocaleString() ?? 'N/A'}\n`;
+                    section += `- Referring Domains: ${m.backlinks.refDomains?.toLocaleString() ?? 'N/A'}\n`;
+                    if (m.backlinks.spamScore != null) section += `- Spam Score: ${m.backlinks.spamScore}/100\n`;
+                    hasData = true;
+                }
+                if (m.keywords?.length) {
+                    section += `- Top Organic Keywords:\n`;
+                    m.keywords.slice(0, 8).forEach(k => {
+                        const vol  = k.searchVol != null ? ` (${k.searchVol.toLocaleString()}/mo)` : '';
+                        const pos  = k.position  != null ? ` #${k.position}` : '';
+                        const diff = k.difficulty != null ? ` KD:${k.difficulty}` : '';
+                        section += `  • "${k.keyword}"${pos}${vol}${diff}\n`;
+                    });
+                    hasData = true;
+                }
+            });
+            section += '\n→ Reference these specific metrics in the competitive analysis — keyword positions, backlink gaps, and domain authority comparisons.\n';
+            return hasData ? section : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
     // Render the SEO API status as a non-blocking inline banner.
     // Probes /api/domain-metrics to check whether server-side SEO keys are configured.
     async function renderSeoStatusBanner() {
@@ -437,7 +502,8 @@
                     banner.style.borderColor = 'rgba(16,185,129,0.30)';
                     banner.style.color       = '#34d399';
                     icon.textContent         = '✅';
-                    text.textContent         = `Live domain metrics active via ${data.provider.charAt(0).toUpperCase() + data.provider.slice(1)}.`;
+                    const providerLabel = data.provider === 'dataforseo' ? 'DataForSEO' : data.provider.charAt(0).toUpperCase() + data.provider.slice(1);
+                    text.textContent         = `Live domain metrics active via ${providerLabel}. Real keyword rankings and backlink data will be included in your analysis.`;
                     link.textContent         = '';
                     link.style.display       = 'none';
                     banner.style.display     = 'block';
@@ -453,7 +519,7 @@
         banner.style.color       = '#fbbf24';
         icon.textContent         = '⚠️';
         text.textContent         = 'No SEO API keys detected. Running messaging/positioning analysis only.';
-        link.textContent         = 'Add AHREFS_API_KEY to Vercel env →';
+        link.textContent         = 'Add DATAFORSEO_LOGIN + DATAFORSEO_PASSWORD to Vercel env →';
         link.href                = '/settings.html';
         link.style.color         = '#f59e0b';
         link.style.display       = 'inline';
@@ -542,6 +608,23 @@
         intelligenceContext += buildCompetitiveRadarContext();
         intelligenceContext += buildProductGapContext();
 
+        // Fetch live SEO metrics from DataForSEO (non-blocking — falls back to '' on error)
+        const scoutDataContext = await buildScoutDataContext(competitors);
+        if (scoutDataContext) {
+            const banner = document.getElementById('seoStatusBanner');
+            if (banner) {
+                banner.style.background  = 'rgba(16,185,129,0.08)';
+                banner.style.borderColor = 'rgba(16,185,129,0.30)';
+                banner.style.color       = '#34d399';
+                document.getElementById('seoStatusIcon').textContent = '✅';
+                document.getElementById('seoStatusText').textContent = 'Live SEO metrics loaded from DataForSEO — analysis will include real keyword rankings and backlink data.';
+                const link = document.getElementById('seoStatusLink');
+                link.textContent = '';
+                link.style.display = 'none';
+                banner.style.display = 'block';
+            }
+        }
+
         const userPrompt = `TASK: ${task}
 
 COMPETITORS:
@@ -551,7 +634,7 @@ YOUR COMPANY / PRODUCT:
 ${yourBrief || 'Not specified — analyze competitor strategy independently'}
 
 FOCUS AREA: ${focusArea || 'General competitive landscape'}
-${intelligenceContext}
+${intelligenceContext}${scoutDataContext}
 
 ${recentActivity ? `RECENT COMPETITOR ACTIVITY TO ANALYZE:\n${recentActivity}` : ''}
 
