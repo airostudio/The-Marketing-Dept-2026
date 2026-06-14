@@ -88,6 +88,18 @@ module.exports = async function handler(req, res) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))
     return res.status(400).json({ error: 'Invalid recipient email address' });
 
+  // Resend tags for filtering / webhooks
+  // Tag values must be [a-zA-Z0-9_-] — sanitize anything that isn't
+  function sanitizeTagValue(val) {
+    return String(val).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 256) || 'unknown';
+  }
+
+  const tags = [
+    ...(prospectId  ? [{ name: 'prospect_id',  value: sanitizeTagValue(prospectId)  }] : []),
+    ...(sequenceId  ? [{ name: 'sequence_id',  value: sanitizeTagValue(sequenceId)  }] : []),
+    ...(stepIndex !== undefined ? [{ name: 'step_index', value: sanitizeTagValue(stepIndex) }] : []),
+  ];
+
   // Resend payload — https://resend.com/docs/api-reference/emails/send-email
   const payload = {
     from:    `${fromName} <${fromEmail}>`,
@@ -96,12 +108,7 @@ module.exports = async function handler(req, res) {
     html,
     ...(text    ? { text }                       : {}),
     ...(replyTo ? { reply_to: replyTo }          : {}),
-    // Resend tags for filtering / webhooks
-    tags: [
-      ...(prospectId  ? [{ name: 'prospect_id',  value: prospectId  }] : []),
-      ...(sequenceId  ? [{ name: 'sequence_id',  value: sequenceId  }] : []),
-      ...(stepIndex !== undefined ? [{ name: 'step_index', value: String(stepIndex) }] : []),
-    ],
+    ...(tags.length ? { tags }                   : {}),
   };
 
   try {
