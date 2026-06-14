@@ -37,7 +37,16 @@
 
   const STORE_KEY   = 'aduma_users';
   const SESSION_KEY = 'aduma_session';
+  const TOKEN_KEY   = 'aduma_token';   // JWT from api/auth.js (cross-device)
   const TTL         = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+  // Decode JWT payload client-side (signature verified server-side only)
+  function _jwtPayload(token) {
+    try {
+      const p = token.split('.')[1];
+      return JSON.parse(atob(p.replace(/-/g, '+').replace(/_/g, '/')));
+    } catch { return null; }
+  }
 
   function _hash(str) {
     let h = 0;
@@ -55,8 +64,8 @@
     localStorage.setItem(STORE_KEY, JSON.stringify(users));
   }
 
-  function _createSession(user) {
-    const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname };
+  function _createSession(user, jwtToken) {
+    const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname, org: user.org || '' };
 
     // Our own session key (30-day persistent)
     localStorage.setItem(SESSION_KEY, JSON.stringify({
@@ -64,20 +73,21 @@
       expires: Date.now() + TTL,
     }));
 
-    // Bridge keys for hub.html (apiClient guard). We use a clearly-fake
-    // "local_…" token so api-client.js can refuse to send it over the wire;
-    // it only exists to satisfy the client-side "is the user logged in?" check
-    // while running in offline/demo mode. The real backend auth path writes
-    // a real JWT to the same key via the backend login flow.
-    const token = 'local_' + user.id;
+    // Store JWT if provided (cross-device auth)
+    if (jwtToken) {
+      localStorage.setItem(TOKEN_KEY, jwtToken);
+    }
+
+    // Bridge: access_token — use JWT if available, else a local placeholder
+    const bridgeToken = jwtToken || ('local_' + user.id);
     if (!localStorage.getItem('access_token') ||
         (localStorage.getItem('access_token') || '').startsWith('local_')) {
-      localStorage.setItem('access_token', token);
+      localStorage.setItem('access_token', bridgeToken);
     }
     localStorage.setItem('user', JSON.stringify(pub));
     if (window.apiClient && (!window.apiClient.accessToken ||
         window.apiClient.accessToken.startsWith('local_'))) {
-      window.apiClient.accessToken = token;
+      window.apiClient.accessToken = bridgeToken;
     }
 
     // Bridge keys for dashboard.html (Auth guard) and auth.js
@@ -86,33 +96,79 @@
       userId: user.id, email: user.email,
       created: Date.now(),
       expires: Date.now() + TTL,
-      source: 'local',
+      source: jwtToken ? 'api' : 'local',
     }));
 
     return pub;
   }
 
-  function authSignup(email, password, firstname, lastname) {
+  // ── Local (single-browser) auth fallback ─────────────────────────────────
+  function _localSignup(email, password, firstname, lastname, org) {
     const users = _getUsers();
     if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('An account with this email already exists.');
     }
-    const user = {
-      id: 'u_' + Date.now(),
-      email, firstname, lastname,
-      password: _hash(password),
-    };
+    const user = { id: 'u_' + Date.now(), email, firstname, lastname, org: org || '', password: _hash(password) };
     users.push(user);
     _saveUsers(users);
-    return _createSession(user);
+    return _createSession(user, null);
   }
 
-  function authLogin(email, password) {
+  function _localLogin(email, password) {
     const users = _getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!user) throw new Error('No account found. Please create an account first.');
     if (user.password !== _hash(password)) throw new Error('Incorrect password.');
-    return _createSession(user);
+    return _createSession(user, null);
+  }
+
+  // ── API auth (cross-device via Vercel KV) ────────────────────────────────
+  // Cached: null=unchecked, true=configured, false=not configured
+  var _apiConfigured = null;
+
+  async function _checkApiConfigured() {
+    if (_apiConfigured !== null) return _apiConfigured;
+    try {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'status' }),
+        signal: AbortSignal.timeout(4000),
+      });
+      const d = await r.json();
+      _apiConfigured = !!(d && d.configured);
+    } catch { _apiConfigured = false; }
+    return _apiConfigured;
+  }
+
+  async function authSignup(email, password, firstname, lastname, org) {
+    if (await _checkApiConfigured()) {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'register', email, password, firstname, lastname, org }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Registration failed.');
+      return _createSession(d.user, d.token);
+    }
+    // Fallback: localStorage only
+    return _localSignup(email, password, firstname, lastname, org);
+  }
+
+  async function authLogin(email, password) {
+    if (await _checkApiConfigured()) {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', email, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Login failed.');
+      return _createSession(d.user, d.token);
+    }
+    // Fallback: localStorage only
+    return _localLogin(email, password);
   }
 
   /* ─── CSS ─────────────────────────────────────────────────────────────── */
@@ -323,7 +379,7 @@
 
   /* ─── Handlers ────────────────────────────────────────────────────────── */
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     clearMessages();
     var email = document.getElementById('am-login-email').value.trim();
@@ -334,7 +390,7 @@
     setLoading(btn, 'Signing in…');
 
     try {
-      authLogin(email, pwd);
+      await authLogin(email, pwd);
       showSuccess('Signed in! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -343,7 +399,7 @@
     }
   }
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
     clearMessages();
     var first = document.getElementById('am-first').value.trim();
@@ -359,7 +415,7 @@
     setLoading(btn, 'Creating account…');
 
     try {
-      authSignup(email, pwd, first, last);
+      await authSignup(email, pwd, first, last, org);
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -441,7 +497,15 @@
   /* ─── Session check ──────────────────────────────────────────────────── */
 
   function isLoggedIn() {
-    // Primary check: our own session key with expiry
+    // Primary: valid JWT from cross-device API (check expiry client-side)
+    var jwt = localStorage.getItem(TOKEN_KEY);
+    if (jwt) {
+      var p = _jwtPayload(jwt);
+      if (p && p.exp && p.exp > Math.floor(Date.now() / 1000)) return true;
+      // Expired JWT — clean up
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    // Secondary: our own session key with expiry
     try {
       var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
       if (s && s.expires > Date.now()) return true;
@@ -473,11 +537,13 @@
 
   function authLogout() {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('seo_agent_user');
     localStorage.removeItem('seo_agent_session');
+    _apiConfigured = null; // Reset cache so next login re-checks
   }
 
   // Wire up the already-exposed AuthModal
