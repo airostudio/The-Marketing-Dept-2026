@@ -244,6 +244,50 @@
     .pill-status.active   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
     .pill-status.planning { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
     .pill-status.idle     { background: var(--card);      color: var(--text3);  border: 1px solid var(--border); }
+
+    /* ── Signal badges (per-prospect) ── */
+    .sig-badge { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+    .sig-hiring    { background:rgba(16,185,129,.12);  color:#10b981; border:1px solid rgba(16,185,129,.3); }
+    .sig-funding   { background:rgba(245,158,11,.12);  color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+    .sig-leadership{ background:rgba(139,92,246,.12);  color:#a78bfa; border:1px solid rgba(139,92,246,.3); }
+    .sig-growth    { background:rgba(59,130,246,.12);  color:#60a5fa; border:1px solid rgba(59,130,246,.3); }
+    .sig-competitor{ background:rgba(236,72,153,.12);  color:#f472b6; border:1px solid rgba(236,72,153,.3); }
+    .sig-tech      { background:rgba(20,184,166,.12);  color:#2dd4bf; border:1px solid rgba(20,184,166,.3); }
+    .sig-news      { background:rgba(251,191,36,.12);  color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
+
+    /* ── Priority score bar ── */
+    .score-wrap { display:flex; align-items:center; gap:6px; }
+    .score-num  { font-size:13px; font-weight:800; min-width:28px; }
+    .score-bar-bg { flex:1; height:4px; background:rgba(255,255,255,.07); border-radius:2px; min-width:36px; }
+    .score-fill { height:100%; border-radius:2px; transition:width .4s; }
+    .score-hi  .score-num { color:var(--green); }
+    .score-mid .score-num { color:var(--amber); }
+    .score-lo  .score-num { color:var(--text3); }
+    .score-hi  .score-fill { background:var(--green); }
+    .score-mid .score-fill { background:var(--amber); }
+    .score-lo  .score-fill { background:var(--text3); }
+
+    /* ── Outreach draft modal ── */
+    .draft-block { margin-bottom:14px; }
+    .draft-lbl   { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:5px; }
+    .draft-pre   { background:rgba(0,0,0,.28); border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.65; color:var(--text2); white-space:pre-wrap; max-height:220px; overflow-y:auto; }
+    .draft-edit  { width:100%; margin-top:6px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-size:13px; font-family:inherit; resize:vertical; min-height:90px; line-height:1.6; outline:none; }
+    .draft-edit:focus { border-color:var(--indigo); }
+
+    /* ── AI signal finder results ── */
+    .sf-result { display:flex; gap:10px; align-items:flex-start; padding:12px; background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
+    .sf-icon   { font-size:16px; flex-shrink:0; margin-top:1px; }
+    .sf-body   { flex:1; min-width:0; }
+    .sf-title  { font-size:13px; font-weight:600; margin-bottom:2px; }
+    .sf-detail { font-size:12px; color:var(--text2); line-height:1.45; }
+    .sf-conf   { font-size:11px; color:var(--text3); margin-top:3px; }
+
+    /* ── Approval queue ── */
+    .approval-card { background:var(--card); border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:var(--radius); padding:16px 18px; margin-bottom:10px; }
+    .approval-meta { font-size:12px; color:var(--text3); margin-bottom:6px; }
+    .approval-subject { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .approval-preview { font-size:13px; color:var(--text2); line-height:1.5; margin-bottom:10px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+    .approval-actions { display:flex; gap:8px; }
   </style>
 </head>
 <body>
@@ -459,6 +503,19 @@
 
       <!-- ──────────────────── INBOX ──────────────────── -->
       <div class="tab-pane" id="tab-inbox">
+
+        <!-- AI Approval Queue -->
+        <div id="approvalQueueSection" style="display:none; margin-bottom:20px;">
+          <div class="section-header" style="margin-bottom:10px;">
+            <div>
+              <div class="section-title">🤖 AI Outreach Drafts — Awaiting Approval</div>
+              <div class="section-sub">Review AI-drafted emails before they go out. Edit, then approve and send.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearApprovalQueue()">Clear All</button>
+          </div>
+          <div id="approvalQueue"></div>
+        </div>
+
         <div class="section-header">
           <div>
             <div class="section-title">Warm Leads — Positive Replies</div>
@@ -541,6 +598,24 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- AI Signal Finder -->
+        <div class="ai-panel" style="margin-bottom:20px;">
+          <h3>🤖 AI Signal Finder</h3>
+          <p>Enter a company name. The AI searches Perplexity in real-time for hiring spikes, funding rounds, leadership changes, growth signals, and competitive activity — then logs them automatically.</p>
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">Company Name *</label>
+              <input class="form-input" id="sfCompany" placeholder="e.g. Acme SaaS">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Domain (optional — improves accuracy)</label>
+              <input class="form-input" id="sfDomain" placeholder="e.g. acmesaas.com">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="sfBtn" onclick="runSignalFinder()">🔍 Detect Signals</button>
+          <div id="sfResults" style="margin-top:14px;"></div>
         </div>
 
         <div class="section-header" style="margin-top:24px;">
@@ -683,6 +758,7 @@
                 <th>Email</th>
                 <th>Profile</th>
                 <th>Trigger / Signal</th>
+                <th>Score</th>
                 <th>Campaign</th>
                 <th>Status</th>
                 <th></th>
@@ -936,6 +1012,41 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal('prospectModal')">Cancel</button>
         <button class="btn btn-primary" onclick="saveProspect()">Save Prospect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OUTREACH DRAFT MODAL ── -->
+<div class="modal-overlay" id="outreachDraftModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <div class="modal-title">✍️ AI Outreach Draft</div>
+      <button class="modal-close" onclick="closeModal('outreachDraftModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="odLoading" style="text-align:center;padding:32px;color:var(--text2);">🤖 Drafting outreach with Claude…</div>
+      <div id="odContent" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="odMeta"></div>
+        <div class="form-group">
+          <label class="form-label">Email Subject</label>
+          <input class="form-input" id="odSubject" type="text" placeholder="Subject line…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Body <span style="font-size:11px;color:var(--text3);">(under 90 words)</span></label>
+          <textarea class="form-textarea" id="odBody" rows="8" placeholder="Email body…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">LinkedIn Message <span style="font-size:11px;color:var(--text3);">(under 60 words)</span></label>
+          <textarea class="form-textarea" id="odLinkedin" rows="4" placeholder="LinkedIn message…"></textarea>
+        </div>
+        <div id="odSignalUsed" style="font-size:12px;color:var(--indigo);margin-bottom:4px;"></div>
+        <div id="odStatus" style="font-size:13px;color:var(--text2);min-height:20px;"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('outreachDraftModal')">Discard</button>
+          <button class="btn btn-ghost" onclick="addToApprovalQueue()">📋 Add to Queue</button>
+          <button class="btn btn-primary" onclick="approveOutreach()">✅ Approve &amp; Send</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1385,7 +1496,7 @@ function evBadge(ev, enriching) {
 function renderProspects() {
   const tbody = document.getElementById('prospectsTable');
   if (prospects.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px;">No prospects yet. Add one above or import a list.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:32px;">No prospects yet. Add one above or import a list.</td></tr>';
     return;
   }
   const sm = {
@@ -1427,6 +1538,22 @@ function renderProspects() {
       ? `<div class="enrich-row">${chips.join('')}</div>`
       : (p.enriching ? '<span style="font-size:11px;color:var(--text3);">⟳ Enriching…</span>' : '<span style="color:var(--text3);font-size:12px;">–</span>');
 
+    // Trigger + signal badges
+    const sigCount = (p.signals || []).length;
+    const sigBadge = sigCount > 0
+      ? `<span class="signal-badge signal-badge-active" title="${sigCount} signal${sigCount>1?'s':''} detected">${sigCount} signal${sigCount>1?'s':''}</span>`
+      : '';
+    const triggerCell = `<div style="color:var(--amber);font-size:12px;">${esc(p.trigger) || '–'}</div>${sigBadge}`;
+
+    // Priority score bar
+    const score = calcPriorityScore(p);
+    const scoreClass = score >= 70 ? 'score-hi' : score >= 40 ? 'score-mid' : 'score-lo';
+    const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--text3)';
+    const scoreCell = `<div class="score-wrap ${scoreClass}">
+      <span class="score-num">${score}</span>
+      <div class="score-bar-bg"><div class="score-fill" style="width:${score}%;background:${scoreColor};"></div></div>
+    </div>`;
+
     // Actions
     const sendBtn = p.email
       ? `<button class="btn btn-ghost btn-sm" onclick="openSendEmail('${p.id}')" title="Send cold email">✉</button>`
@@ -1434,6 +1561,8 @@ function renderProspects() {
     const reEnrichBtn = p.enriched && !p.enriching
       ? `<button class="btn btn-ghost btn-sm" onclick="enrichProspect('${p.id}')" title="Re-enrich profile">↻</button>`
       : '';
+    const draftBtn = `<button class="btn btn-primary btn-sm" onclick="draftOutreach('${p.id}')" title="AI draft outreach">✍ Draft</button>`;
+    const sigBtn = `<button class="btn btn-ghost btn-sm" onclick="detectProspectSignals('${p.id}')" title="Detect signals">📡</button>`;
 
     return `<tr>
       <td style="font-weight:600;">${esc(p.name)}</td>
@@ -1441,10 +1570,11 @@ function renderProspects() {
       <td style="color:var(--text2);font-size:12px;">${titleCell}</td>
       <td style="font-size:12px;">${emailCell}</td>
       <td style="font-size:12px;">${profileCell}</td>
-      <td style="color:var(--amber);font-size:12px;">${esc(p.trigger) || '–'}</td>
+      <td style="font-size:12px;">${triggerCell}</td>
+      <td>${scoreCell}</td>
       <td style="color:var(--text2);font-size:12px;">${esc(cName(p.campaign))}</td>
       <td><span class="pill ${st.cls}">${st.label}</span></td>
-      <td style="display:flex;gap:4px;align-items:center;">${sendBtn}${reEnrichBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
+      <td style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${draftBtn}${sigBtn}${sendBtn}${reEnrichBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -1776,6 +1906,274 @@ The 3 things to research before writing any cold email. Where to find them.`;
   await streamAI(out, system, user, document.getElementById('buildListBtn'));
 }
 
+// ── Priority Scoring ─────────────────────────────────────────────────────────
+function calcPriorityScore(p) {
+  let icp = 0, intent = 0, contact = 0, timing = 0;
+
+  // ICP fit (0–100): title seniority + decision maker + industry match
+  if (p.isDecisionMaker) icp += 50;
+  const titleLower = (p.title || '').toLowerCase();
+  if (/vp|vice president|chief|cxo|ceo|coo|cto|cmo|owner|founder|partner|director/.test(titleLower)) icp += 30;
+  else if (/head|manager|lead|principal/.test(titleLower)) icp += 15;
+  if (p.industry) icp += 20;
+  icp = Math.min(icp, 100);
+
+  // Intent (0–100): signals detected + trigger text
+  const sigCount = (p.signals || []).length;
+  intent += Math.min(sigCount * 20, 60);
+  if (p.trigger) intent += 40;
+  intent = Math.min(intent, 100);
+
+  // Contact quality (0–100): email verified + linkedin present
+  if (p.email) contact += 40;
+  if (p.emailVerification?.status === 'deliverable') contact += 40;
+  if (p.linkedin) contact += 20;
+  contact = Math.min(contact, 100);
+
+  // Timing (0–100): funded or hiring signal recently detected
+  const hasTimingSignal = (p.signals || []).some(s => ['hiring','funding','leadership'].includes(s.type));
+  if (hasTimingSignal) timing = 80;
+  else if (p.trigger) timing = 40;
+
+  const raw = 0.40 * icp + 0.30 * intent + 0.15 * contact + 0.10 * timing;
+  return Math.round(raw);
+}
+
+// ── AI Signal Finder ──────────────────────────────────────────────────────────
+async function runSignalFinder() {
+  const company = document.getElementById('sfCompany').value.trim();
+  const domain  = document.getElementById('sfDomain').value.trim();
+  const btn     = document.getElementById('sfBtn');
+  const out     = document.getElementById('sfResults');
+  if (!company) { out.innerHTML = '<p style="color:var(--red);font-size:13px;">Enter a company name.</p>'; return; }
+
+  btn.disabled = true;
+  out.innerHTML = '<p style="font-size:13px;color:var(--text2);">🔍 Scanning for signals via Perplexity…</p>';
+
+  try {
+    const res = await fetch('/api/lead-signals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company, domain: domain || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signal scan failed');
+
+    const sigs = data.signals || [];
+    if (!sigs.length) {
+      out.innerHTML = '<p style="font-size:13px;color:var(--text2);">No signals detected for this company right now.</p>';
+    } else {
+      const typeColors = { hiring:'var(--green)', funding:'var(--indigo)', leadership:'var(--amber)', growth:'var(--green)', competitor:'var(--red)', tech:'var(--text2)' };
+      out.innerHTML = sigs.map(s => `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span class="signal-badge signal-badge-active" style="background:rgba(99,102,241,0.12);color:${typeColors[s.type]||'var(--text2)'};">${s.type}</span>
+            <span style="font-size:13px;font-weight:600;">${esc(s.title)}</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto;">${Math.round((s.confidence||0)*100)}% confidence</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2);">${esc(s.detail)}</div>
+        </div>`).join('');
+      // Auto-log signals to the Signals tab store
+      const newSig = { id:'sig_'+Date.now(), company, signals: sigs, detectedAt: new Date().toISOString() };
+      signals.unshift(newSig);
+      LS.set(K.SIGNALS, signals);
+      renderSignals();
+      toast(`${sigs.length} signal${sigs.length>1?'s':''} detected for ${company}`);
+    }
+  } catch(e) {
+    out.innerHTML = `<p style="font-size:13px;color:var(--red);">Error: ${esc(e.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Per-prospect Signal Detection ─────────────────────────────────────────────
+async function detectProspectSignals(prospectId) {
+  const idx = prospects.findIndex(x => x.id === prospectId);
+  if (idx === -1) return;
+  const p = prospects[idx];
+  if (!p.company) { toast('No company name on this prospect.'); return; }
+
+  toast(`📡 Scanning signals for ${p.company}…`);
+  try {
+    const res = await fetch('/api/lead-signals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: p.company, domain: p.domain || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signal scan failed');
+    prospects[idx].signals = data.signals || [];
+    LS.set(K.PROSPECTS, prospects);
+    renderProspects();
+    toast(`${(data.signals||[]).length} signal(s) found for ${p.company}`);
+  } catch(e) {
+    toast(`Signal scan failed: ${e.message}`);
+  }
+}
+
+// ── AI Outreach Draft ─────────────────────────────────────────────────────────
+let _currentDraft = null;
+
+async function draftOutreach(prospectId) {
+  const p = prospects.find(x => x.id === prospectId);
+  if (!p) return;
+
+  const odContent  = document.getElementById('odContent');
+  const odLoading  = document.getElementById('odLoading');
+  const odMeta     = document.getElementById('odMeta');
+  odContent.style.display = 'none';
+  odLoading.style.display = 'block';
+  odLoading.textContent   = '🤖 Drafting outreach with Claude…';
+  openModal('outreachDraftModal');
+
+  const strategy = LS.get(K.STRATEGY) || {};
+  const seller = {
+    companyName: strategy.companyName || 'Our Company',
+    offer:       strategy.offer || '',
+    niche:       strategy.niche || '',
+    outcome:     strategy.outcome || '',
+  };
+  const prospect = {
+    name:        p.name,
+    firstName:   p.name.split(' ')[0],
+    title:       p.title || '',
+    company:     p.company || '',
+    industry:    p.industry || '',
+    companySize: p.companySize || '',
+  };
+
+  try {
+    const res = await fetch('/api/outreach-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prospect, seller, signals: p.signals || [] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Draft failed');
+
+    _currentDraft = { ...data, prospectId };
+    document.getElementById('odSubject').value  = data.email?.subject || '';
+    document.getElementById('odBody').value     = data.email?.body    || '';
+    document.getElementById('odLinkedin').value = data.linkedin        || '';
+    odMeta.textContent = `Drafted for ${p.name} at ${p.company}`;
+    document.getElementById('odSignalUsed').textContent = data.primarySignalUsed
+      ? `Primary signal: "${data.primarySignalUsed}"`
+      : '';
+    document.getElementById('odStatus').textContent = '';
+    odLoading.style.display  = 'none';
+    odContent.style.display  = 'block';
+  } catch(e) {
+    odLoading.textContent = `Error: ${e.message}`;
+  }
+}
+
+function approveOutreach() {
+  if (!_currentDraft) return;
+  const subject = document.getElementById('odSubject').value.trim();
+  const body    = document.getElementById('odBody').value.trim();
+  const p = prospects.find(x => x.id === _currentDraft.prospectId);
+  closeModal('outreachDraftModal');
+  if (!p) return;
+  // Pre-fill the send email modal with the approved draft
+  document.getElementById('seProspectId').value = p.id;
+  document.getElementById('seToEmail').value    = p.email || '';
+  document.getElementById('seSubject').value    = subject;
+  document.getElementById('seBody').value       = body;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+function addToApprovalQueue() {
+  if (!_currentDraft) return;
+  const subject  = document.getElementById('odSubject').value.trim();
+  const body     = document.getElementById('odBody').value.trim();
+  const linkedin = document.getElementById('odLinkedin').value.trim();
+  const p = prospects.find(x => x.id === _currentDraft.prospectId);
+  if (!p) return;
+
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  queue.unshift({
+    id: 'aq_' + Date.now(),
+    prospectId: p.id,
+    name: p.name,
+    company: p.company,
+    email: p.email || '',
+    subject, body, linkedin,
+    createdAt: new Date().toISOString(),
+  });
+  localStorage.setItem('ld_approval_queue', JSON.stringify(queue));
+  closeModal('outreachDraftModal');
+  renderApprovalQueue();
+  // Switch to Inbox tab
+  document.querySelector('.tab-btn[data-tab="inbox"]')?.click();
+  toast(`Draft queued for approval — ${p.name} at ${p.company}`);
+}
+
+function renderApprovalQueue() {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const section = document.getElementById('approvalQueueSection');
+  const container = document.getElementById('approvalQueue');
+  if (!queue.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  container.innerHTML = queue.map(item => `
+    <div style="background:var(--card);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <span style="font-weight:700;font-size:14px;">${esc(item.name)}</span>
+          <span style="color:var(--text3);font-size:13px;"> at ${esc(item.company)}</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeFromQueue('${item.id}')">Remove</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Subject: <span style="color:var(--text);">${esc(item.subject)}</span></div>
+      <div style="font-size:12px;color:var(--text2);white-space:pre-wrap;background:rgba(0,0,0,.2);border-radius:6px;padding:10px;margin-bottom:10px;">${esc(item.body)}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="sendQueuedDraft('${item.id}')">✅ Approve &amp; Send</button>
+        <button class="btn btn-ghost btn-sm" onclick="editQueuedDraft('${item.id}')">Edit</button>
+      </div>
+    </div>`).join('');
+}
+
+function clearApprovalQueue() {
+  localStorage.removeItem('ld_approval_queue');
+  renderApprovalQueue();
+  toast('Approval queue cleared');
+}
+
+function removeFromQueue(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]').filter(x => x.id !== id);
+  localStorage.setItem('ld_approval_queue', JSON.stringify(queue));
+  renderApprovalQueue();
+}
+
+function sendQueuedDraft(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const item = queue.find(x => x.id === id);
+  if (!item) return;
+  document.getElementById('seProspectId').value = item.prospectId || '';
+  document.getElementById('seToEmail').value    = item.email;
+  document.getElementById('seSubject').value    = item.subject;
+  document.getElementById('seBody').value       = item.body;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+function editQueuedDraft(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const item = queue.find(x => x.id === id);
+  if (!item) return;
+  _currentDraft = { prospectId: item.prospectId };
+  document.getElementById('odSubject').value  = item.subject;
+  document.getElementById('odBody').value     = item.body;
+  document.getElementById('odLinkedin').value = item.linkedin || '';
+  document.getElementById('odMeta').textContent = `${item.name} at ${item.company}`;
+  document.getElementById('odSignalUsed').textContent = '';
+  document.getElementById('odStatus').textContent = '';
+  document.getElementById('odLoading').style.display = 'none';
+  document.getElementById('odContent').style.display = 'block';
+  openModal('outreachDraftModal');
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 loadStrategy();
 renderLeads();
@@ -1788,6 +2186,7 @@ loadStack();
 loadSignalsState();
 refreshStats();
 hydrateAiContext();
+renderApprovalQueue();
 </script>
 </body>
 </html>
