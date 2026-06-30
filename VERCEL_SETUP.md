@@ -9,6 +9,8 @@ Your Audema application requires the following environment variable to be set in
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Your Claude API key from Anthropic | ✅ Yes |
+| `CONVERT_API_KEY` | Convert.com API key (from app.convert.com/account/api) | For A/B data |
+| `CONVERT_API_SECRET` | Convert.com API secret | For A/B data |
 
 ---
 
