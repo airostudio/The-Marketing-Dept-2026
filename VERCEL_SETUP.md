@@ -9,8 +9,81 @@ Your Audema application requires the following environment variable to be set in
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Your Claude API key from Anthropic | ✅ Yes |
-| `CONVERT_API_KEY` | Convert.com API key (from app.convert.com/account/api) | For A/B data |
-| `CONVERT_API_SECRET` | Convert.com API secret | For A/B data |
+| `SUPABASE_URL` | Supabase project URL (already set for auth) | ✅ Yes |
+| `SUPABASE_ANON_KEY` | Supabase anon key (already set for auth) | ✅ Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key — needed for the MCP server to bypass RLS | ✅ For MCP |
+| `MCP_SECRET` | Bearer token that MCP clients must send — set to any long random string | ✅ For MCP |
+
+---
+
+## A/B Testing MCP Server
+
+The Aduma MCP server exposes your A/B experiment data to Claude so you can manage experiments, analyse results, generate tracking snippets, and trigger new ad creative directly from a chat interface.
+
+### Step 1 — Run the Supabase migration
+
+In Supabase Dashboard → SQL Editor → New query, paste and run the contents of `supabase-ab-testing.sql`.
+
+This creates: `experiments`, `variants`, `goals`, `visitors`, `conversions` tables with RLS policies.
+
+### Step 2 — Add env vars to Vercel
+
+Add `SUPABASE_SERVICE_ROLE_KEY` (Settings → Environment Variables in Vercel Dashboard).
+Set `MCP_SECRET` to a long random string — e.g. `openssl rand -hex 32`.
+
+### Step 3 — Connect Claude Desktop or Cursor
+
+Add to your Claude Desktop `claude_desktop_config.json` (or Cursor `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "aduma": {
+      "type": "http",
+      "url": "https://<your-vercel-domain>/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-MCP_SECRET>"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You'll see "aduma" in the MCP tools panel.
+
+### Available MCP Tools
+
+| Tool | What it does |
+|------|-------------|
+| `list_experiments` | Show all experiments with status |
+| `get_experiment_stats` | CVR, uplift %, statistical significance per variant |
+| `create_experiment` | Create a new A/B test |
+| `add_variant` | Add a variant (or control) to an experiment |
+| `update_experiment` | Change status: draft → active → paused → finished |
+| `declare_winner` | Mark variant as winner, close experiment |
+| `create_goal` | Add a conversion goal (click / pageview / revenue) |
+| `get_winning_copy` | List all winning copy from finished experiments |
+| `generate_tracking_snippet` | Get the JS embed for any experiment |
+| `generate_ads_from_winner` | Ad creative loop: winner copy → new ad variants |
+
+### Example Claude workflow
+
+```
+You: "Create an experiment called 'Homepage hero CTA', add a control and a variant,
+      set the goal to the #get-started button click, and give me the tracking snippet."
+
+Claude: [calls create_experiment → add_variant × 2 → create_goal → generate_tracking_snippet]
+        Here's your tracking snippet — paste it into your <head>...
+```
+
+```
+You: "Check the stats on experiment abc123 and declare the winner."
+
+Claude: [calls get_experiment_stats]
+        Variant B has 14.2% CVR vs 12.1% control (+17.3%, p=0.02) — statistically significant.
+        [calls declare_winner]
+        Winner declared. Want me to generate new ads based on this winning copy?
+```
 
 ---
 
