@@ -16,6 +16,23 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Business Brain — Per-Project Memory + History
+
+Business Brain previously lived only in browser `localStorage`, shared globally across every project with no version history — so clearing browser data, switching devices, or an accidental "Overwrite all fields" click could silently destroy it with no way back.
+
+This is now fixed:
+- **Per-project**: each project gets its own Business Brain, keyed off the same `projects` table/current-project pointer used elsewhere in the app.
+- **Cloud-synced**: every save mirrors to Supabase (`business_brain` table) in the background — localStorage stays as the instant-read cache, Supabase is the durable copy.
+- **Versioned**: every save also appends to `business_brain_history` (last 20 kept per project). Click **History** on the Business Brain page to browse and restore any previous version — restoring itself creates a "Before restore" snapshot first, so nothing is ever truly lost.
+
+### Setup
+
+1. Run `supabase-business-brain.sql` in Supabase Dashboard → SQL Editor.
+2. No new env vars needed — this uses the same `SUPABASE_URL`/`SUPABASE_ANON_KEY` client-side auth already configured.
+3. On first visit to Business Brain after this update, if pre-migration global data is found (and the current project's brain is still empty), a prompt lets you assign it to whichever project it belongs to.
+
+---
+
 ## A/B Testing MCP Server
 
 The Aduma MCP server exposes your A/B experiment data to Claude so you can manage experiments, analyse results, generate tracking snippets, and trigger new ad creative directly from a chat interface.

@@ -133,8 +133,30 @@ function _setByPath(obj, path, value) {
  */
 class BusinessBrain {
   constructor() {
-    /** @private */
-    this._key = STORAGE_KEYS.BUSINESS_BRAIN;
+    /** @private legacy global key, kept for one-time migration detection */
+    this._legacyKey = STORAGE_KEYS.BUSINESS_BRAIN;
+  }
+
+  /**
+   * Per-project storage key. Falls back to a 'default' bucket when no
+   * project is selected (e.g. brand-new account before first project).
+   * Reads the same current-project pointer project-service.js maintains,
+   * so Business Brain data is isolated per project instead of one shared
+   * brain across the whole account.
+   * @returns {string}
+   * @private
+   */
+  _key() {
+    const projectId = localStorage.getItem('seo-current-project');
+    return `${STORAGE_KEYS.BUSINESS_BRAIN}__${projectId || 'default'}`;
+  }
+
+  /**
+   * The current project ID this brain instance is scoped to, or null.
+   * @returns {string|null}
+   */
+  currentProjectId() {
+    return localStorage.getItem('seo-current-project');
   }
 
   /**
@@ -186,12 +208,14 @@ class BusinessBrain {
   }
 
   /**
-   * Persist the brain data to localStorage.
+   * Persist the brain data to localStorage (instant, synchronous) and mirror
+   * it to Supabase in the background (per-project, versioned history).
    * Automatically stamps lastUpdated.
    * @param {Object} data
+   * @param {string} [label] - optional history label, e.g. 'Autofill overwrite'
    * @returns {Object} the saved data
    */
-  save(data) {
+  save(data, label) {
     if (typeof data !== 'object' || data === null) {
       throw new TypeError('[BusinessBrain.save] data must be a non-null object');
     }
@@ -200,7 +224,16 @@ class BusinessBrain {
     data.intelligence.lastUpdated = new Date().toISOString();
     data.intelligence.confidenceScore = this._computeConfidence(data);
 
-    _lsSet(this._key, data);
+    _lsSet(this._key(), data);
+
+    // Fire-and-forget cloud sync — never blocks or throws on the caller.
+    const projectId = this.currentProjectId();
+    if (window.BusinessBrainCloud && projectId) {
+      window.BusinessBrainCloud
+        .pushSnapshot(projectId, data, data.intelligence.confidenceScore, label)
+        .catch(() => {});
+    }
+
     return data;
   }
 
@@ -209,7 +242,46 @@ class BusinessBrain {
    * @returns {Object}
    */
   load() {
-    return _lsGet(this._key) || this._emptyScaffold();
+    return _lsGet(this._key()) || this._emptyScaffold();
+  }
+
+  /**
+   * Write data to the local cache WITHOUT pushing a new cloud snapshot —
+   * used after a history restore, where the cloud snapshot has already been
+   * recorded by BusinessBrainCloud.restoreSnapshot(). Avoids a duplicate
+   * "Autosave" entry immediately after the "Restored from ..." entry.
+   * @param {Object} data
+   * @returns {Object}
+   */
+  applyRestoredData(data) {
+    _lsSet(this._key(), data);
+    return data;
+  }
+
+  /**
+   * Pull the latest cloud copy for the current project and hydrate the local
+   * cache with it if the cloud copy is newer. Call once on page load — this
+   * is async and does not block synchronous load()/save() call sites.
+   * @returns {Promise<Object|null>} the hydrated data, or null if nothing pulled
+   */
+  async hydrateFromCloud() {
+    const projectId = this.currentProjectId();
+    if (!window.BusinessBrainCloud || !projectId) return null;
+
+    const cloud = await window.BusinessBrainCloud.pullLatest(projectId);
+    if (!cloud || !cloud.data) return null;
+
+    const local = _lsGet(this._key());
+    const cloudUpdated = new Date(cloud.updated_at || 0).getTime();
+    const localUpdated = new Date(local?.intelligence?.lastUpdated || 0).getTime();
+
+    // Only overwrite local cache if the cloud copy is strictly newer —
+    // protects against a stale cloud pull clobbering a fresher local edit.
+    if (cloudUpdated > localUpdated) {
+      _lsSet(this._key(), cloud.data);
+      return cloud.data;
+    }
+    return local;
   }
 
   /**
@@ -1404,6 +1476,11 @@ class IntelligenceEngine {
       return;
     }
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+    // Business Brain is stored per-project (STORAGE_KEYS.BUSINESS_BRAIN + '__' + projectId) —
+    // remove every project-scoped bucket too, not just the legacy global key.
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`))
+      .forEach(k => localStorage.removeItem(k));
     console.info('[IntelligenceEngine] All intelligence stores cleared.');
   }
 }
