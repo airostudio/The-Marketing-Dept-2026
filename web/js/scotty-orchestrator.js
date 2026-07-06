@@ -644,6 +644,39 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
   }
 
   /**
+   * Stream via the agent's preferred service, but fall back to Claude if that
+   * service errors before producing any output (invalid/missing key, quota
+   * exhausted, etc). A full orchestration run should degrade gracefully
+   * instead of dying because one third-party API key is broken.
+   *
+   * If the preferred service fails mid-stream (after already emitting output),
+   * we do NOT fall back — swapping services mid-response would produce a
+   * garbled result, so the error is surfaced as-is.
+   */
+  function streamWithFallback(service, agentKey, { systemPrompt, messages, onChunk, onDone, onError }) {
+    if (service === window.ClaudeService || !window.ClaudeService) {
+      return service.streamResponse({ systemPrompt, messages, onChunk, onDone, onError });
+    }
+
+    let receivedAnyChunk = false;
+
+    return service.streamResponse({
+      systemPrompt,
+      messages,
+      onChunk: (chunk, acc) => { receivedAnyChunk = true; if (onChunk) onChunk(chunk, acc); },
+      onDone,
+      onError: (err) => {
+        if (receivedAnyChunk) {
+          if (onError) onError(err);
+          return;
+        }
+        console.warn(`[Scotty] ${agentKey} service failed before streaming any output (${err.message}). Falling back to Claude.`);
+        return window.ClaudeService.streamResponse({ systemPrompt, messages, onChunk, onDone, onError });
+      },
+    });
+  }
+
+  /**
    * Generate a multi-agent mission plan via Claude.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
    */
@@ -718,7 +751,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     const systemPrompt = getAgentInlinePrompt(task.agentKey, contextBundle);
     const service = getServiceForAgent(task.agentKey);
 
-    return service.streamResponse({
+    return streamWithFallback(service, task.agentKey, {
       systemPrompt,
       messages: [{ role: 'user', content: task.userPrompt }],
       onChunk,
@@ -796,7 +829,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     if (!window.ClaudeService) throw new Error('Claude API not configured');
     const systemPrompt = getAgentInlinePrompt(auto.agentKey, contextBundle);
     const service = getServiceForAgent(auto.agentKey);
-    return service.streamResponse({
+    return streamWithFallback(service, auto.agentKey, {
       systemPrompt,
       messages: [{ role: 'user', content: auto.prompt }],
       onChunk,
