@@ -268,8 +268,9 @@ class EmailAgent {
         // Auto-select tone from BusinessBrain brand voice
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.voice && data.voice.tone) {
-                const voiceTone = data.voice.tone.toLowerCase();
+            const voiceAndTone = data && data.positioning && Array.isArray(data.positioning.voiceAndTone) ? data.positioning.voiceAndTone.filter(v => v && v.trim()) : [];
+            if (voiceAndTone.length > 0) {
+                const voiceTone = voiceAndTone.join(', ').toLowerCase();
                 const toneSelect = document.getElementById('tone');
 
                 // Map brand voice to tone options
@@ -292,12 +293,13 @@ class EmailAgent {
         // Auto-populate product from BusinessBrain positioning/value prop
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.positioning) {
+            if (data && data.positioning && data.positioning.uniqueValue) {
                 const input = document.getElementById('product');
-                let productDesc = data.positioning;
+                let productDesc = data.positioning.uniqueValue;
 
-                if (data.valueProp && data.valueProp.primaryBenefit) {
-                    productDesc += ` — ${data.valueProp.primaryBenefit}`;
+                const diffs = (data.positioning.differentiation || []).filter(d => d && d.trim());
+                if (diffs.length > 0) {
+                    productDesc += ` — ${diffs.slice(0, 2).join(', ')}`;
                 }
 
                 input.value = `✨ ${productDesc} (from BusinessBrain)`;

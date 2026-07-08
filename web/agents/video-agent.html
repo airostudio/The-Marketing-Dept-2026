@@ -483,7 +483,14 @@
         if (!data?.icp) return '';
 
         let context = '\n\n**TARGET AUDIENCE (ICP) FOR VIDEO SCRIPTING:**\n';
-        context += `Persona: ${data.icp.persona}\n`;
+        const buyer = data.icp.primaryBuyer || {};
+        let buyerProfile = buyer.role || '';
+        if (buyer.companySize) buyerProfile += buyerProfile ? ` at ${buyer.companySize} companies` : `${buyer.companySize} companies`;
+        if (buyer.industry) buyerProfile += buyerProfile ? `, ${buyer.industry}` : buyer.industry;
+        if (buyerProfile) {
+            context += `Persona: ${buyerProfile}\n`;
+            context += `→ Adjust language, examples, and references to match this buyer profile.\n`;
+        }
 
         if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
             const painPoints = data.icp.painPoints.filter(p => p);
@@ -492,11 +499,6 @@
                 context += `${i + 1}. "${pain}"\n`;
             });
             context += `→ Open video with: "Struggling with ${painPoints[0]}? Here's how to fix it."\n`;
-        }
-
-        if (data.icp.demographics) {
-            context += `\nDemographics: ${data.icp.demographics}\n`;
-            context += `→ Adjust language, examples, and references to match this demographic.\n`;
         }
 
         const _vidIcpLang = Array.isArray(data.icp.language) ? data.icp.language :
@@ -515,22 +517,24 @@
     function buildBrandVoiceScriptTone() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.voice) return '';
+        const voiceAndTone = Array.isArray(data?.positioning?.voiceAndTone) ? data.positioning.voiceAndTone.filter(v => v && v.trim()) : [];
+        if (voiceAndTone.length === 0) return '';
 
+        const voiceStr = voiceAndTone.join(', ');
         let context = '\n\n**BRAND VOICE FOR SCRIPT TONE:**\n';
-        context += `Tone: ${data.brand.voice}\n`;
+        context += `Tone: ${voiceStr}\n`;
 
-        if (data.brand.voice.toLowerCase().includes('professional')) {
+        if (voiceStr.toLowerCase().includes('professional')) {
             context += `→ Use formal language, industry terms, data-driven arguments.\n`;
-        } else if (data.brand.voice.toLowerCase().includes('casual')) {
+        } else if (voiceStr.toLowerCase().includes('casual')) {
             context += `→ Use conversational language, contractions, relatable examples.\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('humor')) {
+        if (voiceStr.toLowerCase().includes('humor')) {
             context += `→ Add light humor, witty transitions, playful B-roll suggestions.\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('empowering')) {
+        if (voiceStr.toLowerCase().includes('empowering')) {
             context += `→ Use motivational language, action-oriented phrases, empowering messaging.\n`;
         }
 
@@ -540,10 +544,15 @@
     function buildValuePropMessaging() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.product?.valueProps || data.product.valueProps.length === 0) return '';
+        const valueProps = [];
+        if (data?.positioning?.uniqueValue) valueProps.push(data.positioning.uniqueValue);
+        if (Array.isArray(data?.positioning?.differentiation)) {
+            valueProps.push(...data.positioning.differentiation.filter(d => d && d.trim()));
+        }
+        if (valueProps.length === 0) return '';
 
         let context = '\n\n**VALUE PROPOSITIONS (weave into video messaging):**\n';
-        data.product.valueProps.forEach((vp, i) => {
+        valueProps.forEach((vp, i) => {
             context += `${i + 1}. ${vp}\n`;
         });
         context += `→ Highlight these benefits throughout the video script.\n`;
@@ -554,10 +563,11 @@
         if (videoType !== 'Product Demo' && videoType !== 'Explainer Video') return '';
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.product?.features || data.product.features.length === 0) return '';
+        const features = Array.isArray(data?.positioning?.differentiation) ? data.positioning.differentiation.filter(d => d && d.trim()) : [];
+        if (features.length === 0) return '';
 
         let context = '\n\n**PRODUCT FEATURES FOR DEMO:**\n';
-        data.product.features.forEach((feature, i) => {
+        features.forEach((feature, i) => {
             context += `${i + 1}. ${feature}\n`;
         });
         context += `→ Show these features in the demo with screen recordings or B-roll.\n`;
@@ -567,7 +577,7 @@
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return bundle?.completionScore || 0;
     }
 
     async function generateScript() {
@@ -584,10 +594,10 @@
 
         // Strategic Validation Warnings
         const completeness = getIntelligenceCompleteness();
-        if (completeness < 0.3) {
+        if (completeness < 30) {
             const alreadyWarned = sessionStorage.getItem('videoStudio_noIntel_warned');
             if (!alreadyWarned) {
-                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-targeted scripts (audience-specific hooks, brand voice consistency, value prop messaging), configure:\n• ICP Definition (persona, pain points)\n• Brand Voice\n• Value Propositions\n\nProceed with generic script?`);
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness)}% complete.\n\nFor ICP-targeted scripts (audience-specific hooks, brand voice consistency, value prop messaging), configure:\n• ICP Definition (persona, pain points)\n• Brand Voice\n• Value Propositions\n\nProceed with generic script?`);
                 if (!proceed) return;
                 sessionStorage.setItem('videoStudio_noIntel_warned', 'true');
             }

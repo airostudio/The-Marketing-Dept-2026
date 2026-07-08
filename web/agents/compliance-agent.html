@@ -265,7 +265,7 @@
     function buildIndustryComplianceContext(selectedIndustry) {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        const industry = data?.industry || selectedIndustry;
+        const industry = data?.company?.industry || selectedIndustry;
 
         let context = '\n\n**INDUSTRY-SPECIFIC COMPLIANCE REQUIREMENTS:**\n';
         context += `Industry: ${industry}\n`;
@@ -299,18 +299,22 @@
     function buildICPComplianceContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.icp) return '';
+        if (!data?.icp?.primaryBuyer) return '';
+
+        const buyer = data.icp.primaryBuyer;
+        const companySize = (buyer.companySize || '').toLowerCase();
+        const industry = (buyer.industry || '').toLowerCase();
 
         let context = '\n\n**ICP-SPECIFIC COMPLIANCE CONTEXT:**\n';
-        context += `Target Audience: ${data.icp.persona}\n`;
+        context += `Target Audience: ${buyer.role || 'Unspecified'} at ${buyer.companySize || 'any size'} ${buyer.industry || ''} company\n`;
 
-        if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
+        if (companySize.includes('enterprise') || industry.includes('enterprise')) {
             context += `\n**Enterprise B2B Compliance Standards:**\n`;
             context += `- Higher scrutiny from legal/compliance teams\n`;
             context += `- All claims must be substantiated with data\n`;
             context += `- Security/privacy messaging must be accurate\n`;
             context += `- Avoid hyperbole — enterprise buyers want facts\n`;
-        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('consumer')) {
+        } else if (companySize.includes('consumer') || industry.includes('consumer')) {
             context += `\n**B2C Compliance Standards:**\n`;
             context += `- FTC endorsement guidelines (testimonials, influencers)\n`;
             context += `- Clear, conspicuous disclosures\n`;
@@ -322,11 +326,11 @@
 
     function buildCompetitorMentionGuidelines() {
         if (!window.IntelligenceEngine?.radar) return '';
-        const data = window.IntelligenceEngine.radar.load();
-        if (!data?.competitors || data.competitors.length === 0) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll();
+        if (!competitors || competitors.length === 0) return '';
 
         let context = '\n\n**COMPETITOR MENTION COMPLIANCE:**\n';
-        context += `Known Competitors: ${data.competitors.map(c => c.name).join(', ')}\n`;
+        context += `Known Competitors: ${competitors.map(c => c.name).join(', ')}\n`;
         context += `\n**Legal Risk Guidelines:**\n`;
         context += `- Comparative claims must be substantiated\n`;
         context += `- NO false or misleading statements about competitors\n`;
@@ -339,19 +343,20 @@
     function buildBrandValuesEthicalCheck() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.values || data.brand.values.length === 0) return '';
+        const values = (data?.positioning?.differentiation || []).filter(v => v && v.trim());
+        if (values.length === 0) return '';
 
         let context = '\n\n**BRAND VALUES ETHICAL COMPLIANCE:**\n';
-        context += `Brand Values: ${data.brand.values.join(', ')}\n`;
+        context += `Brand Values: ${values.join(', ')}\n`;
 
-        if (data.brand.values.some(v => v.toLowerCase().includes('sustain') || v.toLowerCase().includes('environment'))) {
+        if (values.some(v => v.toLowerCase().includes('sustain') || v.toLowerCase().includes('environment'))) {
             context += `\n**Sustainability Claims Compliance:**\n`;
             context += `- "Carbon neutral", "eco-friendly", "sustainable" claims require proof\n`;
             context += `- FTC Green Guides compliance\n`;
             context += `- Avoid greenwashing\n`;
         }
 
-        if (data.brand.values.some(v => v.toLowerCase().includes('diversity') || v.toLowerCase().includes('inclusion'))) {
+        if (values.some(v => v.toLowerCase().includes('diversity') || v.toLowerCase().includes('inclusion'))) {
             context += `\n**Diversity & Inclusion Messaging:**\n`;
             context += `- Ensure imagery and language are inclusive\n`;
             context += `- Avoid stereotypes\n`;
@@ -362,9 +367,7 @@
     }
 
     function buildRegionalComplianceContext(selectedRegion) {
-        if (!window.IntelligenceEngine?.brain) return '';
-        const data = window.IntelligenceEngine.brain.load();
-        const region = data?.region || selectedRegion;
+        const region = selectedRegion;
 
         let context = '\n\n**REGIONAL COMPLIANCE REQUIREMENTS:**\n';
         context += `Region: ${region}\n`;
@@ -392,7 +395,7 @@
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return (bundle?.completionScore || 0) / 100;
     }
 
     async function runReview() {
@@ -425,8 +428,9 @@
         const regionalContext = buildRegionalComplianceContext(region);
 
         // Legacy brand voice (keep for backward compatibility)
-        const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const brandVoice = contextBundle.brandVoice ? `\n\n**BRAND VOICE GUIDELINES:** ${contextBundle.brandVoice}` : '';
+        const brainData = window.IntelligenceEngine?.brain?.load?.() || {};
+        const voiceAndTone = (brainData?.positioning?.voiceAndTone || []).filter(v => v && v.trim());
+        const brandVoice = voiceAndTone.length ? `\n\n**BRAND VOICE GUIDELINES:** ${voiceAndTone.join(', ')}` : '';
 
         const userPrompt = `REVIEW TYPE: ${reviewType}
 INDUSTRY: ${industry}

@@ -282,7 +282,7 @@
         // Auto-populate value prop from Brain positioning
         const vpEl = document.getElementById('valueProp');
         if (vpEl && !vpEl.value.trim()) {
-            const vp = [data.positioning, data.valueProp && data.valueProp.primaryBenefit].filter(Boolean).join(' — ');
+            const vp = [data.positioning && data.positioning.uniqueValue, data.positioning && data.positioning.differentiation && data.positioning.differentiation.filter(Boolean).join(', ')].filter(Boolean).join(' — ');
             if (vp) {
                 vpEl.value = '✨ ' + vp + ' (from BusinessBrain)';
                 vpEl.style.color = '#3b82f6';
@@ -306,7 +306,7 @@
         }
 
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const brandContext = contextBundle.summary ? `\n\nSENDER COMPANY CONTEXT: ${contextBundle.summary}` : '';
+        const brandContext = contextBundle.businessContext ? `\n\nSENDER COMPANY CONTEXT: ${contextBundle.businessContext}` : '';
 
         const userPrompt = `TASK: ${task}
 TARGET PERSONA: ${persona || 'Not specified'}

@@ -271,10 +271,10 @@ class SocialAgent {
     _loadICP() {
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp && data.icp.persona) {
+            if (data && data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role) {
                 const topicField = document.getElementById('topic');
                 if (!topicField.value) {
-                    topicField.placeholder = `e.g., ${data.icp.persona} struggles with ${(data.icp.painPoints && data.icp.painPoints[0]) || 'their challenges'}...`;
+                    topicField.placeholder = `e.g., ${data.icp.primaryBuyer.role} struggles with ${(data.icp.painPoints && data.icp.painPoints[0]) || 'their challenges'}...`;
                 }
             }
         }
@@ -284,12 +284,14 @@ class SocialAgent {
         this.brandVoice = null;
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.voice && data.voice.tone) {
-                this.brandVoice = data.voice;
+            const tone = (data && data.positioning && Array.isArray(data.positioning.voiceAndTone)) ? data.positioning.voiceAndTone.filter(Boolean) : [];
+            if (tone.length > 0) {
+                this.brandVoice = tone;
+                const toneStr = tone.join(', ');
                 const badge = document.getElementById('intelligenceBadge');
                 if (badge) {
-                    badge.title = `Brand Voice: ${data.voice.tone}`;
-                    badge.textContent = `⚡ Brand Voice: ${data.voice.tone}`;
+                    badge.title = `Brand Voice: ${toneStr}`;
+                    badge.textContent = `⚡ Brand Voice: ${toneStr}`;
                 }
             }
         }
@@ -302,7 +304,7 @@ class SocialAgent {
             if (data && data.icp) {
                 const icp = data.icp;
                 hooks += `\n\n**ICP-Specific Social Hooks:**\n`;
-                hooks += `Your target audience is: ${icp.persona || 'professionals'}\n\n`;
+                hooks += `Your target audience is: ${(icp.primaryBuyer && icp.primaryBuyer.role) || 'professionals'}\n\n`;
 
                 if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
                     const painPoints = icp.painPoints.filter(p => p);
@@ -326,14 +328,14 @@ class SocialAgent {
 
                 if (icp.buyerJourney) {
                     hooks += `**Content by Buyer Journey Stage:**\n`;
-                    if (icp.buyerJourney.awareness) {
-                        hooks += `- Awareness: "${icp.buyerJourney.awareness}" → Problem amplification posts\n`;
+                    if (icp.buyerJourney.aware) {
+                        hooks += `- Awareness: "${icp.buyerJourney.aware}" → Problem amplification posts\n`;
                     }
-                    if (icp.buyerJourney.consideration) {
-                        hooks += `- Consideration: "${icp.buyerJourney.consideration}" → Solution comparison posts\n`;
+                    if (icp.buyerJourney.consider) {
+                        hooks += `- Consideration: "${icp.buyerJourney.consider}" → Solution comparison posts\n`;
                     }
-                    if (icp.buyerJourney.decision) {
-                        hooks += `- Decision: "${icp.buyerJourney.decision}" → Social proof & case study posts\n`;
+                    if (icp.buyerJourney.decide) {
+                        hooks += `- Decision: "${icp.buyerJourney.decide}" → Social proof & case study posts\n`;
                     }
                     hooks += `\n`;
                 }
@@ -346,18 +348,18 @@ class SocialAgent {
         let voice = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.voice) {
-                voice += `\n\n**BRAND VOICE REQUIREMENTS (MANDATORY — NON-NEGOTIABLE):**\n`;
-                if (data.voice.tone) {
-                    voice += `REQUIRED TONE: ${data.voice.tone} — every post MUST reflect this tone. Reject any copy that deviates.\n`;
+            if (data && data.positioning) {
+                const tone = Array.isArray(data.positioning.voiceAndTone) ? data.positioning.voiceAndTone.filter(Boolean) : [];
+                if (tone.length > 0 || data.positioning.thingsWeNeverSay) {
+                    voice += `\n\n**BRAND VOICE REQUIREMENTS (MANDATORY — NON-NEGOTIABLE):**\n`;
+                    if (tone.length > 0) {
+                        voice += `REQUIRED TONE & STYLE: ${tone.join(', ')} — every post MUST reflect this. Reject any copy that deviates.\n`;
+                    }
+                    if (data.positioning.thingsWeNeverSay) {
+                        voice += `STRICTLY FORBIDDEN: ${data.positioning.thingsWeNeverSay} — this must NEVER appear in any post.\n`;
+                    }
+                    voice += `Every post must pass brand voice compliance before inclusion. If any post cannot match this voice, exclude it and note why.\n`;
                 }
-                if (data.voice.style && data.voice.style.length > 0) {
-                    voice += `REQUIRED STYLE: ${data.voice.style.join(', ')} — these are non-negotiable style requirements.\n`;
-                }
-                if (data.voice.avoid && data.voice.avoid.length > 0) {
-                    voice += `STRICTLY FORBIDDEN: ${data.voice.avoid.join(', ')} — these must NEVER appear in any post.\n`;
-                }
-                voice += `Every post must pass brand voice compliance before inclusion. If any post cannot match this voice, exclude it and note why.\n`;
             }
         }
         return voice;
@@ -367,10 +369,15 @@ class SocialAgent {
         let valueProp = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.product && data.product.valueProps && data.product.valueProps.length > 0) {
+            const valueProps = [];
+            if (data && data.positioning) {
+                if (data.positioning.uniqueValue) valueProps.push(data.positioning.uniqueValue);
+                valueProps.push(...(data.positioning.differentiation || []).filter(d => d && d.trim()));
+            }
+            if (valueProps.length > 0) {
                 valueProp += `\n\n**Value Proposition Messaging:**\n`;
                 valueProp += `When appropriate, weave in these value propositions:\n`;
-                data.product.valueProps.forEach((vp, i) => {
+                valueProps.forEach((vp, i) => {
                     valueProp += `${i + 1}. ${vp}\n`;
                 });
                 valueProp += `Translate these into benefit-focused social copy.\n`;
@@ -442,11 +449,11 @@ class SocialAgent {
         prompt += `\n\n**Output Format:**\nFormat each post clearly:\n## Post N — [Day/Date if calendar format] — [Post Title]\n**Hook:** [First line]\n[Full post copy]\n**Hashtags:** #...\n**Posting Time:** [Best time to post]\n**Engagement Note:** [Why this should perform well]\n\nSeparate posts with horizontal rules. Include a content strategy overview at the top.`;
 
         // Strategic validation
-        if (!contextBundle || !contextBundle.isReady || contextBundle.completeness < 0.3) {
-            prompt += `\n\n⚠️ **STRATEGIC WARNING:** BusinessBrain Intelligence Layer is ${contextBundle ? Math.round(contextBundle.completeness * 100) : 0}% complete. For maximum engagement, configure:\n`;
-            if (!contextBundle || !contextBundle.icp) prompt += `- ICP (Ideal Customer Profile) in Brand Intelligence\n`;
-            if (!contextBundle || !contextBundle.voice) prompt += `- Brand Voice in Brand Intelligence\n`;
-            if (!contextBundle || !contextBundle.product) prompt += `- Value Propositions in Product Marketing\n`;
+        if (!contextBundle || !contextBundle.isReady || contextBundle.completionScore < 30) {
+            prompt += `\n\n⚠️ **STRATEGIC WARNING:** BusinessBrain Intelligence Layer is ${contextBundle ? contextBundle.completionScore : 0}% complete. For maximum engagement, configure:\n`;
+            prompt += `- ICP (Ideal Customer Profile) in Brand Intelligence\n`;
+            prompt += `- Brand Voice in Brand Intelligence\n`;
+            prompt += `- Value Propositions in Product Marketing\n`;
             prompt += `\nWithout this context, posts may lack ICP targeting and brand consistency.`;
         }
 

@@ -526,7 +526,7 @@ Be radically specific: name actual words to change, give exact alternative copy,
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return (bundle?.completionScore || 0) / 100;
     }
 
     async function runOptimize() {

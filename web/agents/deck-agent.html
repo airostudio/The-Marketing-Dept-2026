@@ -600,21 +600,19 @@ Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn mo
         const data = window.IntelligenceEngine.brain.load();
 
         const brainComps = (data?.competitors || []).map(c => c.name || c).filter(Boolean);
-        const gap        = data?.positioning?.competitorGap      || '';
         const notLike    = data?.positioning?.notLikeCompetitors || '';
 
         let radarComps = [];
         try {
-            const rd = window.IntelligenceEngine.radar?.load?.();
-            if (rd?.competitors?.length) radarComps = rd.competitors.map(c => c.name || c);
+            const comps = window.IntelligenceEngine.radar?.getAll?.();
+            if (comps?.length) radarComps = comps.map(c => c.name || c);
         } catch (_) {}
 
         const allComps = [...new Set([...brainComps, ...radarComps])].filter(Boolean);
-        if (!allComps.length && !gap) return '';
+        if (!allComps.length && !notLike) return '';
 
         let context = '\n\n**COMPETITIVE POSITIONING:**\n';
         if (allComps.length) context += `Known Competitors: ${allComps.join(', ')}\n`;
-        if (gap)     context += `Positioning Gap We Own: ${gap}\n`;
         if (notLike) context += `How We Differ: ${notLike}\n`;
         context += `\n**Include:** differentiation slide, competitive matrix, unique capabilities slide.\n`;
         return context;
@@ -736,7 +734,7 @@ Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn mo
 
         // Legacy summary (keep for backward compatibility)
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\n**COMPANY CONTEXT:** ${contextBundle.summary}` : '';
+        const contextStr = contextBundle.businessContext ? `\n\n**COMPANY CONTEXT:** ${contextBundle.businessContext}` : '';
 
         const deckBlueprint = DECK_STRUCTURES[deckType] || '';
         const userPrompt = `Create a complete ${deckType} for ${company || 'this company'}.
@@ -1218,7 +1216,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
             return TEMPLATES[key];
         }
         const brandData = window.IntelligenceEngine?.brain?.load();
-        const industry = brandData?.industry || '';
+        const industry = brandData?.company?.industry || '';
         const brandColors = (brandData?.brand?.colors || []).filter(Boolean);
         return resolveDesign(deckData.deckType, industry, brandColors);
     }
