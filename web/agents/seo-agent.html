@@ -110,7 +110,7 @@
     <span class="hero-emoji">🔍</span>
     <h1>SEO Intelligence</h1>
     <p class="hero-tagline">Rankings, keywords, and technical audits powered by AI</p>
-    <span class="powered-pill">⚡ Powered by Claude</span>
+    <span class="powered-pill">⚡ AI-Powered</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
 </div>
 
@@ -231,7 +231,8 @@ class SEOAgent {
                 }
                 if (icpSummary) {
                     const textarea = document.getElementById('audience');
-                    textarea.value = `✨ ${icpSummary} (from BusinessBrain ICP)`;
+                    textarea.value = icpSummary;
+                    textarea.title = 'Auto-filled from BusinessBrain';
                     textarea.style.color = '#10b981';
                 }
             }
@@ -246,7 +247,8 @@ class SEOAgent {
                 const urls = competitors.map(c => c.url).filter(u => u).join(', ');
                 if (urls) {
                     const input = document.getElementById('competitors');
-                    input.value = `✨ ${urls} (from CompetitiveRadar)`;
+                    input.value = urls;
+                    input.title = 'Auto-filled from BusinessBrain';
                     input.style.color = '#10b981';
                 }
             }
@@ -270,6 +272,8 @@ Provide actionable, competitive SEO analysis that:
 - Bullet lists for keyword clusters, content gaps, technical fixes
 - Include difficulty estimates (Low/Medium/High) and search intent (Informational/Commercial/Transactional)
 - Always prioritize by: Impact (traffic potential) × Effort (difficulty) × Strategic Fit (business objectives)
+
+IMPORTANT: You do not have live keyword databases. Present all search volume and difficulty figures as directional estimates, explicitly labeled '(est.)', and note they should be validated in Google Keyword Planner or Ahrefs before investment.
 
 `;
 
@@ -347,6 +351,17 @@ Provide actionable, competitive SEO analysis that:
 
                     searchIntent += `**Translate these into search intent keywords.** What would they type into Google when looking for a solution? Generate long-tail keyword variations that match this language.\n`;
                 }
+
+                // Buyer journey stages — so keywords can be mapped to awareness/consideration/decision
+                const bj = icp.buyerJourney || {};
+                const journeyLines = [];
+                if (bj.aware) journeyLines.push(`- Awareness: ${bj.aware}`);
+                if (bj.consider) journeyLines.push(`- Consideration: ${bj.consider}`);
+                if (bj.decide) journeyLines.push(`- Decision: ${bj.decide}`);
+                if (journeyLines.length > 0) {
+                    searchIntent += `\n## BUYER JOURNEY STAGES (Map Keywords to These)\n`;
+                    searchIntent += journeyLines.join('\n') + '\n';
+                }
             }
         }
 
@@ -390,6 +405,22 @@ Provide actionable, competitive SEO analysis that:
             }
         }
 
+        // Also pull raw BusinessBrain competitor profiles — supplies the "theyAreWeakAt" data
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const bb = this.intelligenceEngine.brain.load();
+            if (bb && Array.isArray(bb.competitors) && bb.competitors.length > 0) {
+                competitorContext += `\n\n## BUSINESSBRAIN COMPETITOR PROFILES (Positioning & Weaknesses)\n`;
+                bb.competitors.forEach(c => {
+                    if (!c || !c.name) return;
+                    competitorContext += `**${c.name}**${c.url ? ` (${c.url})` : ''}\n`;
+                    if (c.positioning) competitorContext += `- Positioning: ${c.positioning}\n`;
+                    const weak = Array.isArray(c.theyAreWeakAt) ? c.theyAreWeakAt.filter(Boolean) : [];
+                    if (weak.length > 0) competitorContext += `- They are weak at: ${weak.join(', ')} — target keyword clusters here\n`;
+                    competitorContext += '\n';
+                });
+            }
+        }
+
         return competitorContext;
     }
 
@@ -405,10 +436,6 @@ Provide actionable, competitive SEO analysis that:
                     <a href="/intelligence/competitive-radar.html" style="color:#fbbf24;font-weight:600;">→ Configure CompetitiveRadar (keyword gaps)</a>
                 </div>
             </div>`;
-            setTimeout(() => {
-                const urlTopic = document.getElementById('urlTopic').value.trim();
-                if (urlTopic) this.run();
-            }, 5000);
             return true;
         }
         return false;
@@ -430,7 +457,7 @@ Provide actionable, competitive SEO analysis that:
             runBtn.textContent = 'Analyze';
             if (errMsg) outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
                 <strong>Error:</strong> ${errMsg}<br><br>
-                <small style="opacity:0.7;">Open browser console (F12) for details. Check that the API is deployed and the Anthropic key is set in Vercel environment variables.</small>
+                <small style="opacity:0.7;">Open browser console (F12) for details. Check that the API is deployed and an AI API key (Gemini or Anthropic) is set in Vercel environment variables.</small>
             </div>`;
         };
 
@@ -456,7 +483,7 @@ Provide actionable, competitive SEO analysis that:
         const timeoutId = setTimeout(() => {
             if (runBtn.disabled) {
                 console.error('[SEOAgent] Stream timed out after 60s');
-                resetUI('Request timed out after 60 seconds. The API may be unreachable or overloaded.');
+                resetUI('Request timed out after 60 seconds. The API may be unreachable or overloaded — verify your AI API key (Gemini or Anthropic) in Vercel env vars.');
             }
         }, 60000);
 
@@ -509,6 +536,11 @@ Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOCo
                     if (!fullResponse.trim()) {
                         outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Check Vercel function logs for errors.</div>`;
                     }
+                },
+                onError: (e) => {
+                    clearTimeout(timeoutId);
+                    console.error('[SEOAgent] stream error:', e);
+                    resetUI((e && e.message) || 'Unknown error — open browser console for details');
                 }
             });
 

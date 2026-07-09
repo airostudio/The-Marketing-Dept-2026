@@ -560,6 +560,12 @@ Write compelling, SEO-optimized content that:
             prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without business context, competitive intelligence, or market signals. The content will be more generic than if the Intelligence Layer were configured. Still deliver high-quality work, but note that strategic differentiation requires BusinessBrain setup.\n\n`;
         }
 
+        if (window.ScottyIntake && typeof window.ScottyIntake.getScottyContext === 'function') {
+            const scottyCtx = window.ScottyIntake.getScottyContext();
+            // getScottyContext() already includes its own "## SCOTTY'S STRATEGIC BRIEF" header
+            if (scottyCtx) prompt += `${scottyCtx}\n`;
+        }
+
         return prompt;
     }
 
@@ -596,10 +602,6 @@ Write compelling, SEO-optimized content that:
                     <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (10 min)</a> for strategic, context-aware content.
                 </div>
             </div>`;
-            setTimeout(() => {
-                const topic = document.getElementById('topic').value.trim();
-                if (topic) this.run(); // Continue with generation after showing warning
-            }, 4000);
             return true;
         }
         return false;
@@ -638,10 +640,15 @@ Write compelling, SEO-optimized content that:
         const systemPrompt = this.buildSystemPrompt(contextBundle);
         const competitiveContext = this.buildCompetitiveContext(contextBundle);
 
+        const longFormTypes = ['Blog Post', 'Landing Page'];
+        const lengthLine = longFormTypes.includes(contentType)
+            ? `Target Length: ${wordCount}`
+            : `Length: platform-appropriate (short-form)`;
+
         const userMessage = `Write a ${contentType} about: ${topic}
 
 Brand Voice: ${brandVoice}
-Target Length: ${wordCount}
+${lengthLine}
 
 Deliver the complete piece ready to publish. Include a compelling headline/title.${competitiveContext}`;
 
@@ -657,7 +664,7 @@ Deliver the complete piece ready to publish. Include a compelling headline/title
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Content'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'content-studio', taskType: contentType, content: fullResponse, topic }); }
+                    onDone: () => { this.lastMarkdown = fullResponse; runBtn.disabled = false; runBtn.textContent = 'Generate Content'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'content-studio', taskType: contentType, content: fullResponse, topic }); }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
@@ -745,12 +752,25 @@ async function doPublishToWP() {
 
     sessionStorage.setItem('wp_config', JSON.stringify({ url, username }));
 
-    const outputEl = document.getElementById('output');
-    const rawText = outputEl ? (outputEl.innerText || outputEl.textContent) : '';
-    const lines = rawText.split('\n').filter(l => l.trim());
-    const title = (lines[0] || 'Draft Post').replace(/^#+\s*/, '');
-    const body = lines.slice(1).join('\n\n');
-    const htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(body) : body.replace(/\n/g, '<br>');
+    let title, htmlBody;
+    if (typeof agent !== 'undefined' && agent.lastMarkdown) {
+        // Use the raw markdown from the last generation — preserves headings, lists, bold, links
+        const md = agent.lastMarkdown;
+        const mdLines = md.split('\n').filter(l => l.trim());
+        const titleLine = mdLines[0] || 'Draft Post';
+        title = titleLine.replace(/^#+\s*/, '');
+        const idx = md.indexOf(titleLine);
+        const bodyMd = (idx >= 0 ? md.slice(idx + titleLine.length) : md).trim();
+        htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(bodyMd) : bodyMd.replace(/\n/g, '<br>');
+    } else {
+        // Fallback: rebuild from rendered text (markdown structure already stripped)
+        const outputEl = document.getElementById('output');
+        const rawText = outputEl ? (outputEl.innerText || outputEl.textContent) : '';
+        const lines = rawText.split('\n').filter(l => l.trim());
+        title = (lines[0] || 'Draft Post').replace(/^#+\s*/, '');
+        const body = lines.slice(1).join('\n\n');
+        htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(body) : body.replace(/\n/g, '<br>');
+    }
 
     statusEl.innerHTML = '<span style="color:#f59e0b;">Publishing…</span>';
     try {
