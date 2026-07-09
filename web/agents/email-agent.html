@@ -257,7 +257,8 @@ class EmailAgent {
 
                 if (icpSummary) {
                     const textarea = document.getElementById('audience');
-                    textarea.value = `✨ ${icpSummary} (from BusinessBrain ICP)`;
+                    textarea.value = icpSummary;
+                    textarea.title = 'Auto-filled from BusinessBrain';
                     textarea.style.color = '#10b981';
                 }
             }
@@ -302,13 +303,14 @@ class EmailAgent {
                     productDesc += ` — ${diffs.slice(0, 2).join(', ')}`;
                 }
 
-                input.value = `✨ ${productDesc} (from BusinessBrain)`;
+                input.value = productDesc;
+                input.title = 'Auto-filled from BusinessBrain';
                 input.style.color = '#10b981';
             }
         }
     }
 
-    buildSystemPrompt(contextBundle) {
+    buildSystemPrompt(contextBundle, emailType) {
         let prompt = `You are an expert email marketer for Audema Email Engine.
 
 ## Your Role
@@ -336,6 +338,38 @@ Use markdown. Separate emails with horizontal rules (---).
 
 `;
 
+        const typeStrategies = {
+            'Welcome Sequence': `- Email 1 goes out within 5 minutes of signup — deliver the promised value (guide, access, discount) immediately, one CTA only.
+- Set expectations: what they'll receive, how often, and why it's worth staying subscribed.
+- Escalate gradually: Email 1 = value delivery, Email 2 = quick win / product tour, Email 3+ = social proof and first conversion ask.`,
+            'Nurture Flow': `- Lead with education, not pitch: each email should teach one useful thing tied to a pain point.
+- Follow an 80/20 value-to-ask ratio; save the direct sales CTA for the final third of the sequence.
+- Use progressive CTAs (read → download → demo/trial) so each email advances the buyer journey one stage.`,
+            'Promotional Campaign': `- Lead with a single concrete offer and a clear deadline; repeat the deadline in every email.
+- Structure: announcement → benefit/social proof reinforcement → last-chance urgency (only real deadlines, no fake scarcity).
+- One CTA per email, above the fold; keep body copy short — the offer is the message.`,
+            'Win-Back Campaign': `- Segment by recency: recently lapsed subscribers get a light "we miss you" nudge, long-lapsed get a stronger incentive or a direct ask.
+- Acknowledge the absence honestly and lead with what's changed or improved since they left.
+- Sunset policy: the final email states plainly that they will be removed from the list unless they act — this protects deliverability.`,
+            'Abandoned Cart': `- Timing: Email 1 at ~1 hour, Email 2 at ~24 hours, Email 3 at ~72 hours.
+- Email 1 = frictionless reminder (show the cart, one-click return link, no discount). Email 2 = objection handling + social proof (reviews, guarantees, shipping/returns). Email 3 = incentive only if margin allows — never train customers to abandon for discounts.
+- Always show the actual product(s) left behind and link straight back to checkout.`,
+            'Newsletter': `- Consistent, recognizable format issue over issue: same sections, same voice, same send day.
+- One primary story per issue; everything else is scannable secondary sections with clear headers.
+- Optimize for skimmers: short paragraphs, bolded takeaways, and a single featured CTA rather than many competing links.`
+        };
+        if (emailType && typeStrategies[emailType]) {
+            prompt += `## ${emailType.toUpperCase()} STRATEGY (World-Class Playbook)\n${typeStrategies[emailType]}\n\n`;
+        }
+
+        prompt += `## DELIVERABILITY & CRAFT
+- Use {{first_name}}-style merge tokens wherever personalization is intended — never invent a literal name.
+- Avoid spam-trigger phrasing: no ALL CAPS, no "FREE!!!", no excessive punctuation or dollar-sign spam.
+- Every email must include an unsubscribe mention for compliance (CAN-SPAM/GDPR).
+- Subject lines under 50 characters; preview text under 90 characters.
+
+`;
+
         if (contextBundle && contextBundle.isReady) {
             // BUSINESS CONTEXT — ICP pain points, voice, value prop
             if (contextBundle.businessContext) {
@@ -352,7 +386,14 @@ Use markdown. Separate emails with horizontal rules (---).
             if (contextBundle.competitiveLandscape) {
                 prompt += `## COMPETITIVE DIFFERENTIATION (Email Messaging)\n${contextBundle.competitiveLandscape}\n\n`;
                 prompt += `**Differentiation Instructions:**\n`;
-                prompt += `- Competitors position as: [from context]. Don't sound like them.\n`;
+                let notLikeCompetitors = '';
+                if (this.intelligenceEngine && this.intelligenceEngine.extractStructuredContext) {
+                    const structured = this.intelligenceEngine.extractStructuredContext();
+                    notLikeCompetitors = (structured && structured.positioning && structured.positioning.brandVoice && structured.positioning.brandVoice.notLikeCompetitors || '').trim();
+                }
+                if (notLikeCompetitors) {
+                    prompt += `- How we differ from competitor messaging: ${notLikeCompetitors}. Don't sound like them.\n`;
+                }
                 prompt += `- Emphasize OUR unique angle in preview text and Email 1 hook\n`;
                 prompt += `- Use differentiators from context to stand out in inbox\n`;
                 prompt += `- Reference what competitors WON'T say (our positioning advantage)\n\n`;
@@ -515,11 +556,6 @@ Use markdown. Separate emails with horizontal rules (---).
                     <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP pain points, brand voice, value prop)</a>
                 </div>
             </div>`;
-            setTimeout(() => {
-                const audience = document.getElementById('audience').value.trim();
-                const product = document.getElementById('product').value.trim();
-                if (audience && product) this.run();
-            }, 5000);
             return true;
         }
         return false;
@@ -556,7 +592,7 @@ Use markdown. Separate emails with horizontal rules (---).
 
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing your ${emailCount}-email ${emailType}...</div>`;
 
-        const systemPrompt = this.buildSystemPrompt(contextBundle);
+        const systemPrompt = this.buildSystemPrompt(contextBundle, emailType);
         const icpEmailHooks = this.buildICPEmailHooks(contextBundle);
         const emailStrategyPlan = this.buildEmailStrategyPlan(contextBundle);
 

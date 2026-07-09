@@ -12,6 +12,7 @@
     <script src="../js/claude-service.js"></script>
     <script src="../js/perplexity-service.js" onerror="console.info('PerplexityService not loaded')"></script>
     <script src="../js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
+    <script src="../js/intelligence-engine.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -475,7 +476,7 @@
                         <label>Extra Context (optional)</label>
                         <textarea id="out-context" rows="2" placeholder="Any specific angle, pain point, or personalisation detail..."></textarea>
                     </div>
-                    <button class="btn btn-primary" onclick="genOutreach()">⚡ Generate Outreach</button>
+                    <button class="btn btn-primary" id="out-gen-btn" onclick="genOutreach()">⚡ Generate Outreach</button>
                 </div>
             </div>
         </div>
@@ -523,7 +524,7 @@
                         <label>Current Monthly Volume</label>
                         <input id="strat-volume" type="text" placeholder="e.g. 50 cold emails/week" />
                     </div>
-                    <button class="btn btn-primary" onclick="runStrat()">⚡ Generate Strategy</button>
+                    <button class="btn btn-primary" id="strat-gen-btn" onclick="runStrat()">⚡ Generate Strategy</button>
                 </div>
             </div>
         </div>
@@ -607,7 +608,7 @@
                 <div><label>Data Sources</label><input id="lia-sources" type="text" placeholder="e.g. Yellow Pages, True Local, Google Maps" /></div>
                 <div class="lia-full"><label>Target Audience Description</label><textarea id="lia-audience" rows="2" placeholder="e.g. Small trade businesses (plumbers, electricians, builders) in the UK that lack a professional web presence"></textarea></div>
             </div>
-            <button class="btn btn-primary mt16" onclick="genLIA()">📄 Generate LIA Document</button>
+            <button class="btn btn-primary mt16" id="lia-gen-btn" onclick="genLIA()">📄 Generate LIA Document</button>
             <div id="lia-output" class="lia-output" style="display:none"></div>
             <div id="lia-actions" class="output-actions" style="display:none">
                 <button class="btn btn-sm btn-ghost" onclick="copyOutput('lia-output')">📋 Copy</button>
@@ -638,6 +639,38 @@ const Store = {
     del(id) { this.save(this.load().filter(p => p.id != id)); renderPipe(); },
     clear() { this.save([]); renderPipe(); },
 };
+
+// ── BUSINESS BRAIN INTEGRATION ────────────────────────────────────────────────
+function bbContext() {
+    try {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.getContextBundle) return '';
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        if (!bundle || !bundle.isReady) return '';
+        const parts = [];
+        if (bundle.businessContext) parts.push(bundle.businessContext);
+        if (bundle.competitiveLandscape) parts.push(bundle.competitiveLandscape);
+        if (!parts.length) return '';
+        return `SELLER BUSINESS CONTEXT (use for positioning, proof points, and voice):\n${parts.join('\n\n')}\n\n`;
+    } catch (e) { return ''; }
+}
+
+function prefillOfferFields() {
+    try {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return;
+        const data = window.IntelligenceEngine.brain.load();
+        if (!data || !data.positioning || !data.positioning.uniqueValue) return;
+        let offerDesc = data.positioning.uniqueValue;
+        const diffs = (data.positioning.differentiation || []).filter(d => d && d.trim());
+        if (diffs.length) offerDesc += ` — ${diffs.slice(0, 2).join(', ')}`;
+        ['out-offer', 'strat-offer'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.value.trim()) {
+                el.value = offerDesc;
+                el.title = 'Auto-filled from BusinessBrain';
+            }
+        });
+    } catch (e) { /* BusinessBrain unavailable — leave fields empty */ }
+}
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function switchTab(name) {
@@ -699,9 +732,16 @@ async function runDiscover() {
     document.getElementById('disc-citations').style.display = 'none';
     streamText.textContent = 'Searching public business directories...';
 
-    const service = window.PerplexityService || window.ClaudeService;
-    document.getElementById('disc-stream-model').textContent =
-        '⚡ ' + (window.PerplexityService ? 'Perplexity Sonar Pro' : 'Claude');
+    // Discovery requires live web search — Claude cannot search the web and would
+    // fabricate businesses that users might then cold-email. Hard-stop without Perplexity.
+    if (!window.PerplexityService) {
+        streamText.innerHTML = '<span style="color:#ef4444">Live business discovery requires the Perplexity integration (PERPLEXITY_API_KEY). Without it, results would be AI-invented and unsafe to contact.</span>';
+        btn.disabled = false;
+        btn.innerHTML = '🔍 Search';
+        return;
+    }
+
+    document.getElementById('disc-stream-model').textContent = '⚡ Perplexity Sonar Pro';
 
     const target = [query, industry, location].filter(Boolean).join(', ');
 
@@ -735,20 +775,12 @@ Rules:
     };
 
     try {
-        if (window.PerplexityService) {
-            await window.PerplexityService.streamResponse({
-                systemPrompt, messages: [{ role: 'user', content: userMsg }],
-                onChunk(c) { fullText += c; streamText.textContent = `Receiving... ${fullText.length} chars`; },
-                onCitations(citations) { if (citations?.length) renderCitations(citations); },
-                onDone: done, onError: fail
-            });
-        } else {
-            await window.ClaudeService.streamResponse({
-                systemPrompt, messages: [{ role: 'user', content: userMsg }],
-                onChunk(c) { fullText += c; streamText.textContent = `Receiving... ${fullText.length} chars`; },
-                onDone: done, onError: fail
-            });
-        }
+        await window.PerplexityService.streamResponse({
+            systemPrompt, messages: [{ role: 'user', content: userMsg }],
+            onChunk(c) { fullText += c; streamText.textContent = `Receiving... ${fullText.length} chars`; },
+            onCitations(citations) { if (citations?.length) renderCitations(citations); },
+            onDone: done, onError: fail
+        });
     } catch(e) { fail(e.message); }
 }
 
@@ -759,7 +791,7 @@ function renderCitations(citations) {
     list.innerHTML = citations.map((c, i) => {
         const label = (c.title || c.url || String(c)).substring(0, 45);
         const href = c.url || (typeof c === 'string' ? c : '#');
-        return `<a class="cite-link" href="${href}" target="_blank" rel="noopener">[${i+1}] ${label}</a>`;
+        return `<a class="cite-link" href="${escHtml(href)}" target="_blank" rel="noopener">[${i+1}] ${escHtml(label)}</a>`;
     }).join('');
 }
 
@@ -1305,7 +1337,7 @@ function renderPipe() {
 
         // ── Next action definition per stage ──
         const NA = {
-            new:       { icon:'📧', label:'Next Step', title:'Send your introduction', desc:'You have the contact info. Send a personalised cold email introducing your offer. Keep it short — one pain point, one result, one ask.', btnLabel:'Generate & Send Intro Email', btnFn:`openQuickSend('${p.id}','intro')`, altLabel:'Generate Email Copy Only', altFn:`startOutreachFromPipe(${JSON.stringify(p).replace(/'/g,"&#39;")})` },
+            new:       { icon:'📧', label:'Next Step', title:'Send your introduction', desc:'You have the contact info. Send a personalised cold email introducing your offer. Keep it short — one pain point, one result, one ask.', btnLabel:'Generate & Send Intro Email', btnFn:`openQuickSend('${p.id}','intro')`, altLabel:'Generate Email Copy Only', altFn:`startOutreachFromPipe('${p.id}')` },
             contacted: { icon:'📞', label:'Next Step', title:'Follow up or qualify', desc:`It's been a while since first contact. Reach out again with a fresh angle or a value-add. If they reply, move to Qualified.`, btnLabel:'Send Follow-Up Email', btnFn:`openQuickSend('${p.id}','followup')`, altLabel:'Log a Call', altFn:`logActivity('${p.id}','call','Logged a call')` },
             qualified: { icon:'📄', label:'Next Step', title:'Send your proposal', desc:'This prospect fits your ICP. Time to put a number on it — send a tailored proposal or a short pricing overview with clear next steps.', btnLabel:'Generate Proposal Email', btnFn:`openQuickSend('${p.id}','proposal')`, altLabel:'Mark as Proposal Sent', altFn:`advanceStage('${p.id}')` },
             proposal:  { icon:'🔔', label:'Next Step', title:'Follow up on your proposal', desc:"Don't wait for them to come back. Send a timely follow-up 3–5 days after the proposal. Address likely objections proactively.", btnLabel:'Send Proposal Follow-Up', btnFn:`openQuickSend('${p.id}','proposal_followup')`, altLabel:'Mark as Won', altFn:`setStage('${p.id}','won')` },
@@ -1418,7 +1450,9 @@ function clearPipeline() {
     if (confirm('Clear all pipeline prospects? This cannot be undone.')) Store.clear();
 }
 
-function startOutreachFromPipe(p) {
+function startOutreachFromPipe(prospectId) {
+    const p = Store.load().find(x => String(x.id) === String(prospectId));
+    if (!p) return;
     populateProspectSelect();
     document.querySelectorAll('.tab-panel').forEach(tp => tp.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1473,10 +1507,25 @@ function advanceStage(prospectId) {
 
 // ── QUICK SEND (inline email) ─────────────────────────────────────────────────
 
+function senderIntro() {
+    try {
+        if (window.IntelligenceEngine && window.IntelligenceEngine.brain) {
+            const data = window.IntelligenceEngine.brain.load();
+            const company = data && data.company;
+            if (company && company.name) {
+                return company.description
+                    ? `introduce the sender as ${company.name}, ${company.description}`
+                    : `introduce the sender as ${company.name}`;
+            }
+        }
+    } catch (e) { /* fall through */ }
+    return `introduce the sender's company and offer briefly`;
+}
+
 const EMAIL_PROMPTS = {
     intro: (p) => `Write a short, personalized cold email to ${p.name} in ${p.city||p.country||'their city'}.
 They are in the ${p.industry||'local business'} industry.${p.opportunityReason ? ' Context: ' + p.opportunityReason : ''}
-The email should: introduce the sender as a web/digital marketing specialist, reference one specific thing about their business (website status: ${p.websiteStatus||'unknown'}), state one concrete benefit, and close with a single low-friction ask (15-minute call).
+The email should: ${senderIntro()}, reference one specific thing about their business (website status: ${p.websiteStatus||'unknown'}), state one concrete benefit, and close with a single low-friction ask (15-minute call).
 Keep it under 120 words. No salesy language. Output: Subject line on the first line starting with "Subject:", then a blank line, then the email body. No placeholders like [Name] — write it as if the sender's name is "us" or sign off naturally.`,
 
     followup: (p) => `Write a short follow-up cold email to ${p.name} (${p.industry||'local business'}, ${p.city||''}).
@@ -1522,7 +1571,7 @@ async function openQuickSend(prospectId, emailType) {
         if (!svc) throw new Error('Claude service not available — enter copy manually.');
 
         const raw = await svc.callAgent({
-            systemPrompt: 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble, no sign-off placeholder.',
+            systemPrompt: bbContext() + 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble, no sign-off placeholder.',
             messages: [{ role: 'user', content: prompt }],
         });
         const lines = raw.split('\n');
@@ -1635,7 +1684,7 @@ async function genOutreach() {
     const allSocialsCtx = {...(prospect.profileSocials||{}), ...(prospect.crawlSocials||{})};
     const socialsCtx = Object.entries(allSocialsCtx).map(([k,v]) => `${k}: ${v}`).join(', ');
 
-    const systemPrompt = `You are an expert B2B sales copywriter specialising in small business outreach.
+    const systemPrompt = `${bbContext()}You are an expert B2B sales copywriter specialising in small business outreach.
 Write highly personalised, compliant outreach that:
 - References specific details about the prospect's business
 - Is ${toneMap[tone]} in tone
@@ -1662,15 +1711,23 @@ ${ctx ? `Extra Context: ${ctx}` : ''}
 Write compelling, personalised ${typeMap[type]} copy.`;
 
     const output = document.getElementById('out-output');
+    const genBtn = document.getElementById('out-gen-btn');
     output.innerHTML = '<span class="spinner"></span> Generating...';
+    if (genBtn) genBtn.disabled = true;
 
     let text = '';
-    await (window.OpenAIService || window.ClaudeService).streamResponse({
-        systemPrompt, messages: [{ role: 'user', content: userMsg }],
-        onChunk(c) { text += c; output.textContent = text; },
-        onDone() { output.innerHTML = marked.parse(text); },
-        onError(e) { output.textContent = 'Error: ' + e; }
-    });
+    try {
+        await (window.OpenAIService || window.ClaudeService).streamResponse({
+            systemPrompt, messages: [{ role: 'user', content: userMsg }],
+            onChunk(c) { text += c; output.textContent = text; },
+            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+        });
+    } catch (e) {
+        output.textContent = 'Error: ' + (e.message || e);
+    } finally {
+        if (genBtn) genBtn.disabled = false;
+    }
 }
 
 // ── STRATEGY ─────────────────────────────────────────────────────────────────
@@ -1693,16 +1750,24 @@ async function runStrat() {
     };
 
     const output = document.getElementById('strat-output');
+    const genBtn = document.getElementById('strat-gen-btn');
     output.innerHTML = '<span class="spinner"></span> Generating...';
+    if (genBtn) genBtn.disabled = true;
 
     let text = '';
-    await window.ClaudeService.streamResponse({
-        systemPrompt: 'You are a B2B sales strategy expert with deep knowledge of EU, UK and US markets. Create detailed, actionable strategies compliant with GDPR, UK GDPR/PECR and CAN-SPAM. Use specific examples and templates.',
-        messages: [{ role: 'user', content: `Create a ${typeMap[type]} for:\nTarget Market: ${market}\nOffer: ${offer}${volume?'\nCurrent Volume: '+volume:''}\n\nMake it specific and actionable, noting any regulatory considerations for the target market.` }],
-        onChunk(c) { text += c; output.textContent = text; },
-        onDone() { output.innerHTML = marked.parse(text); },
-        onError(e) { output.textContent = 'Error: ' + e; }
-    });
+    try {
+        await window.ClaudeService.streamResponse({
+            systemPrompt: bbContext() + 'You are a B2B sales strategy expert with deep knowledge of EU, UK and US markets. Create detailed, actionable strategies compliant with GDPR, UK GDPR/PECR and CAN-SPAM. Use specific examples and templates.',
+            messages: [{ role: 'user', content: `Create a ${typeMap[type]} for:\nTarget Market: ${market}\nOffer: ${offer}${volume?'\nCurrent Volume: '+volume:''}\n\nMake it specific and actionable, noting any regulatory considerations for the target market.` }],
+            onChunk(c) { text += c; output.textContent = text; },
+            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+        });
+    } catch (e) {
+        output.textContent = 'Error: ' + (e.message || e);
+    } finally {
+        if (genBtn) genBtn.disabled = false;
+    }
 }
 
 // ── COMPLIANCE ────────────────────────────────────────────────────────────────
@@ -1719,18 +1784,26 @@ async function genLIA() {
 
     const output = document.getElementById('lia-output');
     const actions = document.getElementById('lia-actions');
+    const genBtn = document.getElementById('lia-gen-btn');
     output.style.display = 'block';
     actions.style.display = 'none';
     output.textContent = 'Generating LIA document...';
+    if (genBtn) genBtn.disabled = true;
 
     let text = '';
-    await window.ClaudeService.streamResponse({
-        systemPrompt: 'You are a GDPR compliance expert. Generate formal Legitimate Interest Assessment documents that are legally sound.',
-        messages: [{ role: 'user', content: `Generate a complete LIA document:\n\nOrganisation: ${org}\nPurpose: ${purpose}\nData Collected: ${data||'Business name, contact details'}\nSources: ${sources||'Public business directories'}\nAudience: ${audience||'B2B prospects'}\nDate: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}\n\nInclude: 1. Purpose Test, 2. Necessity Test, 3. Balancing Test, 4. Safeguards, 5. Conclusion. Format professionally.` }],
-        onChunk(c) { text += c; output.textContent = text; },
-        onDone() { output.innerHTML = marked.parse(text); actions.style.display = 'flex'; },
-        onError(e) { output.textContent = 'Error: ' + e; }
-    });
+    try {
+        await window.ClaudeService.streamResponse({
+            systemPrompt: 'You are a GDPR compliance expert. Generate formal Legitimate Interest Assessment documents that are legally sound.',
+            messages: [{ role: 'user', content: `Generate a complete LIA document:\n\nOrganisation: ${org}\nPurpose: ${purpose}\nData Collected: ${data||'Business name, contact details'}\nSources: ${sources||'Public business directories'}\nAudience: ${audience||'B2B prospects'}\nDate: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}\n\nInclude: 1. Purpose Test, 2. Necessity Test, 3. Balancing Test, 4. Safeguards, 5. Conclusion. Format professionally.` }],
+            onChunk(c) { text += c; output.textContent = text; },
+            onDone() { output.innerHTML = marked.parse(text); actions.style.display = 'flex'; if (genBtn) genBtn.disabled = false; },
+            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+        });
+    } catch (e) {
+        output.textContent = 'Error: ' + (e.message || e);
+    } finally {
+        if (genBtn) genBtn.disabled = false;
+    }
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
@@ -1773,6 +1846,7 @@ function checkScottyDispatch() {
 document.addEventListener('DOMContentLoaded', () => {
     renderPipe();
     populateProspectSelect();
+    prefillOfferFields();
     checkScottyDispatch();
 
     ['disc-web-filter','disc-score-filter','disc-sort'].forEach(id => {
