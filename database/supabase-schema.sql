@@ -39,12 +39,13 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, firstname, lastname)
+    INSERT INTO public.profiles (id, email, firstname, lastname, company)
     VALUES (
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'firstname', NEW.raw_user_meta_data->>'first_name', ''),
-        COALESCE(NEW.raw_user_meta_data->>'lastname', NEW.raw_user_meta_data->>'last_name', '')
+        COALESCE(NEW.raw_user_meta_data->>'lastname', NEW.raw_user_meta_data->>'last_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'org', NEW.raw_user_meta_data->>'company', '')
     );
     RETURN NEW;
 END;
