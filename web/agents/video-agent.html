@@ -465,14 +465,18 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/api-connector.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a video content strategist and scriptwriter specializing in high-converting video scripts that maximize audience engagement and traffic potential. Create complete video scripts with: hook (0-5 seconds), intro, main content with timestamps, B-roll suggestions, talking points, transition notes, CTA, and thumbnail concept. Include editing notes for pacing and cuts. Format as a production script. When ICP context is provided, target the script specifically to that audience's pain points and language patterns. When brand voice is provided, match the tone and style throughout the script.`;
 
     // Check Intelligence Engine
     (function checkIntel() {
-        if (window.IntelligenceEngine) {
-            document.getElementById('intelBadge').classList.add('active');
+        if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle) {
+            const bundle = window.IntelligenceEngine.getContextBundle();
+            if (bundle && bundle.isReady) {
+                document.getElementById('intelBadge').classList.add('active');
+            }
         }
     })();
 
@@ -518,24 +522,32 @@
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
         const voiceAndTone = Array.isArray(data?.positioning?.voiceAndTone) ? data.positioning.voiceAndTone.filter(v => v && v.trim()) : [];
-        if (voiceAndTone.length === 0) return '';
+        const neverSay = (data?.positioning?.thingsWeNeverSay || '').trim();
+        if (voiceAndTone.length === 0 && !neverSay) return '';
 
-        const voiceStr = voiceAndTone.join(', ');
         let context = '\n\n**BRAND VOICE FOR SCRIPT TONE:**\n';
-        context += `Tone: ${voiceStr}\n`;
 
-        if (voiceStr.toLowerCase().includes('professional')) {
-            context += `→ Use formal language, industry terms, data-driven arguments.\n`;
-        } else if (voiceStr.toLowerCase().includes('casual')) {
-            context += `→ Use conversational language, contractions, relatable examples.\n`;
+        if (voiceAndTone.length > 0) {
+            const voiceStr = voiceAndTone.join(', ');
+            context += `Tone: ${voiceStr}\n`;
+
+            if (voiceStr.toLowerCase().includes('professional')) {
+                context += `→ Use formal language, industry terms, data-driven arguments.\n`;
+            } else if (voiceStr.toLowerCase().includes('casual')) {
+                context += `→ Use conversational language, contractions, relatable examples.\n`;
+            }
+
+            if (voiceStr.toLowerCase().includes('humor')) {
+                context += `→ Add light humor, witty transitions, playful B-roll suggestions.\n`;
+            }
+
+            if (voiceStr.toLowerCase().includes('empowering')) {
+                context += `→ Use motivational language, action-oriented phrases, empowering messaging.\n`;
+            }
         }
 
-        if (voiceStr.toLowerCase().includes('humor')) {
-            context += `→ Add light humor, witty transitions, playful B-roll suggestions.\n`;
-        }
-
-        if (voiceStr.toLowerCase().includes('empowering')) {
-            context += `→ Use motivational language, action-oriented phrases, empowering messaging.\n`;
+        if (neverSay) {
+            context += `NEVER say: ${neverSay}\n`;
         }
 
         return context;
@@ -560,7 +572,7 @@
     }
 
     function buildProductDemoContext(videoType) {
-        if (videoType !== 'Product Demo' && videoType !== 'Explainer Video') return '';
+        if (videoType !== 'Product Demo' && videoType !== 'Explainer') return '';
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
         const features = Array.isArray(data?.positioning?.differentiation) ? data.positioning.differentiation.filter(d => d && d.trim()) : [];
@@ -609,6 +621,28 @@
         const valuePropContext = buildValuePropMessaging();
         const productContext = buildProductDemoContext(videoType);
 
+        // Company identity from the Intelligence Layer (only when the brain is ready)
+        let businessContext = '';
+        if (window.IntelligenceEngine?.getContextBundle) {
+            const bundle = window.IntelligenceEngine.getContextBundle();
+            if (bundle?.isReady && bundle.businessContext) {
+                businessContext = `\n## BUSINESS CONTEXT\n${bundle.businessContext}\n`;
+            }
+        }
+
+        // Duration scaffolding: ~150 spoken words per minute
+        let pacingLine;
+        const durMatch = duration.match(/(\d+)\s*(second|minute)/i);
+        if (durMatch) {
+            const minutes = durMatch[2].toLowerCase().startsWith('second')
+                ? parseInt(durMatch[1], 10) / 60
+                : parseInt(durMatch[1], 10);
+            const wordTarget = Math.round(minutes * 150);
+            pacingLine = `Pace scripts at ~150 spoken words per minute — a ${duration} video needs approximately ${wordTarget} words; structure sections to fit.`;
+        } else {
+            pacingLine = `Pace scripts at ~150 spoken words per minute — compute the approximate word count for a ${duration} video and structure sections to fit.`;
+        }
+
         const userPrompt = `Create a complete production script for:
 
 VIDEO TYPE: ${videoType}
@@ -617,6 +651,7 @@ TARGET DURATION: ${duration}
 KEY MESSAGES:
 ${keyMessages || '• Not specified'}
 CALL TO ACTION: ${cta || 'Not specified'}
+${businessContext}
 ${icpContext}
 ${brandVoiceContext}
 ${valuePropContext}
@@ -632,6 +667,7 @@ Produce a full production script including:
 7. THUMBNAIL CONCEPT: CTR-optimized layout description
 8. EDITING NOTES: Pacing, cuts, music mood
 
+${pacingLine}
 Format as a proper production script with clear section headers and timestamps.`;
 
         const btn = document.getElementById('runBtn');
@@ -777,9 +813,8 @@ Format as a proper production script with clear section headers and timestamps.`
             } else if (status.status === 'failed') {
                 statusDiv.innerHTML = `<div style="color:#f87171;">❌ Video generation failed: ${status.error || 'Unknown error'}</div>`;
             } else {
-                // Still processing
-                const progress = status.progress || Math.min(attempts * 2, 90);
-                statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering... ${progress}%</div>`;
+                // Still processing — indeterminate status (Tavus does not report real progress)
+                statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering… (checking status, attempt ${attempts + 1})</div>`;
 
                 // Poll again in 5 seconds
                 setTimeout(() => pollVideoStatus(videoId, attempts + 1), 5000);
@@ -792,7 +827,10 @@ Format as a proper production script with clear section headers and timestamps.`
 
     // Enter key shortcut
     document.getElementById('topic').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') generateScript();
+        if (e.key === 'Enter') {
+            if (document.getElementById('runBtn')?.disabled) return;
+            generateScript();
+        }
     });
 </script>
 </body>

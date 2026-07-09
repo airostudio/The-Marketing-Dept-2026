@@ -182,7 +182,7 @@
             </div>
             <div class="field-group">
                 <label class="field-label">URL or Page Description</label>
-                <textarea class="field-textarea" data-scotty-intake="primary" id="pageDesc" placeholder="Paste your landing page URL or describe your page in detail: layout, copy, CTAs, form fields, value props, social proof, etc."></textarea>
+                <textarea class="field-textarea" data-scotty-intake="primary" id="pageDesc" placeholder="Describe your page (or paste URL + a description) — headline, offer, layout, CTA, form fields, value props, social proof, etc."></textarea>
             </div>
             <div class="form-row">
                 <div class="field-group">
@@ -395,7 +395,11 @@ Your analysis framework:
 Be radically specific: name actual words to change, give exact alternative copy, specify element dimensions, cite psychological research when relevant. Never give generic advice.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        try {
+            if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+                document.getElementById('intelBadge').classList.add('active');
+            }
+        } catch (e) { /* badge stays hidden if intelligence layer unavailable */ }
     })();
 
     // Intelligence Layer Builders
@@ -552,6 +556,13 @@ Be radically specific: name actual words to change, give exact alternative copy,
             }
         }
 
+        // Honesty guard: a bare URL cannot be fetched by this agent, so tell the
+        // model not to invent page elements it never saw.
+        const isUrlOnly = /^https?:\/\/\S+$/.test(pageDesc);
+        const urlHonestyNote = isUrlOnly
+            ? '\n\nNOTE: The page could not be fetched — base the audit ONLY on the description provided and say so explicitly; do NOT invent specific page elements.'
+            : '';
+
         // Build Intelligence Layer Context
         const icpContext = buildICPConversionContext();
         const valuePropContext = buildValuePropCRO();
@@ -564,7 +575,7 @@ DEVICE FOCUS: ${document.getElementById('deviceFocus')?.value || 'Both'}
 PAGE TYPE: ${document.getElementById('pageType')?.value || 'Landing Page'}
 
 PAGE / URL:
-${pageDesc}
+${pageDesc}${urlHonestyNote}
 
 ${convRate ? `CURRENT CONVERSION RATE: ${convRate}` : ''}
 ${trafficSource ? `TRAFFIC SOURCE: ${trafficSource}` : ''}
@@ -617,7 +628,12 @@ Deliver a complete CRO analysis following the 7-section framework in your system
 
     function copyOutput() {
         const body = document.getElementById('outputBody');
-        if (!body) return;
+        if (!body) {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Nothing to copy yet';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+            return;
+        }
         navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
             const btn = document.getElementById('copyBtn');
             btn.textContent = 'Copied!';
@@ -687,9 +703,9 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     let iceTests = JSON.parse(localStorage.getItem(ICE_KEY) || '[]');
     if (!iceTests.length) {
         iceTests = [
-            { id: 1, name: 'Rewrite hero headline with outcome focus', impact: 8, confidence: 7, ease: 9 },
-            { id: 2, name: 'Add customer logo wall above fold', impact: 7, confidence: 8, ease: 8 },
-            { id: 3, name: 'Replace generic CTA with benefit-driven CTA', impact: 6, confidence: 9, ease: 10 },
+            { id: 1, name: '[Example] Rewrite hero headline with outcome focus', impact: 8, confidence: 7, ease: 9 },
+            { id: 2, name: '[Example] Add customer logo wall above fold', impact: 7, confidence: 8, ease: 8 },
+            { id: 3, name: '[Example] Replace generic CTA with benefit-driven CTA', impact: 6, confidence: 9, ease: 10 },
         ];
         localStorage.setItem(ICE_KEY, JSON.stringify(iceTests));
     }

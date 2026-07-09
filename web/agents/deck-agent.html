@@ -422,7 +422,7 @@ Act II — Our Answer (solution, product, business model, traction, competition)
 Act III — The Partnership (team, financials, the ask)
 
 EVERY SLIDE MUST START with a [TYPE: ...] tag on the very first line (before bullets):
-Valid types: COVER | PROBLEM | MARKET | WHY_NOW | SOLUTION | PRODUCT | BUSINESS_MODEL | TRACTION | COMPETITION | GO_TO_MARKET | TEAM | FINANCIALS | ASK | TIMELINE | CUSTOM
+Valid types: COVER | PROBLEM | MARKET | WHY_NOW | SOLUTION | PRODUCT | BUSINESS_MODEL | TRACTION | COMPETITION | GO_TO_MARKET | TEAM | FINANCIALS | ASK | TIMELINE | STRATEGY | CHANNELS | METRICS | NEXT_QUARTER | INSIGHT | EVIDENCE | CUSTOM
 
 CONTENT STANDARDS:
 - Every metric must be real or clearly labelled as projected — no "[X]%" placeholders
@@ -543,7 +543,11 @@ Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn mo
     };
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        try {
+            if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+                document.getElementById('intelBadge').classList.add('active');
+            }
+        } catch (e) { /* badge stays hidden if intelligence layer unavailable */ }
     })();
 
     // Intelligence Layer Builders
@@ -721,6 +725,9 @@ Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn mo
                 warnEl.style.display = 'flex';
                 warnEl.innerHTML = `⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete — deck will use generic structure. <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;">Add company data →</a>`;
             }
+        } else {
+            const warnEl = document.getElementById('intelWarningBanner');
+            if (warnEl) warnEl.style.display = 'none';
         }
 
         // Build Intelligence Layer Context
@@ -746,7 +753,7 @@ KEY MESSAGE: ${keyMessage || 'Not specified'}
 TARGET AUDIENCE: ${audience}
 TARGET SLIDE COUNT: ${slideCount}
 KEY DATA POINTS PROVIDED:
-${dataPoints || 'None provided — infer realistic industry-appropriate numbers, label as estimated'}
+${dataPoints || "None provided — do NOT invent specific numbers for TRACTION or FINANCIALS slides; use placeholders like '[Your ARR]' and add a slide note telling the presenter to fill them in. For MARKET sizing, estimates are allowed but every estimated figure must carry '(est.)' in the slide text itself."}
 ${contextStr}${valuePropContext}${icpAudienceContext}${competitiveContext}${brandVoiceContext}${marketContext}${socialProofContext}${metricsContext}
 
 ═══ SLIDE STRUCTURE ═══
@@ -805,7 +812,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
                     const checked = await window.GeminiService.callAgent({
                         systemPrompt: SPELLCHECK_PROMPT,
                         messages: [{ role: 'user', content: rawText }],
-                        model: 'gemini-1.5-flash',
+                        model: 'gemini-2.5-flash',
                     });
                     if (checked && checked.length >= rawText.length * 0.5) {
                         finalText = checked;
@@ -1192,7 +1199,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
         // Apply industry colour overlay when no brand colours override
         if (!brandColors.length && industry) {
             const key = Object.keys(INDUSTRY_OVERLAYS).find(k => (industry||'').toLowerCase().includes(k));
-            if (key && !DESIGN_THEMES[deckType]) {
+            if (key) {
                 Object.assign(design.colors, INDUSTRY_OVERLAYS[key]);
             }
         }
@@ -1428,54 +1435,66 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     // ============================================
 
     // AI Image Prompt Generation (for DALL-E/Midjourney)
+    // Single batched call for all slides — returns { imagePrompts, aiGenerated }
     async function generateImagePrompts(slides, deckType) {
-        const imagePrompts = [];
+        const fallbackPrompts = slides.map(slide => ({
+            slideNumber: slide.number,
+            prompt: `Professional business graphic for: ${slide.title}`
+        }));
 
-        for (const slide of slides) {
-            const prompt = `Generate a DALL-E image prompt for this slide:
-
-SLIDE TITLE: ${slide.title}
-CONTENT: ${slide.bullets.join(', ')}
-DECK TYPE: ${deckType}
-VISUAL SUGGESTION: ${slide.visualSuggestion || 'Not specified'}
-
-Create a detailed image prompt (50-75 words) for:
-- Professional ${deckType} presentation style
-- High-quality business graphics
-- Modern, clean aesthetic
-- Relevant to slide content
-
-Respond with ONLY the image prompt, no other text.`;
-
-            try {
-                if (window.ClaudeService) {
-                    const imagePrompt = await new Promise((resolve, reject) => {
-                        let accumulated = '';
-                        window.ClaudeService.streamResponse({
-                            systemPrompt: 'You are an expert at creating image generation prompts for presentation slides.',
-                            messages: [{ role: 'user', content: prompt }],
-                            onChunk: (chunk, acc) => { accumulated = acc; },
-                            onDone: (text) => resolve(text.trim()),
-                            onError: (err) => reject(err)
-                        });
-                    });
-                    imagePrompts.push({ slideNumber: slide.number, prompt: imagePrompt });
-                } else {
-                    imagePrompts.push({
-                        slideNumber: slide.number,
-                        prompt: `Professional business graphic for: ${slide.title}`
-                    });
-                }
-            } catch (error) {
-                console.error('Image prompt generation error:', error);
-                imagePrompts.push({
-                    slideNumber: slide.number,
-                    prompt: `Professional business graphic for: ${slide.title}`
-                });
-            }
+        if (!window.ClaudeService || !slides.length) {
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
         }
 
-        return imagePrompts;
+        const slideList = slides.map((s, i) =>
+            `${i + 1}. TITLE: ${s.title}\n   CONTENT: ${(s.bullets || []).join(', ')}\n   VISUAL SUGGESTION: ${s.visualSuggestion || 'Not specified'}`
+        ).join('\n');
+
+        const prompt = `For each slide below, write one detailed DALL-E image prompt (50-75 words) in a professional ${deckType} presentation style: high-quality business graphics, modern clean aesthetic, relevant to that slide's content.
+
+SLIDES:
+${slideList}
+
+Respond with ONLY a numbered list, one item per slide, in the same order, formatted exactly as:
+1. <image prompt>
+2. <image prompt>
+No headers, no commentary, no other text.`;
+
+        try {
+            const response = await window.ClaudeService.callAgent({
+                systemPrompt: 'You are an expert at creating image generation prompts for presentation slides.',
+                messages: [{ role: 'user', content: prompt }],
+            });
+
+            // Parse the numbered list back onto slides (tolerates wrapped lines)
+            const parsed = {};
+            let current = null;
+            (response || '').split('\n').forEach(line => {
+                const m = line.match(/^\s*(\d+)[.):]\s+(.*\S)/);
+                if (m) {
+                    current = parseInt(m[1]);
+                    parsed[current] = m[2].trim();
+                } else if (current !== null && line.trim()) {
+                    parsed[current] += ' ' + line.trim();
+                }
+            });
+
+            const matched = slides.reduce((n, _, i) => n + (parsed[i + 1] && parsed[i + 1].length > 10 ? 1 : 0), 0);
+            if (matched >= Math.ceil(slides.length / 2)) {
+                return {
+                    imagePrompts: slides.map((slide, i) => ({
+                        slideNumber: slide.number,
+                        prompt: parsed[i + 1] || `Professional business graphic for: ${slide.title}`
+                    })),
+                    aiGenerated: true
+                };
+            }
+            console.warn('[Slate] Image prompt batch response could not be parsed for enough slides — using generic fallback prompts.');
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
+        } catch (error) {
+            console.error('Image prompt generation error:', error);
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
+        }
     }
 
     async function fetchUnsplashImage(query) {
@@ -1543,9 +1562,8 @@ Respond with ONLY the image prompt, no other text.`;
             }
         });
         if (pairs.length >= 2) return { chartLabels: pairs.map(p => p.label), chartData: pairs.map(p => p.value) };
-        const words = title.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
-        const labels = words.length >= 4 ? words.slice(0, 4) : ['Q1', 'Q2', 'Q3', 'Q4'];
-        return { chartLabels: labels, chartData: [38, 52, 61, 74] };
+        // Fewer than 2 real "label: value" pairs — never fabricate chart data
+        return null;
     }
 
     // ============================================
@@ -1755,7 +1773,13 @@ Respond with ONLY the image prompt, no other text.`;
     // ============================================
     function addChartLayout(pptx, slide, slideData, design, yStart) {
         const y = yStart ?? 1.25;
-        const { chartLabels, chartData } = parseChartDataFromBullets(slideData.bullets || [], slideData.title);
+        const parsed = parseChartDataFromBullets(slideData.bullets || [], slideData.title);
+        if (!parsed) {
+            // No real numeric data in the bullets — render bullets instead of a fabricated chart
+            addBulletLayout(slide, slideData, design, yStart);
+            return;
+        }
+        const { chartLabels, chartData } = parsed;
         const vs = (slideData.visualSuggestion || '').toLowerCase();
         const chartType = vs.includes('pie') ? pptx.ChartType.pie : vs.includes('line') ? pptx.ChartType.line : pptx.ChartType.bar;
 
@@ -1774,7 +1798,7 @@ Respond with ONLY the image prompt, no other text.`;
             showTitle: false,
             showLegend: chartType === pptx.ChartType.pie,
             legendPos: 'b',
-            dataLabelFormatCode: '0%',
+            dataLabelFormatCode: '#,##0',
             showValue: chartType === pptx.ChartType.bar || chartType === pptx.ChartType.line,
             barGrouping: 'clustered',
         });
@@ -2355,6 +2379,10 @@ Respond with ONLY the image prompt, no other text.`;
         const sectionTriggers = SECTION_TRIGGERS[deckData.deckType] || {};
         let dividerCount = 0;
 
+        // Precompute the real deck total: title + content slides + closing + dividers actually inserted
+        const totalDividers = slides.filter(sl => sl.slideType && sectionTriggers[sl.slideType]).length;
+        const totalSlideCount = slides.length + 2 + totalDividers;
+
         for (const [idx, slide] of slides.entries()) {
             // Insert section divider if this slide type triggers one
             if (slide.slideType && sectionTriggers[slide.slideType]) {
@@ -2399,7 +2427,7 @@ Respond with ONLY the image prompt, no other text.`;
             if (notesParts.length) s.addNotes(notesParts.join('\n\n'));
 
             const slideNum = idx + 2 + dividerCount;
-            addSlideNumber(s, slideNum, slides.length + 2 + Object.keys(sectionTriggers).length, design);
+            addSlideNumber(s, slideNum, totalSlideCount, design);
         }
 
         // ── Closing Slide ────────────────────────────
@@ -2436,9 +2464,9 @@ Respond with ONLY the image prompt, no other text.`;
                 return;
             }
 
-            // Step 3: Generate AI image prompts (for DALL-E/Midjourney)
+            // Step 3: Generate AI image prompts (for DALL-E/Midjourney) — one batched call
             btn.innerHTML = '<span class="spinner"></span> Creating Image Prompts...';
-            const imagePrompts = await generateImagePrompts(slides, window.currentDeckData.deckType);
+            const { imagePrompts, aiGenerated } = await generateImagePrompts(slides, window.currentDeckData.deckType);
 
             // Step 4: Create PowerPoint with advanced visuals
             btn.innerHTML = '<span class="spinner"></span> Building PowerPoint...';
@@ -2451,8 +2479,8 @@ Respond with ONLY the image prompt, no other text.`;
             // Success feedback
             btn.innerHTML = '✓ Downloaded!';
 
-            // Show image prompt instructions
-            if (imagePrompts.length > 0) {
+            // Show image prompt instructions — only claim AI prompts when the batch call succeeded
+            if (aiGenerated && imagePrompts.length > 0) {
                 setTimeout(() => {
                     alert(`PowerPoint downloaded!\n\nAI image prompts have been added to the speaker notes for all ${slides.length} slide${slides.length !== 1 ? 's' : ''}. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.`);
                 }, 500);
@@ -2471,8 +2499,18 @@ Respond with ONLY the image prompt, no other text.`;
         }
     }
 
-    // Boot template picker on DOM ready
-    document.addEventListener('DOMContentLoaded', initTemplatePicker);
+    // Boot template picker on DOM ready + prefill company name from BusinessBrain
+    document.addEventListener('DOMContentLoaded', () => {
+        initTemplatePicker();
+        try {
+            const companyEl = document.getElementById('company');
+            const brainName = window.IntelligenceEngine?.brain?.load()?.company?.name;
+            if (companyEl && !companyEl.value.trim() && brainName && String(brainName).trim()) {
+                companyEl.value = String(brainName).trim();
+                companyEl.title = 'Auto-filled from BusinessBrain';
+            }
+        } catch (e) { /* prefill is best-effort */ }
+    });
 </script>
 </body>
 </html>

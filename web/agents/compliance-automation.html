@@ -183,7 +183,7 @@
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="iso27001">
-                        <label for="iso27001">ISO 27001 (114 Annex A Controls)</label>
+                        <label for="iso27001">ISO 27001:2022 (93 Annex A Controls)</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="gdpr">
@@ -258,7 +258,7 @@
         <div class="feature-card">
             <div class="feature-icon">🔐</div>
             <div class="feature-name">ISO 27001 Tracker</div>
-            <div class="feature-desc">114 Annex A controls mapped to your infrastructure, risk assessment automation, ISMS documentation, certification roadmap.</div>
+            <div class="feature-desc">93 Annex A controls (ISO 27001:2022) mapped to your infrastructure, risk assessment automation, ISMS documentation, certification roadmap.</div>
         </div>
         <div class="feature-card">
             <div class="feature-icon">🇪🇺</div>
@@ -321,42 +321,41 @@
         const data = window.IntelligenceEngine.brain.load();
         if (!data) return '';
 
-        let context = '\n\n**COMPANY INTELLIGENCE CONTEXT:**\n';
+        const lines = [];
 
         const industry = data.company?.industry || '';
         if (industry) {
-            context += `Industry: ${industry}\n`;
+            lines.push(`Industry: ${industry}`);
             if (industry.toLowerCase().includes('healthcare') || industry.toLowerCase().includes('health')) {
-                context += `⚠️ Healthcare industry requires HIPAA compliance, BAA agreements, and PHI protection.\n`;
+                lines.push(`⚠️ Healthcare industry requires HIPAA compliance, BAA agreements, and PHI protection.`);
             }
             if (industry.toLowerCase().includes('finance') || industry.toLowerCase().includes('fintech')) {
-                context += `⚠️ Financial services require SOX compliance, PCI DSS (if handling payments), and enhanced security controls.\n`;
+                lines.push(`⚠️ Financial services require SOX compliance, PCI DSS (if handling payments), and enhanced security controls.`);
             }
         }
 
         const role = data.icp?.primaryBuyer?.role || '';
         if (role) {
-            context += `\nTarget Buyer: ${role}`;
             const buyerCo = data.icp?.primaryBuyer?.companySize;
-            if (buyerCo) context += ` at ${buyerCo} companies`;
-            context += '\n';
+            lines.push(`Target Buyer: ${role}${buyerCo ? ` at ${buyerCo} companies` : ''}`);
             if (role.toLowerCase().includes('enterprise') || (buyerCo || '').toLowerCase().includes('enterprise')) {
-                context += `🎯 Enterprise B2B sales — compliance is critical for closing deals. Prioritize SOC 2, security questionnaires, and trust center.\n`;
+                lines.push(`🎯 Enterprise B2B sales — compliance is critical for closing deals. Prioritize SOC 2, security questionnaires, and trust center.`);
             }
         }
 
         const painPoints = (data.icp?.painPoints || []).filter(p => p && p.trim());
         if (painPoints.length) {
-            context += `\nKey Customer Pain Points:\n${painPoints.slice(0, 3).map(p => `- ${p}`).join('\n')}\n`;
+            lines.push(`Key Customer Pain Points:\n${painPoints.slice(0, 3).map(p => `- ${p}`).join('\n')}`);
         }
 
         const companyName = data.company?.name || '';
-        if (companyName) context += `\nCompany: ${companyName}\n`;
+        if (companyName) lines.push(`Company: ${companyName}`);
 
         const stage = data.company?.stage || '';
-        if (stage) context += `Stage: ${stage}\n`;
+        if (stage) lines.push(`Stage: ${stage}`);
 
-        return context;
+        if (lines.length === 0) return '';
+        return '\n\n**COMPANY INTELLIGENCE CONTEXT:**\n' + lines.join('\n') + '\n';
     }
 
     async function runAutomation() {
@@ -373,7 +372,9 @@
 
         const intelligenceContext = buildIntelligenceContext();
 
-        const userPrompt = `AUTOMATION GOAL: ${automationGoal}
+        const userPrompt = `PRIORITY: The user's Automation Goal is '${automationGoal}' — weight the entire plan toward that goal, and if the ADDITIONAL CONTEXT contains specifics (existing tools, deadlines, a pasted questionnaire), those OVERRIDE the generic template below. If a security questionnaire is pasted, answer it directly instead of producing the generic program.
+
+AUTOMATION GOAL: ${automationGoal}
 TARGET FRAMEWORKS: ${frameworks.join(', ')}
 COMPANY STAGE: ${companyStage}
 INFRASTRUCTURE: ${infrastructure}
@@ -419,7 +420,7 @@ ${frameworks.includes('SOC 2 Type II') ? `### SOC 2 Type II Automation
 ` : ''}
 
 ${frameworks.includes('ISO 27001') ? `### ISO 27001 Automation
-**114 Annex A Controls Mapping:**
+**93 Annex A Controls Mapping (ISO 27001:2022):**
 - [Map controls to your ${infrastructure} infrastructure]
 - [Identify gaps and automation opportunities]
 - [Risk assessment automation]
@@ -668,15 +669,15 @@ ${companyStage.includes('Audit ready') || companyStage.includes('Certified') ? `
 
 ## TOOLS & COST ESTIMATE
 
-**Compliance Platform:** $500-2000/month (Vanta, Drata, Secureframe)
-**Vulnerability Scanning:** $0-500/month (Snyk, Dependabot free tier; Qualys, Tenable paid)
-**Log Aggregation:** $0-500/month (CloudWatch, ELK, Datadog)
-**Training Platform:** $0-50/user/year (KnowBe4, Infosec IQ)
-**Endpoint Management:** $5-15/device/month (Jamf, Kandji)
-
-**Total Estimated Cost:** $1000-4000/month
-**Time Savings:** 20-40 hours/week (compliance/security team)
-**Sales Impact:** 30-50% faster enterprise deal closure (compliance ready = faster procurement)
+ESTIMATE cost and time-savings ranges appropriate to this company's stage (${companyStage}) and the selected frameworks (${frameworks.join(', ')}) — do NOT present generic figures as computed results. Label every figure "industry-typical ranges — validate for your company". Cover:
+- Compliance platform (e.g., Vanta, Drata, Secureframe) — estimated monthly cost range
+- Vulnerability scanning (e.g., Snyk, Dependabot free tier; Qualys, Tenable paid) — estimated monthly cost range
+- Log aggregation (e.g., CloudWatch, ELK, Datadog) — estimated monthly cost range
+- Training platform (e.g., KnowBe4, Infosec IQ) — estimated per-user cost range
+- Endpoint management (e.g., Jamf, Kandji) — estimated per-device cost range
+- Total estimated monthly cost range
+- Estimated time savings for the compliance/security team (hours/week)
+- Estimated sales-cycle impact for enterprise deals
 
 ## NEXT STEPS
 
@@ -690,19 +691,10 @@ ${companyStage.includes('Audit ready') || companyStage.includes('Certified') ? `
 ---
 
 **🚀 SALES ACCELERATION IMPACT:**
-- Enterprise buyers expect SOC 2 — having it (or being audit-ready) removes a major procurement blocker
-- Security questionnaire auto-fill reduces sales cycle friction (1-2 weeks saved per enterprise deal)
-- Trust center builds buyer confidence and reduces back-and-forth
-- Compliance status transparency accelerates legal/security reviews
+Explain how compliance readiness accelerates enterprise sales for THIS company (procurement blockers removed, security questionnaire friction reduced, trust center confidence, faster legal/security reviews). Where you quantify impact, ESTIMATE ranges appropriate to the company's stage and selected frameworks and label them "industry-typical ranges — validate for your company".
 
 **💡 COMPLIANCE BUSYWORK ELIMINATED:**
-- Manual screenshot capture → automated (saves 5-10 hours/quarter)
-- Access reviews → automated reports (saves 8-12 hours/quarter)
-- Policy updates → version-controlled and scheduled (saves 4-6 hours/year)
-- Vendor assessments → templated and tracked (saves 3-5 hours/vendor)
-- Security questionnaires → auto-filled from posture database (saves 2-4 hours/questionnaire)
-
-**Total Time Savings:** 20-40 hours/week for compliance/security team`;
+List the manual tasks this plan automates (screenshot capture, access reviews, policy updates, vendor assessments, security questionnaires) with ESTIMATED time savings per task appropriate to this company — labeled as industry-typical ranges, not measured results. Close with an estimated total time-savings range for the compliance/security team, labeled the same way.`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
@@ -720,6 +712,7 @@ ${companyStage.includes('Audit ready') || companyStage.includes('Certified') ? `
                     systemPrompt: SYSTEM_PROMPT,
                     messages: [{ role: 'user', content: userPrompt }],
                     model: 'claude-opus-4-7',
+                    maxTokens: 8192,
                     onChunk: (chunk, accumulated) => {
                         fullText = accumulated;
                         outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';

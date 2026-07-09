@@ -159,7 +159,7 @@
     <span class="hero-emoji">📱</span>
     <h1>Social Studio</h1>
     <p class="hero-tagline">Platform-native content, ad campaigns, calendars, and viral hooks</p>
-    <span class="powered-pill">⚡ Powered by Claude</span>
+    <span class="powered-pill">⚡ AI-Powered</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
 </div>
 
@@ -380,15 +380,28 @@ function getSelectedPlatform() {
 let studioMode = 'organic';
 
 function setStudioMode(mode) {
+    const modeChanged = mode !== studioMode;
     studioMode = mode;
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     document.getElementById('organicFields').style.display = mode === 'organic' ? '' : 'none';
     document.getElementById('adFields').style.display      = mode === 'ads' ? '' : 'none';
     document.getElementById('runBtn').textContent          = mode === 'ads' ? 'Generate Ad Variants' : 'Create Content';
-    const empty = document.querySelector('#output .output-empty');
-    if (empty) empty.textContent = mode === 'ads'
+    const emptyText = mode === 'ads'
         ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
         : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.';
+    if (modeChanged) {
+        // Reset output to the mode-appropriate empty state so stale cross-mode output never lingers
+        document.getElementById('output').innerHTML = `<div class="output-empty">${emptyText}</div>`;
+        const csvBtn = document.getElementById('csvBtn');
+        if (csvBtn) csvBtn.style.display = 'none';
+    } else {
+        const empty = document.querySelector('#output .output-empty');
+        if (empty) empty.textContent = emptyText;
+    }
+    if (mode === 'ads') {
+        const csvBtn = document.getElementById('csvBtn');
+        if (csvBtn) csvBtn.style.display = 'none';
+    }
     if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
 }
 
@@ -460,9 +473,11 @@ class SocialAgent {
             const bundle = this.intelligenceEngine.getContextBundle();
             if (bundle && bundle.isReady) {
                 document.getElementById('intelligenceBadge').style.display = 'inline-flex';
-                this._loadICP();
-                this._loadBrandVoice();
             }
+            // Always attempt to load ICP + brand voice (each has its own guards) so
+            // partially-configured brains still inform generation on first run.
+            this._loadICP();
+            this._loadBrandVoice();
         }
     }
 
@@ -631,7 +646,11 @@ class SocialAgent {
     }
 
     buildSystemPrompt(platform, contextBundle) {
-        let prompt = `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.`;
+        let prompt = '';
+        if (contextBundle && contextBundle.isReady && contextBundle.businessContext) {
+            prompt += `## BUSINESS CONTEXT\n${contextBundle.businessContext}\n\n`;
+        }
+        prompt += `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.`;
 
         // Platform-specific strategy
         prompt += this.buildPlatformContentStrategy(platform, contextBundle);
@@ -669,7 +688,8 @@ class SocialAgent {
             let productDesc = data.positioning.uniqueValue;
             const diffs = (data.positioning.differentiation || []).filter(d => d && d.trim());
             if (diffs.length > 0) productDesc += `. Key differentiators: ${diffs.slice(0, 2).join(', ')}`;
-            productEl.value = `✨ ${productDesc} (from BusinessBrain)`;
+            productEl.value = productDesc;
+            productEl.title = 'Auto-filled from BusinessBrain';
             productEl.style.color = '#10b981';
         }
 
@@ -681,7 +701,8 @@ class SocialAgent {
             if (icp.primaryBuyer.industry) audienceSummary += `, ${icp.primaryBuyer.industry}`;
             const pains = (icp.painPoints || []).filter(p => p);
             if (pains.length) audienceSummary += `. Pain points: ${pains.slice(0, 2).join(', ')}`;
-            audienceEl.value = `✨ ${audienceSummary} (from BusinessBrain ICP)`;
+            audienceEl.value = audienceSummary;
+            audienceEl.title = 'Auto-filled from BusinessBrain';
             audienceEl.style.color = '#10b981';
         }
     }
@@ -709,10 +730,11 @@ class SocialAgent {
         const runBtn   = document.getElementById('runBtn');
 
         let contextBundle = null;
+        let tipHtml = '';
         if (this.intelligenceEngine) {
             contextBundle = this.intelligenceEngine.getContextBundle();
             if (contextBundle?.completionScore < 30) {
-                outputEl.innerHTML = `<div style="padding:14px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
+                tipHtml = `<div style="padding:14px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
                     <strong style="color:#f59e0b;">Tip:</strong> BusinessBrain is ${contextBundle.completionScore}% configured. Ad variants will be more targeted once ICP, brand voice, and value props are set up.
                     <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure →</a>
                 </div>`;
@@ -721,9 +743,25 @@ class SocialAgent {
 
         runBtn.disabled = true;
         runBtn.textContent = 'Generating…';
-        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
+        outputEl.innerHTML = tipHtml + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
 
         const body = { platforms, objective, product, audience, models: frameworks, tone, budget, competitors, variants };
+
+        // Inject BusinessBrain intelligence so ad copy uses real company context
+        let bizContext = '';
+        if (contextBundle?.isReady && contextBundle.businessContext) {
+            bizContext += contextBundle.businessContext;
+        }
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const brainData = this.intelligenceEngine.brain.load();
+            const pains = (brainData?.icp?.painPoints || []).filter(p => p);
+            if (pains.length) bizContext += `\nICP pain points: ${pains.join('; ')}`;
+            if (brainData?.positioning?.thingsWeNeverSay) bizContext += `\nNever say: ${brainData.positioning.thingsWeNeverSay}`;
+        }
+        bizContext = bizContext.trim().slice(0, 800);
+        if (bizContext) {
+            body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
+        }
 
         // Inject Convert A/B experiment winners as context if loaded
         if (_convertData?.experiments?.length) {
@@ -744,7 +782,7 @@ class SocialAgent {
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
             const content = data.content || '';
-            outputEl.innerHTML = marked.parse(content);
+            outputEl.innerHTML = tipHtml + marked.parse(content);
             outputEl.scrollTop = 0;
 
             if (window.AgentHistory && content.trim()) {
@@ -772,25 +810,26 @@ class SocialAgent {
         const frequency = document.getElementById('frequency').value;
         const postCount = document.getElementById('postCount').value;
 
+        // Non-blocking warning: brand-sensitive goals without a configured brand voice
+        // get an amber heads-up banner, but generation continues.
         const brandSensitiveGoals = ['Thought Leadership', 'Product Launch', 'Case Study'];
+        let warnHtml = '';
         if (brandSensitiveGoals.includes(contentGoal) && !this.brandVoice) {
-            document.getElementById('output').innerHTML = `<div style="padding:24px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);border-radius:10px;color:#f87171;">
-                <div style="font-weight:700;margin-bottom:8px;font-size:15px;">⛔ Brand Voice Required</div>
-                <div style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);">
-                    <strong>${contentGoal}</strong> content requires Brand Voice configuration to ensure on-brand output.<br><br>
-                    Without a defined brand voice, ${contentGoal.toLowerCase()} posts risk being off-brand, inconsistent, or misrepresenting your company publicly.<br><br>
-                    <a href="/intelligence/business-brain.html" style="color:#f87171;font-weight:600;text-decoration:underline;">→ Configure Brand Voice in BusinessBrain</a>
-                </div>
+            window._bvWarnDismissed = false;
+            warnHtml = `<div style="padding:12px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
+                <span onclick="window._bvWarnDismissed=true;this.parentElement.remove();" style="float:right;cursor:pointer;color:rgba(255,255,255,0.5);font-weight:700;padding-left:10px;">✕</span>
+                <strong style="color:#f59e0b;">Heads up:</strong> Brand voice isn't configured — ${contentGoal} posts may be off-brand or inconsistent.
+                <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure Brand Voice →</a>
             </div>`;
-            return;
         }
+        const bvWarn = () => (warnHtml && !window._bvWarnDismissed) ? warnHtml : '';
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
         runBtn.disabled = true;
         runBtn.textContent = 'Creating...';
 
-        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
+        outputEl.innerHTML = bvWarn() + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
 
         let contextBundle = null;
         if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
@@ -805,26 +844,37 @@ Generate a complete content package: strategy overview, ${postCount} ready-to-pu
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
-            outputEl.innerHTML = '';
+            outputEl.innerHTML = bvWarn();
             try {
                 await this.claudeService.streamResponse({
                     systemPrompt,
                     messages: [{ role: 'user', content: userMessage }],
                     onChunk: (chunk) => {
                         fullResponse += chunk;
-                        outputEl.innerHTML = marked.parse(fullResponse);
+                        outputEl.innerHTML = bvWarn() + marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Create Content'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: fullResponse, topic }); }
+                    onDone: () => {
+                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
+                        if (!fullResponse.trim()) {
+                            outputEl.innerHTML = bvWarn() + `<div style="color:#f59e0b;padding:16px;font-size:13px;">The AI service returned no content — check the OPENAI_API_KEY / ANTHROPIC_API_KEY server configuration.</div>`;
+                            return;
+                        }
+                        if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: fullResponse, topic });
+                    },
+                    onError: (e) => {
+                        outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
+                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
+                    }
                 });
             } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
+                outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
                 runBtn.disabled = false; runBtn.textContent = 'Create Content';
             }
         } else {
             outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
-                <strong style="color:#fff;">Claude API not configured.</strong><br><br>
-                Add your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI generation.
+                <strong style="color:#fff;">AI service not configured.</strong><br><br>
+                The server-side AI key is missing. Set the OPENAI_API_KEY (or ANTHROPIC_API_KEY) environment variable on the server to enable AI generation.
             </div>`;
             runBtn.disabled = false; runBtn.textContent = 'Create Content';
         }
@@ -878,6 +928,7 @@ function parsePostsFromOutput(text) {
 }
 
 function exportCalendarCSV() {
+    if (studioMode !== 'organic') return;
     const outputEl = document.getElementById('output');
     if (!outputEl || outputEl.querySelector('.output-empty')) { alert('Generate content first.'); return; }
     const text = outputEl.innerText || outputEl.textContent;
@@ -890,11 +941,17 @@ function exportCalendarCSV() {
     posts.forEach((post, i) => {
         const d = new Date(today); d.setDate(today.getDate() + i * 2);
         const dateStr = d.toISOString().split('T')[0];
-        const msg = (post.content + (post.hashtags ? '\n\n' + post.hashtags : '')).replace(/\r?\n/g, '\\n');
-        rows.push([dateStr, post.time, platform, '"' + msg.replace(/"/g, '""') + '"', '', '']);
+        const msg = post.content + (post.hashtags ? '\n\n' + post.hashtags : '');
+        rows.push([dateStr, post.time, platform, msg, '', '']);
     });
 
-    const csv = rows.map(r => r.join(',')).join('\n');
+    // Standard CSV quoting: fields containing commas, quotes, or newlines are
+    // wrapped in double quotes with internal quotes doubled (real newlines kept).
+    const escapeCSVField = (field) => {
+        const s = String(field);
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = rows.map(r => r.map(escapeCSVField).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `social-calendar-${platform.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.csv`; a.click();
@@ -904,7 +961,7 @@ function exportCalendarCSV() {
 const _csvObserver = new MutationObserver(() => {
     const out = document.getElementById('output');
     const btn = document.getElementById('csvBtn');
-    if (btn && out && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
+    if (btn && out && studioMode === 'organic' && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
         btn.style.display = '';
     }
 });

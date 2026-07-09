@@ -23,9 +23,10 @@ const ClaudeService = (() => {
    * @param {Function} [opts.onChunk]      – called with each text chunk
    * @param {Function} [opts.onDone]       – called with full response text
    * @param {Function} [opts.onError]      – called with Error
+   * @param {number}   [opts.maxTokens]    – optional per-call max_tokens override (capped at 8192)
    * @returns {Promise<string>}            – resolves with full response text
    */
-  async function streamResponse({ systemPrompt, messages, model, outputEl, onStart, onChunk, onDone, onError }) {
+  async function streamResponse({ systemPrompt, messages, model, maxTokens, outputEl, onStart, onChunk, onDone, onError }) {
     if (outputEl) outputEl.textContent = '';
 
     let fullText = '';
@@ -35,7 +36,7 @@ const ClaudeService = (() => {
 
       const body = {
         model: model || MODEL,
-        max_tokens: MAX_TOKENS,
+        max_tokens: Math.min(maxTokens || MAX_TOKENS, 8192),
         stream: true,
         messages: messages || [],
       };
@@ -103,12 +104,13 @@ const ClaudeService = (() => {
    * @param {Object} opts
    * @param {string}  opts.systemPrompt
    * @param {Array}   opts.messages
+   * @param {number}  [opts.maxTokens] – optional per-call max_tokens override (capped at 8192)
    * @returns {Promise<string>}
    */
-  async function callAgent({ systemPrompt, messages, model }) {
+  async function callAgent({ systemPrompt, messages, model, maxTokens }) {
     const body = {
       model: model || MODEL,
-      max_tokens: MAX_TOKENS,
+      max_tokens: Math.min(maxTokens || MAX_TOKENS, 8192),
       messages: messages || [],
       stream: false,
     };

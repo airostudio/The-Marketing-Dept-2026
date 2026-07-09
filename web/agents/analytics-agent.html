@@ -772,8 +772,10 @@
 
 </div>
 
+<script src="/js/marked.min.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/gemini-service.js"></script>
+<script src="/js/intelligence-engine.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
 <script src="/js/agent-history.js"></script>
@@ -857,8 +859,26 @@
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle ? (bundle.completionScore || 0) : 0;
+        // completionScore is 0-100; callers compare against fractions (0-1)
+        return bundle ? (bundle.completionScore || 0) / 100 : 0;
     }
+
+    // Business objectives context — ties recommendations to actual goals
+    function buildObjectivesContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.extractObjectives) return '';
+        const obj = window.IntelligenceEngine.extractObjectives();
+        const lines = [];
+        if (obj.q1Focus) lines.push(`- Q1 Focus: ${obj.q1Focus}`);
+        if (obj.annualGoal) lines.push(`- Annual Goal: ${obj.annualGoal}`);
+        if (obj.currentChallenge) lines.push(`- Current Challenge: ${obj.currentChallenge}`);
+        if (Array.isArray(obj.bestLeadChannels) && obj.bestLeadChannels.filter(c => c && c.trim()).length > 0) {
+            lines.push(`- Best Lead Channels: ${obj.bestLeadChannels.filter(c => c && c.trim()).join(', ')}`);
+        }
+        if (lines.length === 0) return '';
+        return '\n\n**BUSINESS OBJECTIVES — judge every recommendation against these:**\n' + lines.join('\n') + '\n';
+    }
+
+    const ESTIMATE_DISCLAIMER = "\nLabel all benchmark figures and attribution percentages as estimates ('est.') — you have no live data source; recommend validating against the user's analytics platform.";
 
     // Workspace prompts per tab
     const workspacePrompts = {
@@ -883,6 +903,7 @@ GOAL / KPI FOCUS: ${goal}`;
             prompt += buildValuePropConversionContext();
             prompt += buildCompetitiveBenchmarkContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -896,6 +917,7 @@ Provide:
 7. Quick wins (implement in next 30 days)
 
 Format clearly with sections and be specific with numbers.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             // Strategic validation warning
             const completeness = getIntelligenceCompleteness();
@@ -924,6 +946,7 @@ BUSINESS GOAL: ${goal}`;
             prompt += buildICPAttributionContext();
             prompt += buildCompetitiveBenchmarkContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -937,6 +960,7 @@ Provide:
 7. 3-month roadmap for implementation
 
 Be specific with numbers and percentages.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             return prompt;
         },
@@ -991,6 +1015,7 @@ BUSINESS MODEL: ${model}`;
             }
 
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -1009,6 +1034,7 @@ For each segment provide:
 - Targeting Strategy (paid, content, outreach)
 
 Make each segment distinct and actionable.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             // Strategic validation warning
             const completeness = getIntelligenceCompleteness();
@@ -1037,6 +1063,7 @@ CONTEXT: ${context || 'General marketing performance review'}`;
             prompt += buildValuePropConversionContext();
             prompt += buildCompetitiveBenchmarkContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -1051,6 +1078,7 @@ Provide:
 8. 90-Day Improvement Roadmap
 
 Be direct, specific, and data-driven.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             return prompt;
         },
@@ -1073,6 +1101,7 @@ ${focus ? `KEY NARRATIVE: ${focus}` : ''}`;
             prompt += buildICPAttributionContext();
             prompt += buildValuePropConversionContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -1087,6 +1116,7 @@ Write a polished, professional report that:
 - Matches brand voice style if provided
 
 Format with clear sections, use the data provided, and write in a confident narrative style.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             return prompt;
         }
@@ -1134,25 +1164,20 @@ Format with clear sections, use the data provided, and write in a confident narr
         outCard.style.display = 'block';
         outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Analyzing with Analytics Brain AI...</div>';
 
-        const aiService = window.GeminiService || window.ClaudeService;
-        if (!aiService) {
-            outBody.innerHTML = '<div style="color:#ef4444;padding:20px;">AI service not configured. Check your API keys in Settings.</div>';
-            return;
-        }
-
         try {
-            let result = '';
-            await aiService.streamResponse({
+            await streamWithFallback({
                 systemPrompt: 'You are Analytics Brain AI, an expert marketing analytics consultant. Analyze the provided data and deliver specific, data-driven insights with concrete recommendations.',
                 messages: [{ role: 'user', content: prompt }],
                 onChunk: (chunk, accumulated) => {
-                    result = accumulated;
-                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(result) : result;
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
                 },
                 onDone: (text) => {
-                    result = text;
-                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(result) : result;
-                    if (window.AgentHistory && result.trim()) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: result });
+                    if (!text || !text.trim()) {
+                        outBody.innerHTML = '<div style="color:#ef4444;padding:20px;">The AI service returned no content — check GEMINI_API_KEY / ANTHROPIC_API_KEY server configuration.</div>';
+                        return;
+                    }
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: text });
                 },
                 onError: (err) => {
                     outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
@@ -1163,7 +1188,64 @@ Format with clear sections, use the data provided, and write in a confident narr
         }
     }
 
+    /**
+     * Stream via Gemini with a one-shot Claude fallback.
+     * Guarantees: onDone is never called after onError (mid-stream errors no
+     * longer get wiped by a trailing empty onDone from the service layer), and
+     * if Gemini fails before producing ANY output, the same request is retried
+     * once via ClaudeService.
+     */
+    async function streamWithFallback({ systemPrompt, messages, onChunk, onDone, onError }) {
+        const attempt = (service) => new Promise((resolve) => {
+            let settled = false;
+            let hadError = false;
+            let chunksReceived = false;
+            const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+            Promise.resolve(service.streamResponse({
+                systemPrompt,
+                messages,
+                onChunk: (chunk, accumulated) => {
+                    chunksReceived = true;
+                    if (!settled) onChunk(chunk, accumulated);
+                },
+                onDone: (text) => { if (!hadError) settle({ ok: true, text: text || '' }); },
+                onError: (err) => { hadError = true; settle({ ok: false, err, chunksReceived }); },
+            })).catch((err) => settle({ ok: false, err, chunksReceived }));
+        });
+
+        const primary = window.GeminiService || window.ClaudeService;
+        if (!primary) {
+            onError(new Error('AI service not configured. Check your API keys in Settings'));
+            return;
+        }
+
+        let outcome = await attempt(primary);
+
+        // Fallback: only when the primary was Gemini, it produced no chunks, and Claude is available
+        if (!outcome.ok && !outcome.chunksReceived && primary === window.GeminiService && window.ClaudeService) {
+            console.warn('[Analytics Brain] Gemini request failed before any output — retrying via ClaudeService.', outcome.err && outcome.err.message);
+            outcome = await attempt(window.ClaudeService);
+        }
+
+        if (outcome.ok) onDone(outcome.text);
+        else onError(outcome.err || new Error('AI request failed'));
+    }
+
     // Chat functionality
+    const chatHistory = []; // rolling conversation, last 10 messages sent to the model
+
+    function buildChatSystemPrompt() {
+        let sys = 'You are Analytics Brain AI, an expert marketing analytics assistant. Answer questions about marketing analytics, attribution, and performance concisely and helpfully.';
+        if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle) {
+            const bundle = window.IntelligenceEngine.getContextBundle();
+            if (bundle && bundle.isReady && bundle.businessContext) {
+                sys = 'You are VERA, a marketing analytics strategist for this business:\n' + bundle.businessContext +
+                    '\n\nAnswer questions about marketing analytics, attribution, and performance concisely and helpfully, tying advice to this business context.';
+            }
+        }
+        return sys;
+    }
+
     async function sendChat() {
         const input = document.getElementById('chatInput');
         const msg = input.value.trim();
@@ -1177,32 +1259,51 @@ Format with clear sections, use the data provided, and write in a confident narr
         cursor.className = 'streaming-cursor';
         aiDiv.appendChild(cursor);
 
-        const aiService = window.GeminiService || window.ClaudeService;
+        chatHistory.push({ role: 'user', content: msg });
+
         try {
-            if (aiService && aiService.streamResponse) {
-                await aiService.streamResponse({
-                    systemPrompt: 'You are Analytics Brain AI, an expert marketing analytics assistant. Answer questions about marketing analytics, attribution, and performance concisely and helpfully.',
-                    messages: [{ role: 'user', content: msg }],
-                    onChunk: (chunk, accumulated) => {
-                        aiDiv.textContent = accumulated;
-                    },
-                    onDone: (text) => {
-                        aiDiv.textContent = text;
-                    },
-                    onError: () => {
-                        aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
-                    },
-                });
-            } else {
-                aiDiv.textContent = 'AI service not configured. Check your API keys in Settings.';
-            }
+            await streamWithFallback({
+                systemPrompt: buildChatSystemPrompt(),
+                messages: chatHistory.slice(-10),
+                onChunk: (chunk, accumulated) => {
+                    aiDiv.textContent = accumulated;
+                },
+                onDone: (text) => {
+                    if (!text || !text.trim()) {
+                        aiDiv.textContent = 'The AI service returned no content — check GEMINI_API_KEY / ANTHROPIC_API_KEY server configuration.';
+                        return;
+                    }
+                    aiDiv.textContent = text;
+                    chatHistory.push({ role: 'assistant', content: text });
+                },
+                onError: () => {
+                    aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
+                },
+            });
         } catch (err) {
             aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
         }
     }
 
+    // Map each tab to its primary data input so "Ask AI" sends the user's data along
+    const TAB_PRIMARY_INPUTS = {
+        attribution: 'attr-data',
+        mmm: 'mmm-data',
+        segmentation: 'seg-customers',
+        performance: 'perf-metrics',
+        report: 'report-data',
+    };
+
     function sendToChat(msg) {
-        document.getElementById('chatInput').value = msg;
+        let message = msg;
+        const activeBtn = document.querySelector('.tab-btn.active');
+        const inputId = activeBtn ? TAB_PRIMARY_INPUTS[activeBtn.dataset.tab] : null;
+        if (inputId) {
+            const el = document.getElementById(inputId);
+            const data = el ? el.value.trim() : '';
+            if (data) message = `${msg}\n\nDATA:\n${data}`;
+        }
+        document.getElementById('chatInput').value = message;
         sendChat();
     }
 

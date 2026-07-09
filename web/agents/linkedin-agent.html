@@ -274,7 +274,8 @@
             const b = data.icp.primaryBuyer;
             const parts = [b.role, b.companySize && b.companySize + ' companies', b.industry].filter(Boolean);
             if (parts.length) {
-                personaEl.value = '✨ ' + parts.join(', ') + ' (from BusinessBrain ICP)';
+                personaEl.value = parts.join(', ');
+                personaEl.title = '✨ Prefilled from BusinessBrain ICP';
                 personaEl.style.color = '#3b82f6';
             }
         }
@@ -284,7 +285,8 @@
         if (vpEl && !vpEl.value.trim()) {
             const vp = [data.positioning && data.positioning.uniqueValue, data.positioning && data.positioning.differentiation && data.positioning.differentiation.filter(Boolean).join(', ')].filter(Boolean).join(' — ');
             if (vp) {
-                vpEl.value = '✨ ' + vp + ' (from BusinessBrain)';
+                vpEl.value = vp;
+                vpEl.title = '✨ Prefilled from BusinessBrain';
                 vpEl.style.color = '#3b82f6';
             }
         }
@@ -301,12 +303,25 @@
         const tone = document.getElementById('tone').value;
 
         if (!persona && !valueProp) {
-            alert('Please enter a target persona and your value proposition.');
+            alert('Fill in at least the persona or the value proposition.');
             return;
         }
 
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const brandContext = contextBundle.businessContext ? `\n\nSENDER COMPANY CONTEXT: ${contextBundle.businessContext}` : '';
+        const brandContext = (contextBundle.isReady && contextBundle.businessContext) ? `\n\nSENDER COMPANY CONTEXT: ${contextBundle.businessContext}` : '';
+
+        // Competitive landscape (differentiation ammunition)
+        const competitiveContext = (contextBundle.isReady && contextBundle.competitiveLandscape) ? `\n\nCOMPETITIVE LANDSCAPE (use for differentiation, never disparagement): ${contextBundle.competitiveLandscape}` : '';
+
+        // Objection-handling ammunition from raw brain ICP
+        const brainIcp = window.IntelligenceEngine?.brain?.load?.()?.icp || {};
+        const normalize = v => (Array.isArray(v) ? v.filter(Boolean).join(', ') : String(v || '')).trim();
+        const biggestFear = normalize(brainIcp.biggestFear);
+        const triedBefore = normalize(brainIcp.triedBefore);
+        const objectionLines = [];
+        if (biggestFear) objectionLines.push(`- Their biggest fear: ${biggestFear}`);
+        if (triedBefore) objectionLines.push(`- What they've tried before (and why it fell short): ${triedBefore}`);
+        const objectionContext = objectionLines.length ? `\n\nOBJECTION-HANDLING AMMUNITION (use to preempt pushback and make messages land):\n${objectionLines.join('\n')}` : '';
 
         const userPrompt = `TASK: ${task}
 TARGET PERSONA: ${persona || 'Not specified'}

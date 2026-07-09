@@ -258,14 +258,14 @@
     const SYSTEM_PROMPT = `You are a brand compliance and legal review specialist with expertise in FTC regulations, GDPR, CCPA, HIPAA, financial services compliance, and industry-specific regulatory frameworks. Review the provided content for: brand voice consistency, unsubstantiated claims, competitor disparagement risks, regulatory compliance issues (GDPR, FTC, CCPA, industry-specific), accessibility concerns, and reputational risks. When industry/ICP context is provided, apply industry-specific regulatory requirements (HIPAA for healthcare, SEC/FINRA for finance, FTC Green Guides for sustainability claims). Provide specific line-by-line feedback with severity ratings (critical = legal risk, warning = brand/regulatory risk, suggestion = improvement opportunity) and corrected versions that preserve intent while removing compliance risk.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        if (window.IntelligenceEngine?.getContextBundle?.()?.isReady) document.getElementById('intelBadge').classList.add('active');
     })();
 
     // Intelligence Layer Builders
     function buildIndustryComplianceContext(selectedIndustry) {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        const industry = data?.company?.industry || selectedIndustry;
+        const industry = selectedIndustry || data?.company?.industry || '';
 
         let context = '\n\n**INDUSTRY-SPECIFIC COMPLIANCE REQUIREMENTS:**\n';
         context += `Industry: ${industry}\n`;
@@ -302,6 +302,7 @@
         if (!data?.icp?.primaryBuyer) return '';
 
         const buyer = data.icp.primaryBuyer;
+        if (!(buyer.role || buyer.companySize || buyer.industry)) return '';
         const companySize = (buyer.companySize || '').toLowerCase();
         const industry = (buyer.industry || '').toLowerCase();
 
@@ -389,6 +390,14 @@
             context += `- TCPA (telemarketing, SMS)\n`;
         }
 
+        if (region === 'UK' || region === 'Global') {
+            context += `\n**UK Compliance Requirements:**\n`;
+            context += `- UK GDPR + Data Protection Act 2018 (lawful basis, consent, data subject rights)\n`;
+            context += `- PECR (Privacy and Electronic Communications Regulations) — e-privacy, cookies, electronic marketing consent\n`;
+            context += `- CAP Code enforced by the ASA — advertising claims must be legal, decent, honest, and truthful\n`;
+            context += `- FCA financial-promotion rules (if financial services content)\n`;
+        }
+
         return context;
     }
 
@@ -432,10 +441,30 @@
         const voiceAndTone = (brainData?.positioning?.voiceAndTone || []).filter(v => v && v.trim());
         const brandVoice = voiceAndTone.length ? `\n\n**BRAND VOICE GUIDELINES:** ${voiceAndTone.join(', ')}` : '';
 
+        // Hard-ban phrases (things we never say)
+        const neverSayRaw = brainData?.positioning?.thingsWeNeverSay;
+        const neverSay = (Array.isArray(neverSayRaw) ? neverSayRaw : String(neverSayRaw || '').split('\n'))
+            .map(v => String(v || '').trim()).filter(Boolean);
+        const neverSayBlock = neverSay.length ? `\n\n**HARD BAN — flag ANY occurrence of:** ${neverSay.join(', ')}` : '';
+
+        // Audience language reference (array or newline-string; normalize)
+        const icpLangRaw = brainData?.icp?.language;
+        const icpLang = (Array.isArray(icpLangRaw) ? icpLangRaw : String(icpLangRaw || '').split('\n'))
+            .map(v => String(v || '').trim()).filter(Boolean);
+        const icpLangBlock = icpLang.length ? `\n\n**AUDIENCE LANGUAGE REFERENCE (how the target audience actually talks — use as tone/wording benchmark):** ${icpLang.join(', ')}` : '';
+
+        // Industry line: user's dropdown selection takes precedence; surface both if they differ
+        const companyIndustry = (brainData?.company?.industry || '').trim();
+        const industryLine = (companyIndustry && industry && companyIndustry !== industry)
+            ? `Company industry: ${companyIndustry} | Content industry (selected): ${industry}`
+            : (industry || companyIndustry);
+
         const userPrompt = `REVIEW TYPE: ${reviewType}
-INDUSTRY: ${industry}
+INDUSTRY: ${industryLine}
 REGION: ${region}
 ${brandVoice}
+${neverSayBlock}
+${icpLangBlock}
 ${industryContext}
 ${icpContext}
 ${competitorContext}
@@ -462,7 +491,7 @@ For each issue found, format as:
 ## REGULATORY COMPLIANCE CHECK
 Check against relevant frameworks for ${region} and ${industry}:
 - FTC Guidelines (endorsements, disclosures, claims)
-- ${region === 'EU' || region === 'Global' ? 'GDPR requirements' : 'CCPA requirements'}
+- ${region === 'EU' || region === 'Global' ? 'GDPR requirements' : region === 'UK' ? 'UK GDPR, PECR, and CAP Code (ASA) requirements' : 'CCPA requirements'}
 - Industry-specific regulations (${industry})
 - Accessibility (WCAG) considerations
 
@@ -473,7 +502,12 @@ List any claims that require evidence, disclaimers, or qualification.
 Flag any competitor references that could create legal exposure.
 
 ## CLEAN VERSION
-Provide a fully corrected version of the content with all issues resolved.`;
+Provide a fully corrected version of the content with all issues resolved.
+
+Your response MUST END with exactly this machine-checkable block (fill in the values):
+## VERDICT
+STATUS: APPROVED | NEEDS CHANGES
+Critical issues: N | Warnings: N | Suggestions: N`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
@@ -491,6 +525,7 @@ Provide a fully corrected version of the content with all issues resolved.`;
                     systemPrompt: SYSTEM_PROMPT,
                     messages: [{ role: 'user', content: userPrompt }],
                     model: 'claude-opus-4-7',
+                    maxTokens: 8192,
                     onChunk: (chunk, accumulated) => {
                         fullText = accumulated;
                         outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
