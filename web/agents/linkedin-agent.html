@@ -323,17 +323,53 @@
         if (triedBefore) objectionLines.push(`- What they've tried before (and why it fell short): ${triedBefore}`);
         const objectionContext = objectionLines.length ? `\n\nOBJECTION-HANDLING AMMUNITION (use to preempt pushback and make messages land):\n${objectionLines.join('\n')}` : '';
 
-        const userPrompt = `TASK: ${task}
-TARGET PERSONA: ${persona || 'Not specified'}
-VALUE PROPOSITION: ${valueProp || 'Not specified'}
-PERSONALIZATION CONTEXT: ${context || 'No specific context provided — create templates with [PERSONALIZATION] placeholders'}
-TONE: ${tone}
-NUMBER OF VARIANTS: ${variants}
-${brandContext}
+        // Task-specific required output (branch on the actual Task select value)
+        let requiredOutput;
+        if (task === 'Profile Optimization') {
+            requiredOutput = `## HEADLINE VARIANTS (${variants} variants)
+For each variant:
+**Variant [N] — [positioning angle]**
+> [The headline — 220 characters max]
+Why this works: [who it attracts and the psychological approach]
 
-Please generate:
+## ABOUT SECTION REWRITE
+Full rewritten About section. The first 3 lines must hook before the "see more" fold. Speak directly to ${persona || 'the target audience'}.
 
-## CONNECTION REQUEST MESSAGES (${variants} variants)
+## EXPERIENCE BULLETS
+Rewritten, outcome-focused bullets for the current role (metrics and results, not responsibilities).
+
+## KEYWORD OPTIMIZATION
+Keywords to weave into headline, About, skills, and experience so ${persona || 'the target persona'} finds this profile in LinkedIn search — with where to place each.`;
+        } else if (task === 'Content Strategy') {
+            requiredOutput = `## 30-DAY LINKEDIN POST PLAN
+A 30-day posting calendar (grouped by week) targeting ${persona || 'the target audience'}. For each post: day, content pillar, hook (the exact first line), format (text / carousel / poll / video), and CTA.
+
+## HOOK BANK
+10 scroll-stopping opening lines tailored to this audience, mapped to the content pillars above.
+
+## CADENCE & ENGAGEMENT PLAN
+Posting cadence and best times, plus a daily 15-minute engagement routine (comments, DMs, connection touches) that compounds the content.`;
+        } else if (task === 'Event Follow-up') {
+            requiredOutput = `## 3-TOUCH POST-EVENT SEQUENCE
+**Touch 1 (within 24 hours) — Warm Reconnect** (${variants} variants)
+> [Message referencing the specific event moment / session / conversation — soft CTA]
+Why this works: [1-sentence explanation]
+
+**Touch 2 (Day 3-4) — Value Add**
+> [Follow-up sharing a resource, insight, or intro tied to something from the event]
+
+**Touch 3 (Day 8-10) — Graceful Close**
+> [Short check-in proposing a concrete next step, leaving the door open without being pushy]
+
+## PERSONALIZATION RESEARCH GUIDE
+Post-event signals to capture before sending:
+- [ ] [Session they attended or spoke at]
+- [ ] [What they said or asked]
+- [ ] [Who they were with / mutual contacts made]
+- [ ] [Content they posted about the event]`;
+        } else {
+            // Messaging tasks: Connection Request Message, InMail Sequence (3-message), Account-Based Outreach
+            requiredOutput = `## CONNECTION REQUEST MESSAGES (${variants} variants)
 For each variant:
 **Variant [N] — [angle/hook name]**
 > [The actual message — 300 characters max for connection request]
@@ -364,7 +400,20 @@ For your own profile to maximize acceptance rates:
 - [ ] Banner image: [recommendation]
 - [ ] About section: [what to lead with]
 - [ ] Featured section: [what to pin]
-- [ ] Activity: [posting cadence and topics]
+- [ ] Activity: [posting cadence and topics]`;
+        }
+
+        const userPrompt = `TASK: ${task}
+TARGET PERSONA: ${persona || 'Not specified'}
+VALUE PROPOSITION: ${valueProp || 'Not specified'}
+PERSONALIZATION CONTEXT: ${context || 'No specific context provided — create templates with [PERSONALIZATION] placeholders'}
+TONE: ${tone}
+NUMBER OF VARIANTS: ${variants}
+${brandContext}${competitiveContext}${objectionContext}
+
+Please generate:
+
+${requiredOutput}
 
 ## WHAT TO AVOID
 3 specific mistakes that tank response rates for this persona and how to sidestep them.`;

@@ -324,7 +324,10 @@
     const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        // Only light the badge when BusinessBrain actually has usable data, not merely when the script loaded
+        if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+            document.getElementById('intelBadge').classList.add('active');
+        }
     })();
 
     // Intelligence Layer Context Builders
@@ -334,7 +337,11 @@
         if (!data || !data.icp) return '';
 
         let context = '\n\n**ICP COMPETITIVE CONTEXT:**\n';
-        context += `Our Target Persona: ${data.icp.persona || 'Not defined'}\n`;
+        const buyer = data.icp.primaryBuyer || {};
+        let persona = buyer.role || 'Not defined';
+        if (buyer.companySize) persona += ` at ${buyer.companySize} companies`;
+        if (buyer.industry) persona += ` in ${buyer.industry}`;
+        context += `Our Target Persona: ${persona}\n`;
         if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
             context += `Their Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
         }
@@ -347,9 +354,6 @@
             });
             context += `→ Generate keywords that match how our ICP searches.\n`;
         }
-        if (data.icp.firmographics) {
-            context += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
-        }
         context += `→ Identify which competitors best address these pain points.\n`;
         context += `→ Find positioning gaps where our ICP is underserved.\n`;
         return context;
@@ -358,10 +362,15 @@
     function buildValuePropDifferentiation() {
         if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.product || !data.product.valueProps) return '';
+        if (!data || !data.positioning) return '';
+
+        const props = [];
+        if (data.positioning.uniqueValue && data.positioning.uniqueValue.trim()) props.push(data.positioning.uniqueValue.trim());
+        (data.positioning.differentiation || []).forEach(d => { if (d && d.trim()) props.push(d.trim()); });
+        if (props.length === 0) return '';
 
         let context = '\n\n**VALUE PROP DIFFERENTIATION:**\n';
-        data.product.valueProps.forEach((vp, i) => {
+        props.forEach((vp, i) => {
             context += `${i + 1}. ${vp}\n`;
         });
         context += `→ Compare these value props against competitor claims.\n`;
@@ -375,18 +384,13 @@
         const competitors = window.IntelligenceEngine.radar.getAll();
         if (!competitors || competitors.length === 0) return '';
 
+        // Use the radar's own summary (positioning, key messages, exploitable gaps,
+        // ideas to borrow) instead of reading fields that don't exist on the schema.
+        const summary = window.IntelligenceEngine.radar.getSummaryForClaude();
+        if (!summary || !summary.trim()) return '';
+
         let context = '\n\n**COMPETITORS ALREADY TRACKED IN RADAR:**\n';
-        competitors.forEach(comp => {
-            context += `- ${comp.name}`;
-            if (comp.website) context += ` (${comp.website})`;
-            context += `\n`;
-            if (comp.strengths && comp.strengths.length > 0) {
-                context += `  Strengths: ${comp.strengths.join(', ')}\n`;
-            }
-            if (comp.weaknesses && comp.weaknesses.length > 0) {
-                context += `  Weaknesses: ${comp.weaknesses.join(', ')}\n`;
-            }
-        });
+        context += summary + '\n';
         context += `→ Use this existing intelligence to enhance your analysis.\n`;
         context += `→ Identify SEO keyword gaps where they're strong and we're weak.\n`;
         return context;
@@ -395,16 +399,19 @@
     function buildProductGapContext() {
         if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.product) return '';
+        if (!data) return '';
+
+        const description = (data.company && data.company.description || '').trim();
+        const uniqueValue = (data.positioning && data.positioning.uniqueValue || '').trim();
+        const diffs = ((data.positioning && data.positioning.differentiation) || []).filter(d => d && d.trim());
+        if (!description && !uniqueValue && diffs.length === 0) return '';
 
         let context = '\n\n**OUR PRODUCT POSITIONING:**\n';
-        if (data.product.name) context += `Product: ${data.product.name}\n`;
-        if (data.product.category) context += `Category: ${data.product.category}\n`;
-        if (data.product.features && data.product.features.length > 0) {
-            context += `Key Features: ${data.product.features.join(', ')}\n`;
-        }
-        context += `→ Compare our feature set against competitors for product gap analysis.\n`;
-        context += `→ Suggest content keywords for features we have that competitors lack.\n`;
+        if (description) context += `What we do: ${description}\n`;
+        if (uniqueValue) context += `Unique Value: ${uniqueValue}\n`;
+        if (diffs.length > 0) context += `Key Differentiators: ${diffs.join(', ')}\n`;
+        context += `→ Compare our positioning against competitors for product gap analysis.\n`;
+        context += `→ Suggest content keywords for strengths we have that competitors lack.\n`;
         return context;
     }
 
@@ -545,20 +552,26 @@
             }
         }
 
-        // Auto-populate company brief from Business Brain
+        // Auto-populate company brief from Business Brain (real raw-schema string fields only)
         if (window.IntelligenceEngine.brain) {
             const data = window.IntelligenceEngine.brain.load();
             if (data) {
                 const el = document.getElementById('yourBrief');
                 if (el && !el.value.trim()) {
                     const parts = [];
-                    if (data.company && data.company.name) parts.push(data.company.name);
-                    if (data.product && data.product.name) parts.push(data.product.name);
-                    if (data.positioning) parts.push(data.positioning);
-                    if (data.icp && data.icp.persona) parts.push('Target: ' + data.icp.persona);
+                    const name = (data.company && data.company.name || '').trim();
+                    const description = (data.company && data.company.description || '').trim();
+                    if (name && description) parts.push(`${name} — ${description}`);
+                    else if (name) parts.push(name);
+                    else if (description) parts.push(description);
+                    const uniqueValue = (data.positioning && data.positioning.uniqueValue || '').trim();
+                    if (uniqueValue) parts.push(uniqueValue);
+                    const role = (data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role || '').trim();
+                    if (role) parts.push('Target: ' + role);
                     if (parts.length > 0) {
-                        el.value = '✨ ' + parts.join(' — ') + ' (from BusinessBrain)';
+                        el.value = parts.join(' — ');
                         el.style.color = '#14b8a6';
+                        el.title = 'Auto-populated from BusinessBrain';
                     }
                 }
             }
@@ -669,6 +682,8 @@ For each competitor:
 - **Question Keywords** (People Also Ask opportunities related to their content)
 - **ICP Search Language Match** keywords that match our ICP's search patterns (if ICP provided above)
 
+Label every volume/score figure '(est.)' unless it came from the provided DataForSEO metrics.
+
 ## SEARCH INTENT ANALYSIS
 For key competitive keywords:
 - Awareness stage keywords (informational intent)
@@ -700,37 +715,65 @@ For each competitor, sales-ready format:
         const outputBody = document.getElementById('outputBody');
 
         try {
-            const aiService = window.PerplexityService || window.ClaudeService;
-            if (aiService) {
-                let fullText = '';
-                await aiService.streamResponse({
-                    systemPrompt: SYSTEM_PROMPT,
-                    messages: [{ role: 'user', content: userPrompt }],
-                    onChunk: (chunk, accumulated) => {
-                        fullText = accumulated;
-                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
-                    },
-                    onCitations: (citations) => {
-                        if (citations && citations.length) {
-                            const citList = citations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
-                            const existing = outputBody.querySelector('.citations-block');
-                            if (existing) existing.remove();
-                            const el = document.createElement('div');
-                            el.className = 'citations-block';
-                            el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
-                            outputBody.appendChild(el);
-                        }
-                    },
-                    onDone: (text) => {
-                        const citBlock = outputBody.querySelector('.citations-block');
-                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
-                        if (citBlock) outputBody.appendChild(citBlock);
-                        if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'competitive', taskType: task || 'Competitive Analysis', content: text, topic: competitors || '' });
-                    },
-                    onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
-                    }
+            const primary = window.PerplexityService || window.ClaudeService;
+            if (primary) {
+                let storedCitations = null; // citations survive streaming re-renders; appended once in the final render
+
+                // One streaming attempt against a service. Guarantees the caller sees a
+                // single outcome: onError can no longer be wiped by the trailing
+                // onDone('') the service layer emits after a failed stream.
+                const attempt = (service, sysPrompt) => new Promise((resolve) => {
+                    let settled = false;
+                    let hadError = false;
+                    let chunksReceived = false;
+                    const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+                    Promise.resolve(service.streamResponse({
+                        systemPrompt: sysPrompt,
+                        messages: [{ role: 'user', content: userPrompt }],
+                        onChunk: (chunk, accumulated) => {
+                            chunksReceived = true;
+                            if (settled) return;
+                            outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated) + '<span class="streaming-cursor"></span>';
+                        },
+                        onCitations: (citations) => {
+                            if (citations && citations.length) storedCitations = citations;
+                        },
+                        onDone: (text) => { if (!hadError) settle({ ok: true, text: text || '' }); },
+                        onError: (err) => { hadError = true; settle({ ok: false, err, chunksReceived }); }
+                    })).catch((err) => settle({ ok: false, err, chunksReceived }));
                 });
+
+                let outcome = await attempt(primary, SYSTEM_PROMPT);
+
+                // Claude fallback when Perplexity failed before any chunk arrived, or returned empty
+                if (primary === window.PerplexityService && window.ClaudeService &&
+                    ((!outcome.ok && !outcome.chunksReceived) || (outcome.ok && !outcome.text.trim()))) {
+                    console.warn('[SCOUT] Perplexity unavailable — retrying via Claude without live web search.', outcome.err && outcome.err.message);
+                    const notice = document.createElement('div');
+                    notice.style.cssText = 'margin-bottom:12px;padding:10px 14px;border:1px solid rgba(245,158,11,0.30);background:rgba(245,158,11,0.08);border-radius:8px;color:#fbbf24;font-size:12.5px;';
+                    notice.textContent = 'Live web research unavailable (Perplexity API error) — showing AI analysis without live data.';
+                    outputBody.parentNode.insertBefore(notice, outputBody);
+                    outputBody.innerHTML = '<span class="streaming-cursor"></span>';
+                    storedCitations = null;
+                    outcome = await attempt(window.ClaudeService,
+                        'NOTE: Live web search is unavailable — answer from general knowledge, clearly flagging anything that may be outdated and labeling all figures as estimates.\n\n' + SYSTEM_PROMPT);
+                }
+
+                if (!outcome.ok) {
+                    outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${(outcome.err && outcome.err.message) || 'AI request failed'}</div>`;
+                } else if (!outcome.text.trim()) {
+                    outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The AI service returned no content — check PERPLEXITY_API_KEY / ANTHROPIC_API_KEY server configuration.</div>';
+                } else {
+                    outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(outcome.text) : outcome.text;
+                    if (storedCitations && storedCitations.length) {
+                        const citList = storedCitations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
+                        const el = document.createElement('div');
+                        el.className = 'citations-block';
+                        el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
+                        outputBody.appendChild(el);
+                    }
+                    if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'competitive', taskType: task || 'Competitive Analysis', content: outcome.text, topic: competitors || '' });
+                }
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
             }
