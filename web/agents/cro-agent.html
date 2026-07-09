@@ -11,6 +11,8 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #ef4444;
+            --agent-color-rgb: 239,68,68;
             --bg: #070711;
             --bg2: #0d0d1a;
             --bg3: #12121f;
@@ -22,7 +24,7 @@
             --text: #f1f5f9;
             --text2: rgba(255,255,255,0.6);
             --text3: rgba(255,255,255,0.3);
-            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --gradient: linear-gradient(135deg, #ef4444, #ec4899);
             --card-bg: rgba(255,255,255,0.03);
         }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
@@ -47,7 +49,7 @@
         /* HERO */
         .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
         .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(236,72,153,0.12) 0%, transparent 70%); pointer-events: none; }
-        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-emoji { display: none; }
         .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 17px; color: var(--text2); max-width: 520px; margin: 0 auto 20px; line-height: 1.5; }
         .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
@@ -74,7 +76,7 @@
         .field-group { margin-bottom: 14px; }
         .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s, background 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(239,68,68,0.05); }
         .field-textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
         .field-select option { background: #1a1a2e; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -130,7 +132,7 @@
             <span>Audema</span>
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">CRO Lab</span>
+        <span class="nav-breadcrumb"><span style="color:#ef4444;font-weight:700;letter-spacing:1px;">LIFT</span> · CRO Lab</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Agent Hub</a>
@@ -139,7 +141,7 @@
     </div>
 </nav>
 
-<section class="hero">
+<section class="hero" data-agent="lift">
     <span class="hero-emoji">📈</span>
     <h1 class="hero-title">CRO Lab</h1>
     <p class="hero-tagline">Conversion optimization, VWO-style testing frameworks, and landing page analysis that actually moves the needle</p>
@@ -166,15 +168,21 @@
                 <select class="field-select" id="task">
                     <option value="Landing Page Analysis">Landing Page Analysis</option>
                     <option value="A/B Test Design">A/B Test Design</option>
+                    <option value="Multivariate Test (MVT) Design">Multivariate Test (MVT) Design</option>
                     <option value="CTA Optimization">CTA Optimization</option>
                     <option value="Form Optimization">Form Optimization</option>
-                    <option value="Pricing Page">Pricing Page</option>
-                    <option value="Checkout Flow">Checkout Flow</option>
+                    <option value="Pricing Page Optimization">Pricing Page Optimization</option>
+                    <option value="Checkout Flow Analysis">Checkout Flow Analysis</option>
+                    <option value="Personalization Strategy">Personalization Strategy</option>
+                    <option value="Exit Intent Optimization">Exit Intent Optimization</option>
+                    <option value="Mobile Conversion Audit">Mobile Conversion Audit</option>
+                    <option value="Funnel Drop-off Analysis">Funnel Drop-off Analysis</option>
+                    <option value="Homepage Hero Optimization">Homepage Hero Optimization</option>
                 </select>
             </div>
             <div class="field-group">
                 <label class="field-label">URL or Page Description</label>
-                <textarea class="field-textarea" data-scotty-intake="primary" id="pageDesc" placeholder="Paste your landing page URL or describe your page in detail: layout, copy, CTAs, form fields, value props, social proof, etc."></textarea>
+                <textarea class="field-textarea" data-scotty-intake="primary" id="pageDesc" placeholder="Describe your page (or paste URL + a description) — headline, offer, layout, CTA, form fields, value props, social proof, etc."></textarea>
             </div>
             <div class="form-row">
                 <div class="field-group">
@@ -189,6 +197,39 @@
             <div class="field-group">
                 <label class="field-label">Hypothesis (optional)</label>
                 <input class="field-input" id="hypothesis" type="text" placeholder="e.g. Adding testimonials above the fold will increase trust">
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Test Type</label>
+                    <select class="field-select" id="testType">
+                        <option value="A/B Test">A/B Test</option>
+                        <option value="Multivariate">Multivariate</option>
+                        <option value="Split URL">Split URL</option>
+                        <option value="Personalization">Personalization</option>
+                        <option value="Sequential">Sequential</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Device Focus</label>
+                    <select class="field-select" id="deviceFocus">
+                        <option value="Both">Both</option>
+                        <option value="Desktop Priority">Desktop Priority</option>
+                        <option value="Mobile Priority">Mobile Priority</option>
+                        <option value="Mobile Only">Mobile Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Page Type</label>
+                <select class="field-select" id="pageType">
+                    <option value="Landing Page">Landing Page</option>
+                    <option value="Homepage">Homepage</option>
+                    <option value="Pricing">Pricing</option>
+                    <option value="Checkout">Checkout</option>
+                    <option value="Product">Product</option>
+                    <option value="Blog">Blog</option>
+                    <option value="App">App</option>
+                </select>
             </div>
             <button class="btn-run" id="runBtn" onclick="runOptimize()">
                 <span id="btnIcon">📈</span>
@@ -215,36 +256,150 @@
     <div class="features-grid">
         <div class="feature-card">
             <div class="feature-icon">🔬</div>
-            <div class="feature-name">Hypothesis-Driven Testing</div>
-            <div class="feature-desc">Every recommendation comes with a testable hypothesis, success metric, and expected lift estimate.</div>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🔍</div>
-            <div class="feature-name">Element-by-Element Analysis</div>
-            <div class="feature-desc">Headline, subheader, CTA, form, social proof, pricing — each reviewed with specific change recommendations.</div>
+            <div class="feature-name">ICE-Scored Test Backlog</div>
+            <div class="feature-desc">Every test idea ranked by Impact × Confidence × Ease. Always know which test to run next.</div>
         </div>
         <div class="feature-card">
             <div class="feature-icon">📊</div>
-            <div class="feature-name">Statistical Significance Guidance</div>
-            <div class="feature-desc">Sample size calculations, minimum detectable effect, and runtime estimates for each test.</div>
+            <div class="feature-name">Statistical Significance</div>
+            <div class="feature-desc">Real z-test calculator with sample size estimates, p-values, and MDE — not guesswork.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">💰</div>
+            <div class="feature-name">Revenue Impact Modeler</div>
+            <div class="feature-desc">See what a 15% CR lift actually means in monthly revenue before investing dev time.</div>
         </div>
         <div class="feature-card">
             <div class="feature-icon">🧠</div>
-            <div class="feature-name">Psychological Trigger Audit</div>
-            <div class="feature-desc">Identify which persuasion principles (scarcity, social proof, authority) are missing or underutilized.</div>
+            <div class="feature-name">7 Cialdini Trigger Audit</div>
+            <div class="feature-desc">Full psychological trigger audit — scarcity, authority, social proof, and 4 more, all checked against your page.</div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- CRO CALCULATORS -->
+<div style="max-width:1100px;margin:0 auto;padding:0 32px 80px;">
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Conversion Tools</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+
+        <!-- STAT SIG CALCULATOR -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Statistical Significance Calculator</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:20px;">Two-proportion z-test · 95% confidence level</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Control CR (%)</label>
+                    <input type="number" id="calcControl" value="3.5" step="0.1" min="0.1" max="99" oninput="calcStatSig()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Variant CR (%)</label>
+                    <input type="number" id="calcVariant" value="4.2" step="0.1" min="0.1" max="99" oninput="calcStatSig()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Visitors per Variant</label>
+                    <input type="number" id="calcVisitors" value="2000" step="100" min="100" oninput="calcStatSig()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Min Detectable Effect (%)</label>
+                    <input type="number" id="calcMDE" value="10" step="1" min="1" max="100" oninput="calcStatSig()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+            </div>
+
+            <div id="statSigResult" style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;">
+                <div id="sigVerdict" style="font-size:16px;font-weight:800;margin-bottom:10px;"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" id="sigStats"></div>
+                <div id="sampleSizeRec" style="margin-top:12px;font-size:12px;color:rgba(255,255,255,0.5);border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- ICE SCORING MATRIX -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div style="font-size:15px;font-weight:700;">ICE Scoring Matrix</div>
+                <button onclick="addIceRow()" style="padding:5px 12px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:7px;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">+ Add Test</button>
+            </div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:16px;">Impact × Confidence × Ease · prioritizes your test backlog</div>
+
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;" id="iceTable">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:7px 8px;color:rgba(255,255,255,0.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">Test Idea</th>
+                            <th style="text-align:center;padding:7px 4px;color:rgba(255,255,255,0.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">Impact</th>
+                            <th style="text-align:center;padding:7px 4px;color:rgba(255,255,255,0.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">Conf.</th>
+                            <th style="text-align:center;padding:7px 4px;color:rgba(255,255,255,0.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">Ease</th>
+                            <th style="text-align:center;padding:7px 4px;color:rgba(255,255,255,0.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">ICE</th>
+                            <th style="padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="iceBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVENUE IMPACT MODELER -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Revenue Impact Modeler</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:20px;">See what a conversion rate lift means in actual revenue before you invest dev time</div>
+
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;">
+            <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Monthly Visitors</label>
+                <input type="number" id="revVisitors" value="10000" step="1000" oninput="calcRevenue()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Current CR (%)</label>
+                <input type="number" id="revCR" value="2.5" step="0.1" oninput="calcRevenue()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Avg Order Value ($)</label>
+                <input type="number" id="revAOV" value="150" step="10" oninput="calcRevenue()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Target Lift (%)</label>
+                <input type="number" id="revLift" value="20" step="1" oninput="calcRevenue()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">LTV Multiplier</label>
+                <input type="number" id="revLTV" value="3" step="0.5" min="1" oninput="calcRevenue()" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;" id="revResults">
+            <!-- Filled by calcRevenue() -->
+        </div>
+    </div>
+</div>
+
+<script src="../js/marked.min.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a CRO expert who has optimized hundreds of landing pages and increased conversion rates by 200%+ on average. You specialize in hypothesis-driven testing, conversion psychology, and statistical analysis. Analyze the provided page/context and give: specific element changes with expected impact, A/B test design with hypothesis and success metrics, prioritized list by effort/impact, psychological principles being leveraged, and statistical significance guidance. When ICP context is provided, tailor all recommendations to that specific audience's pain points, objections, and buying journey. Be specific — not generic advice. Name actual words to change, specific elements to move or remove, and exact copy suggestions.`;
+    const SYSTEM_PROMPT = `You are a senior CRO strategist who has run 5,000+ A/B tests across SaaS, e-commerce, and B2B landing pages, consistently delivering 15-40% conversion lifts. You think like VWO and Optimizely's top consultants: every recommendation has a testable hypothesis, expected lift range, and minimum detectable effect.
+
+Your analysis framework:
+1. QUICK WINS — 5+ changes under 2 hours of dev work that can go live this week
+2. ELEMENT-BY-ELEMENT AUDIT — Headline, subheadline, hero visual, primary CTA, secondary CTA, form fields, value prop, social proof (testimonials/logos/reviews), pricing display, trust signals, FAQ, footer
+3. ICE-SCORED TEST BACKLOG — Top 5 tests ranked by Impact (1-10) × Confidence (1-10) × Ease (1-10), each with: hypothesis, control vs. variant, success metric, estimated lift, MDE %, sample size estimate at current traffic
+4. PSYCHOLOGICAL TRIGGER AUDIT — For each of the 7 Cialdini principles (reciprocity, commitment, social proof, authority, liking, scarcity, unity): is it present, missing, or being misused?
+5. MOBILE vs. DESKTOP SPLIT — separate recommendations for mobile and desktop behavior differences
+6. PERSONALIZATION OPPORTUNITIES — 3 audience segments and what should change for each
+7. BENCHMARKS — industry conversion rate benchmarks for this page type, how they compare, realistic target
+
+Be radically specific: name actual words to change, give exact alternative copy, specify element dimensions, cite psychological research when relevant. Never give generic advice.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        try {
+            if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+                document.getElementById('intelBadge').classList.add('active');
+            }
+        } catch (e) { /* badge stays hidden if intelligence layer unavailable */ }
     })();
 
     // Intelligence Layer Builders
@@ -254,10 +409,16 @@
         if (!data?.icp) return '';
 
         let context = '\n\n**ICP CONTEXT FOR CRO:**\n';
-        context += `Target Persona: ${data.icp.persona}\n`;
+        const role = data.icp?.primaryBuyer?.role || '';
+        const companySize = data.icp?.primaryBuyer?.companySize || '';
+        if (role) {
+            context += `Target Persona: ${role}`;
+            if (companySize) context += ` at ${companySize} companies`;
+            context += '\n';
+        }
 
-        if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
-            const painPoints = data.icp.painPoints.filter(p => p);
+        const painPoints = (data.icp?.painPoints || []).filter(p => p && p.trim());
+        if (painPoints.length > 0) {
             context += `\n**Pain Points (address on landing page):**\n`;
             painPoints.forEach((pain, i) => {
                 context += `${i + 1}. "${pain}"\n`;
@@ -265,24 +426,25 @@
             context += `→ CRO Recommendation: Headline should address #1 pain point. Social proof should show how you solve these pains.\n`;
         }
 
-        if (data.icp.objections && data.icp.objections.length > 0) {
-            context += `\n**Common Objections (overcome with trust signals):**\n`;
-            data.icp.objections.forEach((obj, i) => {
-                context += `${i + 1}. "${obj}"\n`;
-            });
-            context += `→ CRO Recommendation: Add FAQ section, risk-reversal guarantees, or testimonials that address these objections.\n`;
+        const biggestFear = data.icp?.biggestFear || '';
+        if (biggestFear) {
+            context += `\n**Biggest Fear / Objection:**\n`;
+            context += `"${biggestFear}"\n`;
+            context += `→ CRO Recommendation: Add trust signals, risk-reversal guarantees, or testimonials that address this fear.\n`;
         }
 
-        if (data.icp.demographics) {
-            context += `\nDemographics: ${data.icp.demographics}\n`;
-            context += `→ CRO Recommendation: Adjust imagery, language complexity, and examples to match this demographic.\n`;
+        const reasonChose = data.icp?.reasonChose || '';
+        if (reasonChose) {
+            context += `\n**Why They Choose Us:** ${reasonChose}\n`;
+            context += `→ CRO Recommendation: Lead with this reason — it's your proven conversion message.\n`;
         }
 
-        if (data.icp.buyerJourney) {
-            context += `\n**Buyer Journey Stage:**\n`;
-            context += `Awareness: "${data.icp.buyerJourney.awareness}"\n`;
-            context += `Consideration: "${data.icp.buyerJourney.consideration}"\n`;
-            context += `Decision: "${data.icp.buyerJourney.decision}"\n`;
+        const journey = data.icp?.buyerJourney || {};
+        if (journey.aware || journey.consider || journey.decide) {
+            context += `\n**Buyer Journey:**\n`;
+            if (journey.aware)    context += `Awareness: "${journey.aware}"\n`;
+            if (journey.consider) context += `Consideration: "${journey.consider}"\n`;
+            if (journey.decide)   context += `Decision: "${journey.decide}"\n`;
             context += `→ CRO Recommendation: Match page messaging to buyer journey stage. Early stage = education, late stage = risk reduction.\n`;
         }
 
@@ -292,37 +454,44 @@
     function buildValuePropCRO() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.product?.valueProps || data.product.valueProps.length === 0) return '';
+        if (!data?.positioning) return '';
+
+        const uniqueValue = data.positioning?.uniqueValue || '';
+        const differentiation = (data.positioning?.differentiation || []).filter(d => d && d.trim());
+        if (!uniqueValue && differentiation.length === 0) return '';
 
         let context = '\n\n**VALUE PROPOSITIONS (must appear prominently):**\n';
-        data.product.valueProps.forEach((vp, i) => {
-            context += `${i + 1}. ${vp}\n`;
+        if (uniqueValue) context += `Primary: ${uniqueValue}\n`;
+        differentiation.forEach((d, i) => {
+            context += `${i + 1}. ${d}\n`;
         });
-        context += `→ CRO Recommendation: Hero section should communicate #1 value prop. Benefits section should expand on all value props with proof points.\n`;
+        context += `→ CRO Recommendation: Hero section should communicate the primary value prop. Benefits section should expand with proof points.\n`;
         return context;
     }
 
     function buildCompetitivePositioningCRO() {
         if (!window.IntelligenceEngine?.radar) return '';
-        const data = window.IntelligenceEngine.radar.load();
-        if (!data?.competitors || data.competitors.length === 0) return '';
+        const competitors = window.IntelligenceEngine.radar.getAll ? window.IntelligenceEngine.radar.getAll() : [];
+        if (!competitors.length) return '';
 
         let context = '\n\n**COMPETITIVE POSITIONING FOR CRO:**\n';
 
-        // Find competitive gaps/weaknesses
-        const competitorWeaknesses = [];
-        data.competitors.forEach(comp => {
-            if (comp.weaknesses && comp.weaknesses.length > 0) {
-                competitorWeaknesses.push(...comp.weaknesses);
+        const opportunities = [];
+        competitors.forEach(comp => {
+            if (comp.gaps && comp.gaps.length > 0) {
+                comp.gaps.forEach(g => {
+                    const opp = g.opportunity || g.gap || '';
+                    if (opp) opportunities.push(opp);
+                });
             }
         });
 
-        if (competitorWeaknesses.length > 0) {
-            context += `**Competitor Weaknesses (highlight our strengths here):**\n`;
-            [...new Set(competitorWeaknesses)].slice(0, 5).forEach((weakness, i) => {
-                context += `${i + 1}. ${weakness}\n`;
+        if (opportunities.length > 0) {
+            context += `**Competitive Gaps We Can Win (highlight our strengths here):**\n`;
+            [...new Set(opportunities)].slice(0, 5).forEach((opp, i) => {
+                context += `${i + 1}. ${opp}\n`;
             });
-            context += `→ CRO Recommendation: Add comparison section or "Why Choose Us" that directly addresses competitor weaknesses.\n`;
+            context += `→ CRO Recommendation: Add comparison section or "Why Choose Us" that directly addresses these competitive gaps.\n`;
         }
 
         return context;
@@ -331,24 +500,29 @@
     function buildBrandVoiceCRO() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.voice) return '';
+        const voiceAndTone = (data?.positioning?.voiceAndTone || []).filter(v => v && v.trim());
+        if (voiceAndTone.length === 0) return '';
 
+        const voiceStr = voiceAndTone.join(', ').toLowerCase();
         let context = '\n\n**BRAND VOICE FOR CRO COPY:**\n';
-        context += `Tone: ${data.brand.voice}\n`;
+        context += `Tone: ${voiceAndTone.join(', ')}\n`;
 
-        if (data.brand.voice.toLowerCase().includes('professional')) {
+        if (voiceStr.includes('professional') || voiceStr.includes('formal')) {
             context += `→ CRO Recommendation: Use formal language, industry terms, data-driven proof points. Avoid slang.\n`;
-        } else if (data.brand.voice.toLowerCase().includes('casual')) {
+        } else if (voiceStr.includes('casual') || voiceStr.includes('conversational')) {
             context += `→ CRO Recommendation: Use conversational language, contractions, relatable examples. Friendly CTAs like "Let's do this!"\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('humor')) {
+        if (voiceStr.includes('humor') || voiceStr.includes('wit')) {
             context += `→ CRO Recommendation: Add witty microcopy, playful CTAs, light humor in error messages.\n`;
         }
 
-        if (data.brand.voice.toLowerCase().includes('empowering')) {
+        if (voiceStr.includes('empower') || voiceStr.includes('bold')) {
             context += `→ CRO Recommendation: Use action-oriented language, success stories, "you can do this" messaging.\n`;
         }
+
+        const neverSay = data?.positioning?.thingsWeNeverSay || '';
+        if (neverSay) context += `\nAvoid language like: "${neverSay}"\n`;
 
         return context;
     }
@@ -356,7 +530,7 @@
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return (bundle?.completionScore || 0) / 100;
     }
 
     async function runOptimize() {
@@ -382,6 +556,13 @@
             }
         }
 
+        // Honesty guard: a bare URL cannot be fetched by this agent, so tell the
+        // model not to invent page elements it never saw.
+        const isUrlOnly = /^https?:\/\/\S+$/.test(pageDesc);
+        const urlHonestyNote = isUrlOnly
+            ? '\n\nNOTE: The page could not be fetched — base the audit ONLY on the description provided and say so explicitly; do NOT invent specific page elements.'
+            : '';
+
         // Build Intelligence Layer Context
         const icpContext = buildICPConversionContext();
         const valuePropContext = buildValuePropCRO();
@@ -389,9 +570,12 @@
         const brandVoiceContext = buildBrandVoiceCRO();
 
         const userPrompt = `TASK: ${task}
+TEST TYPE: ${document.getElementById('testType')?.value || 'A/B Test'}
+DEVICE FOCUS: ${document.getElementById('deviceFocus')?.value || 'Both'}
+PAGE TYPE: ${document.getElementById('pageType')?.value || 'Landing Page'}
 
 PAGE / URL:
-${pageDesc}
+${pageDesc}${urlHonestyNote}
 
 ${convRate ? `CURRENT CONVERSION RATE: ${convRate}` : ''}
 ${trafficSource ? `TRAFFIC SOURCE: ${trafficSource}` : ''}
@@ -401,15 +585,7 @@ ${valuePropContext}
 ${competitiveContext}
 ${brandVoiceContext}
 
-Please provide:
-1. QUICK WINS (implement this week, low effort/high impact) — at least 5 specific changes
-2. ELEMENT ANALYSIS — review each major element: headline, subheadline, hero image/video, CTA button(s), form fields, value proposition, social proof, pricing, trust signals
-3. A/B TEST DESIGN — top 3 tests to run with: hypothesis, control vs variant, success metric, sample size estimate, expected lift
-4. PSYCHOLOGICAL TRIGGERS — which are present, missing, or underutilized (FOMO, social proof, authority, reciprocity, scarcity)
-5. PRIORITIZATION MATRIX — rank all recommendations by effort (Low/Med/High) x impact (Low/Med/High)
-6. BENCHMARKS — how does this compare to industry averages for this page type?
-
-Be specific — name actual words to change, specific elements to move or remove, and exact copy suggestions.`;
+Deliver a complete CRO analysis following the 7-section framework in your system prompt. Make every recommendation immediately actionable — name the exact element, the exact copy change, and the exact test to run.`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
@@ -432,6 +608,7 @@ Be specific — name actual words to change, specific elements to move or remove
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                        if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'cro', taskType: task || 'CRO Analysis', content: text, topic: pageDesc || '' });
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
@@ -451,7 +628,12 @@ Be specific — name actual words to change, specific elements to move or remove
 
     function copyOutput() {
         const body = document.getElementById('outputBody');
-        if (!body) return;
+        if (!body) {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Nothing to copy yet';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+            return;
+        }
         navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
             const btn = document.getElementById('copyBtn');
             btn.textContent = 'Copied!';
@@ -459,6 +641,154 @@ Be specific — name actual words to change, specific elements to move or remove
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         });
     }
+
+    // ── STATISTICAL SIGNIFICANCE CALCULATOR ─────────────────────────────
+    function normalCDF(z) {
+        const t = 1 / (1 + 0.2316419 * Math.abs(z));
+        const d = 0.3989423 * Math.exp(-z * z / 2);
+        const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+        return z > 0 ? 1 - p : p;
+    }
+
+    function calcStatSig() {
+        const p1 = parseFloat(document.getElementById('calcControl').value) / 100;
+        const p2 = parseFloat(document.getElementById('calcVariant').value) / 100;
+        const n  = parseInt(document.getElementById('calcVisitors').value);
+        const mde = parseFloat(document.getElementById('calcMDE').value) / 100;
+
+        if (isNaN(p1) || isNaN(p2) || isNaN(n) || n < 1) return;
+
+        const pooled = (p1 + p2) / 2;
+        const se = Math.sqrt(pooled * (1 - pooled) * (2 / n));
+        const z = se > 0 ? Math.abs(p1 - p2) / se : 0;
+        const pValue = 2 * normalCDF(-Math.abs(z));
+        const lift = ((p2 - p1) / p1 * 100).toFixed(1);
+        const significant = z >= 1.96;
+
+        // Required sample size for MDE
+        const delta = p1 * mde;
+        const z_alpha = 1.96, z_beta = 0.842;
+        const pBar = p1 + delta / 2;
+        const reqN = Math.ceil(2 * Math.pow(z_alpha + z_beta, 2) * pBar * (1 - pBar) / Math.pow(delta, 2));
+
+        const verdictEl = document.getElementById('sigVerdict');
+        verdictEl.textContent = significant
+            ? (p2 > p1 ? `✅ Statistically Significant — Variant WINS (+${lift}% lift)` : `❌ Statistically Significant — Variant LOSES (${lift}% lift)`)
+            : `⏳ Not Yet Significant — need more data`;
+        verdictEl.style.color = significant ? (p2 > p1 ? '#10b981' : '#ef4444') : '#f59e0b';
+
+        document.getElementById('sigStats').innerHTML = `
+            <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:3px;">Z-Score</div>
+                <div style="font-size:18px;font-weight:800;color:#e2e8f0;">${z.toFixed(3)}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);">need ≥ 1.96</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:3px;">p-value</div>
+                <div style="font-size:18px;font-weight:800;color:#e2e8f0;">${pValue.toFixed(4)}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);">need ≤ 0.05</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:3px;">Relative Lift</div>
+                <div style="font-size:18px;font-weight:800;color:${parseFloat(lift)>=0?'#10b981':'#ef4444'};">${parseFloat(lift) >= 0 ? '+' : ''}${lift}%</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);">vs control</div>
+            </div>`;
+
+        document.getElementById('sampleSizeRec').innerHTML = `
+            Required sample size for ${(mde * 100).toFixed(0)}% MDE at 80% power: <strong style="color:#a78bfa;">${reqN.toLocaleString()} per variant</strong> (${(reqN * 2).toLocaleString()} total)`;
+    }
+
+    // ── ICE SCORING MATRIX ───────────────────────────────────────────────
+    const ICE_KEY = 'cro_ice_tests';
+    let iceTests = JSON.parse(localStorage.getItem(ICE_KEY) || '[]');
+    if (!iceTests.length) {
+        iceTests = [
+            { id: 1, name: '[Example] Rewrite hero headline with outcome focus', impact: 8, confidence: 7, ease: 9 },
+            { id: 2, name: '[Example] Add customer logo wall above fold', impact: 7, confidence: 8, ease: 8 },
+            { id: 3, name: '[Example] Replace generic CTA with benefit-driven CTA', impact: 6, confidence: 9, ease: 10 },
+        ];
+        localStorage.setItem(ICE_KEY, JSON.stringify(iceTests));
+    }
+
+    function saveIce() { localStorage.setItem(ICE_KEY, JSON.stringify(iceTests)); }
+
+    function renderIce() {
+        const sorted = [...iceTests].sort((a,b) => (b.impact*b.confidence*b.ease) - (a.impact*a.confidence*a.ease));
+        const body = document.getElementById('iceBody');
+        body.innerHTML = sorted.map((t, rank) => {
+            const score = (t.impact * t.confidence * t.ease / 10).toFixed(0);
+            const scoreColor = score >= 50 ? '#10b981' : score >= 25 ? '#f59e0b' : '#ef4444';
+            return `<tr>
+                <td style="padding:7px 8px;font-size:12px;color:#e2e8f0;">${t.name}</td>
+                <td style="text-align:center;padding:4px;"><input type="number" min="1" max="10" value="${t.impact}" style="width:38px;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#e2e8f0;font-size:12px;padding:3px;" onchange="updateIce(${t.id},'impact',this.value)"></td>
+                <td style="text-align:center;padding:4px;"><input type="number" min="1" max="10" value="${t.confidence}" style="width:38px;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#e2e8f0;font-size:12px;padding:3px;" onchange="updateIce(${t.id},'confidence',this.value)"></td>
+                <td style="text-align:center;padding:4px;"><input type="number" min="1" max="10" value="${t.ease}" style="width:38px;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#e2e8f0;font-size:12px;padding:3px;" onchange="updateIce(${t.id},'ease',this.value)"></td>
+                <td style="text-align:center;padding:7px 4px;font-weight:800;color:${scoreColor};font-size:14px;">${score}</td>
+                <td style="padding:4px;"><button onclick="removeIce(${t.id})" style="background:none;border:none;color:rgba(255,255,255,0.25);cursor:pointer;font-size:14px;padding:2px 6px;">×</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    window.addIceRow = function() {
+        const name = prompt('Test idea name:');
+        if (!name || !name.trim()) return;
+        const id = Date.now();
+        iceTests.push({ id, name: name.trim(), impact: 5, confidence: 5, ease: 5 });
+        saveIce(); renderIce();
+    };
+    window.updateIce = function(id, field, val) {
+        const t = iceTests.find(t => t.id === id);
+        if (t) { t[field] = Math.min(10, Math.max(1, parseInt(val)||5)); saveIce(); renderIce(); }
+    };
+    window.removeIce = function(id) {
+        iceTests = iceTests.filter(t => t.id !== id); saveIce(); renderIce();
+    };
+
+    // ── REVENUE IMPACT MODELER ───────────────────────────────────────────
+    function calcRevenue() {
+        const visitors = parseFloat(document.getElementById('revVisitors').value) || 0;
+        const cr       = parseFloat(document.getElementById('revCR').value) / 100 || 0;
+        const aov      = parseFloat(document.getElementById('revAOV').value) || 0;
+        const lift     = parseFloat(document.getElementById('revLift').value) / 100 || 0;
+        const ltv      = parseFloat(document.getElementById('revLTV').value) || 1;
+
+        const currentConversions = visitors * cr;
+        const newCR = cr * (1 + lift);
+        const newConversions = visitors * newCR;
+        const extraConversions = newConversions - currentConversions;
+        const extraRevMonth = extraConversions * aov;
+        const extraRevYear  = extraRevMonth * 12;
+        const extraLTV      = extraConversions * aov * ltv;
+
+        function fmt(n) { return n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : n >= 1000 ? '$' + (n/1000).toFixed(0) + 'K' : '$' + Math.round(n); }
+
+        document.getElementById('revResults').innerHTML = `
+            <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);border-radius:12px;padding:18px;text-align:center;">
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Extra Monthly Revenue</div>
+                <div style="font-size:26px;font-weight:900;color:#a78bfa;">${fmt(extraRevMonth)}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">+${extraConversions.toFixed(0)} conversions/mo</div>
+            </div>
+            <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:18px;text-align:center;">
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Annual Revenue Impact</div>
+                <div style="font-size:26px;font-weight:900;color:#10b981;">${fmt(extraRevYear)}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">at ${(newCR*100).toFixed(2)}% new CR</div>
+            </div>
+            <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:12px;padding:18px;text-align:center;">
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">LTV Impact (${ltv}× AOV)</div>
+                <div style="font-size:26px;font-weight:900;color:#06b6d4;">${fmt(extraLTV)}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">customer lifetime value gain</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;text-align:center;">
+                <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Current Baseline</div>
+                <div style="font-size:26px;font-weight:900;color:#e2e8f0;">${fmt(visitors * cr * aov)}<span style="font-size:14px;color:rgba(255,255,255,0.3)">/mo</span></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">${(cr*100).toFixed(2)}% CR · ${currentConversions.toFixed(0)} conv/mo</div>
+            </div>`;
+    }
+
+    // ── INIT CALCULATORS ─────────────────────────────────────────────────
+    calcStatSig();
+    renderIce();
+    calcRevenue();
 </script>
 </body>
 </html>

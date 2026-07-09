@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script src="./js/marked.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -321,7 +321,7 @@
             background: rgba(255,255,255,0.04);
         }
 
-        /* ── Intelligence Warning Banner ── */
+        /* ── Intelligence Banner ── */
         .intel-warning {
             display: flex;
             align-items: center;
@@ -333,11 +333,19 @@
             color: #fbbf24;
             flex-shrink: 0;
         }
+        .intel-warning.intel-ok {
+            background: rgba(16,185,129,0.08);
+            border-bottom-color: rgba(16,185,129,0.20);
+            color: #34d399;
+        }
 
         .intel-warning a {
             color: #f59e0b;
             font-weight: 600;
             text-decoration: underline;
+        }
+        .intel-warning.intel-ok a {
+            color: #10b981;
         }
 
         .intel-warning-close {
@@ -1101,6 +1109,567 @@
         }
 
         .qs-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* ── ORCHESTRATION UI ──────────────────────────────────────────────── */
+
+        .mission-panel {
+            background: rgba(124,58,237,0.06);
+            border: 1px solid rgba(124,58,237,0.25);
+            border-radius: 16px;
+            padding: 20px 22px;
+            margin-top: 12px;
+        }
+        .mission-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .mission-icon {
+            font-size: 28px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .mission-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 4px;
+        }
+        .mission-summary {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .mission-task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .mission-task {
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+        }
+        .mission-task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .mission-task-header:hover { background: rgba(255,255,255,0.03); }
+        .task-status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .task-status-dot.running {
+            background: #f59e0b;
+            animation: pulse-dot 1s ease-in-out infinite;
+        }
+        .task-status-dot.done { background: #10b981; }
+        .task-status-dot.error { background: #ef4444; }
+        @keyframes pulse-dot {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+        .task-emoji { font-size: 16px; }
+        .task-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+        .task-objective { font-size: 11px; color: #64748b; margin-top: 1px; }
+        .task-service-badge {
+            display: inline-block;
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin-top: 4px;
+            letter-spacing: 0.02em;
+        }
+        .task-live-status {
+            font-size: 10px;
+            color: #f59e0b;
+            margin-top: 3px;
+            min-height: 14px;
+        }
+        .task-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .task-status-label {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .task-status-label.running { color: #f59e0b; }
+        .task-status-label.done { color: #10b981; }
+        .task-agent-link {
+            font-size: 10px;
+            color: rgba(139,92,246,0.7);
+            text-decoration: none;
+            padding: 2px 7px;
+            border: 1px solid rgba(139,92,246,0.25);
+            border-radius: 5px;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .task-agent-link:hover { color: #a78bfa; border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.08); }
+        .task-agent-link.done { color: #10b981; border-color: rgba(16,185,129,0.35); }
+        .task-result-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+        .task-view-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 7px;
+            color: #a78bfa;
+            font-size: 12px;
+            text-decoration: none;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .task-view-btn:hover { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.5); }
+        .task-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 7px;
+            color: rgba(255,255,255,0.55);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .task-action-btn:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+        .task-result {
+            display: none;
+            padding: 12px 14px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            font-size: 12px;
+            line-height: 1.7;
+            color: #94a3b8;
+            white-space: pre-wrap;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .task-result.visible { display: block; }
+        .task-result strong { color: #e2e8f0; }
+        .task-result h1, .task-result h2, .task-result h3 {
+            color: #c4b5fd;
+            font-size: 12px;
+            margin: 8px 0 4px;
+        }
+        /* ── Autonomous status bar (replaces the old run button) ─── */
+        .mission-auto-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: 13px;
+            color: #10b981;
+            font-weight: 500;
+        }
+        .mission-auto-bar.complete {
+            background: rgba(16,185,129,0.12);
+            border-color: rgba(16,185,129,0.4);
+        }
+        .mission-auto-bar.aborted {
+            background: rgba(239,68,68,0.08);
+            border-color: rgba(239,68,68,0.2);
+            color: #ef4444;
+        }
+        .mission-auto-bar span { flex: 1; }
+        .mission-auto-pulse {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            flex-shrink: 0;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        .mission-auto-bar.complete .mission-auto-pulse { animation: none; background: #10b981; }
+        .mission-auto-bar.aborted .mission-auto-pulse { animation: none; background: #ef4444; }
+        .mission-abort-btn {
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 6px;
+            color: #f87171;
+            font-size: 11px;
+            padding: 3px 9px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .mission-abort-btn:hover { background: rgba(239,68,68,0.2); }
+        /* Automation queue list */
+        .auto-queue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+        .auto-queue-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #94a3b8;
+            padding: 4px 0;
+        }
+        .auto-queue-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .auto-queue-dot.pending  { background: #334155; }
+        .auto-queue-dot.running  { background: #f59e0b; animation: pulse 1s infinite; }
+        .auto-queue-dot.done     { background: #10b981; }
+        .auto-queue-dot.error    { background: #ef4444; }
+        .auto-queue-name { flex: 1; }
+        .auto-step-dot.error { background: #ef4444; }
+        .mission-run-btn {
+            width: 100%;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .mission-run-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .mission-run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .mission-progress {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 12px;
+        }
+        .mission-progress.visible { display: flex; }
+        .mission-progress-bar-wrap {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .mission-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #06b6d4);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
+        .mission-report {
+            display: none;
+            margin-top: 16px;
+            border-top: 1px solid rgba(124,58,237,0.2);
+            padding-top: 16px;
+        }
+        .mission-report.visible { display: block; }
+        .mission-report-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #a78bfa;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .mission-report-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .mission-report-btn {
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid rgba(124,58,237,0.35);
+            background: rgba(124,58,237,0.1);
+            color: #c4b5fd;
+            transition: opacity 0.15s;
+        }
+        .mission-report-btn:hover { opacity: 0.8; }
+        /* ── Automation Assessment Panel ─────────────────────────────────── */
+        .automation-assessment-panel {
+            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(124,58,237,0.08));
+            border: 1px solid rgba(16,185,129,0.25);
+            border-radius: 14px;
+            padding: 20px;
+        }
+        .assessment-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .assessment-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .assessment-icon { font-size: 22px; flex-shrink: 0; }
+        .assessment-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+        .assessment-text {
+            font-size: 13.5px;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .assessment-question {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin: 16px 0 12px;
+        }
+        .automation-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .automation-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .automation-card:hover { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.06); }
+        .automation-card input[type="checkbox"] { margin-top: 3px; accent-color: #10b981; flex-shrink: 0; }
+        .auto-card-body { flex: 1; min-width: 0; }
+        .auto-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .auto-title { font-size: 13.5px; font-weight: 600; color: #e2e8f0; }
+        .auto-impact { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+        .auto-desc { font-size: 12.5px; color: #94a3b8; margin-bottom: 6px; }
+        .auto-meta { display: flex; gap: 16px; font-size: 11.5px; color: #64748b; }
+        .automation-actions-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .automate-now-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+        }
+        .automate-now-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .automate-now-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .automate-skip-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: #94a3b8;
+            padding: 10px 16px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .automate-skip-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+        /* Automation execution steps */
+        .auto-execution-panel { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .auto-step {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .auto-step-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+        }
+        .auto-step-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+            flex-shrink: 0;
+        }
+        .auto-step-dot.running { background: #f59e0b; animation: pulse 1s infinite; }
+        .auto-step-dot.done { background: #10b981; animation: none; }
+        .auto-step-title { flex: 1; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+        .auto-step-status { font-size: 11.5px; color: #94a3b8; flex-shrink: 0; }
+        .auto-step-status.running { color: #f59e0b; }
+        .auto-step-status.done { color: #10b981; }
+        .auto-step-download {
+            background: rgba(255,255,255,0.07);
+            border: none;
+            border-radius: 6px;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 3px 8px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .auto-step-download:hover { color: #e2e8f0; }
+        .auto-step-result {
+            padding: 0 14px 14px;
+            font-size: 12.5px;
+            color: #94a3b8;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        /* Returned agent work panel (single dispatch) */
+        .returned-work-panel {
+            background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(236,72,153,0.06));
+            border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 14px;
+            padding: 18px 20px;
+        }
+        .returned-work-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .returned-work-badge {
+            background: linear-gradient(90deg,#7c3aed,#ec4899);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.05em;
+        }
+        .returned-work-agent { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+        .returned-work-summary {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .mission-report-btn.primary {
+            background: rgba(124,58,237,0.25);
+            border-color: rgba(124,58,237,0.5);
+            color: #e2e8f0;
+        }
+        .orchestrate-chip {
+            background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(79,70,229,0.15));
+            border: 1px solid rgba(124,58,237,0.35);
+            color: #c4b5fd;
+        }
+        .orchestrate-chip:hover {
+            background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(79,70,229,0.25)) !important;
+        }
+
+        /* ── Boot Sequence Terminal ───────────────────────────────────────── */
+        .boot-terminal {
+            font-family: 'JetBrains Mono', 'Courier New', 'Consolas', monospace;
+            background: linear-gradient(160deg, #060a14 0%, #080d1c 100%);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 10px;
+            padding: 22px 26px 26px;
+            margin: 8px 4px 16px;
+            min-height: 260px;
+            max-height: 2000px;
+            box-shadow: 0 0 40px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .boot-terminal::before {
+            content: '● ● ●';
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            font-size: 9px;
+            letter-spacing: 5px;
+            color: rgba(255,255,255,0.15);
+        }
+        .boot-terminal::after {
+            content: 'SCOTTY · SYSTEM INIT';
+            position: absolute;
+            top: 9px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: rgba(99,130,220,0.4);
+        }
+        .boot-line { line-height: 1.75; font-size: 12.5px; min-height: 1.75em; }
+        .boot-ascii  { color: #3b82f6; font-size: 10px; letter-spacing: 1px; line-height: 1.4; }
+        .boot-header { color: #93c5fd; font-size: 11px; letter-spacing: 3px; font-weight: 600; margin-top: 4px; }
+        .boot-divider { border: none; border-top: 1px solid rgba(59,130,246,0.15); margin: 10px 0 8px; }
+        .boot-spacer  { height: 28px; }
+        .boot-step    { color: #64748b; font-size: 12px; }
+        .boot-ok      { color: #22c55e; font-size: 12px; }
+        .boot-warn    { color: #f59e0b; font-size: 12px; }
+        .boot-dim     { color: #334155; font-size: 11px; }
+        .boot-agent-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; line-height: 1.75; }
+        .boot-agent-name { color: #cbd5e1; flex: 1; }
+        .boot-status-ok   { color: #22c55e; font-size: 10px; letter-spacing: 1.5px; font-weight: 600; }
+        .boot-status-upd  { color: #38bdf8; font-size: 10px; letter-spacing: 1.5px; font-weight: 600; animation: boot-pulse 0.6s ease-out; }
+        .boot-dots    { color: #334155; min-width: 24px; display: inline-block; }
+        .boot-summary {
+            color: #60a5fa; font-size: 11.5px; letter-spacing: 1.5px;
+            text-align: center; margin-top: 6px; padding: 6px 0;
+            border-top: 1px solid rgba(59,130,246,0.15);
+        }
+        .boot-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 20px;
+            margin: 4px 0;
+        }
+        @keyframes boot-pulse { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
     </style>
 
 </head>
@@ -1113,7 +1682,7 @@
     ════════════════════════════════════════ -->
     <aside class="sidebar">
         <div class="sidebar-logo">
-            <div class="sidebar-logo-icon">🤖</div>
+            <div class="sidebar-logo-icon"><img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:7px;" onerror="this.outerHTML='🤖'"></div>
             <div class="sidebar-logo-text">
                 Scotty
                 <span>AI CMO · Audema</span>
@@ -1132,27 +1701,6 @@
                 <div class="convo-info">
                     <div class="convo-title">New conversation</div>
                     <div class="convo-time">Just now</div>
-                </div>
-            </div>
-            <div class="convo-item" data-id="q4">
-                <span class="convo-icon">📋</span>
-                <div class="convo-info">
-                    <div class="convo-title">Q4 campaign strategy</div>
-                    <div class="convo-time">2 hours ago</div>
-                </div>
-            </div>
-            <div class="convo-item" data-id="li">
-                <span class="convo-icon">🎯</span>
-                <div class="convo-info">
-                    <div class="convo-title">LinkedIn outreach plan</div>
-                    <div class="convo-time">Yesterday</div>
-                </div>
-            </div>
-            <div class="convo-item" data-id="comp">
-                <span class="convo-icon">🕵️</span>
-                <div class="convo-info">
-                    <div class="convo-title">Competitor analysis deep dive</div>
-                    <div class="convo-time">3 days ago</div>
                 </div>
             </div>
         </div>
@@ -1175,10 +1723,10 @@
         <!-- Top bar -->
         <div class="chat-topbar">
             <div class="chat-topbar-left">
-                <div class="scotty-avatar-sm">🤖</div>
+                <div class="scotty-avatar-sm"><img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:50%;" onerror="this.outerHTML='🤖'"></div>
                 <div>
                     <div class="topbar-title">Scotty — Your AI CMO</div>
-                    <div class="topbar-sub">Strategic orchestrator · Routes to 13 specialist agents</div>
+                    <div class="topbar-sub">Strategic CMO · Multi-agent campaign orchestration</div>
                 </div>
             </div>
             <div class="topbar-right">
@@ -1189,11 +1737,11 @@
             </div>
         </div>
 
-        <!-- Intelligence warning (shown when not configured) -->
+        <!-- Intelligence banner: green when configured, amber when not -->
         <div class="intel-warning" id="intelWarning" style="display:none;">
-            ⚠️ Intelligence Layer not configured. Scotty is working blind.
-            Set up BusinessBrain →
-            <a href="/intelligence/business-brain.html">Configure Now</a>
+            <span id="intelWarningIcon">⚠️</span>
+            <span id="intelWarningMsg">Intelligence Layer not configured. Scotty is working blind. Set up BusinessBrain →</span>
+            <a href="/intelligence/business-brain.html" id="intelWarningLink">Configure Now</a>
             <button class="intel-warning-close" id="intelWarningClose">✕</button>
         </div>
 
@@ -1202,17 +1750,17 @@
 
             <!-- Welcome message from Scotty -->
             <div class="msg" id="welcomeMsg">
-                <div class="msg-avatar">🤖</div>
+                <div class="msg-avatar"><img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:50%;" onerror="this.outerHTML='🤖'"></div>
                 <div>
                     <div class="msg-bubble" id="welcomeBubble">
                         <p>👋 I'm Scotty, your AI CMO.</p>
                         <p>I don't just execute tasks — I think strategically first. Before routing your request to the right specialist agent, I'll draw on your competitive intelligence, market signals, and business context to make sure we're building the right thing, not just building things quickly.</p>
                         <p>What are you trying to achieve?</p>
                         <div class="prompt-chips" id="promptChips">
-                            <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Help me plan next month's content strategy</button>
-                            <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze our competitor's latest moves</button>
-                            <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create an outreach sequence for new prospects</button>
-                            <button class="prompt-chip" data-prompt="Review our ad creative performance">Review our ad creative performance</button>
+                            <button class="prompt-chip orchestrate-chip" data-prompt="Orchestrate a full marketing campaign — run all agents and give me a complete marketing playbook">🚀 Run full marketing campaign (all agents)</button>
+                            <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Plan next month's content strategy</button>
+                            <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze competitor moves</button>
+                            <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create outreach sequence</button>
                         </div>
                     </div>
                     <div class="msg-meta">Scotty · Just now</div>
@@ -1346,7 +1894,13 @@
 </div>
 
 <!-- Load external services if available -->
+<script src="/js/agent-history.js" onerror="console.info('AgentHistory not loaded')"></script>
 <script src="/js/claude-service.js" onerror="console.info('ClaudeService not loaded — using mock mode')"></script>
+<script src="/js/gemini-service.js" onerror="console.info('GeminiService not loaded')"></script>
+<script src="/js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
+<script src="/js/perplexity-service.js" onerror="console.info('PerplexityService not loaded')"></script>
+<script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
+<script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
 
 <script>
@@ -1363,13 +1917,14 @@ const AGENT_DIRECTORY = [
     { key: 'seo',         name: 'SEO Intelligence',        emoji: '🔍',  url: '/agents/seo-agent.html',              tags: ['seo','keyword','rank','search','technical','backlink'] },
     { key: 'email',       name: 'Email Engine',            emoji: '📧',  url: '/agents/email-agent.html',            tags: ['email','newsletter','campaign','flow','sequence','klaviyo'] },
     { key: 'sales',       name: 'Sales Intelligence',      emoji: '🎯',  url: '/agents/sales-agent.html',            tags: ['sales','prospect','outreach','lead','apollo','crm'] },
-    { key: 'ads',         name: 'Ad Creative Lab',         emoji: '🎨',  url: '/agents/ads-agent.html',              tags: ['ad','advertising','creative','google','meta','paid','a/b'] },
+    { key: 'ads',         name: 'Ad Campaigns (Social Studio)', emoji: '🎯',  url: '/agents/social-agent.html',          tags: ['ad','advertising','creative','google','meta','paid','a/b'] },
     { key: 'social',      name: 'Social Studio',           emoji: '📱',  url: '/agents/social-agent.html',           tags: ['social','instagram','linkedin','twitter','tiktok','post'] },
     { key: 'analytics',   name: 'Analytics Brain',         emoji: '📊',  url: '/agents/analytics-agent.html',        tags: ['analytics','data','attribution','reporting','mmm'] },
     { key: 'competitive', name: 'Competitive Intelligence',emoji: '🕵️', url: '/agents/competitive-agent.html',      tags: ['competitor','competitive','monitor','crayon','intelligence'] },
     { key: 'video',       name: 'Video Studio',            emoji: '🎬',  url: '/agents/video-agent.html',            tags: ['video','script','youtube','descript','thumbnail'] },
     { key: 'cro',         name: 'CRO Lab',                 emoji: '🧪',  url: '/agents/cro-agent.html',              tags: ['cro','conversion','landing','test','optimize','vwo'] },
     { key: 'compliance',  name: 'Compliance Guard',        emoji: '🛡️', url: '/agents/compliance-agent.html',       tags: ['compliance','legal','brand safety','review','puntt'] },
+    { key: 'compliance-automation', name: 'Compliance Automation', emoji: '🔐', url: '/agents/compliance-automation.html', tags: ['soc 2','iso 27001','audit','security questionnaire','vendor risk','trust center'] },
     { key: 'deck',        name: 'Deck Maker',              emoji: '📽️', url: '/agents/deck-agent.html',             tags: ['deck','presentation','slide','pitch','investor','tome'] },
 ];
 
@@ -1389,8 +1944,7 @@ Available specialist agents and when to use them:
 - SEO Intelligence (/agents/seo-agent.html): rankings, technical SEO, keywords
 - Email Engine (/agents/email-agent.html): sequences, flows, campaigns
 - Sales Intelligence (/agents/sales-agent.html): prospecting, enrichment, outreach
-- Ad Creative Lab (/agents/ads-agent.html): ad copy, creative variants, A/B tests
-- Social Studio (/agents/social-agent.html): social posts, content calendar
+- Social Studio (/agents/social-agent.html): social posts, content calendar, ad copy, creative variants, A/B tests
 - Analytics Brain (/agents/analytics-agent.html): attribution, reporting, MMM
 - Competitive Intelligence (/agents/competitive-agent.html): competitor monitoring
 - Video Studio (/agents/video-agent.html): scripts, editing, thumbnails
@@ -1406,12 +1960,231 @@ Always respond with:
 
 Format your agent recommendations clearly. Be direct, strategic, and specific. No generic advice. Think like a CMO who has seen this play out before.`;
 
+// ── SCOTTY BOOT SEQUENCE ──────────────────────────────────────────────────────
+const ScottyBoot = (() => {
+    const MANIFEST_KEY = 'scotty_system_manifest_v1';
+
+    const AGENT_META = {
+        content:     { emoji: '✍️',  label: 'Content Studio'         },
+        seo:         { emoji: '🔍',  label: 'SEO Intelligence'        },
+        email:       { emoji: '📧',  label: 'Email Engine'            },
+        sales:       { emoji: '🎯',  label: 'Chase — Sales Intel'     },
+        ads:         { emoji: '📣',  label: 'Ad Creative Lab'         },
+        social:      { emoji: '📱',  label: 'Social Studio'           },
+        analytics:   { emoji: '📊',  label: 'Analytics Brain'         },
+        competitive: { emoji: '⚡',  label: 'Competitive Intel'       },
+        video:       { emoji: '🎬',  label: 'Video Studio'            },
+        cro:         { emoji: '🔬',  label: 'CRO Lab'                 },
+        compliance:  { emoji: '⚖️',  label: 'Compliance Guard'        },
+        deck:        { emoji: '🎨',  label: 'Deck Maker'              },
+        linkedin:    { emoji: '💼',  label: 'LinkedIn Outreach'       },
+    };
+
+    function _hash(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 16777619) >>> 0;
+        }
+        return h.toString(16).padStart(8, '0');
+    }
+
+    function _buildManifest() {
+        const orch = window.ScottyOrchestrator;
+        if (!orch) return { routes: {}, descs: {}, prompts: {} };
+        const routes  = orch.AGENT_ROUTES       || {};
+        const descs   = orch.AGENT_DESCRIPTIONS || {};
+        const prompts = {};
+        for (const key of Object.keys(routes)) {
+            const p = typeof orch.getAgentInlinePrompt === 'function'
+                ? orch.getAgentInlinePrompt(key, {}) : '';
+            prompts[key] = (p || '').substring(0, 200);
+        }
+        return { routes, descs, prompts };
+    }
+
+    function _check() {
+        const manifest = _buildManifest();
+        const hash     = _hash(JSON.stringify(manifest));
+        const stored   = localStorage.getItem(MANIFEST_KEY);
+        return { hash, manifest, needsUpdate: stored !== hash, isFirstBoot: !stored };
+    }
+
+    function _commit(hash) {
+        localStorage.setItem(MANIFEST_KEY, hash);
+    }
+
+    const _delay = ms => new Promise(r => setTimeout(r, ms));
+
+    function _typewrite(el, text, speed = 16) {
+        return new Promise(resolve => {
+            let i = 0;
+            const tick = () => {
+                el.textContent += text[i++];
+                if (i < text.length) setTimeout(tick, speed);
+                else resolve();
+            };
+            tick();
+        });
+    }
+
+    async function run(messagesEl) {
+        const { hash, manifest, needsUpdate, isFirstBoot } = _check();
+        const agentKeys = Object.keys(manifest.routes || AGENT_META);
+
+        // Prepend terminal so existing DOM children (welcomeMsg) stay in the tree
+        const term = document.createElement('div');
+        term.className = 'boot-terminal';
+        term.id = 'scottyBoot';
+        messagesEl.insertBefore(term, messagesEl.firstChild);
+
+        const addLine = (cls = '') => {
+            const el = document.createElement('div');
+            el.className = 'boot-line' + (cls ? ' ' + cls : '');
+            term.appendChild(el);
+            term.scrollTop = term.scrollHeight;
+            return el;
+        };
+        const addDivider = () => {
+            const hr = document.createElement('hr');
+            hr.className = 'boot-divider';
+            term.appendChild(hr);
+        };
+        // stamp — renders the full line instantly (used for ASCII art / preformatted rows)
+        const stamp = async (text, cls = '', pause = 55) => {
+            const el = addLine(cls);
+            el.textContent = text;
+            term.scrollTop = term.scrollHeight;
+            await _delay(pause);
+            return el;
+        };
+        // print — typewriter effect (used for status lines)
+        const print = async (text, cls = '', speed = 16, pause = 50) => {
+            const el = addLine(cls);
+            await _typewrite(el, text, speed);
+            await _delay(pause);
+            return el;
+        };
+
+        // ── Header — stamped whole rows so box-drawing renders correctly ─────
+        await _delay(220);
+        await stamp('  ███████╗ ██████╗ ██████╗ ████████╗████████╗██╗   ██╗', 'boot-ascii', 45);
+        await stamp('  ██╔════╝██╔════╝██╔═══██╗╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝', 'boot-ascii', 45);
+        await stamp('  ███████╗██║     ██║   ██║   ██║      ██║    ╚████╔╝ ', 'boot-ascii', 45);
+        await stamp('  ╚════██║██║     ██║   ██║   ██║      ██║     ╚██╔╝  ', 'boot-ascii', 45);
+        await stamp('  ███████║╚██████╗╚██████╔╝   ██║      ██║      ██║   ', 'boot-ascii', 45);
+        await stamp('  ╚══════╝ ╚═════╝ ╚═════╝    ╚═╝      ╚═╝      ╚═╝   ', 'boot-ascii', 60);
+        await print('  AUTONOMOUS MARKETING OS  ·  SYSTEM INITIALISATION', 'boot-header', 10, 120);
+        addDivider();
+
+        if (!needsUpdate) {
+            // ── Quick-check path ─────────────────────────────────────────────
+            await print(`▸ Computing agent manifest…`, 'boot-step', 20, 80);
+            const hashEl = addLine('boot-dim');
+            await _typewrite(hashEl, `  checksum: 0x${hash}`);
+            await _delay(150);
+            const okEl = addLine('boot-ok');
+            await _typewrite(okEl, `✓ All ${agentKeys.length} agents verified — no changes detected`);
+            await _delay(300);
+            await print('▸ Intelligence Layer…', 'boot-step', 20, 80);
+            const ieOkEl = addLine('boot-ok');
+            await _typewrite(ieOkEl, '✓ Context pipelines nominal');
+            await _delay(500);
+        } else {
+            // ── Full update path ─────────────────────────────────────────────
+            await print('▸ Computing agent manifest checksum…', 'boot-step', 18, 100);
+            const hashEl = addLine('boot-dim');
+            await _typewrite(hashEl, `  0x${hash}`, 10);
+            await _delay(180);
+
+            const flagEl = addLine(isFirstBoot ? 'boot-warn' : 'boot-warn');
+            await _typewrite(flagEl,
+                isFirstBoot
+                    ? '! First initialisation — loading full agent network'
+                    : '! Agent manifest updated — synchronising all systems',
+                14);
+            await _delay(320);
+            addDivider();
+
+            await print('▸ Synchronising agent network…', 'boot-step', 18, 60);
+            await _delay(60);
+
+            // Render agent grid (2 columns)
+            const grid = document.createElement('div');
+            grid.className = 'boot-grid';
+            term.appendChild(grid);
+
+            const rowEls = {};
+            for (const key of agentKeys) {
+                const meta = AGENT_META[key] || { emoji: '🤖', label: key };
+                const row = document.createElement('div');
+                row.className = 'boot-agent-row';
+                row.innerHTML = `<span class="boot-dim">▸</span><span class="boot-agent-name">${meta.emoji} ${meta.label}</span><span class="boot-dots">…</span>`;
+                grid.appendChild(row);
+                rowEls[key] = row;
+            }
+            await _delay(200);
+
+            // Animate each agent row sequentially
+            for (const key of agentKeys) {
+                const meta  = AGENT_META[key] || { emoji: '🤖', label: key };
+                const row   = rowEls[key];
+                const pause = 180 + Math.random() * 160;
+                // Animate dots
+                let dot = 0;
+                const iv = setInterval(() => {
+                    row.querySelector('.boot-dots').textContent = ['·  ', '·· ', '···', ' ··', '  ·'][dot++ % 5];
+                }, 70);
+                await _delay(pause);
+                clearInterval(iv);
+                row.innerHTML = `<span class="boot-ok">✓</span><span class="boot-agent-name">${meta.emoji} ${meta.label}</span><span class="boot-status-upd">UPDATED</span>`;
+                term.scrollTop = term.scrollHeight;
+                await _delay(30);
+            }
+            await _delay(300);
+            addDivider();
+
+            // Context checks
+            await print('▸ Verifying Intelligence Layer…', 'boot-step', 18, 80);
+            const hasIE = typeof window.IntelligenceEngine !== 'undefined';
+            const ieEl  = addLine(hasIE ? 'boot-ok' : 'boot-warn');
+            await _typewrite(ieEl,
+                hasIE ? '✓ Intelligence Engine online' : '⚠ Intelligence Engine not detected — reduced context', 14);
+            await _delay(120);
+
+            await print('▸ Wiring multi-agent orchestration…', 'boot-step', 18, 80);
+            const orchEl = addLine('boot-ok');
+            await _typewrite(orchEl, '✓ Orchestration pipelines armed', 14);
+            await _delay(120);
+
+            await print('▸ Loading context databases…', 'boot-step', 18, 80);
+            const ctxEl = addLine('boot-ok');
+            await _typewrite(ctxEl, '✓ Business Brain · Competitive Intel · Market Signals', 14);
+            await _delay(300);
+            addDivider();
+
+            const summEl = addLine('boot-summary');
+            await _typewrite(summEl,
+                `━━  ${agentKeys.length} AGENTS ONLINE  ·  ALL SYSTEMS NOMINAL  ━━`, 12);
+        }
+
+        await _delay(600);
+        _commit(hash);
+        // Terminal stays in place — dismissed when user sends first message
+    }
+
+    return { run };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class ScottyChat {
     constructor() {
         this.conversations = [];
         this.currentConvoId = this._generateId();
         this.isWaiting = false;
         this.intelConfigured = false;
+        this.bootComplete = false;
 
         this._bindElements();
         this._bindEvents();
@@ -1477,10 +2250,41 @@ class ScottyChat {
         });
     }
 
-    init() {
+    async init() {
+        // Lock input during boot
+        this.isWaiting = true;
+        if (this.btnSend) this.btnSend.disabled = true;
+        if (this.inputEl) {
+            this.inputEl.disabled = true;
+            this.inputEl.placeholder = 'Initialising systems…';
+        }
+
+        // Hide the static welcome message while boot runs
+        const welcomeMsg = document.getElementById('welcomeMsg');
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+        // Run boot sequence
+        await ScottyBoot.run(this.messagesEl);
+
+        // Reveal welcome message below the terminal and scroll it into view
+        if (welcomeMsg) {
+            welcomeMsg.style.display = '';
+            welcomeMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        this.isWaiting = false;
+        this.bootComplete = true;
+        if (this.btnSend) this.btnSend.disabled = false;
+        if (this.inputEl) {
+            this.inputEl.disabled = false;
+            this.inputEl.placeholder = 'Describe what you\'re trying to achieve…';
+        }
+
         this._loadConversations();
         this._checkIntelligenceEngine();
         this._updateContextBar();
+        // Check if user returned from a dispatched agent with completed work
+        this._checkForCompletedDispatch();
     }
 
     _loadConversations() {
@@ -1490,6 +2294,7 @@ class ScottyChat {
         } catch (e) {
             this.conversations = [];
         }
+        this._renderConvoList();
     }
 
     _saveConversations() {
@@ -1497,21 +2302,110 @@ class ScottyChat {
             const toSave = this.conversations.slice(-20); // keep last 20
             localStorage.setItem('scotty_conversations', JSON.stringify(toSave));
         } catch (e) { /* ignore */ }
+        this._renderConvoList();
+    }
+
+    _renderConvoList() {
+        // Remove all saved-conversation items (keep the "current / new" item at the top)
+        const currentItem = this.convoList.querySelector('[data-id="current"]');
+        this.convoList.querySelectorAll('[data-id]').forEach(el => {
+            if (el.dataset.id !== 'current') el.remove();
+        });
+
+        if (!this.conversations.length) return;
+
+        const icons = ['💬', '📋', '🎯', '📊', '🗂️', '🔍', '✍️', '📣'];
+
+        this.conversations.forEach((convo, i) => {
+            const title = (convo.title || 'Conversation').slice(0, 42);
+            const icon  = icons[i % icons.length];
+            const time  = this._relativeTime(convo.updatedAt || convo.createdAt);
+            const isActive = convo.id === this.currentConvoId;
+
+            const el = document.createElement('div');
+            el.className = 'convo-item' + (isActive ? ' active' : '');
+            el.dataset.id = convo.id;
+            el.innerHTML = `
+                <span class="convo-icon">${icon}</span>
+                <div class="convo-info">
+                    <div class="convo-title">${this._escapeHtml(title)}</div>
+                    <div class="convo-time">${time}</div>
+                </div>`;
+
+            el.addEventListener('click', () => this._switchConversation(convo.id));
+            this.convoList.appendChild(el);
+        });
+    }
+
+    _switchConversation(id) {
+        if (id === this.currentConvoId) return;
+
+        const convo = this.conversations.find(c => c.id === id);
+        if (!convo) return;
+
+        this.currentConvoId = id;
+
+        // Update active state in sidebar
+        this.convoList.querySelectorAll('.convo-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === id);
+        });
+
+        // Clear chat and replay all saved messages
+        this.messagesEl.innerHTML = '';
+        convo.messages.forEach(m => {
+            if (m.role === 'user') {
+                this._appendUserMessage(m.content);
+            } else {
+                const { bubble } = this._createScottyBubble();
+                bubble.innerHTML = typeof marked !== 'undefined'
+                    ? marked.parse(m.content)
+                    : this._escapeHtml(m.content);
+            }
+        });
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
+
+    _relativeTime(ts) {
+        if (!ts) return '';
+        const diff = Date.now() - ts;
+        if (diff < 60000)      return 'Just now';
+        if (diff < 3600000)    return Math.floor(diff / 60000) + 'm ago';
+        if (diff < 86400000)   return Math.floor(diff / 3600000) + 'h ago';
+        if (diff < 172800000)  return 'Yesterday';
+        if (diff < 604800000)  return Math.floor(diff / 86400000) + 'd ago';
+        return new Date(ts).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
     }
 
     _checkIntelligenceEngine() {
         const engine = window.IntelligenceEngine;
-        if (engine && typeof engine.isConfigured === 'function' && engine.isConfigured()) {
-            this.intelConfigured = true;
+        const configured = !!(engine && typeof engine.isConfigured === 'function' && engine.isConfigured());
+        this.intelConfigured = configured;
+
+        const warn    = this.intelWarn;
+        const icon    = document.getElementById('intelWarningIcon');
+        const msg     = document.getElementById('intelWarningMsg');
+        const link    = document.getElementById('intelWarningLink');
+
+        if (configured) {
             this.intelDot.classList.remove('warn');
             this.intelText.textContent = 'Intelligence: Active';
             this.intelBadge.classList.remove('unconfigured');
+
+            warn.classList.add('intel-ok');
+            if (icon) icon.textContent = '✅';
+            if (msg)  msg.textContent  = 'Scotty is using your Business Brain.';
+            if (link) { link.textContent = 'View Setup'; link.href = '/intelligence/business-brain.html'; }
+            warn.style.display = 'flex';
         } else {
-            this.intelConfigured = false;
             this.intelDot.classList.add('warn');
             this.intelText.textContent = 'Intelligence: Not configured';
             this.intelBadge.classList.add('unconfigured');
-            this.intelWarn.style.display = 'flex';
+
+            warn.classList.remove('intel-ok');
+            if (icon) icon.textContent = '⚠️';
+            if (msg)  msg.textContent  = 'Intelligence Layer not configured. Scotty is working blind. Set up BusinessBrain →';
+            if (link) { link.textContent = 'Configure Now'; link.href = '/intelligence/business-brain.html'; }
+            warn.style.display = 'flex';
         }
     }
 
@@ -1543,12 +2437,35 @@ class ScottyChat {
     }
 
     sendMessage(text) {
-        // Remove prompt chips after first user message
+        // Remove prompt chips and boot terminal on first user message
         const chips = document.getElementById('promptChips');
         if (chips) chips.remove();
 
+        const bootEl = document.getElementById('scottyBoot');
+        if (bootEl) {
+            bootEl.style.transition = 'opacity 0.3s ease, max-height 0.4s ease, padding 0.4s ease, margin 0.4s ease';
+            bootEl.style.overflow = 'hidden';
+            bootEl.style.opacity = '0';
+            bootEl.style.maxHeight = '0';
+            bootEl.style.padding = '0';
+            bootEl.style.margin = '0';
+            setTimeout(() => bootEl.remove(), 420);
+        }
+
         InfoPanel.hideQuestion();
         InfoPanel.logActivity('💬', `You: ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}`);
+
+        // ── Orchestration mode: detect multi-agent campaign requests ──────
+        if (
+            window.ScottyOrchestrator &&
+            typeof window.ScottyOrchestrator.isOrchestrationIntent === 'function' &&
+            window.ScottyOrchestrator.isOrchestrationIntent(text)
+        ) {
+            this._appendUserMessage(text);
+            this._runOrchestration(text);
+            return;
+        }
+
         InfoPanel.logActivity('⏳', 'Scotty is thinking…');
 
         this._appendUserMessage(text);
@@ -1614,6 +2531,596 @@ class ScottyChat {
             anchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 12);
     }
+
+    /* ── ORCHESTRATION METHODS ────────────────────────────────────────────── */
+
+    async _runOrchestration(userGoal) {
+        this.isWaiting = true;
+        this.btnSend.disabled = true;
+
+        const contextBundle = this._getContextBundle();
+        const orch = window.ScottyOrchestrator;
+
+        // Show planning bubble
+        const { bubble: planningBubble } = this._createScottyBubble();
+        planningBubble.innerHTML = '⚡ <strong>Building your mission plan…</strong>';
+        InfoPanel.logActivity('🧠', 'Generating autonomous mission plan…');
+        this._scrollToBottom();
+
+        let plan;
+        try {
+            plan = await orch.generateMissionPlan(userGoal, contextBundle);
+        } catch (err) {
+            planningBubble.innerHTML = `❌ <strong>Mission plan failed:</strong> ${this._escapeHtml(err.message)}`;
+            this.isWaiting = false;
+            this.btnSend.disabled = false;
+            return;
+        }
+
+        planningBubble.innerHTML = '';
+        planningBubble.style.cssText = 'background:transparent;border:none;padding:0;';
+
+        const agentEmojis = {
+            seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
+            social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
+            video:'🎬', compliance:'🛡️', deck:'📽️'
+        };
+        const agentRoutes = {
+            content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
+            email:'/agents/email-agent.html', sales:'/agents/sales-agent.html',
+            ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
+            analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
+            video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
+            compliance:'/agents/compliance-agent.html', deck:'/agents/deck-agent.html',
+            linkedin:'/agents/linkedin-agent.html',
+            'compliance-automation':'/agents/compliance-automation.html',
+        };
+        const agentDisplayNames = {
+            seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
+            ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
+            compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
+            sales:'Sales Intelligence', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        };
+        const serviceNames = {
+            seo:'Gemini 2.5 Pro', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
+            ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
+            compliance:'Claude Opus 4.7',
+        };
+
+        const total = (plan.tasks || []).length;
+
+        const missionEl = document.createElement('div');
+        missionEl.className = 'mission-panel';
+        missionEl.innerHTML = `
+            <div class="mission-header">
+                <div class="mission-icon">🚀</div>
+                <div>
+                    <div class="mission-title">${this._escapeHtml(plan.missionTitle || 'Marketing Campaign')}</div>
+                    <div class="mission-summary">${this._escapeHtml(plan.missionSummary || '')}</div>
+                </div>
+            </div>
+            <div class="mission-auto-bar" id="missionAutoBar">
+                <div class="mission-auto-pulse"></div>
+                <span id="missionAutoText">Launching ${total} agents autonomously…</span>
+                <button class="mission-abort-btn" id="missionAbortBtn">✕ Abort</button>
+            </div>
+            <div class="mission-task-list" id="missionTaskList">
+                ${(plan.tasks || []).map((t, i) => `
+                    <div class="mission-task" id="missionTask${i}">
+                        <div class="mission-task-header" onclick="this.nextElementSibling.classList.toggle('visible')">
+                            <div class="task-status-dot" id="taskDot${i}"></div>
+                            <div class="task-emoji">${agentEmojis[t.agentKey] || '🤖'}</div>
+                            <div style="flex:1;min-width:0;">
+                                <div class="task-name">${this._escapeHtml(t.taskName)}</div>
+                                <div class="task-objective">${this._escapeHtml(t.objective || '')}</div>
+                                <div class="task-service-badge">${serviceNames[t.agentKey] || 'Claude Sonnet'}</div>
+                                <div class="task-live-status" id="taskLiveStatus${i}"></div>
+                            </div>
+                            <div class="task-right">
+                                <div class="task-status-label" id="taskLabel${i}">Queued</div>
+                                <a href="${agentRoutes[t.agentKey] || '#'}" target="_blank" class="task-agent-link" id="taskAgentLink${i}" onclick="event.stopPropagation()" title="Open ${agentDisplayNames[t.agentKey] || t.agentKey}">${agentDisplayNames[t.agentKey] || t.agentKey} →</a>
+                            </div>
+                        </div>
+                        <div class="task-result" id="taskResult${i}"></div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mission-progress visible" id="missionProgress">
+                <div class="mission-progress-bar-wrap">
+                    <div class="mission-progress-bar" id="missionProgressBar" style="width:0%"></div>
+                </div>
+                <span id="missionProgressLabel">Starting…</span>
+            </div>
+            <div class="mission-report" id="missionReport">
+                <div class="mission-report-title">📋 Mission Complete — Full Report Ready</div>
+                <div class="mission-report-actions">
+                    <button class="mission-report-btn primary" id="missionCopyBtn">📋 Copy Full Report</button>
+                    <button class="mission-report-btn" id="missionDownloadBtn">⬇️ Download .md</button>
+                    <button class="mission-report-btn" id="missionExpandAllBtn">👁 Expand All</button>
+                </div>
+            </div>`;
+
+        planningBubble.appendChild(missionEl);
+        this._scrollToBottom();
+
+        InfoPanel.logActivity('🚀', `Autonomous mission: ${total} agents queued`);
+
+        // Abort flag
+        let aborted = false;
+        missionEl.querySelector('#missionAbortBtn').addEventListener('click', () => {
+            aborted = true;
+            missionEl.querySelector('#missionAutoText').textContent = 'Aborted by user.';
+            missionEl.querySelector('#missionAutoBar').classList.add('aborted');
+            this.isWaiting = false;
+            this.btnSend.disabled = false;
+        });
+
+        // Execute all tasks autonomously
+        const results = new Array(total).fill(null);
+        const progressBar  = missionEl.querySelector('#missionProgressBar');
+        const progressLabel = missionEl.querySelector('#missionProgressLabel');
+        const autoText = missionEl.querySelector('#missionAutoText');
+
+        for (let i = 0; i < total; i++) {
+            if (aborted) break;
+
+            const task = plan.tasks[i];
+            const dot        = missionEl.querySelector(`#taskDot${i}`);
+            const label      = missionEl.querySelector(`#taskLabel${i}`);
+            const resultEl   = missionEl.querySelector(`#taskResult${i}`);
+            const liveStatus = missionEl.querySelector(`#taskLiveStatus${i}`);
+            const agentLink  = missionEl.querySelector(`#taskAgentLink${i}`);
+
+            dot.className = 'task-status-dot running';
+            label.textContent = 'Running…';
+            label.className = 'task-status-label running';
+            resultEl.classList.add('visible');
+            resultEl.innerHTML = '';
+            const svcName = serviceNames[task.agentKey] || 'Claude Sonnet';
+            if (liveStatus) liveStatus.textContent = `⚡ Calling ${svcName}…`;
+            if (autoText) autoText.textContent = `${agentEmojis[task.agentKey] || '🤖'} ${task.taskName} (${i + 1}/${total})`;
+            InfoPanel.logActivity(agentEmojis[task.agentKey] || '🤖', `Running ${task.taskName} via ${svcName}…`);
+            this._scrollToBottom();
+
+            // Execute with one automatic retry on failure
+            let fullText = '';
+            let succeeded = false;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                fullText = '';
+                try {
+                    await orch.executeAgentTask(task, contextBundle, {
+                        onChunk: (chunk) => {
+                            if (aborted) return;
+                            fullText += chunk;
+                            if (liveStatus) liveStatus.textContent = `⚡ Receiving from ${svcName}…`;
+                            resultEl.innerHTML = this._renderMarkdownSimple(fullText);
+                            this._scrollToBottom();
+                        },
+                        onDone:  (text) => { fullText = text; },
+                        onError: (err)  => { throw err; },
+                    });
+                    succeeded = true;
+                    break;
+                } catch (err) {
+                    if (attempt === 0) {
+                        if (liveStatus) liveStatus.textContent = `⚠️ Retrying…`;
+                        resultEl.innerHTML = `<em style="color:#f59e0b">⚠️ Retrying after error: ${this._escapeHtml(err.message)}</em>`;
+                        await new Promise(r => setTimeout(r, 3000));
+                    } else {
+                        fullText = `⚠️ Failed after retry: ${err.message}`;
+                        resultEl.innerHTML = `<span style="color:#ef4444">${this._escapeHtml(fullText)}</span>`;
+                    }
+                }
+            }
+
+            results[i] = { task, text: fullText };
+
+            if (succeeded) {
+                dot.className  = 'task-status-dot done';
+                label.textContent = '✓ Done';
+                label.className = 'task-status-label done';
+                if (liveStatus) liveStatus.textContent = '';
+                if (agentLink) agentLink.classList.add('done');
+
+                // Action buttons: View in Agent, Copy, Download
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-result-actions';
+                const agentUrl  = agentRoutes[task.agentKey] || '#';
+                const agentName = agentDisplayNames[task.agentKey] || task.agentKey;
+                actionsEl.innerHTML = `<a href="${agentUrl}" target="_blank" class="task-view-btn">→ Open in ${this._escapeHtml(agentName)}</a>`;
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'task-action-btn';
+                copyBtn.textContent = '📋 Copy';
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(fullText).then(() => {
+                        copyBtn.textContent = '✅ Copied!';
+                        setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
+                    });
+                });
+                actionsEl.appendChild(copyBtn);
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'task-action-btn';
+                dlBtn.textContent = '⬇️ Download';
+                dlBtn.addEventListener('click', () => {
+                    const blob = new Blob([fullText], { type: 'text/markdown' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${task.agentKey}-${Date.now()}.md`;
+                    a.click();
+                });
+                actionsEl.appendChild(dlBtn);
+                resultEl.appendChild(actionsEl);
+
+                // Save successful output to History
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({
+                        agentKey: task.agentKey,
+                        taskType: task.taskName,
+                        content:  fullText,
+                        topic:    task.objective || userGoal,
+                    });
+                }
+                InfoPanel.markWired(task.agentKey);
+                InfoPanel.logActivity('✅', `${task.taskName} complete`);
+            } else {
+                dot.className  = 'task-status-dot error';
+                label.textContent = '⚠️ Failed';
+                label.className = 'task-status-label error';
+                if (liveStatus) liveStatus.textContent = '';
+                InfoPanel.logActivity('⚠️', `${task.taskName} failed — continuing`);
+            }
+
+            const pct = Math.round(((i + 1) / total) * 100);
+            progressBar.style.width = pct + '%';
+            progressLabel.textContent = `${i + 1}/${total} complete`;
+        }
+
+        if (aborted) return;
+
+        // All agents done
+        missionEl.querySelector('#missionAutoBar').classList.add('complete');
+        if (autoText) autoText.textContent = `All ${total} agents complete ✓`;
+        missionEl.querySelector('#missionReport').classList.add('visible');
+        InfoPanel.logActivity('🏁', 'All agents complete — running automation phase');
+        this._scrollToBottom();
+
+        // Wire report buttons
+        const fullReport = this._compileMissionReport(plan, results);
+        missionEl.querySelector('#missionCopyBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(fullReport).then(() => {
+                missionEl.querySelector('#missionCopyBtn').textContent = '✅ Copied!';
+                setTimeout(() => { missionEl.querySelector('#missionCopyBtn').textContent = '📋 Copy Full Report'; }, 2000);
+            });
+        });
+        missionEl.querySelector('#missionDownloadBtn').addEventListener('click', () => {
+            const blob = new Blob([fullReport], { type: 'text/markdown' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `scotty-mission-${Date.now()}.md`;
+            a.click();
+        });
+        missionEl.querySelector('#missionExpandAllBtn').addEventListener('click', () => {
+            missionEl.querySelectorAll('.task-result').forEach(el => el.classList.add('visible'));
+        });
+
+        this._finaliseResponse(userGoal, `[Mission Complete: ${plan.missionTitle}]\n\n${plan.missionSummary}`);
+        this.isWaiting = false;
+        this.btnSend.disabled = false;
+
+        // Autonomous automation phase — no clicks required
+        this._runAutomationAssessment(plan, results, contextBundle, missionEl);
+    }
+
+    /* ── AUTOMATION ASSESSMENT ──────────────────────────────────────────────── */
+
+    async _runAutomationAssessment(plan, results, contextBundle, missionEl) {
+        const orch = window.ScottyOrchestrator;
+        if (!orch || typeof orch.assessAndPlanAutomation !== 'function') return;
+
+        const assessEl = document.createElement('div');
+        assessEl.className = 'automation-assessment-panel';
+        assessEl.innerHTML = `
+            <div class="assessment-loading">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <span>Scotty is reviewing your results and planning next steps…</span>
+            </div>`;
+        missionEl.appendChild(assessEl);
+        this._scrollToBottom();
+
+        let automationPlan;
+        try {
+            automationPlan = await orch.assessAndPlanAutomation(plan, results, contextBundle);
+        } catch (err) {
+            assessEl.innerHTML = `<div style="color:#ef4444;font-size:13px;">⚠️ Could not generate automation plan: ${this._escapeHtml(err.message)}</div>`;
+            return;
+        }
+
+        this._renderAutomationPanel(assessEl, automationPlan, contextBundle);
+    }
+
+    _renderAutomationPanel(containerEl, automationPlan, contextBundle) {
+        const autos = (automationPlan.automations || []);
+        // Sort: High first, then Medium, then Low. Auto-run all by default.
+        const sorted = [...autos].sort((a, b) => {
+            const rank = { High: 0, Medium: 1, Low: 2 };
+            return (rank[a.impact] ?? 1) - (rank[b.impact] ?? 1);
+        });
+
+        const impactColor = { High: '#10b981', Medium: '#f59e0b', Low: '#94a3b8' };
+
+        containerEl.innerHTML = `
+            <div class="assessment-header">
+                <div class="assessment-icon">🤖</div>
+                <div>
+                    <div class="assessment-title">Scotty's Assessment</div>
+                    <div class="assessment-text">${this._escapeHtml(automationPlan.assessment || '')}</div>
+                </div>
+            </div>
+            <div class="mission-auto-bar" style="margin:14px 0 10px;">
+                <div class="mission-auto-pulse"></div>
+                <span id="autoPhaseText">Executing ${sorted.length} automation${sorted.length !== 1 ? 's' : ''} autonomously…</span>
+                <button class="mission-abort-btn" id="autoAbortBtn">✕ Stop</button>
+            </div>
+            <div class="auto-queue-list">
+                ${sorted.map((a, i) => `
+                    <div class="auto-queue-item" id="autoQueue${i}">
+                        <span class="auto-queue-dot pending" id="autoQDot${i}"></span>
+                        <span class="auto-queue-name">${this._escapeHtml(a.title)}</span>
+                        <span class="auto-impact" style="color:${impactColor[a.impact] || '#94a3b8'};font-size:11px;margin-left:auto">${this._escapeHtml(a.impact || '')} impact</span>
+                    </div>`).join('')}
+            </div>
+            <div class="auto-execution-panel" id="autoExecPanel"></div>`;
+
+        InfoPanel.logActivity('⚡', `Auto-executing ${sorted.length} optimisations`);
+
+        let aborted = false;
+        containerEl.querySelector('#autoAbortBtn').addEventListener('click', () => {
+            aborted = true;
+            containerEl.querySelector('#autoPhaseText').textContent = 'Automation stopped by user.';
+            containerEl.querySelector('#autoAbortBtn').style.display = 'none';
+            InfoPanel.logActivity('⏹', 'Automation stopped');
+        });
+
+        // Start immediately — no button click needed
+        this._executeAutomationsAuto(sorted, contextBundle, containerEl, () => aborted);
+    }
+
+    async _executeAutomationsAuto(autos, contextBundle, containerEl, abortFn) {
+        const orch = window.ScottyOrchestrator;
+        const execPanel = containerEl.querySelector('#autoExecPanel');
+        const phaseText = containerEl.querySelector('#autoPhaseText');
+
+        for (let i = 0; i < autos.length; i++) {
+            if (abortFn && abortFn()) break;
+
+            const auto = autos[i];
+            const qDot = containerEl.querySelector(`#autoQDot${i}`);
+            if (qDot) { qDot.className = 'auto-queue-dot running'; }
+
+            const stepEl = document.createElement('div');
+            stepEl.className = 'auto-step';
+            stepEl.innerHTML = `
+                <div class="auto-step-header">
+                    <div class="auto-step-dot running"></div>
+                    <span class="auto-step-title">${this._escapeHtml(auto.title)}</span>
+                    <span class="auto-step-status running" id="autoStat${i}">Running…</span>
+                </div>
+                <div class="auto-step-result" id="autoStepResult${i}"></div>`;
+            execPanel.appendChild(stepEl);
+            this._scrollToBottom();
+
+            const resultEl = stepEl.querySelector(`#autoStepResult${i}`);
+            const dot      = stepEl.querySelector('.auto-step-dot');
+            const statusEl = stepEl.querySelector(`#autoStat${i}`);
+
+            // Execute with one retry
+            let fullText = '';
+            let succeeded = false;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                fullText = '';
+                try {
+                    await orch.executeAutomationStep(auto, contextBundle, {
+                        onChunk: (chunk) => {
+                            if (abortFn && abortFn()) return;
+                            fullText += chunk;
+                            resultEl.innerHTML = this._renderMarkdownSimple(fullText);
+                            this._scrollToBottom();
+                        },
+                        onDone:  (text) => { fullText = text; },
+                        onError: (err)  => { throw err; },
+                    });
+                    succeeded = true;
+                    break;
+                } catch (err) {
+                    if (attempt === 0) {
+                        resultEl.innerHTML = `<em style="color:#f59e0b">⚠️ Retrying…</em>`;
+                        await new Promise(r => setTimeout(r, 3000));
+                    } else {
+                        fullText = `⚠️ Failed: ${err.message}`;
+                        resultEl.innerHTML = `<span style="color:#ef4444">${this._escapeHtml(fullText)}</span>`;
+                    }
+                }
+            }
+
+            if (succeeded) {
+                dot.className = 'auto-step-dot done';
+                statusEl.textContent = '✓ Done';
+                statusEl.className = 'auto-step-status done';
+                if (qDot) qDot.className = 'auto-queue-dot done';
+                InfoPanel.logActivity('✅', `Automated: ${auto.title}`);
+
+                // Save to history
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({
+                        agentKey: auto.agentKey,
+                        taskType: `Automated: ${auto.title}`,
+                        content:  fullText,
+                        topic:    auto.title,
+                    });
+                }
+
+                // Download button
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'auto-step-download';
+                dlBtn.textContent = '⬇️ Download';
+                dlBtn.addEventListener('click', () => {
+                    const blob = new Blob([fullText], { type: 'text/markdown' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${auto.id || 'automation'}-${Date.now()}.md`;
+                    a.click();
+                });
+                stepEl.querySelector('.auto-step-header').appendChild(dlBtn);
+            } else {
+                dot.className = 'auto-step-dot error';
+                statusEl.textContent = '⚠️ Failed';
+                statusEl.className = 'auto-step-status error';
+                if (qDot) qDot.className = 'auto-queue-dot error';
+                InfoPanel.logActivity('⚠️', `Automation failed: ${auto.title} — continuing`);
+            }
+
+            if (phaseText) phaseText.textContent = `${i + 1}/${autos.length} automations complete`;
+        }
+
+        if (abortFn && abortFn()) return;
+
+        // All automations done
+        if (phaseText) phaseText.textContent = `All ${autos.length} automations complete ✓`;
+        const autoBar = containerEl.querySelector('.mission-auto-bar');
+        if (autoBar) autoBar.classList.add('complete');
+        const abortBtn = containerEl.querySelector('#autoAbortBtn');
+        if (abortBtn) abortBtn.style.display = 'none';
+        InfoPanel.logActivity('🏁', `All ${autos.length} automation(s) complete — saved to History`);
+        this._scrollToBottom();
+    }
+
+    /* ── RETURNED AGENT DISPATCH DETECTION ─────────────────────────────────── */
+
+    _checkForCompletedDispatch() {
+        try {
+            const ctxRaw = localStorage.getItem('scotty_active_context');
+            if (!ctxRaw) return;
+            const ctx = JSON.parse(ctxRaw);
+
+            // Only process if dispatch was within last 2 hours
+            if (Date.now() - ctx.timestamp > 2 * 60 * 60 * 1000) {
+                localStorage.removeItem('scotty_active_context');
+                return;
+            }
+
+            // Check AgentHistory for a completed entry from this agent after the dispatch
+            if (!window.AgentHistory) return;
+            const entries = window.AgentHistory.getByAgent(ctx.agentKey);
+            const completedEntry = entries.find(e => new Date(e.timestamp).getTime() > ctx.timestamp);
+            if (!completedEntry) return;
+
+            // Consume — don't show again on next page load
+            localStorage.removeItem('scotty_active_context');
+
+            // Show the completed work + automation offer
+            this._showCompletedAgentWork(ctx, completedEntry);
+        } catch (e) { /* ignore */ }
+    }
+
+    _showCompletedAgentWork(ctx, entry) {
+        const orch = window.ScottyOrchestrator;
+        const agentMeta = (window.AgentHistory && window.AgentHistory.AGENT_META)
+            ? window.AgentHistory.AGENT_META[ctx.agentKey] || {}
+            : {};
+        const agentName = agentMeta.name || ctx.agentKey;
+        const agentIcon = agentMeta.icon || '🤖';
+        const wordCount = entry.content ? entry.content.split(/\s+/).length : 0;
+
+        // Create a Scotty message bubble showing the returned work
+        const { bubble } = this._createScottyBubble();
+        const panel = document.createElement('div');
+        panel.className = 'returned-work-panel';
+        panel.innerHTML = `
+            <div class="returned-work-header">
+                <span class="returned-work-badge">TASK COMPLETE</span>
+                <span class="returned-work-agent">${agentIcon} ${this._escapeHtml(agentName)}</span>
+            </div>
+            <div class="returned-work-summary">
+                The <strong>${this._escapeHtml(agentName)}</strong> agent just completed its task
+                (${wordCount.toLocaleString()} words generated). Here's what it produced — and what we can automate next.
+            </div>`;
+
+        const autoEl = document.createElement('div');
+        autoEl.className = 'automation-assessment-panel';
+        autoEl.style.marginTop = '0';
+        autoEl.innerHTML = `
+            <div class="assessment-loading">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <span>Scotty is planning follow-on automations…</span>
+            </div>`;
+
+        panel.appendChild(autoEl);
+        bubble.appendChild(panel);
+        this._scrollToBottom();
+
+        InfoPanel.logActivity(agentIcon, `${agentName} task reviewed — planning automations`);
+
+        if (!orch || typeof orch.assessSingleAgentResult !== 'function') {
+            autoEl.innerHTML = `<div style="color:#94a3b8;font-size:13px;">Claude API required for automation planning.</div>`;
+            return;
+        }
+
+        const contextBundle = this._getContextBundle();
+
+        orch.assessSingleAgentResult(
+            ctx.agentKey,
+            entry.taskType || agentName,
+            entry.content || '',
+            contextBundle
+        ).then(automationPlan => {
+            this._renderAutomationPanel(autoEl, automationPlan, contextBundle);
+            this._scrollToBottom();
+        }).catch(err => {
+            autoEl.innerHTML = `<div style="color:#94a3b8;font-size:13px;">Could not plan automations: ${this._escapeHtml(err.message)}</div>`;
+        });
+    }
+
+    _compileMissionReport(plan, results) {
+        const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        let report = `# 🚀 Marketing Mission Report\n`;
+        report += `**${plan.missionTitle}**\n`;
+        report += `*Generated by Scotty — Audema AI Marketing Department · ${date}*\n\n`;
+        report += `---\n\n`;
+        report += `## Mission Overview\n${plan.missionSummary}\n\n`;
+        report += `---\n\n`;
+
+        results.forEach((r, i) => {
+            if (!r) return;
+            report += `## ${i + 1}. ${r.task.taskName}\n`;
+            report += `*Agent: ${r.task.agentKey} | Objective: ${r.task.objective}*\n\n`;
+            report += r.text + '\n\n';
+            report += `---\n\n`;
+        });
+
+        report += `*End of Report — Scotty, Audema AI Marketing Department*\n`;
+        return report;
+    }
+
+    _renderMarkdownSimple(text) {
+        const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return esc
+            .replace(/^#{1,3} (.+)$/gm, '<strong style="color:#c4b5fd">$1</strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px">$1</code>')
+            .replace(/^---$/gm, '<hr style="border-color:rgba(255,255,255,0.08);margin:8px 0">')
+            .replace(/\n/g, '<br>');
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────── */
 
     _renderMarkdown(text) {
         if (window.marked) {
@@ -1788,7 +3295,7 @@ class ScottyChat {
 
         const avatar = document.createElement('div');
         avatar.className = 'msg-avatar';
-        avatar.textContent = '🤖';
+        avatar.innerHTML = '<img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:50%;" onerror="this.outerHTML=\'🤖\'">';
 
         wrapper.appendChild(avatar);
         wrapper.appendChild(inner);
@@ -1803,7 +3310,7 @@ class ScottyChat {
         el.className = 'typing-indicator';
         el.id = 'typingIndicator';
         el.innerHTML = `
-            <div class="msg-avatar">🤖</div>
+            <div class="msg-avatar"><img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:50%;" onerror="this.outerHTML='🤖'"></div>
             <div class="typing-dots">
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
@@ -1819,7 +3326,11 @@ class ScottyChat {
 
     _scrollToBottom() {
         requestAnimationFrame(() => {
-            this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+            const el = this.messagesEl;
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceFromBottom < 160) {
+                el.scrollTop = el.scrollHeight;
+            }
         });
     }
 
@@ -1830,15 +3341,15 @@ class ScottyChat {
         const welcomeEl = document.createElement('div');
         welcomeEl.className = 'msg';
         welcomeEl.innerHTML = `
-            <div class="msg-avatar">🤖</div>
+            <div class="msg-avatar"><img src="/assets/agents/scotty-MD.png" alt="Scotty" style="width:100%;height:100%;object-fit:cover;object-position:43% 16%;border-radius:50%;" onerror="this.outerHTML='🤖'"></div>
             <div>
                 <div class="msg-bubble">
                     <p>Ready for a new challenge. What are we building today?</p>
                     <div class="prompt-chips" id="promptChips">
-                        <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Help me plan next month's content strategy</button>
-                        <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze our competitor's latest moves</button>
-                        <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create an outreach sequence for new prospects</button>
-                        <button class="prompt-chip" data-prompt="Review our ad creative performance">Review our ad creative performance</button>
+                        <button class="prompt-chip orchestrate-chip" data-prompt="Orchestrate a full marketing campaign — run all agents and give me a complete marketing playbook">🚀 Run full marketing campaign (all agents)</button>
+                        <button class="prompt-chip" data-prompt="Help me plan next month's content strategy">Plan content strategy</button>
+                        <button class="prompt-chip" data-prompt="Analyze our competitor's latest moves">Analyze competitor moves</button>
+                        <button class="prompt-chip" data-prompt="Create an outreach sequence for new prospects">Create outreach sequence</button>
                     </div>
                 </div>
                 <div class="msg-meta">Scotty · Just now</div>
@@ -1857,17 +3368,15 @@ class ScottyChat {
             });
         }
 
-        // Update sidebar
-        const newItem = document.createElement('div');
-        newItem.className = 'convo-item active';
-        newItem.innerHTML = `
-            <span class="convo-icon">💬</span>
-            <div class="convo-info">
-                <div class="convo-title">New conversation</div>
-                <div class="convo-time">Just now</div>
-            </div>`;
-        document.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
-        this.convoList.insertBefore(newItem, this.convoList.firstChild);
+        // Update sidebar — re-render saved list then mark current item active
+        this._renderConvoList();
+        const currentItem = this.convoList.querySelector('[data-id="current"]');
+        this.convoList.querySelectorAll('.convo-item').forEach(el => el.classList.remove('active'));
+        if (currentItem) {
+            currentItem.querySelector('.convo-title').textContent = 'New conversation';
+            currentItem.querySelector('.convo-time').textContent  = 'Just now';
+            currentItem.classList.add('active');
+        }
         this.inputEl.focus();
     }
 

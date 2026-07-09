@@ -133,8 +133,41 @@ function _setByPath(obj, path, value) {
  */
 class BusinessBrain {
   constructor() {
-    /** @private */
-    this._key = STORAGE_KEYS.BUSINESS_BRAIN;
+    /** @private legacy global key, kept for one-time migration detection */
+    this._legacyKey = STORAGE_KEYS.BUSINESS_BRAIN;
+  }
+
+  /**
+   * Scoped storage key. Preference order:
+   *   1. Active intelligence profile ('intel_active_profile') — one profile
+   *      per business, switchable by the user, plan-limited.
+   *   2. Current project ('seo-current-project') — legacy per-project scope
+   *      for accounts that haven't adopted profiles yet.
+   *   3. 'default' bucket.
+   * @returns {string}
+   * @private
+   */
+  _key() {
+    const profileId = localStorage.getItem('intel_active_profile');
+    if (profileId) return `${STORAGE_KEYS.BUSINESS_BRAIN}__profile_${profileId}`;
+    const projectId = localStorage.getItem('seo-current-project');
+    return `${STORAGE_KEYS.BUSINESS_BRAIN}__${projectId || 'default'}`;
+  }
+
+  /**
+   * The active intelligence profile ID, or null.
+   * @returns {string|null}
+   */
+  currentProfileId() {
+    return localStorage.getItem('intel_active_profile');
+  }
+
+  /**
+   * The current project ID this brain instance is scoped to, or null.
+   * @returns {string|null}
+   */
+  currentProjectId() {
+    return localStorage.getItem('seo-current-project');
   }
 
   /**
@@ -186,12 +219,14 @@ class BusinessBrain {
   }
 
   /**
-   * Persist the brain data to localStorage.
+   * Persist the brain data to localStorage (instant, synchronous) and mirror
+   * it to Supabase in the background (per-project, versioned history).
    * Automatically stamps lastUpdated.
    * @param {Object} data
+   * @param {string} [label] - optional history label, e.g. 'Autofill overwrite'
    * @returns {Object} the saved data
    */
-  save(data) {
+  save(data, label) {
     if (typeof data !== 'object' || data === null) {
       throw new TypeError('[BusinessBrain.save] data must be a non-null object');
     }
@@ -200,7 +235,19 @@ class BusinessBrain {
     data.intelligence.lastUpdated = new Date().toISOString();
     data.intelligence.confidenceScore = this._computeConfidence(data);
 
-    _lsSet(this._key, data);
+    _lsSet(this._key(), data);
+
+    // Fire-and-forget cloud sync — never blocks or throws on the caller.
+    // Scope: active intelligence profile first, project fallback.
+    if (window.BusinessBrainCloud) {
+      const scope = window.BusinessBrainCloud.getScope();
+      if (scope) {
+        window.BusinessBrainCloud
+          .pushSnapshot(scope, data, data.intelligence.confidenceScore, label)
+          .catch(() => {});
+      }
+    }
+
     return data;
   }
 
@@ -209,7 +256,47 @@ class BusinessBrain {
    * @returns {Object}
    */
   load() {
-    return _lsGet(this._key) || this._emptyScaffold();
+    return _lsGet(this._key()) || this._emptyScaffold();
+  }
+
+  /**
+   * Write data to the local cache WITHOUT pushing a new cloud snapshot —
+   * used after a history restore, where the cloud snapshot has already been
+   * recorded by BusinessBrainCloud.restoreSnapshot(). Avoids a duplicate
+   * "Autosave" entry immediately after the "Restored from ..." entry.
+   * @param {Object} data
+   * @returns {Object}
+   */
+  applyRestoredData(data) {
+    _lsSet(this._key(), data);
+    return data;
+  }
+
+  /**
+   * Pull the latest cloud copy for the current project and hydrate the local
+   * cache with it if the cloud copy is newer. Call once on page load — this
+   * is async and does not block synchronous load()/save() call sites.
+   * @returns {Promise<Object|null>} the hydrated data, or null if nothing pulled
+   */
+  async hydrateFromCloud() {
+    if (!window.BusinessBrainCloud) return null;
+    const scope = window.BusinessBrainCloud.getScope();
+    if (!scope) return null;
+
+    const cloud = await window.BusinessBrainCloud.pullLatest(scope);
+    if (!cloud || !cloud.data) return null;
+
+    const local = _lsGet(this._key());
+    const cloudUpdated = new Date(cloud.updated_at || 0).getTime();
+    const localUpdated = new Date(local?.intelligence?.lastUpdated || 0).getTime();
+
+    // Only overwrite local cache if the cloud copy is strictly newer —
+    // protects against a stale cloud pull clobbering a fresher local edit.
+    if (cloudUpdated > localUpdated) {
+      _lsSet(this._key(), cloud.data);
+      return cloud.data;
+    }
+    return local;
   }
 
   /**
@@ -337,7 +424,14 @@ class BusinessBrain {
       { val: data.objectives?.q1Focus,                 weight: 6 },
       { val: data.objectives?.annualGoal,              weight: 6 },
       { val: data.objectives?.currentChallenge,        weight: 4 },
-      { val: data.objectives?.bestLeadChannels?.length, weight: 4 }
+      { val: data.objectives?.bestLeadChannels?.length, weight: 4 },
+
+      // Traction & Social Proof — weight 15
+      { val: data.metrics?.arr,                        weight: 4 },
+      { val: data.metrics?.customers,                  weight: 3 },
+      { val: data.metrics?.growth_rate,                weight: 3 },
+      { val: data.customers?.length,                   weight: 3 },
+      { val: data.testimonials?.length,                weight: 2 }
     ];
 
     const totalWeight = checks.reduce((s, c) => s + c.weight, 0);
@@ -524,6 +618,11 @@ class CompetitiveRadar {
    */
   getAll() {
     return this._load().competitors;
+  }
+
+  /** @returns {boolean} true if at least one competitor has been added */
+  hasData() {
+    return this._load().competitors.length > 0;
   }
 
   /**
@@ -726,6 +825,11 @@ class MarketPulse {
   getActiveSignals() {
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
     return this.getSignals({ afterMs: thirtyDaysAgo });
+  }
+
+  /** @returns {boolean} true if at least one signal has been logged */
+  hasData() {
+    return this._load().signals.length > 0;
   }
 
   /**
@@ -1086,7 +1190,8 @@ class IntelligenceEngine {
       role:        buyer.role || '',
       companySize: buyer.companySize || '',
       industry:    buyer.industry || '',
-      language:    brain.icp?.language || []
+      language:    Array.isArray(brain.icp?.language) ? brain.icp.language :
+                   (brain.icp?.language ? String(brain.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : [])
     };
   }
 
@@ -1321,6 +1426,27 @@ class IntelligenceEngine {
   }
 
   /**
+   * Returns true if BusinessBrain has enough data to be useful.
+   * Delegates to BusinessBrain.isConfigured() so callers on the facade work correctly.
+   * @returns {boolean}
+   */
+  isConfigured() {
+    return this.brain.isConfigured();
+  }
+
+  /**
+   * Returns true if the given context store has data.
+   * @param {'business'|'competitive'|'market'} type
+   * @returns {boolean}
+   */
+  hasContext(type) {
+    if (type === 'business')     return this.brain.isConfigured();
+    if (type === 'competitive')  return this.radar.hasData();
+    if (type === 'market')       return this.pulse.hasData();
+    return false;
+  }
+
+  /**
    * Check whether the intelligence layer has enough context for high-quality outputs.
    *
    * @returns {{
@@ -1365,6 +1491,11 @@ class IntelligenceEngine {
       return;
     }
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+    // Business Brain is stored per-project (STORAGE_KEYS.BUSINESS_BRAIN + '__' + projectId) —
+    // remove every project-scoped bucket too, not just the legacy global key.
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`))
+      .forEach(k => localStorage.removeItem(k));
     console.info('[IntelligenceEngine] All intelligence stores cleared.');
   }
 }

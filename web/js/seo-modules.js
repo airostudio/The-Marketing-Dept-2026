@@ -8,8 +8,8 @@
 
     // Configuration
     const CONFIG = {
-        // Google PageSpeed Insights API
-        pageSpeedApi: 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed',
+        // All PageSpeed calls go through the Vercel proxy — no client-side key needed
+        pageSpeedProxy: '/api/pagespeed',
         corsProxies: [
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?'
@@ -18,18 +18,6 @@
         retryAttempts: 3,
         retryDelay: 2000
     };
-
-    /**
-     * Get API key from configuration or localStorage fallback
-     */
-    function getPageSpeedApiKey() {
-        // Try APP_CONFIG first (from config.js)
-        if (window.APP_CONFIG?.GOOGLE?.API_KEY) {
-            return window.APP_CONFIG.GOOGLE.API_KEY;
-        }
-        // Fallback to localStorage (from Settings page)
-        return localStorage.getItem('pagespeed-api-key') || null;
-    }
 
     /**
      * Get current project - uses ProjectService if available, localStorage fallback
@@ -83,12 +71,6 @@
                 errors: []
             };
 
-            // Check if API key is configured
-            const apiKey = getPageSpeedApiKey();
-            if (!apiKey) {
-                console.warn('[PageSpeed] No API key configured. Using public API with rate limits.');
-            }
-
             if (onProgress) onProgress({ phase: 'mobile', message: 'Analyzing mobile performance...' });
 
             // Fetch mobile data first (more important for SEO)
@@ -127,13 +109,8 @@
          * Fetch PageSpeed Insights data with retry logic
          */
         async fetchPageSpeedData(url, strategy = 'mobile') {
-            const apiKey = getPageSpeedApiKey();
-            let apiUrl = `${CONFIG.pageSpeedApi}?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&category=accessibility&category=seo&category=best-practices`;
-
-            // Add API key if configured (enables higher rate limits)
-            if (apiKey) {
-                apiUrl += `&key=${apiKey}`;
-            }
+            // Route through Vercel proxy — API key is in env vars on the server
+            const apiUrl = `${CONFIG.pageSpeedProxy}?url=${encodeURIComponent(url)}&strategy=${strategy}`;
 
             let lastError = null;
 
@@ -174,8 +151,8 @@
 
                         if (attempt < CONFIG.retryAttempts) {
                             await new Promise(r => setTimeout(r, CONFIG.retryDelay * attempt));
-                            continue;
                         }
+                        continue; // body consumed by response.text() — never reach response.json()
                     }
 
                     const data = await response.json();

@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHIELD · Compliance Command | Audema</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #070711; --bg2: #0c0c1a; --bg3: #111128;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+      --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
+      --purple: #7c3aed; --purple-light: #a78bfa; --purple-dim: rgba(124,58,237,0.15);
+      --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
+      --amber: #f59e0b; --red: #ef4444; --orange: #f97316;
+      --card: rgba(255,255,255,0.03); --card2: rgba(255,255,255,0.055);
+      --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow: hidden; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; }
+    input, textarea, select { font-family: inherit; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    /* ── NAV ── */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 54px;
+      background: rgba(7,7,17,0.95); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 300;
+    }
+    .nav-left { display: flex; align-items: center; gap: 12px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; }
+    .logo-icon {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: var(--gradient); display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800;
+    }
+    .nav-sep { color: var(--text3); font-size: 16px; }
+    .nav-crumb { font-size: 13px; color: var(--text2); }
+    .nav-crumb strong { color: var(--purple-light); font-weight: 600; }
+    .nav-right { display: flex; gap: 6px; align-items: center; }
+    .nav-btn {
+      padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 500;
+      color: var(--text2); border: 1px solid var(--border); background: var(--card);
+      transition: all .15s; cursor: pointer;
+    }
+    .nav-btn:hover { color: var(--text); background: var(--card2); border-color: var(--border2); }
+    .nav-btn.active { color: var(--purple-light); background: var(--purple-dim); border-color: rgba(124,58,237,0.35); }
+
+    /* ── APP SHELL ── */
+    .app-shell { display: flex; height: calc(100vh - 54px); overflow: hidden; }
+
+    /* ── LEFT SIDEBAR ── */
+    .sidebar {
+      width: 240px; min-width: 240px; background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* Score ring */
+    .score-section {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .score-ring-wrap { position: relative; width: 100px; height: 100px; }
+    .score-ring-wrap svg { transform: rotate(-90deg); }
+    .score-ring-bg { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 8; }
+    .score-ring-fill {
+      fill: none; stroke-width: 8; stroke-linecap: round;
+      stroke: url(#scoreGrad);
+      transition: stroke-dashoffset 0.7s cubic-bezier(.4,0,.2,1);
+    }
+    .score-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .score-num { font-size: 22px; font-weight: 800; color: var(--text); }
+    .score-pct { font-size: 11px; color: var(--text3); font-weight: 500; }
+    .score-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .7px; }
+
+    /* Framework cards */
+    .fw-list { flex: 1; overflow-y: auto; padding: 10px 10px 4px; }
+    .fw-section-label {
+      font-size: 10px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .8px;
+      padding: 6px 6px 4px;
+    }
+    .fw-card {
+      padding: 10px 12px; border-radius: 9px; margin-bottom: 4px;
+      border: 1px solid transparent; cursor: pointer; transition: all .15s;
+      border-left: 3px solid transparent;
+    }
+    .fw-card:hover { background: rgba(255,255,255,0.04); border-color: var(--border); border-left-color: var(--text3); }
+    .fw-card.active { background: rgba(124,58,237,0.09); border-color: rgba(124,58,237,0.2); border-left-color: var(--purple); }
+    .fw-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .fw-name { font-size: 12px; font-weight: 700; color: var(--text); }
+    .fw-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+    .fw-counts { font-size: 11px; color: var(--text2); white-space: nowrap; }
+    .fw-bar-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+    .fw-bar-fill { height: 100%; border-radius: 99px; background: var(--gradient); transition: width .5s; }
+
+    /* Sidebar footer */
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .btn-ai-plan {
+      width: 100%; padding: 9px; background: var(--gradient);
+      border-radius: 8px; color: white; font-size: 12px; font-weight: 600;
+      border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .btn-ai-plan:hover { opacity: .88; }
+    .btn-content-review {
+      width: 100%; padding: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn-content-review:hover { color: var(--text); background: var(--card2); }
+
+    /* ── MAIN ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex; gap: 2px; padding: 10px 20px;
+      border-bottom: 1px solid var(--border); background: var(--bg2);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      padding: 6px 15px; border-radius: 7px; font-size: 13px; font-weight: 500;
+      color: var(--text2); background: transparent; border: 1px solid transparent;
+      cursor: pointer; transition: all .15s;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .tab-btn.active { color: var(--purple-light); background: var(--purple-dim); border-color: rgba(124,58,237,0.3); }
+
+    /* Tab panels */
+    .tab-panel { display: none; flex: 1; overflow-y: auto; padding: 24px; }
+    .tab-panel.active { display: block; }
+
+    /* ── DASHBOARD TAB ── */
+    .kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .kpi-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; }
+    .kpi-val { font-size: 26px; font-weight: 800; }
+    .kpi-val.green { color: var(--green); }
+    .kpi-val.amber { color: var(--amber); }
+    .kpi-val.red { color: var(--red); }
+    .kpi-val.cyan { color: var(--cyan); }
+    .kpi-sub { font-size: 11px; color: var(--text3); }
+
+    .section-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+    .section-row { display: grid; gap: 16px; }
+
+    /* Framework health cards */
+    .fw-health-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+    .fw-health-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      text-align: center;
+    }
+    .fw-health-ring { position: relative; width: 60px; height: 60px; }
+    .fw-health-ring svg { transform: rotate(-90deg); }
+    .fhr-bg { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 6; }
+    .fhr-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s; }
+    .fhr-center {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+    }
+    .fw-health-name { font-size: 11px; font-weight: 700; color: var(--text); }
+    .fw-health-controls { font-size: 10px; color: var(--text3); }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 600;
+    }
+    .status-on-track { background: rgba(16,185,129,.15); color: var(--green); }
+    .status-needs-attn { background: rgba(245,158,11,.15); color: var(--amber); }
+    .status-not-started { background: rgba(71,85,105,.2); color: var(--text3); }
+    .status-certified { background: rgba(6,182,212,.15); color: var(--cyan); }
+
+    /* Monitoring feed */
+    .monitor-list { display: flex; flex-direction: column; gap: 8px; }
+    .monitor-item {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 16px;
+    }
+    .mon-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mon-dot.pass { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,.5); }
+    .mon-dot.fail { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,.5); }
+    .mon-dot.warn { background: var(--amber); box-shadow: 0 0 6px rgba(245,158,11,.5); }
+    .mon-dot.sched { background: var(--text3); }
+    .mon-body { flex: 1; }
+    .mon-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .mon-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .mon-badge {
+      font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 99px;
+    }
+    .mon-badge.pass { background: rgba(16,185,129,.15); color: var(--green); }
+    .mon-badge.fail { background: rgba(239,68,68,.15); color: var(--red); }
+    .mon-badge.warn { background: rgba(245,158,11,.15); color: var(--amber); }
+    .mon-badge.sched { background: rgba(71,85,105,.2); color: var(--text3); }
+
+    /* ── EVIDENCE TAB ── */
+    .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-chip {
+      padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); background: var(--card); color: var(--text2);
+      cursor: pointer; transition: all .15s;
+    }
+    .filter-chip:hover { border-color: rgba(124,58,237,.35); color: var(--text); }
+    .filter-chip.active { background: var(--purple-dim); border-color: rgba(124,58,237,.4); color: var(--purple-light); }
+
+    .evidence-list { display: flex; flex-direction: column; gap: 8px; }
+    .ev-card {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 11px;
+      padding: 13px 16px; transition: border-color .15s;
+    }
+    .ev-card:hover { border-color: rgba(124,58,237,.2); }
+    .ev-card.collected { border-left: 3px solid var(--green); }
+    .ev-checkbox {
+      width: 18px; height: 18px; border-radius: 5px;
+      border: 2px solid rgba(255,255,255,.2); background: transparent;
+      cursor: pointer; flex-shrink: 0; appearance: none;
+      -webkit-appearance: none; transition: all .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ev-checkbox:checked {
+      background: var(--green); border-color: var(--green);
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 6l3 3 5-5' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-size: 70%; background-repeat: no-repeat; background-position: center;
+    }
+    .ev-info { flex: 1; min-width: 0; }
+    .ev-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .ev-meta { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+    .ev-tag {
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+    }
+    .ev-tag-auto { background: rgba(6,182,212,.15); color: var(--cyan); }
+    .ev-tag-manual { background: rgba(245,158,11,.15); color: var(--amber); }
+    .ev-tag-quarterly { background: rgba(124,58,237,.15); color: var(--purple-light); }
+    .ev-tag-annual { background: rgba(236,72,153,.15); color: var(--pink); }
+    .ev-tag-policy { background: rgba(16,185,129,.15); color: var(--green); }
+    .ev-owner { font-size: 11px; color: var(--text3); }
+    .ev-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .ev-status {
+      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px;
+    }
+    .ev-status.collected { background: rgba(16,185,129,.15); color: var(--green); }
+    .ev-status.pending { background: rgba(245,158,11,.15); color: var(--amber); }
+    .ev-status.missing { background: rgba(239,68,68,.15); color: var(--red); }
+    .ev-date { font-size: 10px; color: var(--text3); }
+
+    /* ── RISK TAB ── */
+    .risk-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .btn-add-risk {
+      padding: 8px 16px; background: var(--gradient);
+      border-radius: 8px; color: white; font-size: 12px; font-weight: 600;
+      border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .btn-add-risk:hover { opacity: .88; }
+    .risk-table-wrap { overflow-x: auto; margin-bottom: 20px; }
+    .risk-table { width: 100%; border-collapse: collapse; }
+    .risk-table th {
+      text-align: left; font-size: 10px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .7px;
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .risk-table td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; vertical-align: middle; }
+    .risk-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .risk-table tr:last-child td { border-bottom: none; }
+    .sev-badge {
+      display: inline-flex; align-items: center; padding: 3px 9px;
+      border-radius: 99px; font-size: 11px; font-weight: 700;
+    }
+    .sev-critical { background: rgba(239,68,68,.18); color: var(--red); }
+    .sev-high { background: rgba(249,115,22,.18); color: var(--orange); }
+    .sev-medium { background: rgba(245,158,11,.18); color: var(--amber); }
+    .sev-low { background: rgba(16,185,129,.18); color: var(--green); }
+    .risk-status-badge {
+      display: inline-flex; align-items: center; padding: 3px 9px;
+      border-radius: 99px; font-size: 11px; font-weight: 600;
+    }
+    .risk-open { background: rgba(239,68,68,.12); color: var(--red); }
+    .risk-mitigating { background: rgba(245,158,11,.12); color: var(--amber); }
+    .risk-closed { background: rgba(16,185,129,.12); color: var(--green); }
+    .cat-badge {
+      display: inline-flex; padding: 2px 8px; border-radius: 99px;
+      font-size: 10px; font-weight: 600;
+    }
+    .cat-technical { background: rgba(6,182,212,.12); color: var(--cyan); }
+    .cat-human { background: rgba(124,58,237,.12); color: var(--purple-light); }
+    .cat-process { background: rgba(236,72,153,.12); color: var(--pink); }
+    .cat-third-party { background: rgba(245,158,11,.12); color: var(--amber); }
+    .btn-del {
+      padding: 3px 8px; border-radius: 6px; font-size: 11px;
+      background: rgba(239,68,68,.12); color: var(--red); border: none; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-del:hover { background: rgba(239,68,68,.22); }
+
+    /* Add risk form */
+    .add-risk-form {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px; display: none;
+    }
+    .add-risk-form.open { display: block; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-field label { font-size: 11px; color: var(--text3); font-weight: 600; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .5px; }
+    .form-field input, .form-field select, .form-field textarea {
+      width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 13px;
+    }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+      outline: none; border-color: var(--purple);
+    }
+    .form-field select option { background: #1a1a2e; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-cancel {
+      padding: 8px 16px; background: var(--card2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer;
+    }
+    .btn-save {
+      padding: 8px 16px; background: var(--gradient);
+      border-radius: 8px; color: white; font-size: 13px; font-weight: 600;
+      border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .btn-save:hover { opacity: .88; }
+
+    /* ── AI PLAN TAB ── */
+    .ai-form-section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+    .ai-form-title { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
+    .fw-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fw-checkbox-label {
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+      cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2);
+      transition: all .15s;
+    }
+    .fw-checkbox-label:hover { border-color: rgba(124,58,237,.35); color: var(--text); }
+    .fw-checkbox-label input[type=checkbox]:checked + span { color: var(--purple-light); }
+    .fw-checkbox-label:has(input:checked) {
+      background: var(--purple-dim); border-color: rgba(124,58,237,.4); color: var(--purple-light);
+    }
+    .fw-checkbox-label input[type=checkbox] { accent-color: var(--purple); width: 14px; height: 14px; }
+    .ai-selects-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .ai-select-wrap label { font-size: 11px; color: var(--text3); font-weight: 600; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .5px; }
+    .ai-select-wrap select {
+      width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 13px;
+    }
+    .ai-select-wrap select:focus { outline: none; border-color: var(--purple); }
+    .ai-select-wrap select option { background: #1a1a2e; }
+    .ai-textarea-wrap { margin-top: 12px; }
+    .ai-textarea-wrap label { font-size: 11px; color: var(--text3); font-weight: 600; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .5px; }
+    .ai-textarea-wrap textarea {
+      width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 10px 12px; font-size: 13px;
+      resize: vertical; min-height: 80px;
+    }
+    .ai-textarea-wrap textarea:focus { outline: none; border-color: var(--purple); }
+    .btn-generate {
+      padding: 11px 24px; background: var(--gradient);
+      border-radius: 9px; color: white; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; transition: opacity .15s; display: flex; align-items: center; gap: 8px;
+    }
+    .btn-generate:hover { opacity: .88; }
+    .btn-generate:disabled { opacity: .5; cursor: not-allowed; }
+    .ai-output {
+      background: rgba(124,58,237,0.05); border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 12px; padding: 20px; min-height: 80px;
+      font-size: 13px; color: var(--text2); line-height: 1.7;
+      display: none;
+    }
+    .ai-output.visible { display: block; }
+    .ai-output h1, .ai-output h2, .ai-output h3 { color: var(--text); margin: 16px 0 8px; font-size: 15px; }
+    .ai-output h1 { font-size: 17px; }
+    .ai-output h3 { font-size: 13px; }
+    .ai-output p { margin-bottom: 10px; }
+    .ai-output ul, .ai-output ol { padding-left: 20px; margin-bottom: 10px; }
+    .ai-output li { margin-bottom: 4px; }
+    .ai-output code {
+      background: rgba(124,58,237,.15); border-radius: 4px;
+      padding: 1px 6px; font-size: 12px; color: var(--purple-light); font-family: monospace;
+    }
+    .ai-output pre {
+      background: rgba(0,0,0,.4); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px; overflow-x: auto; margin: 10px 0;
+    }
+    .ai-output pre code { background: transparent; padding: 0; color: var(--text2); }
+    .ai-output strong { color: var(--text); }
+    .ai-output blockquote { border-left: 3px solid var(--purple); padding-left: 12px; color: var(--text2); margin: 10px 0; }
+
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.2);
+      border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CONTENT REVIEW PANEL ── */
+    .panel-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 400;
+      display: none; backdrop-filter: blur(4px);
+    }
+    .panel-overlay.open { display: block; }
+    .review-panel {
+      position: fixed; top: 0; right: -420px; width: 420px; height: 100vh;
+      background: var(--bg2); border-left: 1px solid var(--border);
+      z-index: 500; display: flex; flex-direction: column;
+      transition: right .3s cubic-bezier(.4,0,.2,1);
+    }
+    .review-panel.open { right: 0; }
+    .panel-header {
+      padding: 18px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .panel-title { font-size: 15px; font-weight: 700; }
+    .panel-close {
+      width: 30px; height: 30px; border-radius: 7px; background: var(--card2);
+      border: 1px solid var(--border); color: var(--text2);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-size: 16px; transition: all .15s;
+    }
+    .panel-close:hover { color: var(--text); background: rgba(255,255,255,.08); }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    .panel-form-group { margin-bottom: 14px; }
+    .panel-form-group label { font-size: 11px; color: var(--text3); font-weight: 600; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .5px; }
+    .panel-form-group select, .panel-form-group textarea, .panel-form-group input {
+      width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 13px;
+    }
+    .panel-form-group select:focus, .panel-form-group textarea:focus { outline: none; border-color: var(--purple); }
+    .panel-form-group select option { background: #1a1a2e; }
+    .panel-form-group textarea { resize: vertical; min-height: 100px; }
+    .btn-run-review {
+      width: 100%; padding: 11px; background: var(--gradient);
+      border-radius: 9px; color: white; font-size: 13px; font-weight: 600;
+      border: none; cursor: pointer; transition: opacity .15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-bottom: 16px;
+    }
+    .btn-run-review:hover { opacity: .88; }
+    .btn-run-review:disabled { opacity: .5; cursor: not-allowed; }
+    .panel-output {
+      background: rgba(124,58,237,.05); border: 1px solid rgba(124,58,237,.2);
+      border-radius: 10px; padding: 16px; min-height: 60px;
+      font-size: 13px; color: var(--text2); line-height: 1.7; display: none;
+    }
+    .panel-output.visible { display: block; }
+    .panel-output h1, .panel-output h2, .panel-output h3 { color: var(--text); margin: 12px 0 6px; font-size: 14px; }
+    .panel-output p { margin-bottom: 8px; }
+    .panel-output ul, .panel-output ol { padding-left: 18px; margin-bottom: 8px; }
+    .panel-output li { margin-bottom: 3px; }
+    .panel-output code { background: rgba(124,58,237,.15); border-radius: 4px; padding: 1px 5px; font-size: 11px; color: var(--purple-light); font-family: monospace; }
+    .panel-output strong { color: var(--text); }
+
+    /* Utility */
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--text3); font-size: 13px; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .mt-0 { margin-top: 0; }
+    .mb-16 { margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-logo">
+      <div class="logo-icon">S</div>
+      <span>Audema</span>
+    </div>
+    <span class="nav-sep">/</span>
+    <span class="nav-crumb"><strong>SHIELD</strong> &middot; Compliance Command</span>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openReviewPanel()">Content Review</button>
+    <a href="/intelligence/strategic-brief.html" class="nav-btn">Automation Plan</a>
+    <a href="/hub.html" class="nav-btn">Hub</a>
+    <a href="/settings.html" class="nav-btn">Settings</a>
+  </div>
+</nav>
+
+<!-- APP SHELL -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <!-- Compliance Score -->
+    <div class="score-section">
+      <div class="score-ring-wrap">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="100%" stop-color="#ec4899"/>
+            </linearGradient>
+          </defs>
+          <circle class="score-ring-bg" cx="50" cy="50" r="42"/>
+          <circle class="score-ring-fill" id="scoreRing" cx="50" cy="50" r="42"
+            stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+        </svg>
+        <div class="score-center">
+          <span class="score-num" id="scoreNum">0</span>
+          <span class="score-pct">%</span>
+        </div>
+      </div>
+      <span class="score-label">Compliance Score</span>
+    </div>
+
+    <!-- Framework list -->
+    <div class="fw-list">
+      <div class="fw-section-label">Frameworks</div>
+      <div class="fw-card active" id="fw-soc2" onclick="selectFramework('soc2')">
+        <div class="fw-card-top">
+          <div>
+            <div class="fw-name">SOC 2 Type II</div>
+            <div class="fw-sub">Trust Service Criteria</div>
+          </div>
+          <div class="fw-counts" id="fw-soc2-counts">0/20</div>
+        </div>
+        <div class="fw-bar-track"><div class="fw-bar-fill" id="fw-soc2-bar" style="width:0%"></div></div>
+      </div>
+      <div class="fw-card" id="fw-iso27001" onclick="selectFramework('iso27001')">
+        <div class="fw-card-top">
+          <div>
+            <div class="fw-name">ISO 27001</div>
+            <div class="fw-sub">Annex A Controls</div>
+          </div>
+          <div class="fw-counts" id="fw-iso27001-counts">0/12</div>
+        </div>
+        <div class="fw-bar-track"><div class="fw-bar-fill" id="fw-iso27001-bar" style="width:0%"></div></div>
+      </div>
+      <div class="fw-card" id="fw-gdpr" onclick="selectFramework('gdpr')">
+        <div class="fw-card-top">
+          <div>
+            <div class="fw-name">GDPR</div>
+            <div class="fw-sub">Data Protection</div>
+          </div>
+          <div class="fw-counts" id="fw-gdpr-counts">0/8</div>
+        </div>
+        <div class="fw-bar-track"><div class="fw-bar-fill" id="fw-gdpr-bar" style="width:0%"></div></div>
+      </div>
+      <div class="fw-card" id="fw-hipaa" onclick="selectFramework('hipaa')">
+        <div class="fw-card-top">
+          <div>
+            <div class="fw-name">HIPAA</div>
+            <div class="fw-sub">Healthcare</div>
+          </div>
+          <div class="fw-counts" id="fw-hipaa-counts">0/8</div>
+        </div>
+        <div class="fw-bar-track"><div class="fw-bar-fill" id="fw-hipaa-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar-footer">
+      <button class="btn-ai-plan" onclick="switchTab('ai-plan')">AI Automation Plan</button>
+      <button class="btn-content-review" onclick="openReviewPanel()">Content Review</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+      <button class="tab-btn" id="tab-evidence" onclick="switchTab('evidence')">Evidence Tracker</button>
+      <button class="tab-btn" id="tab-risks" onclick="switchTab('risks')">Risk Register</button>
+      <button class="tab-btn" id="tab-ai-plan" onclick="switchTab('ai-plan')">AI Automation Plan</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="tab-panel active" id="panel-dashboard">
+      <div class="kpi-strip" id="kpiStrip">
+        <div class="kpi-card">
+          <div class="kpi-label">Controls Passing</div>
+          <div class="kpi-val green" id="kpi-passing">0</div>
+          <div class="kpi-sub">of 48 total</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Evidence Collected</div>
+          <div class="kpi-val cyan" id="kpi-evidence">0</div>
+          <div class="kpi-sub">of 48 items</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Open Risks</div>
+          <div class="kpi-val amber" id="kpi-risks">2</div>
+          <div class="kpi-sub">3 total in register</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Days to Audit</div>
+          <div class="kpi-val" style="color:var(--purple-light)">87</div>
+          <div class="kpi-sub">Target: Q4 2026</div>
+        </div>
+      </div>
+
+      <div class="section-title">Framework Health</div>
+      <div class="fw-health-grid" id="fwHealthGrid">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="section-title">Continuous Monitoring</div>
+      <div class="monitor-list">
+        <div class="monitor-item">
+          <div class="mon-dot pass"></div>
+          <div class="mon-body">
+            <div class="mon-name">Access Control Review</div>
+            <div class="mon-meta">Automated check &middot; 2 mins ago</div>
+          </div>
+          <span class="mon-badge pass">PASS</span>
+        </div>
+        <div class="monitor-item">
+          <div class="mon-dot pass"></div>
+          <div class="mon-body">
+            <div class="mon-name">Vulnerability Scan</div>
+            <div class="mon-meta">Automated &middot; 1 hour ago</div>
+          </div>
+          <span class="mon-badge pass">PASS</span>
+        </div>
+        <div class="monitor-item">
+          <div class="mon-dot warn"></div>
+          <div class="mon-body">
+            <div class="mon-name">Employee Training Completion</div>
+            <div class="mon-meta">87% complete &middot; 3 hours ago</div>
+          </div>
+          <span class="mon-badge warn">WARNING</span>
+        </div>
+        <div class="monitor-item">
+          <div class="mon-dot pass"></div>
+          <div class="mon-body">
+            <div class="mon-name">Backup Verification</div>
+            <div class="mon-meta">All replicas confirmed &middot; 6 hours ago</div>
+          </div>
+          <span class="mon-badge pass">PASS</span>
+        </div>
+        <div class="monitor-item">
+          <div class="mon-dot pass"></div>
+          <div class="mon-body">
+            <div class="mon-name">MFA Enforcement</div>
+            <div class="mon-meta">100% of accounts &middot; 12 hours ago</div>
+          </div>
+          <span class="mon-badge pass">PASS</span>
+        </div>
+        <div class="monitor-item">
+          <div class="mon-dot sched"></div>
+          <div class="mon-body">
+            <div class="mon-name">Penetration Test</div>
+            <div class="mon-meta">Due in 14 days</div>
+          </div>
+          <span class="mon-badge sched">SCHEDULED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE TRACKER -->
+    <div class="tab-panel" id="panel-evidence">
+      <div class="filter-bar" id="evidenceFilterBar">
+        <button class="filter-chip active" data-cat="all" onclick="filterEvidence('all', this)">All</button>
+        <button class="filter-chip" data-cat="Access Control" onclick="filterEvidence('Access Control', this)">Access Control</button>
+        <button class="filter-chip" data-cat="Change Management" onclick="filterEvidence('Change Management', this)">Change Management</button>
+        <button class="filter-chip" data-cat="Security Monitoring" onclick="filterEvidence('Security Monitoring', this)">Security Monitoring</button>
+        <button class="filter-chip" data-cat="HR &amp; Training" onclick="filterEvidence('HR & Training', this)">HR &amp; Training</button>
+        <button class="filter-chip" data-cat="Vendor Management" onclick="filterEvidence('Vendor Management', this)">Vendor Management</button>
+        <button class="filter-chip" data-cat="Incident Response" onclick="filterEvidence('Incident Response', this)">Incident Response</button>
+      </div>
+      <div class="evidence-list" id="evidenceList"></div>
+    </div>
+
+    <!-- RISK REGISTER -->
+    <div class="tab-panel" id="panel-risks">
+      <div class="risk-header">
+        <div class="section-title" style="margin-bottom:0">Risk Register</div>
+        <button class="btn-add-risk" onclick="toggleRiskForm()">+ Add Risk</button>
+      </div>
+      <div class="risk-table-wrap">
+        <table class="risk-table">
+          <thead>
+            <tr>
+              <th>Risk Description</th>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Likelihood</th>
+              <th>Owner</th>
+              <th>Status</th>
+              <th>Date Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="riskTableBody"></tbody>
+        </table>
+      </div>
+      <div class="add-risk-form" id="addRiskForm">
+        <div class="section-title" style="font-size:13px;margin-bottom:14px">Add New Risk</div>
+        <div class="form-field" style="margin-bottom:12px">
+          <label>Risk Description</label>
+          <input type="text" id="riskDesc" placeholder="Describe the risk...">
+        </div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Category</label>
+            <select id="riskCat">
+              <option>Technical</option>
+              <option>Human</option>
+              <option>Process</option>
+              <option>Third-party</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Severity</label>
+            <select id="riskSev">
+              <option>Critical</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Likelihood</label>
+            <select id="riskLike">
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Owner</label>
+            <select id="riskOwner">
+              <option>Engineering</option>
+              <option>Security</option>
+              <option>HR</option>
+              <option>Legal</option>
+              <option>Operations</option>
+              <option>Leadership</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Status</label>
+            <select id="riskStatus">
+              <option>Open</option>
+              <option>Mitigating</option>
+              <option>Closed</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="toggleRiskForm()">Cancel</button>
+          <button class="btn-save" onclick="saveRisk()">Save Risk</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI AUTOMATION PLAN -->
+    <div class="tab-panel" id="panel-ai-plan">
+      <div class="ai-form-section">
+        <div class="ai-form-title">Target Frameworks</div>
+        <div class="fw-checkboxes">
+          <label class="fw-checkbox-label"><input type="checkbox" id="fw-check-soc2" checked><span>SOC 2</span></label>
+          <label class="fw-checkbox-label"><input type="checkbox" id="fw-check-iso"><span>ISO 27001</span></label>
+          <label class="fw-checkbox-label"><input type="checkbox" id="fw-check-gdpr"><span>GDPR</span></label>
+          <label class="fw-checkbox-label"><input type="checkbox" id="fw-check-hipaa"><span>HIPAA</span></label>
+          <label class="fw-checkbox-label"><input type="checkbox" id="fw-check-pci"><span>PCI DSS</span></label>
+        </div>
+        <div class="ai-selects-grid">
+          <div class="ai-select-wrap">
+            <label>Automation Goal</label>
+            <select id="automationGoal">
+              <option>Gap Analysis</option>
+              <option>Evidence Collection Plan</option>
+              <option>Audit Readiness Report</option>
+              <option>Security Questionnaire Auto-Fill</option>
+              <option>Continuous Monitoring Setup</option>
+              <option>Trust Center Content</option>
+              <option>Vendor Risk Assessment</option>
+              <option>Control Mapping</option>
+            </select>
+          </div>
+          <div class="ai-select-wrap">
+            <label>Infrastructure</label>
+            <select id="infrastructure">
+              <option>AWS</option>
+              <option>GCP</option>
+              <option>Azure</option>
+              <option>Multi-cloud</option>
+              <option>On-premise</option>
+            </select>
+          </div>
+          <div class="ai-select-wrap">
+            <label>Company Stage</label>
+            <select id="companyStage">
+              <option>Pre-compliance</option>
+              <option>Building (6-12 months)</option>
+              <option>Audit Ready (90 days)</option>
+              <option>Certified</option>
+            </select>
+          </div>
+        </div>
+        <div class="ai-textarea-wrap">
+          <label>Additional Context</label>
+          <textarea id="automationContext" placeholder="e.g. We're a B2B SaaS with 25 employees, targeting enterprise customers. We process PHI and PCI data. We need SOC 2 in 6 months..."></textarea>
+        </div>
+      </div>
+      <button class="btn-generate" id="btnGenerate" onclick="generatePlan()">
+        <span id="genBtnText">Generate Automation Plan</span>
+        <div class="spinner" id="genSpinner" style="display:none"></div>
+      </button>
+      <div class="ai-output mt-0" id="aiPlanOutput" style="margin-top:16px"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- CONTENT REVIEW PANEL -->
+<div class="panel-overlay" id="panelOverlay" onclick="closeReviewPanel()"></div>
+<div class="review-panel" id="reviewPanel">
+  <div class="panel-header">
+    <span class="panel-title">Content Review</span>
+    <button class="panel-close" onclick="closeReviewPanel()">&#x2715;</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-form-group">
+      <label>Review Type</label>
+      <select id="reviewType">
+        <option>Compliance Check</option>
+        <option>Privacy Policy Review</option>
+        <option>Terms of Service Review</option>
+        <option>Data Processing Agreement</option>
+        <option>Security Policy Review</option>
+        <option>Marketing Content Compliance</option>
+      </select>
+    </div>
+    <div class="panel-form-group">
+      <label>Industry</label>
+      <select id="reviewIndustry">
+        <option>SaaS / Technology</option>
+        <option>Healthcare</option>
+        <option>Financial Services</option>
+        <option>E-commerce</option>
+        <option>Legal</option>
+        <option>Education</option>
+        <option>Government</option>
+      </select>
+    </div>
+    <div class="panel-form-group">
+      <label>Region / Jurisdiction</label>
+      <select id="reviewRegion">
+        <option>United States</option>
+        <option>European Union (GDPR)</option>
+        <option>United Kingdom</option>
+        <option>Canada (PIPEDA)</option>
+        <option>Australia</option>
+        <option>Global</option>
+      </select>
+    </div>
+    <div class="panel-form-group">
+      <label>Content to Review</label>
+      <textarea id="reviewContent" rows="6" placeholder="Paste your policy text, marketing content, data processing terms, or any content you need reviewed for compliance..."></textarea>
+    </div>
+    <button class="btn-run-review" id="btnRunReview" onclick="runContentReview()">
+      <span id="reviewBtnText">Run Review</span>
+      <div class="spinner" id="reviewSpinner" style="display:none"></div>
+    </button>
+    <div class="panel-output" id="reviewOutput"></div>
+  </div>
+</div>
+
+<script src="/js/marked.min.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/claude-service.js"></script>
+<script src="/js/agent-history.js"></script>
+<script>
+// ─────────────────────────────────────────
+//  DATA
+// ─────────────────────────────────────────
+const EVIDENCE_ITEMS = [
+  // SOC 2
+  { id: 'soc2-01', fw: 'soc2', name: 'Access Control Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-02', fw: 'soc2', name: 'User Access Review', category: 'Access Control', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'collected' },
+  { id: 'soc2-03', fw: 'soc2', name: 'MFA Enforcement Screenshot', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-04', fw: 'soc2', name: 'Encryption at Rest Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-05', fw: 'soc2', name: 'Encryption in Transit Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-06', fw: 'soc2', name: 'Vulnerability Scan Report', category: 'Security Monitoring', method: 'Automated', owner: 'Security', freq: 'Monthly', defaultStatus: 'pending' },
+  { id: 'soc2-07', fw: 'soc2', name: 'Penetration Test Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'soc2-08', fw: 'soc2', name: 'Incident Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-09', fw: 'soc2', name: 'Incident Response Test', category: 'Incident Response', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'soc2-10', fw: 'soc2', name: 'Business Continuity Plan', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-11', fw: 'soc2', name: 'BCP Test Results', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'soc2-12', fw: 'soc2', name: 'Employee Security Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
+  { id: 'soc2-13', fw: 'soc2', name: 'Background Check Records', category: 'HR & Training', method: 'Manual', owner: 'HR', freq: 'Per Hire', defaultStatus: 'collected' },
+  { id: 'soc2-14', fw: 'soc2', name: 'Vendor Risk Assessment', category: 'Vendor Management', method: 'Manual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'soc2-15', fw: 'soc2', name: 'Change Management Log', category: 'Change Management', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-16', fw: 'soc2', name: 'System Monitoring Logs', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-17', fw: 'soc2', name: 'Backup Verification Report', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-18', fw: 'soc2', name: 'Data Classification Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-19', fw: 'soc2', name: 'Asset Inventory', category: 'Change Management', method: 'Manual', owner: 'Engineering', freq: 'Quarterly', defaultStatus: 'pending' },
+  { id: 'soc2-20', fw: 'soc2', name: 'Security Awareness Training Completion', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
+  // ISO 27001
+  { id: 'iso-01', fw: 'iso27001', name: 'Information Security Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-02', fw: 'iso27001', name: 'Risk Assessment Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'iso-03', fw: 'iso27001', name: 'Statement of Applicability', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-04', fw: 'iso27001', name: 'Internal Audit Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'iso-05', fw: 'iso27001', name: 'Supplier Security Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'iso-06', fw: 'iso27001', name: 'Physical Security Controls', category: 'Security Monitoring', method: 'Manual', owner: 'Operations', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-07', fw: 'iso27001', name: 'Cryptography Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-08', fw: 'iso27001', name: 'Network Security Controls', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'iso-09', fw: 'iso27001', name: 'Mobile Device Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'iso-10', fw: 'iso27001', name: 'Business Continuity Controls', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'iso-11', fw: 'iso27001', name: 'Incident Management Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-12', fw: 'iso27001', name: 'Compliance Monitoring Records', category: 'Security Monitoring', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'pending' },
+  // GDPR
+  { id: 'gdpr-01', fw: 'gdpr', name: 'Data Processing Register (ROPA)', category: 'Access Control', method: 'Manual', owner: 'Legal', freq: 'Quarterly', defaultStatus: 'collected' },
+  { id: 'gdpr-02', fw: 'gdpr', name: 'Privacy Notice / Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'gdpr-03', fw: 'gdpr', name: 'Data Subject Request Procedures', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'gdpr-04', fw: 'gdpr', name: 'Data Breach Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'gdpr-05', fw: 'gdpr', name: 'DPA Agreements with Processors', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'gdpr-06', fw: 'gdpr', name: 'Cookie Consent Records', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'gdpr-07', fw: 'gdpr', name: 'DPIA for High-Risk Processing', category: 'Security Monitoring', method: 'Annual', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'gdpr-08', fw: 'gdpr', name: 'Data Retention Schedule', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
+  // HIPAA
+  { id: 'hipaa-01', fw: 'hipaa', name: 'HIPAA Security Risk Analysis', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'hipaa-02', fw: 'hipaa', name: 'Business Associate Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'hipaa-03', fw: 'hipaa', name: 'PHI Access Audit Logs', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'hipaa-04', fw: 'hipaa', name: 'Workforce Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'hipaa-05', fw: 'hipaa', name: 'Sanction Policy', category: 'HR & Training', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'hipaa-06', fw: 'hipaa', name: 'Emergency Access Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'hipaa-07', fw: 'hipaa', name: 'Transmission Security Evidence', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'hipaa-08', fw: 'hipaa', name: 'PHI Disposal Records', category: 'Change Management', method: 'Manual', owner: 'Operations', freq: 'Quarterly', defaultStatus: 'missing' },
+];
+
+const FW_CONFIG = {
+  soc2:     { label: 'SOC 2',    count: 20 },
+  iso27001: { label: 'ISO 27001',count: 12 },
+  gdpr:     { label: 'GDPR',     count:  8 },
+  hipaa:    { label: 'HIPAA',    count:  8 },
+};
+
+const DEFAULT_RISKS = [
+  { id: 'r1', desc: 'Single admin account without MFA', category: 'Technical',    severity: 'Critical', likelihood: 'High',   owner: 'Engineering', status: 'Open',       date: '2026-04-12' },
+  { id: 'r2', desc: 'Vendor SOC 2 reports not collected annually', category: 'Third-party', severity: 'High',     likelihood: 'Medium', owner: 'Security',    status: 'Mitigating', date: '2026-04-20' },
+  { id: 'r3', desc: 'Employee offboarding access revocation delay', category: 'Human',       severity: 'Medium',   likelihood: 'Low',    owner: 'HR',          status: 'Open',       date: '2026-05-01' },
+];
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+const LS_EVIDENCE = 'tmd_compliance_evidence';
+const LS_RISKS    = 'tmd_compliance_risks';
+
+function loadEvidence() {
+  try { return JSON.parse(localStorage.getItem(LS_EVIDENCE) || '{}'); } catch { return {}; }
+}
+function saveEvidence(state) { localStorage.setItem(LS_EVIDENCE, JSON.stringify(state)); }
+function loadRisks() {
+  try {
+    const r = JSON.parse(localStorage.getItem(LS_RISKS));
+    return Array.isArray(r) ? r : DEFAULT_RISKS;
+  } catch { return DEFAULT_RISKS; }
+}
+function saveRisks(risks) { localStorage.setItem(LS_RISKS, JSON.stringify(risks)); }
+
+let evidenceState = loadEvidence();
+let risks = loadRisks();
+let activeFramework = 'soc2';
+let activeEvidenceFilter = 'all';
+
+// Seed defaults if first visit
+(function seedDefaults() {
+  let changed = false;
+  EVIDENCE_ITEMS.forEach(item => {
+    if (evidenceState[item.id] === undefined) {
+      evidenceState[item.id] = item.defaultStatus === 'collected';
+      changed = true;
+    }
+  });
+  if (changed) saveEvidence(evidenceState);
+})();
+
+// ─────────────────────────────────────────
+//  SCORE CALCULATIONS
+// ─────────────────────────────────────────
+function totalCollected() {
+  return EVIDENCE_ITEMS.filter(i => evidenceState[i.id]).length;
+}
+function fwCollected(fw) {
+  return EVIDENCE_ITEMS.filter(i => i.fw === fw && evidenceState[i.id]).length;
+}
+function overallScore() {
+  return Math.round((totalCollected() / EVIDENCE_ITEMS.length) * 100);
+}
+function fwScore(fw) {
+  const total = FW_CONFIG[fw].count;
+  return Math.round((fwCollected(fw) / total) * 100);
+}
+
+// ─────────────────────────────────────────
+//  RENDER SCORE RING
+// ─────────────────────────────────────────
+function updateScoreRing() {
+  const score = overallScore();
+  const r = 42; const c = 2 * Math.PI * r; // ~263.9
+  const offset = c - (score / 100) * c;
+  const ring = document.getElementById('scoreRing');
+  ring.style.strokeDashoffset = offset;
+  document.getElementById('scoreNum').textContent = score;
+}
+
+// ─────────────────────────────────────────
+//  RENDER FRAMEWORK SIDEBAR CARDS
+// ─────────────────────────────────────────
+function updateFrameworkCards() {
+  Object.keys(FW_CONFIG).forEach(fw => {
+    const collected = fwCollected(fw);
+    const total = FW_CONFIG[fw].count;
+    const pct = Math.round((collected / total) * 100);
+    document.getElementById(`fw-${fw}-counts`).textContent = `${collected}/${total}`;
+    document.getElementById(`fw-${fw}-bar`).style.width = pct + '%';
+  });
+}
+
+// ─────────────────────────────────────────
+//  RENDER FRAMEWORK HEALTH GRID (DASHBOARD)
+// ─────────────────────────────────────────
+function renderFwHealthGrid() {
+  const grid = document.getElementById('fwHealthGrid');
+  const COLORS = { soc2: '#7c3aed', iso27001: '#06b6d4', gdpr: '#ec4899', hipaa: '#10b981' };
+  grid.innerHTML = '';
+  Object.keys(FW_CONFIG).forEach(fw => {
+    const score = fwScore(fw);
+    const collected = fwCollected(fw);
+    const total = FW_CONFIG[fw].count;
+    const color = COLORS[fw];
+    let statusClass, statusLabel;
+    if (score >= 75) { statusClass = 'status-on-track'; statusLabel = 'On Track'; }
+    else if (score >= 30) { statusClass = 'status-needs-attn'; statusLabel = 'Needs Attention'; }
+    else { statusClass = 'status-not-started'; statusLabel = 'Not Started'; }
+
+    const r = 24; const circum = 2 * Math.PI * r;
+    const offset = circum - (score / 100) * circum;
+    const card = document.createElement('div');
+    card.className = 'fw-health-card';
+    card.innerHTML = `
+      <div class="fw-health-ring">
+        <svg width="60" height="60" viewBox="0 0 60 60">
+          <circle class="fhr-bg" cx="30" cy="30" r="${r}"/>
+          <circle class="fhr-fill" cx="30" cy="30" r="${r}"
+            stroke="${color}" stroke-dasharray="${circum.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"
+            transform="rotate(-90 30 30)"/>
+        </svg>
+        <div class="fhr-center" style="color:${color}">${score}%</div>
+      </div>
+      <div class="fw-health-name">${FW_CONFIG[fw].label}</div>
+      <div class="fw-health-controls">${collected} / ${total} controls</div>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────
+//  RENDER KPI STRIP
+// ─────────────────────────────────────────
+function updateKPIs() {
+  const collected = totalCollected();
+  document.getElementById('kpi-passing').textContent = collected;
+  document.getElementById('kpi-evidence').textContent = collected;
+  const openRisks = risks.filter(r => r.status === 'Open').length;
+  document.getElementById('kpi-risks').textContent = openRisks;
+}
+
+// ─────────────────────────────────────────
+//  EVIDENCE TRACKER
+// ─────────────────────────────────────────
+function renderEvidence() {
+  const list = document.getElementById('evidenceList');
+  const items = EVIDENCE_ITEMS.filter(i => {
+    if (activeEvidenceFilter !== 'all' && i.category !== activeEvidenceFilter) return false;
+    return true;
+  });
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#x1F50D;</div>No evidence items match this filter.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => {
+    const checked = evidenceState[item.id];
+    const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
+    const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
+    const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
+    const lastUpdated = checked ? '2026-05-' + String(Math.floor(Math.random()*28+1)).padStart(2,'0') : '—';
+    return `
+      <div class="ev-card ${checked ? 'collected' : ''}" id="evcard-${item.id}">
+        <input type="checkbox" class="ev-checkbox" ${checked ? 'checked' : ''}
+          onchange="toggleEvidence('${item.id}', this.checked)">
+        <div class="ev-info">
+          <div class="ev-name">${item.name}</div>
+          <div class="ev-meta">
+            <span class="ev-tag ${methodClass}">${item.method}</span>
+            <span class="ev-owner">${item.owner} &middot; ${item.freq}</span>
+          </div>
+        </div>
+        <div class="ev-right">
+          <span class="ev-status ${statusClass}" id="evstatus-${item.id}">${statusLabel}</span>
+          <span class="ev-date">${checked ? lastUpdated : '—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleEvidence(id, checked) {
+  evidenceState[id] = checked;
+  saveEvidence(evidenceState);
+  // Update card class
+  const card = document.getElementById('evcard-' + id);
+  const statusEl = document.getElementById('evstatus-' + id);
+  if (card) {
+    if (checked) { card.classList.add('collected'); }
+    else { card.classList.remove('collected'); }
+  }
+  if (statusEl) {
+    statusEl.className = 'ev-status ' + (checked ? 'collected' : 'pending');
+    statusEl.textContent = checked ? 'Collected' : 'Pending';
+  }
+  updateScoreRing();
+  updateFrameworkCards();
+  renderFwHealthGrid();
+  updateKPIs();
+}
+
+function filterEvidence(cat, btn) {
+  activeEvidenceFilter = cat;
+  document.querySelectorAll('#evidenceFilterBar .filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderEvidence();
+}
+
+// ─────────────────────────────────────────
+//  FRAMEWORK SELECTION (SIDEBAR)
+// ─────────────────────────────────────────
+function selectFramework(fw) {
+  activeFramework = fw;
+  Object.keys(FW_CONFIG).forEach(f => {
+    document.getElementById('fw-' + f).classList.toggle('active', f === fw);
+  });
+  // Switch to evidence tab and filter by framework conceptually (show all for that fw)
+  switchTab('evidence');
+  // Reset category filter, show all
+  activeEvidenceFilter = 'all';
+  document.querySelectorAll('#evidenceFilterBar .filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.cat === 'all');
+  });
+  // Filter evidence by framework
+  filterEvidenceByFramework(fw);
+}
+
+function filterEvidenceByFramework(fw) {
+  const list = document.getElementById('evidenceList');
+  const items = EVIDENCE_ITEMS.filter(i => i.fw === fw);
+  list.innerHTML = items.map(item => {
+    const checked = evidenceState[item.id];
+    const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
+    const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
+    const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
+    return `
+      <div class="ev-card ${checked ? 'collected' : ''}" id="evcard-${item.id}">
+        <input type="checkbox" class="ev-checkbox" ${checked ? 'checked' : ''}
+          onchange="toggleEvidence('${item.id}', this.checked)">
+        <div class="ev-info">
+          <div class="ev-name">${item.name}</div>
+          <div class="ev-meta">
+            <span class="ev-tag ${methodClass}">${item.method}</span>
+            <span class="ev-owner">${item.owner} &middot; ${item.freq}</span>
+          </div>
+        </div>
+        <div class="ev-right">
+          <span class="ev-status ${statusClass}" id="evstatus-${item.id}">${statusLabel}</span>
+          <span class="ev-date">${checked ? '2026-05-15' : '—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  RISK REGISTER
+// ─────────────────────────────────────────
+function renderRisks() {
+  const tbody = document.getElementById('riskTableBody');
+  if (!risks.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">No risks recorded yet.</td></tr>`;
+    return;
+  }
+  const sevClass = { Critical: 'sev-critical', High: 'sev-high', Medium: 'sev-medium', Low: 'sev-low' };
+  const statusClass = { Open: 'risk-open', Mitigating: 'risk-mitigating', Closed: 'risk-closed' };
+  const catClass = { Technical: 'cat-technical', Human: 'cat-human', Process: 'cat-process', 'Third-party': 'cat-third-party' };
+  tbody.innerHTML = risks.map(r => `
+    <tr>
+      <td style="max-width:260px;color:var(--text)">${r.desc}</td>
+      <td><span class="cat-badge ${catClass[r.category] || ''}">${r.category}</span></td>
+      <td><span class="sev-badge ${sevClass[r.severity] || ''}">${r.severity}</span></td>
+      <td style="color:var(--text2)">${r.likelihood}</td>
+      <td style="color:var(--text2)">${r.owner}</td>
+      <td><span class="risk-status-badge ${statusClass[r.status] || ''}">${r.status}</span></td>
+      <td style="color:var(--text3);white-space:nowrap">${r.date}</td>
+      <td><button class="btn-del" onclick="deleteRisk('${r.id}')">Remove</button></td>
+    </tr>
+  `).join('');
+}
+
+function toggleRiskForm() {
+  const form = document.getElementById('addRiskForm');
+  form.classList.toggle('open');
+}
+
+function saveRisk() {
+  const desc = document.getElementById('riskDesc').value.trim();
+  if (!desc) { alert('Please enter a risk description.'); return; }
+  const risk = {
+    id: 'r' + Date.now(),
+    desc,
+    category: document.getElementById('riskCat').value,
+    severity: document.getElementById('riskSev').value,
+    likelihood: document.getElementById('riskLike').value,
+    owner: document.getElementById('riskOwner').value,
+    status: document.getElementById('riskStatus').value,
+    date: new Date().toISOString().split('T')[0],
+  };
+  risks.unshift(risk);
+  saveRisks(risks);
+  renderRisks();
+  updateKPIs();
+  document.getElementById('riskDesc').value = '';
+  document.getElementById('addRiskForm').classList.remove('open');
+}
+
+function deleteRisk(id) {
+  risks = risks.filter(r => r.id !== id);
+  saveRisks(risks);
+  renderRisks();
+  updateKPIs();
+}
+
+// ─────────────────────────────────────────
+//  TAB SWITCHING
+// ─────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const btn = document.getElementById('tab-' + tab);
+  const panel = document.getElementById('panel-' + tab);
+  if (btn) btn.classList.add('active');
+  if (panel) panel.classList.add('active');
+  if (tab === 'evidence') renderEvidence();
+  if (tab === 'risks') renderRisks();
+}
+
+// ─────────────────────────────────────────
+//  CONTENT REVIEW PANEL
+// ─────────────────────────────────────────
+function openReviewPanel() {
+  document.getElementById('panelOverlay').classList.add('open');
+  document.getElementById('reviewPanel').classList.add('open');
+}
+function closeReviewPanel() {
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('reviewPanel').classList.remove('open');
+}
+
+async function runContentReview() {
+  const content = document.getElementById('reviewContent').value.trim();
+  if (!content) { alert('Please enter content to review.'); return; }
+  const reviewType = document.getElementById('reviewType').value;
+  const industry = document.getElementById('reviewIndustry').value;
+  const region = document.getElementById('reviewRegion').value;
+
+  const btn = document.getElementById('btnRunReview');
+  const spinner = document.getElementById('reviewSpinner');
+  const btnText = document.getElementById('reviewBtnText');
+  const output = document.getElementById('reviewOutput');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Reviewing...';
+  output.className = 'panel-output visible';
+  output.innerHTML = '<em style="color:var(--text3)">Analyzing content...</em>';
+
+  const systemPrompt = `You are an enterprise compliance and legal content reviewer specializing in SaaS platforms. You review marketing content, policies, terms of service, privacy policies, and other business documents for compliance with regulatory frameworks including SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS, and industry-specific regulations. For each review, identify: 1) Compliance risks and violations, 2) Missing required disclosures, 3) Ambiguous or problematic language, 4) Specific recommendations to fix each issue, 5) Overall compliance score. Be specific, actionable, and cite relevant regulations.`;
+  const userPrompt = `Please perform a ${reviewType} for a ${industry} company operating in ${region}.\n\nContent to review:\n${content}\n\nProvide a thorough compliance analysis with specific findings and actionable recommendations.`;
+
+  try {
+    if (window.ClaudeService && window.ClaudeService.streamResponse) {
+      let accumulated = '';
+      await window.ClaudeService.streamResponse(
+        userPrompt,
+        systemPrompt,
+        (chunk) => {
+          accumulated += chunk;
+          output.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
+          output.scrollTop = output.scrollHeight;
+        }
+      );
+    } else {
+      output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI reviews.</p>';
+    }
+  } catch (e) {
+    output.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
+  }
+
+  btn.disabled = false;
+  spinner.style.display = 'none';
+  btnText.textContent = 'Run Review';
+}
+
+// ─────────────────────────────────────────
+//  AI AUTOMATION PLAN
+// ─────────────────────────────────────────
+async function generatePlan() {
+  const frameworks = [];
+  if (document.getElementById('fw-check-soc2').checked) frameworks.push('SOC 2 Type II');
+  if (document.getElementById('fw-check-iso').checked) frameworks.push('ISO 27001');
+  if (document.getElementById('fw-check-gdpr').checked) frameworks.push('GDPR');
+  if (document.getElementById('fw-check-hipaa').checked) frameworks.push('HIPAA');
+  if (document.getElementById('fw-check-pci').checked) frameworks.push('PCI DSS');
+  if (!frameworks.length) { alert('Please select at least one framework.'); return; }
+
+  const goal = document.getElementById('automationGoal').value;
+  const infra = document.getElementById('infrastructure').value;
+  const stage = document.getElementById('companyStage').value;
+  const context = document.getElementById('automationContext').value.trim();
+
+  const btn = document.getElementById('btnGenerate');
+  const spinner = document.getElementById('genSpinner');
+  const btnText = document.getElementById('genBtnText');
+  const output = document.getElementById('aiPlanOutput');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Generating...';
+  output.className = 'ai-output visible';
+  output.innerHTML = '<em style="color:var(--text3)">Building your automation plan...</em>';
+
+  const systemPrompt = `You are an enterprise compliance automation specialist with expertise in SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS, and security frameworks. You help companies automate compliance evidence collection, continuous monitoring, and security workflows to close enterprise deals faster. Provide detailed, actionable automation plans with specific tools, API integrations, and step-by-step implementation guides. Focus on eliminating manual compliance busywork through automation.`;
+  const userPrompt = `Create a detailed ${goal} for the following scenario:
+
+Frameworks: ${frameworks.join(', ')}
+Infrastructure: ${infra}
+Company Stage: ${stage}
+${context ? `Additional Context: ${context}` : ''}
+
+Provide:
+1. Executive Summary
+2. Current State Assessment
+3. Automation Opportunities (prioritized by impact)
+4. Specific tools and integrations to use (with setup steps)
+5. Implementation timeline with milestones
+6. Evidence collection automation scripts/approaches
+7. Continuous monitoring setup
+8. Cost estimate and ROI
+9. Quick wins (can be done in <1 week)
+
+Be specific, technical, and actionable. Include real tool names, API endpoints, and code snippets where relevant.`;
+
+  try {
+    if (window.ClaudeService && window.ClaudeService.streamResponse) {
+      let accumulated = '';
+      await window.ClaudeService.streamResponse(
+        userPrompt,
+        systemPrompt,
+        (chunk) => {
+          accumulated += chunk;
+          output.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
+          output.scrollTop = output.scrollHeight;
+        }
+      );
+    } else {
+      output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI-generated plans.</p>';
+    }
+  } catch (e) {
+    output.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
+  }
+
+  btn.disabled = false;
+  spinner.style.display = 'none';
+  btnText.textContent = 'Generate Automation Plan';
+}
+
+// ─────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────
+function init() {
+  updateScoreRing();
+  updateFrameworkCards();
+  renderFwHealthGrid();
+  updateKPIs();
+  // Risks seeded if empty
+  if (!localStorage.getItem(LS_RISKS)) saveRisks(DEFAULT_RISKS);
+  renderRisks();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

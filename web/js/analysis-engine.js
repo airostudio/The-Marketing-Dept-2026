@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * SEO ANALYSIS ENGINE - PRODUCTION VERSION
- * Aduma Marketing 2026 - Real SEO Analysis System
+ * Audema Marketing 2026 - Real SEO Analysis System
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * This engine performs REAL SEO analysis using:
@@ -129,50 +129,39 @@
     const elements = {};
 
     function initElements() {
-        elements.progressBar = document.getElementById('analysisProgressBar');
-        elements.progressPercent = document.getElementById('analysisProgressPercent');
-        elements.activityLog = document.getElementById('activityLog');
+        // IDs match analyzing.html. Keep this in sync if either side changes.
+        elements.progressBar = document.getElementById('progressBar');
+        elements.progressPercent = document.getElementById('progressPercent');
+        elements.activityLog = document.getElementById('liveLog');
         elements.siteUrl = document.getElementById('siteUrl');
         elements.siteMeta = document.getElementById('siteMeta');
         elements.siteStatus = document.getElementById('siteStatus');
-        elements.taskList = document.getElementById('taskList');
-        elements.statsPages = document.getElementById('statsPages');
-        elements.statsIssues = document.getElementById('statsIssues');
-        elements.statsKeywords = document.getElementById('statsKeywords');
-        elements.statsBacklinks = document.getElementById('statsBacklinks');
+        elements.taskList = document.getElementById('tasksList');
+        elements.statsPages = document.getElementById('statPages');
+        elements.statsIssues = document.getElementById('statIssues');
+        elements.statsKeywords = document.getElementById('statKeywords');
+        elements.statsBacklinks = document.getElementById('statBacklinks');
         elements.completionOverlay = document.getElementById('completionOverlay');
         elements.finalScore = document.getElementById('finalScore');
         elements.finalIssues = document.getElementById('finalIssues');
         elements.finalPages = document.getElementById('finalPages');
+        elements.timeRemaining = document.getElementById('timeRemaining');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function init() {
+    async function init() {
         initElements();
 
-        // Get project data
-        const projectData = localStorage.getItem('seo-current-project');
-        if (projectData) {
-            try {
-                state.projectData = JSON.parse(projectData);
-            } catch (e) {
-                state.projectData = { url: projectData, name: 'Analysis' };
-            }
-        }
+        state.projectData = await resolveProject();
 
-        // If no project data, try to get from pending audit
-        if (!state.projectData) {
-            const pendingAudit = localStorage.getItem('seo-pending-audit');
-            if (pendingAudit) {
-                try {
-                    state.projectData = JSON.parse(pendingAudit);
-                } catch (e) {
-                    state.projectData = { url: pendingAudit, name: 'Analysis' };
-                }
-            }
+        // Normalise field names. The wizard uses `websiteUrl` / `projectName`;
+        // older code uses `url` / `name`. Accept either, expose `url`/`name`.
+        if (state.projectData) {
+            state.projectData.url = state.projectData.url || state.projectData.websiteUrl;
+            state.projectData.name = state.projectData.name || state.projectData.projectName;
         }
 
         if (!state.projectData || !state.projectData.url) {
@@ -199,6 +188,64 @@
         addLog(`Starting analysis for ${state.projectData.url}`, 'info');
 
         startAnalysis();
+    }
+
+    async function resolveProject() {
+        // 1. Ask ProjectService — it abstracts Supabase / backend / localStorage.
+        try {
+            if (window.ProjectService?.getCurrentProject) {
+                const proj = await window.ProjectService.getCurrentProject();
+                if (proj && (proj.url || proj.websiteUrl)) return proj;
+            }
+        } catch (e) {
+            console.warn('[analysis] ProjectService.getCurrentProject failed:', e);
+        }
+
+        // 2. Look up the project ID stored by the wizard and resolve via the
+        //    list of saved projects. The wizard now also writes the full
+        //    project under `seo-current-project-data`.
+        try {
+            const fullProject = localStorage.getItem('seo-current-project-data');
+            if (fullProject) {
+                const parsed = JSON.parse(fullProject);
+                if (parsed && (parsed.url || parsed.websiteUrl)) return parsed;
+            }
+        } catch (_) { /* ignore */ }
+
+        try {
+            const currentId = localStorage.getItem('seo-current-project');
+            if (currentId) {
+                // The key may hold either a bare ID or a full JSON object,
+                // depending on how it was set.
+                try {
+                    const parsed = JSON.parse(currentId);
+                    if (parsed && typeof parsed === 'object' && (parsed.url || parsed.websiteUrl)) {
+                        return parsed;
+                    }
+                } catch (_) { /* not JSON — treat as ID */ }
+
+                const projects = JSON.parse(localStorage.getItem('seo-projects') || '[]');
+                const found = projects.find((p) => p && p.id === currentId);
+                if (found) return found;
+            }
+        } catch (e) {
+            console.warn('[analysis] localStorage project lookup failed:', e);
+        }
+
+        // 3. Pending-audit fallback (legacy).
+        try {
+            const pending = localStorage.getItem('seo-pending-audit');
+            if (pending && pending !== 'true') {
+                try {
+                    const parsed = JSON.parse(pending);
+                    if (parsed && (parsed.url || parsed.websiteUrl)) return parsed;
+                } catch (_) {
+                    return { url: pending, name: 'Analysis' };
+                }
+            }
+        } catch (_) { /* ignore */ }
+
+        return null;
     }
 
     function initTaskList() {
@@ -232,7 +279,66 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     async function startAnalysis() {
+        // Step 1: format check (no network)
+        const raw = (state.projectData.url || '').trim();
+        const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(withProto);
+            if (!parsedUrl.hostname.includes('.') || /\s/.test(parsedUrl.hostname)) {
+                throw new Error('bad hostname');
+            }
+        } catch {
+            showUrlError('Invalid URL — enter a real website address (e.g. https://example.com)');
+            return;
+        }
+        state.projectData.url = withProto;
+
+        // Step 2: live reachability check via our serverless proxy (real HTTP probe,
+        //         no CORS issues, gives us the actual status code + page title)
+        addLog('Checking if site is reachable...', 'info');
+        if (elements.progressPercent) elements.progressPercent.textContent = 'Checking URL...';
+
+        try {
+            const checkResp = await fetch(
+                `/api/check-url?url=${encodeURIComponent(withProto)}`,
+                { signal: AbortSignal.timeout(20000) }
+            );
+            const check = await checkResp.json();
+
+            if (!check.reachable) {
+                const msg = check.error ||
+                    (check.status ? `Site returned HTTP ${check.status}` : 'Site could not be reached');
+                showUrlError(msg);
+                return;
+            }
+
+            // Use the real page title if we got one
+            if (check.title && !state.projectData.name) {
+                state.projectData.name = check.title;
+                if (elements.siteMeta) elements.siteMeta.textContent = check.title;
+            }
+
+            addLog(`Site confirmed reachable (HTTP ${check.status})`, 'success');
+        } catch (e) {
+            // If the check endpoint itself fails (e.g. dev env without Vercel),
+            // fall through and let the crawler attempt it — don't block the user.
+            addLog('Pre-check skipped (probe endpoint unavailable) — attempting crawl', 'warning');
+            console.warn('[analysis] /api/check-url unavailable:', e.message);
+        }
+
         await runRealAnalysis();
+    }
+
+    function showUrlError(message) {
+        addLog(message, 'error');
+        if (elements.progressPercent) elements.progressPercent.textContent = 'Failed';
+        if (elements.progressBar) elements.progressBar.style.width = '0%';
+        if (elements.siteStatus) {
+            elements.siteStatus.innerHTML = `<span>${message.includes('HTTP') ? 'Error' : 'Unreachable'}</span>`;
+            elements.siteStatus.style.background = 'rgba(239,68,68,0.1)';
+            elements.siteStatus.style.color = '#ef4444';
+        }
     }
 
     async function runRealAnalysis() {
@@ -240,27 +346,29 @@
 
         try {
             // Task 1: Site Crawl
+            let crawlError = null;
             await runTask('crawl', async () => {
-                addLog('Starting real site crawl...', 'info');
-
-                if (typeof window.SEOAudit !== 'undefined') {
-                    const crawlResults = await performRealCrawl(url);
-                    state.data.pages = crawlResults.pages || [];
-                    state.data.issues = crawlResults.issues || [];
+                try {
+                    if (typeof window.SEOAudit !== 'undefined') {
+                        const crawlResults = await performRealCrawl(url);
+                        state.data.pages = crawlResults.pages || [];
+                        state.data.issues = crawlResults.issues || [];
+                    } else {
+                        addLog('Using direct fetch crawl...', 'info');
+                        const simpleData = await performSimpleCrawl(url);
+                        state.data.pages = simpleData.pages;
+                        state.data.issues = simpleData.issues;
+                    }
                     state.counters.pages = state.data.pages.length;
                     state.counters.issues = state.data.issues.length;
-                } else {
-                    // Fallback: Simple fetch
-                    addLog('Crawler not loaded, using simple fetch...', 'warning');
-                    const simpleData = await performSimpleCrawl(url);
-                    state.data.pages = simpleData.pages;
-                    state.data.issues = simpleData.issues;
-                    state.counters.pages = state.data.pages.length;
-                    state.counters.issues = state.data.issues.length;
+                    updateStats();
+                } catch (err) {
+                    crawlError = err;
                 }
-
-                updateStats();
             });
+
+            // Abort the entire analysis if the site couldn't be crawled
+            if (crawlError) throw crawlError;
 
             // Task 2: Performance Analysis
             await runTask('performance', async () => {
@@ -363,21 +471,10 @@
             completeAnalysis();
 
         } catch (error) {
-            addLog('Analysis error: ' + error.message, 'error');
             console.error('Analysis failed:', error);
-
-            // Show error state - no fake data fallback
             state.isComplete = true;
             state.progress = 0;
-
-            if (elements.progressBar) {
-                elements.progressBar.style.width = '0%';
-            }
-            if (elements.progressPercent) {
-                elements.progressPercent.textContent = 'Analysis Failed';
-            }
-
-            addLog('Analysis could not be completed. Please check your website URL and try again.', 'error');
+            showUrlError(error.message || 'Analysis failed — please verify the URL and try again.');
         }
     }
 
@@ -437,10 +534,40 @@
         const issues = [];
 
         try {
-            // Try to fetch the page via CORS proxy
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const html = await response.text();
+            // Try to fetch the page via CORS proxy with a timeout
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+
+            let html = '';
+            let fetchOk = false;
+
+            try {
+                // Primary proxy
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (response.ok) {
+                    const json = await response.json();
+                    // allorigins /get returns { contents, status: { http_code } }
+                    if (json.status?.http_code >= 200 && json.status?.http_code < 400 && json.contents) {
+                        html = json.contents;
+                        fetchOk = true;
+                    } else if (json.status?.http_code === 0 || json.status?.http_code >= 400) {
+                        throw new Error(`Site returned HTTP ${json.status?.http_code || 'unreachable'}`);
+                    }
+                }
+            } catch (fetchErr) {
+                clearTimeout(timeout);
+                if (fetchErr.name === 'AbortError') {
+                    throw new Error('Request timed out — site may be down or blocking crawlers');
+                }
+                throw fetchErr;
+            }
+
+            if (!fetchOk || !html || html.length < 100) {
+                throw new Error('Site returned no content — check the URL and try again');
+            }
 
             // Parse HTML
             const parser = new DOMParser();
@@ -524,17 +651,8 @@
             addLog(`Found ${pages.length} pages`, 'success');
 
         } catch (error) {
-            addLog('Crawl failed: ' + error.message, 'error');
-            // Return at least the main URL
-            pages.push({ url: url, title: 'Homepage', status: 0 });
-            issues.push({
-                severity: 'critical',
-                category: 'technical',
-                title: 'Site Unreachable',
-                description: 'Could not fetch the website content',
-                url: url,
-                recommendation: 'Check if the site is accessible'
-            });
+            // Re-throw so runRealAnalysis can catch it and abort with a visible error
+            throw error;
         }
 
         return { pages, issues };
@@ -620,17 +738,37 @@
 
         state.currentTask = taskId;
         updateTaskStatus(taskId, 'active');
-
-        // Log task start
         addLog(`Starting ${task.name}...`, 'info');
+
+        // Cycle through the task's progress messages while the executor runs.
+        // Each message is shown for ~(totalTime / messageCount) ms so they spread
+        // evenly across the task's expected duration.
+        const messages = task.messages || [];
+        let msgIdx = 0;
+        const baseWeight = TASKS
+            .filter(t => state.completedTasks.includes(t.id))
+            .reduce((sum, t) => sum + t.weight, 0);
+        const msgInterval = messages.length > 0
+            ? setInterval(() => {
+                if (msgIdx < messages.length) {
+                    addLog(messages[msgIdx++], 'info');
+                    // Animate progress smoothly within the task's weight slice
+                    const frac = msgIdx / messages.length;
+                    state.progress = Math.min(baseWeight + task.weight * frac, 99);
+                    updateProgress();
+                }
+            }, 1200)
+            : null;
 
         try {
             await executor();
         } catch (error) {
             addLog(`Error in ${task.name}: ${error.message}`, 'error');
+        } finally {
+            if (msgInterval) clearInterval(msgInterval);
         }
 
-        // Update progress
+        // Ensure progress reaches the task's full weight after it completes
         const completedWeight = TASKS
             .filter(t => state.completedTasks.includes(t.id) || t.id === taskId)
             .reduce((sum, t) => sum + t.weight, 0);
@@ -655,10 +793,18 @@
     }
 
     function updateStats() {
-        if (elements.statsPages) elements.statsPages.textContent = state.counters.pages;
-        if (elements.statsIssues) elements.statsIssues.textContent = state.counters.issues;
-        if (elements.statsKeywords) elements.statsKeywords.textContent = state.counters.keywords;
-        if (elements.statsBacklinks) elements.statsBacklinks.textContent = state.counters.backlinks;
+        // HTML stat containers wrap a .stat-value child — write into that, not
+        // the container itself (which would erase the label).
+        function setStat(container, value) {
+            if (!container) return;
+            const valueEl = container.querySelector('.stat-value');
+            if (valueEl) valueEl.textContent = value;
+            else container.textContent = value;
+        }
+        setStat(elements.statsPages, state.counters.pages);
+        setStat(elements.statsIssues, state.counters.issues);
+        setStat(elements.statsKeywords, state.counters.keywords);
+        setStat(elements.statsBacklinks, state.counters.backlinks);
     }
 
     function updateTaskStatus(taskId, status) {

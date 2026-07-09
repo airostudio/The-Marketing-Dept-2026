@@ -17,16 +17,16 @@ const router = express.Router();
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const signupSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().min(8).required(),
-  firstName: Joi.string().required(),
-  lastName: Joi.string().required(),
-  organizationName: Joi.string().required()
+  email: Joi.string().email().max(255).required(),
+  password: Joi.string().min(8).max(128).required(),
+  firstName: Joi.string().max(100).required(),
+  lastName: Joi.string().max(100).required(),
+  organizationName: Joi.string().min(1).max(255).required()
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().required()
+  email: Joi.string().email().max(255).required(),
+  password: Joi.string().max(128).required()
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -255,58 +255,82 @@ router.post('/login', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length > 512) {
+    return res.status(400).json({
+      success: false,
+      error: 'Refresh token required'
+    });
+  }
+
+  let decoded;
   try {
-    const { refreshToken } = req.body;
+    decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or expired refresh token'
+    });
+  }
 
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        error: 'Refresh token required'
-      });
-    }
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
 
-    // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    // Check if token exists in database and hasn't expired
-    const result = await db.query(
-      `SELECT user_id FROM refresh_tokens
-       WHERE token = $1 AND expires_at > NOW()`,
+    // Atomically consume the presented refresh token. If it's already been
+    // used or expired, the DELETE returns zero rows and we reject.
+    const consumed = await client.query(
+      `DELETE FROM refresh_tokens
+       WHERE token = $1 AND expires_at > NOW()
+       RETURNING user_id`,
       [refreshToken]
     );
 
-    if (result.rows.length === 0) {
+    if (consumed.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(401).json({
         success: false,
         error: 'Invalid or expired refresh token'
       });
     }
 
-    const userId = result.rows[0].user_id;
+    const userId = consumed.rows[0].user_id;
+    if (decoded.userId && decoded.userId !== userId) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired refresh token'
+      });
+    }
 
-    // Generate new access token
     const accessToken = generateAccessToken(userId);
+    const newRefreshToken = generateRefreshToken(userId);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    res.json({
+    await client.query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [userId, newRefreshToken, expiresAt]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
       success: true,
       data: {
-        accessToken
+        accessToken,
+        refreshToken: newRefreshToken
       }
     });
-
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid or expired refresh token'
-      });
-    }
-
-    console.error('Token refresh error:', error);
-    res.status(500).json({
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Token refresh error:', error.message);
+    return res.status(500).json({
       success: false,
       error: 'Failed to refresh token'
     });
+  } finally {
+    client.release();
   }
 });
 

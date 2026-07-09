@@ -9,6 +9,127 @@ Your Audema application requires the following environment variable to be set in
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Your Claude API key from Anthropic | ✅ Yes |
+| `SUPABASE_URL` | Supabase project URL (already set for auth) | ✅ Yes |
+| `SUPABASE_ANON_KEY` | Supabase anon key (already set for auth) | ✅ Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key — needed for the MCP server to bypass RLS | ✅ For MCP |
+| `MCP_SECRET` | Bearer token that MCP clients must send — set to any long random string | ✅ For MCP |
+
+---
+
+## Business Brain — Per-Project Memory + History
+
+Business Brain previously lived only in browser `localStorage`, shared globally across every project with no version history — so clearing browser data, switching devices, or an accidental "Overwrite all fields" click could silently destroy it with no way back.
+
+This is now fixed:
+- **Per-project**: each project gets its own Business Brain, keyed off the same `projects` table/current-project pointer used elsewhere in the app.
+- **Cloud-synced**: every save mirrors to Supabase (`business_brain` table) in the background — localStorage stays as the instant-read cache, Supabase is the durable copy.
+- **Versioned**: every save also appends to `business_brain_history` (last 20 kept per project). Click **History** on the Business Brain page to browse and restore any previous version — restoring itself creates a "Before restore" snapshot first, so nothing is ever truly lost.
+
+### Setup
+
+1. Run `supabase-business-brain.sql` in Supabase Dashboard → SQL Editor.
+2. No new env vars needed — this uses the same `SUPABASE_URL`/`SUPABASE_ANON_KEY` client-side auth already configured.
+3. On first visit to Business Brain after this update, if pre-migration global data is found (and the current project's brain is still empty), a prompt lets you assign it to whichever project it belongs to.
+
+---
+
+## Intelligence Profiles — Multi-Business Intelligence Layer
+
+One intelligence profile = one business's complete Intelligence Layer (Business Brain, cloud-synced and versioned). Users switch the active profile to work across multiple businesses; agencies manage one profile per client.
+
+**Plan limits** (enforced server-side by a Postgres trigger and mirrored in the UI):
+
+| Plan | Profiles |
+|------|----------|
+| Free / Basic | 1 |
+| Pro / Professional | 3 |
+| Agency | 8 |
+| Enterprise | Admin-configured per account |
+
+### Setup
+
+1. Run `supabase-business-brain.sql` first (if not already), then `supabase-intelligence-profiles.sql` in Supabase Dashboard → SQL Editor.
+2. No new env vars — uses the existing client-side Supabase auth.
+3. Set a user's plan in the `profiles` table (`plan` column: `basic` / `professional` / `agency` / `enterprise`).
+4. **Enterprise accounts**: an admin sets the custom allowance directly on the account row — `UPDATE profiles SET plan = 'enterprise', intel_profile_limit = <N> WHERE email = '<customer>';` — sized to what the customer pays for.
+
+### How it works
+
+- The Business Brain page shows a **profile selector** (when more than one exists) and a **⚙ Profiles** manager: create (limit-enforced), rename, delete, switch. Switching reloads the Brain into that profile's data instantly, then hydrates from the cloud.
+- On first login a "Default" profile is auto-created; pre-profile local Brain data is offered for one-click import.
+- Shared access is built in at the schema level: `intelligence_profile_members` grants owner/editor/viewer roles on a profile to other users (RLS-enforced), ready for team features.
+- Data isolation: each profile has its own `business_brain` row, its own last-20 snapshot history, and its own localStorage cache key. Legacy per-project scoping still works as a fallback for accounts that haven't run the migration.
+
+---
+
+## A/B Testing MCP Server
+
+The Aduma MCP server exposes your A/B experiment data to Claude so you can manage experiments, analyse results, generate tracking snippets, and trigger new ad creative directly from a chat interface.
+
+### Step 1 — Run the Supabase migration
+
+In Supabase Dashboard → SQL Editor → New query, paste and run the contents of `supabase-ab-testing.sql`.
+
+This creates: `experiments`, `variants`, `goals`, `visitors`, `conversions` tables with RLS policies.
+
+### Step 2 — Add env vars to Vercel
+
+Add `SUPABASE_SERVICE_ROLE_KEY` (Settings → Environment Variables in Vercel Dashboard).
+Set `MCP_SECRET` to a long random string — e.g. `openssl rand -hex 32`.
+
+### Step 3 — Connect Claude Desktop or Cursor
+
+Add to your Claude Desktop `claude_desktop_config.json` (or Cursor `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "aduma": {
+      "type": "http",
+      "url": "https://<your-vercel-domain>/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-MCP_SECRET>"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You'll see "aduma" in the MCP tools panel.
+
+### Available MCP Tools
+
+| Tool | What it does |
+|------|-------------|
+| `list_experiments` | Show all experiments with status |
+| `get_experiment_stats` | CVR, uplift %, statistical significance per variant |
+| `create_experiment` | Create a new A/B test |
+| `add_variant` | Add a variant (or control) to an experiment |
+| `update_experiment` | Change status: draft → active → paused → finished |
+| `declare_winner` | Mark variant as winner, close experiment |
+| `create_goal` | Add a conversion goal (click / pageview / revenue) |
+| `get_winning_copy` | List all winning copy from finished experiments |
+| `generate_tracking_snippet` | Get the JS embed for any experiment |
+| `generate_ads_from_winner` | Ad creative loop: winner copy → new ad variants |
+
+### Example Claude workflow
+
+```
+You: "Create an experiment called 'Homepage hero CTA', add a control and a variant,
+      set the goal to the #get-started button click, and give me the tracking snippet."
+
+Claude: [calls create_experiment → add_variant × 2 → create_goal → generate_tracking_snippet]
+        Here's your tracking snippet — paste it into your <head>...
+```
+
+```
+You: "Check the stats on experiment abc123 and declare the winner."
+
+Claude: [calls get_experiment_stats]
+        Variant B has 14.2% CVR vs 12.1% control (+17.3%, p=0.02) — statistically significant.
+        [calls declare_winner]
+        Winner declared. Want me to generate new ads based on this winning copy?
+```
 
 ---
 

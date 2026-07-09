@@ -13,31 +13,42 @@ const router = express.Router();
 // VALIDATION SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const LIFECYCLE_STAGES = ['trial', 'onboarding', 'active', 'growth', 'at_risk', 'churned', 'champion'];
+const PLANS = ['basic', 'pro', 'enterprise'];
+const CUSTOM_FIELDS_MAX_BYTES = 16 * 1024; // 16 KB JSON
+
+const customFieldsRule = Joi.object().custom((value, helpers) => {
+  if (Buffer.byteLength(JSON.stringify(value), 'utf8') > CUSTOM_FIELDS_MAX_BYTES) {
+    return helpers.error('any.invalid', { message: 'customFields exceeds 16KB limit' });
+  }
+  return value;
+}, 'customFields size limit');
+
 const createCustomerSchema = Joi.object({
-  email: Joi.string().email().required(),
-  companyName: Joi.string().required(),
-  firstName: Joi.string(),
-  lastName: Joi.string(),
-  title: Joi.string(),
-  lifecycleStage: Joi.string().valid('trial', 'onboarding', 'active', 'growth', 'at_risk', 'churned', 'champion'),
-  currentPlan: Joi.string().valid('basic', 'pro', 'enterprise'),
-  mrr: Joi.number(),
-  source: Joi.string(),
-  customFields: Joi.object()
+  email: Joi.string().email().max(255).required(),
+  companyName: Joi.string().max(255).required(),
+  firstName: Joi.string().max(100),
+  lastName: Joi.string().max(100),
+  title: Joi.string().max(100),
+  lifecycleStage: Joi.string().valid(...LIFECYCLE_STAGES),
+  currentPlan: Joi.string().valid(...PLANS),
+  mrr: Joi.number().min(0).max(1e9),
+  source: Joi.string().max(100),
+  customFields: customFieldsRule
 });
 
 const updateCustomerSchema = Joi.object({
-  email: Joi.string().email(),
-  companyName: Joi.string(),
-  firstName: Joi.string(),
-  lastName: Joi.string(),
-  title: Joi.string(),
-  lifecycleStage: Joi.string().valid('trial', 'onboarding', 'active', 'growth', 'at_risk', 'churned', 'champion'),
-  currentPlan: Joi.string().valid('basic', 'pro', 'enterprise'),
-  mrr: Joi.number(),
-  ltv: Joi.number(),
-  source: Joi.string(),
-  customFields: Joi.object()
+  email: Joi.string().email().max(255),
+  companyName: Joi.string().max(255),
+  firstName: Joi.string().max(100),
+  lastName: Joi.string().max(100),
+  title: Joi.string().max(100),
+  lifecycleStage: Joi.string().valid(...LIFECYCLE_STAGES),
+  currentPlan: Joi.string().valid(...PLANS),
+  mrr: Joi.number().min(0).max(1e9),
+  ltv: Joi.number().min(0).max(1e10),
+  source: Joi.string().max(100),
+  customFields: customFieldsRule
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

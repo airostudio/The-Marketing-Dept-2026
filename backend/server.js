@@ -10,7 +10,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 require('dotenv').config();
+
+const { validateEnv } = require('./config/env');
+validateEnv();
 
 const db = require('./config/database');
 const { authenticate, requireRole } = require('./middleware/auth');
@@ -24,6 +28,8 @@ const lifecycleRoutes = require('./api/lifecycle');
 const dealRoutes = require('./api/deals');
 const icpRoutes = require('./api/icp');
 const integrationRoutes = require('./api/integrations');
+const projectRoutes = require('./api/projects');
+const diagnosticsRoutes = require('./api/diagnostics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,12 +38,46 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Security
-app.use(helmet());
+// Trust proxy when running behind nginx/Vercel so rate limiting sees real client IPs
+app.set('trust proxy', 1);
 
-// CORS
+// Security headers (CSP defaults: only same-origin scripts/styles, allow Claude proxy via same-origin)
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"]
+    }
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginResourcePolicy: { policy: 'same-site' }
+}));
+
+// CORS — explicit allowlist. Comma-separated origins in CORS_ORIGIN.
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
+  // Dev default: allow common local frontends
+  allowedOrigins.push('http://localhost:8080', 'http://localhost:3000', 'http://localhost:5173');
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin(origin, callback) {
+    // Allow same-origin / curl / server-to-server (no Origin header)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true
 }));
 
@@ -63,7 +103,7 @@ app.use('/api/', limiter);
 
 // Request ID (for debugging)
 app.use((req, res, next) => {
-  req.id = Math.random().toString(36).substring(7);
+  req.id = crypto.randomUUID();
   res.setHeader('X-Request-ID', req.id);
   next();
 });
@@ -101,6 +141,8 @@ app.use('/api/lifecycle', authenticate, lifecycleRoutes);
 app.use('/api/deals', authenticate, dealRoutes);
 app.use('/api/icp', authenticate, icpRoutes);
 app.use('/api/integrations', authenticate, integrationRoutes);
+app.use('/api/projects', authenticate, projectRoutes);
+app.use('/api/diagnostics', authenticate, diagnosticsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -118,9 +160,11 @@ app.use((err, req, res, next) => {
     stack: err.stack
   });
 
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  const exposeMessage = status < 500 || process.env.NODE_ENV !== 'production';
+  res.status(status).json({
     success: false,
-    error: err.message || 'Internal server error',
+    error: exposeMessage ? (err.message || 'Internal server error') : 'Internal server error',
     requestId: req.id
   });
 });

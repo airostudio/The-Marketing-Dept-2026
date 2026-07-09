@@ -23,9 +23,10 @@ const ClaudeService = (() => {
    * @param {Function} [opts.onChunk]      – called with each text chunk
    * @param {Function} [opts.onDone]       – called with full response text
    * @param {Function} [opts.onError]      – called with Error
+   * @param {number}   [opts.maxTokens]    – optional per-call max_tokens override (capped at 8192)
    * @returns {Promise<string>}            – resolves with full response text
    */
-  async function streamResponse({ systemPrompt, messages, outputEl, onStart, onChunk, onDone, onError }) {
+  async function streamResponse({ systemPrompt, messages, model, maxTokens, outputEl, onStart, onChunk, onDone, onError }) {
     if (outputEl) outputEl.textContent = '';
 
     let fullText = '';
@@ -34,8 +35,8 @@ const ClaudeService = (() => {
       if (onStart) onStart();
 
       const body = {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
+        model: model || MODEL,
+        max_tokens: Math.min(maxTokens || MAX_TOKENS, 8192),
         stream: true,
         messages: messages || [],
       };
@@ -52,7 +53,8 @@ const ClaudeService = (() => {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `API error ${response.status}`);
+        const errMsg = errData.error?.message || (typeof errData.error === 'string' ? errData.error : null) || `API error ${response.status}`;
+        throw new Error(errMsg);
       }
 
       const reader = response.body.getReader();
@@ -78,8 +80,10 @@ const ClaudeService = (() => {
               if (outputEl) outputEl.textContent = fullText;
               if (onChunk) onChunk(text, fullText);
             }
-          } catch (_) {
-            // ignore parse errors on partial lines
+          } catch (parseErr) {
+            // Only ignore JSON parse errors on partial lines — re-throw callback errors
+            if (parseErr instanceof SyntaxError) continue;
+            throw parseErr;
           }
         }
       }
@@ -100,12 +104,13 @@ const ClaudeService = (() => {
    * @param {Object} opts
    * @param {string}  opts.systemPrompt
    * @param {Array}   opts.messages
+   * @param {number}  [opts.maxTokens] – optional per-call max_tokens override (capped at 8192)
    * @returns {Promise<string>}
    */
-  async function callAgent({ systemPrompt, messages }) {
+  async function callAgent({ systemPrompt, messages, model, maxTokens }) {
     const body = {
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
+      model: model || MODEL,
+      max_tokens: Math.min(maxTokens || MAX_TOKENS, 8192),
       messages: messages || [],
       stream: false,
     };

@@ -36,6 +36,30 @@
     return !!getConfig(path);
   }
 
+  // Read an integration credential off the active SEO project. The wizard
+  // saves integrations as { ahrefs: { 'API Key': '...' } } keyed by the form
+  // label, so we look up whichever shape is present. Returns '' if no
+  // project, no integration, or no value.
+  function getProjectIntegrationValue(provider, fieldNames) {
+    try {
+      var project = (window.ProjectService && typeof window.ProjectService.getCurrentProjectSync === 'function')
+        ? window.ProjectService.getCurrentProjectSync()
+        : null;
+      if (!project) {
+        var raw = localStorage.getItem('seo-current-project-data');
+        if (raw) project = JSON.parse(raw);
+      }
+      if (!project || !project.integrations) return '';
+      var creds = project.integrations[provider];
+      if (!creds || typeof creds !== 'object') return '';
+      for (var i = 0; i < fieldNames.length; i++) {
+        var v = creds[fieldNames[i]];
+        if (v && String(v).trim()) return String(v).trim();
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   // ---- Cache helpers using localStorage ----
 
   function cacheKey(namespace, key) {
@@ -691,13 +715,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          var url = baseUrl() + endpoint + buildQueryString(params || {});
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + getApiKey(),
-              'Content-Type': 'application/json'
-            }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
@@ -734,31 +755,24 @@
       };
     })();
 
-    // ---- SendGrid ----
-    var sendgrid = (function() {
-      var NS = 'sg';
-      var BASE = 'https://api.sendgrid.com/v3';
-
-      function getApiKey() {
-        return getConfig('email.sendgrid.apiKey') || getConfig('sendgrid.apiKey');
-      }
+    // ---- Resend ----
+    var resend = (function() {
+      var NS = 'resend';
 
       function isAvailable() {
-        return apiEnabled('email.sendgrid') && !!getApiKey();
+        // Resend credentials live server-side only; always reachable via /api/integration
+        return apiEnabled('email.resend') !== false;
       }
 
-      function sgFetch(endpoint, params, cacheKeyStr, ttl) {
-        return safeCall('EmailMarketing.sendgrid', function() {
+      function resendFetch(endpoint, params, cacheKeyStr, ttl) {
+        return safeCall('EmailMarketing.resend', function() {
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          var url = BASE + endpoint + buildQueryString(params || {});
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + getApiKey(),
-              'Content-Type': 'application/json'
-            }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
@@ -766,32 +780,29 @@
         });
       }
 
-      function getStats(dateRange) {
-        var params = {
-          aggregated_by: 'day'
-        };
-        if (dateRange) {
-          params.start_date = formatDate(dateRange.start || dateRange.startDate);
-          params.end_date = formatDate(dateRange.end || dateRange.endDate);
-        }
-        var key = 'stats_' + (dateRange ? JSON.stringify(dateRange) : 'all');
-        return sgFetch('/stats', params, key);
+      // List sent emails (Resend GET /emails)
+      function getEmails(params) {
+        var key = 'emails_' + JSON.stringify(params || {});
+        return resendFetch('/emails', params || {}, key, 5 * 60 * 1000);
       }
 
-      function getCategories() {
-        return sgFetch('/categories', { limit: 100, offset: 0 }, 'categories', 15 * 60 * 1000);
+      // Fetch single email by Resend ID
+      function getEmail(id) {
+        return resendFetch('/emails/' + id, {}, 'email_' + id, 5 * 60 * 1000);
       }
 
       return {
         isAvailable: isAvailable,
-        getStats: getStats,
-        getCategories: getCategories
+        getEmails:   getEmails,
+        getEmail:    getEmail,
       };
     })();
 
     return {
       mailchimp: mailchimp,
-      sendgrid: sendgrid
+      resend:    resend,
+      // Legacy alias so existing callers referencing .sendgrid still resolve
+      sendgrid:  resend,
     };
   })();
 
@@ -807,11 +818,13 @@
       var BASE = 'https://apiv2.ahrefs.com';
 
       function getApiToken() {
-        return getConfig('seo.ahrefs.apiToken') || getConfig('ahrefs.apiToken');
+        return getConfig('seo.ahrefs.apiToken')
+            || getConfig('ahrefs.apiToken')
+            || getProjectIntegrationValue('ahrefs', ['apiToken', 'apiKey', 'API Key', 'token']);
       }
 
       function isAvailable() {
-        return apiEnabled('seo.ahrefs') && !!getApiToken();
+        return !!getApiToken();
       }
 
       function ahrefsFetch(endpoint, params, cacheKeyStr, ttl) {
@@ -819,14 +832,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          params = params || {};
-          params.token = getApiToken();
-          params.output = 'json';
-          var url = BASE + endpoint + buildQueryString(params);
-
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
@@ -875,11 +884,13 @@
       var BASE = 'https://api.semrush.com';
 
       function getApiKey() {
-        return getConfig('seo.semrush.apiKey') || getConfig('semrush.apiKey');
+        return getConfig('seo.semrush.apiKey')
+            || getConfig('semrush.apiKey')
+            || getProjectIntegrationValue('semrush', ['apiKey', 'API Key', 'token']);
       }
 
       function isAvailable() {
-        return apiEnabled('seo.semrush') && !!getApiKey();
+        return !!getApiKey();
       }
 
       function semrushFetch(params, cacheKeyStr, ttl) {
@@ -887,13 +898,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          params = params || {};
-          params.key = getApiKey();
-          var url = BASE + '/' + buildQueryString(params);
-
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
+          return fetchWithRetry('/api/integration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
@@ -953,13 +961,10 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry(BASE + endpoint, {
+          return fetchWithRetry('/api/integration', {
             method: 'POST',
-            headers: {
-              'Authorization': authHeader(),
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body })
           }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
@@ -1253,7 +1258,7 @@
     if (Social.linkedin.isAvailable()) integrations.push('Social.linkedin');
     if (Social.tiktok.isAvailable()) integrations.push('Social.tiktok');
     if (EmailMarketing.mailchimp.isAvailable()) integrations.push('EmailMarketing.mailchimp');
-    if (EmailMarketing.sendgrid.isAvailable()) integrations.push('EmailMarketing.sendgrid');
+    if (EmailMarketing.resend.isAvailable())   integrations.push('EmailMarketing.resend');
     if (SEOTools.ahrefs.isAvailable()) integrations.push('SEOTools.ahrefs');
     if (SEOTools.semrush.isAvailable()) integrations.push('SEOTools.semrush');
     if (SEOTools.dataforseo.isAvailable()) integrations.push('SEOTools.dataforseo');

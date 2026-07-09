@@ -8,10 +8,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="../js/marked.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #06b6d4;
+            --agent-color-rgb: 6,182,212;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --bg: #070711; --border: rgba(255,255,255,0.08);
             --text: #ffffff; --text2: rgba(255,255,255,0.6);
@@ -34,10 +36,10 @@
         .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 
         .hero { padding: 64px 32px 48px; max-width: 900px; margin: 0 auto; text-align: center; }
-        .hero-emoji { font-size: 56px; margin-bottom: 16px; display: block; }
-        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-emoji { display: none; }
+        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 18px; color: var(--text2); margin-bottom: 24px; }
-        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--cyan); }
+        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(var(--agent-color-rgb),0.12); border: 1px solid rgba(var(--agent-color-rgb),0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--agent-color); }
         .intelligence-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); margin-left: 8px; }
 
         .main-content { max-width: 1100px; margin: 0 auto; padding: 0 32px 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -49,12 +51,12 @@
         .field-group { margin-bottom: 16px; }
         .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--cyan); background: rgba(6,182,212,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #13131f; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--cyan), var(--purple)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
+        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--purple)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
         .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-icon { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
@@ -66,11 +68,11 @@
         .output-area ul, .output-area ol { margin: 8px 0 10px 20px; }
         .output-area li { margin-bottom: 4px; }
         .output-area strong { color: #fff; }
-        .output-area code { background: rgba(6,182,212,0.15); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .output-area code { background: rgba(var(--agent-color-rgb),0.15); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
         .output-empty { color: var(--text2); text-align: center; padding: 60px 20px; font-style: italic; }
 
         .typing-indicator { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 20px; }
-        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--cyan); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
+        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--agent-color); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
         .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
         .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes pulse { 0%,100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
@@ -79,7 +81,7 @@
         .features-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
         .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .feature-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: default; }
-        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(6,182,212,0.12); }
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(var(--agent-color-rgb),0.12); }
         .feature-icon { font-size: 28px; margin-bottom: 12px; }
         .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
@@ -96,7 +98,7 @@
             Audema
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">SEO Intelligence</span>
+        <span class="nav-breadcrumb"><span style="color:#06b6d4;font-weight:700;letter-spacing:1px;">REX</span> · SEO Intelligence</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>
@@ -104,11 +106,11 @@
     </div>
 </nav>
 
-<div class="hero">
+<div class="hero" data-agent="rex">
     <span class="hero-emoji">🔍</span>
     <h1>SEO Intelligence</h1>
     <p class="hero-tagline">Rankings, keywords, and technical audits powered by AI</p>
-    <span class="powered-pill">⚡ Powered by Claude</span>
+    <span class="powered-pill">⚡ AI-Powered</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
 </div>
 
@@ -187,13 +189,16 @@
 
 </div>
 
+<script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/gemini-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 class SEOAgent {
     constructor() {
-        this.claudeService = window.ClaudeService;
+        this.claudeService = window.GeminiService || window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
         this._loadICP();
@@ -226,7 +231,8 @@ class SEOAgent {
                 }
                 if (icpSummary) {
                     const textarea = document.getElementById('audience');
-                    textarea.value = `✨ ${icpSummary} (from BusinessBrain ICP)`;
+                    textarea.value = icpSummary;
+                    textarea.title = 'Auto-filled from BusinessBrain';
                     textarea.style.color = '#10b981';
                 }
             }
@@ -241,7 +247,8 @@ class SEOAgent {
                 const urls = competitors.map(c => c.url).filter(u => u).join(', ');
                 if (urls) {
                     const input = document.getElementById('competitors');
-                    input.value = `✨ ${urls} (from CompetitiveRadar)`;
+                    input.value = urls;
+                    input.title = 'Auto-filled from BusinessBrain';
                     input.style.color = '#10b981';
                 }
             }
@@ -265,6 +272,8 @@ Provide actionable, competitive SEO analysis that:
 - Bullet lists for keyword clusters, content gaps, technical fixes
 - Include difficulty estimates (Low/Medium/High) and search intent (Informational/Commercial/Transactional)
 - Always prioritize by: Impact (traffic potential) × Effort (difficulty) × Strategic Fit (business objectives)
+
+IMPORTANT: You do not have live keyword databases. Present all search volume and difficulty figures as directional estimates, explicitly labeled '(est.)', and note they should be validated in Google Keyword Planner or Ahrefs before investment.
 
 `;
 
@@ -323,21 +332,35 @@ Provide actionable, competitive SEO analysis that:
             if (data && data.icp) {
                 const icp = data.icp;
 
-                if ((icp.language && icp.language.length > 0) || (icp.painPoints && icp.painPoints.filter(p => p).length > 0)) {
+                const langArr = Array.isArray(icp.language) ? icp.language :
+                    (icp.language ? String(icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                const painArr = Array.isArray(icp.painPoints) ? icp.painPoints.filter(p => p) : [];
+
+                if (langArr.length > 0 || painArr.length > 0) {
                     searchIntent += `\n\n## ICP SEARCH INTENT (How Your Buyers Search)\n`;
 
-                    if (icp.language && icp.language.length > 0) {
+                    if (langArr.length > 0) {
                         searchIntent += `Your ICP describes their problems using language like:\n`;
-                        searchIntent += icp.language.map(lang => `- "${lang}"`).join('\n') + '\n\n';
+                        searchIntent += langArr.map(lang => `- "${lang}"`).join('\n') + '\n\n';
                     }
 
-                    if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
-                        const painPoints = icp.painPoints.filter(p => p);
+                    if (painArr.length > 0) {
                         searchIntent += `Their main pain points:\n`;
-                        searchIntent += painPoints.map(pain => `- ${pain}`).join('\n') + '\n\n';
+                        searchIntent += painArr.map(pain => `- ${pain}`).join('\n') + '\n\n';
                     }
 
                     searchIntent += `**Translate these into search intent keywords.** What would they type into Google when looking for a solution? Generate long-tail keyword variations that match this language.\n`;
+                }
+
+                // Buyer journey stages — so keywords can be mapped to awareness/consideration/decision
+                const bj = icp.buyerJourney || {};
+                const journeyLines = [];
+                if (bj.aware) journeyLines.push(`- Awareness: ${bj.aware}`);
+                if (bj.consider) journeyLines.push(`- Consideration: ${bj.consider}`);
+                if (bj.decide) journeyLines.push(`- Decision: ${bj.decide}`);
+                if (journeyLines.length > 0) {
+                    searchIntent += `\n## BUYER JOURNEY STAGES (Map Keywords to These)\n`;
+                    searchIntent += journeyLines.join('\n') + '\n';
                 }
             }
         }
@@ -382,6 +405,22 @@ Provide actionable, competitive SEO analysis that:
             }
         }
 
+        // Also pull raw BusinessBrain competitor profiles — supplies the "theyAreWeakAt" data
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const bb = this.intelligenceEngine.brain.load();
+            if (bb && Array.isArray(bb.competitors) && bb.competitors.length > 0) {
+                competitorContext += `\n\n## BUSINESSBRAIN COMPETITOR PROFILES (Positioning & Weaknesses)\n`;
+                bb.competitors.forEach(c => {
+                    if (!c || !c.name) return;
+                    competitorContext += `**${c.name}**${c.url ? ` (${c.url})` : ''}\n`;
+                    if (c.positioning) competitorContext += `- Positioning: ${c.positioning}\n`;
+                    const weak = Array.isArray(c.theyAreWeakAt) ? c.theyAreWeakAt.filter(Boolean) : [];
+                    if (weak.length > 0) competitorContext += `- They are weak at: ${weak.join(', ')} — target keyword clusters here\n`;
+                    competitorContext += '\n';
+                });
+            }
+        }
+
         return competitorContext;
     }
 
@@ -397,10 +436,6 @@ Provide actionable, competitive SEO analysis that:
                     <a href="/intelligence/competitive-radar.html" style="color:#fbbf24;font-weight:600;">→ Configure CompetitiveRadar (keyword gaps)</a>
                 </div>
             </div>`;
-            setTimeout(() => {
-                const urlTopic = document.getElementById('urlTopic').value.trim();
-                if (urlTopic) this.run();
-            }, 5000);
             return true;
         }
         return false;
@@ -416,6 +451,15 @@ Provide actionable, competitive SEO analysis that:
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
+
+        const resetUI = (errMsg) => {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Analyze';
+            if (errMsg) outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
+                <strong>Error:</strong> ${errMsg}<br><br>
+                <small style="opacity:0.7;">Open browser console (F12) for details. Check that the API is deployed and an AI API key (Gemini or Anthropic) is set in Vercel environment variables.</small>
+            </div>`;
+        };
 
         // Get intelligence context
         let contextBundle = null;
@@ -433,17 +477,25 @@ Provide actionable, competitive SEO analysis that:
 
         runBtn.disabled = true;
         runBtn.textContent = 'Analyzing...';
-
         outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Running ${taskType}...</div>`;
 
-        const systemPrompt = this.buildSystemPrompt(contextBundle);
-        const icpSearchIntent = this.buildICPSearchIntent(contextBundle);
-        const competitorSEOContext = this.buildCompetitorSEOContext(contextBundle);
+        // Hard backstop: if nothing resolves in 60s, surface an error
+        const timeoutId = setTimeout(() => {
+            if (runBtn.disabled) {
+                console.error('[SEOAgent] Stream timed out after 60s');
+                resetUI('Request timed out after 60 seconds. The API may be unreachable or overloaded — verify your AI API key (Gemini or Anthropic) in Vercel env vars.');
+            }
+        }, 60000);
 
-        let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
-        if (audience) userMessage += `\nTarget Audience: ${audience}`;
-        if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
-        userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
+        try {
+            const systemPrompt = this.buildSystemPrompt(contextBundle);
+            const icpSearchIntent = this.buildICPSearchIntent(contextBundle);
+            const competitorSEOContext = this.buildCompetitorSEOContext(contextBundle);
+
+            let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
+            if (audience) userMessage += `\nTarget Audience: ${audience}`;
+            if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
+            userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
 - High-priority keyword opportunities (with difficulty and search intent)
 - Content gaps to fill
 - Technical SEO fixes
@@ -451,30 +503,51 @@ Provide actionable, competitive SEO analysis that:
 
 Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOContext}`;
 
-        if (this.claudeService && this.claudeService.streamResponse) {
+            if (!this.claudeService || !this.claudeService.streamResponse) {
+                clearTimeout(timeoutId);
+                outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
+                    <strong style="color:#fff;">Claude API not configured.</strong><br><br>
+                    Add your API key in <a href="/settings.html" style="color:#06b6d4;">Settings</a> to enable AI analysis.
+                </div>`;
+                runBtn.disabled = false; runBtn.textContent = 'Analyze';
+                return;
+            }
+
             let fullResponse = '';
             outputEl.innerHTML = '';
-            try {
-                await this.claudeService.streamResponse({
-                    systemPrompt,
-                    messages: [{ role: 'user', content: userMessage }],
-                    onChunk: (chunk) => {
-                        fullResponse += chunk;
+
+            await this.claudeService.streamResponse({
+                systemPrompt,
+                messages: [{ role: 'user', content: userMessage }],
+                onChunk: (chunk) => {
+                    fullResponse += chunk;
+                    try {
                         outputEl.innerHTML = marked.parse(fullResponse);
-                        outputEl.scrollTop = outputEl.scrollHeight;
-                    },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Analyze'; }
-                });
-            } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                runBtn.disabled = false; runBtn.textContent = 'Analyze';
-            }
-        } else {
-            outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
-                <strong style="color:#fff;">Claude API not configured.</strong><br><br>
-                Add your API key in <a href="/settings.html" style="color:#06b6d4;">Settings</a> to enable AI analysis.
-            </div>`;
-            runBtn.disabled = false; runBtn.textContent = 'Analyze';
+                    } catch (_) {
+                        outputEl.textContent = fullResponse;
+                    }
+                    outputEl.scrollTop = outputEl.scrollHeight;
+                },
+                onDone: () => {
+                    clearTimeout(timeoutId);
+                    runBtn.disabled = false;
+                    runBtn.textContent = 'Analyze';
+                    if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'seo', taskType, content: fullResponse, topic: urlTopic });
+                    if (!fullResponse.trim()) {
+                        outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Check Vercel function logs for errors.</div>`;
+                    }
+                },
+                onError: (e) => {
+                    clearTimeout(timeoutId);
+                    console.error('[SEOAgent] stream error:', e);
+                    resetUI((e && e.message) || 'Unknown error — open browser console for details');
+                }
+            });
+
+        } catch (e) {
+            clearTimeout(timeoutId);
+            console.error('[SEOAgent] run() error:', e);
+            resetUI(e.message || 'Unknown error — open browser console for details');
         }
     }
 }

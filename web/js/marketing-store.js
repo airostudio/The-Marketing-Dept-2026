@@ -1,6 +1,6 @@
 /**
  * Marketing Store - Supabase-backed persistent storage for all marketing services
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * Replaces localStorage usage across marketing services with Supabase persistence.
  * Each service stores data with a service + key identifier.

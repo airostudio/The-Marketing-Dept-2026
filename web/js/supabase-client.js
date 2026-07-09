@@ -1,6 +1,6 @@
 /**
  * Supabase Client Configuration
- * Aduma Marketing 2026 - SEO Agent Dashboard
+ * Audema Marketing 2026 - SEO Agent Dashboard
  *
  * This file initializes the Supabase client for authentication and database operations.
  * Configure your Supabase project URL and anon key in the settings page or environment.

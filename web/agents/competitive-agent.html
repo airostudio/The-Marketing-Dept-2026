@@ -11,11 +11,13 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #14b8a6;
+            --agent-color-rgb: 20,184,166;
             --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --border: rgba(255,255,255,0.08); --text: #f1f5f9;
             --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
-            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+            --gradient: linear-gradient(135deg, #14b8a6, #ec4899);
             --card-bg: rgba(255,255,255,0.03);
         }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
@@ -33,7 +35,7 @@
 
         .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
         .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(6,182,212,0.1) 0%, transparent 70%); pointer-events: none; }
-        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero-emoji { display: none; }
         .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
         .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
@@ -56,7 +58,7 @@
         .field-group { margin-bottom: 14px; }
         .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(20,184,166,0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #1a1a2e; }
 
@@ -68,16 +70,108 @@
         .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
 
         .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
-        .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
-        .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
-        .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
-        .output-body p { margin-bottom: 10px; }
-        .output-body ul, .output-body ol { padding-left: 20px; margin-bottom: 10px; }
-        .output-body li { margin-bottom: 5px; }
-        .output-body strong { color: white; }
-        .output-body code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-        .output-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-        .output-body blockquote { border-left: 3px solid var(--cyan); padding-left: 12px; color: var(--text2); margin: 10px 0; font-style: italic; }
+        .output-body { padding: 24px 28px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); word-wrap: break-word; }
+        .output-body > *:first-child { margin-top: 0; }
+        .output-body > *:last-child  { margin-bottom: 0; }
+
+        .output-body h1 {
+            font-size: 20px; color: #fff; font-weight: 800;
+            margin: 28px 0 14px; padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            letter-spacing: -0.01em;
+        }
+        .output-body h2 {
+            font-size: 16px; color: #c4b5fd; font-weight: 700;
+            margin: 28px 0 12px; padding: 10px 0 10px 14px;
+            border-left: 3px solid #a78bfa;
+            background: linear-gradient(90deg, rgba(167,139,250,0.08), transparent 60%);
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .output-body h3 {
+            font-size: 14px; color: var(--cyan); font-weight: 700;
+            margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .output-body h4 {
+            font-size: 13px; color: #fff; font-weight: 700;
+            margin: 14px 0 6px;
+        }
+        .output-body p { margin: 0 0 12px; color: var(--text2); }
+        .output-body p strong { color: #fff; font-weight: 600; }
+
+        .output-body ul, .output-body ol { padding-left: 22px; margin: 8px 0 14px; }
+        .output-body ul li, .output-body ol li { margin-bottom: 6px; color: var(--text2); padding-left: 4px; }
+        .output-body ul li::marker { color: #a78bfa; }
+        .output-body ol li::marker { color: var(--cyan); font-weight: 600; }
+        .output-body li > strong { color: #fff; font-weight: 600; }
+        .output-body li > ul, .output-body li > ol { margin-top: 6px; margin-bottom: 6px; }
+
+        .output-body strong { color: #fff; font-weight: 600; }
+        .output-body em     { color: var(--text); font-style: italic; }
+
+        .output-body code {
+            background: rgba(255,255,255,0.08);
+            padding: 2px 7px; border-radius: 4px;
+            font-size: 12.5px; font-family: 'SF Mono', Menlo, Consolas, monospace;
+            color: #fde68a;
+        }
+        .output-body pre {
+            background: rgba(0,0,0,0.35);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+        .output-body pre code {
+            background: transparent; padding: 0; border-radius: 0;
+            color: var(--text); font-size: 12.5px;
+        }
+
+        .output-body hr {
+            border: none; border-top: 1px solid var(--border);
+            margin: 24px 0;
+        }
+        .output-body blockquote {
+            border-left: 3px solid var(--cyan);
+            padding: 8px 14px;
+            color: var(--text2);
+            margin: 12px 0;
+            font-style: italic;
+            background: rgba(34,211,238,0.05);
+            border-radius: 0 6px 6px 0;
+        }
+        .output-body blockquote p { margin-bottom: 6px; }
+        .output-body blockquote p:last-child { margin-bottom: 0; }
+
+        .output-body table {
+            width: 100%; border-collapse: collapse;
+            margin: 14px 0; font-size: 13px;
+            border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+        }
+        .output-body th {
+            background: rgba(167,139,250,0.10);
+            color: #fff; font-weight: 700;
+            text-align: left; padding: 10px 14px;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--border);
+        }
+        .output-body td {
+            padding: 10px 14px; color: var(--text2);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: top;
+        }
+        .output-body tr:last-child td { border-bottom: none; }
+        .output-body tr:hover td { background: rgba(255,255,255,0.02); }
+        .output-body td strong { color: #fff; }
+
+        .output-body a {
+            color: #a78bfa; text-decoration: none;
+            border-bottom: 1px solid rgba(167,139,250,0.35);
+            transition: border-color .15s;
+        }
+        .output-body a:hover { border-bottom-color: #a78bfa; }
 
         .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; flex-shrink: 0; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -106,16 +200,17 @@
             <span>Audema</span>
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Competitive Intelligence</span>
+        <span class="nav-breadcrumb"><span style="color:#14b8a6;font-weight:700;letter-spacing:1px;">SCOUT</span> · Competitive Intelligence</span>
     </div>
     <div class="nav-right">
+        <a class="nav-link" href="/intelligence/competitive-command.html">Command Center</a>
         <a class="nav-link" href="/hub.html">Agent Hub</a>
         <a class="nav-link" href="/scotty.html">Scotty AI</a>
         <a class="nav-link primary" href="/settings.html">Settings</a>
     </div>
 </nav>
 
-<section class="hero">
+<section class="hero" data-agent="scout">
     <span class="hero-emoji">🔭</span>
     <h1 class="hero-title">Competitive Intelligence</h1>
     <p class="hero-tagline">Crayon-style competitor monitoring, strategic gap analysis, and battlecard-ready intelligence</p>
@@ -167,6 +262,11 @@
                 <label class="field-label">Recent Competitor Activity to Analyze</label>
                 <textarea class="field-textarea" id="recentActivity" style="min-height:80px;" placeholder="Paste recent competitor content: website copy, pricing page, press releases, social posts, job listings, product announcements, ad copy..."></textarea>
             </div>
+            <div id="seoStatusBanner" style="display:none; margin: 12px 0; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; border: 1px solid;">
+                <span id="seoStatusIcon" style="margin-right:6px;"></span>
+                <span id="seoStatusText"></span>
+                <a id="seoStatusLink" href="/project-wizard.html" style="margin-left:6px; font-weight:600; text-decoration:underline;"></a>
+            </div>
             <button class="btn-run" id="runBtn" onclick="runAnalysis()">
                 <span id="btnIcon">🔭</span>
                 <span id="btnText">Analyze</span>
@@ -213,15 +313,21 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="../js/marked.min.js"></script>
+<script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/perplexity-service.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        // Only light the badge when BusinessBrain actually has usable data, not merely when the script loaded
+        if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+            document.getElementById('intelBadge').classList.add('active');
+        }
     })();
 
     // Intelligence Layer Context Builders
@@ -231,19 +337,22 @@
         if (!data || !data.icp) return '';
 
         let context = '\n\n**ICP COMPETITIVE CONTEXT:**\n';
-        context += `Our Target Persona: ${data.icp.persona || 'Not defined'}\n`;
+        const buyer = data.icp.primaryBuyer || {};
+        let persona = buyer.role || 'Not defined';
+        if (buyer.companySize) persona += ` at ${buyer.companySize} companies`;
+        if (buyer.industry) persona += ` in ${buyer.industry}`;
+        context += `Our Target Persona: ${persona}\n`;
         if (data.icp.painPoints && data.icp.painPoints.filter(p => p).length > 0) {
             context += `Their Pain Points: ${data.icp.painPoints.filter(p => p).join(', ')}\n`;
         }
-        if (data.icp.language && data.icp.language.length > 0) {
+        const _icpLang = Array.isArray(data.icp.language) ? data.icp.language :
+            (data.icp.language ? String(data.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+        if (_icpLang.length > 0) {
             context += `\n**ICP Search Language Patterns:**\n`;
-            data.icp.language.forEach(lang => {
+            _icpLang.forEach(lang => {
                 context += `- "${lang}"\n`;
             });
             context += `→ Generate keywords that match how our ICP searches.\n`;
-        }
-        if (data.icp.firmographics) {
-            context += `Firmographics: ${JSON.stringify(data.icp.firmographics)}\n`;
         }
         context += `→ Identify which competitors best address these pain points.\n`;
         context += `→ Find positioning gaps where our ICP is underserved.\n`;
@@ -253,10 +362,15 @@
     function buildValuePropDifferentiation() {
         if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.product || !data.product.valueProps) return '';
+        if (!data || !data.positioning) return '';
+
+        const props = [];
+        if (data.positioning.uniqueValue && data.positioning.uniqueValue.trim()) props.push(data.positioning.uniqueValue.trim());
+        (data.positioning.differentiation || []).forEach(d => { if (d && d.trim()) props.push(d.trim()); });
+        if (props.length === 0) return '';
 
         let context = '\n\n**VALUE PROP DIFFERENTIATION:**\n';
-        data.product.valueProps.forEach((vp, i) => {
+        props.forEach((vp, i) => {
             context += `${i + 1}. ${vp}\n`;
         });
         context += `→ Compare these value props against competitor claims.\n`;
@@ -270,18 +384,13 @@
         const competitors = window.IntelligenceEngine.radar.getAll();
         if (!competitors || competitors.length === 0) return '';
 
+        // Use the radar's own summary (positioning, key messages, exploitable gaps,
+        // ideas to borrow) instead of reading fields that don't exist on the schema.
+        const summary = window.IntelligenceEngine.radar.getSummaryForClaude();
+        if (!summary || !summary.trim()) return '';
+
         let context = '\n\n**COMPETITORS ALREADY TRACKED IN RADAR:**\n';
-        competitors.forEach(comp => {
-            context += `- ${comp.name}`;
-            if (comp.website) context += ` (${comp.website})`;
-            context += `\n`;
-            if (comp.strengths && comp.strengths.length > 0) {
-                context += `  Strengths: ${comp.strengths.join(', ')}\n`;
-            }
-            if (comp.weaknesses && comp.weaknesses.length > 0) {
-                context += `  Weaknesses: ${comp.weaknesses.join(', ')}\n`;
-            }
-        });
+        context += summary + '\n';
         context += `→ Use this existing intelligence to enhance your analysis.\n`;
         context += `→ Identify SEO keyword gaps where they're strong and we're weak.\n`;
         return context;
@@ -290,24 +399,189 @@
     function buildProductGapContext() {
         if (!window.IntelligenceEngine || !window.IntelligenceEngine.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data || !data.product) return '';
+        if (!data) return '';
+
+        const description = (data.company && data.company.description || '').trim();
+        const uniqueValue = (data.positioning && data.positioning.uniqueValue || '').trim();
+        const diffs = ((data.positioning && data.positioning.differentiation) || []).filter(d => d && d.trim());
+        if (!description && !uniqueValue && diffs.length === 0) return '';
 
         let context = '\n\n**OUR PRODUCT POSITIONING:**\n';
-        if (data.product.name) context += `Product: ${data.product.name}\n`;
-        if (data.product.category) context += `Category: ${data.product.category}\n`;
-        if (data.product.features && data.product.features.length > 0) {
-            context += `Key Features: ${data.product.features.join(', ')}\n`;
-        }
-        context += `→ Compare our feature set against competitors for product gap analysis.\n`;
-        context += `→ Suggest content keywords for features we have that competitors lack.\n`;
+        if (description) context += `What we do: ${description}\n`;
+        if (uniqueValue) context += `Unique Value: ${uniqueValue}\n`;
+        if (diffs.length > 0) context += `Key Differentiators: ${diffs.join(', ')}\n`;
+        context += `→ Compare our positioning against competitors for product gap analysis.\n`;
+        context += `→ Suggest content keywords for strengths we have that competitors lack.\n`;
         return context;
     }
 
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle ? (bundle.completeness || 0) : 0;
+        return bundle ? (bundle.completionScore || 0) / 100 : 0;
     }
+
+    // Extract domain strings from competitor input + radar URLs
+    function extractCompetitorDomains(competitorText) {
+        const domains = [];
+        const domainRe = /(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z]{2,})+)/gi;
+        let m;
+        while ((m = domainRe.exec(competitorText)) !== null) {
+            domains.push(m[1].toLowerCase());
+        }
+        // Also pull URLs from the competitive radar
+        if (window.IntelligenceEngine?.radar) {
+            window.IntelligenceEngine.radar.getAll().forEach(c => {
+                if (c.url) {
+                    const dm = c.url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase().trim();
+                    if (dm) domains.push(dm);
+                }
+            });
+        }
+        return [...new Set(domains)].slice(0, 5);
+    }
+
+    // Fetch live DataForSEO metrics and format them as a prompt section
+    async function buildScoutDataContext(competitorText) {
+        const domains = extractCompetitorDomains(competitorText);
+        if (!domains.length) return '';
+        try {
+            const r = await fetch('/api/scout-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains }),
+                signal: AbortSignal.timeout(25000),
+            });
+            if (!r.ok) return '';
+            const data = await r.json();
+            if (!data.metrics) return '';
+
+            let section = '\n\n**LIVE SEO METRICS (DataForSEO — use these numbers in your analysis):**\n';
+            let hasData = false;
+            Object.values(data.metrics).forEach(m => {
+                if (!m) return;
+                section += `\n### ${m.domain}\n`;
+                if (m.backlinks) {
+                    section += `- Domain Rank: ${m.backlinks.rank ?? 'N/A'}/100\n`;
+                    section += `- Backlinks: ${m.backlinks.backlinks?.toLocaleString() ?? 'N/A'}\n`;
+                    section += `- Referring Domains: ${m.backlinks.refDomains?.toLocaleString() ?? 'N/A'}\n`;
+                    if (m.backlinks.spamScore != null) section += `- Spam Score: ${m.backlinks.spamScore}/100\n`;
+                    hasData = true;
+                }
+                if (m.keywords?.length) {
+                    section += `- Top Organic Keywords:\n`;
+                    m.keywords.slice(0, 8).forEach(k => {
+                        const vol  = k.searchVol != null ? ` (${k.searchVol.toLocaleString()}/mo)` : '';
+                        const pos  = k.position  != null ? ` #${k.position}` : '';
+                        const diff = k.difficulty != null ? ` KD:${k.difficulty}` : '';
+                        section += `  • "${k.keyword}"${pos}${vol}${diff}\n`;
+                    });
+                    hasData = true;
+                }
+            });
+            section += '\n→ Reference these specific metrics in the competitive analysis — keyword positions, backlink gaps, and domain authority comparisons.\n';
+            return hasData ? section : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    // Render the SEO API status as a non-blocking inline banner.
+    // Probes /api/domain-metrics to check whether server-side SEO keys are configured.
+    async function renderSeoStatusBanner() {
+        const banner = document.getElementById('seoStatusBanner');
+        const icon   = document.getElementById('seoStatusIcon');
+        const text   = document.getElementById('seoStatusText');
+        const link   = document.getElementById('seoStatusLink');
+        if (!banner) return;
+
+        try {
+            const r = await fetch('/api/domain-metrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain: 'example.com' }),
+                signal: AbortSignal.timeout(5000)
+            });
+            if (r.ok) {
+                const data = await r.json();
+                if (data.provider && data.provider !== 'none') {
+                    banner.style.background  = 'rgba(16,185,129,0.08)';
+                    banner.style.borderColor = 'rgba(16,185,129,0.30)';
+                    banner.style.color       = '#34d399';
+                    icon.textContent         = '✅';
+                    const providerLabel = data.provider === 'dataforseo' ? 'DataForSEO' : data.provider.charAt(0).toUpperCase() + data.provider.slice(1);
+                    text.textContent         = `Live domain metrics active via ${providerLabel}. Real keyword rankings and backlink data will be included in your analysis.`;
+                    link.textContent         = '';
+                    link.style.display       = 'none';
+                    banner.style.display     = 'block';
+                    return;
+                }
+            }
+        } catch (e) {
+            // API unreachable — fall through to amber
+        }
+
+        banner.style.background  = 'rgba(245,158,11,0.08)';
+        banner.style.borderColor = 'rgba(245,158,11,0.30)';
+        banner.style.color       = '#fbbf24';
+        icon.textContent         = '⚠️';
+        text.textContent         = 'No SEO API keys detected. Running messaging/positioning analysis only.';
+        link.textContent         = 'Add DATAFORSEO_LOGIN + DATAFORSEO_PASSWORD to Vercel env →';
+        link.href                = '/settings.html';
+        link.style.color         = '#f59e0b';
+        link.style.display       = 'inline';
+        banner.style.display     = 'block';
+    }
+
+    function populateFromIntelligence() {
+        if (!window.IntelligenceEngine) return;
+
+        // Auto-populate competitor names from Competitive Radar
+        if (window.IntelligenceEngine.radar) {
+            const radarCompetitors = window.IntelligenceEngine.radar.getAll();
+            if (radarCompetitors && radarCompetitors.length > 0) {
+                const el = document.getElementById('competitors');
+                if (el && !el.value.trim()) {
+                    const names = radarCompetitors.map(c => c.name).filter(Boolean).join('\n');
+                    if (names) {
+                        el.value = names;
+                        el.style.color = '#14b8a6';
+                        el.title = 'Auto-populated from Competitive Radar';
+                    }
+                }
+            }
+        }
+
+        // Auto-populate company brief from Business Brain (real raw-schema string fields only)
+        if (window.IntelligenceEngine.brain) {
+            const data = window.IntelligenceEngine.brain.load();
+            if (data) {
+                const el = document.getElementById('yourBrief');
+                if (el && !el.value.trim()) {
+                    const parts = [];
+                    const name = (data.company && data.company.name || '').trim();
+                    const description = (data.company && data.company.description || '').trim();
+                    if (name && description) parts.push(`${name} — ${description}`);
+                    else if (name) parts.push(name);
+                    else if (description) parts.push(description);
+                    const uniqueValue = (data.positioning && data.positioning.uniqueValue || '').trim();
+                    if (uniqueValue) parts.push(uniqueValue);
+                    const role = (data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role || '').trim();
+                    if (role) parts.push('Target: ' + role);
+                    if (parts.length > 0) {
+                        el.value = parts.join(' — ');
+                        el.style.color = '#14b8a6';
+                        el.title = 'Auto-populated from BusinessBrain';
+                    }
+                }
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderSeoStatusBanner();
+        populateFromIntelligence();
+    });
 
     async function runAnalysis() {
         const task = document.getElementById('task').value;
@@ -321,22 +595,24 @@
             return;
         }
 
-        // Strategic Validation: SEO APIs
-        const hasSEOTools = window.ApiConnector?.SEOTools?.ahrefs?.isAvailable() ||
-                           window.ApiConnector?.SEOTools?.semrush?.isAvailable();
+        renderSeoStatusBanner();
 
-        if (!hasSEOTools && !sessionStorage.getItem('competitive-seo-warning-dismissed')) {
-            const proceed = confirm('⚠️ SEO APIs (Ahrefs, SEMrush) not configured.\n\nFor keyword gap analysis, backlink data, and traffic potential scoring, configure SEO tool APIs in Settings → API Keys.\n\nProceed with messaging/positioning analysis only?');
-            if (!proceed) return;
-            sessionStorage.setItem('competitive-seo-warning-dismissed', 'true');
-        }
-
-        // Strategic Validation: Intelligence Layer
+        // Intelligence Layer completeness — show inline warning but do not block
         const completeness = getIntelligenceCompleteness();
-        if (completeness < 0.3 && !sessionStorage.getItem('competitive-intelligence-warning-dismissed')) {
-            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific competitive analysis with keyword suggestions matching your ICP's search patterns, configure:\n• ICP Definition (persona, pain points, search language)\n• Value Propositions\n• Competitive Radar\n\nProceed with generic analysis?`);
-            if (!proceed) return;
-            sessionStorage.setItem('competitive-intelligence-warning-dismissed', 'true');
+        if (completeness < 0.3) {
+            const banner = document.getElementById('seoStatusBanner');
+            if (banner && banner.style.display !== 'none') {
+                banner.style.background  = 'rgba(245,158,11,0.08)';
+                banner.style.borderColor = 'rgba(245,158,11,0.30)';
+                banner.style.color       = '#fbbf24';
+                document.getElementById('seoStatusIcon').textContent = '⚠️';
+                document.getElementById('seoStatusText').textContent = `Intelligence Layer ${Math.round(completeness * 100)}% complete — analysis will be generic without ICP data.`;
+                const link = document.getElementById('seoStatusLink');
+                link.textContent = 'Configure BusinessBrain →';
+                link.href = '/intelligence/business-brain.html';
+                link.style.color = '#f59e0b';
+                link.style.display = 'inline';
+            }
         }
 
         // Build Intelligence Layer Context
@@ -344,6 +620,23 @@
         intelligenceContext += buildValuePropDifferentiation();
         intelligenceContext += buildCompetitiveRadarContext();
         intelligenceContext += buildProductGapContext();
+
+        // Fetch live SEO metrics from DataForSEO (non-blocking — falls back to '' on error)
+        const scoutDataContext = await buildScoutDataContext(competitors);
+        if (scoutDataContext) {
+            const banner = document.getElementById('seoStatusBanner');
+            if (banner) {
+                banner.style.background  = 'rgba(16,185,129,0.08)';
+                banner.style.borderColor = 'rgba(16,185,129,0.30)';
+                banner.style.color       = '#34d399';
+                document.getElementById('seoStatusIcon').textContent = '✅';
+                document.getElementById('seoStatusText').textContent = 'Live SEO metrics loaded from DataForSEO — analysis will include real keyword rankings and backlink data.';
+                const link = document.getElementById('seoStatusLink');
+                link.textContent = '';
+                link.style.display = 'none';
+                banner.style.display = 'block';
+            }
+        }
 
         const userPrompt = `TASK: ${task}
 
@@ -354,7 +647,7 @@ YOUR COMPANY / PRODUCT:
 ${yourBrief || 'Not specified — analyze competitor strategy independently'}
 
 FOCUS AREA: ${focusArea || 'General competitive landscape'}
-${intelligenceContext}
+${intelligenceContext}${scoutDataContext}
 
 ${recentActivity ? `RECENT COMPETITOR ACTIVITY TO ANALYZE:\n${recentActivity}` : ''}
 
@@ -389,6 +682,8 @@ For each competitor:
 - **Question Keywords** (People Also Ask opportunities related to their content)
 - **ICP Search Language Match** keywords that match our ICP's search patterns (if ICP provided above)
 
+Label every volume/score figure '(est.)' unless it came from the provided DataForSEO metrics.
+
 ## SEARCH INTENT ANALYSIS
 For key competitive keywords:
 - Awareness stage keywords (informational intent)
@@ -420,24 +715,67 @@ For each competitor, sales-ready format:
         const outputBody = document.getElementById('outputBody');
 
         try {
-            if (window.ClaudeService) {
-                let fullText = '';
-                await window.ClaudeService.streamResponse({
-                    systemPrompt: SYSTEM_PROMPT,
-                    messages: [{ role: 'user', content: userPrompt }],
-                    onChunk: (chunk, accumulated) => {
-                        fullText = accumulated;
-                        outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullText) : fullText) + '<span class="streaming-cursor"></span>';
-                    },
-                    onDone: (text) => {
-                        outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
-                    },
-                    onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
-                    }
+            const primary = window.PerplexityService || window.ClaudeService;
+            if (primary) {
+                let storedCitations = null; // citations survive streaming re-renders; appended once in the final render
+
+                // One streaming attempt against a service. Guarantees the caller sees a
+                // single outcome: onError can no longer be wiped by the trailing
+                // onDone('') the service layer emits after a failed stream.
+                const attempt = (service, sysPrompt) => new Promise((resolve) => {
+                    let settled = false;
+                    let hadError = false;
+                    let chunksReceived = false;
+                    const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+                    Promise.resolve(service.streamResponse({
+                        systemPrompt: sysPrompt,
+                        messages: [{ role: 'user', content: userPrompt }],
+                        onChunk: (chunk, accumulated) => {
+                            chunksReceived = true;
+                            if (settled) return;
+                            outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated) + '<span class="streaming-cursor"></span>';
+                        },
+                        onCitations: (citations) => {
+                            if (citations && citations.length) storedCitations = citations;
+                        },
+                        onDone: (text) => { if (!hadError) settle({ ok: true, text: text || '' }); },
+                        onError: (err) => { hadError = true; settle({ ok: false, err, chunksReceived }); }
+                    })).catch((err) => settle({ ok: false, err, chunksReceived }));
                 });
+
+                let outcome = await attempt(primary, SYSTEM_PROMPT);
+
+                // Claude fallback when Perplexity failed before any chunk arrived, or returned empty
+                if (primary === window.PerplexityService && window.ClaudeService &&
+                    ((!outcome.ok && !outcome.chunksReceived) || (outcome.ok && !outcome.text.trim()))) {
+                    console.warn('[SCOUT] Perplexity unavailable — retrying via Claude without live web search.', outcome.err && outcome.err.message);
+                    const notice = document.createElement('div');
+                    notice.style.cssText = 'margin-bottom:12px;padding:10px 14px;border:1px solid rgba(245,158,11,0.30);background:rgba(245,158,11,0.08);border-radius:8px;color:#fbbf24;font-size:12.5px;';
+                    notice.textContent = 'Live web research unavailable (Perplexity API error) — showing AI analysis without live data.';
+                    outputBody.parentNode.insertBefore(notice, outputBody);
+                    outputBody.innerHTML = '<span class="streaming-cursor"></span>';
+                    storedCitations = null;
+                    outcome = await attempt(window.ClaudeService,
+                        'NOTE: Live web search is unavailable — answer from general knowledge, clearly flagging anything that may be outdated and labeling all figures as estimates.\n\n' + SYSTEM_PROMPT);
+                }
+
+                if (!outcome.ok) {
+                    outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${(outcome.err && outcome.err.message) || 'AI request failed'}</div>`;
+                } else if (!outcome.text.trim()) {
+                    outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The AI service returned no content — check PERPLEXITY_API_KEY / ANTHROPIC_API_KEY server configuration.</div>';
+                } else {
+                    outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(outcome.text) : outcome.text;
+                    if (storedCitations && storedCitations.length) {
+                        const citList = storedCitations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
+                        const el = document.createElement('div');
+                        el.className = 'citations-block';
+                        el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
+                        outputBody.appendChild(el);
+                    }
+                    if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'competitive', taskType: task || 'Competitive Analysis', content: outcome.text, topic: competitors || '' });
+                }
             } else {
-                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
             }
         } catch (e) {
             outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;

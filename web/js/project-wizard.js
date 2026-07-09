@@ -619,11 +619,13 @@
             }
         }
 
-        // Fallback to localStorage
+        // Fallback to localStorage. Persist the full project object under
+        // a dedicated key so the analyzer can read it without ProjectService.
         const projects = JSON.parse(localStorage.getItem('seo-projects') || '[]');
         projects.push(project);
         localStorage.setItem('seo-projects', JSON.stringify(projects));
         localStorage.setItem('seo-current-project', project.id);
+        localStorage.setItem('seo-current-project-data', JSON.stringify(project));
 
         return project;
     }
@@ -658,14 +660,13 @@
             completeStep.classList.add('active');
         }
 
-        // Hide footer
+        // Hide the wizard footer and the step progress bar entirely — its
+        // visual fill at 100% reads as "analysis complete" to users, which is
+        // not what's happening here. Setup is complete; analysis runs next.
         document.querySelector('.wizard-footer').style.display = 'none';
-
-        // Update progress to 100%
-        elements.progressFill.style.width = '100%';
-        elements.progressSteps.forEach(step => {
-            step.classList.add('completed');
-        });
+        const wizardProgress = document.querySelector('.wizard-progress');
+        if (wizardProgress) wizardProgress.style.display = 'none';
+        elements.progressSteps.forEach(step => step.classList.add('completed'));
 
         // Populate summary
         document.getElementById('summaryProjectName').textContent = project.projectName || '-';
@@ -769,11 +770,13 @@
         detectionElements.errorPanel.style.display = 'none';
     }
 
-    // Validate URL format
+    // Validate URL format — accepts with or without protocol
     function isValidURL(string) {
         try {
-            const url = new URL(string);
-            return url.protocol === 'http:' || url.protocol === 'https:';
+            const withProto = /^https?:\/\//i.test(string) ? string : 'https://' + string;
+            const url = new URL(withProto);
+            // Must have a hostname with at least one dot and no spaces
+            return url.hostname.includes('.') && !/\s/.test(url.hostname);
         } catch {
             return false;
         }
@@ -827,50 +830,71 @@
     // Perform site analysis
     async function performSiteAnalysis(url) {
         const startTime = performance.now();
-        const urlObj = new URL(url);
+        // Normalise: add https:// if missing
+        const normUrl = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+        const urlObj = new URL(normUrl);
 
         // Results object
         const result = {
-            url: url,
+            url: normUrl,
             domain: urlObj.hostname,
             ssl: urlObj.protocol === 'https:',
             siteType: 'Unknown',
             platform: 'Unknown',
             responseTime: 0,
             isReachable: false,
+            httpStatus: 0,
             suggestions: {}
         };
 
-        // Try to fetch the site (with timeout)
+        // Use our server-side check endpoint — avoids CORS and gives a real HTTP status
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const checkResp = await fetch(
+                `/api/check-url?url=${encodeURIComponent(normUrl)}`,
+                { signal: AbortSignal.timeout(20000) }
+            );
+            if (!checkResp.ok) throw new Error('Check endpoint error');
+            const check = await checkResp.json();
 
-            // Use a CORS proxy or direct fetch (may be blocked by CORS)
-            // For demo purposes, we'll detect based on URL patterns and common indicators
-            const response = await fetch(url, {
-                method: 'HEAD',
-                mode: 'no-cors',
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-            result.isReachable = true;
             result.responseTime = Math.round(performance.now() - startTime);
+            result.isReachable = !!check.reachable;
+            result.httpStatus  = check.status || 0;
+
+            if (!check.reachable) {
+                const msg = check.error
+                    || (check.status ? `Server returned HTTP ${check.status}` : 'Site could not be reached');
+                throw new Error(msg);
+            }
 
         } catch (error) {
-            // Even if CORS blocks us, we can still do URL-based detection
-            // For "no-cors" mode, we assume the site is reachable if no network error
-            if (error.name === 'AbortError') {
-                throw new Error('Connection timed out. The website may be slow or unavailable.');
+            if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                throw new Error('Connection timed out — the website may be down or blocking automated checks.');
             }
-            // Continue with URL-based detection
-            result.isReachable = true;
-            result.responseTime = Math.round(performance.now() - startTime);
+            // If the check endpoint itself is unavailable (local dev), fall back
+            // to a no-cors ping so the wizard still works offline
+            if (error.message === 'Check endpoint error' || error.message.includes('fetch')) {
+                try {
+                    const controller = new AbortController();
+                    const tid = setTimeout(() => controller.abort(), 10000);
+                    await fetch(normUrl, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
+                    clearTimeout(tid);
+                    result.isReachable = true;
+                    result.responseTime = Math.round(performance.now() - startTime);
+                } catch (fallbackErr) {
+                    if (fallbackErr.name === 'AbortError') {
+                        throw new Error('Connection timed out — the website may be down.');
+                    }
+                    // no-cors fetch throws TypeError for actual network failures (bad domain etc.)
+                    throw new Error('Could not reach the website — check the URL is correct.');
+                }
+            } else {
+                // Propagate real errors from the check endpoint (bad domain, HTTP 4xx/5xx, etc.)
+                throw error;
+            }
         }
 
         // Detect site type and platform based on URL patterns
-        const detection = detectSiteTypeFromURL(url, urlObj.hostname);
+        const detection = detectSiteTypeFromURL(normUrl, urlObj.hostname);
         result.siteType = detection.siteType;
         result.platform = detection.platform;
         result.suggestions = detection.suggestions;

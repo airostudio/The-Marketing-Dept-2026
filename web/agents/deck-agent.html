@@ -11,6 +11,8 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #7c3aed;
+            --agent-color-rgb: 124,58,237;
             --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --border: rgba(255,255,255,0.08); --text: #f1f5f9;
@@ -32,13 +34,13 @@
         .nav-link.primary { background: var(--gradient); border-color: transparent; color: white; }
 
         .hero { text-align: center; padding: 64px 32px 48px; position: relative; overflow: hidden; }
-        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(124,58,237,0.14) 0%, transparent 70%); pointer-events: none; }
-        .hero-emoji { font-size: 56px; display: block; margin-bottom: 16px; line-height: 1; }
+        .hero::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(var(--agent-color-rgb),0.14) 0%, transparent 70%); pointer-events: none; }
+        .hero-emoji { display: none; }
         .hero-title { font-size: 40px; font-weight: 800; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 17px; color: var(--text2); max-width: 540px; margin: 0 auto 20px; line-height: 1.5; }
         .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
         .pill { padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--card-bg); }
-        .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-claude { background: rgba(var(--agent-color-rgb),0.15); border-color: rgba(var(--agent-color-rgb),0.3); color: #a78bfa; }
         .pill-inspired { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.25); color: var(--cyan); }
 
         .main-wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
@@ -56,13 +58,13 @@
         .field-group { margin-bottom: 14px; }
         .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #1a1a2e; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
         .btn-run { width: 100%; padding: 13px 20px; background: var(--gradient); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif; margin-top: 6px; }
-        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.35); }
+        .btn-run:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(var(--agent-color-rgb),0.35); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-copy { padding: 5px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
         .btn-copy:hover { background: rgba(255,255,255,0.1); color: var(--text); }
@@ -89,13 +91,135 @@
         .features-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); margin-bottom: 16px; }
         .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor: default; }
-        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,58,237,0.3); box-shadow: 0 12px 32px rgba(124,58,237,0.1); }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(var(--agent-color-rgb),0.3); box-shadow: 0 12px 32px rgba(var(--agent-color-rgb),0.1); }
         .feature-icon { font-size: 24px; margin-bottom: 10px; }
         .feature-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
 
         @media (max-width: 900px) { .main-wrap { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero-title { font-size: 28px; } }
         @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } .nav { padding: 0 16px; } .main-wrap, .features-wrap { padding: 0 16px 48px; } }
+
+        /* ── Slide Preview ─────────────────────────────────────── */
+        .preview-section { margin-top: 24px; }
+        .preview-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .preview-header h3 { font-size:14px; font-weight:600; color:var(--text); }
+        .preview-meta { font-size:12px; color:var(--text2); }
+        .slide-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+        .slide-card {
+            border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);
+            aspect-ratio:16/9; position:relative; cursor:default;
+            transition:transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        .slide-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.35); }
+        .slide-accent-bar { position:absolute; left:0; top:0; width:5px; height:100%; }
+        .slide-num-badge {
+            position:absolute; top:8px; right:8px;
+            background:rgba(0,0,0,0.35); color:#fff;
+            font-size:9px; font-weight:700; padding:2px 6px; border-radius:10px; letter-spacing:0.5px;
+        }
+        .slide-inner { padding:12px 12px 10px 16px; height:100%; display:flex; flex-direction:column; }
+        .slide-card-title {
+            font-size:11px; font-weight:700; line-height:1.3;
+            margin-bottom:6px; overflow:hidden;
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+        }
+        .slide-card-bullets { list-style:none; flex:1; overflow:hidden; }
+        .slide-card-bullets li {
+            font-size:9px; line-height:1.5; opacity:0.75;
+            overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+            padding-left:10px; position:relative;
+        }
+        .slide-card-bullets li::before { content:'•'; position:absolute; left:0; opacity:0.6; }
+        .slide-card-visual {
+            font-size:8px; opacity:0.5; margin-top:4px;
+            font-style:italic; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+        }
+
+        /* ── Template Picker ───────────────────────────────────── */
+        .template-picker-wrap {
+            max-width:1100px; margin:0 auto 40px; padding:0 32px;
+        }
+        .template-picker-header {
+            display:flex; align-items:flex-end; justify-content:space-between;
+            margin-bottom:20px; gap:16px;
+        }
+        .template-picker-header h2 {
+            font-size:18px; font-weight:800; color:var(--text); margin-bottom:4px;
+        }
+        .template-picker-header p { font-size:13px; color:var(--text2); }
+        .template-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(155px, 1fr));
+            gap:14px;
+        }
+        .template-card {
+            cursor:pointer; border-radius:12px; overflow:hidden;
+            border:2px solid transparent;
+            background:var(--card-bg);
+            transition:border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+        }
+        .template-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(0,0,0,0.4); }
+        .template-card.selected {
+            border-color:var(--agent-color);
+            box-shadow:0 0 0 1px var(--agent-color), 0 12px 32px rgba(124,58,237,0.3);
+        }
+        .template-card.selected .tmpl-selected-ring {
+            opacity:1;
+        }
+        /* Mini 16:9 slide */
+        .tmpl-slide {
+            aspect-ratio:16/9; position:relative; overflow:hidden;
+            border-radius:0; transition:none;
+        }
+        .tmpl-slide-bg { position:absolute; inset:0; }
+        .tmpl-top-bar { position:absolute; top:0; left:0; right:0; height:30%; }
+        .tmpl-left-bar { position:absolute; top:0; left:0; bottom:0; width:6%; }
+        .tmpl-accent-stripe { position:absolute; bottom:0; left:0; right:0; height:4%; }
+        .tmpl-title-area { position:absolute; top:18%; left:8%; right:8%; }
+        .tmpl-line-thick {
+            height:10%; border-radius:2px; margin-bottom:5%;
+            background:rgba(255,255,255,0.85);
+        }
+        .tmpl-line-thin {
+            height:6%; border-radius:1px; margin-bottom:3%;
+            background:rgba(255,255,255,0.45); width:70%;
+        }
+        .tmpl-line-thin.w50 { width:50%; }
+        .tmpl-circle {
+            position:absolute; bottom:10%; right:8%;
+            width:18%; aspect-ratio:1; border-radius:50%;
+            opacity:0.35;
+        }
+        .tmpl-selected-ring {
+            position:absolute; inset:0; opacity:0;
+            transition:opacity 0.15s;
+            border:3px solid var(--agent-color);
+            border-radius:0; pointer-events:none;
+        }
+        .tmpl-check {
+            position:absolute; top:6px; right:6px;
+            width:20px; height:20px; border-radius:50%;
+            background:var(--agent-color); color:#fff;
+            font-size:11px; font-weight:900;
+            display:flex; align-items:center; justify-content:center;
+            opacity:0; transition:opacity 0.15s;
+        }
+        .template-card.selected .tmpl-check { opacity:1; }
+        /* Card label area */
+        .tmpl-info { padding:10px 12px 12px; }
+        .tmpl-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px; }
+        .tmpl-desc { font-size:11px; color:var(--text2); margin-bottom:7px; line-height:1.4; }
+        .tmpl-tags { display:flex; gap:5px; flex-wrap:wrap; }
+        .tmpl-tag {
+            font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px;
+            letter-spacing:0.3px; text-transform:uppercase;
+        }
+        .tmpl-tag-dark  { background:rgba(0,0,0,0.4); color:#94a3b8; }
+        .tmpl-tag-light { background:rgba(255,255,255,0.08); color:#94a3b8; }
+        .tmpl-tag-year  { background:rgba(124,58,237,0.2); color:#a78bfa; border:1px solid rgba(124,58,237,0.3); }
+        @media(max-width:900px){ .template-grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; } }
+        @media(max-width:600px){ .template-picker-wrap { padding:0 16px; } }
     </style>
 </head>
 <body>
@@ -107,7 +231,7 @@
             <span>Audema</span>
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Deck Maker</span>
+        <span class="nav-breadcrumb"><span style="color:#7c3aed;font-weight:700;letter-spacing:1px;">SLATE</span> · Deck Maker</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Agent Hub</a>
@@ -116,20 +240,22 @@
     </div>
 </nav>
 
-<section class="hero">
+<section class="hero" data-agent="slate">
     <span class="hero-emoji">📊</span>
     <h1 class="hero-title">Deck Maker</h1>
-    <p class="hero-tagline">Tome-style presentations, investor decks, and pitch structures that close deals and raise rounds</p>
+    <p class="hero-tagline">Skywork-grade pitch decks, investor presentations, and business narratives — built by AI in seconds</p>
     <div class="hero-pills">
-        <span class="pill pill-claude">Powered by Claude</span>
-        <span class="pill pill-inspired">Inspired by Tome AI · Beautiful.ai · Gamma</span>
+        <span class="pill pill-claude">Powered by Gemini</span>
+        <span class="pill pill-inspired">Inspired by Skywork.ai</span>
+        <span class="pill" style="background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.3);color:#fbbf24;">Three-Act Narrative</span>
+        <span class="pill" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:#34d399;">Section Dividers</span>
     </div>
 </section>
 
 <div style="max-width:1100px;margin:0 auto;padding:0 32px 24px;">
-    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:16px 20px;border-radius:12px;font-size:13px;line-height:1.6;">
-        <div style="font-weight:700;margin-bottom:6px;color:#34d399;">✨ AI-Powered Visual Presentations (Tome-Style)</div>
-        <div style="color:rgba(255,255,255,0.8);">This tool generates <strong>complete slide-by-slide deck structures</strong> with AI-powered visual design recommendations, then exports to <strong>editable PowerPoint (.pptx) files</strong> with professional layouts, color palettes, typography, and visual hierarchy — all generated by AI. No design skills needed.</div>
+    <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);padding:16px 20px;border-radius:12px;font-size:13px;line-height:1.6;">
+        <div style="font-weight:700;margin-bottom:6px;color:#a78bfa;">Skywork-Inspired Deck Intelligence</div>
+        <div style="color:rgba(255,255,255,0.8);">Generates a <strong>structured three-act narrative</strong> (Challenge → Answer → Proof), auto-inserts <strong>branded section dividers</strong>, and applies <strong>5 intelligent layouts</strong> per slide type — team grids, TAM/SAM/SOM market visualizations, data callouts, comparison matrices, and timelines. Exports to <strong>fully editable .pptx</strong> with professional typography and colour systems.</div>
     </div>
 </div>
 
@@ -208,86 +334,241 @@
                 <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
             </div>
         </div>
+        <div id="intelWarningBanner" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:#fbbf24;align-items:center;gap:8px;"></div>
         <div id="outputArea">
             <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc. Then download as editable PowerPoint with AI-generated visual design.</div>
         </div>
+        <div id="slidePreviewSection" style="display:none" class="preview-section"></div>
     </div>
 
 </div>
 
+<!-- Template Picker — injected by JS below -->
+<div class="template-picker-wrap" id="templatePickerWrap">
+    <div class="template-picker-header">
+        <div>
+            <h2>Choose Your Template</h2>
+            <p>Modern 2026 designs — select a template to apply it to your deck</p>
+        </div>
+        <div style="font-size:11px;color:var(--text3);text-align:right;">
+            <span id="selectedTemplateName" style="color:var(--agent-color);font-weight:600;"></span>
+        </div>
+    </div>
+    <div class="template-grid" id="templateGrid"></div>
+</div>
+
 <div class="features-wrap">
-    <div class="features-title">What Deck Maker Does (Tome-Style AI Presentations)</div>
+    <div class="features-title">Skywork-Inspired Deck Intelligence</div>
     <div class="features-grid">
         <div class="feature-card">
-            <div class="feature-icon">🎭</div>
-            <div class="feature-name">Story-Arc Slide Structure</div>
-            <div class="feature-desc">Every deck follows a proven narrative arc — problem, insight, solution, proof, ask — that keeps audiences engaged.</div>
+            <div class="feature-icon">🎬</div>
+            <div class="feature-name">Three-Act Narrative</div>
+            <div class="feature-desc">Every deck follows Act I (The Challenge), Act II (Our Answer), Act III (The Opportunity) — the proven investor arc.</div>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">🎤</div>
-            <div class="feature-name">Speaker Notes for Each Slide</div>
-            <div class="feature-desc">Detailed talking points and transitions so you always know what to say and how long to spend on each slide.</div>
+            <div class="feature-icon">📐</div>
+            <div class="feature-name">Section Divider Slides</div>
+            <div class="feature-desc">Auto-inserted branded section breaks between narrative beats — dark full-bleed slides with large section numbers.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🗺️</div>
+            <div class="feature-name">Smart Layout Detection</div>
+            <div class="feature-desc">TAM/SAM/SOM circles for market slides, team grids with avatar cards, timelines, comparison matrices, data callouts.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <div class="feature-name">Native Charts</div>
+            <div class="feature-desc">Real PowerPoint charts (bar, line, pie) generated from your data — not screenshots, fully editable in PowerPoint.</div>
         </div>
         <div class="feature-card">
             <div class="feature-icon">🎨</div>
-            <div class="feature-name">AI Visual Design</div>
-            <div class="feature-desc">AI-generated color palettes, typography, layouts, and visual hierarchy tailored to your brand, industry, and deck type.</div>
+            <div class="feature-name">8 Design Themes</div>
+            <div class="feature-desc">Deck-type-specific palettes and typography with 16 industry overlays and automatic brand colour integration.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🧠</div>
+            <div class="feature-name">Intelligence Layer</div>
+            <div class="feature-desc">Uses your company data — ICP, value prop, competitors, metrics — to generate specific content, not generic placeholders.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎤</div>
+            <div class="feature-name">Investor-Grade Notes</div>
+            <div class="feature-desc">Speaker notes tell the emotional story for each slide — what to say, what tension to create, how to land the key point.</div>
         </div>
         <div class="feature-card">
             <div class="feature-icon">📥</div>
-            <div class="feature-name">PowerPoint Export</div>
-            <div class="feature-desc">Download editable .pptx files with professional design applied — open in PowerPoint, Google Slides, or Keynote.</div>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">📉</div>
-            <div class="feature-name">Data Viz Recommendations</div>
-            <div class="feature-desc">Specific chart types, visual layouts, and data display formats recommended for each slide's key message.</div>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🌊</div>
-            <div class="feature-name">Narrative Flow Optimization</div>
-            <div class="feature-desc">Built-in tension and release, objection handling, and momentum that builds to a compelling close.</div>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🖼️</div>
-            <div class="feature-name">Image & Icon Suggestions</div>
-            <div class="feature-desc">AI recommends specific images, icons, and graphics for each slide to enhance visual storytelling.</div>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <div class="feature-name">Seconds, Not Hours</div>
-            <div class="feature-desc">Generate complete, designed presentations in seconds instead of spending hours in PowerPoint.</div>
+            <div class="feature-name">Editable .pptx Export</div>
+            <div class="feature-desc">Open in PowerPoint, Google Slides, or Keynote. Every element — text, charts, colours — is fully editable.</div>
         </div>
     </div>
 </div>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="../js/marked.min.js"></script>
+<script src="../js/pptxgen.bundle.js"></script>
+<script src="../js/chart.umd.min.js"></script>
+<script src="../js/agent-characters.js"></script>
+<script src="../js/agent-history.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/gemini-service.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a presentation strategist who has helped raise $500M+ in funding and close enterprise deals. Create a complete deck structure with: slide titles, bullet points for each slide, speaker notes, data visualization recommendations, and visual layout suggestions. Every slide should have a clear 'so what' for the audience. Include narrative arc that builds to a compelling conclusion. When company intelligence (value prop, ICP, competitors, metrics) is provided, use it to create company-specific content — not generic placeholders. Tailor tone and messaging to the target audience (investors want ROI/traction, customers want benefits/proof, board wants strategy/metrics).`;
+    const SYSTEM_PROMPT = `You are an elite pitch deck architect. You have raised $2B+ for founders at Sequoia, a16z, and YC-backed companies. You have studied the Airbnb, Uber, LinkedIn, Figma, and Dropbox founding decks obsessively.
+
+NARRATIVE STRUCTURE — Three Acts:
+Act I — The Case for Change (problem, market, timing catalyst)
+Act II — Our Answer (solution, product, business model, traction, competition)
+Act III — The Partnership (team, financials, the ask)
+
+EVERY SLIDE MUST START with a [TYPE: ...] tag on the very first line (before bullets):
+Valid types: COVER | PROBLEM | MARKET | WHY_NOW | SOLUTION | PRODUCT | BUSINESS_MODEL | TRACTION | COMPETITION | GO_TO_MARKET | TEAM | FINANCIALS | ASK | TIMELINE | STRATEGY | CHANNELS | METRICS | NEXT_QUARTER | INSIGHT | EVIDENCE | CUSTOM
+
+CONTENT STANDARDS:
+- Every metric must be real or clearly labelled as projected — no "[X]%" placeholders
+- Problem slide: make the investor feel the pain — use a statistic or a real cost to businesses
+- Market slide: always include TAM / SAM / SOM on separate bullet lines prefixed "TAM:", "SAM:", "SOM:"
+- Competition slide: honest, show you know the landscape, lead with your moat
+- Team slide: format each person as "Name — Title, Credential" (one line per person)
+- Traction slide: lead with 3-4 large metric callouts (format: "Metric Name: Value" — e.g. "ARR: $2.4M")
+- Timeline slide: format milestones as "Q1 2025: Milestone description" (one per bullet)
+- Tone: confident, data-driven, story-led — never arrogant, never vague
+
+FORMAT EACH SLIDE EXACTLY AS:
+**Slide N: [TITLE]**
+[TYPE: TYPE_NAME]
+- Bullet 1
+- Bullet 2
+- Bullet 3
+Speaker Notes: [2-3 sentences: what story to tell, what emotion to evoke, how to transition]
+Visual Suggestion: [specific chart type, layout, or visual element]
+So What: [single investor takeaway in one line]`;
+
+    const SPELLCHECK_PROMPT = `You are a professional proofreader for business presentations. Fix ONLY spelling, grammar, and punctuation errors. Preserve all markdown formatting exactly. Preserve all [TYPE: ...] tags exactly as written. Do not change wording, structure, or content. Return the full corrected text with no commentary.`;
+
+    // ── Deck structure blueprints (Skywork-style narrative) ──────────────
+    const DECK_STRUCTURES = {
+        'Investor Pitch': `Use this exact slide order (expand as needed to hit the target count):
+Slide 1: COVER — company name + one-line tagline that tells the whole story
+Slide 2: PROBLEM — the pain point (make investors feel it — use a statistic or real cost)
+Slide 3: MARKET — TAM/SAM/SOM with bottom-up sizing and market growth rate
+Slide 4: WHY NOW — 2-3 tailwinds that make this the right moment (regulation, tech shift, behaviour change)
+Slide 5: SOLUTION — what you do in plain English, the core insight, the unique mechanism
+Slide 6: PRODUCT — how it works (3-step visual flow), key capabilities by value
+Slide 7: BUSINESS MODEL — pricing, revenue model, unit economics (CAC, LTV, payback period)
+Slide 8: TRACTION — growth chart, top metrics, notable customer logos, milestones
+Slide 9: COMPETITION — competitive landscape matrix, where you win, defensibility moat
+Slide 10: GO-TO-MARKET — acquisition motion, channels, expansion sequencing
+Slide 11: TEAM — founders + key hires, relevant credentials (format: Name — Title, Prior Credential)
+Slide 12: FINANCIALS — 3-year projection (Y1/Y2/Y3 revenue), key assumptions, path to profitability
+Slide 13: ASK — raise amount, use of funds (3-4 buckets with %), milestones this unlocks`,
+
+        'Sales Deck': `Use this order:
+Slide 1: COVER — company name + customer-facing value statement
+Slide 2: PROBLEM — the business pain your customers face (use customer language)
+Slide 3: SOLUTION — what you do and the core benefit
+Slide 4: PRODUCT — how it works, key features as customer outcomes
+Slide 5: USE CASES — 2-3 specific scenarios where customers win
+Slide 6: TRACTION — customer logos, success metrics, testimonials (format: "Metric: Value")
+Slide 7: BUSINESS MODEL — pricing tiers, packages, ROI calculator
+Slide 8: COMPETITION — why you beat the alternatives customers are considering
+Slide 9: TEAM — who supports them (support, success, leadership)
+Slide 10: NEXT STEPS — the ask: trial, pilot, contract — clear CTA`,
+
+        'Marketing Strategy': `Use this order:
+Slide 1: COVER — strategy name + period (e.g. "2026 Growth Strategy")
+Slide 2: SITUATION — where we are now (metrics, market position)
+Slide 3: AUDIENCE — who we're targeting (ICP, segments, personas)
+Slide 4: OBJECTIVES — SMART goals for the period
+Slide 5: STRATEGY — the big strategic bets (3-4 pillars)
+Slide 6: CHANNELS — owned, earned, paid channel breakdown
+Slide 7: CONTENT — content strategy and messaging framework
+Slide 8: TIMELINE — key milestones (format: "Q1 2025: Milestone")
+Slide 9: BUDGET — budget allocation by channel/quarter
+Slide 10: METRICS — KPIs and measurement framework
+Slide 11: NEXT STEPS — immediate actions and owners`,
+
+        'Quarterly Review': `Use this order:
+Slide 1: COVER — quarter + company name
+Slide 2: EXECUTIVE SUMMARY — top 3-4 highlights and lowlights
+Slide 3: FINANCIALS — revenue, ARR, burn, key financial metrics (format: "Metric: Value")
+Slide 4: TRACTION — growth metrics vs prior quarter (format: "Metric: Value")
+Slide 5: PRODUCT — key releases, features shipped, product metrics
+Slide 6: TEAM — headcount, key hires, org changes
+Slide 7: COMPETITION — competitive moves, market changes
+Slide 8: NEXT QUARTER — plan, goals, resource requests
+Slide 9: ASK — decisions needed from leadership/board`,
+
+        'Product Launch': `Use this order:
+Slide 1: COVER — product name + launch date + hero statement
+Slide 2: PROBLEM — the specific user pain this product solves
+Slide 3: SOLUTION — what the product does and the core value
+Slide 4: PRODUCT — features as user outcomes, demo flow, screenshots described
+Slide 5: GO-TO-MARKET — launch channels, sequencing, key partners
+Slide 6: TRACTION — beta metrics, early adopter feedback (format: "Metric: Value")
+Slide 7: TIMELINE — launch roadmap (format: "Q/Date: Milestone")
+Slide 8: TEAM — who built it and who's supporting the launch
+Slide 9: ASK — resources, partnerships, or decisions needed`,
+
+        'Partnership Proposal': `Use this order:
+Slide 1: COVER — proposal title + both company names
+Slide 2: PROBLEM — the shared market problem or opportunity
+Slide 3: SOLUTION — the partnership's combined value
+Slide 4: BUSINESS MODEL — how the partnership economics work (revenue share, referral, integration)
+Slide 5: TRACTION — both companies' relevant credentials (format: "Metric: Value")
+Slide 6: TEAM — key stakeholders on each side
+Slide 7: NEXT STEPS — proposed milestones, pilot plan, decision timeline`,
+
+        'Conference Talk': `Use this order:
+Slide 1: COVER — talk title + speaker name + conference
+Slide 2: PROBLEM — the industry challenge you're addressing
+Slide 3: INSIGHT — the non-obvious truth or perspective you're sharing
+Slide 4: SOLUTION — how this insight changes how people should act
+Slide 5: EVIDENCE — data, case studies, examples supporting your argument
+Slide 6: PRODUCT — how your company embodies this thinking (if applicable)
+Slide 7: TIMELINE — what the future looks like with this approach adopted
+Slide 8: TEAM — your credibility / why you can speak to this
+Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn more`,
+    };
+
+    // ── Section dividers: which slide types trigger a section break ───────
+    const SECTION_TRIGGERS = {
+        'Investor Pitch':      { PROBLEM: { label: 'The Challenge', num: 1 }, SOLUTION: { label: 'Our Answer', num: 2 }, TRACTION: { label: 'Traction & Proof', num: 3 }, TEAM: { label: 'The Team', num: 4 }, FINANCIALS: { label: 'The Numbers', num: 5 }, ASK: { label: 'The Ask', num: 6 } },
+        'Sales Deck':          { SOLUTION: { label: 'Our Solution', num: 1 }, TRACTION: { label: 'Customer Stories', num: 2 }, TEAM: { label: 'Our Team', num: 3 } },
+        'Marketing Strategy':  { STRATEGY: { label: 'The Strategy', num: 1 }, CHANNELS: { label: 'Channels & Execution', num: 2 }, METRICS: { label: 'How We Measure', num: 3 } },
+        'Quarterly Review':    { FINANCIALS: { label: 'Financial Performance', num: 1 }, TRACTION: { label: 'Growth Metrics', num: 2 }, NEXT_QUARTER: { label: 'Looking Ahead', num: 3 } },
+        'Product Launch':      { SOLUTION: { label: 'The Product', num: 1 }, TRACTION: { label: 'Early Proof', num: 2 }, TIMELINE: { label: 'Launch Roadmap', num: 3 } },
+        'Partnership Proposal':{ SOLUTION: { label: 'The Partnership', num: 1 }, TEAM: { label: 'Key Stakeholders', num: 2 } },
+        'Conference Talk':     { INSIGHT: { label: 'The Core Insight', num: 1 }, EVIDENCE: { label: 'The Evidence', num: 2 } },
+    };
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        try {
+            if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle().isReady) {
+                document.getElementById('intelBadge').classList.add('active');
+            }
+        } catch (e) { /* badge stays hidden if intelligence layer unavailable */ }
     })();
 
     // Intelligence Layer Builders
     function buildValuePropContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.value_prop) return '';
+        const uvp = data?.positioning?.uniqueValue || data?.value_prop;
+        const diffs = [
+            data?.positioning?.differentiation?.[0],
+            data?.positioning?.differentiation?.[1],
+            data?.positioning?.differentiation?.[2],
+        ].filter(Boolean);
+        if (!uvp && !diffs.length) return '';
 
-        let context = '\n\n**VALUE PROPOSITION CONTEXT:**\n';
-        context += `Value Prop: ${data.value_prop}\n`;
+        let context = '\n\n**VALUE PROPOSITION & DIFFERENTIATION:**\n';
+        if (uvp) context += `Unique Value Proposition: ${uvp}\n`;
+        if (diffs.length) context += `Key Differentiators:\n${diffs.map(d => `- ${d}`).join('\n')}\n`;
         context += `\n**Use this to frame:**\n`;
         context += `- Problem slide (what pain point does this address?)\n`;
         context += `- Solution slide (how does value prop solve the problem?)\n`;
-        context += `- Key message reinforcement throughout deck\n`;
-
+        context += `- Key message reinforcement throughout\n`;
         return context;
     }
 
@@ -296,88 +577,74 @@
         const data = window.IntelligenceEngine.brain.load();
         if (!data?.icp) return '';
 
-        let context = '\n\n**ICP AUDIENCE CONTEXT:**\n';
-        context += `Target ICP: ${data.icp.persona}\n`;
+        const role       = data.icp.primaryBuyer?.role || '';
+        const compSize   = data.icp.primaryBuyer?.companySize || '';
+        const industry   = data.icp.primaryBuyer?.industry || '';
+        const pains      = [data.icp.painPoints?.[0], data.icp.painPoints?.[1], data.icp.painPoints?.[2]].filter(Boolean);
+        const reasonChose = data.icp.reasonChose || '';
+        const biggestFear = data.icp.biggestFear || '';
 
-        if (data.icp.persona && data.icp.persona.toLowerCase().includes('enterprise')) {
-            context += `\n**Enterprise B2B Deck Guidelines:**\n`;
-            context += `- Lead with ROI and business impact\n`;
-            context += `- Include security, compliance, scalability slides\n`;
-            context += `- Use data-driven proof (metrics, case studies)\n`;
-            context += `- Professional, formal tone in speaker notes\n`;
-        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('smb')) {
-            context += `\n**SMB Deck Guidelines:**\n`;
-            context += `- Lead with ease of use and quick time-to-value\n`;
-            context += `- Keep it simple and actionable\n`;
-            context += `- Pricing transparency important\n`;
-            context += `- Friendly, approachable tone\n`;
-        } else if (data.icp.persona && data.icp.persona.toLowerCase().includes('consumer')) {
-            context += `\n**B2C Deck Guidelines:**\n`;
-            context += `- Lead with emotional benefit and lifestyle impact\n`;
-            context += `- Visual storytelling over data\n`;
-            context += `- Social proof (user testimonials, ratings)\n`;
-            context += `- Conversational, engaging tone\n`;
-        }
+        if (!role && !pains.length) return '';
 
+        let context = '\n\n**ICP & AUDIENCE CONTEXT:**\n';
+        if (role) context += `Primary Buyer: ${role}`;
+        if (compSize) context += ` at ${compSize} companies`;
+        if (industry) context += ` in ${industry}`;
+        context += '\n';
+        if (pains.length) context += `Key Pain Points:\n${pains.map(p => `- ${p}`).join('\n')}\n`;
+        if (reasonChose) context += `Why They Choose Us: ${reasonChose}\n`;
+        if (biggestFear) context += `Biggest Fear: ${biggestFear}\n`;
+
+        context += `\n**Deck Guidance:** Frame every slide around the ${role || 'buyer'}'s perspective and their specific pain points above.\n`;
         return context;
     }
 
     function buildCompetitivePositioningContext() {
-        if (!window.IntelligenceEngine?.radar) return '';
-        const data = window.IntelligenceEngine.radar.load();
-        if (!data?.competitors || data.competitors.length === 0) return '';
+        if (!window.IntelligenceEngine?.brain) return '';
+        const data = window.IntelligenceEngine.brain.load();
 
-        let context = '\n\n**COMPETITIVE POSITIONING CONTEXT:**\n';
-        context += `Known Competitors: ${data.competitors.map(c => c.name).join(', ')}\n`;
+        const brainComps = (data?.competitors || []).map(c => c.name || c).filter(Boolean);
+        const notLike    = data?.positioning?.notLikeCompetitors || '';
 
-        if (data.positioning) {
-            context += `\nOur Positioning: ${data.positioning}\n`;
-        }
+        let radarComps = [];
+        try {
+            const comps = window.IntelligenceEngine.radar?.getAll?.();
+            if (comps?.length) radarComps = comps.map(c => c.name || c);
+        } catch (_) {}
 
-        context += `\n**Competitive Slide Recommendations:**\n`;
-        context += `- Create a differentiation slide showing why we're different/better\n`;
-        context += `- Include competitive matrix or comparison table\n`;
-        context += `- Focus on unique capabilities competitors lack\n`;
-        context += `- Avoid direct competitor bashing (professional comparison only)\n`;
+        const allComps = [...new Set([...brainComps, ...radarComps])].filter(Boolean);
+        if (!allComps.length && !notLike) return '';
 
+        let context = '\n\n**COMPETITIVE POSITIONING:**\n';
+        if (allComps.length) context += `Known Competitors: ${allComps.join(', ')}\n`;
+        if (notLike) context += `How We Differ: ${notLike}\n`;
+        context += `\n**Include:** differentiation slide, competitive matrix, unique capabilities slide.\n`;
         return context;
     }
 
     function buildBrandVoiceContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.brand?.voice) return '';
+        const voiceTone = data?.positioning?.voiceAndTone;
+        const neverSay  = data?.positioning?.thingsWeNeverSay;
+        if (!voiceTone?.length && !neverSay) return '';
 
-        let context = '\n\n**BRAND VOICE CONTEXT:**\n';
-        context += `Brand Voice: ${data.brand.voice}\n`;
-        context += `\n**Apply to speaker notes:**\n`;
-
-        if (data.brand.voice.toLowerCase().includes('professional') || data.brand.voice.toLowerCase().includes('formal')) {
-            context += `- Use formal, professional language\n`;
-            context += `- Avoid slang and casual expressions\n`;
-            context += `- Data-driven, authoritative tone\n`;
-        } else if (data.brand.voice.toLowerCase().includes('friendly') || data.brand.voice.toLowerCase().includes('casual')) {
-            context += `- Use conversational, approachable language\n`;
-            context += `- OK to use analogies and storytelling\n`;
-            context += `- Warm, human tone\n`;
-        }
-
+        let context = '\n\n**BRAND VOICE & TONE:**\n';
+        if (voiceTone?.length) context += `Voice & Tone: ${Array.isArray(voiceTone) ? voiceTone.join(', ') : voiceTone}\n`;
+        if (neverSay) context += `Things We Never Say: ${neverSay}\n`;
+        context += `\n**Apply this voice consistently across all slide copy and speaker notes.**\n`;
         return context;
     }
 
     function buildIndustryMarketContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
-        if (!data?.industry) return '';
+        const industry = data?.company?.industry || data?.industry;
+        if (!industry) return '';
 
         let context = '\n\n**INDUSTRY & MARKET CONTEXT:**\n';
-        context += `Industry: ${data.industry}\n`;
-        context += `\n**Market Opportunity Slide:**\n`;
-        context += `- Include ${data.industry} market size (TAM/SAM/SOM)\n`;
-        context += `- Industry growth trends and drivers\n`;
-        context += `- Key pain points in ${data.industry}\n`;
-        context += `- Regulatory or technology shifts creating opportunity\n`;
-
+        context += `Industry: ${industry}\n`;
+        context += `\n**Market Opportunity Slide:** include ${industry} market size (TAM/SAM/SOM), growth trends, and key pain points.\n`;
         return context;
     }
 
@@ -388,30 +655,20 @@
         let context = '';
         let hasSocialProof = false;
 
-        if (data?.customers && data.customers.length > 0) {
-            context += '\n\n**SOCIAL PROOF - CUSTOMER LOGOS:**\n';
-            context += `Featured Customers: ${data.customers.slice(0, 10).join(', ')}\n`;
-            context += `\n**Traction Slide:**\n`;
-            context += `- Include customer logo slide\n`;
-            context += `- Highlight notable brands or enterprise customers\n`;
+        const customers = Array.isArray(data?.customers) ? data.customers : [];
+        const testimonials = Array.isArray(data?.testimonials) ? data.testimonials : [];
+
+        if (customers.length > 0) {
+            context += '\n\n**SOCIAL PROOF — CUSTOMER LOGOS:**\n';
+            context += `Featured Customers: ${customers.slice(0, 12).join(', ')}\n`;
+            context += `\n**Use these in:** Customer logo slide, traction slide, credibility bar.\n`;
             hasSocialProof = true;
         }
 
-        if (data?.testimonials && data.testimonials.length > 0) {
-            context += '\n\n**SOCIAL PROOF - TESTIMONIALS:**\n';
-            context += `${data.testimonials.length} testimonials available\n`;
-            context += `\n**Use in:**\n`;
-            context += `- Customer success slide (quote + attribution)\n`;
-            context += `- Problem validation (customer describing pain point)\n`;
-            hasSocialProof = true;
-        }
-
-        if (data?.case_studies && data.case_studies.length > 0) {
-            context += '\n\n**SOCIAL PROOF - CASE STUDIES:**\n';
-            context += `${data.case_studies.length} case studies available\n`;
-            context += `\n**Use in:**\n`;
-            context += `- Proof slide (before/after metrics)\n`;
-            context += `- Industry-specific success stories\n`;
+        if (testimonials.length > 0) {
+            context += '\n\n**SOCIAL PROOF — TESTIMONIALS:**\n';
+            testimonials.slice(0, 3).forEach(t => { context += `"${t}"\n`; });
+            context += `\n**Use in:** Social proof slide, problem validation slide, customer success slide.\n`;
             hasSocialProof = true;
         }
 
@@ -421,45 +678,27 @@
     function buildMetricsContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
+        if (!data?.metrics) return '';
 
         let context = '';
         let hasMetrics = false;
 
-        if (data?.metrics) {
-            context += '\n\n**COMPANY METRICS (for traction slide):**\n';
+        context += '\n\n**COMPANY METRICS (traction slide):**\n';
+        if (data.metrics.arr)          { context += `- Revenue / ARR: ${data.metrics.arr}\n`;        hasMetrics = true; }
+        if (data.metrics.growth_rate)  { context += `- Growth Rate: ${data.metrics.growth_rate}\n`;  hasMetrics = true; }
+        if (data.metrics.customers)    { context += `- Active Customers: ${data.metrics.customers}\n`; hasMetrics = true; }
+        if (data.metrics.retention)    { context += `- Retention: ${data.metrics.retention}\n`;       hasMetrics = true; }
+        if (data.metrics.nps)          { context += `- NPS / CSAT: ${data.metrics.nps}\n`;           hasMetrics = true; }
 
-            if (data.metrics.arr || data.metrics.revenue) {
-                context += `- Revenue/ARR: ${data.metrics.arr || data.metrics.revenue}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.growth_rate) {
-                context += `- Growth Rate: ${data.metrics.growth_rate}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.customers || data.metrics.users) {
-                context += `- Customers/Users: ${data.metrics.customers || data.metrics.users}\n`;
-                hasMetrics = true;
-            }
-
-            if (data.metrics.retention) {
-                context += `- Retention Rate: ${data.metrics.retention}\n`;
-                hasMetrics = true;
-            }
-        }
-
-        if (hasMetrics) {
-            context += `\n**Use in traction slide to show momentum**\n`;
-        }
-
+        if (!hasMetrics) return '';
+        context += `\n**Use these numbers in the traction slide to show momentum. Be specific — use the exact figures above.**\n`;
         return context;
     }
 
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine?.getContextBundle) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle?.completeness || 0;
+        return (bundle?.completionScore || 0) / 100;
     }
 
     async function buildDeck() {
@@ -470,20 +709,25 @@
         const audience = document.getElementById('audience').value;
         const dataPoints = document.getElementById('dataPoints').value.trim();
 
+        const prevSection = document.getElementById('slidePreviewSection');
+        if (prevSection) prevSection.style.display = 'none';
+
         if (!keyMessage && !company) {
             alert('Please enter a key message or company name.');
             return;
         }
 
-        // Strategic Validation Warnings
+        // Strategic Validation Warnings — inline, non-blocking
         const completeness = getIntelligenceCompleteness();
         if (completeness < 0.3) {
-            const alreadyWarned = sessionStorage.getItem('deckMaker_noIntel_warned');
-            if (!alreadyWarned) {
-                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor company-specific decks (value prop slides, competitive positioning, customer logos, metrics), configure:\n• Value Proposition\n• ICP Definition\n• Competitor Data\n• Customer List\n• Company Metrics\n\nProceed with generic deck structure?`);
-                if (!proceed) return;
-                sessionStorage.setItem('deckMaker_noIntel_warned', 'true');
+            const warnEl = document.getElementById('intelWarningBanner');
+            if (warnEl) {
+                warnEl.style.display = 'flex';
+                warnEl.innerHTML = `⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete — deck will use generic structure. <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;">Add company data →</a>`;
             }
+        } else {
+            const warnEl = document.getElementById('intelWarningBanner');
+            if (warnEl) warnEl.style.display = 'none';
         }
 
         // Build Intelligence Layer Context
@@ -497,44 +741,42 @@
 
         // Legacy summary (keep for backward compatibility)
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
-        const contextStr = contextBundle.summary ? `\n\n**COMPANY CONTEXT:** ${contextBundle.summary}` : '';
+        const contextStr = contextBundle.businessContext ? `\n\n**COMPANY CONTEXT:** ${contextBundle.businessContext}` : '';
 
-        const userPrompt = `Create a complete ${deckType} deck structure:
+        const deckBlueprint = DECK_STRUCTURES[deckType] || '';
+        const userPrompt = `Create a complete ${deckType} for ${company || 'this company'}.
 
+═══ BRIEF ═══
 COMPANY / PROJECT: ${company || 'Not specified'}
 DECK TYPE: ${deckType}
 KEY MESSAGE: ${keyMessage || 'Not specified'}
 TARGET AUDIENCE: ${audience}
-NUMBER OF SLIDES: ${slideCount}
-KEY DATA POINTS:
-${dataPoints || 'None provided — use placeholder examples'}
-${contextStr}
-${valuePropContext}
-${icpAudienceContext}
-${competitiveContext}
-${brandVoiceContext}
-${marketContext}
-${socialProofContext}
-${metricsContext}
+TARGET SLIDE COUNT: ${slideCount}
+KEY DATA POINTS PROVIDED:
+${dataPoints || "None provided — do NOT invent specific numbers for TRACTION or FINANCIALS slides; use placeholders like '[Your ARR]' and add a slide note telling the presenter to fill them in. For MARKET sizing, estimates are allowed but every estimated figure must carry '(est.)' in the slide text itself."}
+${contextStr}${valuePropContext}${icpAudienceContext}${competitiveContext}${brandVoiceContext}${marketContext}${socialProofContext}${metricsContext}
 
-For each of the ${slideCount} slides, provide:
-**Slide [N]: [TITLE]**
-- Bullets: 3-5 concise bullet points (actual content, not generic placeholders)
-- Speaker Notes: 2-4 sentences of what to say, tone to use, transitions
-- Visual Suggestion: specific chart type, image direction, or layout recommendation
-- So What: the single takeaway the audience should leave with
+═══ SLIDE STRUCTURE ═══
+${deckBlueprint}
 
-After all slides, include:
-## NARRATIVE ARC ANALYSIS
-How the tension builds and resolves across the deck
+═══ REQUIRED FORMAT (follow exactly) ═══
+**Slide N: TITLE**
+[TYPE: TYPE_NAME]
+- Bullet 1 (specific, data-driven, no filler)
+- Bullet 2
+- Bullet 3 (3-5 bullets max)
+Speaker Notes: What story to tell, what emotion to evoke, how to transition to next slide.
+Visual Suggestion: Specific chart type or visual layout for this slide.
+So What: Single investor/audience takeaway.
 
-## OBJECTION HANDLING SLIDES
-2-3 backup slides to prepare for common objections from ${audience}
+═══ AFTER ALL SLIDES ═══
+## NARRATIVE ARC
+Brief analysis of tension → relief arc across the deck.
 
-## APPENDIX SUGGESTIONS
-Supporting slides to have ready if asked
+## BACKUP SLIDES
+2-3 objection-handling slides for ${audience} (use same format above).
 
-Make all content specific to ${company || 'this company'} — no generic filler.`;
+CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after the slide title. Use the exact slide format shown — the download engine parses it precisely. Make all content specific to ${company || 'this company'} — zero generic filler.`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
@@ -546,7 +788,50 @@ Make all content specific to ${company || 'this company'} — no generic filler.
         const outputBody = document.getElementById('outputBody');
 
         try {
-            if (window.ClaudeService) {
+            if (window.GeminiService) {
+                // Phase 1: Generate deck structure via streaming
+                const rawText = await new Promise((resolve, reject) => {
+                    window.GeminiService.streamResponse({
+                        systemPrompt: SYSTEM_PROMPT,
+                        messages: [{ role: 'user', content: userPrompt }],
+                        onChunk: (chunk, accumulated) => {
+                            outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated) + '<span class="streaming-cursor"></span>';
+                        },
+                        onDone:  (text) => resolve(text),
+                        onError: (err)  => reject(err),
+                    });
+                });
+
+                // Phase 2: Spell-check pass
+                document.getElementById('btnText').textContent = 'Spell-checking…';
+                outputBody.innerHTML = (typeof marked !== 'undefined' ? marked.parse(rawText) : rawText) +
+                    '<div style="margin-top:12px;padding:10px 14px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);border-radius:8px;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:8px;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>✏️ Spell-checking all slides…</div>';
+
+                let finalText = rawText;
+                try {
+                    const checked = await window.GeminiService.callAgent({
+                        systemPrompt: SPELLCHECK_PROMPT,
+                        messages: [{ role: 'user', content: rawText }],
+                        model: 'gemini-2.5-flash',
+                    });
+                    if (checked && checked.length >= rawText.length * 0.5) {
+                        finalText = checked;
+                    }
+                } catch (spellErr) {
+                    console.warn('Spell-check pass failed, using original:', spellErr.message);
+                }
+
+                // Phase 3: Render final proofread content
+                outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(finalText) : finalText;
+                window.currentDeckData = { text: finalText, company: company || 'Presentation', deckType, audience };
+                const previewSlides = parseDeckStructure(finalText);
+                renderSlidePreview(previewSlides, (window.selectedTemplateKey && window.selectedTemplateKey !== 'auto' && TEMPLATES[window.selectedTemplateKey]) ? TEMPLATES[window.selectedTemplateKey] : resolveDesign(deckType, '', []));
+                document.getElementById('downloadBtn').style.display = 'block';
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: finalText, topic: company || keyMessage || deckType });
+                }
+
+            } else if (window.ClaudeService) {
                 let fullText = '';
                 await window.ClaudeService.streamResponse({
                     systemPrompt: SYSTEM_PROMPT,
@@ -557,22 +842,20 @@ Make all content specific to ${company || 'this company'} — no generic filler.
                     },
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
-                        // Store deck data for PPTX export
-                        window.currentDeckData = {
-                            text: text,
-                            company: company || 'Presentation',
-                            deckType: deckType,
-                            audience: audience
-                        };
-                        // Show download button
+                        window.currentDeckData = { text, company: company || 'Presentation', deckType, audience };
+                        const previewSlides = parseDeckStructure(text);
+                        renderSlidePreview(previewSlides, (window.selectedTemplateKey && window.selectedTemplateKey !== 'auto' && TEMPLATES[window.selectedTemplateKey]) ? TEMPLATES[window.selectedTemplateKey] : resolveDesign(deckType, '', []));
                         document.getElementById('downloadBtn').style.display = 'block';
+                        if (window.AgentHistory) {
+                            window.AgentHistory.save({ agentKey: 'deck', taskType: deckType, content: text, topic: company || keyMessage || deckType });
+                        }
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
                     }
                 });
             } else {
-                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
+                outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Gemini or Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
             }
         } catch (e) {
             outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
@@ -581,6 +864,257 @@ Make all content specific to ${company || 'this company'} — no generic filler.
             document.getElementById('btnIcon').textContent = '📊';
             document.getElementById('btnText').textContent = 'Build Deck Structure';
         }
+    }
+
+    // ============================================
+    // 2026 TEMPLATE LIBRARY
+    // ============================================
+    const TEMPLATES = {
+        auto: {
+            _auto: true,
+            name: 'Auto',
+            desc: 'Deck-type adaptive',
+            tags: ['smart', 'adaptive'],
+            preview: { bg: '0F172A', bar: '7C3AED', accent: 'EC4899', stripe: '06B6D4' }
+        },
+        midnight: {
+            name: 'Midnight',
+            desc: 'Dark mode · Electric blue',
+            tags: ['dark', '2026'],
+            preview: { bg: '080D1E', bar: '4361EE', accent: '00D4FF', stripe: '4361EE' },
+            colors: { primary: '4361EE', secondary: '3B82F6', titleBg: '080D1E', background: '0F172A', text: 'E2E8F0', light: '1E293B', accent1: '00D4FF', accent2: '7C3AED', muted: '475569' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        aurora: {
+            name: 'Aurora',
+            desc: 'Deep violet · Rose glow',
+            tags: ['bold', '2026'],
+            preview: { bg: '1A0533', bar: '7C3AED', accent: 'EC4899', stripe: 'A855F7' },
+            colors: { primary: '7C3AED', secondary: 'A855F7', titleBg: '1A0533', background: 'FFFFFF', text: '1E293B', light: 'F5F3FF', accent1: 'EC4899', accent2: '06B6D4', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+        obsidian: {
+            name: 'Obsidian',
+            desc: 'Pure black · Gold luxury',
+            tags: ['dark', 'premium', '2026'],
+            preview: { bg: '000000', bar: '1A1A1A', accent: 'D4AF37', stripe: 'B8960C' },
+            colors: { primary: '1A1A1A', secondary: '2A2A2A', titleBg: '000000', background: 'FAFAFA', text: '111111', light: 'F3F4F6', accent1: 'D4AF37', accent2: 'A0A0A0', muted: 'E5E7EB' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        solar: {
+            name: 'Solar',
+            desc: 'Amber fire · Bold energy',
+            tags: ['light', '2026'],
+            preview: { bg: '1C0A00', bar: 'EA580C', accent: 'F59E0B', stripe: 'F97316' },
+            colors: { primary: 'EA580C', secondary: 'DC2626', titleBg: '1C0A00', background: 'FFFFFF', text: '1C1917', light: 'FFF7ED', accent1: 'F59E0B', accent2: '84CC16', muted: 'FED7AA' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        glacier: {
+            name: 'Glacier',
+            desc: 'Arctic teal · Clean white',
+            tags: ['light', 'minimal', '2026'],
+            preview: { bg: '083344', bar: '0891B2', accent: '10B981', stripe: '22D3EE' },
+            colors: { primary: '0891B2', secondary: '0E7490', titleBg: '083344', background: 'FFFFFF', text: '0F172A', light: 'ECFEFF', accent1: '10B981', accent2: '6366F1', muted: 'CFFAFE' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        cobalt: {
+            name: 'Cobalt',
+            desc: 'Royal blue · Corporate',
+            tags: ['light', '2026'],
+            preview: { bg: '0F1F5C', bar: '2563EB', accent: '06B6D4', stripe: '1D4ED8' },
+            colors: { primary: '1D4ED8', secondary: '1E40AF', titleBg: '0F1F5C', background: 'FFFFFF', text: '111827', light: 'EFF6FF', accent1: '0891B2', accent2: '10B981', muted: 'DBEAFE' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        prism: {
+            name: 'Prism',
+            desc: 'Violet → Cyan · Tech',
+            tags: ['bold', 'tech', '2026'],
+            preview: { bg: '0F0C29', bar: '6D28D9', accent: '06B6D4', stripe: 'EC4899' },
+            colors: { primary: '6D28D9', secondary: '7C3AED', titleBg: '0F0C29', background: 'FFFFFF', text: '1E293B', light: 'F5F3FF', accent1: '06B6D4', accent2: 'EC4899', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+        forest: {
+            name: 'Forest',
+            desc: 'Deep green · Gold leaf',
+            tags: ['light', 'premium', '2026'],
+            preview: { bg: '052E16', bar: '166534', accent: 'CA8A04', stripe: '15803D' },
+            colors: { primary: '166534', secondary: '15803D', titleBg: '052E16', background: 'FFFFFF', text: '14532D', light: 'F0FDF4', accent1: 'CA8A04', accent2: '0891B2', muted: 'BBF7D0' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'split'
+        },
+        rose: {
+            name: 'Rose',
+            desc: 'Crimson · Warm white',
+            tags: ['bold', '2026'],
+            preview: { bg: '4C0519', bar: 'E11D48', accent: 'F97316', stripe: 'BE123C' },
+            colors: { primary: 'E11D48', secondary: 'BE123C', titleBg: '4C0519', background: 'FFFFFF', text: '0F172A', light: 'FFF1F2', accent1: 'F97316', accent2: 'FACC15', muted: 'FFE4E6' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        slate: {
+            name: 'Slate',
+            desc: 'Dark slate · Neon teal',
+            tags: ['dark', '2026'],
+            preview: { bg: '020617', bar: '0F172A', accent: '14B8A6', stripe: '818CF8' },
+            colors: { primary: '1E293B', secondary: '334155', titleBg: '020617', background: '0F172A', text: 'E2E8F0', light: '1E293B', accent1: '14B8A6', accent2: '818CF8', muted: '475569' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        ivory: {
+            name: 'Ivory',
+            desc: 'Ultra-minimal · Warm white',
+            tags: ['light', 'minimal', '2026'],
+            preview: { bg: '18181B', bar: '27272A', accent: '71717A', stripe: '52525B' },
+            colors: { primary: '18181B', secondary: '3F3F46', titleBg: '18181B', background: 'FAFAF9', text: '1C1917', light: 'F5F5F4', accent1: '78716C', accent2: '44403C', muted: 'E7E5E4' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        neon: {
+            name: 'Neon',
+            desc: 'Pure black · Neon green',
+            tags: ['dark', 'tech', '2026'],
+            preview: { bg: '000000', bar: '111111', accent: '4ADE80', stripe: '22C55E' },
+            colors: { primary: '16A34A', secondary: '15803D', titleBg: '000000', background: '0A0A0A', text: 'E5E7EB', light: '171717', accent1: '4ADE80', accent2: '22D3EE', muted: '374151' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'bold'
+        },
+    };
+
+    // ── Template picker rendering ─────────────────────────────────────────
+    window.selectedTemplateKey = 'auto';
+
+    function buildTemplateMiniSlide(t) {
+        const p = t.preview || { bg: '0F172A', bar: '7C3AED', accent: '06B6D4', stripe: '7C3AED' };
+        return `<div class="tmpl-slide">
+            <div class="tmpl-slide-bg" style="background:#${p.bg}"></div>
+            <div class="tmpl-top-bar" style="background:#${p.bg}"></div>
+            <div class="tmpl-left-bar" style="background:#${p.bar}"></div>
+            <div class="tmpl-accent-stripe" style="background:#${p.accent}"></div>
+            <div class="tmpl-title-area">
+                <div class="tmpl-line-thick" style="background:rgba(255,255,255,0.82)"></div>
+                <div class="tmpl-line-thin" style="background:rgba(255,255,255,0.45)"></div>
+                <div class="tmpl-line-thin w50" style="background:rgba(255,255,255,0.35)"></div>
+            </div>
+            <div class="tmpl-circle" style="background:#${p.accent}"></div>
+            <div style="position:absolute;bottom:12%;left:8%;width:20%;height:4%;border-radius:1px;background:#${p.stripe};opacity:0.8"></div>
+            <div class="tmpl-selected-ring"></div>
+            <div class="tmpl-check">✓</div>
+        </div>`;
+    }
+
+    function initTemplatePicker() {
+        const grid = document.getElementById('templateGrid');
+        if (!grid) return;
+
+        const TAG_CLASSES = { dark: 'tmpl-tag tmpl-tag-dark', light: 'tmpl-tag tmpl-tag-light', minimal: 'tmpl-tag tmpl-tag-light', bold: 'tmpl-tag tmpl-tag-light', tech: 'tmpl-tag tmpl-tag-light', premium: 'tmpl-tag tmpl-tag-light', smart: 'tmpl-tag tmpl-tag-light', adaptive: 'tmpl-tag tmpl-tag-light', '2026': 'tmpl-tag tmpl-tag-year' };
+
+        grid.innerHTML = Object.entries(TEMPLATES).map(([key, t]) => `
+            <div class="template-card${key === 'auto' ? ' selected' : ''}" id="tmpl-${key}" onclick="selectTemplate('${key}')">
+                ${buildTemplateMiniSlide(t)}
+                <div class="tmpl-info">
+                    <div class="tmpl-name">${t.name}</div>
+                    <div class="tmpl-desc">${t.desc}</div>
+                    <div class="tmpl-tags">${(t.tags||[]).map(tag => `<span class="${TAG_CLASSES[tag] || 'tmpl-tag tmpl-tag-light'}">${tag}</span>`).join('')}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    function selectTemplate(key) {
+        window.selectedTemplateKey = key;
+
+        // Update card states
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        const card = document.getElementById(`tmpl-${key}`);
+        if (card) {
+            card.classList.add('selected');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        // Update label
+        const nameEl = document.getElementById('selectedTemplateName');
+        if (nameEl) nameEl.textContent = key === 'auto' ? '' : `${TEMPLATES[key]?.name || ''} selected`;
+
+        // Live-update slide preview if deck already generated
+        if (window.currentDeckData) {
+            const slides = parseDeckStructure(window.currentDeckData.text);
+            if (slides.length) {
+                const design = key === 'auto'
+                    ? resolveDesign(window.currentDeckData.deckType, '', [])
+                    : TEMPLATES[key];
+                renderSlidePreview(slides, design);
+            }
+        }
+    }
+
+    // PptxGenJS expects 6-char hex without '#'
+    const hex = c => ((c || '').replace(/^#/, '') || 'FFFFFF').toUpperCase().slice(0, 6);
+
+    function renderSlidePreview(slides, design) {
+        const section = document.getElementById('slidePreviewSection');
+        if (!section || !slides.length) return;
+        const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        // Pull colours directly from the (already normalised) design object
+        const bgHex     = design.colors.background || 'FFFFFF';
+        const priHex    = design.colors.primary     || '6366F1';
+        const titleHex  = design.colors.titleBg     || priHex;
+        const textHex   = design.colors.text        || '1E293B';
+        const acc1Hex   = design.colors.accent1     || priHex;
+        const bg      = `#${bgHex}`;
+        const primary  = `#${priHex}`;
+        const titleBg  = `#${titleHex}`;
+        const textCol  = `#${textHex}`;
+        const accent1  = `#${acc1Hex}`;
+
+        const LAYOUT_ICONS = { team:'👥', market:'🗺️', timeline:'📅', data:'📊', chart:'📈', quote:'💬', comparison:'⚖️', bullets:'📝' };
+        const TYPE_LABELS = { COVER:'Cover', PROBLEM:'Problem', MARKET:'Market', WHY_NOW:'Why Now', SOLUTION:'Solution', PRODUCT:'Product', BUSINESS_MODEL:'Biz Model', TRACTION:'Traction', COMPETITION:'Competition', GO_TO_MARKET:'GTM', TEAM:'Team', FINANCIALS:'Financials', ASK:'The Ask', TIMELINE:'Timeline', CUSTOM:'Slide' };
+        const sectionTriggers = SECTION_TRIGGERS[Object.keys(SECTION_TRIGGERS).find(k => k === (window.currentDeckData?.deckType || '')) || ''] || {};
+
+        let html = `<div class="preview-header">
+            <h3>Slide Preview <span style="font-weight:400;color:var(--text2);font-size:12px;">${slides.length} content slides${Object.keys(sectionTriggers).length ? ` + ${Object.keys(sectionTriggers).length} section dividers` : ''}</span></h3>
+            <span class="preview-meta">Approximation — section dividers appear automatically in the downloaded .pptx</span>
+        </div><div class="slide-grid">`;
+
+        slides.forEach((slide, i) => {
+            const layout = getSlideLayout(slide);
+            const layoutIcon = LAYOUT_ICONS[layout] || '📝';
+            const typeLabel  = TYPE_LABELS[slide.slideType] || slide.slideType || '';
+            const bullets    = (slide.bullets||[]).slice(0,3).map(b => `<li>${esc(b.substring(0,60))}</li>`).join('');
+            const isDivider  = sectionTriggers[slide.slideType];
+            const sec        = isDivider ? sectionTriggers[slide.slideType] : null;
+
+            if (sec) {
+                html += `<div style="position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;
+                    aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:${titleBg};padding:12px;min-width:0;">
+                    <div style="position:absolute;top:0;right:8px;font-size:60px;font-weight:900;color:rgba(255,255,255,0.12);line-height:1;pointer-events:none;">${String(sec.num).padStart(2,'0')}</div>
+                    <div style="font-size:8px;font-weight:700;color:${accent1};letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">SECTION ${sec.num}</div>
+                    <div style="font-size:14px;font-weight:800;color:#fff;">${esc(sec.label)}</div>
+                    <div style="position:absolute;top:6px;right:8px;font-size:9px;background:rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:2px 5px;">÷ Divider</div>
+                </div>`;
+            }
+
+            html += `<div class="slide-card" style="background:${bg}">
+                <div class="slide-accent-bar" style="background:${primary}"></div>
+                <div class="slide-num-badge">${i+1}</div>
+                ${typeLabel ? `<div style="position:absolute;top:6px;right:8px;font-size:8px;background:${primary};color:#fff;border-radius:3px;padding:1px 5px;opacity:0.9;">${esc(typeLabel)}</div>` : ''}
+                <div class="slide-inner">
+                    <div class="slide-card-title" style="color:${primary}">${esc(slide.title)}</div>
+                    <ul class="slide-card-bullets" style="color:${textCol}">${bullets}</ul>
+                    ${layout !== 'bullets' ? `<div style="font-size:9px;color:${primary};margin-top:4px;opacity:0.8;">${layoutIcon} ${layout} layout</div>` : ''}
+                </div>
+            </div>`;
+        });
+
+        html += '</div>';
+        section.innerHTML = html;
+        section.style.display = 'block';
     }
 
     function copyOutput() {
@@ -598,171 +1132,136 @@ Make all content specific to ${company || 'this company'} — no generic filler.
     // VISUAL DESIGN AI SYSTEM (Tome-Style)
     // ============================================
 
-    const DESIGN_SYSTEM_PROMPT = `You are a presentation design expert specializing in creating stunning visual designs for slides. Generate a comprehensive design system specification for a presentation deck. Provide specific, actionable design specifications including color palettes, typography, layouts, and visual hierarchy. Be specific with hex codes, font names, sizes, and layout measurements.`;
+    // ============================================
+    // DESIGN THEMES — deterministic, no AI parsing
+    // ============================================
+    const DESIGN_THEMES = {
+        'Investor Pitch': {
+            colors: { primary: '1E3A5F', secondary: '2563EB', titleBg: '0F2440', background: 'FFFFFF', text: '1E293B', light: 'F1F5F9', accent1: '3B82F6', accent2: '06B6D4', muted: 'CBD5E1' },
+            typography: { heading: { font: 'Garamond', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Garamond', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        'Sales Deck': {
+            colors: { primary: '059669', secondary: '047857', titleBg: '064E3B', background: 'FFFFFF', text: '111827', light: 'ECFDF5', accent1: '10B981', accent2: '0891B2', muted: 'D1FAE5' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'split'
+        },
+        'Marketing Strategy': {
+            colors: { primary: '7C3AED', secondary: 'A855F7', titleBg: '4C1D95', background: 'FFFFFF', text: '0F172A', light: 'F5F3FF', accent1: 'EC4899', accent2: 'F59E0B', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+        'Quarterly Review': {
+            colors: { primary: '0369A1', secondary: '0284C7', titleBg: '0C4A6E', background: 'FFFFFF', text: '0F172A', light: 'F0F9FF', accent1: '22D3EE', accent2: '10B981', muted: 'BAE6FD' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        'Product Launch': {
+            colors: { primary: 'E11D48', secondary: 'BE123C', titleBg: '881337', background: 'FFFFFF', text: '0F172A', light: 'FFF1F2', accent1: 'F97316', accent2: 'FACC15', muted: 'FFE4E6' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'bold'
+        },
+        'Partnership Proposal': {
+            colors: { primary: '1D4ED8', secondary: '1E40AF', titleBg: '1E3A8A', background: 'FFFFFF', text: '111827', light: 'EFF6FF', accent1: '0891B2', accent2: '10B981', muted: 'DBEAFE' },
+            typography: { heading: { font: 'Calibri', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Calibri', size: 22, bold: true } },
+            layout: 'minimal'
+        },
+        'Conference Talk': {
+            colors: { primary: '6D28D9', secondary: '7C3AED', titleBg: '3B0764', background: 'FFFFFF', text: '1E293B', light: 'F5F3FF', accent1: 'EC4899', accent2: '06B6D4', muted: 'EDE9FE' },
+            typography: { heading: { font: 'Century Gothic', size: 30, bold: true }, body: { font: 'Calibri', size: 18 }, sub: { font: 'Century Gothic', size: 22, bold: true } },
+            layout: 'editorial'
+        },
+    };
 
-    async function generateVisualDesign(deckData) {
-        const { company, deckType, audience } = deckData;
+    const INDUSTRY_OVERLAYS = {
+        technology:    { primary: '4361EE', accent1: '7209B7', titleBg: '1E1B4B' },
+        software:      { primary: '4361EE', accent1: '7209B7', titleBg: '1E1B4B' },
+        healthcare:    { primary: '0891B2', accent1: '10B981', titleBg: '0C4A6E' },
+        finance:       { primary: '1D4ED8', accent1: '059669', titleBg: '1E3A8A' },
+        fintech:       { primary: '1D4ED8', accent1: '059669', titleBg: '1E3A8A' },
+        retail:        { primary: 'E11D48', accent1: 'F97316', titleBg: '881337' },
+        ecommerce:     { primary: 'E11D48', accent1: 'F97316', titleBg: '881337' },
+        education:     { primary: '7C3AED', accent1: '06B6D4', titleBg: '4C1D95' },
+        food:          { primary: 'EA580C', accent1: '65A30D', titleBg: '7C2D12' },
+        hospitality:   { primary: 'B45309', accent1: 'D97706', titleBg: '78350F' },
+        'real estate': { primary: '0F766E', accent1: '1D4ED8', titleBg: '134E4A' },
+        creative:      { primary: 'EC4899', accent1: '8B5CF6', titleBg: '831843' },
+        consulting:    { primary: '1E3A8A', accent1: '0891B2', titleBg: '0F172A' },
+        manufacturing: { primary: '374151', accent1: 'D97706', titleBg: '111827' },
+        media:         { primary: 'BE185D', accent1: 'F59E0B', titleBg: '831843' },
+        logistics:     { primary: '0369A1', accent1: 'F97316', titleBg: '0C4A6E' },
+    };
 
-        // Get brand context from Intelligence Layer
-        const brandData = window.IntelligenceEngine?.brain?.load();
-        const industry = brandData?.industry || 'Technology';
-        const brandColors = brandData?.brand?.colors || [];
+    function resolveDesign(deckType, industry, brandColors) {
+        const base = DESIGN_THEMES[deckType] || DESIGN_THEMES['Investor Pitch'];
+        const design = JSON.parse(JSON.stringify(base));
 
-        const designPrompt = `Generate a complete visual design system for a ${deckType} presentation:
-
-COMPANY: ${company}
-DECK TYPE: ${deckType}
-AUDIENCE: ${audience}
-INDUSTRY: ${industry}
-${brandColors.length > 0 ? `BRAND COLORS: ${brandColors.join(', ')}` : ''}
-
-Provide a design system with:
-
-## COLOR PALETTE
-- Primary color (hex code): [dominant brand/deck color]
-- Secondary color (hex code): [accent color]
-- Background color (hex code): [slide background]
-- Text color (hex code): [main text]
-- Accent 1 (hex code): [highlights, important data]
-- Accent 2 (hex code): [charts, graphs]
-
-Guidelines: ${deckType === 'Investor Pitch' ? 'Professional, trustworthy (blues, purples)' : deckType === 'Sales Deck' ? 'Energetic, confident (greens, blues)' : deckType === 'Marketing Strategy' ? 'Creative, bold (vibrant colors)' : 'Professional, clean (neutral with pops of color)'}
-
-## TYPOGRAPHY
-- Heading font: [specific font name, size in pt, weight]
-- Body font: [specific font name, size in pt]
-- Subheading font: [specific font name, size in pt, weight]
-
-Guidelines: ${audience === 'Investors' ? 'Clean, modern sans-serif (Helvetica, Arial)' : audience === 'Customers' ? 'Friendly, approachable (Inter, Open Sans)' : 'Professional, readable (Calibri, Arial)'}
-
-## LAYOUT STYLE
-Describe the overall layout approach (minimalist, data-rich, visual-heavy, text-heavy) and recommended slide layouts for:
-- Title slide
-- Content slides (bullets)
-- Data/chart slides
-- Image slides
-- Closing slide
-
-## VISUAL HIERARCHY
-Describe font sizes, spacing, and visual weight for:
-- Slide titles
-- Main bullet points
-- Sub-bullets
-- Speaker notes formatting
-
-Respond with JSON format for easy parsing.`;
-
-        try {
-            let designSpec = '';
-            if (window.ClaudeService) {
-                // Generate design specs using Claude
-                const response = await new Promise((resolve, reject) => {
-                    let accumulated = '';
-                    window.ClaudeService.streamResponse({
-                        systemPrompt: DESIGN_SYSTEM_PROMPT,
-                        messages: [{ role: 'user', content: designPrompt }],
-                        onChunk: (chunk, acc) => { accumulated = acc; },
-                        onDone: (text) => resolve(text),
-                        onError: (err) => reject(err)
-                    });
-                });
-                designSpec = response;
-            } else {
-                // Fallback design system
-                designSpec = generateFallbackDesign(deckType, industry, brandColors);
+        // Apply industry colour overlay when no brand colours override
+        if (!brandColors.length && industry) {
+            const key = Object.keys(INDUSTRY_OVERLAYS).find(k => (industry||'').toLowerCase().includes(k));
+            if (key) {
+                Object.assign(design.colors, INDUSTRY_OVERLAYS[key]);
             }
-
-            return parseDesignSpec(designSpec, deckType, industry, brandColors);
-        } catch (error) {
-            console.error('Design generation error:', error);
-            return generateFallbackDesign(deckType, industry, brandColors);
-        }
-    }
-
-    function generateFallbackDesign(deckType, industry, brandColors) {
-        // Professional fallback based on deck type
-        const palettes = {
-            'Investor Pitch': {
-                primary: '#6366f1',
-                secondary: '#8b5cf6',
-                background: '#ffffff',
-                text: '#1e293b',
-                accent1: '#3b82f6',
-                accent2: '#06b6d4'
-            },
-            'Sales Deck': {
-                primary: '#10b981',
-                secondary: '#059669',
-                background: '#ffffff',
-                text: '#111827',
-                accent1: '#14b8a6',
-                accent2: '#06b6d4'
-            },
-            'Marketing Strategy': {
-                primary: '#ec4899',
-                secondary: '#f43f5e',
-                background: '#ffffff',
-                text: '#0f172a',
-                accent1: '#8b5cf6',
-                accent2: '#f59e0b'
-            }
-        };
-
-        const palette = palettes[deckType] || palettes['Investor Pitch'];
-
-        return {
-            colors: brandColors.length > 0 ? { ...palette, primary: brandColors[0] } : palette,
-            typography: {
-                heading: { font: 'Arial', size: 32, weight: 'bold' },
-                body: { font: 'Arial', size: 18, weight: 'normal' },
-                subheading: { font: 'Arial', size: 24, weight: '600' }
-            },
-            layout: 'minimalist'
-        };
-    }
-
-    function parseDesignSpec(designText, deckType, industry, brandColors) {
-        // Try to extract JSON or parse text-based design specs
-        try {
-            // Look for JSON in the response
-            const jsonMatch = designText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return JSON.parse(jsonMatch[0]);
-            }
-        } catch (e) {
-            // Fall back to text parsing
         }
 
-        // Parse colors from text
-        const hexPattern = /#[0-9a-fA-F]{6}/g;
-        const colors = designText.match(hexPattern) || [];
-
-        const design = {
-            colors: {
-                primary: colors[0] || '#6366f1',
-                secondary: colors[1] || '#8b5cf6',
-                background: colors[2] || '#ffffff',
-                text: colors[3] || '#1e293b',
-                accent1: colors[4] || '#3b82f6',
-                accent2: colors[5] || '#06b6d4'
-            },
-            typography: {
-                heading: { font: 'Arial', size: 32, weight: 'bold' },
-                body: { font: 'Arial', size: 18, weight: 'normal' },
-                subheading: { font: 'Arial', size: 24, weight: '600' }
-            },
-            layout: 'minimalist'
-        };
+        // Apply brand colours from Intelligence Engine
+        if (brandColors.length > 0) {
+            const bh = c => (c || '').replace(/^#/, '').toUpperCase().slice(0, 6) || 'FFFFFF';
+            design.colors.primary  = bh(brandColors[0]);
+            design.colors.titleBg  = bh(brandColors[0]);
+            design.colors.secondary = bh(brandColors[1] || brandColors[0]);
+            if (brandColors[2]) design.colors.accent1 = bh(brandColors[2]);
+        }
 
         return design;
+    }
+
+    async function generateVisualDesign(deckData) {
+        // Selected template overrides deck-type theme
+        const key = window.selectedTemplateKey;
+        if (key && key !== 'auto' && TEMPLATES[key] && !TEMPLATES[key]._auto) {
+            return TEMPLATES[key];
+        }
+        const brandData = window.IntelligenceEngine?.brain?.load();
+        const industry = brandData?.company?.industry || '';
+        const brandColors = (brandData?.brand?.colors || []).filter(Boolean);
+        return resolveDesign(deckData.deckType, industry, brandColors);
     }
 
     function parseDeckStructure(markdownText) {
         const slides = [];
 
-        // Split by slide markers (## Slide or **Slide)
-        const slidePattern = /(?:^|\n)(?:\*\*)?Slide\s+(\d+):\s+(.+?)(?:\*\*)?(?:\n|$)/gi;
-        const matches = [...markdownText.matchAll(slidePattern)];
+        // Strategy 1: explicit "Slide N:" / "Slide N -" headers (most reliable)
+        // Handles: **Slide N: Title**, ## Slide N: Title, ### Slide N – Title, plain Slide N: Title
+        let slidePattern = /(?:^|\n)(?:#{1,4}\s*)?(?:\*{1,2})?Slide\s+(\d+)\s*[:\-–—]\s*(.+?)(?:\*{1,2})?(?=\n|$)/gim;
+        let matches = [...markdownText.matchAll(slidePattern)];
+
+        // Strategy 2: numbered markdown headings — ## 1. Title or ### 2. Title
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)#{1,4}\s+(\d+)[.:]\s+(.+?)(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Strategy 3: bold numbered — **1. Title** or **1: Title**
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)\*{1,2}(\d+)[.:]\s+(.+?)\*{0,2}(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Strategy 4: bare numbered lines at line-start with plausible title length
+        if (matches.length < 2) {
+            slidePattern = /(?:^|\n)(\d+)[.:]\s+([A-Z].{3,80})(?=\n|$)/gm;
+            matches = [...markdownText.matchAll(slidePattern)];
+        }
+
+        // Deduplicate by slide number (keep first occurrence)
+        const seen = new Set();
+        matches = matches.filter(m => {
+            const n = parseInt(m[1]);
+            if (seen.has(n)) return false;
+            seen.add(n);
+            return true;
+        });
 
         for (let i = 0; i < matches.length; i++) {
             const match = matches[i];
@@ -774,34 +1273,40 @@ Respond with JSON format for easy parsing.`;
             const endIdx = i < matches.length - 1 ? matches[i + 1].index : markdownText.length;
             const content = markdownText.substring(startIdx, endIdx);
 
-            // Parse bullets
+            // Parse [TYPE: ...] tag
+            const typeMatch = content.match(/\[TYPE:\s*([A-Z_]+)\]/i);
+            const slideType = typeMatch ? typeMatch[1].toUpperCase() : '';
+
+            // Parse bullets (exclude meta lines)
+            const META_STARTS = ['bullets:', 'speaker notes:', 'visual suggestion:', 'so what:', '[type:'];
             const bullets = [];
             const bulletPattern = /^[-•*]\s+(.+?)$/gm;
-            const bulletMatches = [...content.matchAll(bulletPattern)];
-            bulletMatches.forEach(bm => {
+            [...content.matchAll(bulletPattern)].forEach(bm => {
                 const text = bm[1].trim();
-                if (!text.toLowerCase().startsWith('bullets:') &&
-                    !text.toLowerCase().startsWith('speaker notes:') &&
-                    !text.toLowerCase().startsWith('visual suggestion:') &&
-                    !text.toLowerCase().startsWith('so what:')) {
-                    bullets.push(text);
-                }
+                const lower = text.toLowerCase();
+                if (!META_STARTS.some(m => lower.startsWith(m))) bullets.push(text);
             });
 
             // Parse speaker notes
-            const speakerNotesMatch = content.match(/Speaker Notes?:\s*(.+?)(?=\n[-•*]|\n\*\*|$)/is);
+            const speakerNotesMatch = content.match(/Speaker Notes?:\s*(.+?)(?=\nVisual Suggestion|\nSo What|\n\*\*|$)/is);
             const speakerNotes = speakerNotesMatch ? speakerNotesMatch[1].trim() : '';
 
-            // Parse visual suggestions
-            const visualMatch = content.match(/Visual Suggestion:\s*(.+?)(?=\n[-•*]|\n\*\*|$)/is);
+            // Parse visual suggestion
+            const visualMatch = content.match(/Visual Suggestion:\s*(.+?)(?=\nSo What|\nSpeaker|\n\*\*|$)/is);
             const visualSuggestion = visualMatch ? visualMatch[1].trim() : '';
+
+            // Parse So What
+            const soWhatMatch = content.match(/So What:\s*(.+?)(?=\n\*\*|$)/is);
+            const soWhat = soWhatMatch ? soWhatMatch[1].trim() : '';
 
             slides.push({
                 number: parseInt(slideNum),
                 title: title,
-                bullets: bullets.slice(0, 5), // Max 5 bullets
+                slideType: slideType,
+                bullets: bullets.slice(0, 6),
                 speakerNotes: speakerNotes,
-                visualSuggestion: visualSuggestion
+                visualSuggestion: visualSuggestion,
+                soWhat: soWhat,
             });
         }
 
@@ -820,12 +1325,12 @@ Respond with JSON format for easy parsing.`;
         // Define master slide with design
         pptx.defineSlideMaster({
             title: 'MASTER_SLIDE',
-            background: { color: design.colors.background },
+            background: { color: hex(design.colors.background) },
             objects: [
                 {
                     rect: {
                         x: 0, y: 0, w: '100%', h: '100%',
-                        fill: { color: design.colors.background }
+                        fill: { color: hex(design.colors.background) }
                     }
                 }
             ]
@@ -833,7 +1338,7 @@ Respond with JSON format for easy parsing.`;
 
         // Title Slide
         const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        titleSlide.background = { fill: design.colors.primary };
+        titleSlide.background = { fill: hex(design.colors.primary) };
 
         titleSlide.addText(deckData.company, {
             x: 0.5, y: 2.0, w: 9.0, h: 1.5,
@@ -861,7 +1366,7 @@ Respond with JSON format for easy parsing.`;
                 x: 0.5, y: 0.5, w: 9.0, h: 0.8,
                 fontSize: design.typography.heading.size,
                 bold: true,
-                color: design.colors.primary.replace('#', ''),
+                color: hex(design.colors.primary),
                 fontFace: design.typography.heading.font
             });
 
@@ -871,7 +1376,7 @@ Respond with JSON format for easy parsing.`;
                     text: b,
                     options: {
                         bullet: true,
-                        color: design.colors.text.replace('#', ''),
+                        color: hex(design.colors.text),
                         fontSize: design.typography.body.size,
                         fontFace: design.typography.body.font,
                         paraSpaceAfter: 12
@@ -881,7 +1386,7 @@ Respond with JSON format for easy parsing.`;
                 contentSlide.addText(bulletText, {
                     x: 0.8, y: 1.5, w: 8.5, h: 4.0,
                     fontSize: design.typography.body.size,
-                    color: design.colors.text.replace('#', ''),
+                    color: hex(design.colors.text),
                     fontFace: design.typography.body.font
                 });
             }
@@ -895,14 +1400,14 @@ Respond with JSON format for easy parsing.`;
             contentSlide.addText(`${idx + 1}`, {
                 x: 9.2, y: 7.0, w: 0.5, h: 0.3,
                 fontSize: 12,
-                color: design.colors.text.replace('#', ''),
+                color: hex(design.colors.text),
                 align: 'right'
             });
         });
 
         // Thank You / Closing Slide
         const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        closingSlide.background = { fill: design.colors.primary };
+        closingSlide.background = { fill: hex(design.colors.primary) };
 
         closingSlide.addText('Thank You', {
             x: 0.5, y: 2.5, w: 9.0, h: 1.5,
@@ -930,150 +1435,154 @@ Respond with JSON format for easy parsing.`;
     // ============================================
 
     // AI Image Prompt Generation (for DALL-E/Midjourney)
+    // Single batched call for all slides — returns { imagePrompts, aiGenerated }
     async function generateImagePrompts(slides, deckType) {
-        const imagePrompts = [];
+        const fallbackPrompts = slides.map(slide => ({
+            slideNumber: slide.number,
+            prompt: `Professional business graphic for: ${slide.title}`
+        }));
 
-        for (const slide of slides) {
-            const prompt = `Generate a DALL-E image prompt for this slide:
-
-SLIDE TITLE: ${slide.title}
-CONTENT: ${slide.bullets.join(', ')}
-DECK TYPE: ${deckType}
-VISUAL SUGGESTION: ${slide.visualSuggestion || 'Not specified'}
-
-Create a detailed image prompt (50-75 words) for:
-- Professional ${deckType} presentation style
-- High-quality business graphics
-- Modern, clean aesthetic
-- Relevant to slide content
-
-Respond with ONLY the image prompt, no other text.`;
-
-            try {
-                if (window.ClaudeService) {
-                    const imagePrompt = await new Promise((resolve, reject) => {
-                        let accumulated = '';
-                        window.ClaudeService.streamResponse({
-                            systemPrompt: 'You are an expert at creating image generation prompts for presentation slides.',
-                            messages: [{ role: 'user', content: prompt }],
-                            onChunk: (chunk, acc) => { accumulated = acc; },
-                            onDone: (text) => resolve(text.trim()),
-                            onError: (err) => reject(err)
-                        });
-                    });
-                    imagePrompts.push({ slideNumber: slide.number, prompt: imagePrompt });
-                } else {
-                    imagePrompts.push({
-                        slideNumber: slide.number,
-                        prompt: `Professional business graphic for: ${slide.title}`
-                    });
-                }
-            } catch (error) {
-                console.error('Image prompt generation error:', error);
-                imagePrompts.push({
-                    slideNumber: slide.number,
-                    prompt: `Professional business graphic for: ${slide.title}`
-                });
-            }
+        if (!window.ClaudeService || !slides.length) {
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
         }
 
-        return imagePrompts;
-    }
+        const slideList = slides.map((s, i) =>
+            `${i + 1}. TITLE: ${s.title}\n   CONTENT: ${(s.bullets || []).join(', ')}\n   VISUAL SUGGESTION: ${s.visualSuggestion || 'Not specified'}`
+        ).join('\n');
 
-    // Unsplash API Integration
-    async function fetchUnsplashImage(query, orientation = 'landscape') {
-        // Unsplash API requires access key (stored in settings or env)
-        const accessKey = localStorage.getItem('unsplash_access_key') || 'demo';
+        const prompt = `For each slide below, write one detailed DALL-E image prompt (50-75 words) in a professional ${deckType} presentation style: high-quality business graphics, modern clean aesthetic, relevant to that slide's content.
 
-        if (accessKey === 'demo') {
-            // Return placeholder if no API key
-            return null;
-        }
+SLIDES:
+${slideList}
+
+Respond with ONLY a numbered list, one item per slide, in the same order, formatted exactly as:
+1. <image prompt>
+2. <image prompt>
+No headers, no commentary, no other text.`;
 
         try {
-            const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=1&client_id=${accessKey}`;
-            const response = await fetch(url);
-            const data = await response.json();
+            const response = await window.ClaudeService.callAgent({
+                systemPrompt: 'You are an expert at creating image generation prompts for presentation slides.',
+                messages: [{ role: 'user', content: prompt }],
+            });
 
-            if (data.results && data.results.length > 0) {
-                const photo = data.results[0];
+            // Parse the numbered list back onto slides (tolerates wrapped lines)
+            const parsed = {};
+            let current = null;
+            (response || '').split('\n').forEach(line => {
+                const m = line.match(/^\s*(\d+)[.):]\s+(.*\S)/);
+                if (m) {
+                    current = parseInt(m[1]);
+                    parsed[current] = m[2].trim();
+                } else if (current !== null && line.trim()) {
+                    parsed[current] += ' ' + line.trim();
+                }
+            });
+
+            const matched = slides.reduce((n, _, i) => n + (parsed[i + 1] && parsed[i + 1].length > 10 ? 1 : 0), 0);
+            if (matched >= Math.ceil(slides.length / 2)) {
                 return {
-                    url: photo.urls.regular,
-                    downloadUrl: photo.urls.full,
-                    author: photo.user.name,
-                    authorUrl: photo.user.links.html
+                    imagePrompts: slides.map((slide, i) => ({
+                        slideNumber: slide.number,
+                        prompt: parsed[i + 1] || `Professional business graphic for: ${slide.title}`
+                    })),
+                    aiGenerated: true
                 };
             }
+            console.warn('[Slate] Image prompt batch response could not be parsed for enough slides — using generic fallback prompts.');
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
         } catch (error) {
-            console.error('Unsplash fetch error:', error);
+            console.error('Image prompt generation error:', error);
+            return { imagePrompts: fallbackPrompts, aiGenerated: false };
         }
+    }
 
+    async function fetchUnsplashImage(query) {
+        try {
+            const r = await fetch('/api/unsplash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, count: 1 })
+            });
+            if (!r.ok) return null;
+            const d = await r.json();
+            if (!d.photos || !d.photos.length) return null;
+            // Return data URL by fetching the image through the browser
+            const imgResp = await fetch(d.photos[0].url);
+            if (!imgResp.ok) return null;
+            const blob = await imgResp.blob();
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve({ dataUrl: reader.result, credit: d.photos[0].credit });
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+            });
+        } catch { return null; }
+    }
+
+    // ============================================
+    // SLIDE LAYOUT ROUTING
+    // ============================================
+    function getSlideLayout(slide) {
+        const type = (slide.slideType || '').toUpperCase();
+        const text = (slide.title + ' ' + (slide.bullets||[]).join(' ')).toLowerCase();
+        const vs   = (slide.visualSuggestion || '').toLowerCase();
+        const bullets = slide.bullets || [];
+        const hasNums = bullets.some(b => /\$[\d,]+|\d[\d,]*[%kmb]/i.test(b));
+
+        // Type-tag routing (highest priority)
+        if (type === 'TEAM') return 'team';
+        if (type === 'MARKET') return 'market';
+        if (type === 'TIMELINE' || type === 'GO_TO_MARKET' && /milestone|quarter|q[1-4]|timeline/i.test(text)) return 'timeline';
+        if (type === 'COMPETITION') return 'comparison';
+        if (type === 'TRACTION' || type === 'FINANCIALS') return 'data';
+
+        // Content-based routing (fallback)
+        if (/chart|graph|bar chart|line chart|pie chart|trend line/.test(vs)) return 'chart';
+        if (/testimonial|quote|review|client said|customer said/.test(text)) return 'quote';
+        if (/\bvs\.?\b|versus|comparison|competitor|benchmark/.test(text)) return 'comparison';
+        if (/\bteam\b|founder|leadership|ceo|cto|coo/.test(text) && bullets.every(b => /—|-/.test(b))) return 'team';
+        if (/\btam\b|\bsam\b|\bsom\b|market size|billion|trillion/.test(text)) return 'market';
+        if (/milestone|roadmap|timeline|q[1-4]\s+20\d\d/.test(text)) return 'timeline';
+        if (hasNums && bullets.length <= 5) return 'data';
+        return 'bullets';
+    }
+
+    // ============================================
+    // CHART DATA HELPER
+    // ============================================
+    function parseChartDataFromBullets(bullets, title) {
+        const pairs = [];
+        bullets.forEach(b => {
+            const m = b.match(/^([^:–\-]+?)\s*[:–\-]\s*[\$£€]?([\d,]+(?:\.\d+)?)/i);
+            if (m) {
+                const label = m[1].trim().substring(0, 20);
+                const value = parseFloat(m[2].replace(/,/g, ''));
+                if (!isNaN(value) && label) pairs.push({ label, value });
+            }
+        });
+        if (pairs.length >= 2) return { chartLabels: pairs.map(p => p.label), chartData: pairs.map(p => p.value) };
+        // Fewer than 2 real "label: value" pairs — never fabricate chart data
         return null;
     }
 
-    // Chart.js Image Generation
-    async function generateChartImage(chartType, data, labels, title) {
-        return new Promise((resolve) => {
-            // Create temporary canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = 800;
-            canvas.height = 450;
-            const ctx = canvas.getContext('2d');
-
-            // Chart configuration
-            const config = {
-                type: chartType, // 'bar', 'line', 'pie', 'doughnut'
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: title,
-                        data: data,
-                        backgroundColor: [
-                            'rgba(99, 102, 241, 0.8)',
-                            'rgba(139, 92, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(6, 182, 212, 0.8)',
-                            'rgba(236, 72, 153, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgb(99, 102, 241)',
-                            'rgb(139, 92, 246)',
-                            'rgb(16, 185, 129)',
-                            'rgb(6, 182, 212)',
-                            'rgb(236, 72, 153)'
-                        ],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        },
-                        title: {
-                            display: true,
-                            text: title,
-                            font: { size: 18, weight: 'bold' }
-                        }
-                    },
-                    scales: chartType !== 'pie' && chartType !== 'doughnut' ? {
-                        y: { beginAtZero: true }
-                    } : {}
-                }
-            };
-
-            // Create chart
-            const chart = new Chart(ctx, config);
-
-            // Wait for chart to render, then get image
-            setTimeout(() => {
-                const imageData = canvas.toDataURL('image/png');
-                chart.destroy();
-                resolve(imageData);
-            }, 500);
+    // ============================================
+    // DATA METRIC EXTRACTOR
+    // ============================================
+    function extractMetrics(bullets) {
+        const metrics = [];
+        bullets.forEach(b => {
+            // Match patterns like "$4.2M ARR", "87% retention", "3x growth", "1,200 customers"
+            const m = b.match(/^(.+?)[:–—]\s*([\$£€]?[\d,]+(?:\.\d+)?[kKmMbB%x×]?)\s*(.{0,30})?$/);
+            if (m) {
+                metrics.push({ label: m[1].trim().substring(0, 24), value: m[2].trim(), sub: (m[3]||'').trim().substring(0, 20) });
+            } else {
+                // Try "87% customer retention" format
+                const m2 = b.match(/^([\$£€]?[\d,]+(?:\.\d+)?[kKmMbBx%×]+)\s+(.{3,40})$/);
+                if (m2) metrics.push({ label: m2[2].trim().substring(0, 24), value: m2[1].trim(), sub: '' });
+            }
         });
+        return metrics.slice(0, 4);
     }
 
     // Icon Suggestions for Slides
@@ -1123,185 +1632,809 @@ Respond with ONLY the image prompt, no other text.`;
         return 'fa-circle'; // Default icon
     }
 
-    // Enhanced PowerPoint Creation with Advanced Visuals
+    // ============================================
+    // SLIDE CHROME HELPERS
+    // ============================================
+
+    // Left accent bar + bottom rule shared by all content slides
+    function addSlideChrome(pptx, slide, design) {
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: 0.07, h: 7.5,
+            fill: { color: hex(design.colors.primary) },
+            line: { color: hex(design.colors.primary), width: 0 }
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0.07, y: 7.34, w: 9.93, h: 0.05,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) },
+            line: { color: hex(design.colors.accent1 || design.colors.secondary), width: 0 }
+        });
+    }
+
+    // Title band at top of content slide
+    function addSlideTitle(slide, title, design, fullBand) {
+        if (fullBand) {
+            slide.addShape('rect', {
+                x: 0.07, y: 0, w: 9.93, h: 1.1,
+                fill: { color: hex(design.colors.primary) },
+                line: { width: 0 }
+            });
+            slide.addText(title, {
+                x: 0.4, y: 0.1, w: 9.3, h: 0.9,
+                fontSize: 26, bold: true, color: 'FFFFFF',
+                fontFace: design.typography.heading.font, valign: 'middle'
+            });
+        } else {
+            slide.addText(title, {
+                x: 0.4, y: 0.18, w: 9.0, h: 0.8,
+                fontSize: 26, bold: true, color: hex(design.colors.primary),
+                fontFace: design.typography.heading.font, valign: 'middle'
+            });
+            slide.addShape('rect', {
+                x: 0.4, y: 0.96, w: 9.2, h: 0.04,
+                fill: { color: hex(design.colors.accent1 || design.colors.secondary) },
+                line: { width: 0 }
+            });
+        }
+    }
+
+    // Slide number footer
+    function addSlideNumber(slide, n, total, design) {
+        slide.addText(`${n} / ${total}`, {
+            x: 8.8, y: 7.1, w: 1.0, h: 0.2,
+            fontSize: 9, color: hex(design.colors.muted || 'AAAAAA'),
+            align: 'right', fontFace: design.typography.body.font
+        });
+    }
+
+    // ============================================
+    // LAYOUT: BULLETS
+    // ============================================
+    function addBulletLayout(slide, slideData, design, yStart) {
+        const bullets = (slideData.bullets || []).slice(0, 6);
+        if (!bullets.length) return;
+        const y = yStart ?? 1.25;
+        const items = bullets.map(b => ({
+            text: b,
+            options: {
+                bullet: { indent: 18 },
+                color: hex(design.colors.text),
+                fontSize: 17,
+                fontFace: design.typography.body.font,
+                paraSpaceAfter: 10,
+            }
+        }));
+        slide.addText(items, {
+            x: 0.55, y, w: 9.1, h: 7.25 - y,
+            fontFace: design.typography.body.font, fontSize: 17,
+            color: hex(design.colors.text), valign: 'top'
+        });
+    }
+
+    // ============================================
+    // LAYOUT: DATA METRICS
+    // ============================================
+    function addDataLayout(pptx, slide, slideData, design, yStart) {
+        const metrics = extractMetrics(slideData.bullets || []);
+        if (!metrics.length) { addBulletLayout(slide, slideData, design, yStart); return; }
+
+        const y = yStart ?? 1.35;
+        const cols  = Math.min(metrics.length, 3);
+        const cardW = cols === 3 ? 2.8 : cols === 2 ? 4.0 : 8.0;
+        const gap   = cols === 3 ? 0.3 : 0.5;
+        const totalW = cols * cardW + (cols - 1) * gap;
+        const startX = (10 - totalW) / 2;
+
+        metrics.slice(0, cols).forEach((m, i) => {
+            const cx = startX + i * (cardW + gap);
+            // Card background
+            slide.addShape(pptx.ShapeType.rect, {
+                x: cx, y, w: cardW, h: 2.2,
+                fill: { color: hex(design.colors.primary) },
+                line: { width: 0 },
+                shadow: { type: 'outer', blur: 8, offset: 3, angle: 45, opacity: 0.25 }
+            });
+            // Big number
+            slide.addText(m.value, {
+                x: cx + 0.1, y: y + 0.12, w: cardW - 0.2, h: 1.2,
+                fontSize: 42, bold: true, color: 'FFFFFF',
+                align: 'center', fontFace: design.typography.heading.font, valign: 'middle'
+            });
+            // Label
+            slide.addText(m.label, {
+                x: cx + 0.1, y: y + 1.35, w: cardW - 0.2, h: 0.55,
+                fontSize: 13, color: 'FFFFFF',
+                align: 'center', fontFace: design.typography.body.font, valign: 'top'
+            });
+            if (m.sub) {
+                slide.addText(m.sub, {
+                    x: cx + 0.1, y: y + 1.82, w: cardW - 0.2, h: 0.3,
+                    fontSize: 10, color: hex(design.colors.muted || 'DDDDDD'),
+                    align: 'center', fontFace: design.typography.body.font
+                });
+            }
+        });
+
+        // Remaining bullets below the cards
+        const remaining = (slideData.bullets || []).filter(b => !metrics.some(m => b.includes(m.value)));
+        if (remaining.length) {
+            const remItems = remaining.slice(0, 4).map(b => ({
+                text: b, options: { bullet: { indent: 18 }, color: hex(design.colors.text), fontSize: 15, fontFace: design.typography.body.font, paraSpaceAfter: 7 }
+            }));
+            slide.addText(remItems, {
+                x: 0.55, y: y + 2.45, w: 9.1, h: 3.3,
+                fontFace: design.typography.body.font, fontSize: 15,
+                color: hex(design.colors.text), valign: 'top'
+            });
+        }
+    }
+
+    // ============================================
+    // LAYOUT: NATIVE CHART
+    // ============================================
+    function addChartLayout(pptx, slide, slideData, design, yStart) {
+        const y = yStart ?? 1.25;
+        const parsed = parseChartDataFromBullets(slideData.bullets || [], slideData.title);
+        if (!parsed) {
+            // No real numeric data in the bullets — render bullets instead of a fabricated chart
+            addBulletLayout(slide, slideData, design, yStart);
+            return;
+        }
+        const { chartLabels, chartData } = parsed;
+        const vs = (slideData.visualSuggestion || '').toLowerCase();
+        const chartType = vs.includes('pie') ? pptx.ChartType.pie : vs.includes('line') ? pptx.ChartType.line : pptx.ChartType.bar;
+
+        const chartColors = [
+            hex(design.colors.primary), hex(design.colors.accent1),
+            hex(design.colors.accent2 || design.colors.secondary),
+            hex(design.colors.secondary), 'F59E0B', '10B981'
+        ];
+
+        pptx.addChartToBatch ? null : null; // ensure pptx is in scope
+        slide.addChart(chartType, [
+            { name: slideData.title, labels: chartLabels, values: chartData }
+        ], {
+            x: 5.2, y, w: 4.5, h: 3.6,
+            chartColors,
+            showTitle: false,
+            showLegend: chartType === pptx.ChartType.pie,
+            legendPos: 'b',
+            dataLabelFormatCode: '#,##0',
+            showValue: chartType === pptx.ChartType.bar || chartType === pptx.ChartType.line,
+            barGrouping: 'clustered',
+        });
+
+        // Key points on left
+        const bullets = (slideData.bullets || []).slice(0, 5);
+        if (bullets.length) {
+            const items = bullets.map(b => ({
+                text: b, options: { bullet: { indent: 15 }, color: hex(design.colors.text), fontSize: 15, fontFace: design.typography.body.font, paraSpaceAfter: 9 }
+            }));
+            slide.addText(items, {
+                x: 0.55, y, w: 4.4, h: 4.5,
+                fontFace: design.typography.body.font, fontSize: 15,
+                color: hex(design.colors.text), valign: 'top'
+            });
+        }
+    }
+
+    // ============================================
+    // LAYOUT: TEAM GRID
+    // ============================================
+    function addTeamLayout(pptx, slide, slideData, design, yStart) {
+        const bullets = (slideData.bullets || []).slice(0, 6);
+        if (!bullets.length) { addBulletLayout(slide, slideData, design, yStart); return; }
+
+        const members = bullets.map(b => {
+            const m = b.match(/^(.+?)\s*[—\-–:]\s*(.+?)(?:,\s*(.+))?$/);
+            return m ? { name: m[1].trim(), title: m[2].trim(), cred: (m[3]||'').trim() } : { name: b.trim(), title: '', cred: '' };
+        });
+
+        const count = members.length;
+        const cols  = count <= 2 ? 2 : count <= 4 ? 2 : 3;
+        const rows  = Math.ceil(count / cols);
+        const cardW = cols === 2 ? 4.0 : 2.8;
+        const cardH = rows === 1 ? 3.8 : rows === 2 ? 2.5 : 2.0;
+        const gapX  = cols === 2 ? 0.5 : 0.35;
+        const gapY  = 0.3;
+        const totalW = cols * cardW + (cols - 1) * gapX;
+        const startX = (10 - totalW) / 2;
+        const startY = (yStart ?? 1.3);
+
+        members.forEach((m, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const cx  = startX + col * (cardW + gapX);
+            const cy  = startY + row * (cardH + gapY);
+
+            // Card
+            slide.addShape(pptx.ShapeType.rect, {
+                x: cx, y: cy, w: cardW, h: cardH,
+                fill: { color: hex(design.colors.light || 'F8FAFC') },
+                line: { color: hex(design.colors.muted || 'E2E8F0'), width: 1 }
+            });
+            // Top accent
+            slide.addShape(pptx.ShapeType.rect, {
+                x: cx, y: cy, w: cardW, h: 0.07,
+                fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+            });
+            // Avatar circle
+            const ar = Math.min(cardH * 0.18, 0.45);
+            const acx = cx + cardW / 2 - ar;
+            slide.addShape(pptx.ShapeType.ellipse, {
+                x: acx, y: cy + 0.22, w: ar * 2, h: ar * 2,
+                fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+            });
+            const initials = m.name.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+            slide.addText(initials, {
+                x: acx, y: cy + 0.22, w: ar * 2, h: ar * 2,
+                fontSize: Math.round(ar * 22), bold: true, color: 'FFFFFF',
+                align: 'center', valign: 'middle', fontFace: design.typography.body.font
+            });
+            // Name
+            slide.addText(m.name, {
+                x: cx + 0.1, y: cy + 0.22 + ar * 2 + 0.12, w: cardW - 0.2, h: 0.45,
+                fontSize: Math.min(14, cardW * 3.2), bold: true, color: hex(design.colors.text),
+                align: 'center', fontFace: design.typography.body.font
+            });
+            if (m.title) slide.addText(m.title, {
+                x: cx + 0.1, y: cy + 0.22 + ar * 2 + 0.62, w: cardW - 0.2, h: 0.38,
+                fontSize: Math.min(11, cardW * 2.6), color: hex(design.colors.primary), italic: true,
+                align: 'center', fontFace: design.typography.body.font
+            });
+            if (m.cred) slide.addText(m.cred, {
+                x: cx + 0.1, y: cy + 0.22 + ar * 2 + 1.05, w: cardW - 0.2, h: 0.35,
+                fontSize: 9, color: hex(design.colors.muted || '888888'),
+                align: 'center', fontFace: design.typography.body.font
+            });
+        });
+    }
+
+    // ============================================
+    // LAYOUT: MARKET (TAM/SAM/SOM)
+    // ============================================
+    function addMarketLayout(pptx, slide, slideData, design, yStart) {
+        const bullets = slideData.bullets || [];
+        const TAM_RE = /^(TAM|Total\s+Addressable)[^:]*:\s*(.+)/i;
+        const SAM_RE = /^(SAM|Serviceable\s+Addressable)[^:]*:\s*(.+)/i;
+        const SOM_RE = /^(SOM|Serviceable\s+Obtainable)[^:]*:\s*(.+)/i;
+
+        const tam = bullets.find(b => TAM_RE.test(b));
+        const sam = bullets.find(b => SAM_RE.test(b));
+        const som = bullets.find(b => SOM_RE.test(b));
+
+        if (!tam && !sam) { addBulletLayout(slide, slideData, design, yStart); return; }
+
+        const markets = [
+            { label: 'TAM', desc: tam ? tam.replace(TAM_RE, '$2').trim() : '—', color: hex(design.colors.muted || 'AAAAAA') },
+            { label: 'SAM', desc: sam ? sam.replace(SAM_RE, '$2').trim() : '—', color: hex(design.colors.secondary || design.colors.accent1) },
+            { label: 'SOM', desc: som ? som.replace(SOM_RE, '$2').trim() : '—', color: hex(design.colors.primary) },
+        ].filter((m, i) => i === 0 || bullets.some(b => i === 1 ? SAM_RE.test(b) : SOM_RE.test(b)));
+
+        // Draw concentric circles centred on the left half
+        const cx = 3.2, cy = 4.0;
+        const radii = [{ w: 5.2, h: 4.2 }, { w: 3.4, h: 2.7 }, { w: 1.8, h: 1.4 }];
+        const colors = [hex(design.colors.light || 'E2E8F0'), hex(design.colors.accent1 || 'AABBCC'), hex(design.colors.primary)];
+
+        radii.slice(0, markets.length).forEach((r, i) => {
+            slide.addShape(pptx.ShapeType.ellipse, {
+                x: cx - r.w / 2, y: cy - r.h / 2, w: r.w, h: r.h,
+                fill: { color: colors[i] }, line: { color: 'FFFFFF', width: 1 }
+            });
+        });
+
+        // Labels panel on right
+        const labelX = 6.6;
+        markets.forEach((m, i) => {
+            const ly = 1.5 + i * 1.6;
+            slide.addShape(pptx.ShapeType.rect, {
+                x: labelX, y: ly + 0.05, w: 0.12, h: 0.55,
+                fill: { color: colors[i] }, line: { width: 0 }
+            });
+            slide.addText(m.label, {
+                x: labelX + 0.22, y: ly, w: 0.8, h: 0.3,
+                fontSize: 13, bold: true, color: hex(design.colors.text),
+                fontFace: design.typography.body.font
+            });
+            slide.addText(m.desc, {
+                x: labelX + 0.22, y: ly + 0.28, w: 3.0, h: 0.5,
+                fontSize: 12, color: hex(design.colors.text),
+                fontFace: design.typography.body.font
+            });
+        });
+
+        // Remaining bullets below
+        const extra = bullets.filter(b => !TAM_RE.test(b) && !SAM_RE.test(b) && !SOM_RE.test(b)).slice(0, 3);
+        if (extra.length) {
+            slide.addText(extra.map(b => ({ text: b, options: { bullet: { indent: 15 }, color: hex(design.colors.text), fontSize: 13, fontFace: design.typography.body.font, paraSpaceAfter: 5 } })), {
+                x: 0.55, y: 6.5, w: 9.1, h: 0.8,
+                fontFace: design.typography.body.font, fontSize: 13, color: hex(design.colors.text), valign: 'top'
+            });
+        }
+    }
+
+    // ============================================
+    // LAYOUT: TIMELINE / ROADMAP
+    // ============================================
+    function addTimelineLayout(pptx, slide, slideData, design, yStart) {
+        const bullets = (slideData.bullets || []).slice(0, 6);
+        if (!bullets.length) { addBulletLayout(slide, slideData, design, yStart); return; }
+
+        const lineY = (yStart ?? 1.3) + 1.6;
+        const startX = 0.6;
+        const totalW = 8.8;
+        const itemW = totalW / bullets.length;
+
+        // Horizontal timeline bar
+        slide.addShape(pptx.ShapeType.rect, {
+            x: startX, y: lineY, w: totalW, h: 0.06,
+            fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+        });
+
+        bullets.forEach((b, i) => {
+            const cx = startX + itemW * i + itemW / 2;
+            const isAbove = i % 2 === 0;
+
+            // Milestone dot
+            slide.addShape(pptx.ShapeType.ellipse, {
+                x: cx - 0.18, y: lineY - 0.15, w: 0.36, h: 0.36,
+                fill: { color: hex(design.colors.primary) }, line: { color: 'FFFFFF', width: 2 }
+            });
+
+            // Parse "Q1 2025: description" or "2025: description"
+            const label = b.match(/^([^:]+?):\s*/);
+            const period = label ? label[1].trim() : `Step ${i + 1}`;
+            const desc = label ? b.replace(label[0], '').trim() : b;
+            const connH = 0.55;
+
+            if (isAbove) {
+                slide.addShape(pptx.ShapeType.rect, { x: cx - 0.02, y: lineY - connH - 0.1, w: 0.04, h: connH, fill: { color: hex(design.colors.muted || 'CCCCCC') }, line: { width: 0 } });
+                slide.addText(desc.substring(0, 45), { x: cx - itemW / 2 + 0.05, y: lineY - connH - 0.75, w: itemW - 0.1, h: 0.65, fontSize: 11, color: hex(design.colors.text), align: 'center', fontFace: design.typography.body.font });
+                slide.addText(period, { x: cx - itemW / 2 + 0.05, y: lineY + 0.32, w: itemW - 0.1, h: 0.32, fontSize: 10, bold: true, color: hex(design.colors.primary), align: 'center', fontFace: design.typography.body.font });
+            } else {
+                slide.addShape(pptx.ShapeType.rect, { x: cx - 0.02, y: lineY + 0.22, w: 0.04, h: connH, fill: { color: hex(design.colors.muted || 'CCCCCC') }, line: { width: 0 } });
+                slide.addText(period, { x: cx - itemW / 2 + 0.05, y: lineY - 0.45, w: itemW - 0.1, h: 0.32, fontSize: 10, bold: true, color: hex(design.colors.primary), align: 'center', fontFace: design.typography.body.font });
+                slide.addText(desc.substring(0, 45), { x: cx - itemW / 2 + 0.05, y: lineY + connH + 0.3, w: itemW - 0.1, h: 0.65, fontSize: 11, color: hex(design.colors.text), align: 'center', fontFace: design.typography.body.font });
+            }
+        });
+    }
+
+    // ============================================
+    // SECTION DIVIDER (Skywork-style)
+    // ============================================
+    function buildSectionDivider(pptx, slide, sectionLabel, sectionNum, design) {
+        slide.background = { fill: hex(design.colors.titleBg || design.colors.primary) };
+
+        // Giant faded section number in the background
+        slide.addText(String(sectionNum).padStart(2, '0'), {
+            x: 5.5, y: 0.5, w: 4.3, h: 5.5,
+            fontSize: 200, bold: true, color: 'FFFFFF',
+            align: 'right', fontFace: design.typography.heading.font,
+            transparency: 88
+        });
+
+        // Accent rule
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0.7, y: 2.9, w: 2.8, h: 0.06,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+
+        // "SECTION N" label
+        slide.addText(`SECTION ${String(sectionNum).padStart(2, '0')}`, {
+            x: 0.7, y: 2.25, w: 5.5, h: 0.5,
+            fontSize: 13, bold: true, color: hex(design.colors.accent1 || design.colors.secondary),
+            fontFace: design.typography.body.font, charSpacing: 4
+        });
+
+        // Section title
+        slide.addText(sectionLabel, {
+            x: 0.7, y: 3.05, w: 7.0, h: 1.4,
+            fontSize: 46, bold: true, color: 'FFFFFF',
+            fontFace: design.typography.heading.font, valign: 'middle'
+        });
+    }
+
+    // ============================================
+    // LAYOUT: QUOTE / TESTIMONIAL
+    // ============================================
+    function addQuoteLayout(pptx, slide, slideData, design) {
+        // Large decorative quotation mark
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0.5, y: 1.2, w: 9.0, h: 4.0,
+            fill: { color: hex(design.colors.light || 'F8FAFC') },
+            line: { color: hex(design.colors.muted || 'E2E8F0'), width: 1 }
+        });
+        slide.addText('“', {
+            x: 0.65, y: 0.85, w: 1.5, h: 1.5,
+            fontSize: 80, bold: true, color: hex(design.colors.primary),
+            fontFace: design.typography.heading.font
+        });
+
+        const quoteText = slideData.bullets.length
+            ? slideData.bullets.join(' ')
+            : slideData.title;
+        slide.addText(quoteText, {
+            x: 0.8, y: 1.45, w: 8.4, h: 3.2,
+            fontSize: 20, italic: true, color: hex(design.colors.text),
+            fontFace: design.typography.heading.font, align: 'center', valign: 'middle'
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 4.3, y: 5.45, w: 1.4, h: 0.06,
+            fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+        });
+        slide.addText(slideData.title, {
+            x: 0.5, y: 5.6, w: 9.0, h: 0.5,
+            fontSize: 13, bold: true, color: hex(design.colors.primary),
+            align: 'center', fontFace: design.typography.body.font
+        });
+    }
+
+    // ============================================
+    // LAYOUT: COMPARISON / TWO-COLUMN
+    // ============================================
+    function addComparisonLayout(pptx, slide, slideData, design, yStart) {
+        const y = yStart ?? 1.25;
+        const bullets = slideData.bullets || [];
+        const mid   = Math.ceil(bullets.length / 2);
+        const left  = bullets.slice(0, mid);
+        const right = bullets.slice(mid);
+
+        const headers = (() => {
+            const t = slideData.title.toLowerCase();
+            if (/vs\.?|versus/.test(t)) {
+                const parts = slideData.title.split(/\s+vs\.?\s+/i);
+                return [parts[0] || 'Option A', parts[1] || 'Option B'];
+            }
+            return ['Option A', 'Option B'];
+        })();
+
+        // Left column header
+        slide.addShape(pptx.ShapeType.rect, { x: 0.4, y, w: 4.3, h: 0.45, fill: { color: hex(design.colors.primary) }, line: { width: 0 } });
+        slide.addText(headers[0], { x: 0.4, y: y + 0.04, w: 4.3, h: 0.37, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center', fontFace: design.typography.body.font });
+
+        // Right column header
+        slide.addShape(pptx.ShapeType.rect, { x: 5.3, y, w: 4.3, h: 0.45, fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 } });
+        slide.addText(headers[1], { x: 5.3, y: y + 0.04, w: 4.3, h: 0.37, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center', fontFace: design.typography.body.font });
+
+        // Divider
+        slide.addShape(pptx.ShapeType.line, { x: 4.95, y: y + 0.5, w: 0, h: 5.5, line: { color: hex(design.colors.muted || 'E2E8F0'), width: 1 } });
+
+        // Left bullets
+        if (left.length) {
+            slide.addText(left.map(b => ({ text: b, options: { bullet: { indent: 15 }, color: hex(design.colors.text), fontSize: 15, fontFace: design.typography.body.font, paraSpaceAfter: 8 } })), {
+                x: 0.4, y: y + 0.58, w: 4.3, h: 5.5, fontFace: design.typography.body.font, fontSize: 15, color: hex(design.colors.text), valign: 'top'
+            });
+        }
+        // Right bullets
+        if (right.length) {
+            slide.addText(right.map(b => ({ text: b, options: { bullet: { indent: 15 }, color: hex(design.colors.text), fontSize: 15, fontFace: design.typography.body.font, paraSpaceAfter: 8 } })), {
+                x: 5.3, y: y + 0.58, w: 4.3, h: 5.5, fontFace: design.typography.body.font, fontSize: 15, color: hex(design.colors.text), valign: 'top'
+            });
+        }
+    }
+
+    // ============================================
+    // TITLE SLIDE BUILDERS
+    // ============================================
+    function buildTitleSlide_Bold(pptx, slide, deckData, design) {
+        slide.background = { fill: hex(design.colors.titleBg || design.colors.primary) };
+
+        // Large decorative circle — top-right
+        slide.addShape(pptx.ShapeType.ellipse, {
+            x: 6.5, y: -1.5, w: 5.0, h: 5.0,
+            fill: { type: 'solid', color: hex(design.colors.primary), alpha: 30 },
+            line: { width: 0 }
+        });
+        slide.addShape(pptx.ShapeType.ellipse, {
+            x: 7.2, y: -0.8, w: 3.5, h: 3.5,
+            fill: { type: 'solid', color: 'FFFFFF', alpha: 8 },
+            line: { width: 0 }
+        });
+
+        // Company name
+        slide.addText(deckData.company, {
+            x: 0.7, y: 2.0, w: 8.6, h: 1.3,
+            fontSize: 48, bold: true, color: 'FFFFFF',
+            align: 'left', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+
+        // Horizontal rule
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0.7, y: 3.4, w: 3.5, h: 0.06,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+
+        // Deck type
+        slide.addText(deckData.deckType, {
+            x: 0.7, y: 3.6, w: 8.6, h: 0.7,
+            fontSize: 22, color: 'FFFFFF', align: 'left',
+            fontFace: design.typography.body.font, valign: 'middle'
+        });
+
+        // Audience / tagline
+        if (deckData.audience) {
+            slide.addText(`Prepared for: ${deckData.audience}`, {
+                x: 0.7, y: 6.4, w: 8.6, h: 0.5,
+                fontSize: 13, color: hex(design.colors.muted || 'AAAAAA'),
+                align: 'left', fontFace: design.typography.body.font
+            });
+        }
+    }
+
+    function buildTitleSlide_Split(pptx, slide, deckData, design) {
+        slide.background = { fill: 'FFFFFF' };
+
+        // Left panel
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: 4.2, h: 7.5,
+            fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+        });
+        // Decorative diagonal on left panel
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 3.6, y: 0, w: 0.6, h: 7.5,
+            fill: { color: hex(design.colors.secondary || design.colors.primary), alpha: 60 }, line: { width: 0 }
+        });
+
+        // Company name — left panel
+        slide.addText(deckData.company, {
+            x: 0.4, y: 2.0, w: 3.5, h: 1.5,
+            fontSize: 32, bold: true, color: 'FFFFFF',
+            align: 'left', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0.4, y: 3.65, w: 2.0, h: 0.05,
+            fill: { color: hex(design.colors.accent1 || 'FFFFFF') }, line: { width: 0 }
+        });
+        if (deckData.audience) {
+            slide.addText(deckData.audience, {
+                x: 0.4, y: 3.85, w: 3.5, h: 0.5,
+                fontSize: 12, color: 'FFFFFF', fontFace: design.typography.body.font
+            });
+        }
+
+        // Deck type — right panel
+        slide.addText(deckData.deckType, {
+            x: 4.6, y: 2.8, w: 5.1, h: 1.0,
+            fontSize: 28, bold: true, color: hex(design.colors.primary),
+            align: 'left', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 4.6, y: 3.9, w: 4.5, h: 0.05,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+        slide.addText('Powered by Audema AI', {
+            x: 4.6, y: 6.7, w: 5.1, h: 0.4,
+            fontSize: 10, color: hex(design.colors.muted || 'AAAAAA'),
+            fontFace: design.typography.body.font
+        });
+    }
+
+    function buildTitleSlide_Editorial(pptx, slide, deckData, design) {
+        slide.background = { fill: 'FFFFFF' };
+
+        // Top gradient band
+        const bandH = 2.9;
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: 10, h: bandH,
+            fill: { color: hex(design.colors.titleBg || design.colors.primary) }, line: { width: 0 }
+        });
+        // Angled accent shape
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: bandH - 0.15, w: 10, h: 0.15,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+
+        // Company name — in the band
+        slide.addText(deckData.company, {
+            x: 0.6, y: 0.55, w: 8.8, h: 1.1,
+            fontSize: 44, bold: true, color: 'FFFFFF',
+            align: 'center', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+        slide.addText(deckData.deckType, {
+            x: 0.6, y: 1.65, w: 8.8, h: 0.8,
+            fontSize: 20, color: hex(design.colors.muted || 'DDDDDD'),
+            align: 'center', fontFace: design.typography.body.font
+        });
+
+        // Below band
+        if (deckData.audience) {
+            slide.addText(`For: ${deckData.audience}`, {
+                x: 0.6, y: 3.3, w: 8.8, h: 0.5,
+                fontSize: 15, color: hex(design.colors.primary),
+                align: 'center', fontFace: design.typography.body.font, bold: true
+            });
+        }
+
+        // Three feature dots
+        ['Insight', 'Strategy', 'Impact'].forEach((label, i) => {
+            const cx = 2.0 + i * 3.0;
+            slide.addShape(pptx.ShapeType.ellipse, {
+                x: cx, y: 4.6, w: 0.5, h: 0.5,
+                fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+            });
+            slide.addText(label, {
+                x: cx - 0.5, y: 5.22, w: 1.5, h: 0.4,
+                fontSize: 11, color: hex(design.colors.text),
+                align: 'center', fontFace: design.typography.body.font
+            });
+        });
+    }
+
+    function buildTitleSlide_Minimal(pptx, slide, deckData, design) {
+        slide.background = { fill: 'FFFFFF' };
+
+        // Full-width accent bar at top
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0, w: 10, h: 0.35,
+            fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+        });
+        // Thin secondary strip
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 0.35, w: 10, h: 0.07,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+
+        // Company name
+        slide.addText(deckData.company, {
+            x: 0.8, y: 1.8, w: 8.4, h: 1.4,
+            fontSize: 48, bold: true, color: hex(design.colors.primary),
+            align: 'left', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+
+        // Deck type
+        slide.addText(deckData.deckType, {
+            x: 0.8, y: 3.2, w: 8.4, h: 0.8,
+            fontSize: 22, color: hex(design.colors.text),
+            align: 'left', fontFace: design.typography.body.font
+        });
+
+        if (deckData.audience) {
+            slide.addText(`Audience: ${deckData.audience}`, {
+                x: 0.8, y: 4.1, w: 8.4, h: 0.5,
+                fontSize: 14, color: hex(design.colors.muted || '999999'),
+                align: 'left', fontFace: design.typography.body.font
+            });
+        }
+
+        // Bottom rule
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 7.35, w: 10, h: 0.08,
+            fill: { color: hex(design.colors.primary) }, line: { width: 0 }
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 0, y: 7.43, w: 10, h: 0.04,
+            fill: { color: hex(design.colors.accent1 || design.colors.secondary) }, line: { width: 0 }
+        });
+    }
+
+    // ============================================
+    // CLOSING SLIDE
+    // ============================================
+    function buildClosingSlide(pptx, slide, deckData, design) {
+        const MESSAGES = {
+            'Investor Pitch':      "Let's Build the Future Together",
+            'Sales Deck':          'Ready to Get Started?',
+            'Marketing Strategy':  "Let's Execute",
+            'Quarterly Review':    'Questions & Discussion',
+            'Product Launch':      'Something Big Is Coming',
+            'Partnership Proposal':"Let's Talk",
+            'Conference Talk':     "Thank You — Let's Connect",
+        };
+        const msg = MESSAGES[deckData.deckType] || 'Thank You';
+
+        slide.background = { fill: hex(design.colors.titleBg || design.colors.primary) };
+
+        // Decorative shapes
+        slide.addShape(pptx.ShapeType.ellipse, {
+            x: -1.5, y: 4.0, w: 5.0, h: 5.0,
+            fill: { color: 'FFFFFF', alpha: 6 }, line: { width: 0 }
+        });
+        slide.addShape(pptx.ShapeType.ellipse, {
+            x: 7.5, y: -1.0, w: 4.0, h: 4.0,
+            fill: { color: hex(design.colors.accent1 || 'FFFFFF'), alpha: 15 }, line: { width: 0 }
+        });
+
+        slide.addText(msg, {
+            x: 0.5, y: 2.2, w: 9.0, h: 1.6,
+            fontSize: 40, bold: true, color: 'FFFFFF',
+            align: 'center', fontFace: design.typography.heading.font, valign: 'middle'
+        });
+        slide.addShape(pptx.ShapeType.rect, {
+            x: 3.5, y: 3.9, w: 3.0, h: 0.06,
+            fill: { color: hex(design.colors.accent1 || 'FFFFFF') }, line: { width: 0 }
+        });
+        slide.addText(deckData.company, {
+            x: 0.5, y: 4.1, w: 9.0, h: 0.7,
+            fontSize: 20, color: 'FFFFFF', italic: true,
+            align: 'center', fontFace: design.typography.body.font
+        });
+    }
+
+    // ============================================
+    // MAIN PPTX BUILDER
+    // ============================================
     async function createPowerPointWithVisuals(deckData, design, slides, imagePrompts) {
         const pptx = new PptxGenJS();
-
-        // Set presentation properties
+        pptx.layout = 'LAYOUT_WIDE';
         pptx.author = 'Audema AI';
         pptx.company = deckData.company;
         pptx.subject = deckData.deckType;
-        pptx.title = `${deckData.company} - ${deckData.deckType}`;
+        pptx.title   = `${deckData.company} — ${deckData.deckType}`;
 
-        // Define master slide with design
         pptx.defineSlideMaster({
-            title: 'MASTER_SLIDE',
-            background: { color: design.colors.background },
-            objects: [
-                {
-                    rect: {
-                        x: 0, y: 0, w: '100%', h: '100%',
-                        fill: { color: design.colors.background }
-                    }
-                }
-            ]
+            title: 'CONTENT',
+            background: { color: hex(design.colors.background) },
         });
 
-        // Title Slide
-        const titleSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        titleSlide.background = { fill: design.colors.primary };
+        // ── Title Slide ──────────────────────────────
+        const titleSlide = pptx.addSlide();
+        const buildFn = {
+            bold:     buildTitleSlide_Bold,
+            split:    buildTitleSlide_Split,
+            editorial:buildTitleSlide_Editorial,
+            minimal:  buildTitleSlide_Minimal,
+        }[design.layout] || buildTitleSlide_Bold;
+        buildFn(pptx, titleSlide, deckData, design);
 
-        titleSlide.addText(deckData.company, {
-            x: 0.5, y: 2.0, w: 9.0, h: 1.5,
-            fontSize: 48,
-            bold: true,
-            color: 'FFFFFF',
-            align: 'center',
-            fontFace: design.typography.heading.font
-        });
+        // ── Content Slides (with auto-inserted section dividers) ─────────
+        const sectionTriggers = SECTION_TRIGGERS[deckData.deckType] || {};
+        let dividerCount = 0;
 
-        titleSlide.addText(deckData.deckType, {
-            x: 0.5, y: 3.5, w: 9.0, h: 0.8,
-            fontSize: 28,
-            color: 'FFFFFF',
-            align: 'center',
-            fontFace: design.typography.body.font
-        });
+        // Precompute the real deck total: title + content slides + closing + dividers actually inserted
+        const totalDividers = slides.filter(sl => sl.slideType && sectionTriggers[sl.slideType]).length;
+        const totalSlideCount = slides.length + 2 + totalDividers;
 
-        // Content Slides with Advanced Visuals
         for (const [idx, slide] of slides.entries()) {
-            const contentSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
+            // Insert section divider if this slide type triggers one
+            if (slide.slideType && sectionTriggers[slide.slideType]) {
+                const sec = sectionTriggers[slide.slideType];
+                const divSlide = pptx.addSlide();
+                buildSectionDivider(pptx, divSlide, sec.label, sec.num, design);
+                dividerCount++;
+            }
 
-            // Detect if slide needs chart
-            const needsChart = slide.visualSuggestion && (
-                slide.visualSuggestion.toLowerCase().includes('chart') ||
-                slide.visualSuggestion.toLowerCase().includes('graph') ||
-                slide.visualSuggestion.toLowerCase().includes('bar') ||
-                slide.visualSuggestion.toLowerCase().includes('line')
-            );
+            const s = pptx.addSlide();
+            s.background = { fill: hex(design.colors.background) };
 
-            // Slide title with icon
-            const icon = suggestIconsForSlide(slide);
-            const iconSymbol = icon !== 'fa-circle' ? '●' : ''; // Simplified for PPTX
+            addSlideChrome(pptx, s, design);
 
-            contentSlide.addText(`${iconSymbol} ${slide.title}`, {
-                x: 0.5, y: 0.5, w: 9.0, h: 0.8,
-                fontSize: design.typography.heading.size,
-                bold: true,
-                color: design.colors.primary.replace('#', ''),
-                fontFace: design.typography.heading.font
-            });
+            const layout = getSlideLayout(slide);
+            const useBand = !['quote', 'market', 'team', 'timeline'].includes(layout);
+            addSlideTitle(s, slide.title, design, useBand);
+            const contentY = useBand ? 1.22 : 1.12;
 
-            if (needsChart) {
-                // Generate sample chart (in real implementation, would parse data from bullets)
-                const chartData = [45, 30, 15, 10];
-                const chartLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
-                const chartType = slide.visualSuggestion.toLowerCase().includes('pie') ? 'pie' : 'bar';
-
-                try {
-                    const chartImage = await generateChartImage(chartType, chartData, chartLabels, slide.title);
-
-                    contentSlide.addImage({
-                        data: chartImage,
-                        x: 5.5, y: 1.5, w: 4.0, h: 3.5
-                    });
-
-                    // Bullets on left side
-                    if (slide.bullets && slide.bullets.length > 0) {
-                        const bulletText = slide.bullets.map(b => ({
-                            text: b,
-                            options: {
-                                bullet: true,
-                                color: design.colors.text.replace('#', ''),
-                                fontSize: 16,
-                                fontFace: design.typography.body.font
-                            }
-                        }));
-
-                        contentSlide.addText(bulletText, {
-                            x: 0.5, y: 1.5, w: 4.5, h: 4.5,
-                            fontSize: 16,
-                            color: design.colors.text.replace('#', ''),
-                            fontFace: design.typography.body.font,
-                            valign: 'top'
-                        });
-                    }
-                } catch (chartError) {
-                    console.error('Chart generation error:', chartError);
-                    // Fall back to bullet-only layout
-                    addBulletLayout(contentSlide, slide, design);
+            try {
+                switch (layout) {
+                    case 'chart':      addChartLayout(pptx, s, slide, design, contentY);                 break;
+                    case 'quote':      addQuoteLayout(pptx, s, slide, design);                            break;
+                    case 'comparison': addComparisonLayout(pptx, s, slide, design, contentY);             break;
+                    case 'data':       addDataLayout(pptx, s, slide, design, contentY);                   break;
+                    case 'team':       addTeamLayout(pptx, s, slide, design, contentY);                   break;
+                    case 'market':     addMarketLayout(pptx, s, slide, design, contentY);                 break;
+                    case 'timeline':   addTimelineLayout(pptx, s, slide, design, contentY);               break;
+                    default:           addBulletLayout(s, slide, design, contentY);
                 }
-            } else {
-                // Standard bullet layout
-                addBulletLayout(contentSlide, slide, design);
+            } catch (e) {
+                console.warn(`[Slate] Layout "${layout}" failed on slide ${idx + 1}, falling back:`, e);
+                addBulletLayout(s, slide, design, contentY);
             }
 
-            // Speaker notes
-            if (slide.speakerNotes) {
-                contentSlide.addNotes(slide.speakerNotes);
-            }
+            // Speaker notes + AI image prompt + So What
+            const notesParts = [
+                slide.speakerNotes,
+                slide.soWhat ? `KEY TAKEAWAY: ${slide.soWhat}` : '',
+                imagePrompts?.[idx]?.prompt ? `[IMAGE PROMPT for DALL-E/Midjourney]:\n${imagePrompts[idx].prompt}` : ''
+            ].filter(Boolean);
+            if (notesParts.length) s.addNotes(notesParts.join('\n\n'));
 
-            // Add AI image prompt as note (for user to generate with DALL-E)
-            if (imagePrompts && imagePrompts[idx]) {
-                const promptNote = `\n\n[AI IMAGE PROMPT for DALL-E/Midjourney]:\n${imagePrompts[idx].prompt}`;
-                contentSlide.addNotes((slide.speakerNotes || '') + promptNote);
-            }
-
-            // Slide number
-            contentSlide.addText(`${idx + 1}`, {
-                x: 9.2, y: 7.0, w: 0.5, h: 0.3,
-                fontSize: 12,
-                color: design.colors.text.replace('#', ''),
-                align: 'right'
-            });
+            const slideNum = idx + 2 + dividerCount;
+            addSlideNumber(s, slideNum, totalSlideCount, design);
         }
 
-        // Thank You / Closing Slide
-        const closingSlide = pptx.addSlide({ masterName: 'MASTER_SLIDE' });
-        closingSlide.background = { fill: design.colors.primary };
-
-        closingSlide.addText('Thank You', {
-            x: 0.5, y: 2.5, w: 9.0, h: 1.5,
-            fontSize: 48,
-            bold: true,
-            color: 'FFFFFF',
-            align: 'center',
-            fontFace: design.typography.heading.font
-        });
-
-        closingSlide.addText(deckData.company, {
-            x: 0.5, y: 4.0, w: 9.0, h: 0.6,
-            fontSize: 20,
-            color: 'FFFFFF',
-            align: 'center',
-            fontFace: design.typography.body.font,
-            italic: true
-        });
+        // ── Closing Slide ────────────────────────────
+        const closingSlide = pptx.addSlide();
+        buildClosingSlide(pptx, closingSlide, deckData, design);
 
         return pptx;
-    }
-
-    // Helper: Add bullet-only layout
-    function addBulletLayout(slide, slideData, design) {
-        if (slideData.bullets && slideData.bullets.length > 0) {
-            const bulletText = slideData.bullets.map(b => ({
-                text: b,
-                options: {
-                    bullet: true,
-                    color: design.colors.text.replace('#', ''),
-                    fontSize: design.typography.body.size,
-                    fontFace: design.typography.body.font,
-                    paraSpaceAfter: 12
-                }
-            }));
-
-            slide.addText(bulletText, {
-                x: 0.8, y: 1.5, w: 8.5, h: 4.0,
-                fontSize: design.typography.body.size,
-                color: design.colors.text.replace('#', ''),
-                fontFace: design.typography.body.font
-            });
-        }
     }
 
     async function downloadPowerPoint() {
@@ -1324,15 +2457,16 @@ Respond with ONLY the image prompt, no other text.`;
             const slides = parseDeckStructure(window.currentDeckData.text);
 
             if (slides.length === 0) {
-                alert('Could not parse deck structure. Please ensure the deck has been generated first.');
+                alert('Could not parse slide structure from the generated deck.\n\nTip: Try regenerating — the AI occasionally uses a format the parser cannot read. If this happens repeatedly, check the browser console for the raw markdown.');
+                console.warn('[Slate] parseDeckStructure returned 0 slides. Raw markdown:\n', window.currentDeckData.text);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 return;
             }
 
-            // Step 3: Generate AI image prompts (for DALL-E/Midjourney)
+            // Step 3: Generate AI image prompts (for DALL-E/Midjourney) — one batched call
             btn.innerHTML = '<span class="spinner"></span> Creating Image Prompts...';
-            const imagePrompts = await generateImagePrompts(slides.slice(0, 3), window.currentDeckData.deckType); // First 3 slides only for performance
+            const { imagePrompts, aiGenerated } = await generateImagePrompts(slides, window.currentDeckData.deckType);
 
             // Step 4: Create PowerPoint with advanced visuals
             btn.innerHTML = '<span class="spinner"></span> Building PowerPoint...';
@@ -1345,10 +2479,10 @@ Respond with ONLY the image prompt, no other text.`;
             // Success feedback
             btn.innerHTML = '✓ Downloaded!';
 
-            // Show image prompt instructions
-            if (imagePrompts.length > 0) {
+            // Show image prompt instructions — only claim AI prompts when the batch call succeeded
+            if (aiGenerated && imagePrompts.length > 0) {
                 setTimeout(() => {
-                    alert(`PowerPoint downloaded! 🎉\n\nAI image prompts have been added to speaker notes for slides 1-3. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.\n\nTip: Configure Unsplash API key in settings for automatic stock images.`);
+                    alert(`PowerPoint downloaded!\n\nAI image prompts have been added to the speaker notes for all ${slides.length} slide${slides.length !== 1 ? 's' : ''}. Use these prompts with DALL-E or Midjourney to generate custom images, then insert them into your deck.`);
                 }, 500);
             }
 
@@ -1364,6 +2498,19 @@ Respond with ONLY the image prompt, no other text.`;
             btn.disabled = false;
         }
     }
+
+    // Boot template picker on DOM ready + prefill company name from BusinessBrain
+    document.addEventListener('DOMContentLoaded', () => {
+        initTemplatePicker();
+        try {
+            const companyEl = document.getElementById('company');
+            const brainName = window.IntelligenceEngine?.brain?.load()?.company?.name;
+            if (companyEl && !companyEl.value.trim() && brainName && String(brainName).trim()) {
+                companyEl.value = String(brainName).trim();
+                companyEl.title = 'Auto-filled from BusinessBrain';
+            }
+        } catch (e) { /* prefill is best-effort */ }
+    });
 </script>
 </body>
 </html>

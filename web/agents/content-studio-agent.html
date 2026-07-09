@@ -8,11 +8,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="../js/marked.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
+            --agent-color: #6366f1;
+            --agent-color-rgb: 99,102,241;
             --purple: #7c3aed;
             --pink: #ec4899;
             --cyan: #06b6d4;
@@ -93,11 +95,7 @@
             text-align: center;
         }
 
-        .hero-emoji {
-            font-size: 56px;
-            margin-bottom: 16px;
-            display: block;
-        }
+        .hero-emoji { display: none; }
 
         .hero h1 {
             font-size: 42px;
@@ -367,7 +365,7 @@
             Audema
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Content Studio</span>
+        <span class="nav-breadcrumb"><span style="color:#6366f1;font-weight:700;letter-spacing:1px;">INK</span> · Content Studio</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>
@@ -376,7 +374,7 @@
 </nav>
 
 <!-- HERO -->
-<div class="hero">
+<div class="hero" data-agent="ink">
     <span class="hero-emoji">✍️</span>
     <h1>Content Studio</h1>
     <p class="hero-tagline">Blog posts, copy, and brand voice — at scale</p>
@@ -438,6 +436,7 @@
         <div class="panel-header">
             <span class="panel-title">Generated Content</span>
             <div style="display:flex;gap:8px;">
+                <button class="btn-icon" id="wpBtn" onclick="showWpModal()" style="display:none;color:#818cf8;border-color:rgba(var(--agent-color-rgb),0.3);">⬆ WordPress</button>
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
@@ -476,9 +475,11 @@
 
 </div>
 
+<script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 class ContentStudioAgent {
     constructor() {
@@ -559,6 +560,12 @@ Write compelling, SEO-optimized content that:
             prompt += `## NOTE: Intelligence Layer Not Configured\nYou are operating without business context, competitive intelligence, or market signals. The content will be more generic than if the Intelligence Layer were configured. Still deliver high-quality work, but note that strategic differentiation requires BusinessBrain setup.\n\n`;
         }
 
+        if (window.ScottyIntake && typeof window.ScottyIntake.getScottyContext === 'function') {
+            const scottyCtx = window.ScottyIntake.getScottyContext();
+            // getScottyContext() already includes its own "## SCOTTY'S STRATEGIC BRIEF" header
+            if (scottyCtx) prompt += `${scottyCtx}\n`;
+        }
+
         return prompt;
     }
 
@@ -595,10 +602,6 @@ Write compelling, SEO-optimized content that:
                     <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (10 min)</a> for strategic, context-aware content.
                 </div>
             </div>`;
-            setTimeout(() => {
-                const topic = document.getElementById('topic').value.trim();
-                if (topic) this.run(); // Continue with generation after showing warning
-            }, 4000);
             return true;
         }
         return false;
@@ -637,10 +640,15 @@ Write compelling, SEO-optimized content that:
         const systemPrompt = this.buildSystemPrompt(contextBundle);
         const competitiveContext = this.buildCompetitiveContext(contextBundle);
 
+        const longFormTypes = ['Blog Post', 'Landing Page'];
+        const lengthLine = longFormTypes.includes(contentType)
+            ? `Target Length: ${wordCount}`
+            : `Length: platform-appropriate (short-form)`;
+
         const userMessage = `Write a ${contentType} about: ${topic}
 
 Brand Voice: ${brandVoice}
-Target Length: ${wordCount}
+${lengthLine}
 
 Deliver the complete piece ready to publish. Include a compelling headline/title.${competitiveContext}`;
 
@@ -656,7 +664,7 @@ Deliver the complete piece ready to publish. Include a compelling headline/title
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Content'; }
+                    onDone: () => { this.lastMarkdown = fullResponse; runBtn.disabled = false; runBtn.textContent = 'Generate Content'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'content-studio', taskType: contentType, content: fullResponse, topic }); }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
@@ -692,6 +700,109 @@ function downloadOutput() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `content-studio-${type}-${Date.now()}.txt`; a.click();
 }
+
+// ── WordPress Publish Integration ──────────────────────────────────────────
+
+function showWpModal() {
+    let modal = document.getElementById('wp-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wp-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        modal.innerHTML = `
+<div style="background:#13131f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:440px;max-width:92vw;">
+    <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;">Publish to WordPress</h3>
+    <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:24px;">Your credentials stay in your browser — never sent to our servers.</p>
+    <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">WordPress Site URL</label>
+        <input id="wp-url" type="url" placeholder="https://yoursite.com" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">Username</label>
+        <input id="wp-username" type="text" placeholder="admin" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="margin-bottom:22px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">
+            Application Password
+            <a href="https://wordpress.org/documentation/article/application-passwords/" target="_blank" rel="noopener" style="color:#818cf8;font-size:10px;margin-left:6px;font-weight:600;text-transform:none;letter-spacing:0;">How to create →</a>
+        </label>
+        <input id="wp-password" type="password" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+    </div>
+    <div style="display:flex;gap:10px;">
+        <button onclick="doPublishToWP()" style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:8px;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Publish as Draft</button>
+        <button onclick="document.getElementById('wp-modal').style.display='none'" style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;">Cancel</button>
+    </div>
+    <div id="wp-status" style="margin-top:14px;font-size:13px;line-height:1.5;"></div>
+</div>`;
+        document.body.appendChild(modal);
+        // Restore saved URL/username
+        const saved = sessionStorage.getItem('wp_config');
+        if (saved) try { const c = JSON.parse(saved); document.getElementById('wp-url').value = c.url || ''; document.getElementById('wp-username').value = c.username || ''; } catch(e) {}
+    } else {
+        modal.style.display = 'flex';
+    }
+}
+
+async function doPublishToWP() {
+    const url = (document.getElementById('wp-url').value || '').trim().replace(/\/$/, '');
+    const username = (document.getElementById('wp-username').value || '').trim();
+    const password = (document.getElementById('wp-password').value || '').trim();
+    const statusEl = document.getElementById('wp-status');
+    if (!url || !username || !password) { statusEl.innerHTML = '<span style="color:#ef4444;">Please fill in all fields.</span>'; return; }
+
+    sessionStorage.setItem('wp_config', JSON.stringify({ url, username }));
+
+    let title, htmlBody;
+    if (typeof agent !== 'undefined' && agent.lastMarkdown) {
+        // Use the raw markdown from the last generation — preserves headings, lists, bold, links
+        const md = agent.lastMarkdown;
+        const mdLines = md.split('\n').filter(l => l.trim());
+        const titleLine = mdLines[0] || 'Draft Post';
+        title = titleLine.replace(/^#+\s*/, '');
+        const idx = md.indexOf(titleLine);
+        const bodyMd = (idx >= 0 ? md.slice(idx + titleLine.length) : md).trim();
+        htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(bodyMd) : bodyMd.replace(/\n/g, '<br>');
+    } else {
+        // Fallback: rebuild from rendered text (markdown structure already stripped)
+        const outputEl = document.getElementById('output');
+        const rawText = outputEl ? (outputEl.innerText || outputEl.textContent) : '';
+        const lines = rawText.split('\n').filter(l => l.trim());
+        title = (lines[0] || 'Draft Post').replace(/^#+\s*/, '');
+        const body = lines.slice(1).join('\n\n');
+        htmlBody = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(body) : body.replace(/\n/g, '<br>');
+    }
+
+    statusEl.innerHTML = '<span style="color:#f59e0b;">Publishing…</span>';
+    try {
+        const resp = await fetch(url + '/wp-json/wp/v2/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa(username + ':' + password) },
+            body: JSON.stringify({ title, content: htmlBody, status: 'draft', format: 'standard' })
+        });
+        if (resp.ok) {
+            const post = await resp.json();
+            statusEl.innerHTML = `<span style="color:#10b981;">✅ Draft created!</span> <a href="${post.link}" target="_blank" rel="noopener" style="color:#818cf8;text-decoration:underline;">View in WordPress →</a>`;
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            statusEl.innerHTML = `<span style="color:#ef4444;">Error ${resp.status}: ${err.message || resp.statusText}</span>`;
+        }
+    } catch (e) {
+        statusEl.innerHTML = `<span style="color:#ef4444;">Connection failed. Check URL and that REST API is enabled: ${e.message}</span>`;
+    }
+}
+
+// Show WordPress button once output is populated
+const _wpObserver = new MutationObserver(() => {
+    const out = document.getElementById('output');
+    const wpBtn = document.getElementById('wpBtn');
+    if (wpBtn && out && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
+        wpBtn.style.display = '';
+    }
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const out = document.getElementById('output');
+    if (out) _wpObserver.observe(out, { childList: true, subtree: true });
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagnostics | Audema</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        body { background: #0a0a14; color: #e4e4e7; font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0; min-height: 100vh; }
+        .diag-wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px; }
+        .diag-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; gap: 16px; flex-wrap: wrap; }
+        .diag-header h1 { font-size: 28px; margin: 0 0 6px; }
+        .diag-header p { color: #a1a1aa; margin: 0; font-size: 14px; max-width: 600px; }
+        .btn { padding: 10px 18px; border-radius: 8px; border: 0; background: linear-gradient(135deg, #6366F1, #8B5CF6); color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; }
+        .btn:disabled { opacity: 0.5; cursor: wait; }
+        .btn-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+
+        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+        .summary-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; text-align: center; }
+        .summary-card .num { font-size: 24px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+        .summary-card .lbl { font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.04em; }
+        .summary-card.passed   .num { color: #10B981; }
+        .summary-card.warnings .num { color: #F59E0B; }
+        .summary-card.failed   .num { color: #EF4444; }
+        .summary-card.skipped  .num { color: #71717A; }
+
+        .check-list { display: flex; flex-direction: column; gap: 10px; }
+        .check { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 18px; display: grid; grid-template-columns: 28px 1fr auto; gap: 14px; align-items: center; }
+        .check.status-ok      { border-left: 3px solid #10B981; }
+        .check.status-warn    { border-left: 3px solid #F59E0B; }
+        .check.status-error   { border-left: 3px solid #EF4444; }
+        .check.status-skipped { border-left: 3px solid #52525B; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .check.status-ok      .dot { background: #10B981; }
+        .check.status-warn    .dot { background: #F59E0B; }
+        .check.status-error   .dot { background: #EF4444; }
+        .check.status-skipped .dot { background: #52525B; }
+        .check .name { font-weight: 600; margin-bottom: 2px; }
+        .check .msg { color: #a1a1aa; font-size: 13px; line-height: 1.5; }
+        .check .latency { font-size: 12px; color: #71717A; font-variant-numeric: tabular-nums; }
+
+        .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #71717A; margin: 28px 0 12px; }
+        .empty { color: #71717A; font-size: 14px; padding: 12px 0; }
+        .error-banner { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #FCA5A5; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .info-banner  { background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); color: #C7D2FE; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        a.backlink { color: #a1a1aa; text-decoration: none; font-size: 13px; }
+        a.backlink:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="diag-wrap">
+        <a class="backlink" href="dashboard.html">← Back to dashboard</a>
+
+        <div class="diag-header" style="margin-top: 16px;">
+            <div>
+                <h1>System Diagnostics</h1>
+                <p>Checks every service Audema depends on and explains why anything isn't connected. Re-run this any time something looks off.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-secondary btn" id="runProjectChecks" type="button">Test Integrations</button>
+                <button class="btn" id="runChecks" type="button">Run All Checks</button>
+            </div>
+        </div>
+
+        <div id="banner"></div>
+
+        <div class="summary" id="summary" hidden>
+            <div class="summary-card passed"   ><div class="num" id="sumPassed">0</div><div class="lbl">Passed</div></div>
+            <div class="summary-card warnings" ><div class="num" id="sumWarn">0</div>  <div class="lbl">Warnings</div></div>
+            <div class="summary-card failed"   ><div class="num" id="sumFailed">0</div><div class="lbl">Failed</div></div>
+            <div class="summary-card skipped"  ><div class="num" id="sumSkipped">0</div><div class="lbl">Skipped</div></div>
+        </div>
+
+        <div class="section-title">System</div>
+        <div class="check-list" id="systemChecks"><div class="empty">Click "Run All Checks" to begin.</div></div>
+
+        <div class="section-title">Project integrations</div>
+        <div class="check-list" id="projectChecks"><div class="empty">Click "Test Integrations" to test the active project's connected services.</div></div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api-client.js"></script>
+    <script>
+    (function () {
+        'use strict';
+
+        const apiBase = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000/api'
+            : '/api';
+
+        const els = {
+            runChecks: document.getElementById('runChecks'),
+            runProjectChecks: document.getElementById('runProjectChecks'),
+            banner: document.getElementById('banner'),
+            summary: document.getElementById('summary'),
+            sumPassed: document.getElementById('sumPassed'),
+            sumWarn: document.getElementById('sumWarn'),
+            sumFailed: document.getElementById('sumFailed'),
+            sumSkipped: document.getElementById('sumSkipped'),
+            systemChecks: document.getElementById('systemChecks'),
+            projectChecks: document.getElementById('projectChecks')
+        };
+
+        function setBanner(html, kind = 'info') {
+            if (!html) { els.banner.innerHTML = ''; return; }
+            const cls = kind === 'error' ? 'error-banner' : 'info-banner';
+            els.banner.innerHTML = `<div class="${cls}">${html}</div>`;
+        }
+
+        function statusClass(status) {
+            return status === 'ok' ? 'status-ok'
+                : status === 'warn' ? 'status-warn'
+                : status === 'skipped' ? 'status-skipped'
+                : 'status-error';
+        }
+
+        function renderChecks(container, checks) {
+            if (!checks || checks.length === 0) {
+                container.innerHTML = '<div class="empty">No checks ran.</div>';
+                return;
+            }
+            container.innerHTML = checks.map((c) => `
+                <div class="check ${statusClass(c.status)}">
+                    <div class="dot"></div>
+                    <div>
+                        <div class="name">${escapeHtml(c.name || c.id)}</div>
+                        <div class="msg">${escapeHtml(c.message || '')}</div>
+                    </div>
+                    <div class="latency">${c.latencyMs != null ? c.latencyMs + ' ms' : ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
+        function renderSummary(summary) {
+            if (!summary) { els.summary.hidden = true; return; }
+            els.sumPassed.textContent  = summary.passed   || 0;
+            els.sumWarn.textContent    = summary.warnings || 0;
+            els.sumFailed.textContent  = summary.failed   || 0;
+            els.sumSkipped.textContent = summary.skipped  || 0;
+            els.summary.hidden = false;
+        }
+
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        async function callDiagnostics(path, method = 'GET', body = null) {
+            const token = getToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token && !token.startsWith('local_')) {
+                headers.Authorization = 'Bearer ' + token;
+            }
+            const res = await fetch(apiBase + path, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined
+            });
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { data = null; }
+            if (!res.ok) {
+                const err = new Error((data && data.error) || ('HTTP ' + res.status));
+                err.status = res.status;
+                err.body = data;
+                throw err;
+            }
+            return data;
+        }
+
+        // ── Browser-side checks for offline / no-backend mode ────────────────
+        async function runOfflineChecks() {
+            const checks = [];
+
+            checks.push({
+                id: 'mode',
+                name: 'Backend reachable',
+                status: 'warn',
+                message: 'Could not reach /api/diagnostics. You are running in static / offline mode — projects and analyses will use localStorage only. Sign in to the backend to unlock cloud persistence.'
+            });
+
+            const cfg = window.APP_CONFIG || {};
+            const supabaseConfigured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+            checks.push({
+                id: 'supabase',
+                name: 'Supabase',
+                status: supabaseConfigured ? 'ok' : 'warn',
+                message: supabaseConfigured
+                    ? 'Supabase URL and anon key are configured.'
+                    : 'Supabase is not configured (window.APP_CONFIG.SUPABASE_URL / SUPABASE_ANON_KEY missing). Projects will only persist in this browser.'
+            });
+
+            const token = getToken();
+            checks.push({
+                id: 'session',
+                name: 'Session token',
+                status: !token ? 'warn'
+                    : token.startsWith('local_') ? 'warn'
+                    : 'ok',
+                message: !token ? 'No session token in localStorage. Sign in to enable cloud features.'
+                    : token.startsWith('local_') ? 'Only an offline demo token is present. Sign in to a real backend for cloud persistence.'
+                    : 'Real session token present.'
+            });
+
+            return {
+                summary: checks.reduce((acc, c) => {
+                    if (c.status === 'ok') acc.passed += 1;
+                    else if (c.status === 'warn') acc.warnings += 1;
+                    else if (c.status === 'skipped') acc.skipped += 1;
+                    else acc.failed += 1;
+                    return acc;
+                }, { passed: 0, warnings: 0, failed: 0, skipped: 0 }),
+                checks
+            };
+        }
+
+        async function runAll() {
+            els.runChecks.disabled = true;
+            els.runChecks.textContent = 'Running…';
+            setBanner('');
+            try {
+                const res = await callDiagnostics('/diagnostics', 'GET');
+                renderSummary(res.summary);
+                renderChecks(els.systemChecks, res.checks);
+            } catch (e) {
+                if (e.status === 401) {
+                    setBanner('You must be signed in to run system diagnostics. Showing browser-side checks instead.', 'info');
+                } else {
+                    setBanner('Could not reach /api/diagnostics: ' + escapeHtml(e.message), 'error');
+                }
+                const offline = await runOfflineChecks();
+                renderSummary(offline.summary);
+                renderChecks(els.systemChecks, offline.checks);
+            } finally {
+                els.runChecks.disabled = false;
+                els.runChecks.textContent = 'Run All Checks';
+            }
+        }
+
+        async function getActiveProjectId() {
+            // Try the camelCase wizard key first, then ProjectService, then localStorage ID.
+            try {
+                const stored = localStorage.getItem('seo-current-project-data');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && parsed.id) return parsed.id;
+                }
+            } catch (_) { /* ignore */ }
+            const id = localStorage.getItem('seo-current-project');
+            return id || null;
+        }
+
+        async function runProject() {
+            els.runProjectChecks.disabled = true;
+            els.runProjectChecks.textContent = 'Testing…';
+            try {
+                const projectId = await getActiveProjectId();
+                if (!projectId) {
+                    renderChecks(els.projectChecks, [{
+                        id: 'no_project', name: 'No active project',
+                        status: 'warn',
+                        message: 'Set up a project in the wizard first, then come back.'
+                    }]);
+                    return;
+                }
+                const res = await callDiagnostics('/diagnostics/project', 'POST', { projectId });
+                renderChecks(els.projectChecks, res.checks);
+            } catch (e) {
+                renderChecks(els.projectChecks, [{
+                    id: 'project_diag', name: 'Project diagnostics',
+                    status: 'error',
+                    message: 'Could not run integration tests: ' + e.message
+                }]);
+            } finally {
+                els.runProjectChecks.disabled = false;
+                els.runProjectChecks.textContent = 'Test Integrations';
+            }
+        }
+
+        els.runChecks.addEventListener('click', runAll);
+        els.runProjectChecks.addEventListener('click', runProject);
+
+        // Run on load so the page is useful immediately.
+        runAll();
+    })();
+    </script>
+</body>
+</html>

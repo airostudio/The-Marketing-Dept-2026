@@ -1,1566 +1,2192 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lead Generation Specialist - Aduma Marketing</title>
-    <link rel="stylesheet" href="/css/styles.css">
-    <style>
-        :root {
-            --primary: #3b82f6;
-            --secondary: #8b5cf6;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --dark: #1e293b;
-            --light: #f8fafc;
-        }
-
-        .leadgen-container {
-            padding: 2rem;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .page-header h1 {
-            font-size: 1.75rem;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2563eb;
-        }
-
-        .btn-secondary {
-            background: #e2e8f0;
-            color: var(--dark);
-        }
-
-        .btn-secondary:hover {
-            background: #cbd5e1;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        /* Stats Cards */
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 1rem;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .stat-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-
-        .stat-icon.blue { background: #dbeafe; }
-        .stat-icon.green { background: #d1fae5; }
-        .stat-icon.orange { background: #fef3c7; }
-        .stat-icon.red { background: #fee2e2; }
-        .stat-icon.purple { background: #ede9fe; }
-
-        .stat-content h3 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--dark);
-            margin: 0;
-        }
-
-        .stat-content p {
-            color: #64748b;
-            margin: 0;
-            font-size: 0.875rem;
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 0;
-        }
-
-        .tab {
-            padding: 0.75rem 1.25rem;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-weight: 500;
-            color: #64748b;
-            position: relative;
-            transition: all 0.2s;
-        }
-
-        .tab:hover {
-            color: var(--primary);
-        }
-
-        .tab.active {
-            color: var(--primary);
-        }
-
-        .tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--primary);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Pipeline View */
-        .pipeline-container {
-            display: flex;
-            gap: 1rem;
-            overflow-x: auto;
-            padding-bottom: 1rem;
-        }
-
-        .pipeline-stage {
-            min-width: 280px;
-            background: #f1f5f9;
-            border-radius: 0.75rem;
-            padding: 1rem;
-        }
-
-        .stage-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .stage-title {
-            font-weight: 600;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stage-count {
-            background: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .prospect-card {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .prospect-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .prospect-name {
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 0.25rem;
-        }
-
-        .prospect-company {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-bottom: 0.5rem;
-        }
-
-        .prospect-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.75rem;
-        }
-
-        .lead-score {
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-weight: 600;
-        }
-
-        .score-hot { background: #fee2e2; color: #dc2626; }
-        .score-warm { background: #fef3c7; color: #d97706; }
-        .score-cold { background: #dbeafe; color: #2563eb; }
-
-        /* Outreach Section */
-        .outreach-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-
-        @media (max-width: 1024px) {
-            .outreach-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .panel-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .panel-header h3 {
-            margin: 0;
-            font-size: 1.1rem;
-            color: var(--dark);
-        }
-
-        .panel-body {
-            padding: 1.5rem;
-        }
-
-        /* Sequence List */
-        .sequence-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .sequence-info h4 {
-            margin: 0 0 0.25rem 0;
-            color: var(--dark);
-        }
-
-        .sequence-info p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: #64748b;
-        }
-
-        .sequence-stats {
-            display: flex;
-            gap: 1rem;
-            font-size: 0.75rem;
-        }
-
-        .sequence-stats span {
-            padding: 0.25rem 0.5rem;
-            background: #f1f5f9;
-            border-radius: 0.25rem;
-        }
-
-        /* Template Card */
-        .template-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .template-card:hover {
-            border-color: var(--primary);
-            background: #f8fafc;
-        }
-
-        .template-card h4 {
-            margin: 0 0 0.5rem 0;
-            color: var(--dark);
-        }
-
-        .template-card .subject {
-            font-size: 0.875rem;
-            color: #64748b;
-        }
-
-        /* Campaign Cards */
-        .campaign-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .campaign-card {
-            background: white;
-            border-radius: 1rem;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .campaign-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-
-        .campaign-title {
-            font-weight: 600;
-            color: var(--dark);
-            margin: 0 0 0.25rem 0;
-        }
-
-        .campaign-type {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
-        .campaign-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .status-active { background: #d1fae5; color: #059669; }
-        .status-draft { background: #e2e8f0; color: #64748b; }
-        .status-paused { background: #fef3c7; color: #d97706; }
-
-        .campaign-metrics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .campaign-metric {
-            text-align: center;
-        }
-
-        .campaign-metric .value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--dark);
-        }
-
-        .campaign-metric .label {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
-        /* Qualification Panel */
-        .qualification-form {
-            display: grid;
-            gap: 1.5rem;
-        }
-
-        .bant-section {
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            padding: 1rem;
-        }
-
-        .bant-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .bant-header h4 {
-            margin: 0;
-            color: var(--dark);
-        }
-
-        .bant-score {
-            font-weight: 600;
-            padding: 0.25rem 0.75rem;
-            background: #f1f5f9;
-            border-radius: 0.25rem;
-        }
-
-        .bant-questions {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .bant-question {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        /* Analytics Section */
-        .analytics-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-        }
-
-        @media (max-width: 1024px) {
-            .analytics-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .funnel-chart {
-            padding: 1.5rem;
-        }
-
-        .funnel-stage {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .funnel-bar {
-            height: 40px;
-            background: var(--primary);
-            border-radius: 0.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 1rem;
-            color: white;
-            font-weight: 600;
-            min-width: 50px;
-            transition: all 0.3s;
-        }
-
-        .funnel-label {
-            min-width: 100px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        .source-list {
-            padding: 1rem;
-        }
-
-        .source-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .source-item:last-child {
-            border-bottom: none;
-        }
-
-        .source-name {
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        .source-count {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .source-bar {
-            height: 8px;
-            background: var(--primary);
-            border-radius: 4px;
-            min-width: 20px;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 1rem;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            color: var(--dark);
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #64748b;
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            font-size: 1rem;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        /* Activity Timeline */
-        .activity-timeline {
-            padding: 1rem;
-        }
-
-        .activity-item {
-            display: flex;
-            gap: 1rem;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .activity-icon.email { background: #dbeafe; color: #3b82f6; }
-        .activity-icon.call { background: #d1fae5; color: #10b981; }
-        .activity-icon.meeting { background: #fef3c7; color: #f59e0b; }
-        .activity-icon.note { background: #e2e8f0; color: #64748b; }
-
-        .activity-content {
-            flex: 1;
-        }
-
-        .activity-content p {
-            margin: 0 0 0.25rem 0;
-            color: var(--dark);
-        }
-
-        .activity-content small {
-            color: #64748b;
-        }
-
-        /* Nurture Tracks */
-        .nurture-tracks {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .nurture-track {
-            border: 1px solid #e2e8f0;
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-        }
-
-        .track-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
-
-        .track-header h4 {
-            margin: 0;
-            color: var(--dark);
-        }
-
-        .track-description {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-bottom: 1rem;
-        }
-
-        .track-touchpoints {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .touchpoint {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.5rem;
-            background: #f1f5f9;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-        }
-
-        .touchpoint-day {
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #64748b;
-        }
-
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        .empty-state h3 {
-            margin: 0 0 0.5rem 0;
-            color: var(--dark);
-        }
-
-        .empty-state p {
-            margin: 0 0 1rem 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Delivery | Audema</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0a14;
+      --surface:  #111120;
+      --card:     rgba(255,255,255,0.04);
+      --border:   rgba(255,255,255,0.08);
+      --text:     #e4e4e7;
+      --text2:    #a1a1aa;
+      --text3:    #71717a;
+      --green:    #10b981;
+      --green-bg: rgba(16,185,129,0.10);
+      --green-bd: rgba(16,185,129,0.25);
+      --amber:    #f59e0b;
+      --amber-bg: rgba(245,158,11,0.10);
+      --amber-bd: rgba(245,158,11,0.25);
+      --red:      #ef4444;
+      --red-bg:   rgba(239,68,68,0.10);
+      --red-bd:   rgba(239,68,68,0.25);
+      --indigo:   #6366f1;
+      --indigo-bg:rgba(99,102,241,0.10);
+      --indigo-bd:rgba(99,102,241,0.25);
+      --purple:   #8b5cf6;
+      --radius:   12px;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-logo { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 20px; padding: 0 8px; }
+    .sidebar-logo span { background: linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--text2); text-decoration: none; font-size: 13px; transition: background .15s, color .15s; }
+    .sidebar-link:hover { background: var(--card); color: var(--text); }
+    .sidebar-link.active { background: var(--indigo-bg); color: var(--indigo); font-weight: 600; }
+    .sidebar-section { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); padding: 16px 12px 6px; }
+
+    .main { display: flex; flex-direction: column; overflow: hidden; }
+
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); gap: 16px; }
+    .topbar-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+    .topbar-subtitle { font-size: 12px; color: var(--text2); font-weight: 400; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    .positioning-bar { padding: 14px 28px; background: linear-gradient(90deg, rgba(99,102,241,0.06), rgba(139,92,246,0.06)); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text2); }
+    .positioning-bar strong { color: var(--text); }
+
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 18px 28px 0; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .stat-num  { font-size: 24px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+    .stat-lbl  { font-size: 11px; color: var(--text2); }
+    .stat-card.s-green  { border-left: 3px solid var(--green); }
+    .stat-card.s-green .stat-num  { color: var(--green); }
+    .stat-card.s-amber  { border-left: 3px solid var(--amber); }
+    .stat-card.s-amber .stat-num  { color: var(--amber); }
+    .stat-card.s-indigo { border-left: 3px solid var(--indigo); }
+    .stat-card.s-indigo .stat-num { color: var(--indigo); }
+    .stat-card.s-purple { border-left: 3px solid var(--purple); }
+    .stat-card.s-purple .stat-num { color: var(--purple); }
+    .stat-card.s-base   { border-left: 3px solid var(--border); }
+
+    .tabs { display: flex; gap: 4px; padding: 18px 28px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tab-btn { padding: 9px 16px; border: none; background: none; color: var(--text2); font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--indigo); }
+
+    .content { padding: 24px 28px; flex: 1; overflow-y: auto; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .btn { padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .45; cursor: wait; }
+    .btn-primary { background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; }
+    .btn-green   { background: var(--green); color: #fff; }
+    .btn-ghost   { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+    .btn-sm      { padding: 6px 12px; font-size: 12px; }
+    .btn-danger  { background: var(--red-bg); border: 1px solid var(--red-bd); color: var(--red); }
+
+    /* ── Section / cards ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .section-title  { font-size: 15px; font-weight: 700; }
+    .section-sub    { font-size: 13px; color: var(--text2); margin-top: 2px; max-width: 720px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .card-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .card-sub { font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.5; }
+
+    /* ── Forms ── */
+    .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .form-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+    .form-input, .form-select, .form-textarea {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+      transition: border-color .15s;
+    }
+    .form-input:focus,.form-select:focus,.form-textarea:focus { border-color: var(--indigo); }
+    .form-textarea { resize: vertical; min-height: 70px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-help { font-size: 11px; color: var(--text3); margin-top: 3px; line-height: 1.5; }
+
+    /* ── AI Panel ── */
+    .ai-panel { background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+    .ai-panel h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .ai-panel p  { font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.5; }
+    .ai-output   { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.7; color: var(--text2); min-height: 60px; max-height: 480px; overflow-y: auto; margin-top: 12px; }
+    .ai-output h1,.ai-output h2,.ai-output h3 { color: var(--text); font-size: 14px; margin: 12px 0 6px; }
+    .ai-output ul,.ai-output ol { padding-left: 18px; }
+    .ai-output li { margin: 3px 0; }
+    .ai-output strong { color: var(--text); }
+    .ai-output code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+    .ai-placeholder { color: var(--text3); font-style: italic; }
+
+    /* ── Lead Cards (Inbox) ── */
+    .lead-grid { display: flex; flex-direction: column; gap: 12px; }
+    .lead-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; transition: border-color .15s; }
+    .lead-card:hover { border-color: rgba(99,102,241,0.35); }
+    .lead-card.status-new    { border-left: 3px solid var(--green); }
+    .lead-card.status-called { border-left: 3px solid var(--amber); }
+    .lead-card.status-booked { border-left: 3px solid var(--indigo); }
+    .lead-card.status-closed { border-left: 3px solid var(--text3); }
+    /* ── Enrichment / verification badges ── */
+    .ev-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 7px; border-radius:20px; border:1px solid; }
+    .ev-valid   { background:rgba(16,185,129,.12); color:#10b981; border-color:rgba(16,185,129,.3); }
+    .ev-risky   { background:rgba(245,158,11,.12); color:#f59e0b; border-color:rgba(245,158,11,.3); }
+    .ev-invalid { background:rgba(239,68,68,.12);  color:#ef4444; border-color:rgba(239,68,68,.3); }
+    .ev-unknown { background:rgba(107,114,128,.1); color:#9ca3af; border-color:rgba(107,114,128,.3); }
+    .ev-loading { background:rgba(99,102,241,.1);  color:#818cf8; border-color:rgba(99,102,241,.3); animation:pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    .enrich-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:5px; }
+    .enrich-chip { font-size:11px; color:var(--text2); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; padding:2px 8px; }
+    .social-link { font-size:11px; color:var(--indigo); text-decoration:none; }
+    .social-link:hover { text-decoration:underline; }
+    .lead-name    { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .lead-meta    { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+    .lead-contact { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .lead-contact-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    .lead-contact-item a { color: var(--green); text-decoration: none; font-weight: 600; }
+    .lead-contact-item a:hover { text-decoration: underline; }
+    .lead-reply   { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; color: var(--text2); line-height: 1.6; font-style: italic; margin-bottom: 12px; }
+    .lead-campaign-tag { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: var(--indigo-bg); color: var(--indigo); border: 1px solid var(--indigo-bd); }
+    .lead-trigger-tag { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+    .lead-ts      { font-size: 11px; color: var(--text3); }
+    .lead-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+    .status-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .status-badge.new    { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+    .status-badge.called { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+    .status-badge.booked { background: var(--indigo-bg); color: var(--indigo); border: 1px solid var(--indigo-bd); }
+    .status-badge.closed { background: var(--card);      color: var(--text3);  border: 1px solid var(--border); }
+
+    /* ── Empty State ── */
+    .empty-state { text-align: center; padding: 56px 24px; color: var(--text2); }
+    .empty-state .empty-icon { font-size: 38px; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .empty-state p  { font-size: 13px; max-width: 360px; margin: 0 auto; }
+
+    /* ── Campaigns ── */
+    .campaign-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .campaign-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+    .campaign-name   { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .campaign-angle  { font-size: 12px; color: var(--text2); font-style: italic; line-height: 1.5; }
+    .campaign-stats  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .cstat { text-align: center; }
+    .cstat-num { font-size: 18px; font-weight: 700; }
+    .cstat-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; }
+    .cstat-num.green  { color: var(--green); }
+    .cstat-num.amber  { color: var(--amber); }
+    .cstat-num.indigo { color: var(--indigo); }
+
+    .trigger-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .trigger-card .trigger-icon { font-size: 22px; }
+    .trigger-card .trigger-name { font-size: 14px; font-weight: 700; }
+    .trigger-card .trigger-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+    .trigger-card .trigger-msg  { font-size: 12px; color: var(--text); background: rgba(255,255,255,0.03); border-left: 2px solid var(--indigo); padding: 8px 10px; line-height: 1.5; font-style: italic; }
+
+    /* ── Prospect Table ── */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: rgba(255,255,255,0.03); color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; display: inline-block; }
+    .ps-pending  { background: var(--card);      color: var(--text3);  border: 1px solid var(--border); }
+    .ps-inseq    { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+    .ps-replied  { background: var(--indigo-bg); color: var(--indigo); border: 1px solid var(--indigo-bd); }
+    .ps-positive { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+    .ps-negative { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-bd); }
+
+    /* ── Signal items ── */
+    .signal-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .signal-item .sig-icon { font-size: 18px; flex-shrink: 0; }
+    .signal-item .sig-body { flex: 1; }
+    .signal-item .sig-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .signal-item .sig-meta { font-size: 11px; color: var(--text3); }
+    .signal-item .sig-desc { font-size: 12px; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+
+    /* ── Checklist ── */
+    .checklist { display: flex; flex-direction: column; gap: 8px; }
+    .check-item { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; }
+    .check-item input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--indigo); cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+    .check-item label { cursor: pointer; line-height: 1.4; }
+    .check-item label span { color: var(--text3); font-size: 12px; display: block; margin-top: 2px; }
+
+    /* ── Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #16162a; border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0; margin-bottom: 16px; }
+    .modal-title { font-size: 17px; font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; line-height: 1; }
+    .modal-body   { padding: 0 24px 24px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); color: var(--text2); font-size: 12px; cursor: pointer; transition: all .15s; }
+    .filter-btn:hover,.filter-btn.active { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-bg); }
+
+    .save-toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-bg); border: 1px solid var(--green-bd); color: var(--green); padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none; z-index: 2000; }
+    .save-toast.show { opacity: 1; transform: translateY(0); }
+
+    .pill-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+    .pill-status.active   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+    .pill-status.planning { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+    .pill-status.idle     { background: var(--card);      color: var(--text3);  border: 1px solid var(--border); }
+
+    /* ── Signal badges (per-prospect) ── */
+    .sig-badge { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+    .sig-hiring    { background:rgba(16,185,129,.12);  color:#10b981; border:1px solid rgba(16,185,129,.3); }
+    .sig-funding   { background:rgba(245,158,11,.12);  color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+    .sig-leadership{ background:rgba(139,92,246,.12);  color:#a78bfa; border:1px solid rgba(139,92,246,.3); }
+    .sig-growth    { background:rgba(59,130,246,.12);  color:#60a5fa; border:1px solid rgba(59,130,246,.3); }
+    .sig-competitor{ background:rgba(236,72,153,.12);  color:#f472b6; border:1px solid rgba(236,72,153,.3); }
+    .sig-tech      { background:rgba(20,184,166,.12);  color:#2dd4bf; border:1px solid rgba(20,184,166,.3); }
+    .sig-news      { background:rgba(251,191,36,.12);  color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
+
+    /* ── Priority score bar ── */
+    .score-wrap { display:flex; align-items:center; gap:6px; }
+    .score-num  { font-size:13px; font-weight:800; min-width:28px; }
+    .score-bar-bg { flex:1; height:4px; background:rgba(255,255,255,.07); border-radius:2px; min-width:36px; }
+    .score-fill { height:100%; border-radius:2px; transition:width .4s; }
+    .score-hi  .score-num { color:var(--green); }
+    .score-mid .score-num { color:var(--amber); }
+    .score-lo  .score-num { color:var(--text3); }
+    .score-hi  .score-fill { background:var(--green); }
+    .score-mid .score-fill { background:var(--amber); }
+    .score-lo  .score-fill { background:var(--text3); }
+
+    /* ── Outreach draft modal ── */
+    .draft-block { margin-bottom:14px; }
+    .draft-lbl   { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:5px; }
+    .draft-pre   { background:rgba(0,0,0,.28); border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.65; color:var(--text2); white-space:pre-wrap; max-height:220px; overflow-y:auto; }
+    .draft-edit  { width:100%; margin-top:6px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-size:13px; font-family:inherit; resize:vertical; min-height:90px; line-height:1.6; outline:none; }
+    .draft-edit:focus { border-color:var(--indigo); }
+
+    /* ── AI signal finder results ── */
+    .sf-result { display:flex; gap:10px; align-items:flex-start; padding:12px; background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
+    .sf-icon   { font-size:16px; flex-shrink:0; margin-top:1px; }
+    .sf-body   { flex:1; min-width:0; }
+    .sf-title  { font-size:13px; font-weight:600; margin-bottom:2px; }
+    .sf-detail { font-size:12px; color:var(--text2); line-height:1.45; }
+    .sf-conf   { font-size:11px; color:var(--text3); margin-top:3px; }
+
+    /* ── Approval queue ── */
+    .approval-card { background:var(--card); border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:var(--radius); padding:16px 18px; margin-bottom:10px; }
+    .approval-meta { font-size:12px; color:var(--text3); margin-bottom:6px; }
+    .approval-subject { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .approval-preview { font-size:13px; color:var(--text2); line-height:1.5; margin-bottom:10px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+    .approval-actions { display:flex; gap:8px; }
+  </style>
 </head>
 <body>
-    <div class="leadgen-container">
-        <!-- Page Header -->
-        <div class="page-header">
-            <h1>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-                Lead Generation Specialist
-            </h1>
-            <div class="header-actions">
-                <button class="btn btn-secondary" onclick="exportLeads()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Export
-                </button>
-                <button class="btn btn-primary" onclick="openAddLeadModal()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    Add Lead
-                </button>
-            </div>
-        </div>
+<div class="layout">
 
-        <!-- Stats Row -->
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-icon blue">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <h3 id="totalLeads">0</h3>
-                    <p>Total Leads</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon red">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <h3 id="hotLeads">0</h3>
-                    <p>Hot Leads</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon green">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <h3 id="qualifiedLeads">0</h3>
-                    <p>Qualified</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon orange">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"/>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <h3 id="pipelineValue">$0</h3>
-                    <p>Pipeline Value</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon purple">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <h3 id="conversionRate">0%</h3>
-                    <p>Conversion Rate</p>
-                </div>
-            </div>
-        </div>
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <a class="sidebar-logo" href="/hub.html" style="display:block;text-decoration:none;">⚡ <span>Audema</span></a>
 
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" data-tab="pipeline">Pipeline</button>
-            <button class="tab" data-tab="outreach">Outreach</button>
-            <button class="tab" data-tab="campaigns">Campaigns</button>
-            <button class="tab" data-tab="qualification">Qualification</button>
-            <button class="tab" data-tab="nurturing">Nurturing</button>
-            <button class="tab" data-tab="analytics">Analytics</button>
-        </div>
+    <div class="sidebar-section">Navigation</div>
+    <a class="sidebar-link" href="/dashboard.html">🏠 Dashboard</a>
+    <a class="sidebar-link" href="/hub.html">🤖 Agent Hub</a>
+    <a class="sidebar-link" href="/scotty.html">🧠 Scotty (CMO)</a>
 
-        <!-- Pipeline Tab -->
-        <div class="tab-content active" id="tab-pipeline">
-            <div class="pipeline-container" id="pipelineView">
-                <!-- Pipeline stages populated by JS -->
-            </div>
-        </div>
+    <div class="sidebar-section">Lead Gen</div>
+    <a class="sidebar-link active" href="/marketing/lead-generation.html">📥 Lead Delivery</a>
+    <a class="sidebar-link" href="/agents/email-agent.html">✉️ Email Sequences</a>
+    <a class="sidebar-link" href="/agents/sales-agent.html">🎯 Sales Intelligence</a>
 
-        <!-- Outreach Tab -->
-        <div class="tab-content" id="tab-outreach">
-            <div class="outreach-grid">
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Active Sequences</h3>
-                        <button class="btn btn-primary" onclick="createSequence()">+ New Sequence</button>
-                    </div>
-                    <div class="panel-body" id="sequencesList">
-                        <!-- Sequences populated by JS -->
-                    </div>
-                </div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Email Templates</h3>
-                        <button class="btn btn-secondary" onclick="createTemplate()">+ Template</button>
-                    </div>
-                    <div class="panel-body" id="templatesList">
-                        <!-- Templates populated by JS -->
-                    </div>
-                </div>
-            </div>
-            <div class="panel" style="margin-top: 1.5rem;">
-                <div class="panel-header">
-                    <h3>Recent Activity</h3>
-                </div>
-                <div class="activity-timeline" id="activityTimeline">
-                    <!-- Activity populated by JS -->
-                </div>
-            </div>
-        </div>
+    <div class="sidebar-section">Intelligence</div>
+    <a class="sidebar-link" href="/intelligence/business-brain.html">🧠 Business Brain</a>
+    <a class="sidebar-link" href="/intelligence/competitive-radar.html">🔭 Competitive Radar</a>
 
-        <!-- Campaigns Tab -->
-        <div class="tab-content" id="tab-campaigns">
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
-                <button class="btn btn-primary" onclick="createCampaign()">+ New Campaign</button>
-            </div>
-            <div class="campaign-grid" id="campaignGrid">
-                <!-- Campaigns populated by JS -->
-            </div>
-        </div>
+    <div class="sidebar-section">Settings</div>
+    <a class="sidebar-link" href="/settings.html">⚙️ Settings</a>
+  </aside>
 
-        <!-- Qualification Tab -->
-        <div class="tab-content" id="tab-qualification">
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>Lead Scoring Model (BANT)</h3>
-                    <button class="btn btn-secondary" onclick="editScoringModel()">Edit Model</button>
-                </div>
-                <div class="panel-body">
-                    <div class="qualification-form" id="qualificationForm">
-                        <div class="bant-section">
-                            <div class="bant-header">
-                                <h4>Budget</h4>
-                                <span class="bant-score">25 pts</span>
-                            </div>
-                            <div class="bant-questions">
-                                <label class="bant-question">
-                                    <input type="checkbox" name="budget_allocated"> Has budget allocated?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="budget_confirmed"> Budget amount confirmed?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="budget_timeline"> Budget timeline known?
-                                </label>
-                            </div>
-                        </div>
-                        <div class="bant-section">
-                            <div class="bant-header">
-                                <h4>Authority</h4>
-                                <span class="bant-score">25 pts</span>
-                            </div>
-                            <div class="bant-questions">
-                                <label class="bant-question">
-                                    <input type="checkbox" name="is_decision_maker"> Is decision maker?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="influences_decision"> Influences decision?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="access_dm"> Access to decision maker?
-                                </label>
-                            </div>
-                        </div>
-                        <div class="bant-section">
-                            <div class="bant-header">
-                                <h4>Need</h4>
-                                <span class="bant-score">25 pts</span>
-                            </div>
-                            <div class="bant-questions">
-                                <label class="bant-question">
-                                    <input type="checkbox" name="pain_identified"> Has identified pain point?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="urgency"> Urgency exists?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="priority"> Problem is priority?
-                                </label>
-                            </div>
-                        </div>
-                        <div class="bant-section">
-                            <div class="bant-header">
-                                <h4>Timeline</h4>
-                                <span class="bant-score">25 pts</span>
-                            </div>
-                            <div class="bant-questions">
-                                <label class="bant-question">
-                                    <input type="checkbox" name="has_timeline"> Has timeline?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="immediate"> Timeline is immediate?
-                                </label>
-                                <label class="bant-question">
-                                    <input type="checkbox" name="this_quarter"> Timeline is this quarter?
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- ── Main ── -->
+  <div class="main">
 
-        <!-- Nurturing Tab -->
-        <div class="tab-content" id="tab-nurturing">
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
-                <button class="btn btn-primary" onclick="createNurtureTrack()">+ New Track</button>
-            </div>
-            <div class="nurture-tracks" id="nurtureTracks">
-                <!-- Nurture tracks populated by JS -->
-            </div>
-        </div>
-
-        <!-- Analytics Tab -->
-        <div class="tab-content" id="tab-analytics">
-            <div class="analytics-grid">
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Conversion Funnel</h3>
-                    </div>
-                    <div class="funnel-chart" id="funnelChart">
-                        <!-- Funnel populated by JS -->
-                    </div>
-                </div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Lead Sources</h3>
-                    </div>
-                    <div class="source-list" id="sourcesList">
-                        <!-- Sources populated by JS -->
-                    </div>
-                </div>
-            </div>
-            <div class="panel" style="margin-top: 1.5rem;">
-                <div class="panel-header">
-                    <h3>Outreach Performance</h3>
-                    <select id="outreachPeriod" onchange="updateOutreachStats()">
-                        <option value="7">Last 7 days</option>
-                        <option value="30" selected>Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                    </select>
-                </div>
-                <div class="panel-body">
-                    <div class="stats-row" id="outreachStats">
-                        <!-- Outreach stats populated by JS -->
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title">
+        📥 Lead Delivery
+        <span class="topbar-subtitle">B2B pipeline generation — intent-led, multi-channel, qualified meetings</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('campaignModal')">+ Campaign</button>
+        <button class="btn btn-primary" onclick="openModal('leadModal')">+ Add Lead</button>
+      </div>
     </div>
 
-    <!-- Add Lead Modal -->
-    <div class="modal" id="addLeadModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add New Lead</h2>
-                <button class="modal-close" onclick="closeModal('addLeadModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="addLeadForm" onsubmit="handleAddLead(event)">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>First Name *</label>
-                            <input type="text" name="firstName" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Last Name *</label>
-                            <input type="text" name="lastName" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Email *</label>
-                        <input type="email" name="email" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Company</label>
-                            <input type="text" name="company">
-                        </div>
-                        <div class="form-group">
-                            <label>Job Title</label>
-                            <input type="text" name="title">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Phone</label>
-                            <input type="tel" name="phone">
-                        </div>
-                        <div class="form-group">
-                            <label>Source</label>
-                            <select name="source">
-                                <option value="website">Website</option>
-                                <option value="linkedin">LinkedIn</option>
-                                <option value="referral">Referral</option>
-                                <option value="event">Event</option>
-                                <option value="cold_outreach">Cold Outreach</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Estimated Value ($)</label>
-                        <input type="number" name="estimatedValue" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="notes" rows="3"></textarea>
-                    </div>
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('addLeadModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Add Lead</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+    <!-- Positioning bar — populated from Strategy tab -->
+    <div class="positioning-bar" id="positioningBar">
+      <strong>Positioning:</strong> Not set yet — define your niche on the Strategy tab. Specificity beats reach.
     </div>
 
-    <!-- Lead Detail Modal -->
-    <div class="modal" id="leadDetailModal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header">
-                <h2 id="leadDetailName">Lead Details</h2>
-                <button class="modal-close" onclick="closeModal('leadDetailModal')">&times;</button>
-            </div>
-            <div class="modal-body" id="leadDetailContent">
-                <!-- Lead details populated by JS -->
-            </div>
-        </div>
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card s-green">
+        <div class="stat-num" id="statNew">0</div>
+        <div class="stat-lbl">New Warm Leads</div>
+      </div>
+      <div class="stat-card s-amber">
+        <div class="stat-num" id="statCalled">0</div>
+        <div class="stat-lbl">Called</div>
+      </div>
+      <div class="stat-card s-indigo">
+        <div class="stat-num" id="statBooked">0</div>
+        <div class="stat-lbl">Meetings Booked</div>
+      </div>
+      <div class="stat-card s-purple">
+        <div class="stat-num" id="statQualified">0</div>
+        <div class="stat-lbl">Qualified Pipeline</div>
+      </div>
+      <div class="stat-card s-base">
+        <div class="stat-num" id="statReplyRate">–</div>
+        <div class="stat-lbl">Positive Reply Rate</div>
+      </div>
     </div>
 
-    <script src="/js/config.js"></script>
-    <script src="/js/supabase-client.js"></script>
-    <script src="/js/store.js"></script>
-    <script src="/js/lead-generation-service.js"></script>
-    <script>
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-            });
-        });
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="strategy">Strategy</button>
+      <button class="tab-btn" data-tab="inbox">Inbox</button>
+      <button class="tab-btn" data-tab="signals">Signals</button>
+      <button class="tab-btn" data-tab="campaigns">Campaigns</button>
+      <button class="tab-btn" data-tab="prospects">Prospects</button>
+      <button class="tab-btn" data-tab="channels">Channels</button>
+      <button class="tab-btn" data-tab="setup">Setup</button>
+    </div>
 
-        // Modal functions
-        function openAddLeadModal() {
-            document.getElementById('addLeadModal').classList.add('active');
-        }
+    <!-- Content -->
+    <div class="content">
 
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
-        }
+      <!-- ──────────────────── STRATEGY ──────────────────── -->
+      <div class="tab-pane active" id="tab-strategy">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Niche, Offer & Revenue Hypothesis</div>
+            <div class="section-sub">The agency that wins answers <em>who buys, why now, and what message gets the meeting</em>. Specificity beats reach.</div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="saveStrategy()">💾 Save Strategy</button>
+        </div>
 
-        // Handle adding a new lead
-        async function handleAddLead(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
+        <div class="grid-2" style="margin-bottom:16px;">
 
-            const leadData = {
-                name: `${formData.get('firstName')} ${formData.get('lastName')}`,
-                firstName: formData.get('firstName'),
-                lastName: formData.get('lastName'),
-                email: formData.get('email'),
-                company: formData.get('company'),
-                title: formData.get('title'),
-                phone: formData.get('phone'),
-                source: formData.get('source'),
-                estimatedValue: parseFloat(formData.get('estimatedValue')) || 0,
-                notes: formData.get('notes')
-            };
+          <div class="card">
+            <div class="card-title">🎯 Niche Definition</div>
+            <div class="card-sub">"We help [specific B2B niche] book qualified meetings with [specific buyer type] using [acquisition system]."</div>
+            <div class="form-group">
+              <label class="form-label">Vertical / Niche</label>
+              <input class="form-input" id="strat_niche" placeholder="e.g. B2B SaaS selling to HR leaders">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Specific Buyer Type</label>
+              <input class="form-input" id="strat_buyer" placeholder="e.g. VP of People at 100–500 person companies">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Headline Outcome</label>
+              <input class="form-input" id="strat_outcome" placeholder="e.g. 20–50 qualified demos per month">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Geography</label>
+              <input class="form-input" id="strat_geo" placeholder="e.g. North America, UK, ANZ">
+            </div>
+          </div>
 
-            await window.LeadGeneration.createLead(leadData);
-            closeModal('addLeadModal');
-            form.reset();
-            await loadDashboard();
-        }
+          <div class="card">
+            <div class="card-title">💼 The Offer</div>
+            <div class="card-sub">Sell an outcome, not activity. Don't sell "lead generation" — sell qualified pipeline.</div>
+            <div class="form-group">
+              <label class="form-label">Offer Statement (one sentence)</label>
+              <textarea class="form-textarea" id="strat_offer" placeholder="We generate 20–50 qualified B2B sales appointments per month for [niche] using compliant intent-led outbound and paid acquisition."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Pricing Model</label>
+                <select class="form-select" id="strat_pricing">
+                  <option value="">— Select —</option>
+                  <option>Done-for-you qualified meetings (setup + retainer)</option>
+                  <option>Pipeline system buildout (implementation + monthly)</option>
+                  <option>Niche growth partner (vertical specialist)</option>
+                  <option>Hybrid (retainer + per-meeting bonus)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monthly Retainer Range</label>
+                <input class="form-input" id="strat_retainer" placeholder="e.g. $5k–$15k">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Minimum Engagement</label>
+              <input class="form-input" id="strat_minengage" placeholder="e.g. 3 months">
+            </div>
+          </div>
 
-        // Load pipeline view
-        async function loadPipeline() {
-            const pipelineData = await window.LeadGeneration.Pipeline.getPipelineData();
-            const container = document.getElementById('pipelineView');
+          <div class="card">
+            <div class="card-title">🧬 Revenue Hypothesis</div>
+            <div class="card-sub">For your niche: <em>who</em> buys, <em>why</em> they buy, <em>when</em> they buy, what <em>trigger</em> creates urgency.</div>
+            <div class="form-group">
+              <label class="form-label">Trigger That Creates Urgency</label>
+              <textarea class="form-textarea" id="strat_trigger" placeholder="e.g. Pipeline below target → board pressure → 90-day mandate to fix outbound"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Expensive Pain They're Living With</label>
+              <textarea class="form-textarea" id="strat_pain" placeholder="e.g. SDRs underperforming, CAC climbing, ramp time eating quota attainment"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Outcome They Want</label>
+              <textarea class="form-textarea" id="strat_want" placeholder="e.g. Predictable monthly demo flow without hiring more reps"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Proof They Need to Believe You</label>
+              <textarea class="form-textarea" id="strat_proof" placeholder="e.g. Case study with same-stage SaaS company, named clients, video testimonials"></textarea>
+            </div>
+          </div>
 
-            container.innerHTML = pipelineData.map(stage => `
-                <div class="pipeline-stage" data-stage="${stage.id}">
-                    <div class="stage-header">
-                        <div class="stage-title">
-                            <span style="width: 12px; height: 12px; border-radius: 50%; background: ${stage.color};"></span>
-                            ${stage.name}
-                        </div>
-                        <span class="stage-count">${stage.count}</span>
-                    </div>
-                    <div class="stage-prospects">
-                        ${stage.prospects.map(p => {
-                            const scoreInfo = window.LeadGeneration.Qualification.getScoreLabel(p.score || 0);
-                            const scoreClass = p.score >= 80 ? 'score-hot' : p.score >= 50 ? 'score-warm' : 'score-cold';
-                            return `
-                                <div class="prospect-card" onclick="viewProspect('${p.id}')">
-                                    <div class="prospect-name">${p.name || 'Unknown'}</div>
-                                    <div class="prospect-company">${p.company || 'No company'}</div>
-                                    <div class="prospect-meta">
-                                        <span>${p.title || '-'}</span>
-                                        <span class="lead-score ${scoreClass}">${p.score || 0}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                        ${stage.prospects.length === 0 ? '<div style="text-align: center; color: #94a3b8; padding: 1rem; font-size: 0.875rem;">No leads</div>' : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
+          <div class="card">
+            <div class="card-title">✅ Qualification Framework</div>
+            <div class="card-sub">A "qualified" meeting must meet a clear bar. Define it here — every lead reports back against this.</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Min Company Size</label>
+                <input class="form-input" id="strat_minsize" placeholder="e.g. 50 employees">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Min Revenue / ARR</label>
+                <input class="form-input" id="strat_minrev" placeholder="e.g. $5M ARR">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Decision-Maker Roles</label>
+              <input class="form-input" id="strat_roles" placeholder="e.g. CRO, VP Sales, Head of Growth, Founder">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Disqualifiers</label>
+              <textarea class="form-textarea" id="strat_dq" placeholder="e.g. Pre-revenue, no marketing budget, single-person team, geography outside ICP"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Timeframe Test</label>
+              <input class="form-input" id="strat_timeframe" placeholder="e.g. Buying decision within 3–6 months">
+            </div>
+          </div>
 
-        // Load sequences
-        async function loadSequences() {
-            const sequences = await window.LeadGeneration.Outreach.getSequences();
-            const container = document.getElementById('sequencesList');
+        </div>
 
-            if (sequences.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No sequences yet</h3>
-                        <p>Create automated email sequences to nurture leads.</p>
-                    </div>
-                `;
-                return;
-            }
+        <!-- AI Strategy Tools -->
+        <div class="ai-panel">
+          <h3>🤖 Strategy Builder</h3>
+          <p>Generate a tight positioning statement, full revenue hypothesis, or 30-second qualification script for your niche.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="aiGenerate('positioning')">✨ Positioning Statement</button>
+            <button class="btn btn-ghost btn-sm" onclick="aiGenerate('hypothesis')">🧬 Full Revenue Hypothesis</button>
+            <button class="btn btn-ghost btn-sm" onclick="aiGenerate('qualification')">✅ Qualification Script</button>
+            <button class="btn btn-ghost btn-sm" onclick="aiGenerate('offer_review')">🔍 Review Offer for Cold Traffic</button>
+          </div>
+          <div class="ai-output" id="aiStrategyOutput">
+            <div class="ai-placeholder">Strategy outputs will appear here. Tip: fill in niche + offer above first so Claude has context.</div>
+          </div>
+        </div>
+      </div>
 
-            container.innerHTML = sequences.map(seq => `
-                <div class="sequence-item">
-                    <div class="sequence-info">
-                        <h4>${seq.name}</h4>
-                        <p>${seq.steps?.length || 0} steps - ${seq.status}</p>
-                    </div>
-                    <div class="sequence-stats">
-                        <span>${seq.enrolled || 0} enrolled</span>
-                        <span>${seq.stats?.sent || 0} sent</span>
-                        <span>${seq.stats?.opened || 0} opened</span>
-                    </div>
-                </div>
-            `).join('');
-        }
+      <!-- ──────────────────── INBOX ──────────────────── -->
+      <div class="tab-pane" id="tab-inbox">
 
-        // Load templates
-        async function loadTemplates() {
-            const templates = await window.LeadGeneration.Outreach.getTemplates();
-            const container = document.getElementById('templatesList');
+        <!-- AI Approval Queue -->
+        <div id="approvalQueueSection" style="display:none; margin-bottom:20px;">
+          <div class="section-header" style="margin-bottom:10px;">
+            <div>
+              <div class="section-title">🤖 AI Outreach Drafts — Awaiting Approval</div>
+              <div class="section-sub">Review AI-drafted emails before they go out. Edit, then approve and send.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearApprovalQueue()">Clear All</button>
+          </div>
+          <div id="approvalQueue"></div>
+        </div>
 
-            container.innerHTML = templates.map(tpl => `
-                <div class="template-card" onclick="editTemplate('${tpl.id}')">
-                    <h4>${tpl.name}</h4>
-                    <div class="subject">${tpl.subject}</div>
-                </div>
-            `).join('');
-        }
+        <div class="section-header">
+          <div>
+            <div class="section-title">Warm Leads — Positive Replies</div>
+            <div class="section-sub">People who raised their hand. Call them within the hour — don't send a Calendly link first.</div>
+          </div>
+          <div class="filters" id="inboxFilters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="new">New</button>
+            <button class="filter-btn" data-filter="called">Called</button>
+            <button class="filter-btn" data-filter="booked">Booked</button>
+            <button class="filter-btn" data-filter="closed">Closed</button>
+          </div>
+        </div>
+        <div class="lead-grid" id="leadGrid"></div>
+      </div>
 
-        // Load campaigns
-        async function loadCampaigns() {
-            const campaigns = await window.LeadGeneration.Campaigns.getCampaigns();
-            const container = document.getElementById('campaignGrid');
+      <!-- ──────────────────── SIGNALS ──────────────────── -->
+      <div class="tab-pane" id="tab-signals">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Buying Signals & Intent Data</div>
+            <div class="section-sub">Stop scraping. Start tracking <em>who is in-market now</em>. Every prospect needs a trigger.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('signalModal')">+ Log Signal</button>
+        </div>
 
-            if (campaigns.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state" style="grid-column: 1 / -1;">
-                        <h3>No campaigns yet</h3>
-                        <p>Create lead generation campaigns to track ROI and performance.</p>
-                        <button class="btn btn-primary" onclick="createCampaign()">Create Campaign</button>
-                    </div>
-                `;
-                return;
-            }
+        <!-- Intent Data Sources -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">📡 Intent Data Sources</div>
+          <div class="card-sub">Tick which signal sources you're operationalising. Stronger than scraped lists.</div>
+          <div class="grid-3">
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_bombora"   onchange="saveSignalsState()"><label for="sig_bombora">Bombora<span>B2B topic intent — researching competitors</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_6sense"    onchange="saveSignalsState()"><label for="sig_6sense">6sense<span>Account-level buying stage</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_demandbase" onchange="saveSignalsState()"><label for="sig_demandbase">Demandbase<span>ABM + intent</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_zoominfo" onchange="saveSignalsState()"><label for="sig_zoominfo">ZoomInfo Intent<span>Streaming intent topics</span></label></div>
+              </div>
+            </div>
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_apollo"   onchange="saveSignalsState()"><label for="sig_apollo">Apollo Intent<span>Intent filters on prospect search</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_clay"     onchange="saveSignalsState()"><label for="sig_clay">Clay<span>Enrichment + signal stacking</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_g2"       onchange="saveSignalsState()"><label for="sig_g2">G2 Buyer Intent<span>Comparing your category right now</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_capterra" onchange="saveSignalsState()"><label for="sig_capterra">Capterra / GetApp<span>Software comparison intent</span></label></div>
+              </div>
+            </div>
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_builtwith"  onchange="saveSignalsState()"><label for="sig_builtwith">BuiltWith<span>Who uses competitor tech</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_wappalyzer" onchange="saveSignalsState()"><label for="sig_wappalyzer">Wappalyzer<span>Tech stack detection</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_similarweb" onchange="saveSignalsState()"><label for="sig_similarweb">Similarweb<span>Category visit + traffic trends</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_ocean"      onchange="saveSignalsState()"><label for="sig_ocean">Ocean.io<span>Look-alike account discovery</span></label></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            container.innerHTML = campaigns.map(camp => {
-                const statusClass = camp.status === 'active' ? 'status-active' :
-                                   camp.status === 'paused' ? 'status-paused' : 'status-draft';
-                return `
-                    <div class="campaign-card">
-                        <div class="campaign-header">
-                            <div>
-                                <h4 class="campaign-title">${camp.name}</h4>
-                                <span class="campaign-type">${camp.type || 'Outbound'}</span>
-                            </div>
-                            <span class="campaign-status ${statusClass}">${camp.status}</span>
-                        </div>
-                        <div class="campaign-metrics">
-                            <div class="campaign-metric">
-                                <div class="value">${camp.metrics?.leadsGenerated || 0}</div>
-                                <div class="label">Leads</div>
-                            </div>
-                            <div class="campaign-metric">
-                                <div class="value">$${camp.spent || 0}</div>
-                                <div class="label">Spent</div>
-                            </div>
-                            <div class="campaign-metric">
-                                <div class="value">$${camp.metrics?.costPerLead || 0}</div>
-                                <div class="label">CPL</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+        <!-- Website Visitor ID -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🕵️ Website Visitor Identification</div>
+          <div class="card-sub">Identify anonymous companies visiting your site → enrich → trigger outbound.</div>
+          <div class="grid-3">
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_rb2b"      onchange="saveSignalsState()"><label for="sig_rb2b">RB2B<span>Person-level US visitor ID</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_leadfeeder" onchange="saveSignalsState()"><label for="sig_leadfeeder">Leadfeeder / Dealfront<span>Company-level visitor ID</span></label></div>
+              </div>
+            </div>
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_warmly"   onchange="saveSignalsState()"><label for="sig_warmly">Warmly<span>Visitor reveal + auto-outreach</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_factors"  onchange="saveSignalsState()"><label for="sig_factors">Factors.ai<span>Multi-touch attribution + intent</span></label></div>
+              </div>
+            </div>
+            <div>
+              <div class="checklist">
+                <div class="check-item"><input type="checkbox" id="sig_clearbit"  onchange="saveSignalsState()"><label for="sig_clearbit">Clearbit Reveal<span>Anonymous → company match</span></label></div>
+                <div class="check-item"><input type="checkbox" id="sig_albacross" onchange="saveSignalsState()"><label for="sig_albacross">Albacross<span>EU-focused visitor ID</span></label></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        // Load nurture tracks
-        async function loadNurtureTracks() {
-            const tracks = await window.LeadGeneration.Nurturing.getNurtureTracks();
-            const container = document.getElementById('nurtureTracks');
+        <!-- AI Signal Finder -->
+        <div class="ai-panel" style="margin-bottom:20px;">
+          <h3>🤖 AI Signal Finder</h3>
+          <p>Enter a company name. The AI searches Perplexity in real-time for hiring spikes, funding rounds, leadership changes, growth signals, and competitive activity — then logs them automatically.</p>
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">Company Name *</label>
+              <input class="form-input" id="sfCompany" placeholder="e.g. Acme SaaS">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Domain (optional — improves accuracy)</label>
+              <input class="form-input" id="sfDomain" placeholder="e.g. acmesaas.com">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="sfBtn" onclick="runSignalFinder()">🔍 Detect Signals</button>
+          <div id="sfResults" style="margin-top:14px;"></div>
+        </div>
 
-            container.innerHTML = tracks.map(track => `
-                <div class="nurture-track">
-                    <div class="track-header">
-                        <h4>${track.name}</h4>
-                        <span style="font-size: 0.875rem; color: #64748b;">${track.duration || 'Ongoing'}</span>
-                    </div>
-                    <p class="track-description">${track.description || 'No description'}</p>
-                    <div class="track-touchpoints">
-                        ${(track.touchpoints || []).map(tp => `
-                            <span class="touchpoint">
-                                <span class="touchpoint-day">Day ${tp.day}</span>
-                                ${tp.type === 'email' ? '📧' : tp.type === 'call' ? '📞' : '📋'}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
-        }
+        <div class="section-header" style="margin-top:24px;">
+          <div>
+            <div class="section-title">Recent Trigger Events</div>
+            <div class="section-sub">Funding, hiring, leadership changes, tech installs — every entry should feed a campaign.</div>
+          </div>
+        </div>
 
-        // Load analytics
-        async function loadAnalytics() {
-            // Load funnel
-            const funnel = await window.LeadGeneration.Analytics.getConversionFunnel();
-            const funnelContainer = document.getElementById('funnelChart');
+        <div id="signalsList"></div>
+      </div>
 
-            funnelContainer.innerHTML = funnel.map((stage, i) => {
-                const width = Math.max(stage.percentage, 10);
-                const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'];
-                return `
-                    <div class="funnel-stage">
-                        <span class="funnel-label">${stage.stage}</span>
-                        <div class="funnel-bar" style="width: ${width}%; background: ${colors[i] || colors[0]};">
-                            ${stage.count}
-                        </div>
-                        <span style="color: #64748b; font-size: 0.875rem;">${stage.percentage}%</span>
-                    </div>
-                `;
-            }).join('');
+      <!-- ──────────────────── CAMPAIGNS ──────────────────── -->
+      <div class="tab-pane" id="tab-campaigns">
 
-            // Load sources
-            const sources = await window.LeadGeneration.Analytics.getLeadSources();
-            const sourcesContainer = document.getElementById('sourcesList');
+        <!-- 5 trigger-based campaign templates -->
+        <div class="section-header">
+          <div>
+            <div class="section-title">5 Trigger-Based Campaigns</div>
+            <div class="section-sub">Every campaign maps to a real buying trigger. No generic "checking in" emails.</div>
+          </div>
+        </div>
+        <div class="grid-auto" style="margin-bottom:24px;">
 
-            if (sources.length === 0) {
-                sourcesContainer.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 2rem;">No lead sources yet</div>';
-            } else {
-                sourcesContainer.innerHTML = sources.map(source => `
-                    <div class="source-item">
-                        <span class="source-name">${source.name}</span>
-                        <div class="source-count">
-                            <div class="source-bar" style="width: ${source.percentage * 2}px;"></div>
-                            <span>${source.count} (${source.percentage}%)</span>
-                        </div>
-                    </div>
-                `).join('');
-            }
+          <div class="trigger-card">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div class="trigger-icon">💰</div>
+              <div class="trigger-name">Recently Funded</div>
+            </div>
+            <div class="trigger-desc">Companies that just raised Seed–Series B. Under pressure to convert funding into pipeline fast. Sources: Crunchbase, Dealroom, PitchBook.</div>
+            <div class="trigger-msg">"Congrats on the Series A. Most teams at this stage need to turn the new funding into pipeline within 90 days. Worth a 15-min look at where the gaps usually are?"</div>
+            <button class="btn btn-ghost btn-sm" onclick="cloneTriggerCampaign('Recently Funded — Pipeline Build Pressure', 'Series A/B trigger: turning new funding into qualified pipeline in 90 days')">+ Clone to Active</button>
+          </div>
 
-            // Load outreach stats
-            await updateOutreachStats();
-        }
+          <div class="trigger-card">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div class="trigger-icon">👥</div>
+              <div class="trigger-name">Hiring SDRs / RevOps</div>
+            </div>
+            <div class="trigger-desc">Job postings reveal pipeline intent. Hiring SDRs = needs leads. Hiring RevOps = rebuilding revenue engine. Sources: LinkedIn Jobs, Greenhouse, Lever, Workable feeds.</div>
+            <div class="trigger-msg">"Saw you're hiring 2 SDRs and a RevOps manager. Usually that means pipeline targets are increasing. We help teams build the meeting flow before the new hires are fully ramped."</div>
+            <button class="btn btn-ghost btn-sm" onclick="cloneTriggerCampaign('Hiring SDRs / RevOps — Pipeline Pre-Ramp', 'Hiring trigger: book pipeline before new hires are ramped')">+ Clone to Active</button>
+          </div>
 
-        // Update outreach stats
-        async function updateOutreachStats() {
-            const days = parseInt(document.getElementById('outreachPeriod').value);
-            const stats = await window.LeadGeneration.Outreach.getOutreachStats({
-                start: new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-            });
+          <div class="trigger-card">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div class="trigger-icon">🥊</div>
+              <div class="trigger-name">Using Competitor Tool</div>
+            </div>
+            <div class="trigger-desc">Companies running competitor technology — often hitting its scaling limits. Sources: BuiltWith, Wappalyzer, G2 review patterns, job descriptions mentioning the tool.</div>
+            <div class="trigger-msg">"Noticed your team is running [competitor]. A lot of companies hit limits when they start scaling outbound past 50k touches/month. We help teams build a cleaner system around [specific pain]."</div>
+            <button class="btn btn-ghost btn-sm" onclick="cloneTriggerCampaign('Competitor Tool — Scaling Pain', 'Tech-install trigger: customers hitting limits of competitor tool')">+ Clone to Active</button>
+          </div>
 
-            const container = document.getElementById('outreachStats');
-            container.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-icon blue">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                            <polyline points="22,6 12,13 2,6"/>
-                        </svg>
-                    </div>
-                    <div class="stat-content">
-                        <h3>${stats.emails}</h3>
-                        <p>Emails Sent</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                        </svg>
-                    </div>
-                    <div class="stat-content">
-                        <h3>${stats.calls}</h3>
-                        <p>Calls Made</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
-                            <rect x="2" y="9" width="4" height="12"/>
-                            <circle cx="4" cy="4" r="2"/>
-                        </svg>
-                    </div>
-                    <div class="stat-content">
-                        <h3>${stats.linkedin}</h3>
-                        <p>LinkedIn Messages</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon orange">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                        </svg>
-                    </div>
-                    <div class="stat-content">
-                        <h3>${stats.responseRate}%</h3>
-                        <p>Response Rate</p>
-                    </div>
-                </div>
-            `;
-        }
+          <div class="trigger-card">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div class="trigger-icon">🌐</div>
+              <div class="trigger-name">Website Visitor</div>
+            </div>
+            <div class="trigger-desc">Identified accounts hitting your pricing/services page but not converting. Hottest signal you can act on. Sources: RB2B, Leadfeeder, Warmly, Clearbit Reveal.</div>
+            <div class="trigger-msg">"Saw a few folks from [company] looking at our [page] this week. Are you currently scoping out lead gen — or just doing research? Happy to send the playbook either way."</div>
+            <button class="btn btn-ghost btn-sm" onclick="cloneTriggerCampaign('Website Visitor — Anonymous to Pipeline', 'Visitor ID trigger: identified accounts viewed pricing/services pages')">+ Clone to Active</button>
+          </div>
 
-        // Load activity timeline
-        async function loadActivityTimeline() {
-            const activities = await window.LeadGeneration.Analytics.getActivityTimeline(30);
-            const container = document.getElementById('activityTimeline');
+          <div class="trigger-card">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div class="trigger-icon">📉</div>
+              <div class="trigger-name">Poor Conversion / Audit</div>
+            </div>
+            <div class="trigger-desc">Companies running paid ads to weak landing pages. High CPL = audit hook. Sources: ad spy tools (SEMrush, SpyFu, Meta Ad Library) + manual landing page review.</div>
+            <div class="trigger-msg">"You're running Google Ads to a general services page — no industry-specific LP for [buyer]. That usually 2–3x's CPL. Put together 3 quick ideas on this — want me to send the teardown?"</div>
+            <button class="btn btn-ghost btn-sm" onclick="cloneTriggerCampaign('Conversion Audit — Free Teardown', 'Conversion trigger: weak landing pages on paid ads = audit hook')">+ Clone to Active</button>
+          </div>
 
-            if (activities.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 2rem;">No recent activity</div>';
-                return;
-            }
+        </div>
 
-            container.innerHTML = activities.slice(0, 10).map(activity => {
-                const iconClass = activity.type?.includes('email') ? 'email' :
-                                 activity.type?.includes('call') ? 'call' :
-                                 activity.type?.includes('meeting') ? 'meeting' : 'note';
-                const icon = iconClass === 'email' ? '📧' :
-                            iconClass === 'call' ? '📞' :
-                            iconClass === 'meeting' ? '📅' : '📝';
+        <!-- AI Angle Generator -->
+        <div class="ai-panel">
+          <h3>🤖 Campaign Angle Generator</h3>
+          <p>Describe your offer and target audience — Claude will generate 5 angles with subject line variants and opening hooks. Pulls niche/offer from Strategy tab if set.</p>
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">Your Offer</label>
+              <textarea id="aiOffer" class="form-textarea" placeholder="Auto-fills from Strategy tab"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Audience</label>
+              <textarea id="aiAudience" class="form-textarea" placeholder="Auto-fills from Strategy tab"></textarea>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" id="generateAnglesBtn" onclick="generateAngles()">✨ 5 Cold Email Angles</button>
+            <button class="btn btn-ghost btn-sm" onclick="generateTriggerSequence()">📧 Generate Trigger Sequence</button>
+          </div>
+          <div class="ai-output" id="aiAnglesOutput">
+            <div class="ai-placeholder">Your campaign angles will appear here…</div>
+          </div>
+        </div>
 
-                return `
-                    <div class="activity-item">
-                        <div class="activity-icon ${iconClass}">${icon}</div>
-                        <div class="activity-content">
-                            <p><strong>${activity.prospectName}</strong> - ${activity.type?.replace(/_/g, ' ') || 'Activity'}</p>
-                            <small>${new Date(activity.timestamp).toLocaleString()}</small>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+        <div class="section-header">
+          <div class="section-title">Active Campaigns</div>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('campaignModal')">+ New Campaign</button>
+        </div>
+        <div class="grid-auto" id="campaignGrid"></div>
+      </div>
 
-        // View prospect details
-        async function viewProspect(id) {
-            const prospect = await window.LeadGeneration.Prospects.getById(id);
-            if (!prospect) return;
+      <!-- ──────────────────── PROSPECTS ──────────────────── -->
+      <div class="tab-pane" id="tab-prospects">
 
-            document.getElementById('leadDetailName').textContent = prospect.name || 'Lead Details';
+        <div class="ai-panel">
+          <h3>🤖 ICP List Builder</h3>
+          <p>Describe your ideal client and Claude will produce qualification criteria, ranked data sources with specific search queries, and the trigger events that signal buying intent.</p>
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label class="form-label">Ideal Client Profile</label>
+              <textarea id="aiICP" class="form-textarea" placeholder="Auto-fills from Strategy tab"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Buying Triggers</label>
+              <textarea id="aiICPQual" class="form-textarea" placeholder="e.g. Hiring SDRs, recently funded, using competitor tool"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="buildListBtn" onclick="buildProspectList()">🎯 Build List Strategy</button>
+          <div class="ai-output" id="aiListOutput">
+            <div class="ai-placeholder">Sourcing strategy and qualification criteria will appear here…</div>
+          </div>
+        </div>
 
-            const scoreInfo = window.LeadGeneration.Qualification.getScoreLabel(prospect.score || 0);
-            const scoreClass = prospect.score >= 80 ? 'score-hot' : prospect.score >= 50 ? 'score-warm' : 'score-cold';
+        <div class="section-header">
+          <div class="section-title">Prospect List</div>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('prospectModal')">+ Add Prospect</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Company</th>
+                <th>Title / Seniority</th>
+                <th>Email</th>
+                <th>Profile</th>
+                <th>Trigger / Signal</th>
+                <th>Score</th>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="prospectsTable"></tbody>
+          </table>
+        </div>
+      </div>
 
-            document.getElementById('leadDetailContent').innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                    <div>
-                        <h3 style="margin-top: 0;">Contact Information</h3>
-                        <div style="display: grid; gap: 0.75rem;">
-                            <div><strong>Email:</strong> ${prospect.email || '-'}</div>
-                            <div><strong>Phone:</strong> ${prospect.phone || '-'}</div>
-                            <div><strong>Company:</strong> ${prospect.company || '-'}</div>
-                            <div><strong>Title:</strong> ${prospect.title || '-'}</div>
-                            <div><strong>Source:</strong> ${prospect.source || '-'}</div>
-                            <div><strong>Est. Value:</strong> $${prospect.estimatedValue || 0}</div>
-                        </div>
-                        <h3>Lead Score</h3>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span class="lead-score ${scoreClass}" style="font-size: 1.5rem; padding: 0.5rem 1rem;">
-                                ${prospect.score || 0}
-                            </span>
-                            <span style="font-size: 1.25rem;">${scoreInfo.icon} ${scoreInfo.label}</span>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 style="margin-top: 0;">Recent Activity</h3>
-                        <div style="max-height: 300px; overflow-y: auto;">
-                            ${(prospect.activities || []).slice(-10).reverse().map(a => `
-                                <div style="padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0;">
-                                    <div style="font-weight: 500;">${a.type?.replace(/_/g, ' ') || 'Activity'}</div>
-                                    <div style="font-size: 0.75rem; color: #64748b;">${new Date(a.timestamp).toLocaleString()}</div>
-                                </div>
-                            `).join('') || '<div style="color: #94a3b8;">No activity yet</div>'}
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-                    <button class="btn btn-primary" onclick="logActivity('${prospect.id}', 'email')">Log Email</button>
-                    <button class="btn btn-secondary" onclick="logActivity('${prospect.id}', 'call')">Log Call</button>
-                    <button class="btn btn-secondary" onclick="moveStage('${prospect.id}')">Change Stage</button>
-                </div>
-            `;
+      <!-- ──────────────────── CHANNELS ──────────────────── -->
+      <div class="tab-pane" id="tab-channels">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Multi-Channel Acquisition System</div>
+            <div class="section-sub">Cold email alone is fragile. Layer 6–8 channels so no single algorithm or platform can kill your pipeline.</div>
+          </div>
+        </div>
+        <div class="grid-auto" id="channelsGrid"></div>
+      </div>
 
-            document.getElementById('leadDetailModal').classList.add('active');
-        }
+      <!-- ──────────────────── SETUP ──────────────────── -->
+      <div class="tab-pane" id="tab-setup">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Infrastructure & Tech Stack</div>
+            <div class="section-sub">Deliverability + stack. Get this wrong and nothing else matters.</div>
+          </div>
+        </div>
 
-        // Log activity
-        async function logActivity(prospectId, type) {
-            await window.LeadGeneration.Prospects.addActivity(prospectId, {
-                type: type + '_logged',
-                details: { manual: true }
-            });
-            await loadDashboard();
-            closeModal('leadDetailModal');
-        }
+        <!-- Deliverability checklist -->
+        <h3 style="font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin: 8px 0 14px;">Cold Email Deliverability</h3>
+        <div class="grid-auto" style="margin-bottom:28px;">
 
-        // Move stage
-        async function moveStage(prospectId) {
-            const stages = await window.LeadGeneration.Pipeline.getStages();
-            const prospect = await window.LeadGeneration.Prospects.getById(prospectId);
+          <div class="card">
+            <div class="card-title">🌐 Sending Domains</div>
+            <div class="card-sub">Use separate domains — never your main one.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c1" onchange="saveChecklist()"><label for="c1">2–3 sending domains purchased (variations of main)<span>e.g. getaudema.com, tryaudema.io, useaudema.com</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c2" onchange="saveChecklist()"><label for="c2">Custom tracking domain configured<span>Masks link redirects → better deliverability</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c3" onchange="saveChecklist()"><label for="c3">MX records configured for each domain<span>Required to receive replies</span></label></div>
+            </div>
+          </div>
 
-            const newStage = prompt(`Move to stage:\n${stages.map((s, i) => `${i + 1}. ${s.name}`).join('\n')}\n\nCurrent: ${prospect.status}\nEnter stage name:`);
+          <div class="card">
+            <div class="card-title">🔐 Authentication (SPF / DKIM / DMARC)</div>
+            <div class="card-sub">Non-negotiable. Emails land in spam without this.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c4" onchange="saveChecklist()"><label for="c4">SPF record published<span>Authorises your sending server</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c5" onchange="saveChecklist()"><label for="c5">DKIM configured + verified<span>Cryptographic signature on every email</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c6" onchange="saveChecklist()"><label for="c6">DMARC policy set (p=quarantine or reject)<span>Protects domain from spoofing</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c7" onchange="saveChecklist()"><label for="c7">mail-tester.com score ≥ 9/10<span>Run before sending anything live</span></label></div>
+            </div>
+          </div>
 
-            if (newStage) {
-                const stage = stages.find(s => s.name.toLowerCase() === newStage.toLowerCase() || s.id === newStage);
-                if (stage) {
-                    await window.LeadGeneration.Pipeline.moveProspect(prospectId, stage.id);
-                    await loadDashboard();
-                    closeModal('leadDetailModal');
-                }
-            }
-        }
+          <div class="card">
+            <div class="card-title">🔥 Email Warming</div>
+            <div class="card-sub">Warm new inboxes 4–6 weeks minimum.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c8"  onchange="saveChecklist()"><label for="c8">Inboxes connected to warming tool<span>Instantly / Smartlead / Lemwarm</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c9"  onchange="saveChecklist()"><label for="c9">Warming active ≥ 4 weeks<span>Skipping kills deliverability</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c10" onchange="saveChecklist()"><label for="c10">Inbox reputation ≥ 85%<span>Check warming dashboard before going live</span></label></div>
+            </div>
+          </div>
 
-        // Create placeholders for actions
-        function createSequence() { alert('Sequence builder coming soon!'); }
-        function createTemplate() { alert('Template editor coming soon!'); }
-        function createCampaign() { alert('Campaign creator coming soon!'); }
-        function createNurtureTrack() { alert('Nurture track builder coming soon!'); }
-        function editTemplate(id) { alert('Edit template: ' + id); }
-        function editScoringModel() { alert('Scoring model editor coming soon!'); }
-        function exportLeads() { alert('Export functionality coming soon!'); }
+          <div class="card">
+            <div class="card-title">📤 Sending Limits & Cadence</div>
+            <div class="card-sub">Ramp up gradually. Volume protects deliverability long-term.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c11" onchange="saveChecklist()"><label for="c11">Max 30–40 emails/day per inbox month 1<span>No blasting day one</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c12" onchange="saveChecklist()"><label for="c12">Random intervals enabled (3–8 min)<span>Prevents spam-filter pattern detection</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c13" onchange="saveChecklist()"><label for="c13">Max 3–5 follow-ups per sequence<span>More than 5 = diminishing returns</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c14" onchange="saveChecklist()"><label for="c14">Auto-remove bounces / unsubscribes<span>Bounce rate must stay &lt; 3%</span></label></div>
+            </div>
+          </div>
 
-        // Update dashboard stats
-        async function updateStats() {
-            const stats = await window.LeadGeneration.getDashboardStats();
+          <div class="card">
+            <div class="card-title">🛑 List Hygiene</div>
+            <div class="card-sub">Bad data = bad deliverability. Always.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c15" onchange="saveChecklist()"><label for="c15">List validated before launch<span>Hunter / ZeroBounce / NeverBounce</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c16" onchange="saveChecklist()"><label for="c16">Catch-all / risky emails removed<span>Accept rate ≥ 85% before sending</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c17" onchange="saveChecklist()"><label for="c17">Contacts dedup'd across all campaigns<span>Same person twice = bad experience</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c22" onchange="saveChecklist()"><label for="c22">GDPR / opt-out compliant<span>Legitimate-interest basis documented; opt-out in every email</span></label></div>
+            </div>
+          </div>
 
-            document.getElementById('totalLeads').textContent = stats.prospects.total;
-            document.getElementById('hotLeads').textContent = stats.prospects.hotLeads;
-            document.getElementById('qualifiedLeads').textContent = stats.prospects.byStatus?.qualified || 0;
-            document.getElementById('pipelineValue').textContent = '$' + (stats.pipeline.total || 0).toLocaleString();
+          <div class="card">
+            <div class="card-title">📱 Reply Handling</div>
+            <div class="card-sub">This is where leads get lost. Have a process.</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="c18" onchange="saveChecklist()"><label for="c18">Unified inbox for all sending domains<span>All replies visible in one place</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c19" onchange="saveChecklist()"><label for="c19">Positive replies logged in Inbox within 24h<span>Speed-to-lead kills deals when slow</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c20" onchange="saveChecklist()"><label for="c20">Personal phone collected before handoff<span>Phone outreach closes 80% more than email follow-up alone</span></label></div>
+              <div class="check-item"><input type="checkbox" id="c21" onchange="saveChecklist()"><label for="c21">Sales team briefed: call within 2 hours<span>Warm leads go cold fast</span></label></div>
+            </div>
+          </div>
+        </div>
 
-            const converted = stats.prospects.byStatus?.converted || 0;
-            const rate = stats.prospects.total > 0 ? Math.round((converted / stats.prospects.total) * 100) : 0;
-            document.getElementById('conversionRate').textContent = rate + '%';
-        }
+        <!-- Tech stack -->
+        <h3 style="font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin: 8px 0 14px;">Tech Stack</h3>
+        <div class="grid-auto">
 
-        // Load all dashboard data
-        async function loadDashboard() {
-            await Promise.all([
-                updateStats(),
-                loadPipeline(),
-                loadSequences(),
-                loadTemplates(),
-                loadCampaigns(),
-                loadNurtureTracks(),
-                loadAnalytics(),
-                loadActivityTimeline()
-            ]);
-        }
+          <div class="card">
+            <div class="card-title">🗄️ Data & Enrichment</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_clay"      onchange="saveStack()"><label for="t_clay">Clay</label></div>
+              <div class="check-item"><input type="checkbox" id="t_apollo"    onchange="saveStack()"><label for="t_apollo">Apollo</label></div>
+              <div class="check-item"><input type="checkbox" id="t_zoominfo"  onchange="saveStack()"><label for="t_zoominfo">ZoomInfo</label></div>
+              <div class="check-item"><input type="checkbox" id="t_cognism"   onchange="saveStack()"><label for="t_cognism">Cognism</label></div>
+              <div class="check-item"><input type="checkbox" id="t_lusha"     onchange="saveStack()"><label for="t_lusha">Lusha</label></div>
+              <div class="check-item"><input type="checkbox" id="t_crunchbase" onchange="saveStack()"><label for="t_crunchbase">Crunchbase</label></div>
+            </div>
+          </div>
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            // Wait for services to load
-            setTimeout(loadDashboard, 100);
-        });
-    </script>
+          <div class="card">
+            <div class="card-title">📡 Intent & Signals</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_bombora"   onchange="saveStack()"><label for="t_bombora">Bombora</label></div>
+              <div class="check-item"><input type="checkbox" id="t_6sense"    onchange="saveStack()"><label for="t_6sense">6sense</label></div>
+              <div class="check-item"><input type="checkbox" id="t_g2int"     onchange="saveStack()"><label for="t_g2int">G2 Buyer Intent</label></div>
+              <div class="check-item"><input type="checkbox" id="t_rb2bt"     onchange="saveStack()"><label for="t_rb2bt">RB2B</label></div>
+              <div class="check-item"><input type="checkbox" id="t_factors"   onchange="saveStack()"><label for="t_factors">Factors.ai</label></div>
+              <div class="check-item"><input type="checkbox" id="t_warmly"    onchange="saveStack()"><label for="t_warmly">Warmly</label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📨 Outreach</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_instantly" onchange="saveStack()"><label for="t_instantly">Instantly</label></div>
+              <div class="check-item"><input type="checkbox" id="t_smartlead" onchange="saveStack()"><label for="t_smartlead">Smartlead</label></div>
+              <div class="check-item"><input type="checkbox" id="t_lemlist"   onchange="saveStack()"><label for="t_lemlist">Lemlist</label></div>
+              <div class="check-item"><input type="checkbox" id="t_outreach"  onchange="saveStack()"><label for="t_outreach">Outreach</label></div>
+              <div class="check-item"><input type="checkbox" id="t_salesloft" onchange="saveStack()"><label for="t_salesloft">Salesloft</label></div>
+              <div class="check-item"><input type="checkbox" id="t_reply"     onchange="saveStack()"><label for="t_reply">Reply.io</label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">⚙️ CRM & Automation</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_hubspot"   onchange="saveStack()"><label for="t_hubspot">HubSpot</label></div>
+              <div class="check-item"><input type="checkbox" id="t_pipedrive" onchange="saveStack()"><label for="t_pipedrive">Pipedrive</label></div>
+              <div class="check-item"><input type="checkbox" id="t_salesforce" onchange="saveStack()"><label for="t_salesforce">Salesforce</label></div>
+              <div class="check-item"><input type="checkbox" id="t_zapier"    onchange="saveStack()"><label for="t_zapier">Zapier</label></div>
+              <div class="check-item"><input type="checkbox" id="t_make"      onchange="saveStack()"><label for="t_make">Make</label></div>
+              <div class="check-item"><input type="checkbox" id="t_n8n"       onchange="saveStack()"><label for="t_n8n">n8n</label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🎯 Landing & Conversion</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_webflow"   onchange="saveStack()"><label for="t_webflow">Webflow</label></div>
+              <div class="check-item"><input type="checkbox" id="t_framer"    onchange="saveStack()"><label for="t_framer">Framer</label></div>
+              <div class="check-item"><input type="checkbox" id="t_unbounce"  onchange="saveStack()"><label for="t_unbounce">Unbounce</label></div>
+              <div class="check-item"><input type="checkbox" id="t_typeform"  onchange="saveStack()"><label for="t_typeform">Typeform / Tally</label></div>
+              <div class="check-item"><input type="checkbox" id="t_calcom"    onchange="saveStack()"><label for="t_calcom">Cal.com / Calendly</label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📊 Reporting</div>
+            <div class="checklist">
+              <div class="check-item"><input type="checkbox" id="t_looker"    onchange="saveStack()"><label for="t_looker">Looker Studio</label></div>
+              <div class="check-item"><input type="checkbox" id="t_hubreports" onchange="saveStack()"><label for="t_hubreports">HubSpot Dashboards</label></div>
+              <div class="check-item"><input type="checkbox" id="t_agencyan"  onchange="saveStack()"><label for="t_agencyan">AgencyAnalytics</label></div>
+              <div class="check-item"><input type="checkbox" id="t_whatconv"  onchange="saveStack()"><label for="t_whatconv">WhatConverts</label></div>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- /setup -->
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── ADD LEAD MODAL ── -->
+<div class="modal-overlay" id="leadModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📥 Log Warm Lead</div><button class="modal-close" onclick="closeModal('leadModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">First Name *</label><input class="form-input" id="lFirst" placeholder="James"></div>
+        <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="lLast" placeholder="Wilson"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Company *</label><input class="form-input" id="lCompany" placeholder="Acme Corp"></div>
+        <div class="form-group"><label class="form-label">Title / Role</label><input class="form-input" id="lTitle" placeholder="CEO"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Personal Email *</label><input class="form-input" id="lEmail" type="email" placeholder="james@acmecorp.com"></div>
+        <div class="form-group"><label class="form-label">Personal Phone *</label><input class="form-input" id="lPhone" type="tel" placeholder="+1 555 000 0000"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Campaign</label><select class="form-select" id="lCampaign"><option value="">— Select Campaign —</option></select></div>
+      <div class="form-group"><label class="form-label">Trigger / Signal That Sourced This Lead</label><input class="form-input" id="lTrigger" placeholder="e.g. Series A announcement, hiring SDRs, visited pricing page"></div>
+      <div class="form-group"><label class="form-label">Their Reply (paste it)</label><textarea class="form-textarea" id="lReply" placeholder="Paste the positive reply that came in…"></textarea></div>
+      <div class="form-group"><label class="form-label">Notes for Sales Team</label><textarea class="form-textarea" id="lNotes" placeholder="Context, timing, specific pain mentioned…"></textarea></div>
+      <div class="form-group"><label class="form-label">Estimated Deal Value (USD)</label><input class="form-input" id="lValue" type="number" placeholder="e.g. 15000"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('leadModal')">Cancel</button>
+        <button class="btn btn-green" onclick="saveLead()">Save Lead</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD CAMPAIGN MODAL ── -->
+<div class="modal-overlay" id="campaignModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📣 New Campaign</div><button class="modal-close" onclick="closeModal('campaignModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Campaign Name *</label><input class="form-input" id="cName" placeholder="e.g. SaaS Founders — Outbound Growth"></div>
+      <div class="form-group"><label class="form-label">Trigger</label><select class="form-select" id="cTrigger"><option value="">— Select Trigger —</option><option>Recently Funded</option><option>Hiring SDRs / RevOps</option><option>Using Competitor Tool</option><option>Website Visitor</option><option>Poor Conversion / Audit</option><option>Custom</option></select></div>
+      <div class="form-group"><label class="form-label">Angle / Hook</label><textarea class="form-textarea" id="cAngle" placeholder="Core angle of this campaign"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Emails Sent</label><input class="form-input" id="cSent" type="number" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Replies</label><input class="form-input" id="cReplies" type="number" placeholder="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Positive Replies</label><input class="form-input" id="cPositive" type="number" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="cStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="testing">Testing</option><option value="completed">Completed</option></select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('campaignModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCampaign()">Save Campaign</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD PROSPECT MODAL ── -->
+<div class="modal-overlay" id="prospectModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🎯 Add Prospect</div><button class="modal-close" onclick="closeModal('prospectModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="pName" placeholder="Jane Smith"></div>
+        <div class="form-group"><label class="form-label">Company *</label><input class="form-input" id="pCompany" placeholder="Acme Corp"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="pTitle" placeholder="VP Sales"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="pEmail" type="email" placeholder="jane@acme.com"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Trigger / Signal</label><input class="form-input" id="pTrigger" placeholder="e.g. Hiring 3 SDRs, raised Series A, visited pricing"></div>
+      <div class="form-group"><label class="form-label">Campaign</label><select class="form-select" id="pCampaign"><option value="">— Select Campaign —</option></select></div>
+      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="pStatus"><option value="pending">Not Contacted</option><option value="inseq">In Sequence</option><option value="replied">Replied</option><option value="positive">Positive Reply</option><option value="negative">Negative / Opt-out</option></select></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('prospectModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveProspect()">Save Prospect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OUTREACH DRAFT MODAL ── -->
+<div class="modal-overlay" id="outreachDraftModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <div class="modal-title">✍️ AI Outreach Draft</div>
+      <button class="modal-close" onclick="closeModal('outreachDraftModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="odLoading" style="text-align:center;padding:32px;color:var(--text2);">🤖 Drafting outreach with Claude…</div>
+      <div id="odContent" style="display:none;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="odMeta"></div>
+        <div class="form-group">
+          <label class="form-label">Email Subject</label>
+          <input class="form-input" id="odSubject" type="text" placeholder="Subject line…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Body <span style="font-size:11px;color:var(--text3);">(under 90 words)</span></label>
+          <textarea class="form-textarea" id="odBody" rows="8" placeholder="Email body…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">LinkedIn Message <span style="font-size:11px;color:var(--text3);">(under 60 words)</span></label>
+          <textarea class="form-textarea" id="odLinkedin" rows="4" placeholder="LinkedIn message…"></textarea>
+        </div>
+        <div id="odSignalUsed" style="font-size:12px;color:var(--indigo);margin-bottom:4px;"></div>
+        <div id="odStatus" style="font-size:13px;color:var(--text2);min-height:20px;"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('outreachDraftModal')">Discard</button>
+          <button class="btn btn-ghost" onclick="addToApprovalQueue()">📋 Add to Queue</button>
+          <button class="btn btn-primary" onclick="approveOutreach()">✅ Approve &amp; Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SEND EMAIL MODAL ── -->
+<div class="modal-overlay" id="sendEmailModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✉️ Send Cold Email</div><button class="modal-close" onclick="closeModal('sendEmailModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">To</label>
+        <input class="form-input" id="seToEmail" placeholder="prospect@company.com" type="email">
+        <input type="hidden" id="seProspectId">
+      </div>
+      <div class="form-group"><label class="form-label">Subject *</label><input class="form-input" id="seSubject" placeholder="Quick question about {{company}}"></div>
+      <div class="form-group">
+        <label class="form-label">Message *</label>
+        <textarea class="form-textarea" id="seBody" rows="8" placeholder="Write your email here…&#10;&#10;Use {{firstName}}, {{company}}, {{title}} as placeholders."></textarea>
+      </div>
+      <div id="seStatus" style="font-size:13px;color:var(--text2);min-height:20px;"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('sendEmailModal')">Cancel</button>
+        <button class="btn btn-primary" id="seSendBtn" onclick="dispatchEmail()">Send Email</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD SIGNAL MODAL ── -->
+<div class="modal-overlay" id="signalModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📡 Log Trigger Event</div><button class="modal-close" onclick="closeModal('signalModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Company *</label><input class="form-input" id="sCompany" placeholder="Acme Corp"></div>
+      <div class="form-group">
+        <label class="form-label">Signal Type *</label>
+        <select class="form-select" id="sType">
+          <option value="">— Select —</option>
+          <option value="funding">💰 Funding Round</option>
+          <option value="hiring">👥 Hiring Spike</option>
+          <option value="leadership">🪜 Leadership Change</option>
+          <option value="tech">⚙️ Tech Install / Switch</option>
+          <option value="visitor">🌐 Website Visitor</option>
+          <option value="competitor">🥊 Competitor Frustration</option>
+          <option value="news">📰 Industry Event / Trigger</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="sDesc" placeholder="What happened? e.g. Raised $12M Series A on 2026-05-01"></textarea></div>
+      <div class="form-group"><label class="form-label">Source URL</label><input class="form-input" id="sSource" placeholder="e.g. https://crunchbase.com/…"></div>
+      <div class="form-group"><label class="form-label">Recommended Campaign</label><select class="form-select" id="sCampaign"><option value="">— Optional —</option></select></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('signalModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSignal()">Save Signal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHANNEL EDIT MODAL ── -->
+<div class="modal-overlay" id="channelModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📡 Channel</div><button class="modal-close" onclick="closeModal('channelModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="chStatus"><option value="idle">Not started</option><option value="planning">Planning</option><option value="active">Active</option></select></div>
+      <div class="form-group"><label class="form-label">Owner</label><input class="form-input" id="chOwner" placeholder="Who runs this?"></div>
+      <div class="form-group"><label class="form-label">Notes / Playbook</label><textarea class="form-textarea" id="chNotes" placeholder="Key metrics, current focus, what's working…"></textarea></div>
+      <input type="hidden" id="chId">
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('channelModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveChannel()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-toast" id="saveToast">✓ Saved</div>
+
+<script src="../js/marked.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/claude-service.js"></script>
+<script>
+'use strict';
+
+const LS = {
+  get: (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } },
+  set: (k, v)  => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const K = {
+  LEADS:     'ld_leads',
+  CAMPAIGNS: 'ld_campaigns',
+  PROSPECTS: 'ld_prospects',
+  SIGNALS:   'ld_signals',
+  CHANNELS:  'ld_channels',
+  STRATEGY:  'ld_strategy',
+  CHECKLIST: 'ld_checklist',
+  SIG_STATE: 'ld_signal_sources',
+  STACK:     'ld_stack'
+};
+
+let leads     = LS.get(K.LEADS, []);
+let campaigns = LS.get(K.CAMPAIGNS, []);
+let prospects = LS.get(K.PROSPECTS, []);
+let signals   = LS.get(K.SIGNALS, []);
+let channels  = LS.get(K.CHANNELS, defaultChannels());
+let strategy  = LS.get(K.STRATEGY, {});
+let activeFilter = 'all';
+
+function defaultChannels() {
+  return [
+    { id:'dream100', icon:'🎯', name:'Dream 100 ABM Outbound', desc:'100 hand-picked accounts, custom-researched, multi-touch. Highest fit, highest effort, highest reward.', status:'idle', owner:'', notes:'' },
+    { id:'audit',    icon:'🔍', name:'Free Pipeline Audit',     desc:'Lead magnet: send a Loom + 1-page report showing where leads leak. Sell the implementation.', status:'idle', owner:'', notes:'' },
+    { id:'seo',      icon:'📝', name:'Niche SEO Content',        desc:'Long-form content your ICP actually searches: teardowns, benchmarks, "how to generate leads for [industry]".', status:'idle', owner:'', notes:'' },
+    { id:'partner',  icon:'🤝', name:'Partner Channel',          desc:'Web agencies, HubSpot consultants, fractional CMOs, accountants. 10–20% referral, white-label, or co-branded.', status:'idle', owner:'', notes:'' },
+    { id:'founder',  icon:'📣', name:'Founder-Led Authority',    desc:'LinkedIn/X teardowns, experiments, benchmarks. Become known for one thing. Proof > tips.', status:'idle', owner:'', notes:'' },
+    { id:'podcast',  icon:'🎙️', name:'Podcast Guesting',         desc:'Appear on podcasts your ICP listens to. CTA: free audit.', status:'idle', owner:'', notes:'' },
+    { id:'newsletter', icon:'📰', name:'Newsletter Sponsorship',  desc:'Sponsor newsletters read by your buyers. Best: niche industry newsletters with 5k–50k subs.', status:'idle', owner:'', notes:'' },
+    { id:'webinar',  icon:'🎥', name:'Niche Webinars',           desc:'"How [industry] can generate 30 qualified meetings/month without hiring more SDRs." Follow up attendees.', status:'idle', owner:'', notes:'' },
+    { id:'mail',     icon:'📦', name:'Direct Mail',              desc:'For high-ticket accounts: printed audit, handwritten note, book. Excellent for enterprise B2B.', status:'idle', owner:'', notes:'' },
+    { id:'paid',     icon:'💸', name:'Paid Acquisition',         desc:'LinkedIn ads + Google Search for high-intent terms. Lead magnets, not "book a demo".', status:'idle', owner:'', notes:'' },
+    { id:'retarget', icon:'🔁', name:'Retargeting',              desc:'Every visitor, video viewer, click, download enters a retargeting audience.', status:'idle', owner:'', notes:'' },
+    { id:'phone',    icon:'📞', name:'Cold Calling (on warm signals)', desc:'Underrated. Best after: website visit, email open/click, funding event, ad engagement.', status:'idle', owner:'', notes:'' }
+  ];
+}
+
+function uid() { return 'ld_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function toast(msg) { const t = document.getElementById('saveToast'); t.textContent = '✓ ' + msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'campaigns' || btn.dataset.tab === 'prospects') hydrateAiContext();
+  });
+});
+
+document.getElementById('inboxFilters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('#inboxFilters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  renderLeads();
+});
+
+// ── Modals ───────────────────────────────────────────────────────────────────
+function openModal(id) { populateCampaignSelects(); document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+function populateCampaignSelects() {
+  ['lCampaign', 'pCampaign', 'sCampaign'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select Campaign —</option>' + campaigns.map(c =>
+      `<option value="${c.id}" ${c.id === cur ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  });
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+function refreshStats() {
+  document.getElementById('statNew').textContent      = leads.filter(l => l.status === 'new').length;
+  document.getElementById('statCalled').textContent   = leads.filter(l => l.status === 'called').length;
+  document.getElementById('statBooked').textContent   = leads.filter(l => l.status === 'booked').length;
+  const pipelineValue = leads.filter(l => l.status !== 'closed').reduce((s, l) => s + (parseInt(l.value) || 0), 0);
+  document.getElementById('statQualified').textContent = pipelineValue ? '$' + pipelineValue.toLocaleString() : '$0';
+  const sent = campaigns.reduce((s, c) => s + (c.sent || 0), 0);
+  const pos  = campaigns.reduce((s, c) => s + (c.positive || 0), 0);
+  document.getElementById('statReplyRate').textContent = sent ? (pos / sent * 100).toFixed(1) + '%' : '–';
+}
+
+// ── Strategy ─────────────────────────────────────────────────────────────────
+const STRATEGY_FIELDS = ['niche','buyer','outcome','geo','offer','pricing','retainer','minengage','trigger','pain','want','proof','minsize','minrev','roles','dq','timeframe'];
+function saveStrategy() {
+  STRATEGY_FIELDS.forEach(f => { strategy[f] = document.getElementById('strat_' + f).value.trim(); });
+  LS.set(K.STRATEGY, strategy);
+  renderPositioningBar();
+  toast('Strategy saved');
+}
+function loadStrategy() {
+  STRATEGY_FIELDS.forEach(f => { const el = document.getElementById('strat_' + f); if (el) el.value = strategy[f] || ''; });
+  renderPositioningBar();
+}
+function renderPositioningBar() {
+  const bar = document.getElementById('positioningBar');
+  if (strategy.niche && strategy.outcome) {
+    bar.innerHTML = `<strong>Positioning:</strong> We help <strong>${esc(strategy.niche)}</strong>${strategy.buyer ? ' reach <strong>' + esc(strategy.buyer) + '</strong>' : ''} and deliver <strong>${esc(strategy.outcome)}</strong>.`;
+  } else {
+    bar.innerHTML = '<strong>Positioning:</strong> Not set yet — define your niche on the Strategy tab. Specificity beats reach.';
+  }
+}
+
+function hydrateAiContext() {
+  const off = document.getElementById('aiOffer');
+  const aud = document.getElementById('aiAudience');
+  const icp = document.getElementById('aiICP');
+  if (off && !off.value && strategy.offer)  off.value = strategy.offer;
+  if (aud && !aud.value && strategy.buyer)  aud.value = strategy.buyer + (strategy.niche ? ' in ' + strategy.niche : '');
+  if (icp && !icp.value && strategy.buyer)  icp.value = strategy.buyer + (strategy.niche ? ' at ' + strategy.niche + ' companies' : '');
+}
+
+// ── Leads (Inbox) ────────────────────────────────────────────────────────────
+function saveLead() {
+  const first = document.getElementById('lFirst').value.trim();
+  const email = document.getElementById('lEmail').value.trim();
+  const phone = document.getElementById('lPhone').value.trim();
+  if (!first || !email || !phone) { alert('Name, email, and phone are required.'); return; }
+  const lead = {
+    id: uid(),
+    name:     first + ' ' + document.getElementById('lLast').value.trim(),
+    company:  document.getElementById('lCompany').value.trim(),
+    title:    document.getElementById('lTitle').value.trim(),
+    email, phone,
+    campaign: document.getElementById('lCampaign').value,
+    trigger:  document.getElementById('lTrigger').value.trim(),
+    reply:    document.getElementById('lReply').value.trim(),
+    notes:    document.getElementById('lNotes').value.trim(),
+    value:    parseInt(document.getElementById('lValue').value) || 0,
+    status:   'new',
+    createdAt: new Date().toISOString()
+  };
+  leads.unshift(lead);
+  LS.set(K.LEADS, leads);
+  closeModal('leadModal');
+  ['lFirst','lLast','lCompany','lTitle','lEmail','lPhone','lTrigger','lReply','lNotes','lValue'].forEach(id => document.getElementById(id).value = '');
+  renderLeads(); refreshStats(); toast('Lead added');
+}
+function setLeadStatus(id, status) {
+  const l = leads.find(x => x.id === id); if (!l) return;
+  l.status = status; LS.set(K.LEADS, leads); renderLeads(); refreshStats();
+}
+function deleteLead(id) {
+  if (!confirm('Remove this lead?')) return;
+  leads = leads.filter(l => l.id !== id); LS.set(K.LEADS, leads); renderLeads(); refreshStats();
+}
+function renderLeads() {
+  const grid = document.getElementById('leadGrid');
+  const filtered = activeFilter === 'all' ? leads : leads.filter(l => l.status === activeFilter);
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">${activeFilter === 'all' ? '📭' : '🔍'}</div>
+      <h3>${activeFilter === 'all' ? 'No leads yet' : 'No leads in this stage'}</h3>
+      <p>${activeFilter === 'all' ? 'Warm leads appear here once outreach starts converting. Click + Add Lead to log one.' : 'Change the filter to see other leads.'}</p></div>`;
+    return;
+  }
+  const labels = { new: 'New', called: 'Called', booked: 'Meeting Booked', closed: 'Closed / Won' };
+  const cName = id => { const c = campaigns.find(x => x.id === id); return c ? c.name : ''; };
+  grid.innerHTML = filtered.map(l => {
+    const camp = cName(l.campaign);
+    const ts   = l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
+    return `<div class="lead-card status-${l.status}">
+      <div>
+        <div class="lead-name">${esc(l.name)}</div>
+        <div class="lead-meta">${esc(l.title)}${l.title && l.company ? ' · ' : ''}${esc(l.company)}${l.value ? ' · <span style="color:var(--green)">$' + l.value.toLocaleString() + '</span>' : ''}</div>
+        <div class="lead-contact">
+          <div class="lead-contact-item">📧 <a href="mailto:${esc(l.email)}">${esc(l.email)}</a></div>
+          <div class="lead-contact-item">📞 <a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>
+        </div>
+        ${l.reply ? `<div class="lead-reply">"${esc(l.reply)}"</div>` : ''}
+        ${l.notes ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">📝 ${esc(l.notes)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${camp ? `<span class="lead-campaign-tag">${esc(camp)}</span>` : ''}
+          ${l.trigger ? `<span class="lead-trigger-tag">⚡ ${esc(l.trigger)}</span>` : ''}
+          <span class="lead-ts">${ts}</span>
+        </div>
+      </div>
+      <div class="lead-actions">
+        <span class="status-badge ${l.status}">${labels[l.status] || l.status}</span>
+        <select onchange="setLeadStatus('${l.id}', this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 6px;cursor:pointer;">
+          <option value="new"    ${l.status==='new'    ?'selected':''}>New</option>
+          <option value="called" ${l.status==='called' ?'selected':''}>Called</option>
+          <option value="booked" ${l.status==='booked' ?'selected':''}>Booked</option>
+          <option value="closed" ${l.status==='closed' ?'selected':''}>Closed</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="window.open('tel:${esc(l.phone)}')">📞 Call</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLead('${l.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Campaigns ────────────────────────────────────────────────────────────────
+function saveCampaign() {
+  const name = document.getElementById('cName').value.trim();
+  if (!name) { alert('Campaign name is required.'); return; }
+  campaigns.push({
+    id: uid(), name,
+    trigger:  document.getElementById('cTrigger').value,
+    angle:    document.getElementById('cAngle').value.trim(),
+    sent:     parseInt(document.getElementById('cSent').value) || 0,
+    replies:  parseInt(document.getElementById('cReplies').value) || 0,
+    positive: parseInt(document.getElementById('cPositive').value) || 0,
+    status:   document.getElementById('cStatus').value,
+    createdAt: new Date().toISOString()
+  });
+  LS.set(K.CAMPAIGNS, campaigns);
+  closeModal('campaignModal');
+  ['cName','cAngle','cSent','cReplies','cPositive'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cTrigger').value = '';
+  document.getElementById('cStatus').value = 'active';
+  renderCampaigns(); refreshStats(); toast('Campaign saved');
+}
+function cloneTriggerCampaign(name, angle) {
+  campaigns.push({ id: uid(), name, trigger: name.split(' — ')[0], angle, sent:0, replies:0, positive:0, status:'active', createdAt: new Date().toISOString() });
+  LS.set(K.CAMPAIGNS, campaigns); renderCampaigns(); refreshStats(); toast('Campaign cloned');
+}
+function deleteCampaign(id) {
+  if (!confirm('Delete this campaign?')) return;
+  campaigns = campaigns.filter(c => c.id !== id); LS.set(K.CAMPAIGNS, campaigns); renderCampaigns(); refreshStats();
+}
+function renderCampaigns() {
+  const grid = document.getElementById('campaignGrid');
+  if (campaigns.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">📣</div><h3>No active campaigns</h3><p>Clone one of the 5 trigger templates above, or build your own.</p></div>`;
+    return;
+  }
+  grid.innerHTML = campaigns.map(c => {
+    const rr = c.sent ? (c.replies / c.sent * 100).toFixed(1) : '–';
+    const pr = c.replies ? (c.positive / c.replies * 100).toFixed(1) : '–';
+    return `<div class="campaign-card">
+      <div class="campaign-header">
+        <div>
+          <div class="campaign-name">${esc(c.name)}</div>
+          ${c.trigger ? `<span style="font-size:11px;color:var(--amber);font-weight:600;">⚡ ${esc(c.trigger)}</span>` : ''}
+          ${c.angle ? `<div class="campaign-angle" style="margin-top:4px;">${esc(c.angle)}</div>` : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteCampaign('${c.id}')">✕</button>
+      </div>
+      <div class="campaign-stats">
+        <div class="cstat"><div class="cstat-num">${c.sent || 0}</div><div class="cstat-lbl">Sent</div></div>
+        <div class="cstat"><div class="cstat-num amber">${rr}${c.sent ? '%' : ''}</div><div class="cstat-lbl">Reply</div></div>
+        <div class="cstat"><div class="cstat-num green">${c.positive || 0}</div><div class="cstat-lbl">Positive</div></div>
+        <div class="cstat"><div class="cstat-num indigo">${pr}${c.replies ? '%' : ''}</div><div class="cstat-lbl">Pos. Rate</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Prospects ────────────────────────────────────────────────────────────────
+function saveProspect() {
+  const name = document.getElementById('pName').value.trim();
+  const company = document.getElementById('pCompany').value.trim();
+  if (!name || !company) { alert('Name and company are required.'); return; }
+  const p = {
+    id: uid(), name, company,
+    title:    document.getElementById('pTitle').value.trim(),
+    email:    document.getElementById('pEmail').value.trim(),
+    trigger:  document.getElementById('pTrigger').value.trim(),
+    campaign: document.getElementById('pCampaign').value,
+    status:   document.getElementById('pStatus').value,
+    createdAt: new Date().toISOString(),
+    enriched: false,
+    emailVerification: null,
+    linkedin: null, twitter: null,
+    companyLinkedin: null, companySize: null,
+    industry: null, employeeCount: null,
+    fundingStage: null, location: null,
+    techStack: [], seniorityLevel: null, isDecisionMaker: false,
+  };
+  prospects.push(p);
+  LS.set(K.PROSPECTS, prospects);
+  closeModal('prospectModal');
+  ['pName','pCompany','pTitle','pEmail','pTrigger'].forEach(id => document.getElementById(id).value = '');
+  renderProspects(); refreshStats(); toast('Prospect added — enriching profile…');
+  enrichProspect(p.id);
+}
+
+async function enrichProspect(id) {
+  const idx = prospects.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const p = prospects[idx];
+
+  // Mark enrichment in progress so badge shows spinner
+  prospects[idx].enriching = true;
+  LS.set(K.PROSPECTS, prospects);
+  renderProspects();
+
+  try {
+    const body = {
+      name:    p.name,
+      company: p.company,
+      title:   p.title || undefined,
+    };
+    if (p.email) body.email = p.email;
+
+    const res = await fetch('/api/lead-enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('Enrichment API error');
+    const data = await res.json();
+
+    Object.assign(prospects[idx], {
+      enriching:         false,
+      enriched:          true,
+      // Use found email if we didn't have one
+      email:             p.email || data.email || p.email,
+      emailVerification: data.emailVerification || null,
+      linkedin:          data.person?.linkedin  || null,
+      twitter:           data.person?.twitter   || null,
+      seniorityLevel:    data.person?.seniorityLevel || null,
+      isDecisionMaker:   data.person?.isDecisionMaker || false,
+      companyLinkedin:   data.company?.linkedin  || null,
+      companySize:       data.company?.companySize || null,
+      industry:          data.company?.industry  || null,
+      employeeCount:     data.company?.employeeCount || null,
+      fundingStage:      data.company?.fundingStage || null,
+      location:          data.company?.location  || null,
+      techStack:         data.company?.techStack  || [],
+    });
+  } catch (e) {
+    prospects[idx].enriching = false;
+    console.warn('[LeadEnrich] failed:', e.message);
+  }
+
+  LS.set(K.PROSPECTS, prospects);
+  renderProspects();
+}
+
+function deleteProspect(id) {
+  if (!confirm('Remove this prospect?')) return;
+  prospects = prospects.filter(p => p.id !== id); LS.set(K.PROSPECTS, prospects); renderProspects();
+}
+
+function evBadge(ev, enriching) {
+  if (enriching) return '<span class="ev-badge ev-loading">⟳ Verifying…</span>';
+  if (!ev)       return '<span class="ev-badge ev-unknown">? Unverified</span>';
+  const map = {
+    valid:   { cls:'ev-valid',   icon:'✓', label:'Verified' },
+    risky:   { cls:'ev-risky',   icon:'⚠', label:'Risky' },
+    invalid: { cls:'ev-invalid', icon:'✕', label:'Invalid' },
+    unknown: { cls:'ev-unknown', icon:'?', label:'Unknown' },
+  };
+  const m = map[ev.status] || map.unknown;
+  const score = ev.score !== null ? ` ${ev.score}%` : '';
+  return `<span class="ev-badge ${m.cls}" title="Type: ${ev.type || '?'} | Disposable: ${ev.disposable}">${m.icon} ${m.label}${score}</span>`;
+}
+
+function renderProspects() {
+  const tbody = document.getElementById('prospectsTable');
+  if (prospects.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:32px;">No prospects yet. Add one above or import a list.</td></tr>';
+    return;
+  }
+  const sm = {
+    pending:  { cls:'ps-pending',  label:'Not Contacted' },
+    inseq:    { cls:'ps-inseq',    label:'In Sequence' },
+    replied:  { cls:'ps-replied',  label:'Replied' },
+    positive: { cls:'ps-positive', label:'Positive ✓' },
+    negative: { cls:'ps-negative', label:'Opted Out' }
+  };
+  const cName = id => { const c = campaigns.find(x => x.id === id); return c ? c.name : '–'; };
+  tbody.innerHTML = prospects.map(p => {
+    const st = sm[p.status] || { cls:'ps-pending', label: p.status };
+
+    // Title + seniority
+    const seniorityTag = p.isDecisionMaker
+      ? '<span style="font-size:10px;background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:1px 6px;margin-left:4px;">Decision Maker</span>'
+      : (p.seniorityLevel ? `<span style="font-size:10px;color:var(--text3);margin-left:4px;">${esc(p.seniorityLevel)}</span>` : '');
+    const titleCell = `${esc(p.title) || '–'}${seniorityTag}`;
+
+    // Email cell with verification badge
+    const emailCell = p.email
+      ? `<div><a href="mailto:${esc(p.email)}" style="color:var(--indigo);text-decoration:none;">${esc(p.email)}</a></div>
+         <div style="margin-top:3px;">${evBadge(p.emailVerification, p.enriching)}</div>`
+      : (p.enriching
+          ? '<span class="ev-badge ev-loading">⟳ Looking up…</span>'
+          : '<span style="color:var(--text3);font-size:12px;">–</span>');
+
+    // Profile chips: LinkedIn, Twitter, company info
+    const chips = [];
+    if (p.linkedin)       chips.push(`<a href="${esc(p.linkedin)}" target="_blank" class="social-link">🔗 LinkedIn</a>`);
+    if (p.twitter)        chips.push(`<a href="${esc(p.twitter)}"  target="_blank" class="social-link">𝕏 Twitter</a>`);
+    if (p.companyLinkedin) chips.push(`<a href="${esc(p.companyLinkedin)}" target="_blank" class="social-link">🏢 Co. Page</a>`);
+    if (p.industry)       chips.push(`<span class="enrich-chip">${esc(p.industry)}</span>`);
+    if (p.companySize)    chips.push(`<span class="enrich-chip">👥 ${esc(p.companySize)}</span>`);
+    if (p.location)       chips.push(`<span class="enrich-chip">📍 ${esc(p.location)}</span>`);
+    if (p.fundingStage)   chips.push(`<span class="enrich-chip">💰 ${esc(p.fundingStage)}</span>`);
+    if (p.techStack?.length) chips.push(`<span class="enrich-chip" title="${esc(p.techStack.join(', '))}">🛠 ${p.techStack.slice(0,2).map(esc).join(', ')}${p.techStack.length > 2 ? ` +${p.techStack.length-2}` : ''}</span>`);
+    const profileCell = chips.length
+      ? `<div class="enrich-row">${chips.join('')}</div>`
+      : (p.enriching ? '<span style="font-size:11px;color:var(--text3);">⟳ Enriching…</span>' : '<span style="color:var(--text3);font-size:12px;">–</span>');
+
+    // Trigger + signal badges
+    const sigCount = (p.signals || []).length;
+    const sigBadge = sigCount > 0
+      ? `<span class="signal-badge signal-badge-active" title="${sigCount} signal${sigCount>1?'s':''} detected">${sigCount} signal${sigCount>1?'s':''}</span>`
+      : '';
+    const triggerCell = `<div style="color:var(--amber);font-size:12px;">${esc(p.trigger) || '–'}</div>${sigBadge}`;
+
+    // Priority score bar
+    const score = calcPriorityScore(p);
+    const scoreClass = score >= 70 ? 'score-hi' : score >= 40 ? 'score-mid' : 'score-lo';
+    const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--text3)';
+    const scoreCell = `<div class="score-wrap ${scoreClass}">
+      <span class="score-num">${score}</span>
+      <div class="score-bar-bg"><div class="score-fill" style="width:${score}%;background:${scoreColor};"></div></div>
+    </div>`;
+
+    // Actions
+    const sendBtn = p.email
+      ? `<button class="btn btn-ghost btn-sm" onclick="openSendEmail('${p.id}')" title="Send cold email">✉</button>`
+      : '';
+    const reEnrichBtn = p.enriched && !p.enriching
+      ? `<button class="btn btn-ghost btn-sm" onclick="enrichProspect('${p.id}')" title="Re-enrich profile">↻</button>`
+      : '';
+    const draftBtn = `<button class="btn btn-primary btn-sm" onclick="draftOutreach('${p.id}')" title="AI draft outreach">✍ Draft</button>`;
+    const sigBtn = `<button class="btn btn-ghost btn-sm" onclick="detectProspectSignals('${p.id}')" title="Detect signals">📡</button>`;
+
+    return `<tr>
+      <td style="font-weight:600;">${esc(p.name)}</td>
+      <td style="color:var(--text2)">${esc(p.company)}</td>
+      <td style="color:var(--text2);font-size:12px;">${titleCell}</td>
+      <td style="font-size:12px;">${emailCell}</td>
+      <td style="font-size:12px;">${profileCell}</td>
+      <td style="font-size:12px;">${triggerCell}</td>
+      <td>${scoreCell}</td>
+      <td style="color:var(--text2);font-size:12px;">${esc(cName(p.campaign))}</td>
+      <td><span class="pill ${st.cls}">${st.label}</span></td>
+      <td style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${draftBtn}${sigBtn}${sendBtn}${reEnrichBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Send email ────────────────────────────────────────────────────────────────
+function openSendEmail(prospectId) {
+  const p = prospects.find(x => x.id === prospectId);
+  if (!p) return;
+  document.getElementById('seProspectId').value = prospectId;
+  document.getElementById('seToEmail').value    = p.email || '';
+  document.getElementById('seSubject').value    = `Quick question about ${p.company}`;
+  const firstName = p.name.split(' ')[0];
+  document.getElementById('seBody').value = `Hi ${firstName},\n\nI noticed ${p.company}${p.trigger ? ` — ${p.trigger}` : ''}. Many ${p.industry || 'companies'} are facing challenges we've helped solve.\n\nWould you be open to a quick 15-minute call to see if it's relevant?\n\nBest,\n{{senderName}}`;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+async function dispatchEmail() {
+  const btn = document.getElementById('seSendBtn');
+  const statusEl = document.getElementById('seStatus');
+  const to = document.getElementById('seToEmail').value.trim();
+  const subject = document.getElementById('seSubject').value.trim();
+  const rawBody = document.getElementById('seBody').value.trim();
+  const prospectId = document.getElementById('seProspectId').value;
+
+  if (!to || !subject || !rawBody) { statusEl.textContent = 'To, subject, and message are required.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  statusEl.textContent = '';
+
+  // Simple HTML wrap
+  const html = rawBody.split('\n\n').map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+
+  try {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html, text: rawBody, prospectId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Send failed');
+
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = `✓ Sent! (${data.dailySent}/${data.dailyLimit} today)`;
+
+    // Log outreach in prospect activities
+    const idx = prospects.findIndex(p => p.id === prospectId);
+    if (idx !== -1) {
+      if (!prospects[idx].activities) prospects[idx].activities = [];
+      prospects[idx].activities.push({ id: 'act_'+Date.now(), type:'email_sent', timestamp: new Date().toISOString(), subject, to });
+      if (prospects[idx].status === 'pending') prospects[idx].status = 'inseq';
+      LS.set(K.PROSPECTS, prospects);
+      renderProspects();
+    }
+
+    setTimeout(() => closeModal('sendEmailModal'), 1500);
+  } catch (err) {
+    statusEl.style.color = 'var(--red, #ef4444)';
+    statusEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Email';
+  }
+}
+
+// ── Signals ──────────────────────────────────────────────────────────────────
+function saveSignal() {
+  const company = document.getElementById('sCompany').value.trim();
+  const type    = document.getElementById('sType').value;
+  if (!company || !type) { alert('Company and signal type are required.'); return; }
+  signals.unshift({
+    id: uid(), company, type,
+    description: document.getElementById('sDesc').value.trim(),
+    source:      document.getElementById('sSource').value.trim(),
+    campaign:    document.getElementById('sCampaign').value,
+    createdAt: new Date().toISOString()
+  });
+  LS.set(K.SIGNALS, signals);
+  closeModal('signalModal');
+  ['sCompany','sDesc','sSource'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('sType').value = '';
+  renderSignals(); toast('Signal logged');
+}
+function deleteSignal(id) {
+  if (!confirm('Delete this signal?')) return;
+  signals = signals.filter(s => s.id !== id); LS.set(K.SIGNALS, signals); renderSignals();
+}
+function renderSignals() {
+  const list = document.getElementById('signalsList');
+  if (signals.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div><h3>No trigger events logged yet</h3><p>Every prospect should be sourced from a trigger. Log them here as they come in.</p></div>';
+    return;
+  }
+  const icons = { funding:'💰', hiring:'👥', leadership:'🪜', tech:'⚙️', visitor:'🌐', competitor:'🥊', news:'📰', other:'📌' };
+  const labels = { funding:'Funding Round', hiring:'Hiring Spike', leadership:'Leadership Change', tech:'Tech Install / Switch', visitor:'Website Visitor', competitor:'Competitor Frustration', news:'Industry Event', other:'Other' };
+  list.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;">' + signals.map(s => {
+    const ts = new Date(s.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+    return `<div class="signal-item">
+      <div class="sig-icon">${icons[s.type] || '📌'}</div>
+      <div class="sig-body">
+        <div class="sig-title">${esc(s.company)} — <span style="color:var(--text2);font-weight:500">${labels[s.type] || s.type}</span></div>
+        <div class="sig-meta">${ts}${s.source ? ' · <a href="' + esc(s.source) + '" target="_blank" style="color:var(--indigo);text-decoration:none;">source ↗</a>' : ''}</div>
+        ${s.description ? `<div class="sig-desc">${esc(s.description)}</div>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteSignal('${s.id}')">✕</button>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ── Channels ─────────────────────────────────────────────────────────────────
+function renderChannels() {
+  const grid = document.getElementById('channelsGrid');
+  grid.innerHTML = channels.map(c => `<div class="card" style="display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">${c.icon}</span>
+        <div><div class="card-title" style="margin-bottom:0;">${esc(c.name)}</div>${c.owner ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">Owner: ${esc(c.owner)}</div>` : ''}</div>
+      </div>
+      <span class="pill-status ${c.status}">${c.status === 'idle' ? 'Not started' : c.status === 'planning' ? 'Planning' : 'Active'}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(c.desc)}</div>
+    ${c.notes ? `<div style="font-size:12px;color:var(--text);background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:6px;border-left:2px solid var(--indigo);line-height:1.5;">${esc(c.notes)}</div>` : ''}
+    <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="openChannel('${c.id}')">Edit</button>
+  </div>`).join('');
+}
+function openChannel(id) {
+  const c = channels.find(x => x.id === id); if (!c) return;
+  document.getElementById('chId').value = id;
+  document.getElementById('chStatus').value = c.status || 'idle';
+  document.getElementById('chOwner').value = c.owner || '';
+  document.getElementById('chNotes').value = c.notes || '';
+  document.getElementById('channelModal').classList.add('open');
+}
+function saveChannel() {
+  const id = document.getElementById('chId').value;
+  const c = channels.find(x => x.id === id); if (!c) return;
+  c.status = document.getElementById('chStatus').value;
+  c.owner  = document.getElementById('chOwner').value.trim();
+  c.notes  = document.getElementById('chNotes').value.trim();
+  LS.set(K.CHANNELS, channels); closeModal('channelModal'); renderChannels(); toast('Channel updated');
+}
+
+// ── Checklists ───────────────────────────────────────────────────────────────
+function saveChecklist() {
+  const state = {};
+  document.querySelectorAll('#tab-setup .card input[type=checkbox]').forEach(cb => { if (cb.id.startsWith('c')) state[cb.id] = cb.checked; });
+  LS.set(K.CHECKLIST, state);
+}
+function loadChecklist() {
+  const s = LS.get(K.CHECKLIST, {});
+  Object.entries(s).forEach(([id, ch]) => { const el = document.getElementById(id); if (el) el.checked = ch; });
+}
+function saveStack() {
+  const state = {};
+  document.querySelectorAll('#tab-setup input[type=checkbox]').forEach(cb => { if (cb.id.startsWith('t_')) state[cb.id] = cb.checked; });
+  LS.set(K.STACK, state);
+}
+function loadStack() {
+  const s = LS.get(K.STACK, {});
+  Object.entries(s).forEach(([id, ch]) => { const el = document.getElementById(id); if (el) el.checked = ch; });
+}
+function saveSignalsState() {
+  const state = {};
+  document.querySelectorAll('#tab-signals input[type=checkbox]').forEach(cb => { state[cb.id] = cb.checked; });
+  LS.set(K.SIG_STATE, state);
+}
+function loadSignalsState() {
+  const s = LS.get(K.SIG_STATE, {});
+  Object.entries(s).forEach(([id, ch]) => { const el = document.getElementById(id); if (el) el.checked = ch; });
+}
+
+// ── AI Features ──────────────────────────────────────────────────────────────
+function brainCtx() {
+  return window.IntelligenceEngine?.isConfigured?.()
+    ? '\n\nBusiness Context:\n' + window.IntelligenceEngine.brain.getContextSummary()
+    : '';
+}
+function strategyCtx() {
+  const lines = [];
+  if (strategy.niche)   lines.push('Niche: ' + strategy.niche);
+  if (strategy.buyer)   lines.push('Buyer: ' + strategy.buyer);
+  if (strategy.outcome) lines.push('Headline outcome: ' + strategy.outcome);
+  if (strategy.offer)   lines.push('Offer: ' + strategy.offer);
+  if (strategy.trigger) lines.push('Buying trigger: ' + strategy.trigger);
+  if (strategy.pain)    lines.push('Pain: ' + strategy.pain);
+  return lines.length ? '\n\nAgency Strategy:\n' + lines.join('\n') : '';
+}
+
+async function streamAI(outputEl, system, user, btn, btnLabel) {
+  if (!window.ClaudeService) {
+    outputEl.innerHTML = '<div style="color:var(--amber)">Claude API not configured. Add your API key in Settings.</div>';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.dataset.original = btn.textContent; btn.textContent = '✨ Working…'; }
+  outputEl.innerHTML = '';
+  await window.ClaudeService.streamResponse({
+    systemPrompt: system,
+    messages: [{ role: 'user', content: user }],
+    outputEl,
+    onStart:  () => { outputEl.textContent = ''; },
+    onChunk:  () => {},
+    onDone:   text => { outputEl.innerHTML = marked.parse(text); },
+    onError:  err  => { outputEl.innerHTML = `<div style="color:var(--red)">${esc(err.message || 'Error')}</div>`; }
+  });
+  if (btn) { btn.disabled = false; btn.textContent = btn.dataset.original || btnLabel; }
+}
+
+async function aiGenerate(type) {
+  const out = document.getElementById('aiStrategyOutput');
+  const system = 'You are a senior B2B pipeline strategist. You build narrow, defensible positioning for lead generation agencies. You hate generic offers and reject vanity metrics. Always be specific, direct, and operational.';
+  let user;
+  if (type === 'positioning') {
+    user = `Generate 3 tight positioning statements for this B2B lead gen agency. Each in the format: "We help [specific niche] book qualified meetings with [specific buyer] using [acquisition system]."${strategyCtx()}${brainCtx()}
+
+For each statement also list:
+- Who this would beat in a deal
+- The 3-word category they'd own
+- A weakness this positioning has, so we can stress-test it`;
+  } else if (type === 'hypothesis') {
+    user = `Build a full revenue hypothesis for this niche.${strategyCtx()}
+
+Output these sections with concrete specifics, not platitudes:
+## Who Buys (job titles, seniority, decision power)
+## Why They Buy Now (business pressure, board-level mandate, deadline)
+## When in the Year They Buy (Q1, Q4, fiscal triggers, planning cycles)
+## The Trigger That Creates Urgency
+## The Expensive Pain They're Living With (quantified)
+## The Outcome They Want (measurable)
+## The Proof They Need to Believe You
+
+After: a single-sentence positioning statement that strings these together.`;
+  } else if (type === 'qualification') {
+    user = `Build a 30-second qualification framework for this agency's buyer. The output is a script a sales rep uses on a first call to qualify in/out a prospect within 30 seconds.${strategyCtx()}
+
+Output:
+## 30-Second Qualification Script
+The exact words to say, with branching for yes/no answers
+## Auto-Disqualifiers (any one of these = pass)
+## Auto-Qualifiers (any one of these = priority)
+## The 3 Questions That Always Reveal Real Intent`;
+  } else if (type === 'offer_review') {
+    user = `Review this offer for cold traffic readiness.${strategyCtx()}
+
+Output:
+## Cold Traffic Readiness Score: X/10
+## What's Working
+## The 3 Biggest Risks (why they kill reply rates, with fixes)
+## Rewritten Offer (3 variants: outcome-led, risk-reversal, urgency-led)
+## Recommended First CTA (not "book a demo" — too high-friction)`;
+  }
+  await streamAI(out, system, user);
+}
+
+async function generateAngles() {
+  const offer    = document.getElementById('aiOffer').value.trim();
+  const audience = document.getElementById('aiAudience').value.trim();
+  if (!offer) { alert('Describe your offer first.'); return; }
+  const out = document.getElementById('aiAnglesOutput');
+  const system = `You are an expert cold email strategist. You write personalised outreach that gets replies from busy executives. The hook has to earn the read in under 3 seconds.${brainCtx()}`;
+  const user = `Generate 5 distinct cold email campaign angles.
+
+OFFER: ${offer}
+AUDIENCE: ${audience}${strategyCtx()}
+
+For each angle:
+1. **Angle Name** (3–5 words)
+2. **Core Insight** (the human or business truth this exploits)
+3. **Subject Line Variants** (3 options, under 7 words each)
+4. **Opening Hook** (first 2 sentences — no "I hope this finds you well")
+5. **Why This Works** (briefly)
+
+Then a final section:
+## Offer Cold Traffic Readiness: X/10
+Quick critique with the top 3 risks and fixes.`;
+  await streamAI(out, system, user, document.getElementById('generateAnglesBtn'));
+}
+
+async function generateTriggerSequence() {
+  const offer    = document.getElementById('aiOffer').value.trim();
+  const audience = document.getElementById('aiAudience').value.trim();
+  if (!offer || !audience) { alert('Add offer + audience first.'); return; }
+  const out = document.getElementById('aiAnglesOutput');
+  const system = 'You are a cold email expert. You write multi-touch sequences tied to specific buying triggers — never generic.';
+  const user = `Build a 4-touch cold email sequence tied to the strongest trigger for this audience.
+
+OFFER: ${offer}
+AUDIENCE: ${audience}${strategyCtx()}
+
+Pick ONE specific trigger (Funded / Hiring / Competitor / Visitor / Conversion gap) and explain why it's the strongest for this audience.
+
+Then for each of 4 touches:
+- **Day sent** (relative day)
+- **Subject line**
+- **Email body** (under 90 words, sharp, no fluff)
+- **The micro-CTA** (low-friction — not "book a demo")
+
+End with: ## What "Positive" Looks Like — the exact reply patterns that signal a hot lead vs a polite no.`;
+  await streamAI(out, system, user);
+}
+
+async function buildProspectList() {
+  const icp  = document.getElementById('aiICP').value.trim();
+  const qual = document.getElementById('aiICPQual').value.trim();
+  if (!icp) { alert('Describe your ICP first.'); return; }
+  const out = document.getElementById('aiListOutput');
+  const system = 'You are a B2B sales intelligence expert. You know every data source, tool, and signal that identifies high-intent buyers. You never recommend "scrape LinkedIn."';
+  const user = `Build a prospect list strategy for this ICP.
+
+IDEAL CLIENT: ${icp}
+${qual ? 'BUYING TRIGGERS: ' + qual : ''}${strategyCtx()}
+
+Provide:
+
+## Qualification Criteria
+Sub-30-second checklist a human can use to qualify in/out any prospect.
+
+## Best Data Sources (Ranked)
+Top 5 sources for THIS specific ICP. For each: the exact search filter or query to run.
+
+## Buying Trigger Events
+5 specific events that mean this ICP is in-market now. For each: the data source to monitor.
+
+## List Build Checklist
+Step-by-step process to build and validate 200+ qualified prospects from scratch.
+
+## Per-Prospect Personalisation Signals
+The 3 things to research before writing any cold email. Where to find them.`;
+  await streamAI(out, system, user, document.getElementById('buildListBtn'));
+}
+
+// ── Priority Scoring ─────────────────────────────────────────────────────────
+function calcPriorityScore(p) {
+  let icp = 0, intent = 0, contact = 0, timing = 0;
+
+  // ICP fit (0–100): title seniority + decision maker + industry match
+  if (p.isDecisionMaker) icp += 50;
+  const titleLower = (p.title || '').toLowerCase();
+  if (/vp|vice president|chief|cxo|ceo|coo|cto|cmo|owner|founder|partner|director/.test(titleLower)) icp += 30;
+  else if (/head|manager|lead|principal/.test(titleLower)) icp += 15;
+  if (p.industry) icp += 20;
+  icp = Math.min(icp, 100);
+
+  // Intent (0–100): signals detected + trigger text
+  const sigCount = (p.signals || []).length;
+  intent += Math.min(sigCount * 20, 60);
+  if (p.trigger) intent += 40;
+  intent = Math.min(intent, 100);
+
+  // Contact quality (0–100): email verified + linkedin present
+  if (p.email) contact += 40;
+  if (p.emailVerification?.status === 'deliverable') contact += 40;
+  if (p.linkedin) contact += 20;
+  contact = Math.min(contact, 100);
+
+  // Timing (0–100): funded or hiring signal recently detected
+  const hasTimingSignal = (p.signals || []).some(s => ['hiring','funding','leadership'].includes(s.type));
+  if (hasTimingSignal) timing = 80;
+  else if (p.trigger) timing = 40;
+
+  const raw = 0.40 * icp + 0.30 * intent + 0.15 * contact + 0.10 * timing;
+  return Math.round(raw);
+}
+
+// ── AI Signal Finder ──────────────────────────────────────────────────────────
+async function runSignalFinder() {
+  const company = document.getElementById('sfCompany').value.trim();
+  const domain  = document.getElementById('sfDomain').value.trim();
+  const btn     = document.getElementById('sfBtn');
+  const out     = document.getElementById('sfResults');
+  if (!company) { out.innerHTML = '<p style="color:var(--red);font-size:13px;">Enter a company name.</p>'; return; }
+
+  btn.disabled = true;
+  out.innerHTML = '<p style="font-size:13px;color:var(--text2);">🔍 Scanning for signals via Perplexity…</p>';
+
+  try {
+    const res = await fetch('/api/lead-signals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company, domain: domain || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signal scan failed');
+
+    const sigs = data.signals || [];
+    if (!sigs.length) {
+      out.innerHTML = '<p style="font-size:13px;color:var(--text2);">No signals detected for this company right now.</p>';
+    } else {
+      const typeColors = { hiring:'var(--green)', funding:'var(--indigo)', leadership:'var(--amber)', growth:'var(--green)', competitor:'var(--red)', tech:'var(--text2)' };
+      out.innerHTML = sigs.map(s => `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span class="signal-badge signal-badge-active" style="background:rgba(99,102,241,0.12);color:${typeColors[s.type]||'var(--text2)'};">${s.type}</span>
+            <span style="font-size:13px;font-weight:600;">${esc(s.title)}</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto;">${Math.round((s.confidence||0)*100)}% confidence</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2);">${esc(s.detail)}</div>
+        </div>`).join('');
+      // Auto-log signals to the Signals tab store
+      const newSig = { id:'sig_'+Date.now(), company, signals: sigs, detectedAt: new Date().toISOString() };
+      signals.unshift(newSig);
+      LS.set(K.SIGNALS, signals);
+      renderSignals();
+      toast(`${sigs.length} signal${sigs.length>1?'s':''} detected for ${company}`);
+    }
+  } catch(e) {
+    out.innerHTML = `<p style="font-size:13px;color:var(--red);">Error: ${esc(e.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Per-prospect Signal Detection ─────────────────────────────────────────────
+async function detectProspectSignals(prospectId) {
+  const idx = prospects.findIndex(x => x.id === prospectId);
+  if (idx === -1) return;
+  const p = prospects[idx];
+  if (!p.company) { toast('No company name on this prospect.'); return; }
+
+  toast(`📡 Scanning signals for ${p.company}…`);
+  try {
+    const res = await fetch('/api/lead-signals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: p.company, domain: p.domain || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signal scan failed');
+    prospects[idx].signals = data.signals || [];
+    LS.set(K.PROSPECTS, prospects);
+    renderProspects();
+    toast(`${(data.signals||[]).length} signal(s) found for ${p.company}`);
+  } catch(e) {
+    toast(`Signal scan failed: ${e.message}`);
+  }
+}
+
+// ── AI Outreach Draft ─────────────────────────────────────────────────────────
+let _currentDraft = null;
+
+async function draftOutreach(prospectId) {
+  const p = prospects.find(x => x.id === prospectId);
+  if (!p) return;
+
+  const odContent  = document.getElementById('odContent');
+  const odLoading  = document.getElementById('odLoading');
+  const odMeta     = document.getElementById('odMeta');
+  odContent.style.display = 'none';
+  odLoading.style.display = 'block';
+  odLoading.textContent   = '🤖 Drafting outreach with Claude…';
+  openModal('outreachDraftModal');
+
+  const strategy = LS.get(K.STRATEGY) || {};
+  const seller = {
+    companyName: strategy.companyName || 'Our Company',
+    offer:       strategy.offer || '',
+    niche:       strategy.niche || '',
+    outcome:     strategy.outcome || '',
+  };
+  const prospect = {
+    name:        p.name,
+    firstName:   p.name.split(' ')[0],
+    title:       p.title || '',
+    company:     p.company || '',
+    industry:    p.industry || '',
+    companySize: p.companySize || '',
+  };
+
+  try {
+    const res = await fetch('/api/outreach-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prospect, seller, signals: p.signals || [] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Draft failed');
+
+    _currentDraft = { ...data, prospectId };
+    document.getElementById('odSubject').value  = data.email?.subject || '';
+    document.getElementById('odBody').value     = data.email?.body    || '';
+    document.getElementById('odLinkedin').value = data.linkedin        || '';
+    odMeta.textContent = `Drafted for ${p.name} at ${p.company}`;
+    document.getElementById('odSignalUsed').textContent = data.primarySignalUsed
+      ? `Primary signal: "${data.primarySignalUsed}"`
+      : '';
+    document.getElementById('odStatus').textContent = '';
+    odLoading.style.display  = 'none';
+    odContent.style.display  = 'block';
+  } catch(e) {
+    odLoading.textContent = `Error: ${e.message}`;
+  }
+}
+
+function approveOutreach() {
+  if (!_currentDraft) return;
+  const subject = document.getElementById('odSubject').value.trim();
+  const body    = document.getElementById('odBody').value.trim();
+  const p = prospects.find(x => x.id === _currentDraft.prospectId);
+  closeModal('outreachDraftModal');
+  if (!p) return;
+  // Pre-fill the send email modal with the approved draft
+  document.getElementById('seProspectId').value = p.id;
+  document.getElementById('seToEmail').value    = p.email || '';
+  document.getElementById('seSubject').value    = subject;
+  document.getElementById('seBody').value       = body;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+function addToApprovalQueue() {
+  if (!_currentDraft) return;
+  const subject  = document.getElementById('odSubject').value.trim();
+  const body     = document.getElementById('odBody').value.trim();
+  const linkedin = document.getElementById('odLinkedin').value.trim();
+  const p = prospects.find(x => x.id === _currentDraft.prospectId);
+  if (!p) return;
+
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  queue.unshift({
+    id: 'aq_' + Date.now(),
+    prospectId: p.id,
+    name: p.name,
+    company: p.company,
+    email: p.email || '',
+    subject, body, linkedin,
+    createdAt: new Date().toISOString(),
+  });
+  localStorage.setItem('ld_approval_queue', JSON.stringify(queue));
+  closeModal('outreachDraftModal');
+  renderApprovalQueue();
+  // Switch to Inbox tab
+  document.querySelector('.tab-btn[data-tab="inbox"]')?.click();
+  toast(`Draft queued for approval — ${p.name} at ${p.company}`);
+}
+
+function renderApprovalQueue() {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const section = document.getElementById('approvalQueueSection');
+  const container = document.getElementById('approvalQueue');
+  if (!queue.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  container.innerHTML = queue.map(item => `
+    <div style="background:var(--card);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <span style="font-weight:700;font-size:14px;">${esc(item.name)}</span>
+          <span style="color:var(--text3);font-size:13px;"> at ${esc(item.company)}</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeFromQueue('${item.id}')">Remove</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Subject: <span style="color:var(--text);">${esc(item.subject)}</span></div>
+      <div style="font-size:12px;color:var(--text2);white-space:pre-wrap;background:rgba(0,0,0,.2);border-radius:6px;padding:10px;margin-bottom:10px;">${esc(item.body)}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="sendQueuedDraft('${item.id}')">✅ Approve &amp; Send</button>
+        <button class="btn btn-ghost btn-sm" onclick="editQueuedDraft('${item.id}')">Edit</button>
+      </div>
+    </div>`).join('');
+}
+
+function clearApprovalQueue() {
+  localStorage.removeItem('ld_approval_queue');
+  renderApprovalQueue();
+  toast('Approval queue cleared');
+}
+
+function removeFromQueue(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]').filter(x => x.id !== id);
+  localStorage.setItem('ld_approval_queue', JSON.stringify(queue));
+  renderApprovalQueue();
+}
+
+function sendQueuedDraft(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const item = queue.find(x => x.id === id);
+  if (!item) return;
+  document.getElementById('seProspectId').value = item.prospectId || '';
+  document.getElementById('seToEmail').value    = item.email;
+  document.getElementById('seSubject').value    = item.subject;
+  document.getElementById('seBody').value       = item.body;
+  document.getElementById('seStatus').textContent = '';
+  openModal('sendEmailModal');
+}
+
+function editQueuedDraft(id) {
+  const queue = JSON.parse(localStorage.getItem('ld_approval_queue') || '[]');
+  const item = queue.find(x => x.id === id);
+  if (!item) return;
+  _currentDraft = { prospectId: item.prospectId };
+  document.getElementById('odSubject').value  = item.subject;
+  document.getElementById('odBody').value     = item.body;
+  document.getElementById('odLinkedin').value = item.linkedin || '';
+  document.getElementById('odMeta').textContent = `${item.name} at ${item.company}`;
+  document.getElementById('odSignalUsed').textContent = '';
+  document.getElementById('odStatus').textContent = '';
+  document.getElementById('odLoading').style.display = 'none';
+  document.getElementById('odContent').style.display = 'block';
+  openModal('outreachDraftModal');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadStrategy();
+renderLeads();
+renderCampaigns();
+renderProspects();
+renderSignals();
+renderChannels();
+loadChecklist();
+loadStack();
+loadSignalsState();
+refreshStats();
+hydrateAiContext();
+renderApprovalQueue();
+</script>
 </body>
 </html>

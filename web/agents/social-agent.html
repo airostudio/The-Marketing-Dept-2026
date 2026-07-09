@@ -8,10 +8,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="../js/marked.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+            --agent-color: #8b5cf6;
+            --agent-color-rgb: 139,92,246;
             --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981;
             --bg: #070711; --border: rgba(255,255,255,0.08);
             --text: #ffffff; --text2: rgba(255,255,255,0.6);
@@ -34,8 +36,8 @@
         .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 
         .hero { padding: 64px 32px 48px; max-width: 900px; margin: 0 auto; text-align: center; }
-        .hero-emoji { font-size: 56px; margin-bottom: 16px; display: block; }
-        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-emoji { display: none; }
+        .hero h1 { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
         .hero-tagline { font-size: 18px; color: var(--text2); margin-bottom: 24px; }
         .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: #a78bfa; }
         .intelligence-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); margin-left: 8px; }
@@ -49,7 +51,7 @@
         .field-group { margin-bottom: 16px; }
         .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .field-input, .field-select, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
-        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(124,58,237,0.05); }
         .field-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
         .field-select option { background: #13131f; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -65,7 +67,38 @@
         .platform-btn.active { border-color: var(--purple); color: var(--purple); background: rgba(124,58,237,0.1); }
         .platform-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
 
-        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
+        /* Mode toggle: Organic Posts vs Ad Campaign */
+        .mode-toggle { display: flex; gap: 0; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .mode-btn {
+            flex: 1; padding: 11px 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+            border: none; background: none; color: var(--text2); font-family: 'Inter', sans-serif;
+            transition: all 0.15s; text-align: center;
+        }
+        .mode-btn.active { background: rgba(124,58,237,0.18); color: #a78bfa; }
+        .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+
+        /* Ad-mode: platform pills (multi-select) */
+        .platform-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .platform-pill {
+            padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+            background: rgba(255,255,255,0.04); transition: all 0.15s; user-select: none;
+        }
+        .platform-pill.active { border-color: #f97316; color: #f97316; background: rgba(249,115,22,0.1); }
+
+        /* Ad-mode: framework chips */
+        .framework-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+        .framework-chip {
+            padding: 5px 11px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+            background: rgba(255,255,255,0.03); transition: all 0.15s; user-select: none;
+            letter-spacing: 0.3px;
+        }
+        .framework-chip.active { border-color: #8b5cf6; color: #c4b5fd; background: rgba(139,92,246,0.12); }
+        .framework-chip:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
+        .framework-chip .chip-tag { display: block; font-size: 9px; color: rgba(255,255,255,0.3); font-weight: 400; margin-top: 1px; }
+
+        .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
         .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-icon { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 7px; color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
@@ -83,7 +116,7 @@
         .output-empty { color: var(--text2); text-align: center; padding: 60px 20px; font-style: italic; }
 
         .typing-indicator { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 20px; }
-        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--purple); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
+        .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--agent-color); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
         .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
         .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes pulse { 0%,100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
@@ -114,7 +147,7 @@
             Audema
         </a>
         <span class="nav-sep">/</span>
-        <span class="nav-breadcrumb">Social Studio</span>
+        <span class="nav-breadcrumb"><span style="color:#8b5cf6;font-weight:700;letter-spacing:1px;">PULSE</span> · Social Studio</span>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/hub.html">Hub</a>
@@ -122,11 +155,11 @@
     </div>
 </nav>
 
-<div class="hero">
+<div class="hero" data-agent="pulse">
     <span class="hero-emoji">📱</span>
     <h1>Social Studio</h1>
-    <p class="hero-tagline">Platform-native content, calendars, and viral hooks</p>
-    <span class="powered-pill">⚡ Powered by Claude</span>
+    <p class="hero-tagline">Platform-native content, ad campaigns, calendars, and viral hooks</p>
+    <span class="powered-pill">⚡ AI-Powered</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
 </div>
 
@@ -137,6 +170,14 @@
             <span class="panel-title">Content Brief</span>
         </div>
         <div class="panel-body">
+            <!-- Mode toggle: organic content vs paid ad campaign -->
+            <div class="mode-toggle" id="modeToggle">
+                <button type="button" class="mode-btn active" data-mode="organic" onclick="setStudioMode('organic')">📱 Organic Posts</button>
+                <button type="button" class="mode-btn" data-mode="ads" onclick="setStudioMode('ads')">🎯 Ad Campaign</button>
+            </div>
+
+            <!-- ── Organic mode fields ─────────────────────────────────── -->
+            <div id="organicFields">
             <div class="field-group">
                 <label class="field-label">Platform</label>
                 <div class="platform-grid" id="platformGrid">
@@ -182,7 +223,84 @@
                     </select>
                 </div>
             </div>
-            <button class="btn-run" id="runBtn" onclick="agent.run()">Create Content</button>
+            </div><!-- /organicFields -->
+
+            <!-- ── Ad Campaign mode fields (merged from Ad Creative Lab) ── -->
+            <div id="adFields" style="display:none;">
+            <div class="field-group">
+                <label class="field-label">Platforms <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— select one or more</span></label>
+                <div class="platform-pills" id="adPlatformPills">
+                    <span class="platform-pill active" data-value="Meta/Facebook">Meta / Facebook</span>
+                    <span class="platform-pill active" data-value="LinkedIn">LinkedIn</span>
+                    <span class="platform-pill" data-value="Google Search">Google Search</span>
+                    <span class="platform-pill" data-value="Google Display">Google Display</span>
+                    <span class="platform-pill" data-value="TikTok">TikTok</span>
+                    <span class="platform-pill" data-value="Twitter/X">Twitter / X</span>
+                    <span class="platform-pill" data-value="YouTube">YouTube</span>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Advertising Framework <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— world's best models (pick 1–3)</span></label>
+                <div class="framework-grid" id="frameworkChips">
+                    <span class="framework-chip active" data-value="AIDA">AIDA<span class="chip-tag">Ogilvy / Hopkins</span></span>
+                    <span class="framework-chip active" data-value="PAS">PAS<span class="chip-tag">Dan Kennedy</span></span>
+                    <span class="framework-chip" data-value="BAB">BAB<span class="chip-tag">Before-After-Bridge</span></span>
+                    <span class="framework-chip" data-value="Hook-Story-Offer">Hook / Story / Offer<span class="chip-tag">Hormozi · Brunson</span></span>
+                    <span class="framework-chip" data-value="Ogilvy">Ogilvy Principles<span class="chip-tag">Research-Driven</span></span>
+                    <span class="framework-chip" data-value="StoryBrand">StoryBrand<span class="chip-tag">Donald Miller</span></span>
+                    <span class="framework-chip" data-value="Byron Sharp">Byron Sharp<span class="chip-tag">How Brands Grow</span></span>
+                    <span class="framework-chip" data-value="Cialdini">Cialdini 7<span class="chip-tag">Influence Principles</span></span>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Campaign Objective</label>
+                <select class="field-select" id="adObjective">
+                    <option value="Awareness">Awareness — Build brand salience</option>
+                    <option value="Traffic">Traffic — Drive clicks</option>
+                    <option value="Leads">Leads — Generate leads / downloads</option>
+                    <option value="Conversions" selected>Conversions — Direct response</option>
+                    <option value="Retargeting">Retargeting — Close warm audiences</option>
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Product / Offer</label>
+                <textarea class="field-textarea" id="adProduct" style="min-height:80px;" placeholder="What are you advertising? Key benefits, unique angles, special offer or pricing…"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Target Audience</label>
+                <textarea class="field-textarea" id="adAudience" style="min-height:70px;" placeholder="Who is this for? Role, company size, pain points, funnel stage…"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="field-group" style="margin-bottom:0">
+                    <label class="field-label">Budget (optional)</label>
+                    <input class="field-input" id="adBudget" type="text" placeholder="e.g. $5k/mo">
+                </div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label class="field-label">Variants per platform</label>
+                    <select class="field-select" id="adVariantCount">
+                        <option value="3">3 variants</option>
+                        <option value="5" selected>5 variants</option>
+                        <option value="7">7 variants</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group" style="margin-top:12px;">
+                <label class="field-label">Competitors (optional — adds displacement angles)</label>
+                <input class="field-input" id="adCompetitors" type="text" placeholder="e.g. HubSpot, Salesforce, Mailchimp">
+            </div>
+
+            <!-- Convert A/B Experiment Data -->
+            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;">
+                <div style="font-weight:700;color:#10b981;margin-bottom:4px;">Convert A/B Data Loaded</div>
+                <div id="convertExperimentSummary" style="color:rgba(255,255,255,0.6);line-height:1.5;"></div>
+            </div>
+            <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
+            </div><!-- /adFields -->
+
+            <button class="btn-run" id="runBtn" onclick="agent.run()" style="margin-top:14px;">Create Content</button>
         </div>
     </div>
 
@@ -190,6 +308,7 @@
         <div class="panel-header">
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
+                <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(var(--agent-color-rgb),0.3);">⬇ Buffer CSV</button>
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
@@ -222,14 +341,27 @@
                 <div class="feature-name">Content Calendar View</div>
                 <div class="feature-desc">Posts are scheduled across your week with timing recommendations for peak engagement per platform.</div>
             </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-name">Ad Campaign Mode</div>
+                <div class="feature-desc">Switch to Ad Campaign for conversion-ready ad variants built on AIDA, PAS, Hook/Story/Offer, Ogilvy, StoryBrand, and Cialdini — with exact platform character limits.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧪</div>
+                <div class="feature-name">A/B Test Intelligence</div>
+                <div class="feature-desc">Pull winning copy from your Convert A/B experiments straight into new ad variants — build on what already converts.</div>
+            </div>
         </div>
     </div>
 
 </div>
 
+<script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
+<script src="../js/openai-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/agent-history.js"></script>
 <script>
 // Platform selection (single)
 document.querySelectorAll('.platform-btn').forEach(btn => {
@@ -244,9 +376,94 @@ function getSelectedPlatform() {
     return active ? active.dataset.value : 'LinkedIn';
 }
 
+/* ── Studio mode: organic posts vs ad campaign ─────────────────────────── */
+let studioMode = 'organic';
+
+function setStudioMode(mode) {
+    const modeChanged = mode !== studioMode;
+    studioMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    document.getElementById('organicFields').style.display = mode === 'organic' ? '' : 'none';
+    document.getElementById('adFields').style.display      = mode === 'ads' ? '' : 'none';
+    document.getElementById('runBtn').textContent          = mode === 'ads' ? 'Generate Ad Variants' : 'Create Content';
+    const emptyText = mode === 'ads'
+        ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
+        : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.';
+    if (modeChanged) {
+        // Reset output to the mode-appropriate empty state so stale cross-mode output never lingers
+        document.getElementById('output').innerHTML = `<div class="output-empty">${emptyText}</div>`;
+        const csvBtn = document.getElementById('csvBtn');
+        if (csvBtn) csvBtn.style.display = 'none';
+    } else {
+        const empty = document.querySelector('#output .output-empty');
+        if (empty) empty.textContent = emptyText;
+    }
+    if (mode === 'ads') {
+        const csvBtn = document.getElementById('csvBtn');
+        if (csvBtn) csvBtn.style.display = 'none';
+    }
+    if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+}
+
+/* Ad-mode platform pills — multi-select */
+document.querySelectorAll('#adPlatformPills .platform-pill').forEach(pill => {
+    pill.addEventListener('click', () => pill.classList.toggle('active'));
+});
+
+function getSelectedAdPlatforms() {
+    const active = document.querySelectorAll('#adPlatformPills .platform-pill.active');
+    return active.length ? [...active].map(p => p.dataset.value) : ['Meta/Facebook'];
+}
+
+/* Ad-mode framework chips — multi-select, cap at 3 */
+document.querySelectorAll('.framework-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        if (chip.classList.contains('active')) {
+            chip.classList.remove('active');
+        } else {
+            const active = document.querySelectorAll('.framework-chip.active');
+            if (active.length >= 3) { active[0].classList.remove('active'); }
+            chip.classList.add('active');
+        }
+    });
+});
+
+function getSelectedFrameworks() {
+    const active = document.querySelectorAll('.framework-chip.active');
+    return active.length ? [...active].map(c => c.dataset.value) : ['AIDA', 'PAS'];
+}
+
+/* Convert A/B experiment data (winning copy feeds new ad variants) */
+let _convertData = null;
+
+async function loadConvertData() {
+    const btn = document.getElementById('loadConvertBtn');
+    const panel = document.getElementById('convertExperimentPanel');
+    const summary = document.getElementById('convertExperimentSummary');
+    btn.disabled = true;
+    btn.textContent = 'Loading experiments…';
+    try {
+        const res = await fetch('/api/convert-experiments', { method: 'GET' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load experiments');
+        _convertData = data;
+        const expCount = data.experiments?.length || 0;
+        const winners = data.experiments?.filter(e => e.winner).length || 0;
+        summary.innerHTML = `${expCount} experiments found · ${winners} with declared winners · Top performer: ${data.topPerformer || 'N/A'}`;
+        panel.style.display = 'block';
+        btn.textContent = 'Reload Convert Data';
+    } catch (err) {
+        summary.innerHTML = `<span style="color:#ef4444;">${err.message}</span><br><span style="color:rgba(255,255,255,0.4);">Add CONVERT_API_KEY + CONVERT_API_SECRET in Vercel env vars.</span>`;
+        panel.style.display = 'block';
+        btn.textContent = 'Retry Convert Data';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 class SocialAgent {
     constructor() {
-        this.claudeService = window.ClaudeService;
+        this.claudeService = window.OpenAIService || window.ClaudeService;
         this.intelligenceEngine = window.IntelligenceEngine;
         this._checkIntelligence();
     }
@@ -256,32 +473,38 @@ class SocialAgent {
             const bundle = this.intelligenceEngine.getContextBundle();
             if (bundle && bundle.isReady) {
                 document.getElementById('intelligenceBadge').style.display = 'inline-flex';
-                this._loadICP();
-                this._loadBrandVoice();
             }
+            // Always attempt to load ICP + brand voice (each has its own guards) so
+            // partially-configured brains still inform generation on first run.
+            this._loadICP();
+            this._loadBrandVoice();
         }
     }
 
     _loadICP() {
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp && data.icp.persona) {
+            if (data && data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role) {
                 const topicField = document.getElementById('topic');
                 if (!topicField.value) {
-                    topicField.placeholder = `e.g., ${data.icp.persona} struggles with ${(data.icp.painPoints && data.icp.painPoints[0]) || 'their challenges'}...`;
+                    topicField.placeholder = `e.g., ${data.icp.primaryBuyer.role} struggles with ${(data.icp.painPoints && data.icp.painPoints[0]) || 'their challenges'}...`;
                 }
             }
         }
     }
 
     _loadBrandVoice() {
+        this.brandVoice = null;
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.voice && data.voice.tone) {
-                // Visual indicator that brand voice is active
+            const tone = (data && data.positioning && Array.isArray(data.positioning.voiceAndTone)) ? data.positioning.voiceAndTone.filter(Boolean) : [];
+            if (tone.length > 0) {
+                this.brandVoice = tone;
+                const toneStr = tone.join(', ');
                 const badge = document.getElementById('intelligenceBadge');
                 if (badge) {
-                    badge.title = `Brand Voice: ${data.voice.tone}`;
+                    badge.title = `Brand Voice: ${toneStr}`;
+                    badge.textContent = `⚡ Brand Voice: ${toneStr}`;
                 }
             }
         }
@@ -294,7 +517,7 @@ class SocialAgent {
             if (data && data.icp) {
                 const icp = data.icp;
                 hooks += `\n\n**ICP-Specific Social Hooks:**\n`;
-                hooks += `Your target audience is: ${icp.persona || 'professionals'}\n\n`;
+                hooks += `Your target audience is: ${(icp.primaryBuyer && icp.primaryBuyer.role) || 'professionals'}\n\n`;
 
                 if (icp.painPoints && icp.painPoints.filter(p => p).length > 0) {
                     const painPoints = icp.painPoints.filter(p => p);
@@ -305,10 +528,12 @@ class SocialAgent {
                     hooks += `\n`;
                 }
 
-                if (icp.language && icp.language.length > 0) {
+                const _socialLang = Array.isArray(icp.language) ? icp.language :
+                    (icp.language ? String(icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                if (_socialLang.length > 0) {
                     hooks += `**Audience Language Patterns:**\n`;
                     hooks += `Your ICP describes their problems using:\n`;
-                    icp.language.forEach(lang => {
+                    _socialLang.forEach(lang => {
                         hooks += `- "${lang}"\n`;
                     });
                     hooks += `Mirror this language in your hooks and copy.\n\n`;
@@ -316,14 +541,14 @@ class SocialAgent {
 
                 if (icp.buyerJourney) {
                     hooks += `**Content by Buyer Journey Stage:**\n`;
-                    if (icp.buyerJourney.awareness) {
-                        hooks += `- Awareness: "${icp.buyerJourney.awareness}" → Problem amplification posts\n`;
+                    if (icp.buyerJourney.aware) {
+                        hooks += `- Awareness: "${icp.buyerJourney.aware}" → Problem amplification posts\n`;
                     }
-                    if (icp.buyerJourney.consideration) {
-                        hooks += `- Consideration: "${icp.buyerJourney.consideration}" → Solution comparison posts\n`;
+                    if (icp.buyerJourney.consider) {
+                        hooks += `- Consideration: "${icp.buyerJourney.consider}" → Solution comparison posts\n`;
                     }
-                    if (icp.buyerJourney.decision) {
-                        hooks += `- Decision: "${icp.buyerJourney.decision}" → Social proof & case study posts\n`;
+                    if (icp.buyerJourney.decide) {
+                        hooks += `- Decision: "${icp.buyerJourney.decide}" → Social proof & case study posts\n`;
                     }
                     hooks += `\n`;
                 }
@@ -336,18 +561,18 @@ class SocialAgent {
         let voice = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.voice) {
-                voice += `\n\n**Brand Voice Guidelines:**\n`;
-                if (data.voice.tone) {
-                    voice += `Tone: ${data.voice.tone}\n`;
+            if (data && data.positioning) {
+                const tone = Array.isArray(data.positioning.voiceAndTone) ? data.positioning.voiceAndTone.filter(Boolean) : [];
+                if (tone.length > 0 || data.positioning.thingsWeNeverSay) {
+                    voice += `\n\n**BRAND VOICE REQUIREMENTS (MANDATORY — NON-NEGOTIABLE):**\n`;
+                    if (tone.length > 0) {
+                        voice += `REQUIRED TONE & STYLE: ${tone.join(', ')} — every post MUST reflect this. Reject any copy that deviates.\n`;
+                    }
+                    if (data.positioning.thingsWeNeverSay) {
+                        voice += `STRICTLY FORBIDDEN: ${data.positioning.thingsWeNeverSay} — this must NEVER appear in any post.\n`;
+                    }
+                    voice += `Every post must pass brand voice compliance before inclusion. If any post cannot match this voice, exclude it and note why.\n`;
                 }
-                if (data.voice.style && data.voice.style.length > 0) {
-                    voice += `Style attributes: ${data.voice.style.join(', ')}\n`;
-                }
-                if (data.voice.avoid && data.voice.avoid.length > 0) {
-                    voice += `Avoid: ${data.voice.avoid.join(', ')}\n`;
-                }
-                voice += `Apply this voice consistently across all social posts.\n`;
             }
         }
         return voice;
@@ -357,10 +582,15 @@ class SocialAgent {
         let valueProp = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.product && data.product.valueProps && data.product.valueProps.length > 0) {
+            const valueProps = [];
+            if (data && data.positioning) {
+                if (data.positioning.uniqueValue) valueProps.push(data.positioning.uniqueValue);
+                valueProps.push(...(data.positioning.differentiation || []).filter(d => d && d.trim()));
+            }
+            if (valueProps.length > 0) {
                 valueProp += `\n\n**Value Proposition Messaging:**\n`;
                 valueProp += `When appropriate, weave in these value propositions:\n`;
-                data.product.valueProps.forEach((vp, i) => {
+                valueProps.forEach((vp, i) => {
                     valueProp += `${i + 1}. ${vp}\n`;
                 });
                 valueProp += `Translate these into benefit-focused social copy.\n`;
@@ -400,10 +630,12 @@ class SocialAgent {
         let hashtags = '';
         if (this.intelligenceEngine && this.intelligenceEngine.brain) {
             const data = this.intelligenceEngine.brain.load();
-            if (data && data.icp && data.icp.language && data.icp.language.length > 0) {
+            const _hashLang = Array.isArray(data?.icp?.language) ? data.icp.language :
+                (data?.icp?.language ? String(data.icp.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+            if (_hashLang.length > 0) {
                 hashtags += `\n\n**Hashtag Strategy:**\n`;
                 hashtags += `Base hashtags on ICP language patterns:\n`;
-                data.icp.language.slice(0, 3).forEach(lang => {
+                _hashLang.slice(0, 3).forEach(lang => {
                     const hashtagSuggestion = lang.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
                     hashtags += `- Consider: #${hashtagSuggestion}\n`;
                 });
@@ -414,7 +646,11 @@ class SocialAgent {
     }
 
     buildSystemPrompt(platform, contextBundle) {
-        let prompt = `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.`;
+        let prompt = '';
+        if (contextBundle && contextBundle.isReady && contextBundle.businessContext) {
+            prompt += `## BUSINESS CONTEXT\n${contextBundle.businessContext}\n\n`;
+        }
+        prompt += `You are a social media strategist who creates platform-native content that drives genuine engagement. Each post should have: a strong hook (first line), valuable content, platform-appropriate format, and clear engagement prompt.`;
 
         // Platform-specific strategy
         prompt += this.buildPlatformContentStrategy(platform, contextBundle);
@@ -430,18 +666,142 @@ class SocialAgent {
         prompt += `\n\n**Output Format:**\nFormat each post clearly:\n## Post N — [Day/Date if calendar format] — [Post Title]\n**Hook:** [First line]\n[Full post copy]\n**Hashtags:** #...\n**Posting Time:** [Best time to post]\n**Engagement Note:** [Why this should perform well]\n\nSeparate posts with horizontal rules. Include a content strategy overview at the top.`;
 
         // Strategic validation
-        if (!contextBundle || !contextBundle.isReady || contextBundle.completeness < 0.3) {
-            prompt += `\n\n⚠️ **STRATEGIC WARNING:** BusinessBrain Intelligence Layer is ${contextBundle ? Math.round(contextBundle.completeness * 100) : 0}% complete. For maximum engagement, configure:\n`;
-            if (!contextBundle || !contextBundle.icp) prompt += `- ICP (Ideal Customer Profile) in Brand Intelligence\n`;
-            if (!contextBundle || !contextBundle.voice) prompt += `- Brand Voice in Brand Intelligence\n`;
-            if (!contextBundle || !contextBundle.product) prompt += `- Value Propositions in Product Marketing\n`;
+        if (!contextBundle || !contextBundle.isReady || contextBundle.completionScore < 30) {
+            prompt += `\n\n⚠️ **STRATEGIC WARNING:** BusinessBrain Intelligence Layer is ${contextBundle ? contextBundle.completionScore : 0}% complete. For maximum engagement, configure:\n`;
+            prompt += `- ICP (Ideal Customer Profile) in Brand Intelligence\n`;
+            prompt += `- Brand Voice in Brand Intelligence\n`;
+            prompt += `- Value Propositions in Product Marketing\n`;
             prompt += `\nWithout this context, posts may lack ICP targeting and brand consistency.`;
         }
 
         return prompt;
     }
 
+    /* Auto-fill the ad brief from BusinessBrain (product from positioning, audience from ICP) */
+    loadAdBriefFromBrain() {
+        if (!this.intelligenceEngine || !this.intelligenceEngine.brain) return;
+        const data = this.intelligenceEngine.brain.load();
+        if (!data) return;
+
+        const productEl = document.getElementById('adProduct');
+        if (productEl && !productEl.value && data.positioning && data.positioning.uniqueValue) {
+            let productDesc = data.positioning.uniqueValue;
+            const diffs = (data.positioning.differentiation || []).filter(d => d && d.trim());
+            if (diffs.length > 0) productDesc += `. Key differentiators: ${diffs.slice(0, 2).join(', ')}`;
+            productEl.value = productDesc;
+            productEl.title = 'Auto-filled from BusinessBrain';
+            productEl.style.color = '#10b981';
+        }
+
+        const audienceEl = document.getElementById('adAudience');
+        if (audienceEl && !audienceEl.value && data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role) {
+            const icp = data.icp;
+            let audienceSummary = icp.primaryBuyer.role;
+            if (icp.primaryBuyer.companySize) audienceSummary += ` at ${icp.primaryBuyer.companySize} companies`;
+            if (icp.primaryBuyer.industry) audienceSummary += `, ${icp.primaryBuyer.industry}`;
+            const pains = (icp.painPoints || []).filter(p => p);
+            if (pains.length) audienceSummary += `. Pain points: ${pains.slice(0, 2).join(', ')}`;
+            audienceEl.value = audienceSummary;
+            audienceEl.title = 'Auto-filled from BusinessBrain';
+            audienceEl.style.color = '#10b981';
+        }
+    }
+
     async run() {
+        if (studioMode === 'ads') return this.runAds();
+        return this.runOrganic();
+    }
+
+    /* Ad Campaign mode — dedicated /api/generate-ads endpoint with 8 advertising frameworks */
+    async runAds() {
+        const product  = document.getElementById('adProduct').value.trim();
+        const audience = document.getElementById('adAudience').value.trim();
+        if (!product || !audience) { alert('Please fill in the Product/Offer and Target Audience fields.'); return; }
+
+        const platforms   = getSelectedAdPlatforms();
+        const frameworks  = getSelectedFrameworks();
+        const objective   = document.getElementById('adObjective').value;
+        const budget      = document.getElementById('adBudget').value.trim();
+        const competitors = document.getElementById('adCompetitors').value.trim();
+        const variants    = parseInt(document.getElementById('adVariantCount').value, 10) || 5;
+        const tone        = Array.isArray(this.brandVoice) ? this.brandVoice.join(', ') : '';
+
+        const outputEl = document.getElementById('output');
+        const runBtn   = document.getElementById('runBtn');
+
+        let contextBundle = null;
+        let tipHtml = '';
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+            if (contextBundle?.completionScore < 30) {
+                tipHtml = `<div style="padding:14px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
+                    <strong style="color:#f59e0b;">Tip:</strong> BusinessBrain is ${contextBundle.completionScore}% configured. Ad variants will be more targeted once ICP, brand voice, and value props are set up.
+                    <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure →</a>
+                </div>`;
+            }
+        }
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Generating…';
+        outputEl.innerHTML = tipHtml + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
+
+        const body = { platforms, objective, product, audience, models: frameworks, tone, budget, competitors, variants };
+
+        // Inject BusinessBrain intelligence so ad copy uses real company context
+        let bizContext = '';
+        if (contextBundle?.isReady && contextBundle.businessContext) {
+            bizContext += contextBundle.businessContext;
+        }
+        if (this.intelligenceEngine && this.intelligenceEngine.brain) {
+            const brainData = this.intelligenceEngine.brain.load();
+            const pains = (brainData?.icp?.painPoints || []).filter(p => p);
+            if (pains.length) bizContext += `\nICP pain points: ${pains.join('; ')}`;
+            if (brainData?.positioning?.thingsWeNeverSay) bizContext += `\nNever say: ${brainData.positioning.thingsWeNeverSay}`;
+        }
+        bizContext = bizContext.trim().slice(0, 800);
+        if (bizContext) {
+            body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
+        }
+
+        // Inject Convert A/B experiment winners as context if loaded
+        if (_convertData?.experiments?.length) {
+            const winners = _convertData.experiments
+                .filter(e => e.winner)
+                .map(e => `"${e.winnerVariant?.name}" beat control by ${e.winnerVariant?.uplift} (${e.name})`)
+                .slice(0, 5).join('; ');
+            if (winners) body.product = body.product + `\n\nConvert A/B Winners: ${winners}`;
+        }
+
+        try {
+            const res  = await fetch('/api/generate-ads', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            const content = data.content || '';
+            outputEl.innerHTML = tipHtml + marked.parse(content);
+            outputEl.scrollTop = 0;
+
+            if (window.AgentHistory && content.trim()) {
+                window.AgentHistory.save({
+                    agentKey: 'ads',
+                    taskType: platforms.join('+') + ' Ad Variants',
+                    content,
+                    topic: product.slice(0, 60),
+                });
+            }
+        } catch (err) {
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${err.message}</div>`;
+        } finally {
+            runBtn.disabled    = false;
+            runBtn.textContent = 'Generate Ad Variants';
+        }
+    }
+
+    async runOrganic() {
         const topic = document.getElementById('topic').value.trim();
         if (!topic) { alert('Please enter a topic or theme.'); return; }
 
@@ -450,12 +810,26 @@ class SocialAgent {
         const frequency = document.getElementById('frequency').value;
         const postCount = document.getElementById('postCount').value;
 
+        // Non-blocking warning: brand-sensitive goals without a configured brand voice
+        // get an amber heads-up banner, but generation continues.
+        const brandSensitiveGoals = ['Thought Leadership', 'Product Launch', 'Case Study'];
+        let warnHtml = '';
+        if (brandSensitiveGoals.includes(contentGoal) && !this.brandVoice) {
+            window._bvWarnDismissed = false;
+            warnHtml = `<div style="padding:12px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
+                <span onclick="window._bvWarnDismissed=true;this.parentElement.remove();" style="float:right;cursor:pointer;color:rgba(255,255,255,0.5);font-weight:700;padding-left:10px;">✕</span>
+                <strong style="color:#f59e0b;">Heads up:</strong> Brand voice isn't configured — ${contentGoal} posts may be off-brand or inconsistent.
+                <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure Brand Voice →</a>
+            </div>`;
+        }
+        const bvWarn = () => (warnHtml && !window._bvWarnDismissed) ? warnHtml : '';
+
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
         runBtn.disabled = true;
         runBtn.textContent = 'Creating...';
 
-        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
+        outputEl.innerHTML = bvWarn() + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
 
         let contextBundle = null;
         if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
@@ -470,26 +844,37 @@ Generate a complete content package: strategy overview, ${postCount} ready-to-pu
 
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
-            outputEl.innerHTML = '';
+            outputEl.innerHTML = bvWarn();
             try {
                 await this.claudeService.streamResponse({
                     systemPrompt,
                     messages: [{ role: 'user', content: userMessage }],
                     onChunk: (chunk) => {
                         fullResponse += chunk;
-                        outputEl.innerHTML = marked.parse(fullResponse);
+                        outputEl.innerHTML = bvWarn() + marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Create Content'; }
+                    onDone: () => {
+                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
+                        if (!fullResponse.trim()) {
+                            outputEl.innerHTML = bvWarn() + `<div style="color:#f59e0b;padding:16px;font-size:13px;">The AI service returned no content — check the OPENAI_API_KEY / ANTHROPIC_API_KEY server configuration.</div>`;
+                            return;
+                        }
+                        if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: fullResponse, topic });
+                    },
+                    onError: (e) => {
+                        outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
+                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
+                    }
                 });
             } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
+                outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
                 runBtn.disabled = false; runBtn.textContent = 'Create Content';
             }
         } else {
             outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
-                <strong style="color:#fff;">Claude API not configured.</strong><br><br>
-                Add your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI generation.
+                <strong style="color:#fff;">AI service not configured.</strong><br><br>
+                The server-side AI key is missing. Set the OPENAI_API_KEY (or ANTHROPIC_API_KEY) environment variable on the server to enable AI generation.
             </div>`;
             runBtn.disabled = false; runBtn.textContent = 'Create Content';
         }
@@ -508,11 +893,82 @@ function copyOutput() {
 
 function downloadOutput() {
     const text = document.getElementById('output').innerText;
-    const platform = getSelectedPlatform().replace(/\s+\/\s+|\s+/g,'-').toLowerCase();
+    const label = studioMode === 'ads'
+        ? 'ads-' + getSelectedAdPlatforms().join('-').replace(/[^a-z0-9-]/gi,'-').toLowerCase()
+        : 'social-' + getSelectedPlatform().replace(/\s+\/\s+|\s+/g,'-').toLowerCase();
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `social-${platform}-${Date.now()}.txt`; a.click();
+    a.download = `${label}-${Date.now()}.txt`; a.click();
 }
+
+// ── Buffer / Hootsuite CSV Export ──────────────────────────────────────────
+
+function parsePostsFromOutput(text) {
+    // Split on post separators: "## Post N", "---", or "**Post N**"
+    const sections = text.split(/\n(?:---+|={3,}|\*{2}Post \d+|#{1,3}\s*Post \d+)/i)
+        .map(s => s.trim()).filter(s => s.length > 40);
+    if (sections.length < 2) {
+        // Fallback: treat whole output as one post
+        return [{ content: text.trim(), hashtags: '', time: '10:00 AM' }];
+    }
+    return sections.map(section => {
+        const lines = section.split('\n').map(l => l.trim()).filter(Boolean);
+        const hashtagLine = lines.find(l => /#[A-Za-z]/.test(l)) || '';
+        const timeLine = lines.find(l => /posting time|best time|\d{1,2}:\d{2}/i.test(l)) || '';
+        const timeMatch = timeLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+        const body = lines
+            .filter(l => !/#[A-Za-z]/.test(l) && !/posting time|best time|why this|^hook:/i.test(l) && !l.startsWith('**') && l.length > 10)
+            .join(' ').trim();
+        return {
+            content: body || section.substring(0, 280),
+            hashtags: hashtagLine.replace(/\*\*/g, '').trim(),
+            time: timeMatch ? timeMatch[1] : '10:00 AM'
+        };
+    });
+}
+
+function exportCalendarCSV() {
+    if (studioMode !== 'organic') return;
+    const outputEl = document.getElementById('output');
+    if (!outputEl || outputEl.querySelector('.output-empty')) { alert('Generate content first.'); return; }
+    const text = outputEl.innerText || outputEl.textContent;
+    const posts = parsePostsFromOutput(text);
+    const platform = getSelectedPlatform();
+    const today = new Date();
+
+    // Buffer-compatible CSV format
+    const rows = [['Date', 'Time', 'Profile', 'Message', 'Link', 'Image URL']];
+    posts.forEach((post, i) => {
+        const d = new Date(today); d.setDate(today.getDate() + i * 2);
+        const dateStr = d.toISOString().split('T')[0];
+        const msg = post.content + (post.hashtags ? '\n\n' + post.hashtags : '');
+        rows.push([dateStr, post.time, platform, msg, '', '']);
+    });
+
+    // Standard CSV quoting: fields containing commas, quotes, or newlines are
+    // wrapped in double quotes with internal quotes doubled (real newlines kept).
+    const escapeCSVField = (field) => {
+        const s = String(field);
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = rows.map(r => r.map(escapeCSVField).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `social-calendar-${platform.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.csv`; a.click();
+}
+
+// Show CSV button once output is populated
+const _csvObserver = new MutationObserver(() => {
+    const out = document.getElementById('output');
+    const btn = document.getElementById('csvBtn');
+    if (btn && out && studioMode === 'organic' && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
+        btn.style.display = '';
+    }
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const out = document.getElementById('output');
+    if (out) _csvObserver.observe(out, { childList: true, subtree: true });
+});
 </script>
 </body>
 </html>

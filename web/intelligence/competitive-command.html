@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competitive Command | Audema</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070711; --bg2: #0c0c1a; --bg3: #111128;
+            --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+            --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
+            --purple: #7c3aed; --purple-light: #a78bfa; --pink: #ec4899;
+            --cyan: #06b6d4; --green: #10b981; --amber: #f59e0b;
+            --red: #ef4444; --orange: #f97316;
+            --card: rgba(255,255,255,0.03);
+            --card2: rgba(255,255,255,0.055);
+            --gradient: linear-gradient(135deg, #7c3aed, #ec4899);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+        a { color: inherit; text-decoration: none; }
+        button { font-family: inherit; cursor: pointer; }
+        input, textarea, select { font-family: inherit; }
+
+        /* ── NAV ── */
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 28px; height: 56px; background: rgba(7,7,17,0.95); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 200; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .nav-logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; }
+        .logo-dot { width: 28px; height: 28px; background: var(--gradient); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .nav-sep { color: var(--text3); }
+        .nav-crumb { font-size: 13px; color: var(--text2); }
+        .nav-crumb strong { color: #a78bfa; }
+        .nav-right { display: flex; gap: 8px; }
+        .nav-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--text2); border: 1px solid var(--border); background: var(--card); transition: all .15s; }
+        .nav-btn:hover { color: var(--text); background: var(--card2); }
+        .nav-btn.primary { background: var(--gradient); border-color: transparent; color: white; }
+
+        /* ── KPI STRIP ── */
+        .kpi-strip { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg2); overflow-x: auto; }
+        .kpi-item { flex: 1; min-width: 140px; padding: 14px 20px; border-right: 1px solid var(--border); }
+        .kpi-item:last-child { border-right: none; }
+        .kpi-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px; }
+        .kpi-value { font-size: 22px; font-weight: 800; color: var(--text); }
+        .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+        .kpi-value.critical { color: var(--red); }
+        .kpi-value.high { color: var(--orange); }
+        .kpi-value.green { color: var(--green); }
+
+        /* ── MAIN LAYOUT ── */
+        .cc-layout { display: flex; height: calc(100vh - 56px - 53px); overflow: hidden; }
+
+        /* ── SIDEBAR ── */
+        .cc-sidebar { width: 256px; min-width: 256px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg2); overflow: hidden; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+        .sidebar-search { width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; }
+        .sidebar-search:focus { outline: none; border-color: var(--purple); }
+        .sidebar-body { flex: 1; overflow-y: auto; padding: 10px; }
+        .sidebar-section-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; padding: 8px 6px 4px; }
+        .comp-card { padding: 12px 14px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; margin-bottom: 4px; transition: all .15s; display: flex; align-items: center; gap: 10px; }
+        .comp-card:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+        .comp-card.active { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.35); }
+        .comp-card.filter-all { background: rgba(255,255,255,0.03); border-color: var(--border); margin-bottom: 12px; }
+        .comp-card.filter-all.active { background: rgba(124,58,237,0.12); border-color: rgba(124,58,237,0.4); }
+        .comp-avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+        .comp-info { flex: 1; min-width: 0; }
+        .comp-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .comp-meta { font-size: 11px; color: var(--text3); margin-top: 1px; }
+        .threat-badge { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .threat-critical { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,.6); }
+        .threat-high { background: var(--orange); box-shadow: 0 0 6px rgba(249,115,22,.6); }
+        .threat-moderate { background: var(--amber); }
+        .threat-low { background: var(--green); }
+        .threat-none { background: var(--text3); }
+        .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+        .btn-add { width: 100%; padding: 10px; background: var(--gradient); border: none; border-radius: 9px; color: white; font-size: 13px; font-weight: 600; }
+        .btn-add:hover { opacity: .9; }
+
+        /* ── MAIN CONTENT ── */
+        .cc-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .view-tabs { display: flex; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+        .view-tab { padding: 7px 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--text2); font-size: 13px; font-weight: 500; transition: all .15s; }
+        .view-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .view-tab.active { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.35); color: var(--purple-light); }
+        .view-content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+        /* ── FEED VIEW ── */
+        .feed-filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filter-chip { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text2); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+        .filter-chip:hover { border-color: rgba(124,58,237,0.4); color: var(--text); }
+        .filter-chip.active { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.4); color: var(--purple-light); }
+        .feed-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .feed-title { font-size: 16px; font-weight: 700; }
+        .btn-log { padding: 8px 16px; background: var(--gradient); border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; }
+        .move-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; transition: border-color .15s; }
+        .move-card:hover { border-color: rgba(124,58,237,0.25); }
+        .move-row { display: flex; align-items: flex-start; gap: 12px; }
+        .move-avatar { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; margin-top: 2px; }
+        .move-body { flex: 1; min-width: 0; }
+        .move-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+        .move-comp-name { font-size: 13px; font-weight: 700; }
+        .move-date { font-size: 11px; color: var(--text3); }
+        .move-desc { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 8px; }
+        .move-analysis-box { background: rgba(124,58,237,0.07); border: 1px solid rgba(124,58,237,0.2); border-radius: 9px; padding: 12px 14px; font-size: 13px; color: #c4b5fd; line-height: 1.6; margin-top: 8px; }
+        .move-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-xs { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: var(--card2); color: var(--text2); cursor: pointer; transition: all .15s; }
+        .btn-xs:hover { color: var(--text); border-color: rgba(124,58,237,0.4); }
+
+        /* ── TYPE TAGS ── */
+        .tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+        .tag-product   { background: rgba(16,185,129,.15); color: #34d399; }
+        .tag-pricing   { background: rgba(245,158,11,.15); color: #fbbf24; }
+        .tag-messaging { background: rgba(236,72,153,.15); color: #f472b6; }
+        .tag-campaign  { background: rgba(124,58,237,.15); color: #a78bfa; }
+        .tag-content   { background: rgba(99,102,241,.15); color: #818cf8; }
+        .tag-hiring    { background: rgba(14,165,233,.15); color: #38bdf8; }
+        .tag-funding   { background: rgba(16,185,129,.15); color: #10b981; }
+        .tag-press     { background: rgba(148,163,184,.12); color: #94a3b8; }
+        .tag-event     { background: rgba(234,179,8,.15); color: #fde68a; }
+        .tag-threat-critical { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
+        .tag-threat-high     { background: rgba(249,115,22,.15); color: #fdba74; border: 1px solid rgba(249,115,22,.25); }
+        .tag-threat-moderate { background: rgba(245,158,11,.12); color: #fcd34d; border: 1px solid rgba(245,158,11,.2); }
+        .tag-threat-low      { background: rgba(16,185,129,.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,.2); }
+
+        /* ── BATTLECARD VIEW ── */
+        .bc-selector { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; }
+        .bc-selector select { padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-size: 14px; min-width: 220px; }
+        .bc-selector select:focus { outline: none; border-color: var(--purple); }
+        .bc-selector select option { background: #1a1a2e; }
+        .btn-generate { padding: 10px 20px; background: var(--gradient); border: none; border-radius: 9px; color: white; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .btn-generate:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-secondary { padding: 9px 18px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 9px; color: var(--text2); font-size: 13px; font-weight: 500; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .battlecard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .bc-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+        .bc-section.full { grid-column: 1 / -1; }
+        .bc-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); margin-bottom: 10px; }
+        .bc-section-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+        .bc-list { list-style: none; }
+        .bc-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; color: var(--text2); line-height: 1.5; display: flex; gap: 8px; }
+        .bc-list li:last-child { border-bottom: none; padding-bottom: 0; }
+        .bc-list li::before { content: '→'; color: var(--purple-light); flex-shrink: 0; font-weight: 700; }
+        .bc-win li::before { color: var(--green); content: '✓'; }
+        .bc-weakness li::before { color: var(--red); content: '✗'; }
+        .bc-land li::before { color: var(--amber); content: '💡'; }
+        .bc-talk-track { background: rgba(124,58,237,0.07); border: 1px solid rgba(124,58,237,0.2); border-radius: 10px; padding: 16px 18px; font-size: 14px; color: var(--text2); line-height: 1.7; font-style: italic; }
+        .bc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .bc-table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); border-bottom: 1px solid var(--border); }
+        .bc-table td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text2); vertical-align: top; }
+        .bc-table tr:last-child td { border-bottom: none; }
+        .bc-table .us-col { color: var(--green); font-weight: 600; }
+        .bc-table .them-col { color: var(--text3); }
+        .bc-objection { margin-bottom: 14px; }
+        .bc-objection-trigger { font-size: 12px; font-weight: 600; color: var(--amber); margin-bottom: 5px; }
+        .bc-objection-response { font-size: 13px; color: var(--text2); line-height: 1.6; padding-left: 14px; border-left: 2px solid rgba(245,158,11,.3); }
+        .bc-empty { text-align: center; padding: 80px 20px; color: var(--text3); }
+        .bc-empty-icon { font-size: 48px; margin-bottom: 16px; }
+        .streaming-output { font-size: 13px; color: var(--text2); line-height: 1.7; white-space: pre-wrap; padding: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; min-height: 100px; }
+
+        /* ── GAP ANALYSIS VIEW ── */
+        .gap-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .gap-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+        .gap-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+        .gap-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; transition: border-color .15s; position: relative; }
+        .gap-card:hover { border-color: rgba(124,58,237,.25); }
+        .gap-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+        .gap-score { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; flex-shrink: 0; }
+        .score-high   { background: rgba(16,185,129,.15); color: var(--green); }
+        .score-medium { background: rgba(245,158,11,.12); color: var(--amber); }
+        .score-low    { background: rgba(239,68,68,.1);  color: var(--red); }
+        .gap-title { font-size: 14px; font-weight: 700; line-height: 1.4; }
+        .gap-category { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); margin-bottom: 8px; }
+        .gap-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+        .gap-action { background: rgba(124,58,237,.07); border: 1px solid rgba(124,58,237,.18); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #c4b5fd; line-height: 1.5; }
+        .gap-action::before { content: '→ '; font-weight: 700; }
+        .gap-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+        .gap-competitors { font-size: 11px; color: var(--text3); }
+        .priority-chip { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+        .priority-now  { background: rgba(239,68,68,.15); color: #fca5a5; }
+        .priority-next { background: rgba(245,158,11,.12); color: #fcd34d; }
+        .priority-later{ background: rgba(148,163,184,.1); color: var(--text3); }
+        .gap-discover-banner { text-align: center; padding: 48px 24px; background: var(--card); border: 1px dashed var(--border2); border-radius: 14px; margin-bottom: 24px; }
+        .gap-discover-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .gap-discover-sub { font-size: 14px; color: var(--text2); margin-bottom: 20px; }
+
+        /* ── LANDSCAPE VIEW ── */
+        .landscape-wrap { display: flex; gap: 24px; align-items: flex-start; }
+        .landscape-map { flex: 1; position: relative; }
+        .map-container { width: 100%; aspect-ratio: 1.4; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; position: relative; overflow: hidden; }
+        .map-grid { position: absolute; inset: 0; }
+        .map-grid::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.07); }
+        .map-grid::after  { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.07); }
+        .map-label { position: absolute; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+        .map-label-left   { left: 12px; top: 50%; transform: translateY(-50%); }
+        .map-label-right  { right: 12px; top: 50%; transform: translateY(-50%); }
+        .map-label-top    { top: 12px; left: 50%; transform: translateX(-50%); }
+        .map-label-bottom { bottom: 12px; left: 50%; transform: translateX(-50%); }
+        .map-quadrant { position: absolute; font-size: 10px; color: rgba(255,255,255,0.06); font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+        .map-dot { position: absolute; transform: translate(-50%, -50%); cursor: pointer; z-index: 10; }
+        .map-dot-inner { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; transition: transform .15s; box-shadow: 0 2px 12px rgba(0,0,0,.5); }
+        .map-dot:hover .map-dot-inner { transform: scale(1.2); }
+        .map-dot-label { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 600; white-space: nowrap; background: rgba(7,7,17,.9); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
+        .map-dot.us .map-dot-inner { background: linear-gradient(135deg, #7c3aed, #ec4899); border: 2px solid #ec4899; }
+        .map-whitespace { position: absolute; background: rgba(16,185,129,.06); border: 1px dashed rgba(16,185,129,.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .whitespace-label { font-size: 10px; color: rgba(16,185,129,.5); font-weight: 600; text-align: center; }
+        .landscape-legend { width: 200px; }
+        .legend-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+        .legend-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; color: var(--text2); }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .landscape-config { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+        .lc-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+        .lc-comp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .lc-comp-name { font-size: 12px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lc-slider { flex: 1; accent-color: var(--purple); }
+        .lc-slider-label { font-size: 10px; color: var(--text3); width: 14px; text-align: center; }
+
+        /* ── MODALS ── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); backdrop-filter: blur(6px); z-index: 500; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #0d0d1d; border: 1px solid var(--border2); border-radius: 18px; padding: 28px 32px; width: 560px; max-width: 96vw; max-height: 92vh; overflow-y: auto; }
+        .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 24px; }
+        .modal-title span { background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+        .form-input, .form-textarea, .form-select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-size: 13px; transition: border-color .15s; }
+        .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: var(--purple); background: rgba(124,58,237,0.05); }
+        .form-textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+        .form-select option { background: #1a1a2e; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+        .btn-cancel { padding: 10px 20px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 9px; color: var(--text2); font-size: 13px; font-weight: 500; }
+        .btn-save { padding: 10px 22px; background: var(--gradient); border: none; border-radius: 9px; color: white; font-size: 13px; font-weight: 600; }
+
+        /* ── THREAT LEVEL SELECTOR ── */
+        .threat-selector { display: flex; gap: 8px; }
+        .threat-opt { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text2); transition: all .15s; }
+        .threat-opt[data-level="critical"].selected { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+        .threat-opt[data-level="high"].selected     { background: rgba(249,115,22,.15); border-color: rgba(249,115,22,.4); color: #fdba74; }
+        .threat-opt[data-level="moderate"].selected { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.35); color: #fcd34d; }
+        .threat-opt[data-level="low"].selected      { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); color: #6ee7b7; }
+
+        /* ── TIER SELECTOR ── */
+        .tier-selector { display: flex; gap: 8px; }
+        .tier-opt { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; font-weight: 500; cursor: pointer; background: transparent; color: var(--text2); transition: all .15s; }
+        .tier-opt.selected { background: rgba(124,58,237,.15); border-color: rgba(124,58,237,.4); color: var(--purple-light); }
+
+        /* ── SPINNERS & STATES ── */
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.2); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+        .empty-state .es-icon { font-size: 44px; margin-bottom: 14px; }
+        .empty-state .es-text { font-size: 14px; color: var(--text2); margin-bottom: 6px; }
+        .empty-state .es-sub  { font-size: 13px; }
+        .section-divider { display: flex; align-items: center; gap: 14px; margin: 24px 0 16px; }
+        .section-divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); white-space: nowrap; }
+        .section-divider::before, .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        @media (max-width: 900px) {
+            .cc-sidebar { width: 200px; min-width: 200px; }
+            .battlecard-grid { grid-template-columns: 1fr; }
+            .landscape-wrap { flex-direction: column; }
+            .landscape-legend { width: 100%; }
+        }
+        @media (max-width: 700px) {
+            .cc-sidebar { display: none; }
+            .kpi-strip { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+    <div class="nav-left">
+        <a class="nav-logo" href="/index.html">
+            <div class="logo-dot">🎯</div>
+            <span>Audema</span>
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-crumb"><strong>SCOUT</strong> · Competitive Command</span>
+    </div>
+    <div class="nav-right">
+        <a class="nav-btn" href="/intelligence/competitive-radar.html">Radar</a>
+        <a class="nav-btn" href="/agents/competitive-agent.html">AI Analysis</a>
+        <a class="nav-btn" href="/hub.html">Hub</a>
+        <a class="nav-btn primary" href="/settings.html">Settings</a>
+    </div>
+</nav>
+
+<!-- ── KPI STRIP ── -->
+<div class="kpi-strip" id="kpiStrip">
+    <div class="kpi-item">
+        <div class="kpi-label">Competitors Tracked</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiTier">across all tiers</div>
+    </div>
+    <div class="kpi-item">
+        <div class="kpi-label">Moves This Week</div>
+        <div class="kpi-value" id="kpiWeekMoves">—</div>
+        <div class="kpi-sub" id="kpiWeekSub">logged competitor activity</div>
+    </div>
+    <div class="kpi-item">
+        <div class="kpi-label">Critical Threats</div>
+        <div class="kpi-value critical" id="kpiCritical">—</div>
+        <div class="kpi-sub">require immediate response</div>
+    </div>
+    <div class="kpi-item">
+        <div class="kpi-label">Open Gaps</div>
+        <div class="kpi-value green" id="kpiGaps">—</div>
+        <div class="kpi-sub">strategic opportunities</div>
+    </div>
+    <div class="kpi-item">
+        <div class="kpi-label">Battlecards Ready</div>
+        <div class="kpi-value" id="kpiBattlecards">—</div>
+        <div class="kpi-sub">for sales team</div>
+    </div>
+</div>
+
+<!-- ── MAIN LAYOUT ── -->
+<div class="cc-layout">
+
+    <!-- ── SIDEBAR ── -->
+    <div class="cc-sidebar">
+        <div class="sidebar-header">
+            <input class="sidebar-search" type="text" placeholder="Search competitors…" oninput="filterRoster(this.value)">
+        </div>
+        <div class="sidebar-body" id="sidebarBody">
+            <div class="comp-card filter-all active" onclick="selectFilter('all')" id="filter-all-card">
+                <div class="comp-avatar" style="background:rgba(124,58,237,.15);color:#a78bfa;">⊛</div>
+                <div class="comp-info">
+                    <div class="comp-name">All Competitors</div>
+                    <div class="comp-meta" id="all-meta">Loading…</div>
+                </div>
+            </div>
+            <div class="sidebar-section-label">Primary</div>
+            <div id="roster-primary"></div>
+            <div class="sidebar-section-label" id="lbl-secondary" style="display:none">Secondary</div>
+            <div id="roster-secondary"></div>
+            <div class="sidebar-section-label" id="lbl-emerging" style="display:none">Emerging</div>
+            <div id="roster-emerging"></div>
+        </div>
+        <div class="sidebar-footer">
+            <button class="btn-add" onclick="openAddModal()">+ Add Competitor</button>
+        </div>
+    </div>
+
+    <!-- ── MAIN CONTENT ── -->
+    <div class="cc-main">
+
+        <!-- VIEW TABS -->
+        <div class="view-tabs">
+            <button class="view-tab active" onclick="setView('feed')" id="tab-feed">📡 Activity Feed</button>
+            <button class="view-tab" onclick="setView('battlecard')" id="tab-battlecard">🃏 Battlecard Builder</button>
+            <button class="view-tab" onclick="setView('gaps')" id="tab-gaps">🕳️ Gap Analysis</button>
+            <button class="view-tab" onclick="setView('landscape')" id="tab-landscape">🗺️ Landscape Map</button>
+        </div>
+
+        <!-- VIEW: ACTIVITY FEED -->
+        <div class="view-content" id="view-feed">
+            <div class="feed-header">
+                <div>
+                    <div class="feed-title" id="feedTitle">All Competitor Activity</div>
+                    <div style="font-size:12px;color:var(--text3);margin-top:3px;" id="feedSub">Crayon-style move tracking across your entire competitive landscape</div>
+                </div>
+                <button class="btn-log" onclick="openLogMoveModal()">+ Log Move</button>
+            </div>
+            <div class="feed-filter-bar">
+                <span style="font-size:11px;font-weight:600;color:var(--text3);">Type:</span>
+                <button class="filter-chip active" onclick="toggleFeedFilter('type','all',this)">All</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Product',this)">Product</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Pricing',this)">Pricing</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Messaging',this)">Messaging</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Campaign',this)">Campaign</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Hiring',this)">Hiring</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('type','Content',this)">Content</button>
+                <span style="font-size:11px;font-weight:600;color:var(--text3);margin-left:8px;">Threat:</span>
+                <button class="filter-chip" onclick="toggleFeedFilter('threat','critical',this)">🔴 Critical</button>
+                <button class="filter-chip" onclick="toggleFeedFilter('threat','high',this)">🟠 High</button>
+            </div>
+            <div id="feedList"></div>
+        </div>
+
+        <!-- VIEW: BATTLECARD BUILDER -->
+        <div class="view-content" id="view-battlecard" style="display:none;">
+            <div style="margin-bottom:20px;">
+                <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Battlecard Builder</div>
+                <div style="font-size:13px;color:var(--text2);">Klue-style AI-generated sales battlecards — win themes, objection handling, landmine questions.</div>
+            </div>
+            <div class="bc-selector">
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Select Competitor</div>
+                    <select id="bcCompetitorSelect" onchange="onBattlecardSelect()">
+                        <option value="">— Choose competitor —</option>
+                    </select>
+                </div>
+                <button class="btn-generate" id="bcGenerateBtn" onclick="generateBattlecard()" disabled>
+                    <span id="bcBtnSpinner" style="display:none;" class="spinner"></span>
+                    <span id="bcBtnText">Generate Battlecard</span>
+                </button>
+                <button class="btn-secondary" id="bcDownloadBtn" onclick="downloadBattlecard()" style="display:none;">↓ Export</button>
+            </div>
+            <div id="bcContent">
+                <div class="bc-empty">
+                    <div class="bc-empty-icon">🃏</div>
+                    <div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:8px;">Select a competitor to build a battlecard</div>
+                    <div style="font-size:13px;color:var(--text3);">Claude will generate win themes, objection handling, landmine questions, and a feature comparison table.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: GAP ANALYSIS -->
+        <div class="view-content" id="view-gaps" style="display:none;">
+            <div style="margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                <div>
+                    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Strategic Gap Analysis</div>
+                    <div style="font-size:13px;color:var(--text2);">Contify-style opportunity mapping — where competitors are weak, absent, or overcommitted.</div>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn-generate" onclick="discoverGaps()" id="discoverBtn">
+                        <span id="discoverSpinner" style="display:none;" class="spinner"></span>
+                        <span id="discoverBtnText">✦ AI Discover Gaps</span>
+                    </button>
+                    <button class="btn-secondary" onclick="openAddGapModal()">+ Add Gap</button>
+                </div>
+            </div>
+            <div class="gap-toolbar">
+                <span style="font-size:11px;font-weight:600;color:var(--text3);">Category:</span>
+                <div class="gap-filter" id="gapCategoryFilter">
+                    <button class="filter-chip active" onclick="toggleGapFilter('all',this)">All</button>
+                    <button class="filter-chip" onclick="toggleGapFilter('Product',this)">Product</button>
+                    <button class="filter-chip" onclick="toggleGapFilter('Messaging',this)">Messaging</button>
+                    <button class="filter-chip" onclick="toggleGapFilter('Audience',this)">Audience</button>
+                    <button class="filter-chip" onclick="toggleGapFilter('Pricing',this)">Pricing</button>
+                    <button class="filter-chip" onclick="toggleGapFilter('Channel',this)">Channel</button>
+                </div>
+            </div>
+            <div id="gapDiscoverOutput" style="display:none;margin-bottom:20px;" class="streaming-output"></div>
+            <div id="gapList" class="gap-cards"></div>
+        </div>
+
+        <!-- VIEW: LANDSCAPE MAP -->
+        <div class="view-content" id="view-landscape" style="display:none;">
+            <div style="margin-bottom:20px;">
+                <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Competitive Landscape Map</div>
+                <div style="font-size:13px;color:var(--text2);">Visual positioning matrix — see the whitespace and where you can own uncrowded territory.</div>
+            </div>
+            <div class="landscape-wrap">
+                <div class="landscape-map">
+                    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+                        <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">X-Axis</div>
+                        <select class="form-select" style="width:auto;padding:5px 10px;font-size:12px;" id="axisX" onchange="renderLandscape()">
+                            <option value="smb-enterprise">SMB → Enterprise</option>
+                            <option value="simple-complex">Simple → Complex</option>
+                            <option value="cheap-premium">Cheap → Premium</option>
+                            <option value="niche-broad">Niche → Broad</option>
+                        </select>
+                        <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-left:16px;">Y-Axis</div>
+                        <select class="form-select" style="width:auto;padding:5px 10px;font-size:12px;" id="axisY" onchange="renderLandscape()">
+                            <option value="tactical-strategic">Tactical → Strategic</option>
+                            <option value="simple-complex">Simple → Complex</option>
+                            <option value="cheap-premium">Cheap → Premium</option>
+                            <option value="feature-outcome">Feature-led → Outcome-led</option>
+                        </select>
+                    </div>
+                    <div class="map-container" id="mapContainer">
+                        <div class="map-grid"></div>
+                        <div class="map-label map-label-left" id="lblLeft">SMB</div>
+                        <div class="map-label map-label-right" id="lblRight">Enterprise</div>
+                        <div class="map-label map-label-top" id="lblTop">Strategic</div>
+                        <div class="map-label map-label-bottom" id="lblBottom">Tactical</div>
+                        <div id="mapDots"></div>
+                    </div>
+                </div>
+                <div class="landscape-legend">
+                    <div class="legend-card">
+                        <div class="legend-title">Legend</div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:linear-gradient(135deg,#7c3aed,#ec4899);width:16px;height:16px;border-radius:4px;"></div>
+                            <span>Your Company</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:var(--red);"></div>
+                            <span>Critical Threat</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:var(--orange);"></div>
+                            <span>High Threat</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:var(--amber);"></div>
+                            <span>Moderate</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:var(--green);"></div>
+                            <span>Low / Watch</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:rgba(16,185,129,.2);border:1px dashed rgba(16,185,129,.4);border-radius:4px;width:16px;height:16px;"></div>
+                            <span>Whitespace Opportunity</span>
+                        </div>
+                    </div>
+                    <div class="landscape-config" id="positionConfig">
+                        <div class="lc-title">Adjust Positions</div>
+                        <div id="positionSliders"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end cc-main -->
+</div><!-- end cc-layout -->
+
+<!-- ── MODAL: ADD COMPETITOR ── -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add <span>Competitor</span></div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Company Name *</label>
+                <input class="form-input" id="addName" placeholder="e.g. Acme Corp">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Website</label>
+                <input class="form-input" id="addUrl" type="url" placeholder="https://acme.com">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Tier</label>
+            <div class="tier-selector">
+                <button class="tier-opt selected" data-tier="primary" onclick="selectTier(this)">Primary</button>
+                <button class="tier-opt" data-tier="secondary" onclick="selectTier(this)">Secondary</button>
+                <button class="tier-opt" data-tier="emerging" onclick="selectTier(this)">Emerging</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Default Threat Level</label>
+            <div class="threat-selector" id="addThreatSelector">
+                <button class="threat-opt" data-level="critical" onclick="selectThreat(this,'addThreatSelector')">🔴 Critical</button>
+                <button class="threat-opt selected" data-level="moderate" onclick="selectThreat(this,'addThreatSelector')">🟡 Moderate</button>
+                <button class="threat-opt" data-level="high" onclick="selectThreat(this,'addThreatSelector')">🟠 High</button>
+                <button class="threat-opt" data-level="low" onclick="selectThreat(this,'addThreatSelector')">🟢 Low</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Their Positioning</label>
+            <textarea class="form-textarea" id="addPositioning" placeholder="How do they describe themselves? What's their core value prop?"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Target Audience</label>
+            <input class="form-input" id="addAudience" placeholder="e.g. Mid-market SaaS, 50-500 employees">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Company Stage</label>
+                <select class="form-select" id="addStage">
+                    <option value="">Unknown</option>
+                    <option value="Startup">Startup</option>
+                    <option value="Growth">Growth</option>
+                    <option value="Scale-up">Scale-up</option>
+                    <option value="Enterprise">Enterprise</option>
+                    <option value="Public">Public</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Funding / Scale</label>
+                <input class="form-input" id="addFunding" placeholder="e.g. Series B, $40M raised">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Known Strengths (one per line)</label>
+            <textarea class="form-textarea" id="addStrengths" style="min-height:70px;" placeholder="What do they genuinely do well?"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Known Weaknesses (one per line)</label>
+            <textarea class="form-textarea" id="addWeaknesses" style="min-height:70px;" placeholder="Where do they fall short? What do their customers complain about?"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn-save" onclick="saveCompetitor()">Save Competitor</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: LOG MOVE ── -->
+<div class="modal-overlay" id="logMoveModal">
+    <div class="modal">
+        <div class="modal-title">Log Competitor <span>Move</span></div>
+        <div class="form-group">
+            <label class="form-label">Competitor *</label>
+            <select class="form-select" id="moveCompetitorSelect"></select>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input class="form-input" type="date" id="moveDate">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Move Type</label>
+                <select class="form-select" id="moveType">
+                    <option>Product</option>
+                    <option>Pricing</option>
+                    <option>Messaging</option>
+                    <option>Campaign</option>
+                    <option>Hiring</option>
+                    <option>Content</option>
+                    <option>Funding</option>
+                    <option>Press</option>
+                    <option>Event</option>
+                    <option>Partnership</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Threat Level</label>
+            <div class="threat-selector" id="moveThreatSelector">
+                <button class="threat-opt" data-level="critical" onclick="selectThreat(this,'moveThreatSelector')">🔴 Critical</button>
+                <button class="threat-opt" data-level="high" onclick="selectThreat(this,'moveThreatSelector')">🟠 High</button>
+                <button class="threat-opt selected" data-level="moderate" onclick="selectThreat(this,'moveThreatSelector')">🟡 Moderate</button>
+                <button class="threat-opt" data-level="low" onclick="selectThreat(this,'moveThreatSelector')">🟢 Low</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">What They Did *</label>
+            <textarea class="form-textarea" id="moveDesc" style="min-height:120px;" placeholder="Describe the competitor move in detail. The more specific the better — quote their copy, describe the feature, note the pricing change…"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Source URL</label>
+            <input class="form-input" type="url" id="moveSource" placeholder="https://...">
+        </div>
+        <div style="background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:600;color:#a78bfa;margin-bottom:10px;">✦ AI Strategic Analysis</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Get instant strategic analysis: what this signals, whether to respond, and what you can borrow.</div>
+            <button class="btn-generate" id="analyzeBtn" onclick="analyzeMove()" style="width:100%;justify-content:center;">
+                <span id="analyzeBtnSpinner" style="display:none;" class="spinner"></span>
+                <span id="analyzeBtnText">Analyze This Move</span>
+            </button>
+            <div id="moveAnalysisOutput" style="display:none;margin-top:12px;" class="move-analysis-box"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal('logMoveModal')">Cancel</button>
+            <button class="btn-save" onclick="saveMove()">Save Move</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: ADD GAP ── -->
+<div class="modal-overlay" id="addGapModal">
+    <div class="modal">
+        <div class="modal-title">Add Strategic <span>Gap</span></div>
+        <div class="form-group">
+            <label class="form-label">Gap Title *</label>
+            <input class="form-input" id="gapTitle" placeholder="e.g. No self-serve onboarding for SMBs">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                <select class="form-select" id="gapCategory">
+                    <option>Product</option>
+                    <option>Messaging</option>
+                    <option>Audience</option>
+                    <option>Pricing</option>
+                    <option>Channel</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select class="form-select" id="gapPriority">
+                    <option value="Now">Now (act immediately)</option>
+                    <option value="Next" selected>Next (plan for it)</option>
+                    <option value="Later">Later (monitor)</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Opportunity Score (0–100)</label>
+            <input class="form-input" type="number" id="gapScore" min="0" max="100" value="70" placeholder="70">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-textarea" id="gapDesc" placeholder="Describe the gap and why it exists in the market…"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Recommended Action</label>
+            <textarea class="form-textarea" id="gapAction" style="min-height:70px;" placeholder="What specific action should we take to exploit this gap?"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Competitors This Affects (comma-separated)</label>
+            <input class="form-input" id="gapCompetitors" placeholder="HubSpot, Salesforce, ActiveCampaign">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal('addGapModal')">Cancel</button>
+            <button class="btn-save" onclick="saveGap()">Save Gap</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/claude-service.js"></script>
+<script src="/js/agent-history.js"></script>
+<script src="/js/marked.min.js"></script>
+<script>
+'use strict';
+
+// ── STORAGE ───────────────────────────────────────────────────────────────────
+const RADAR_KEY  = 'tmd_radar';
+const GAPS_KEY   = 'tmd_ci_gaps';
+const BC_KEY     = 'tmd_ci_battlecards';
+
+function loadCompetitors() { return JSON.parse(localStorage.getItem(RADAR_KEY) || '[]'); }
+function saveCompetitors(data) { localStorage.setItem(RADAR_KEY, JSON.stringify(data)); }
+function loadGaps() { return JSON.parse(localStorage.getItem(GAPS_KEY) || '[]'); }
+function saveGaps(data) { localStorage.setItem(GAPS_KEY, JSON.stringify(data)); }
+function loadBattlecards() { return JSON.parse(localStorage.getItem(BC_KEY) || '{}'); }
+function saveBattlecards(data) { localStorage.setItem(BC_KEY, JSON.stringify(data)); }
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let selectedFilter  = 'all';
+let activeView      = 'feed';
+let feedTypeFilter  = 'all';
+let feedThreatFilter= null;
+let gapCategoryFilter = 'all';
+let pendingAnalysis = '';
+let currentBattlecard = '';
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function uid(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); }
+function avatarColor(name) {
+    const colors = ['#7c3aed','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#14b8a6'];
+    let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % colors.length;
+    return colors[h];
+}
+function initials(name) { return name.split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function threatClass(level) {
+    return { critical:'threat-critical', high:'threat-high', moderate:'threat-moderate', low:'threat-low' }[level] || 'threat-none';
+}
+function threatTagClass(level) {
+    return `tag-threat-${level}` || '';
+}
+function typeTagClass(type) {
+    const map = { Product:'tag-product', Pricing:'tag-pricing', Messaging:'tag-messaging', Campaign:'tag-campaign', Hiring:'tag-hiring', Content:'tag-content', Funding:'tag-funding', Press:'tag-press', Event:'tag-event' };
+    return map[type] || 'tag-content';
+}
+function weekAgo() {
+    const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
+}
+function scoreClass(n) {
+    if (n >= 75) return 'score-high';
+    if (n >= 45) return 'score-medium';
+    return 'score-low';
+}
+function priorityClass(p) {
+    return { Now:'priority-now', Next:'priority-next', Later:'priority-later' }[p] || 'priority-later';
+}
+
+// ── KPI ───────────────────────────────────────────────────────────────────────
+function refreshKPIs() {
+    const comps = loadCompetitors();
+    const gaps  = loadGaps();
+    const bcs   = loadBattlecards();
+    const week  = weekAgo();
+    let weekMoves = 0, critical = 0;
+    comps.forEach(c => {
+        (c.moves||[]).forEach(m => {
+            if (m.date >= week) weekMoves++;
+            if (m.threatLevel === 'critical') critical++;
+        });
+    });
+    document.getElementById('kpiTotal').textContent = comps.length;
+    document.getElementById('kpiTier').textContent  = comps.filter(c=>c.tier==='primary').length + ' primary tracked';
+    document.getElementById('kpiWeekMoves').textContent = weekMoves;
+    document.getElementById('kpiCritical').textContent  = critical;
+    document.getElementById('kpiGaps').textContent      = gaps.length;
+    document.getElementById('kpiBattlecards').textContent = Object.keys(bcs).length;
+    document.getElementById('all-meta').textContent = comps.length + ' competitors, ' + comps.reduce((s,c)=>s+(c.moves||[]).length,0) + ' moves';
+}
+
+// ── SIDEBAR ROSTER ────────────────────────────────────────────────────────────
+function renderRoster(search) {
+    const comps = loadCompetitors();
+    const q = (search||'').toLowerCase();
+    const filtered = q ? comps.filter(c => c.name.toLowerCase().includes(q)) : comps;
+
+    ['primary','secondary','emerging'].forEach(tier => {
+        const el = document.getElementById('roster-' + tier);
+        const lbl = document.getElementById('lbl-' + tier);
+        const items = filtered.filter(c => (c.tier||'primary') === tier);
+        if (lbl) lbl.style.display = items.length ? '' : 'none';
+        el.innerHTML = items.map(c => `
+            <div class="comp-card ${selectedFilter===c.id?'active':''}" onclick="selectFilter('${esc(c.id)}')">
+                <div class="comp-avatar" style="background:${avatarColor(c.name)}22;color:${avatarColor(c.name)};">${initials(c.name)}</div>
+                <div class="comp-info">
+                    <div class="comp-name">${esc(c.name)}</div>
+                    <div class="comp-meta">${(c.moves||[]).length} moves · ${esc(c.stage||'—')}</div>
+                </div>
+                <div class="threat-badge ${threatClass(c.threatLevel||'moderate')}"></div>
+            </div>
+        `).join('');
+    });
+
+    // Update battlecard selector
+    const bcSel = document.getElementById('bcCompetitorSelect');
+    const movSel = document.getElementById('moveCompetitorSelect');
+    [bcSel, movSel].forEach(sel => {
+        if (!sel) return;
+        const val = sel.value;
+        sel.innerHTML = '<option value="">— Choose competitor —</option>' +
+            comps.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+        if (val) sel.value = val;
+    });
+}
+
+window.filterRoster = function(q) { renderRoster(q); };
+
+window.selectFilter = function(id) {
+    selectedFilter = id;
+    renderRoster();
+    refreshFeed();
+    if (activeView === 'landscape') renderLandscape();
+};
+
+// ── SIDEBAR TIER/THREAT SELECTORS ─────────────────────────────────────────────
+window.selectTier = function(btn) {
+    btn.closest('.tier-selector').querySelectorAll('.tier-opt').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+};
+window.selectThreat = function(btn, containerId) {
+    document.getElementById(containerId).querySelectorAll('.threat-opt').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+};
+
+// ── VIEW SWITCHING ─────────────────────────────────────────────────────────────
+window.setView = function(view) {
+    activeView = view;
+    ['feed','battlecard','gaps','landscape'].forEach(v => {
+        document.getElementById('view-' + v).style.display = v === view ? '' : 'none';
+        document.getElementById('tab-' + v).classList.toggle('active', v === view);
+    });
+    if (view === 'battlecard') renderBattlecardSelectors();
+    if (view === 'gaps')       renderGaps();
+    if (view === 'landscape')  renderLandscape();
+};
+
+// ── FEED VIEW ──────────────────────────────────────────────────────────────────
+window.toggleFeedFilter = function(kind, val, btn) {
+    const bar = btn.closest('.feed-filter-bar');
+    const grp = Array.from(bar.querySelectorAll('.filter-chip')).filter(b => {
+        if (kind === 'type')   return !b.dataset.threat;
+        if (kind === 'threat') return b.dataset.threat;
+        return true;
+    });
+    if (kind === 'type') {
+        feedTypeFilter = val;
+        bar.querySelectorAll('.filter-chip:not([data-threat])').forEach(b => b.classList.remove('active'));
+    } else {
+        if (feedThreatFilter === val) { feedThreatFilter = null; btn.classList.remove('active'); refreshFeed(); return; }
+        feedThreatFilter = val;
+        bar.querySelectorAll('.filter-chip[data-threat]').forEach(b => b.classList.remove('active'));
+    }
+    btn.classList.add('active');
+    refreshFeed();
+};
+
+// Attach data-threat to threat chips on load
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.filter-chip').forEach(b => {
+        if (b.textContent.includes('Critical') || b.textContent.includes('High')) {
+            b.dataset.threat = '1';
+        }
+    });
+});
+
+function refreshFeed() {
+    const comps = loadCompetitors();
+    let moves = [];
+    comps.forEach(c => {
+        (c.moves||[]).forEach(m => {
+            moves.push({ ...m, compId: c.id, compName: c.name, compTier: c.tier||'primary' });
+        });
+    });
+
+    // Filter by selected competitor
+    if (selectedFilter !== 'all') {
+        moves = moves.filter(m => m.compId === selectedFilter);
+    }
+    // Filter by type
+    if (feedTypeFilter !== 'all') {
+        moves = moves.filter(m => (m.type||'') === feedTypeFilter);
+    }
+    // Filter by threat
+    if (feedThreatFilter) {
+        moves = moves.filter(m => (m.threatLevel||'') === feedThreatFilter);
+    }
+
+    // Sort newest first
+    moves.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+    const comp = selectedFilter !== 'all' ? comps.find(c => c.id === selectedFilter) : null;
+    document.getElementById('feedTitle').textContent = comp ? comp.name + ' Activity' : 'All Competitor Activity';
+
+    const el = document.getElementById('feedList');
+    if (!moves.length) {
+        el.innerHTML = `<div class="empty-state"><div class="es-icon">📡</div><div class="es-text">No moves logged yet</div><div class="es-sub">Start tracking competitor activity using the "+ Log Move" button.</div></div>`;
+        return;
+    }
+
+    el.innerHTML = moves.map(m => {
+        const color = avatarColor(m.compName);
+        return `
+        <div class="move-card">
+            <div class="move-row">
+                <div class="move-avatar" style="background:${color}22;color:${color};">${initials(m.compName)}</div>
+                <div class="move-body">
+                    <div class="move-top">
+                        <span class="move-comp-name">${esc(m.compName)}</span>
+                        <span class="tag ${typeTagClass(m.type)}">${esc(m.type||'Move')}</span>
+                        ${m.threatLevel ? `<span class="tag ${threatTagClass(m.threatLevel)}">${m.threatLevel.charAt(0).toUpperCase()+m.threatLevel.slice(1)} Threat</span>` : ''}
+                        <span class="move-date">${esc(m.date||'')}</span>
+                    </div>
+                    <div class="move-desc">${esc(m.description||'')}</div>
+                    ${m.source ? `<div style="font-size:11px;color:var(--text3);">Source: <a href="${esc(m.source)}" target="_blank" style="color:var(--purple-light);">${esc(m.source)}</a></div>` : ''}
+                    ${m.analysis ? `<div class="move-analysis-box"><strong style="color:#a78bfa;display:block;margin-bottom:4px;">Strategic Analysis</strong>${esc(m.analysis)}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── BATTLECARD VIEW ────────────────────────────────────────────────────────────
+function renderBattlecardSelectors() {
+    const comps = loadCompetitors();
+    const sel = document.getElementById('bcCompetitorSelect');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Choose competitor —</option>' +
+        comps.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+}
+
+window.onBattlecardSelect = function() {
+    const id = document.getElementById('bcCompetitorSelect').value;
+    document.getElementById('bcGenerateBtn').disabled = !id;
+    if (id) {
+        const bcs = loadBattlecards();
+        if (bcs[id]) {
+            renderBattlecard(bcs[id]);
+            document.getElementById('bcDownloadBtn').style.display = '';
+        } else {
+            document.getElementById('bcContent').innerHTML = `
+                <div class="bc-empty">
+                    <div class="bc-empty-icon">🃏</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px;">No battlecard yet — generate one above</div>
+                    <div style="font-size:13px;color:var(--text3);">Claude will analyze competitor data and build a structured sales battlecard.</div>
+                </div>`;
+            document.getElementById('bcDownloadBtn').style.display = 'none';
+        }
+    }
+};
+
+window.generateBattlecard = async function() {
+    const id = document.getElementById('bcCompetitorSelect').value;
+    if (!id) return;
+    const comps = loadCompetitors();
+    const comp  = comps.find(c => c.id === id);
+    if (!comp) return;
+
+    if (!window.ClaudeService?.getApiKey()) {
+        alert('Claude API key not configured. Go to Settings to add your key.');
+        return;
+    }
+
+    const btn   = document.getElementById('bcGenerateBtn');
+    const spin  = document.getElementById('bcBtnSpinner');
+    const txt   = document.getElementById('bcBtnText');
+    btn.disabled = true;
+    spin.style.display = '';
+    txt.textContent = 'Generating…';
+
+    const content = document.getElementById('bcContent');
+    content.innerHTML = `<div class="streaming-output" id="bcStream">Generating battlecard for ${esc(comp.name)}…</div>`;
+    const streamEl = document.getElementById('bcStream');
+
+    // Build IE context
+    let brandContext = '';
+    try {
+        if (window.IntelligenceEngine?.buildSystemPromptPrefix) {
+            brandContext = window.IntelligenceEngine.buildSystemPromptPrefix() || '';
+        }
+    } catch(e) {}
+
+    const compMoves = (comp.moves||[]).slice(0,8).map(m => `- [${m.type}] ${m.date}: ${m.description}`).join('\n');
+
+    const systemPrompt = `You are a competitive intelligence expert specialising in sales battlecards. Create sharp, specific, actionable battlecards that sales teams actually use in deals. Be specific — name actual product features, real pricing details, exact messaging. Never be generic.${brandContext ? '\n\n' + brandContext : ''}`;
+
+    const userPrompt = `Create a complete sales battlecard for competing against ${comp.name}.
+
+Competitor Profile:
+- Name: ${comp.name}
+- URL: ${comp.url||'Unknown'}
+- Positioning: ${comp.positioning||'Unknown'}
+- Target Audience: ${comp.audience||'Unknown'}
+- Stage: ${comp.stage||'Unknown'}
+- Funding: ${comp.funding||'Unknown'}
+- Known Strengths: ${(comp.strengths||[]).join('; ') || 'Unknown'}
+- Known Weaknesses: ${comp.weaknesses?.join('; ') || 'Unknown'}
+${compMoves ? `\nRecent moves:\n${compMoves}` : ''}
+
+Output the battlecard in this EXACT format with these EXACT section headers:
+
+## AT A GLANCE
+[2-sentence positioning summary]
+Target: [their target customer]
+Stage: [company stage + funding]
+
+## OUR WIN THEMES
+1. [Win theme — specific reason we beat them]
+2. [Win theme]
+3. [Win theme]
+4. [Win theme]
+
+## THEIR GENUINE STRENGTHS
+1. [Something they genuinely do well — be honest]
+2. [Genuine strength]
+3. [Genuine strength]
+
+## THEIR VULNERABILITIES
+1. [Specific weakness or gap we can exploit]
+2. [Specific weakness]
+3. [Specific weakness]
+4. [Specific weakness]
+
+## OBJECTION HANDLING
+**"[Their common claim or our weakness they'll raise]"**
+→ [Exactly how to respond — specific, confident, factual]
+
+**"[Second objection]"**
+→ [Response]
+
+**"[Third objection]"**
+→ [Response]
+
+## LANDMINE QUESTIONS
+1. [Question that exposes their weakness — ask in a discovery call]
+2. [Landmine question]
+3. [Landmine question]
+4. [Landmine question]
+
+## FEATURE COMPARISON
+| Feature | Us | ${comp.name} |
+|---------|-----|------|
+| [Key feature] | ✅ | ❌ |
+| [Feature] | ✅ | ⚠️ Partial |
+| [Feature] | ✅ | ✅ |
+[Add 6-8 rows total]
+
+## TALK TRACK
+[2-3 sentence opening positioning statement to use when you know you're in a deal with ${comp.name}. Written in first person, ready to say on a call.]`;
+
+    try {
+        let fullText = '';
+        await window.ClaudeService.streamResponse({
+            systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+            onChunk: (chunk) => {
+                fullText += chunk;
+                streamEl.textContent = fullText;
+            },
+            onDone: (text) => {
+                fullText = text;
+                currentBattlecard = text;
+                const bcs = loadBattlecards();
+                bcs[id] = text;
+                saveBattlecards(bcs);
+                renderBattlecard(text);
+                document.getElementById('bcDownloadBtn').style.display = '';
+                refreshKPIs();
+                try { window.AgentHistory?.save({ agentKey:'competitive', taskType:'Battlecard', content:text, topic:comp.name }); } catch(e) {}
+            },
+            onError: (err) => {
+                streamEl.textContent = 'Error: ' + err.message;
+            }
+        });
+    } catch(e) {
+        streamEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        spin.style.display = 'none';
+        txt.textContent = 'Regenerate';
+    }
+};
+
+function renderBattlecard(text) {
+    // Parse sections
+    const sections = {};
+    const sectionRe = /^## ([^\n]+)\n([\s\S]*?)(?=^## |\Z)/gm;
+    let m;
+    while ((m = sectionRe.exec(text + '\n## END')) !== null) {
+        sections[m[1].trim()] = m[2].trim();
+    }
+
+    function parseBullets(txt) {
+        return (txt || '').split('\n').filter(l => l.match(/^\d+\.\s|^[-*]\s/)).map(l => l.replace(/^\d+\.\s|^[-*]\s/,'').trim()).filter(Boolean);
+    }
+
+    function parseObjHandling(txt) {
+        const items = [];
+        const re = /\*{1,2}"(.+?)"\*{0,2}\s*\n\s*→\s*(.+?)(?=\n\*{1,2}"|$)/gs;
+        let mo;
+        while ((mo = re.exec(txt)) !== null) {
+            items.push({ trigger: mo[1].trim(), response: mo[2].trim() });
+        }
+        return items;
+    }
+
+    function parseTable(txt) {
+        const lines = txt.split('\n').filter(l => l.trim().startsWith('|'));
+        if (lines.length < 3) return null;
+        const headers = lines[0].split('|').filter(Boolean).map(h=>h.trim());
+        const rows    = lines.slice(2).map(l => l.split('|').filter(Boolean).map(c=>c.trim()));
+        return { headers, rows };
+    }
+
+    const wins       = parseBullets(sections['OUR WIN THEMES']||'');
+    const strengths  = parseBullets(sections['THEIR GENUINE STRENGTHS']||'');
+    const vulns      = parseBullets(sections['THEIR VULNERABILITIES']||'');
+    const landmines  = parseBullets(sections['LANDMINE QUESTIONS']||'');
+    const objHandling= parseObjHandling(sections['OBJECTION HANDLING']||'');
+    const table      = parseTable(sections['FEATURE COMPARISON']||'');
+    const atGlance   = sections['AT A GLANCE']||'';
+    const talkTrack  = sections['TALK TRACK']||'';
+
+    const el = document.getElementById('bcContent');
+    el.innerHTML = `
+        <div class="battlecard-grid">
+            <div class="bc-section">
+                <div class="bc-section-label">At a Glance</div>
+                <div style="font-size:13px;color:var(--text2);line-height:1.7;">${esc(atGlance)}</div>
+            </div>
+            <div class="bc-section">
+                <div class="bc-section-label">Win Themes (${wins.length})</div>
+                <ul class="bc-list bc-win">${wins.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>
+            </div>
+            <div class="bc-section">
+                <div class="bc-section-label">Their Genuine Strengths</div>
+                <ul class="bc-list">${strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+            </div>
+            <div class="bc-section">
+                <div class="bc-section-label">Their Vulnerabilities</div>
+                <ul class="bc-list bc-weakness">${vulns.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>
+            </div>
+            <div class="bc-section full">
+                <div class="bc-section-label">Objection Handling</div>
+                ${objHandling.map(o=>`
+                    <div class="bc-objection">
+                        <div class="bc-objection-trigger">When they say: "${esc(o.trigger)}"</div>
+                        <div class="bc-objection-response">${esc(o.response)}</div>
+                    </div>
+                `).join('') || '<div style="color:var(--text3);font-size:13px;">No objection handling parsed. See raw output.</div>'}
+            </div>
+            <div class="bc-section">
+                <div class="bc-section-label">Landmine Questions 💡</div>
+                <ul class="bc-list bc-land">${landmines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
+            </div>
+            <div class="bc-section">
+                <div class="bc-section-label">Talk Track</div>
+                <div class="bc-talk-track">${esc(talkTrack)}</div>
+            </div>
+            ${table ? `
+            <div class="bc-section full">
+                <div class="bc-section-label">Feature Comparison</div>
+                <table class="bc-table">
+                    <thead><tr>${table.headers.map((h,i)=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+                    <tbody>${table.rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i===1?'us-col':i===2?'them-col':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+            </div>` : ''}
+        </div>`;
+}
+
+window.downloadBattlecard = function() {
+    if (!currentBattlecard) return;
+    const blob = new Blob([currentBattlecard], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'battlecard.txt'; a.click();
+};
+
+// ── GAP ANALYSIS VIEW ──────────────────────────────────────────────────────────
+function renderGaps() {
+    const all = loadGaps();
+    const filtered = gapCategoryFilter === 'all' ? all : all.filter(g => g.category === gapCategoryFilter);
+    filtered.sort((a,b) => (b.score||0) - (a.score||0));
+
+    const el = document.getElementById('gapList');
+    if (!filtered.length) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">🕳️</div><div class="es-text">No gaps logged yet</div><div class="es-sub">Use "AI Discover Gaps" to find opportunities, or add gaps manually.</div></div>`;
+        return;
+    }
+
+    el.innerHTML = filtered.map(g => `
+        <div class="gap-card">
+            <div class="gap-card-top">
+                <div>
+                    <div class="gap-category">${esc(g.category||'General')}</div>
+                    <div class="gap-title">${esc(g.title||g.description||'')}</div>
+                </div>
+                <div class="gap-score ${scoreClass(g.score||50)}">${g.score||50}</div>
+            </div>
+            <div class="gap-desc">${esc(g.description||'')}</div>
+            ${g.action ? `<div class="gap-action">${esc(g.action)}</div>` : ''}
+            <div class="gap-footer">
+                <div class="gap-competitors">${g.competitors ? 'Affects: ' + esc(g.competitors) : ''}</div>
+                <span class="priority-chip ${priorityClass(g.priority)}">${esc(g.priority||'Next')}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+window.toggleGapFilter = function(cat, btn) {
+    gapCategoryFilter = cat;
+    document.querySelectorAll('#gapCategoryFilter .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGaps();
+};
+
+window.discoverGaps = async function() {
+    if (!window.ClaudeService?.getApiKey()) {
+        alert('Claude API key not configured. Go to Settings to add your key.');
+        return;
+    }
+
+    const comps = loadCompetitors();
+    if (!comps.length) {
+        alert('Add at least one competitor first.');
+        return;
+    }
+
+    const btn  = document.getElementById('discoverBtn');
+    const spin = document.getElementById('discoverSpinner');
+    const btxt = document.getElementById('discoverBtnText');
+    btn.disabled = true; spin.style.display = ''; btxt.textContent = 'Discovering…';
+
+    const outputEl = document.getElementById('gapDiscoverOutput');
+    outputEl.style.display = '';
+    outputEl.textContent = '';
+
+    let brandContext = '';
+    try { if (window.IntelligenceEngine?.buildSystemPromptPrefix) brandContext = window.IntelligenceEngine.buildSystemPromptPrefix()||''; } catch(e) {}
+
+    const compSummary = comps.slice(0,8).map(c => `
+- ${c.name} (${c.tier||'primary'}): ${c.positioning||'Unknown positioning'}. Strengths: ${(c.strengths||[]).join(', ')||'Unknown'}. Weaknesses: ${(c.weaknesses||[]).join(', ')||'Unknown'}. Recent moves: ${(c.moves||[]).slice(0,3).map(m=>m.type+': '+m.description).join(' | ')||'None logged'}.`).join('');
+
+    const systemPrompt = `You are a Contify-style market intelligence analyst. Identify specific, actionable strategic gaps where competitors are collectively weak, absent, or overextended. Focus on gaps that represent real market opportunity.${brandContext ? '\n\n'+brandContext : ''}`;
+
+    const userPrompt = `Analyze this competitive landscape and identify 5-8 strategic gaps we can exploit.
+
+Tracked competitors:${compSummary}
+
+For each gap, output in this EXACT format:
+
+### [Gap Title]
+**Category:** Product | Messaging | Audience | Pricing | Channel
+**Opportunity Score:** [0-100]
+**Evidence:** [Specific evidence from competitor behavior, patterns, or omissions]
+**Recommended Action:** [Specific action we can take right now]
+**Priority:** Now | Next | Later
+**Competitors Affected:** [Which competitors have this gap]
+
+---
+
+Find real, specific gaps based on the data above — not generic advice.`;
+
+    try {
+        let fullText = '';
+        await window.ClaudeService.streamResponse({
+            systemPrompt,
+            messages: [{ role:'user', content: userPrompt }],
+            onChunk: (chunk) => { fullText += chunk; outputEl.textContent = fullText; },
+            onDone: (text) => {
+                fullText = text;
+                parseAndSaveGaps(text);
+                outputEl.style.display = 'none';
+                renderGaps();
+                refreshKPIs();
+                try { window.AgentHistory?.save({ agentKey:'competitive', taskType:'Gap Discovery', content:text, topic:'Gap Analysis' }); } catch(e) {}
+            },
+            onError: (err) => { outputEl.textContent = 'Error: ' + err.message; }
+        });
+    } catch(e) {
+        outputEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false; spin.style.display = 'none'; btxt.textContent = '✦ AI Discover Gaps';
+    }
+};
+
+function parseAndSaveGaps(text) {
+    const existing = loadGaps();
+    const gaps = [...existing];
+    const blockRe = /###\s+(.+?)\n([\s\S]*?)(?=###|$)/g;
+    let m;
+    while ((m = blockRe.exec(text)) !== null) {
+        const title = m[1].trim();
+        const body  = m[2];
+        const cat   = (body.match(/\*\*Category:\*\*\s*(.+?)(?:\n|$)/)||[])[1]?.trim()||'Product';
+        const score = parseInt((body.match(/\*\*Opportunity Score:\*\*\s*(\d+)/)||[])[1]||'65');
+        const evidence = (body.match(/\*\*Evidence:\*\*\s*(.+?)(?=\n\*\*|$)/s)||[])[1]?.trim()||'';
+        const action   = (body.match(/\*\*Recommended Action:\*\*\s*(.+?)(?=\n\*\*|$)/s)||[])[1]?.trim()||'';
+        const priority = (body.match(/\*\*Priority:\*\*\s*(.+?)(?:\n|$)/)||[])[1]?.trim()||'Next';
+        const compAff  = (body.match(/\*\*Competitors Affected:\*\*\s*(.+?)(?:\n|$)/)||[])[1]?.trim()||'';
+
+        // Only valid categories
+        const validCats = ['Product','Messaging','Audience','Pricing','Channel'];
+        const cleanCat  = validCats.find(v => cat.includes(v)) || 'Product';
+
+        if (!gaps.some(g => g.title === title)) {
+            gaps.push({ id: uid('gap'), title, category: cleanCat, score, description: evidence, action, priority, competitors: compAff });
+        }
+    }
+    saveGaps(gaps);
+}
+
+// ── LANDSCAPE MAP ──────────────────────────────────────────────────────────────
+function getAxisLabels(axis) {
+    const map = {
+        'smb-enterprise':   ['SMB','Enterprise'],
+        'simple-complex':   ['Simple','Complex'],
+        'cheap-premium':    ['Cheap','Premium'],
+        'niche-broad':      ['Niche','Broad'],
+        'tactical-strategic': ['Tactical','Strategic'],
+        'feature-outcome':  ['Feature-led','Outcome-led'],
+    };
+    return map[axis] || [axis,''];
+}
+
+window.renderLandscape = function() {
+    const comps = loadCompetitors();
+    const axisX = document.getElementById('axisX').value;
+    const axisY = document.getElementById('axisY').value;
+    const [lx, rx] = getAxisLabels(axisX);
+    const [by, ty] = getAxisLabels(axisY);
+
+    document.getElementById('lblLeft').textContent   = lx;
+    document.getElementById('lblRight').textContent  = rx;
+    document.getElementById('lblBottom').textContent = by;
+    document.getElementById('lblTop').textContent    = ty;
+
+    const filtered = selectedFilter === 'all' ? comps : comps.filter(c => c.id === selectedFilter);
+    const threatColorMap = { critical:'#ef4444', high:'#f97316', moderate:'#f59e0b', low:'#10b981' };
+
+    // Generate position sliders
+    const sliders = document.getElementById('positionSliders');
+    sliders.innerHTML = filtered.map(c => `
+        <div class="lc-comp-row">
+            <div class="lc-comp-name" title="${esc(c.name)}">${esc(c.name.slice(0,14))}</div>
+            <div class="lc-slider-label" style="font-size:9px;color:var(--text3);">X</div>
+            <input type="range" class="lc-slider" min="5" max="95" value="${c.positionX||50}" oninput="updatePosition('${c.id}','positionX',this.value)" style="width:60px;">
+            <div class="lc-slider-label" style="font-size:9px;color:var(--text3);">Y</div>
+            <input type="range" class="lc-slider" min="5" max="95" value="${c.positionY||50}" oninput="updatePosition('${c.id}','positionY',this.value)" style="width:60px;">
+        </div>
+    `).join('');
+
+    // Add "US" dot
+    const dots = document.getElementById('mapDots');
+    let dotsHtml = `
+        <div class="map-dot us" style="left:30%;top:30%;" title="Your Company">
+            <div class="map-dot-inner" style="width:40px;height:40px;border:2px solid #ec4899;">US</div>
+            <div class="map-dot-label" style="color:#a78bfa;">You</div>
+        </div>`;
+
+    filtered.forEach(c => {
+        const x = c.positionX||50;
+        const y = c.positionY||50;
+        const color = threatColorMap[c.threatLevel||'moderate'] || '#f59e0b';
+        const size  = { primary:38, secondary:30, emerging:24 }[c.tier||'primary'] || 30;
+        dotsHtml += `
+            <div class="map-dot" style="left:${x}%;top:${100-y}%;" title="${esc(c.name)} — ${c.threatLevel||'moderate'} threat">
+                <div class="map-dot-inner" style="width:${size}px;height:${size}px;background:${color}33;color:${color};border:2px solid ${color};">${initials(c.name)}</div>
+                <div class="map-dot-label">${esc(c.name.slice(0,12))}</div>
+            </div>`;
+    });
+
+    dots.innerHTML = dotsHtml;
+};
+
+window.updatePosition = function(compId, field, value) {
+    const comps = loadCompetitors();
+    const c = comps.find(c => c.id === compId);
+    if (c) { c[field] = parseInt(value); saveCompetitors(comps); renderLandscape(); }
+};
+
+// ── MODALS ─────────────────────────────────────────────────────────────────────
+window.openAddModal = function() {
+    document.getElementById('addName').value = '';
+    document.getElementById('addUrl').value  = '';
+    document.getElementById('addPositioning').value = '';
+    document.getElementById('addAudience').value = '';
+    document.getElementById('addStage').value    = '';
+    document.getElementById('addFunding').value  = '';
+    document.getElementById('addStrengths').value  = '';
+    document.getElementById('addWeaknesses').value = '';
+    document.getElementById('addModal').classList.add('open');
+};
+window.openLogMoveModal = function() {
+    const comps = loadCompetitors();
+    const sel = document.getElementById('moveCompetitorSelect');
+    sel.innerHTML = comps.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    if (selectedFilter !== 'all') sel.value = selectedFilter;
+    document.getElementById('moveDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('moveDesc').value = '';
+    document.getElementById('moveSource').value = '';
+    document.getElementById('moveAnalysisOutput').style.display = 'none';
+    document.getElementById('moveThreatSelector').querySelectorAll('.threat-opt').forEach(b => {
+        b.classList.toggle('selected', b.dataset.level === 'moderate');
+    });
+    pendingAnalysis = '';
+    document.getElementById('logMoveModal').classList.add('open');
+};
+window.openAddGapModal = function() {
+    ['gapTitle','gapDesc','gapAction','gapCompetitors'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('gapScore').value = 70;
+    document.getElementById('addGapModal').classList.add('open');
+};
+window.closeModal = function(id) { document.getElementById(id).classList.remove('open'); };
+
+// Click outside to close
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+});
+
+window.saveCompetitor = function() {
+    const name = document.getElementById('addName').value.trim();
+    if (!name) { alert('Company name is required.'); return; }
+    const tier   = document.querySelector('.tier-opt.selected')?.dataset.tier || 'primary';
+    const threat = document.querySelector('#addThreatSelector .threat-opt.selected')?.dataset.level || 'moderate';
+    const comp = {
+        id: uid('c'),
+        name,
+        url: document.getElementById('addUrl').value.trim(),
+        tier,
+        threatLevel: threat,
+        positioning: document.getElementById('addPositioning').value.trim(),
+        audience:    document.getElementById('addAudience').value.trim(),
+        stage:       document.getElementById('addStage').value,
+        funding:     document.getElementById('addFunding').value.trim(),
+        strengths:   document.getElementById('addStrengths').value.split('\n').map(s=>s.trim()).filter(Boolean),
+        weaknesses:  document.getElementById('addWeaknesses').value.split('\n').map(s=>s.trim()).filter(Boolean),
+        moves: [],
+        positionX: 50,
+        positionY: 50
+    };
+    const comps = loadCompetitors();
+    comps.push(comp);
+    saveCompetitors(comps);
+    closeModal('addModal');
+    renderRoster();
+    refreshKPIs();
+    refreshFeed();
+};
+
+window.analyzeMove = async function() {
+    const desc = document.getElementById('moveDesc').value.trim();
+    if (!desc) { alert('Please describe the competitor move first.'); return; }
+    if (!window.ClaudeService?.getApiKey()) { alert('Claude API key not configured.'); return; }
+
+    const compId = document.getElementById('moveCompetitorSelect').value;
+    const comps  = loadCompetitors();
+    const comp   = comps.find(c => c.id === compId) || { name: 'Competitor' };
+
+    const btn  = document.getElementById('analyzeBtn');
+    const spin = document.getElementById('analyzeBtnSpinner');
+    const btxt = document.getElementById('analyzeBtnText');
+    btn.disabled = true; spin.style.display = ''; btxt.textContent = 'Analyzing…';
+
+    const outputEl = document.getElementById('moveAnalysisOutput');
+    outputEl.style.display = '';
+    outputEl.textContent = '';
+
+    const systemPrompt = `You are a competitive intelligence strategist. Analyze competitor moves with sharp strategic insight. Be specific, concise, and actionable. 3-4 sentences per section.`;
+    const userMsg = `Competitor: ${comp.name}
+Positioning: ${comp.positioning||'Unknown'}
+Move: ${desc}
+Type: ${document.getElementById('moveType').value}
+
+Analyze this move:
+1. SIGNAL: What does this reveal about their strategy or priorities?
+2. RESPOND?: Should we respond? (Yes/No/Watch) — Why?
+3. BORROW: What can we adapt from this tactic for our own use?`;
+
+    try {
+        let fullText = '';
+        await window.ClaudeService.streamResponse({
+            systemPrompt,
+            messages: [{ role:'user', content: userMsg }],
+            onChunk: (chunk) => { fullText += chunk; outputEl.textContent = fullText; },
+            onDone:  (text)  => { pendingAnalysis = text; },
+            onError: (err)   => { outputEl.textContent = 'Error: ' + err.message; }
+        });
+    } catch(e) { outputEl.textContent = 'Error: ' + e.message; }
+    finally {
+        btn.disabled = false; spin.style.display = 'none'; btxt.textContent = 'Analyze This Move';
+    }
+};
+
+window.saveMove = function() {
+    const compId = document.getElementById('moveCompetitorSelect').value;
+    if (!compId) { alert('Select a competitor.'); return; }
+    const desc = document.getElementById('moveDesc').value.trim();
+    if (!desc) { alert('Please describe the competitor move.'); return; }
+    const threatLevel = document.querySelector('#moveThreatSelector .threat-opt.selected')?.dataset.level || 'moderate';
+
+    const move = {
+        id:          uid('m'),
+        date:        document.getElementById('moveDate').value,
+        type:        document.getElementById('moveType').value,
+        threatLevel,
+        description: desc,
+        source:      document.getElementById('moveSource').value.trim(),
+        analysis:    pendingAnalysis
+    };
+
+    const comps = loadCompetitors();
+    const c = comps.find(c => c.id === compId);
+    if (c) {
+        c.moves = c.moves || [];
+        c.moves.unshift(move);
+        // Update threat level if this move is more severe
+        const order = ['low','moderate','high','critical'];
+        if (order.indexOf(move.threatLevel) > order.indexOf(c.threatLevel||'moderate')) {
+            c.threatLevel = move.threatLevel;
+        }
+        saveCompetitors(comps);
+    }
+
+    pendingAnalysis = '';
+    closeModal('logMoveModal');
+    renderRoster();
+    refreshFeed();
+    refreshKPIs();
+};
+
+window.saveGap = function() {
+    const title = document.getElementById('gapTitle').value.trim();
+    if (!title) { alert('Gap title is required.'); return; }
+    const gap = {
+        id: uid('gap'),
+        title,
+        category:    document.getElementById('gapCategory').value,
+        priority:    document.getElementById('gapPriority').value,
+        score:       parseInt(document.getElementById('gapScore').value)||70,
+        description: document.getElementById('gapDesc').value.trim(),
+        action:      document.getElementById('gapAction').value.trim(),
+        competitors: document.getElementById('gapCompetitors').value.trim()
+    };
+    const gaps = loadGaps();
+    gaps.push(gap);
+    saveGaps(gaps);
+    closeModal('addGapModal');
+    renderGaps();
+    refreshKPIs();
+};
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+    renderRoster();
+    refreshKPIs();
+    refreshFeed();
+    // Check for Intelligence Engine
+    try { if (window.IntelligenceEngine) console.log('[CC] Intelligence Engine ready'); } catch(e) {}
+}
+
+// Retry init if IE not loaded yet
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(init, 100));
+} else {
+    setTimeout(init, 100);
+}
+</script>
+</body>
+</html>

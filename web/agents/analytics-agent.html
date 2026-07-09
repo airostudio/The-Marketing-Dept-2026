@@ -20,6 +20,7 @@
             --text: #f1f5f9;
             --text2: #94a3b8;
             --text3: #64748b;
+            --agent-color: #f59e0b;
             --accent: #6366F1;
             --accent2: #4F46E5;
             --accent-glow: rgba(99,102,241,0.15);
@@ -491,7 +492,7 @@
     <aside class="sidebar">
         <div class="sidebar-logo">
             <a href="/hub.html">
-                <div class="logo-icon">📊</div>
+                <div class="logo-icon" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:9px;font-weight:900;letter-spacing:2px;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">VERA</div>
                 <span>Analytics Brain</span>
             </a>
         </div>
@@ -771,9 +772,13 @@
 
 </div>
 
+<script src="/js/marked.min.js"></script>
 <script src="/js/claude-service.js"></script>
+<script src="/js/gemini-service.js"></script>
+<script src="/js/intelligence-engine.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
+<script src="/js/agent-history.js"></script>
 <script>
     const AGENT_ID = 'analytics-brain';
 
@@ -854,8 +859,26 @@
     function getIntelligenceCompleteness() {
         if (!window.IntelligenceEngine) return 0;
         const bundle = window.IntelligenceEngine.getContextBundle();
-        return bundle ? (bundle.completeness || 0) : 0;
+        // completionScore is 0-100; callers compare against fractions (0-1)
+        return bundle ? (bundle.completionScore || 0) / 100 : 0;
     }
+
+    // Business objectives context — ties recommendations to actual goals
+    function buildObjectivesContext() {
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.extractObjectives) return '';
+        const obj = window.IntelligenceEngine.extractObjectives();
+        const lines = [];
+        if (obj.q1Focus) lines.push(`- Q1 Focus: ${obj.q1Focus}`);
+        if (obj.annualGoal) lines.push(`- Annual Goal: ${obj.annualGoal}`);
+        if (obj.currentChallenge) lines.push(`- Current Challenge: ${obj.currentChallenge}`);
+        if (Array.isArray(obj.bestLeadChannels) && obj.bestLeadChannels.filter(c => c && c.trim()).length > 0) {
+            lines.push(`- Best Lead Channels: ${obj.bestLeadChannels.filter(c => c && c.trim()).join(', ')}`);
+        }
+        if (lines.length === 0) return '';
+        return '\n\n**BUSINESS OBJECTIVES — judge every recommendation against these:**\n' + lines.join('\n') + '\n';
+    }
+
+    const ESTIMATE_DISCLAIMER = "\nLabel all benchmark figures and attribution percentages as estimates ('est.') — you have no live data source; recommend validating against the user's analytics platform.";
 
     // Workspace prompts per tab
     const workspacePrompts = {
@@ -880,6 +903,7 @@ GOAL / KPI FOCUS: ${goal}`;
             prompt += buildValuePropConversionContext();
             prompt += buildCompetitiveBenchmarkContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -893,6 +917,7 @@ Provide:
 7. Quick wins (implement in next 30 days)
 
 Format clearly with sections and be specific with numbers.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             // Strategic validation warning
             const completeness = getIntelligenceCompleteness();
@@ -907,7 +932,8 @@ Format clearly with sections and be specific with numbers.`;
             const budget = document.getElementById('mmm-budget').value.trim();
             const goal = document.getElementById('mmm-goal').value;
             if (!data) return null;
-            return `You are an expert marketing mix modeling consultant.
+
+            let prompt = `You are an expert marketing mix modeling consultant.
 
 Analyze this marketing budget allocation and provide MMM insights:
 
@@ -915,18 +941,28 @@ CURRENT ALLOCATION:
 ${data}
 
 TOTAL MONTHLY BUDGET: ${budget || 'Not specified'}
-BUSINESS GOAL: ${goal}
+BUSINESS GOAL: ${goal}`;
+
+            prompt += buildICPAttributionContext();
+            prompt += buildCompetitiveBenchmarkContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
+
+            prompt += `
 
 Provide:
 1. Current State Assessment - efficiency score per channel
 2. ROI Ranking - rank all channels by return
 3. Saturation Analysis - which channels are over/under-invested
-4. Optimal Reallocation - specific budget shifts with rationale
+4. Optimal Reallocation - specific budget shifts with rationale (prioritise channels reaching our ICP if provided)
 5. Projected Impact - estimated improvement from reallocation
 6. Channel synergies to leverage
 7. 3-month roadmap for implementation
 
 Be specific with numbers and percentages.`;
+            prompt += ESTIMATE_DISCLAIMER;
+
+            return prompt;
         },
         segmentation: () => {
             const customers = document.getElementById('seg-customers').value.trim();
@@ -970,13 +1006,16 @@ BUSINESS MODEL: ${model}`;
                     prompt += `- Role/Title: ${firmographics.role}\n`;
                     if (firmographics.companySize) prompt += `- Company Size: ${firmographics.companySize}\n`;
                     if (firmographics.industry) prompt += `- Industry: ${firmographics.industry}\n`;
-                    if (firmographics.language.length > 0) prompt += `- Language: ${firmographics.language.join(', ')}\n`;
+                    const _anaLang = Array.isArray(firmographics.language) ? firmographics.language :
+                        (firmographics.language ? String(firmographics.language).split('\n').map(s => s.trim()).filter(Boolean) : []);
+                    if (_anaLang.length > 0) prompt += `- Language: ${_anaLang.join(', ')}\n`;
 
                     prompt += `\n→ Create segments that map to sub-segments of this ICP, considering pain point severity, buyer journey stage, and firmographic attributes.\n`;
                 }
             }
 
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -995,6 +1034,7 @@ For each segment provide:
 - Targeting Strategy (paid, content, outreach)
 
 Make each segment distinct and actionable.`;
+            prompt += ESTIMATE_DISCLAIMER;
 
             // Strategic validation warning
             const completeness = getIntelligenceCompleteness();
@@ -1023,6 +1063,7 @@ CONTEXT: ${context || 'General marketing performance review'}`;
             prompt += buildValuePropConversionContext();
             prompt += buildCompetitiveBenchmarkContext();
             prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
 
             prompt += `
 
@@ -1037,6 +1078,9 @@ Provide:
 8. 90-Day Improvement Roadmap
 
 Be direct, specific, and data-driven.`;
+            prompt += ESTIMATE_DISCLAIMER;
+
+            return prompt;
         },
         report: () => {
             const data = document.getElementById('report-data').value.trim();
@@ -1044,25 +1088,37 @@ Be direct, specific, and data-driven.`;
             const audience = document.getElementById('report-audience').value;
             const focus = document.getElementById('report-focus').value.trim();
             if (!data) return null;
-            return `You are an expert marketing communications director writing for senior leadership.
+
+            let prompt = `You are an expert marketing communications director writing for senior leadership.
 
 Write a complete ${type} for a ${audience} audience.
 
 DATA & METRICS:
 ${data}
 
-${focus ? `KEY NARRATIVE: ${focus}` : ''}
+${focus ? `KEY NARRATIVE: ${focus}` : ''}`;
+
+            prompt += buildICPAttributionContext();
+            prompt += buildValuePropConversionContext();
+            prompt += buildBrandVoiceAnalyticsStyle();
+            prompt += buildObjectivesContext();
+
+            prompt += `
 
 Write a polished, professional report that:
 - Opens with a compelling executive summary
 - Tells a coherent data story (not just a list of numbers)
-- Highlights wins prominently
+- Highlights wins prominently (tie to ICP conversion effectiveness if context provided)
 - Addresses challenges honestly with context
-- Includes clear next steps and asks
+- Includes clear next steps and asks (aligned to value prop priorities if available)
 - Uses appropriate language for ${audience}
 - Ends with a forward-looking outlook
+- Matches brand voice style if provided
 
 Format with clear sections, use the data provided, and write in a confident narrative style.`;
+            prompt += ESTIMATE_DISCLAIMER;
+
+            return prompt;
         }
     };
 
@@ -1075,12 +1131,26 @@ Format with clear sections, use the data provided, and write in a confident narr
             }
         }
 
-        // Strategic Validation: Intelligence Layer
+        // Strategic Validation: Intelligence Layer (hard block for ICP-dependent tabs)
         const completeness = getIntelligenceCompleteness();
-        if (completeness < 0.3 && !sessionStorage.getItem('analytics-intelligence-warning-dismissed')) {
-            const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor ICP-specific analytics insights, configure BusinessBrain with:\n• ICP Definition (persona, pain points, firmographics)\n• Value Propositions\n• Buyer Journey Stages\n\nThis will enable attribution by ICP stage, segmentation by pain point, and value prop-driven conversion analysis.\n\nProceed with generic analysis?`);
-            if (!proceed) return;
-            sessionStorage.setItem('analytics-intelligence-warning-dismissed', 'true');
+        if (completeness < 0.2 && ['attribution', 'segmentation'].includes(tabId)) {
+            const outCard = document.getElementById('out-' + tabId);
+            const outBody = document.getElementById('out-' + tabId + '-body');
+            outCard.style.display = 'block';
+            outBody.innerHTML = `<div style="padding:24px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);border-radius:10px;color:#f87171;">
+                <div style="font-weight:700;margin-bottom:8px;font-size:15px;">⛔ BusinessBrain Configuration Required</div>
+                <div style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);">
+                    <strong>${tabId === 'attribution' ? 'Campaign Attribution' : 'Customer Segmentation'}</strong> analysis requires ICP data to be meaningful.<br>
+                    <strong>Current completion: ${Math.round(completeness * 100)}%</strong> (minimum 20% required)<br><br>
+                    Without ICP definition, attribution cannot be mapped to buyer journey stages, and segmentation cannot align to real personas.<br><br>
+                    <strong>Configure in BusinessBrain:</strong><br>
+                    • ICP Definition (persona, pain points, firmographics)<br>
+                    • Value Propositions<br>
+                    • Buyer Journey Stages<br><br>
+                    <a href="/intelligence/business-brain.html" style="color:#f87171;font-weight:600;text-decoration:underline;">→ Configure BusinessBrain now</a>
+                </div>
+            </div>`;
+            return;
         }
 
         const prompt = workspacePrompts[tabId]();
@@ -1095,21 +1165,87 @@ Format with clear sections, use the data provided, and write in a confident narr
         outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Analyzing with Analytics Brain AI...</div>';
 
         try {
-            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
-                let result = '';
-                await ClaudeService.callAgent(AGENT_ID, prompt, {}, (chunk) => {
-                    result += chunk;
-                    outBody.textContent = result;
-                });
-            } else {
-                await streamFallback(prompt, outBody);
-            }
+            await streamWithFallback({
+                systemPrompt: 'You are Analytics Brain AI, an expert marketing analytics consultant. Analyze the provided data and deliver specific, data-driven insights with concrete recommendations.',
+                messages: [{ role: 'user', content: prompt }],
+                onChunk: (chunk, accumulated) => {
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
+                },
+                onDone: (text) => {
+                    if (!text || !text.trim()) {
+                        outBody.innerHTML = '<div style="color:#ef4444;padding:20px;">The AI service returned no content — check GEMINI_API_KEY / ANTHROPIC_API_KEY server configuration.</div>';
+                        return;
+                    }
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: text });
+                },
+                onError: (err) => {
+                    outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
+                },
+            });
         } catch (err) {
             outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
         }
     }
 
+    /**
+     * Stream via Gemini with a one-shot Claude fallback.
+     * Guarantees: onDone is never called after onError (mid-stream errors no
+     * longer get wiped by a trailing empty onDone from the service layer), and
+     * if Gemini fails before producing ANY output, the same request is retried
+     * once via ClaudeService.
+     */
+    async function streamWithFallback({ systemPrompt, messages, onChunk, onDone, onError }) {
+        const attempt = (service) => new Promise((resolve) => {
+            let settled = false;
+            let hadError = false;
+            let chunksReceived = false;
+            const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+            Promise.resolve(service.streamResponse({
+                systemPrompt,
+                messages,
+                onChunk: (chunk, accumulated) => {
+                    chunksReceived = true;
+                    if (!settled) onChunk(chunk, accumulated);
+                },
+                onDone: (text) => { if (!hadError) settle({ ok: true, text: text || '' }); },
+                onError: (err) => { hadError = true; settle({ ok: false, err, chunksReceived }); },
+            })).catch((err) => settle({ ok: false, err, chunksReceived }));
+        });
+
+        const primary = window.GeminiService || window.ClaudeService;
+        if (!primary) {
+            onError(new Error('AI service not configured. Check your API keys in Settings'));
+            return;
+        }
+
+        let outcome = await attempt(primary);
+
+        // Fallback: only when the primary was Gemini, it produced no chunks, and Claude is available
+        if (!outcome.ok && !outcome.chunksReceived && primary === window.GeminiService && window.ClaudeService) {
+            console.warn('[Analytics Brain] Gemini request failed before any output — retrying via ClaudeService.', outcome.err && outcome.err.message);
+            outcome = await attempt(window.ClaudeService);
+        }
+
+        if (outcome.ok) onDone(outcome.text);
+        else onError(outcome.err || new Error('AI request failed'));
+    }
+
     // Chat functionality
+    const chatHistory = []; // rolling conversation, last 10 messages sent to the model
+
+    function buildChatSystemPrompt() {
+        let sys = 'You are Analytics Brain AI, an expert marketing analytics assistant. Answer questions about marketing analytics, attribution, and performance concisely and helpfully.';
+        if (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle) {
+            const bundle = window.IntelligenceEngine.getContextBundle();
+            if (bundle && bundle.isReady && bundle.businessContext) {
+                sys = 'You are VERA, a marketing analytics strategist for this business:\n' + bundle.businessContext +
+                    '\n\nAnswer questions about marketing analytics, attribution, and performance concisely and helpfully, tying advice to this business context.';
+            }
+        }
+        return sys;
+    }
+
     async function sendChat() {
         const input = document.getElementById('chatInput');
         const msg = input.value.trim();
@@ -1123,23 +1259,51 @@ Format with clear sections, use the data provided, and write in a confident narr
         cursor.className = 'streaming-cursor';
         aiDiv.appendChild(cursor);
 
+        chatHistory.push({ role: 'user', content: msg });
+
         try {
-            if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
-                let result = '';
-                await ClaudeService.callAgent(AGENT_ID, msg, { tab: 'chat' }, (chunk) => {
-                    result += chunk;
-                    aiDiv.textContent = result;
-                });
-            } else {
-                await streamFallback(`You are Analytics Brain AI, an expert marketing analytics assistant. Answer this question concisely and helpfully: ${msg}`, aiDiv);
-            }
+            await streamWithFallback({
+                systemPrompt: buildChatSystemPrompt(),
+                messages: chatHistory.slice(-10),
+                onChunk: (chunk, accumulated) => {
+                    aiDiv.textContent = accumulated;
+                },
+                onDone: (text) => {
+                    if (!text || !text.trim()) {
+                        aiDiv.textContent = 'The AI service returned no content — check GEMINI_API_KEY / ANTHROPIC_API_KEY server configuration.';
+                        return;
+                    }
+                    aiDiv.textContent = text;
+                    chatHistory.push({ role: 'assistant', content: text });
+                },
+                onError: () => {
+                    aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
+                },
+            });
         } catch (err) {
             aiDiv.textContent = 'Sorry, I encountered an error. Please check your API configuration.';
         }
     }
 
+    // Map each tab to its primary data input so "Ask AI" sends the user's data along
+    const TAB_PRIMARY_INPUTS = {
+        attribution: 'attr-data',
+        mmm: 'mmm-data',
+        segmentation: 'seg-customers',
+        performance: 'perf-metrics',
+        report: 'report-data',
+    };
+
     function sendToChat(msg) {
-        document.getElementById('chatInput').value = msg;
+        let message = msg;
+        const activeBtn = document.querySelector('.tab-btn.active');
+        const inputId = activeBtn ? TAB_PRIMARY_INPUTS[activeBtn.dataset.tab] : null;
+        if (inputId) {
+            const el = document.getElementById(inputId);
+            const data = el ? el.value.trim() : '';
+            if (data) message = `${msg}\n\nDATA:\n${data}`;
+        }
+        document.getElementById('chatInput').value = message;
         sendChat();
     }
 
@@ -1175,14 +1339,8 @@ Format with clear sections, use the data provided, and write in a confident narr
         });
     }
 
-    // Fallback streaming simulation when ClaudeService is not loaded
     async function streamFallback(prompt, element) {
-        element.textContent = '';
-        const placeholder = '[ClaudeService not loaded] Configure /js/claude-service.js to enable AI responses.\n\nPrompt that would be sent:\n\n' + prompt.substring(0, 300) + '...';
-        for (let i = 0; i < placeholder.length; i++) {
-            element.textContent += placeholder[i];
-            await new Promise(r => setTimeout(r, 10));
-        }
+        element.innerHTML = '<p style="color:#ef4444;padding:16px;font-weight:600;">AI service unavailable — please refresh the page. If this persists, check your network connection or contact support.</p>';
     }
 </script>
 </body>

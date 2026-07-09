@@ -35,15 +35,106 @@
      the hub/dashboard guards see a valid session.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const STORE_KEY   = 'audema_users';
-  const SESSION_KEY = 'audema_session';
+  const STORE_KEY   = 'aduma_users';
+  const SESSION_KEY = 'aduma_session';
   const TTL         = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+  // ── Supabase config (fetched once from /api/app-config) ──────────────────
+  var _sbConfig = null; // { supabaseUrl, supabaseKey, configured }
+
+  async function _getSupabaseConfig() {
+    if (_sbConfig !== null) return _sbConfig;
+    // Also check if supabase-client.js already has valid config in APP_CONFIG
+    var ac = window.APP_CONFIG || {};
+    if (ac.SUPABASE_URL && ac.SUPABASE_ANON_KEY) {
+      _sbConfig = { supabaseUrl: ac.SUPABASE_URL, supabaseKey: ac.SUPABASE_ANON_KEY, configured: true };
+      return _sbConfig;
+    }
+    // Fall back to localStorage keys (set via Settings page)
+    var lsUrl = localStorage.getItem('supabase-url');
+    var lsKey = localStorage.getItem('supabase-anon-key');
+    if (lsUrl && lsKey) {
+      _sbConfig = { supabaseUrl: lsUrl, supabaseKey: lsKey, configured: true };
+      return _sbConfig;
+    }
+    // Fetch from Vercel env vars via API
+    try {
+      var r = await fetch('/api/app-config', { signal: AbortSignal.timeout(4000) });
+      var d = await r.json();
+      _sbConfig = d;
+      // Cache in localStorage so SDK also picks it up
+      if (d.configured) {
+        localStorage.setItem('supabase-url',      d.supabaseUrl);
+        localStorage.setItem('supabase-anon-key', d.supabaseKey);
+      }
+    } catch { _sbConfig = { configured: false }; }
+    return _sbConfig;
+  }
+
+  // ── Supabase Auth REST (no SDK needed) ───────────────────────────────────
+  async function _sbLogin(email, password, cfg) {
+    var r = await fetch(`${cfg.supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': cfg.supabaseKey },
+      body:    JSON.stringify({ email, password }),
+      signal:  AbortSignal.timeout(10000),
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error_description || d.message || 'Login failed.');
+    return d; // { access_token, refresh_token, user: { id, email, user_metadata } }
+  }
+
+  async function _sbSignup(email, password, firstname, lastname, org, cfg) {
+    var r = await fetch(`${cfg.supabaseUrl}/auth/v1/signup`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': cfg.supabaseKey },
+      body:    JSON.stringify({ email, password, data: { firstname, lastname, org } }),
+      signal:  AbortSignal.timeout(10000),
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error_description || d.message || 'Sign up failed.');
+    // Some Supabase configs require email confirmation — if no access_token yet, still succeed
+    if (!d.access_token && !d.user) throw new Error(d.error_description || 'Sign up failed.');
+    return d;
+  }
+
+  // ── Session helpers ───────────────────────────────────────────────────────
+  function _createSessionFromSupabase(sbData) {
+    var sbUser = sbData.user || {};
+    var meta   = sbUser.user_metadata || {};
+    var pub = {
+      id:        sbUser.id        || 'sb_' + Date.now(),
+      email:     sbUser.email     || '',
+      firstname: meta.firstname   || meta.first_name  || '',
+      lastname:  meta.lastname    || meta.last_name   || '',
+      org:       meta.org         || '',
+    };
+    var accessToken  = sbData.access_token  || '';
+    var refreshToken = sbData.refresh_token || '';
+    var expiresIn    = sbData.expires_in    || 3600;
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      userId:  pub.id, email: pub.email,
+      expires: Date.now() + expiresIn * 1000,
+      source:  'supabase',
+    }));
+    localStorage.setItem('access_token',  accessToken);
+    localStorage.setItem('refresh_token', refreshToken);
+    localStorage.setItem('user', JSON.stringify(pub));
+    if (window.apiClient) { window.apiClient.accessToken = accessToken; window.apiClient.refreshToken = refreshToken; }
+
+    // Bridge for auth.js / dashboard guard
+    localStorage.setItem('seo_agent_user', JSON.stringify(pub));
+    localStorage.setItem('seo_agent_session', JSON.stringify({
+      userId: pub.id, email: pub.email,
+      created: Date.now(), expires: Date.now() + expiresIn * 1000, source: 'supabase',
+    }));
+    return pub;
+  }
 
   function _hash(str) {
     let h = 0;
-    for (let i = 0; i < str.length; i++) {
-      h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-    }
+    for (let i = 0; i < str.length; i++) { h = Math.imul(31, h) + str.charCodeAt(i) | 0; }
     return h.toString(36);
   }
 
@@ -51,58 +142,52 @@
     try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
   }
 
-  function _saveUsers(users) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(users));
-  }
-
-  function _createSession(user) {
-    const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname };
-
-    // Our own session key (30-day persistent)
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      userId: user.id, email: user.email,
-      expires: Date.now() + TTL,
-    }));
-
-    // Bridge keys for hub.html (apiClient guard)
+  function _createSessionLocal(user) {
+    const pub = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname, org: user.org || '' };
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, email: user.email, expires: Date.now() + TTL }));
     const token = 'local_' + user.id;
-    localStorage.setItem('access_token', token);
+    if (!localStorage.getItem('access_token') || (localStorage.getItem('access_token') || '').startsWith('local_')) {
+      localStorage.setItem('access_token', token);
+    }
     localStorage.setItem('user', JSON.stringify(pub));
-    if (window.apiClient) window.apiClient.accessToken = token;
-
-    // Bridge keys for dashboard.html (Auth guard) and auth.js
+    if (window.apiClient && (!window.apiClient.accessToken || window.apiClient.accessToken.startsWith('local_'))) {
+      window.apiClient.accessToken = token;
+    }
     localStorage.setItem('seo_agent_user', JSON.stringify(pub));
-    localStorage.setItem('seo_agent_session', JSON.stringify({
-      userId: user.id, email: user.email,
-      created: Date.now(),
-      expires: Date.now() + TTL,
-      source: 'local',
-    }));
-
+    localStorage.setItem('seo_agent_session', JSON.stringify({ userId: user.id, email: user.email, created: Date.now(), expires: Date.now() + TTL, source: 'local' }));
     return pub;
   }
 
-  function authSignup(email, password, firstname, lastname) {
-    const users = _getUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-      throw new Error('An account with this email already exists.');
+  // ── Auth entry points ─────────────────────────────────────────────────────
+  async function authLogin(email, password) {
+    var cfg = await _getSupabaseConfig();
+    if (cfg && cfg.configured) {
+      var data = await _sbLogin(email, password, cfg);
+      return _createSessionFromSupabase(data);
     }
-    const user = {
-      id: 'u_' + Date.now(),
-      email, firstname, lastname,
-      password: _hash(password),
-    };
-    users.push(user);
-    _saveUsers(users);
-    return _createSession(user);
-  }
-
-  function authLogin(email, password) {
-    const users = _getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    // Fallback: localStorage-only (single browser)
+    var users = _getUsers();
+    var user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!user) throw new Error('No account found. Please create an account first.');
     if (user.password !== _hash(password)) throw new Error('Incorrect password.');
-    return _createSession(user);
+    return _createSessionLocal(user);
+  }
+
+  async function authSignup(email, password, firstname, lastname, org) {
+    var cfg = await _getSupabaseConfig();
+    if (cfg && cfg.configured) {
+      var data = await _sbSignup(email, password, firstname, lastname, org, cfg);
+      if (data.access_token) return _createSessionFromSupabase(data);
+      // Email confirmation required — account created but not yet active
+      throw new Error('Check your email to confirm your account, then sign in.');
+    }
+    // Fallback: localStorage-only
+    var users = _getUsers();
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with this email already exists.');
+    var user = { id: 'u_' + Date.now(), email, firstname, lastname, org: org || '', password: _hash(password) };
+    users.push(user);
+    localStorage.setItem(STORE_KEY, JSON.stringify(users));
+    return _createSessionLocal(user);
   }
 
   /* ─── CSS ─────────────────────────────────────────────────────────────── */
@@ -313,7 +398,7 @@
 
   /* ─── Handlers ────────────────────────────────────────────────────────── */
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     clearMessages();
     var email = document.getElementById('am-login-email').value.trim();
@@ -324,7 +409,7 @@
     setLoading(btn, 'Signing in…');
 
     try {
-      authLogin(email, pwd);
+      await authLogin(email, pwd);
       showSuccess('Signed in! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -333,7 +418,7 @@
     }
   }
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
     clearMessages();
     var first = document.getElementById('am-first').value.trim();
@@ -349,7 +434,7 @@
     setLoading(btn, 'Creating account…');
 
     try {
-      authSignup(email, pwd, first, last);
+      await authSignup(email, pwd, first, last, org);
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
@@ -431,7 +516,7 @@
   /* ─── Session check ──────────────────────────────────────────────────── */
 
   function isLoggedIn() {
-    // Primary check: our own session key with expiry
+    // Primary: Supabase session key with expiry
     try {
       var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
       if (s && s.expires > Date.now()) return true;
@@ -461,10 +546,21 @@
 
   /* ─── Boot ────────────────────────────────────────────────────────────── */
 
+  function authLogout() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('seo_agent_user');
+    localStorage.removeItem('seo_agent_session');
+    _sbConfig = null; // Reset cache so next login re-checks
+  }
+
   // Wire up the already-exposed AuthModal
   _open  = openModal;
   _close = closeModal;
   window.AuthModal.isLoggedIn = isLoggedIn;
+  window.AuthModal.logout     = authLogout;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); });

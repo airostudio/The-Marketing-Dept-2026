@@ -1,178 +1,432 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project History | SEO Agent Dashboard</title>
-    <meta name="description" content="View your SEO audit history, past reports, and track changes over time.">
-    <meta name="robots" content="noindex, nofollow">
-    <link rel="canonical" href="/history.html">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/main.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report History | Audema - Your AI Marketing Department</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="/js/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #070711; --bg2: #0d0d1a; --bg3: #12121f;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.12);
+      --text: #f1f5f9; --text2: rgba(255,255,255,0.55); --text3: rgba(255,255,255,0.3);
+      --purple: #7c3aed; --pink: #ec4899; --green: #10b981; --cyan: #06b6d4;
+      --card: rgba(255,255,255,0.03);
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border);
+      background: rgba(7,7,17,0.9); backdrop-filter: blur(20px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-left { display: flex; align-items: center; gap: 16px; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 15px; }
+    .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .nav-sep { color: var(--border2); }
+    .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+    .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); transition: all 0.15s; }
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    /* ── Layout ── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; gap: 16px; flex-wrap: wrap; }
+    .page-title { font-size: 28px; font-weight: 800; }
+    .page-subtitle { font-size: 14px; color: var(--text2); margin-top: 4px; }
+    .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* ── Toolbar ── */
+    .toolbar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+    .toolbar-filters { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+    .filter-select {
+      padding: 8px 12px; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer;
+      font-family: inherit;
+    }
+    .filter-select:focus { outline: none; border-color: var(--purple); }
+    .filter-select option { background: #1a1a2e; }
+    .search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 340px; }
+    .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text3); pointer-events: none; }
+    .search-input { width: 100%; padding: 8px 12px 8px 32px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; font-family: inherit; }
+    .search-input:focus { outline: none; border-color: var(--purple); }
+    .search-input::placeholder { color: var(--text3); }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+    .stat-chip { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--card); border: 1px solid var(--border); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+    .stat-chip:hover { color: var(--text); border-color: var(--border2); }
+    .stat-chip.active { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+    .stat-chip .count { margin-left: 6px; background: rgba(255,255,255,0.1); padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+
+    /* ── Entry cards ── */
+    .entries-list { display: flex; flex-direction: column; gap: 12px; }
+    .entry-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .entry-card:hover { border-color: var(--border2); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .entry-header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      cursor: pointer; user-select: none;
+    }
+    .entry-icon { font-size: 20px; flex-shrink: 0; }
+    .entry-agent-badge {
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+      flex-shrink: 0; letter-spacing: 0.3px;
+    }
+    .entry-title { flex: 1; min-width: 0; }
+    .entry-task { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry-topic { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .entry-meta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+    .entry-words { font-size: 12px; color: var(--text3); }
+    .entry-date { font-size: 12px; color: var(--text3); }
+    .entry-chevron { color: var(--text3); transition: transform 0.2s; flex-shrink: 0; }
+    .entry-card.expanded .entry-chevron { transform: rotate(180deg); }
+
+    /* ── Entry body ── */
+    .entry-body { display: none; border-top: 1px solid var(--border); }
+    .entry-card.expanded .entry-body { display: block; }
+    .entry-actions { display: flex; gap: 8px; padding: 12px 18px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
+    .btn-sm { padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--text2); font-family: inherit; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-sm:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+    .btn-sm.danger:hover { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+    .entry-content { padding: 20px 24px; font-size: 14px; line-height: 1.75; color: var(--text); max-height: 480px; overflow-y: auto; }
+    .entry-content h1, .entry-content h2, .entry-content h3 { color: var(--text); margin: 14px 0 8px; }
+    .entry-content h1 { font-size: 18px; }
+    .entry-content h2 { font-size: 15px; }
+    .entry-content h3 { font-size: 13px; }
+    .entry-content p { margin-bottom: 8px; }
+    .entry-content ul, .entry-content ol { margin: 6px 0 8px 18px; }
+    .entry-content li { margin-bottom: 3px; }
+    .entry-content strong { color: #fff; }
+    .entry-content code { background: rgba(124,58,237,0.15); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    .entry-content blockquote { border-left: 3px solid var(--purple); padding-left: 12px; color: var(--text2); margin: 8px 0; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 80px 20px; color: var(--text2); }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; max-width: 420px; margin: 0 auto 24px; line-height: 1.6; }
+    .btn-primary { padding: 10px 20px; background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+
+    /* ── Full-screen modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; width: 100%; max-width: 860px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text2); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .modal-close:hover { color: var(--text); }
+    .modal-actions { display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+    .modal-body { padding: 24px; font-size: 14px; line-height: 1.75; color: var(--text); max-height: 70vh; overflow-y: auto; }
+    .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--text); margin: 14px 0 8px; }
+    .modal-body h1 { font-size: 20px; }
+    .modal-body h2 { font-size: 16px; color: #a78bfa; }
+    .modal-body h3 { font-size: 14px; color: var(--cyan); }
+    .modal-body p { margin-bottom: 10px; }
+    .modal-body ul, .modal-body ol { margin: 6px 0 10px 18px; }
+    .modal-body li { margin-bottom: 4px; }
+    .modal-body strong { color: #fff; }
+    .modal-body code { background: rgba(124,58,237,0.15); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .modal-body blockquote { border-left: 3px solid var(--purple); padding-left: 14px; color: var(--text2); margin: 10px 0; }
+    .modal-body table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+    .modal-body th { padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); text-align: left; font-weight: 600; }
+    .modal-body td { padding: 8px 12px; border: 1px solid var(--border); }
+
+    @media (max-width: 700px) { .page { padding: 24px 16px 60px; } .entry-meta { display: none; } nav { padding: 0 16px; } }
+  </style>
 </head>
 <body>
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    <div class="dashboard-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main sidebar navigation">
-            <div class="sidebar-header">
-                <a href="index.html" class="sidebar-logo">
-                    <div class="logo-icon">
-                        <svg viewBox="0 0 40 40" fill="none">
-                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
-                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                            <path d="M14.5 24H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                            <circle cx="20" cy="20" r="3" fill="white"/>
-                            <defs>
-                                <linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40">
-                                    <stop stop-color="#6366F1"/>
-                                    <stop offset="1" stop-color="#8B5CF6"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                    </div>
-                    <span class="logo-text">SEO Agent</span>
-                </a>
-            </div>
 
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <span class="nav-section-title">Overview</span>
-                    <a href="dashboard.html" class="nav-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7" rx="1"/>
-                            <rect x="14" y="3" width="7" height="7" rx="1"/>
-                            <rect x="3" y="14" width="7" height="7" rx="1"/>
-                            <rect x="14" y="14" width="7" height="7" rx="1"/>
-                        </svg>
-                        <span>Dashboard</span>
-                    </a>
-                    <a href="alerts.html" class="nav-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                        </svg>
-                        <span>Alerts</span>
-                    </a>
-                    <a href="history.html" class="nav-item active">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
-                        </svg>
-                        <span>Project History</span>
-                    </a>
-                </div>
-            </nav>
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo">
+      <div class="nav-logo-icon">🎯</div>
+      <span>Audema</span>
+    </a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">Report History</span>
+  </div>
+  <div class="nav-right">
+    <a href="/hub.html" class="nav-link">← Hub</a>
+    <a href="/scotty.html" class="nav-link">Scotty</a>
+  </div>
+</nav>
 
-            <div class="sidebar-footer">
-                <a href="settings.html" class="nav-item settings-link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
-                    <span>Settings</span>
-                </a>
-                <div class="user-menu">
-                    <div class="user-avatar" data-metric="user-initials">--</div>
-                    <div class="user-info">
-                        <span class="user-name" data-metric="user-name">Not configured</span>
-                        <span class="user-plan" data-metric="user-plan">Free Plan</span>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button class="sidebar-toggle" id="sidebarToggle">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="12" x2="21" y2="12"/>
-                            <line x1="3" y1="6" x2="21" y2="6"/>
-                            <line x1="3" y1="18" x2="21" y2="18"/>
-                        </svg>
-                    </button>
-                    <div class="breadcrumb">
-                        <a href="dashboard.html">Dashboard</a>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                        <span class="current">Project History</span>
-                    </div>
-                </div>
-            </header>
-
-            <div class="dashboard-content">
-                <div class="page-header">
-                    <div class="page-header-content">
-                        <h1>Project History</h1>
-                        <p>View audit logs and activity history for your project</p>
-                    </div>
-                    <div class="page-header-actions">
-                        <button class="btn btn-outline">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Export Log
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-group">
-                        <label>Date Range</label>
-                        <select class="form-select">
-                            <option>Last 7 days</option>
-                            <option selected>Last 30 days</option>
-                            <option>Last 90 days</option>
-                            <option>All time</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Event Type</label>
-                        <select class="form-select">
-                            <option selected>All events</option>
-                            <option>Audits</option>
-                            <option>Crawls</option>
-                            <option>Alerts</option>
-                            <option>Settings</option>
-                        </select>
-                    </div>
-                    <div class="filter-search">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                        </svg>
-                        <input type="text" id="historySearch" placeholder="Search events..." class="form-input" aria-label="Search history events" />
-                    </div>
-                </div>
-
-                <!-- Timeline - Empty State -->
-                <div class="history-timeline" id="historyTimeline">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                        </div>
-                        <h3>No Activity Yet</h3>
-                        <p>Your project history will appear here once you create a project and start tracking.</p>
-                        <div style="margin-top: 16px;">
-                            <a href="project-wizard.html" class="btn btn-primary">Create Project</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Report History</h1>
+      <p class="page-subtitle" id="subtitleText">All agent outputs saved automatically as they complete.</p>
     </div>
+    <div class="header-actions">
+      <button class="btn-sm" id="exportAllBtn" onclick="exportAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export All
+      </button>
+      <button class="btn-sm danger" onclick="clearAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        Clear All
+      </button>
+    </div>
+  </div>
 
-    <script src="/js/dashboard.js"></script>
+  <!-- Agent filter chips -->
+  <div class="stats-bar" id="agentChips">
+    <span class="stat-chip active" data-agent="all" onclick="filterByAgent('all', this)">
+      All Reports <span class="count" id="countAll">0</span>
+    </span>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-filters">
+      <select class="filter-select" id="dateFilter" onchange="applyFilters()">
+        <option value="all">All time</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search reports…" oninput="applyFilters()">
+    </div>
+  </div>
+
+  <!-- Entries -->
+  <div class="entries-list" id="entriesList">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-icon">📋</div>
+      <h3>No Reports Yet</h3>
+      <p>Reports and documents generated by your agents will automatically appear here once they complete.</p>
+      <a href="/hub.html" class="btn-primary">Go to Agent Hub</a>
+    </div>
+  </div>
+</div>
+
+<!-- Full-view modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Report</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="copyModal()">📋 Copy</button>
+      <button class="btn-sm" onclick="downloadModal()">⬇ Download</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script src="/js/agent-history.js"></script>
+<script>
+  let allEntries = [];
+  let activeAgent = 'all';
+  let currentModalEntry = null;
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000)  return 'just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+    return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+  }
+
+  function buildAgentChips(entries) {
+    const container = document.getElementById('agentChips');
+    const counts = {};
+    entries.forEach(e => { counts[e.agentKey] = (counts[e.agentKey] || 0) + 1; });
+
+    // Rebuild chips
+    container.innerHTML = `<span class="stat-chip ${activeAgent === 'all' ? 'active' : ''}" data-agent="all" onclick="filterByAgent('all', this)">
+      All Reports <span class="count" id="countAll">${entries.length}</span>
+    </span>`;
+
+    const META = window.AgentHistory ? window.AgentHistory.AGENT_META : {};
+    Object.entries(counts).sort((a,b) => b[1]-a[1]).forEach(([key, cnt]) => {
+      const info = META[key] || { name: key, icon: '🤖' };
+      const active = activeAgent === key ? 'active' : '';
+      container.insertAdjacentHTML('beforeend', `<span class="stat-chip ${active}" data-agent="${key}" onclick="filterByAgent('${key}', this)">
+        ${info.icon} ${info.name} <span class="count">${cnt}</span>
+      </span>`);
+    });
+  }
+
+  function filterByAgent(key, el) {
+    activeAgent = key;
+    document.querySelectorAll('.stat-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
+    const days   = parseInt(document.getElementById('dateFilter').value) || 0;
+    const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
+
+    let filtered = allEntries;
+    if (activeAgent !== 'all') filtered = filtered.filter(e => e.agentKey === activeAgent);
+    if (cutoff) filtered = filtered.filter(e => new Date(e.timestamp) >= cutoff);
+    if (search) filtered = filtered.filter(e =>
+      (e.taskType || '').toLowerCase().includes(search) ||
+      (e.topic || '').toLowerCase().includes(search) ||
+      (e.agentName || '').toLowerCase().includes(search) ||
+      (e.content || '').toLowerCase().includes(search)
+    );
+
+    renderEntries(filtered);
+  }
+
+  function renderEntries(entries) {
+    const list = document.getElementById('entriesList');
+    const empty = document.getElementById('emptyState');
+
+    if (!entries.length) {
+      list.innerHTML = '';
+      list.appendChild(empty);
+      empty.style.display = '';
+      document.getElementById('subtitleText').textContent = allEntries.length
+        ? 'No reports match your filters.'
+        : 'All agent outputs saved automatically as they complete.';
+      return;
+    }
+
+    empty.style.display = 'none';
+    document.getElementById('subtitleText').textContent =
+      `${entries.length} report${entries.length !== 1 ? 's' : ''} — ${allEntries.length} total`;
+
+    list.innerHTML = entries.map(e => {
+      const color = e.agentColor || '#7c3aed';
+      const badgeBg = color + '22';
+      return `
+      <div class="entry-card" id="card-${e.id}">
+        <div class="entry-header" onclick="toggleCard('${e.id}')">
+          <span class="entry-icon">${e.agentIcon || '🤖'}</span>
+          <span class="entry-agent-badge" style="color:${color};background:${badgeBg};">${e.agentName}</span>
+          <div class="entry-title">
+            <div class="entry-task">${esc(e.taskType)}</div>
+            ${e.topic ? `<div class="entry-topic">${esc(e.topic)}</div>` : ''}
+          </div>
+          <div class="entry-meta">
+            <span class="entry-words">${(e.wordCount||0).toLocaleString()} words</span>
+            <span class="entry-date">${formatDate(e.timestamp)}</span>
+          </div>
+          <svg class="entry-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="entry-body">
+          <div class="entry-actions">
+            <button class="btn-sm" onclick="openModal('${e.id}')">⬆ View Full</button>
+            <button class="btn-sm" onclick="copyEntry('${e.id}')">📋 Copy</button>
+            <button class="btn-sm" onclick="downloadEntry('${e.id}')">⬇ Download</button>
+            <button class="btn-sm danger" onclick="deleteEntry('${e.id}')">🗑 Delete</button>
+          </div>
+          <div class="entry-content" id="content-${e.id}">
+            ${typeof marked !== 'undefined' ? marked.parse(e.content || '') : esc(e.content || '')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function toggleCard(id) {
+    document.getElementById('card-' + id)?.classList.toggle('expanded');
+  }
+
+  function openModal(id) {
+    const entry = allEntries.find(e => e.id === id);
+    if (!entry) return;
+    currentModalEntry = entry;
+    document.getElementById('modalTitle').textContent = `${entry.agentIcon || ''} ${entry.agentName} — ${entry.taskType}`;
+    document.getElementById('modalBody').innerHTML = typeof marked !== 'undefined' ? marked.parse(entry.content || '') : esc(entry.content || '');
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+  function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); currentModalEntry = null; }
+  function closeModalOnOverlay(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+  function copyEntry(id) {
+    const entry = allEntries.find(e => e.id === id);
+    if (!entry) return;
+    navigator.clipboard.writeText(entry.content).then(() => {
+      const btn = event.target.closest('button');
+      if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000); }
+    });
+  }
+  function copyModal() {
+    if (!currentModalEntry) return;
+    navigator.clipboard.writeText(currentModalEntry.content).then(() => {
+      const btn = event.target;
+      const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000);
+    });
+  }
+
+  function downloadEntry(id) {
+    const entry = allEntries.find(e => e.id === id);
+    if (!entry) return;
+    const filename = `${entry.agentKey}-${(entry.taskType||'report').replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.md`;
+    const blob = new Blob([entry.content], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  }
+  function downloadModal() { if (currentModalEntry) downloadEntry(currentModalEntry.id); }
+
+  function deleteEntry(id) {
+    if (!confirm('Delete this report?')) return;
+    if (window.AgentHistory) window.AgentHistory.remove(id);
+    allEntries = allEntries.filter(e => e.id !== id);
+    buildAgentChips(allEntries);
+    applyFilters();
+  }
+
+  function clearAll() {
+    if (!allEntries.length) return;
+    if (!confirm(`Delete all ${allEntries.length} reports? This cannot be undone.`)) return;
+    if (window.AgentHistory) window.AgentHistory.clear();
+    allEntries = [];
+    buildAgentChips([]);
+    applyFilters();
+  }
+
+  function exportAll() {
+    if (!allEntries.length) return alert('No reports to export.');
+    const lines = allEntries.map(e =>
+      `# ${e.agentName} — ${e.taskType}\n_${new Date(e.timestamp).toLocaleString()}_${e.topic ? ' | ' + e.topic : ''}_\n\n${e.content}\n\n---`
+    ).join('\n\n');
+    const blob = new Blob([lines], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `agent-history-${Date.now()}.md`; a.click();
+  }
+
+  function init() {
+    if (window.AgentHistory) {
+      allEntries = window.AgentHistory.getAll();
+    }
+    buildAgentChips(allEntries);
+    applyFilters();
+  }
+
+  // Live updates if history page is open when an agent completes
+  window.addEventListener('agentHistory:saved', (e) => {
+    allEntries = window.AgentHistory ? window.AgentHistory.getAll() : [e.detail, ...allEntries];
+    buildAgentChips(allEntries);
+    applyFilters();
+  });
+
+  init();
+</script>
 </body>
 </html>

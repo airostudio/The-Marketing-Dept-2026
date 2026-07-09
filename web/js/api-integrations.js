@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * API INTEGRATIONS SERVICE - Enterprise SEO Data Connections
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Real API integrations for production SEO data:

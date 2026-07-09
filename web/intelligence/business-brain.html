@@ -611,6 +611,287 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+
+    /* ── Auto-fill panel ─────────────────────────────────────────────────────── */
+    .autofill-bar {
+      max-width: 880px;
+      margin: 0 auto 8px;
+      padding: 0 32px;
+    }
+
+    .autofill-trigger {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 18px;
+      background: rgba(168,85,247,0.06);
+      border: 1px solid rgba(168,85,247,0.22);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+    .autofill-trigger:hover { background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.38); }
+    .autofill-trigger.open { border-radius: 12px 12px 0 0; }
+
+    .autofill-trigger-icon { color: #a855f7; flex-shrink: 0; }
+    .autofill-trigger-label { flex: 1; }
+    .autofill-trigger-title { font-size: 0.87rem; font-weight: 700; color: rgba(255,255,255,0.9); }
+    .autofill-trigger-sub { font-size: 0.76rem; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 1px; }
+    .autofill-trigger-caret { color: rgba(255,255,255,0.3); flex-shrink: 0; transition: transform 0.2s; }
+    .autofill-trigger.open .autofill-trigger-caret { transform: rotate(180deg); }
+
+    .autofill-body {
+      display: none;
+      padding: 18px 18px 20px;
+      border: 1px solid rgba(168,85,247,0.22);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      background: rgba(10,7,20,0.6);
+    }
+    .autofill-body.open { display: block; }
+
+    .autofill-url-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .autofill-url-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.87rem;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .autofill-url-input:focus { border-color: rgba(168,85,247,0.5); }
+    .autofill-url-input::placeholder { color: rgba(255,255,255,0.28); }
+
+    .autofill-analyze-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+      font-family: inherit;
+    }
+    .autofill-analyze-btn:hover { opacity: 0.88; }
+    .autofill-analyze-btn:disabled { opacity: 0.45; cursor: wait; }
+
+    .autofill-status {
+      margin-top: 11px;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.45);
+      min-height: 18px;
+    }
+    .autofill-status.loading { color: #a855f7; }
+    .autofill-status.error   { color: #ef4444; }
+
+    /* ── Website preview mockup (loading state) ───────────────────────── */
+    @keyframes sitePulse {
+      0%   { opacity: 0.35; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+      50%  { opacity: 1;    box-shadow: 0 0 28px 4px rgba(168,85,247,0.28); }
+      100% { opacity: 0.35; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+    }
+    @keyframes shimmerSlide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    @keyframes editorOpen {
+      0%   { opacity: 0; transform: scaleY(0.88) translateY(-10px); }
+      100% { opacity: 1; transform: scaleY(1)    translateY(0); }
+    }
+
+    .autofill-browser-wrap {
+      display: none;
+      margin-top: 14px;
+    }
+    .autofill-browser-wrap.visible { display: block; }
+
+    .autofill-browser {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(168,85,247,0.35);
+      animation: sitePulse 2s ease-in-out infinite;
+    }
+
+    .autofill-browser-bar {
+      background: rgba(255,255,255,0.06);
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .autofill-browser-dots { display: flex; gap: 5px; }
+    .autofill-browser-dots span {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+    }
+    .autofill-browser-dots span:nth-child(1) { background: rgba(239,68,68,0.55); }
+    .autofill-browser-dots span:nth-child(2) { background: rgba(234,179,8,0.55); }
+    .autofill-browser-dots span:nth-child(3) { background: rgba(34,197,94,0.55); }
+    .autofill-browser-url {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      height: 18px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.3);
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .autofill-browser-body {
+      background: rgba(10,10,20,0.6);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .shimmer-line {
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.07);
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer-line::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(168,85,247,0.25) 50%, transparent 100%);
+      animation: shimmerSlide 1.6s linear infinite;
+    }
+    .shimmer-line.hero   { height: 52px; border-radius: 7px; }
+    .shimmer-line.short  { width: 55%; }
+    .shimmer-line.medium { width: 78%; }
+    .shimmer-line.tall   { height: 14px; }
+
+    .shimmer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .shimmer-card {
+      height: 38px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(168,85,247,0.18) 50%, transparent 100%);
+      animation: shimmerSlide 1.6s linear infinite;
+      animation-delay: 0.4s;
+    }
+
+    .autofill-loading-label {
+      margin-top: 9px;
+      font-size: 0.75rem;
+      color: rgba(168,85,247,0.8);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Editor open animation ────────────────────────────────────────── */
+    .autofill-preview {
+      margin-top: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .autofill-preview.editor-opening {
+      animation: editorOpen 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
+      transform-origin: top center;
+    }
+    .autofill-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .autofill-preview-title { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.65); }
+    .autofill-count-badge {
+      font-size: 0.73rem;
+      font-weight: 700;
+      color: #10b981;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.22);
+      padding: 2px 9px;
+      border-radius: 50px;
+    }
+    .autofill-items {
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .autofill-item {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 10px;
+      align-items: baseline;
+      font-size: 0.81rem;
+    }
+    .autofill-item-key { color: rgba(255,255,255,0.38); font-weight: 600; }
+    .autofill-item-val { color: rgba(255,255,255,0.82); line-height: 1.45; }
+    .autofill-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      flex-wrap: wrap;
+    }
+    .autofill-apply-btn {
+      padding: 7px 15px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .autofill-apply-safe {
+      background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.12));
+      border: 1px solid rgba(168,85,247,0.32);
+      color: #c4b5fd;
+    }
+    .autofill-apply-safe:hover { background: linear-gradient(135deg, rgba(168,85,247,0.28), rgba(236,72,153,0.22)); }
+    .autofill-apply-all {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.55);
+    }
+    .autofill-apply-all:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); }
+    .autofill-cite-note { font-size: 0.73rem; color: rgba(255,255,255,0.25); margin-left: auto; }
+
+    /* Social link fields in Company Basics */
+    .social-fields { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -647,6 +928,56 @@
     </p>
   </div>
 
+  <!-- ── Auto-fill panel ──────────────────────────────────────────────────── -->
+  <div class="autofill-bar">
+    <button class="autofill-trigger" id="autofillTrigger" onclick="toggleAutofill()" type="button">
+      <span class="autofill-trigger-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v3l2 2"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <div class="autofill-trigger-label">
+        <div class="autofill-trigger-title">Auto-fill from your website &amp; socials</div>
+        <div class="autofill-trigger-sub">Scan your website and social profiles to pre-populate company details, ICP, positioning &amp; competitors</div>
+      </div>
+      <svg class="autofill-trigger-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+
+    <div class="autofill-body" id="autofillBody">
+      <div class="autofill-url-row">
+        <input type="url" class="autofill-url-input" id="autofillUrlInput"
+          placeholder="https://yourcompany.com" autocomplete="url">
+        <button class="autofill-analyze-btn" id="autofillAnalyzeBtn"
+          onclick="runAutofill()" type="button">Analyze Website</button>
+      </div>
+      <div class="autofill-status" id="autofillStatus"></div>
+      <!-- pulsating website preview shown while analysis runs -->
+      <div class="autofill-browser-wrap" id="autofillBrowserWrap">
+        <div class="autofill-browser">
+          <div class="autofill-browser-bar">
+            <div class="autofill-browser-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="autofill-browser-url" id="autofillBrowserUrl">https://yourcompany.com</div>
+          </div>
+          <div class="autofill-browser-body">
+            <div class="shimmer-line hero"></div>
+            <div class="shimmer-line short"></div>
+            <div class="shimmer-line medium"></div>
+            <div class="shimmer-grid">
+              <div class="shimmer-card"></div>
+              <div class="shimmer-card"></div>
+              <div class="shimmer-card"></div>
+            </div>
+            <div class="shimmer-line tall"></div>
+            <div class="shimmer-line medium"></div>
+            <div class="shimmer-line short"></div>
+          </div>
+        </div>
+        <div class="autofill-loading-label">Scanning website &amp; social profiles…</div>
+      </div>
+      <div class="autofill-preview" id="autofillPreview" style="display:none"></div>
+    </div>
+  </div>
+
   <!-- ── Intelligence score card ───────────────────────────────────────────── -->
   <div class="score-card">
     <div class="score-card-inner">
@@ -671,8 +1002,124 @@
           Scotty needs more context to make strategic judgments. Please complete at least Sections 1–3.
         </div>
       </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-self:center;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="profileSelect" onchange="switchIntelProfile(this.value)" title="Active intelligence profile"
+            style="display:none;max-width:200px;padding:8px 10px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:#c4b5fd;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;"></select>
+          <button type="button" class="brain-history-btn" id="profileManageBtn" onclick="openProfilesPanel()" style="display:none;" title="Manage intelligence profiles">⚙ Profiles</button>
+        </div>
+        <button type="button" class="brain-history-btn" id="brainHistoryBtn" onclick="openHistoryPanel()" title="View and restore previous versions of this Business Brain">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+          History
+        </button>
+      </div>
     </div>
   </div>
+
+  <!-- ── History panel (version snapshots, per-project) ───────────────────── -->
+  <div class="brain-modal-overlay" id="historyPanelOverlay" style="display:none;">
+    <div class="brain-modal">
+      <div class="brain-modal-header">
+        <h3>Business Brain History</h3>
+        <button type="button" class="brain-modal-close" onclick="closeHistoryPanel()">&times;</button>
+      </div>
+      <div class="brain-modal-body" id="historyPanelBody">
+        <div class="brain-modal-loading">Loading snapshots…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Intelligence profiles management ──────────────────────────────────── -->
+  <div class="brain-modal-overlay" id="profilesPanelOverlay" style="display:none;">
+    <div class="brain-modal">
+      <div class="brain-modal-header">
+        <h3>Intelligence Profiles</h3>
+        <button type="button" class="brain-modal-close" onclick="closeProfilesPanel()">&times;</button>
+      </div>
+      <div class="brain-modal-body">
+        <p id="profilePlanInfo" style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:14px;"></p>
+        <div id="profilesList"><div class="brain-modal-loading">Loading…</div></div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <input type="text" id="newProfileName" placeholder="New profile name (e.g. Client: Acme Co)"
+            style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+          <button type="button" class="brain-modal-btn brain-modal-btn-primary" onclick="createIntelProfile()">Create</button>
+        </div>
+        <p id="profileError" style="color:#ef4444;font-size:12px;margin-top:8px;display:none;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Migration prompt (legacy global brain data found) ─────────────────── -->
+  <div class="brain-modal-overlay" id="migrationPromptOverlay" style="display:none;">
+    <div class="brain-modal">
+      <div class="brain-modal-header">
+        <h3>Existing Business Brain data found</h3>
+      </div>
+      <div class="brain-modal-body">
+        <p style="color:rgba(255,255,255,0.7);font-size:13px;line-height:1.6;margin-bottom:14px;">
+          We found Business Brain data saved before per-project memory was introduced. Business Brain is now scoped to each project individually — assign this existing data to a project, or start fresh here.
+        </p>
+        <label style="display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Assign to project</label>
+        <select id="migrationProjectSelect" style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:14px;margin-bottom:16px;"></select>
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="brain-modal-btn brain-modal-btn-primary" onclick="confirmMigration()">Assign to selected project</button>
+          <button type="button" class="brain-modal-btn brain-modal-btn-secondary" onclick="dismissMigration()">Start fresh here</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .brain-history-btn {
+      display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+      background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 8px; color: #c4b5fd; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; align-self: center; font-family: inherit;
+      transition: background 0.15s;
+    }
+    .brain-history-btn:hover { background: rgba(168,85,247,0.18); }
+
+    .brain-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .brain-modal {
+      background: #13131f; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+      max-width: 520px; width: 100%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .brain-modal-header {
+      padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brain-modal-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #fff; }
+    .brain-modal-close { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 22px; cursor: pointer; line-height: 1; }
+    .brain-modal-close:hover { color: #fff; }
+    .brain-modal-body { padding: 18px 22px; overflow-y: auto; }
+    .brain-modal-loading { color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; padding: 30px 0; }
+    .brain-modal-btn {
+      padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12); font-family: inherit;
+    }
+    .brain-modal-btn-primary { background: linear-gradient(135deg,#a855f7,#ec4899); color: #fff; border: none; }
+    .brain-modal-btn-secondary { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
+
+    .history-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;
+    }
+    .history-item-meta { flex: 1; min-width: 0; }
+    .history-item-label { font-size: 13px; font-weight: 600; color: #fff; }
+    .history-item-time { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .history-item-score { font-size: 11px; color: #10b981; font-weight: 700; margin-top: 3px; }
+    .history-restore-btn {
+      padding: 6px 12px; border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer;
+      background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3); color: #c4b5fd;
+      white-space: nowrap; font-family: inherit;
+    }
+    .history-restore-btn:hover { background: rgba(168,85,247,0.2); }
+    .history-empty { text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; padding: 30px 10px; }
+  </style>
 
   <!-- ── Tab navigation ────────────────────────────────────────────────────── -->
   <div class="tabs-wrap">
@@ -691,6 +1138,9 @@
       </button>
       <button class="tab-btn" role="tab" data-tab="4" aria-selected="false">
         <span class="tab-dot"></span>Strategic Objectives
+      </button>
+      <button class="tab-btn" role="tab" data-tab="5" aria-selected="false">
+        <span class="tab-dot"></span>Traction &amp; Proof
       </button>
     </nav>
   </div>
@@ -717,6 +1167,23 @@
       <div class="field-group">
         <label for="company-description">What you do — explain it like you're talking to a smart friend</label>
         <textarea id="company-description" data-path="company.description" class="tall" placeholder="We help B2B SaaS companies turn their blog into a pipeline engine by writing SEO content that actually converts — not just ranks."></textarea>
+      </div>
+
+      <div class="field-row social-fields">
+        <div>
+          <label for="company-website">Website URL</label>
+          <input type="url" id="company-website" data-path="company.website" placeholder="https://yourcompany.com">
+        </div>
+        <div>
+          <label for="company-linkedin">LinkedIn Company Page</label>
+          <input type="url" id="company-linkedin" data-path="company.linkedin" placeholder="https://linkedin.com/company/...">
+        </div>
+      </div>
+
+      <div class="field-group social-fields">
+        <label for="company-twitter">Twitter / X</label>
+        <input type="text" id="company-twitter" data-path="company.twitter" placeholder="@yourhandle or https://x.com/yourhandle">
+        <span class="field-hint">Social profiles are used by the auto-fill scanner and competitive research agents.</span>
       </div>
 
       <div class="field-row">
@@ -1016,6 +1483,61 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           Competitive Landscape
         </button>
+        <button class="btn-nav btn-nav-next" onclick="goToTab(5)">
+          Traction &amp; Proof
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 6: Traction & Social Proof -->
+    <section class="section-panel" id="section-5" role="tabpanel">
+      <h2 class="section-heading">Traction &amp; Social Proof</h2>
+      <p class="section-subheading">The numbers and names that make decks and pitches credible. Used by the Deck Maker, Sales agents, and content agents to add real proof to every output.</p>
+
+      <div class="field-group">
+        <label for="metrics-arr">Revenue / ARR</label>
+        <input type="text" id="metrics-arr" data-path="metrics.arr" placeholder="e.g. $2.4M ARR, £800k revenue, $500k MRR">
+        <span class="field-hint">Used in traction slides and sales decks.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-growth">Growth Rate</label>
+        <input type="text" id="metrics-growth" data-path="metrics.growth_rate" placeholder="e.g. 3× YoY, 15% MoM, 180% net revenue retention">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-customers">Active Customers / Users</label>
+        <input type="text" id="metrics-customers" data-path="metrics.customers" placeholder="e.g. 420 customers, 12,000 active users, 38 enterprise accounts">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-retention">Retention Rate</label>
+        <input type="text" id="metrics-retention" data-path="metrics.retention" placeholder="e.g. 94% logo retention, 112% NRR, &lt;2% monthly churn">
+      </div>
+
+      <div class="field-group">
+        <label for="metrics-nps">NPS Score</label>
+        <input type="text" id="metrics-nps" data-path="metrics.nps" placeholder="e.g. NPS 72, CSAT 4.8/5">
+      </div>
+
+      <div class="field-group">
+        <label for="customers-list">Key Customers / Client Names</label>
+        <textarea id="customers-list" data-path="customers" class="tall" placeholder="List your notable customers or clients — one per line. These will appear in social proof slides and logo slides.&#10;&#10;e.g.&#10;Atlassian&#10;Canva&#10;SafetyCulture&#10;REA Group&#10;Afterpay"></textarea>
+        <span class="field-hint">One customer per line. Agents use this for logo slides and social proof sections.</span>
+      </div>
+
+      <div class="field-group">
+        <label for="testimonials-list">Key Testimonials</label>
+        <textarea id="testimonials-list" data-path="testimonials" class="tall" placeholder="Add 1-3 of your strongest customer quotes. Include the name, title, and company.&#10;&#10;e.g.&#10;&quot;We went from 0 to 80 qualified demos in 90 days.&quot; — Sarah Chen, VP Marketing, Acme Corp&#10;&quot;Best decision we made this year.&quot; — James O'Brien, CEO, Startup Co"></textarea>
+        <span class="field-hint">These appear in proof slides, case study sections, and outreach copy.</span>
+      </div>
+
+      <div class="section-footer">
+        <button class="btn-nav" onclick="goToTab(4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Strategic Objectives
+        </button>
         <button class="btn-save" onclick="saveBrain()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save Business Brain
@@ -1029,8 +1551,8 @@
   <div class="save-section">
     <div class="save-card">
       <div class="save-card-text">
-        <h3>Ready to activate your intelligence foundation?</h3>
-        <p id="saveCardSubtext">Complete all 5 sections and save — Scotty will use this context before every decision.</p>
+        <h3 id="saveCardHeading">Ready to activate your intelligence foundation?</h3>
+        <p id="saveCardSubtext">Complete all 6 sections and save — Scotty will use this context for all decisions.</p>
       </div>
       <button class="btn-save" onclick="saveBrain()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -1042,7 +1564,13 @@
 
 
   <!-- ── Scripts ────────────────────────────────────────────────────────────── -->
+  <script src="/js/supabase.min.js"></script>
+  <script src="/js/supabase-client.js"></script>
+  <script src="/js/project-service.js"></script>
+  <script src="/js/business-brain-cloud.js"></script>
+  <script src="/js/intelligence-profiles.js"></script>
   <script src="/js/intelligence-engine.js"></script>
+  <script src="/js/intelligence-sync.js"></script>
   <script>
   /* ════════════════════════════════════════════════════════════════════════════
      BUSINESS BRAIN UI — page controller
@@ -1052,7 +1580,7 @@
 
   /* ── State ──────────────────────────────────────────────────────────────────*/
   let currentTab = 0;
-  const TOTAL_TABS = 5;
+  const TOTAL_TABS = 6;
   let autosaveTimer = null;
   let competitors = [];   // local array; synced into brain on save
 
@@ -1149,6 +1677,13 @@
       const path = el.dataset.path;
       let value = el.value.trim();
 
+      // customers and testimonials store as arrays (one per line)
+      if (path === 'customers' || path === 'testimonials') {
+        const arr = value.split('\n').map(s => s.trim()).filter(Boolean);
+        if (arr.length) setByPath(brain, path, arr);
+        return;
+      }
+
       // Handle array index paths like painPoints.0
       const arrayMatch = path.match(/^(.+)\.(\d+)$/);
       if (arrayMatch) {
@@ -1192,7 +1727,9 @@
         const arr = getByPath(brain, arrayMatch[1]);
         value = Array.isArray(arr) ? (arr[parseInt(arrayMatch[2], 10)] || '') : '';
       } else {
-        value = getByPath(brain, path) || '';
+        value = getByPath(brain, path);
+        if (value === undefined || value === null) value = '';
+        if (Array.isArray(value)) value = value.join('\n');
       }
 
       el.value = value;
@@ -1362,7 +1899,7 @@
     }, 1000);
   }
 
-  function performSave(silent = false) {
+  function performSave(silent = false, label) {
     if (!window.IntelligenceEngine) {
       if (!silent) showSaveStatus('error', 'IntelligenceEngine not loaded. Refresh the page.');
       return;
@@ -1370,7 +1907,7 @@
 
     try {
       const brainData = collectFormData();
-      const saved = window.IntelligenceEngine.brain.save(brainData);
+      const saved = window.IntelligenceEngine.brain.save(brainData, label);
       const score = saved.intelligence.confidenceScore;
 
       updateScoreUI(score);
@@ -1378,6 +1915,9 @@
       const badge = document.getElementById('autosaveBadge');
       badge.textContent = 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       badge.className = 'autosave-badge saved';
+
+      // Push brain data to all dependent stores immediately on every save
+      pushBrainToOtherStores(brainData);
 
       if (!silent) {
         showSaveStatus('success', `Business Brain saved. Intelligence score: ${score}%. ${score >= 60 ? 'Scotty is ready to use your context.' : 'Add more detail to improve Scotty\'s judgment.'}`);
@@ -1389,6 +1929,69 @@
       document.getElementById('autosaveBadge').textContent = 'Save error';
       document.getElementById('autosaveBadge').className = 'autosave-badge';
     }
+  }
+
+  /**
+   * Push brain data to every other Intelligence Layer store.
+   * Called on every save (including autosave) so all layers stay in sync
+   * the moment the user types — no manual re-entry required.
+   */
+  function pushBrainToOtherStores(brain) {
+    let radarChanged = 0;
+
+    // ── 1. Competitors → tmd_radar ──────────────────────────────────────────
+    const brainComps = brain.competitors || [];
+    if (brainComps.length) {
+      const existing = safeRead('tmd_radar') || [];
+      const existingUrls  = new Set(existing.map(c => normaliseUrl(c.url)));
+      const existingNames = new Set(existing.map(c => (c.name || '').toLowerCase().trim()));
+
+      brainComps.forEach(bc => {
+        if (!bc.name) return;
+        const normName = bc.name.toLowerCase().trim();
+        const normUrl  = normaliseUrl(bc.url);
+        if (existingNames.has(normName) || (normUrl && existingUrls.has(normUrl))) return;
+
+        existing.push({
+          id:            'c_brain_' + Date.now() + '_' + radarChanged,
+          name:          bc.name,
+          url:           bc.url || '',
+          positioning:   bc.positioning || '',
+          audience:      bc.audience || '',
+          messages:      (bc.theyAreStrongAt || []).join('\n'),
+          tone:          '',
+          moves:         (bc.recentMoves || []),
+          borrowedIdeas: [],
+          marketGaps:    (bc.theyAreWeakAt || []).map(w => ({ id: 'g_' + Date.now(), description: w, date: new Date().toISOString() })),
+          addedBy:       'brain',
+        });
+        existingNames.add(normName);
+        if (normUrl) existingUrls.add(normUrl);
+        radarChanged++;
+      });
+
+      if (radarChanged) safeWrite('tmd_radar', existing);
+    }
+
+    // ── 2. Notify other open pages so they re-render immediately ────────────
+    try {
+      document.dispatchEvent(new CustomEvent('brain:saved', {
+        detail: { brain, radarChanged }
+      }));
+    } catch (_) {}
+  }
+
+  function normaliseUrl(url) {
+    if (!url) return '';
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+  }
+
+  function safeRead(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+  }
+
+  function safeWrite(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
   }
 
   function saveBrain() {
@@ -1454,6 +2057,487 @@
     });
   }
 
+  /* ── Auto-fill from website ─────────────────────────────────────────────── */
+
+  let _autofillResult = null;
+
+  function toggleAutofill() {
+    const trigger = document.getElementById('autofillTrigger');
+    const body    = document.getElementById('autofillBody');
+    const open    = body.classList.toggle('open');
+    trigger.classList.toggle('open', open);
+
+    // Pre-fill URL from project data or existing brain.company.website
+    if (open && !document.getElementById('autofillUrlInput').value) {
+      const brain = safeRead('intel_business_brain');
+      const proj  = safeRead('seo-current-project-data');
+      const url   = brain?.company?.website
+        || proj?.websiteUrl || proj?.website || proj?.url || '';
+      if (url) document.getElementById('autofillUrlInput').value = url;
+    }
+  }
+
+  async function runAutofill() {
+    const url         = document.getElementById('autofillUrlInput').value.trim();
+    const btn         = document.getElementById('autofillAnalyzeBtn');
+    const status      = document.getElementById('autofillStatus');
+    const preview     = document.getElementById('autofillPreview');
+    const browserWrap = document.getElementById('autofillBrowserWrap');
+    const browserUrl  = document.getElementById('autofillBrowserUrl');
+
+    if (!url) {
+      status.textContent = 'Enter your website URL first.';
+      status.className   = 'autofill-status error';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing…';
+    status.textContent = '';
+    status.className   = 'autofill-status loading';
+    preview.style.display = 'none';
+    preview.classList.remove('editor-opening');
+
+    // Show pulsating browser mockup
+    browserUrl.textContent = url;
+    browserWrap.classList.add('visible');
+
+    try {
+      const res  = await fetch('/api/enrich-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Analysis failed');
+
+      _autofillResult = data;
+
+      // "Opening editor" transition: collapse the preview mockup, then reveal results
+      browserWrap.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      browserWrap.style.opacity    = '0';
+      browserWrap.style.transform  = 'scaleY(0.9)';
+
+      await new Promise(r => setTimeout(r, 320));
+      browserWrap.classList.remove('visible');
+      browserWrap.style.transition = '';
+      browserWrap.style.opacity    = '';
+      browserWrap.style.transform  = '';
+
+      status.textContent = '';
+      status.className   = 'autofill-status';
+      _renderAutofillPreview(data);
+
+      // Animate the results panel sliding in
+      preview.classList.add('editor-opening');
+      preview.addEventListener('animationend', () => preview.classList.remove('editor-opening'), { once: true });
+
+    } catch (err) {
+      browserWrap.classList.remove('visible');
+      status.textContent = 'Could not analyze website: ' + err.message;
+      status.className   = 'autofill-status error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analyze Website';
+    }
+  }
+
+  function _renderAutofillPreview(d) {
+    const preview = document.getElementById('autofillPreview');
+
+    const rows = [];
+    if (d.company?.name)          rows.push(['Company name',   d.company.name]);
+    if (d.company?.tagline)       rows.push(['Tagline',        d.company.tagline]);
+    if (d.company?.description)   rows.push(['Description',    d.company.description.slice(0, 130) + (d.company.description.length > 130 ? '…' : '')]);
+    if (d.company?.industry)      rows.push(['Industry',       d.company.industry]);
+    if (d.company?.stage)         rows.push(['Stage',          d.company.stage]);
+    if (d.company?.revenueModel)  rows.push(['Revenue model',  d.company.revenueModel]);
+    if (d.icp?.primaryBuyerRole)  rows.push(['ICP role',       d.icp.primaryBuyerRole]);
+    if (d.icp?.primaryBuyerIndustry) rows.push(['ICP industry', d.icp.primaryBuyerIndustry]);
+    if (d.icp?.painPoints?.[0])   rows.push(['Pain point 1',   d.icp.painPoints[0].slice(0, 110) + '…']);
+    if (d.positioning?.uniqueValue) rows.push(['Value prop',   d.positioning.uniqueValue.slice(0, 120) + '…']);
+    if (d.positioning?.differentiation?.filter(Boolean).length) {
+      rows.push(['Differentiators', d.positioning.differentiation.filter(Boolean).join(' · ')]);
+    }
+    if (d.competitors?.length)    rows.push(['Competitors',    d.competitors.map(c => c.name).filter(Boolean).join(', ')]);
+    if (d.socials?.linkedin)      rows.push(['LinkedIn',       d.socials.linkedin]);
+    if (d.socials?.twitter)       rows.push(['Twitter / X',    d.socials.twitter]);
+
+    preview.style.display = 'block';
+    preview.innerHTML = `
+      <div class="autofill-preview-head">
+        <span class="autofill-preview-title">What we found</span>
+        <span class="autofill-count-badge">${rows.length} fields detected</span>
+      </div>
+      <div class="autofill-items">
+        ${rows.map(([k, v]) => `
+          <div class="autofill-item">
+            <span class="autofill-item-key">${escHtml(k)}</span>
+            <span class="autofill-item-val">${escHtml(v)}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="autofill-actions">
+        <button class="autofill-apply-btn autofill-apply-safe" type="button"
+          onclick="applyAutofill(false)">Apply to empty fields</button>
+        <button class="autofill-apply-btn autofill-apply-all" type="button"
+          onclick="applyAutofill(true)">Overwrite all fields</button>
+        ${(d.citations?.length || 0) > 0 ? `<span class="autofill-cite-note">${d.citations.length} sources used</span>` : ''}
+      </div>`;
+  }
+
+  function applyAutofill(overwrite) {
+    const d = _autofillResult;
+    if (!d) return;
+
+    function fillField(path, value) {
+      if (!value && value !== 0) return;
+      const el = document.querySelector(`[data-path="${path}"]`);
+      if (!el) return;
+      if (!overwrite && el.value && el.value.trim()) return;
+      el.value = value;
+    }
+
+    function fillSelect(path, value) {
+      if (!value) return;
+      const sel = document.querySelector(`[data-path="${path}"]`);
+      if (!sel) return;
+      if (!overwrite && sel.value) return;
+      const opt = Array.from(sel.options).find(o => o.value === value);
+      if (opt) sel.value = value;
+    }
+
+    // Company basics
+    fillField('company.name',        d.company?.name);
+    fillField('company.tagline',     d.company?.tagline);
+    fillField('company.description', d.company?.description);
+    fillField('company.website',     d.socials?.website);
+    fillField('company.linkedin',    d.socials?.linkedin);
+    fillField('company.twitter',     d.socials?.twitter);
+    fillSelect('company.industry',   d.company?.industry);
+    fillSelect('company.stage',      d.company?.stage);
+    fillSelect('company.teamSize',   d.company?.teamSize);
+    fillSelect('company.revenueModel', d.company?.revenueModel);
+
+    // ICP
+    fillField('icp.primaryBuyer.role',     d.icp?.primaryBuyerRole);
+    fillField('icp.primaryBuyer.industry', d.icp?.primaryBuyerIndustry);
+    fillSelect('icp.primaryBuyer.companySize', d.icp?.primaryBuyerCompanySize);
+
+    (d.icp?.painPoints || []).forEach((pain, i) => fillField(`icp.painPoints.${i}`, pain));
+
+    // Positioning
+    fillField('positioning.uniqueValue', d.positioning?.uniqueValue);
+    (d.positioning?.differentiation || []).forEach((diff, i) => fillField(`positioning.differentiation.${i}`, diff));
+
+    // Voice & tone chips — merge in, never remove existing selections
+    if (d.positioning?.voiceAndTone?.length) {
+      document.querySelectorAll('#tone-chips .chip').forEach(chip => {
+        if (d.positioning.voiceAndTone.includes(chip.dataset.value) && !chip.classList.contains('selected')) {
+          chip.classList.add('selected');
+        }
+      });
+    }
+
+    // Competitors — add new ones (don't duplicate)
+    if (d.competitors?.length) {
+      const existingNames = new Set(competitors.map(c => c.name.toLowerCase().trim()));
+      d.competitors.forEach(comp => {
+        if (!comp.name) return;
+        if (existingNames.has(comp.name.toLowerCase().trim())) return;
+        if (competitors.length >= 5) return;
+        competitors.push({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          name: comp.name,
+          url:  comp.url || '',
+          positioning: '',
+          strongAt: '',
+          weakAt: '',
+          borrowAndImprove: '',
+        });
+        existingNames.add(comp.name.toLowerCase().trim());
+      });
+      renderCompetitors();
+    }
+
+    recalcScore();
+    // "Overwrite all fields" is destructive — save immediately with a distinct
+    // history label instead of the generic debounced autosave, so the history
+    // panel shows exactly when and where an overwrite happened.
+    if (overwrite) {
+      performSave(true, 'Autofill: overwrote all fields');
+    } else {
+      scheduleAutosave();
+    }
+    updateTabCompleteness();
+
+    // Replace action buttons with confirmation message
+    const actions = document.querySelector('#autofillPreview .autofill-actions');
+    if (actions) {
+      actions.innerHTML = '<span style="color:#10b981;font-size:0.83rem;font-weight:700;">✓ Applied to form — review each section and save when ready.</span>';
+    }
+
+    // Jump to Company Basics so the user sees the result
+    setTimeout(() => goToTab(0), 800);
+  }
+
+  /* ── History panel (version snapshots) ───────────────────────────────────── */
+
+  function openHistoryPanel() {
+    document.getElementById('historyPanelOverlay').style.display = 'flex';
+    loadHistoryPanel();
+  }
+
+  function closeHistoryPanel() {
+    document.getElementById('historyPanelOverlay').style.display = 'none';
+  }
+
+  async function loadHistoryPanel() {
+    const body = document.getElementById('historyPanelBody');
+    const scope = window.BusinessBrainCloud?.getScope();
+
+    if (!window.BusinessBrainCloud || !scope) {
+      body.innerHTML = '<div class="history-empty">History requires cloud sync with an active intelligence profile (or a saved project). Sign in and select a profile, then come back here.</div>';
+      return;
+    }
+
+    body.innerHTML = '<div class="brain-modal-loading">Loading snapshots…</div>';
+    const snapshots = await window.BusinessBrainCloud.listHistory(scope);
+
+    if (!snapshots.length) {
+      body.innerHTML = '<div class="history-empty">No snapshots yet. Every save to this project\'s Business Brain is automatically versioned — check back after your next edit.</div>';
+      return;
+    }
+
+    body.innerHTML = snapshots.map(s => {
+      const when = new Date(s.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="history-item">
+          <div class="history-item-meta">
+            <div class="history-item-label">${escHtml(s.label || 'Autosave')}</div>
+            <div class="history-item-time">${when}</div>
+            <div class="history-item-score">${s.confidence_score || 0}% complete</div>
+          </div>
+          <button type="button" class="history-restore-btn" onclick="restoreHistorySnapshot('${s.id}')">Restore</button>
+        </div>`;
+    }).join('');
+  }
+
+  async function restoreHistorySnapshot(snapshotId) {
+    const scope = window.BusinessBrainCloud?.getScope();
+    if (!scope) return;
+    if (!confirm('Restore this version? Your current Business Brain will be replaced (the current state is itself saved to history first, so nothing is lost).')) return;
+
+    try {
+      // Snapshot the current state before overwriting, so the restore itself is undoable
+      const current = window.IntelligenceEngine.brain.load();
+      await window.BusinessBrainCloud.pushSnapshot(scope, current, window.IntelligenceEngine.brain.getCompletionScore(), 'Before restore');
+
+      const restoredData = await window.BusinessBrainCloud.restoreSnapshot(scope, snapshotId);
+      window.IntelligenceEngine.brain.applyRestoredData(restoredData);
+
+      populateForm(restoredData);
+      updateScoreUI(restoredData.intelligence?.confidenceScore || 0);
+      updateTabCompleteness();
+      closeHistoryPanel();
+      showSaveStatus('success', 'Business Brain restored from history.');
+    } catch (err) {
+      alert('Restore failed: ' + err.message);
+    }
+  }
+
+  /* ── Intelligence profiles (multi-business, plan-limited) ────────────────── */
+
+  async function initIntelProfiles() {
+    if (!window.IntelligenceProfiles) return;
+    const result = await window.IntelligenceProfiles.ensureActiveProfile();
+    if (!result) return; // signed out / offline — engine falls back to project scope
+
+    renderProfileSelect(result.profiles, result.active?.id);
+    document.getElementById('profileManageBtn').style.display = '';
+
+    // Reload the brain into the (possibly new) profile scope
+    reloadBrainForScope();
+  }
+
+  function renderProfileSelect(profiles, activeId) {
+    const sel = document.getElementById('profileSelect');
+    if (!profiles.length) { sel.style.display = 'none'; return; }
+    sel.innerHTML = profiles.map(p =>
+      `<option value="${p.id}" ${p.id === activeId ? 'selected' : ''}>${escHtml(p.name)}</option>`
+    ).join('');
+    sel.style.display = profiles.length > 1 ? '' : 'none';
+  }
+
+  function switchIntelProfile(profileId) {
+    if (!profileId) return;
+    window.IntelligenceProfiles.setActiveProfile(profileId);
+    reloadBrainForScope();
+    showSaveStatus('success', 'Switched intelligence profile.');
+  }
+
+  function reloadBrainForScope() {
+    // Local cache first (instant), then hydrate from cloud if newer
+    const localData = window.IntelligenceEngine.brain.load();
+    populateForm(localData);
+    updateScoreUI(window.IntelligenceEngine.brain.getCompletionScore());
+    updateTabCompleteness();
+
+    if (window.IntelligenceEngine.brain.hydrateFromCloud) {
+      window.IntelligenceEngine.brain.hydrateFromCloud().then((hydrated) => {
+        if (hydrated) {
+          populateForm(hydrated);
+          updateScoreUI(window.IntelligenceEngine.brain.getCompletionScore());
+          updateTabCompleteness();
+        }
+      }).catch(() => {});
+    }
+  }
+
+  function openProfilesPanel() {
+    document.getElementById('profilesPanelOverlay').style.display = 'flex';
+    loadProfilesPanel();
+  }
+
+  function closeProfilesPanel() {
+    document.getElementById('profilesPanelOverlay').style.display = 'none';
+  }
+
+  async function loadProfilesPanel() {
+    const listEl = document.getElementById('profilesList');
+    const infoEl = document.getElementById('profilePlanInfo');
+    listEl.innerHTML = '<div class="brain-modal-loading">Loading…</div>';
+
+    const [info, profiles] = await Promise.all([
+      window.IntelligenceProfiles.getPlanInfo(),
+      window.IntelligenceProfiles.list(),
+    ]);
+
+    const planLabel = info.plan.charAt(0).toUpperCase() + info.plan.slice(1);
+    infoEl.textContent = `${planLabel} plan — ${info.used} of ${info.limit} intelligence profiles used. Each profile is a separate business's complete Intelligence Layer.`;
+
+    const activeId = window.IntelligenceProfiles.getActiveProfileId();
+    if (!profiles.length) {
+      listEl.innerHTML = '<div class="history-empty">No profiles yet — create your first below.</div>';
+      return;
+    }
+
+    listEl.innerHTML = profiles.map(p => `
+      <div class="history-item">
+        <div class="history-item-meta">
+          <div class="history-item-label">${escHtml(p.name)}${p.id === activeId ? ' <span style="color:#10b981;font-size:10px;">● ACTIVE</span>' : ''}</div>
+          <div class="history-item-time">Created ${new Date(p.created_at).toLocaleDateString()}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          ${p.id !== activeId ? `<button type="button" class="history-restore-btn" onclick="activateProfileFromPanel('${p.id}')">Switch</button>` : ''}
+          <button type="button" class="history-restore-btn" onclick="renameIntelProfile('${p.id}')">Rename</button>
+          <button type="button" class="history-restore-btn" style="border-color:rgba(239,68,68,0.3);color:#f87171;" onclick="deleteIntelProfile('${p.id}')">Delete</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function activateProfileFromPanel(profileId) {
+    switchIntelProfile(profileId);
+    loadProfilesPanel();
+    initIntelProfiles();
+  }
+
+  async function createIntelProfile() {
+    const nameEl = document.getElementById('newProfileName');
+    const errEl  = document.getElementById('profileError');
+    errEl.style.display = 'none';
+    try {
+      const p = await window.IntelligenceProfiles.create(nameEl.value);
+      nameEl.value = '';
+      window.IntelligenceProfiles.setActiveProfile(p.id);
+      reloadBrainForScope();
+      loadProfilesPanel();
+      initIntelProfiles();
+      showSaveStatus('success', `Profile "${p.name}" created and activated.`);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function renameIntelProfile(profileId) {
+    const name = prompt('New profile name:');
+    if (!name || !name.trim()) return;
+    try {
+      await window.IntelligenceProfiles.rename(profileId, name);
+      loadProfilesPanel();
+      initIntelProfiles();
+    } catch (err) { alert('Rename failed: ' + err.message); }
+  }
+
+  async function deleteIntelProfile(profileId) {
+    if (!confirm('Delete this profile? Its Business Brain data and history in the cloud will be permanently removed.')) return;
+    try {
+      await window.IntelligenceProfiles.remove(profileId);
+      loadProfilesPanel();
+      initIntelProfiles();
+    } catch (err) { alert('Delete failed: ' + err.message); }
+  }
+
+  /* ── Migration prompt (pre-project-scoping legacy data) ──────────────────── */
+
+  async function checkForLegacyMigration() {
+    if (!window.BusinessBrainCloud) return;
+    const legacy = window.BusinessBrainCloud.checkLegacyData();
+    if (!legacy) return;
+
+    // Only prompt if the CURRENT scope's brain is still an empty scaffold —
+    // if it already has content, the legacy data was likely already migrated
+    // or the user has since built up fresh scoped data intentionally.
+    const currentScore = window.IntelligenceEngine.brain.getCompletionScore();
+    if (currentScore > 0) return;
+
+    // Preferred path: an intelligence profile is active — import straight into it.
+    const activeProfileId = window.IntelligenceProfiles?.getActiveProfileId?.();
+    if (activeProfileId) {
+      if (confirm('We found Business Brain data saved before profiles were introduced. Import it into your current intelligence profile?')) {
+        window.IntelligenceEngine.brain.save(legacy, 'Migrated from legacy global brain');
+        reloadBrainForScope();
+        showSaveStatus('success', 'Legacy Business Brain data imported into this profile.');
+      }
+      return;
+    }
+
+    // Legacy path: no profiles — assign to a project.
+    if (!window.ProjectService) return;
+    let projects = [];
+    try { projects = await window.ProjectService.getProjects(); } catch { projects = []; }
+    if (!projects.length) return; // nothing to assign to yet
+
+    const select = document.getElementById('migrationProjectSelect');
+    select.innerHTML = projects.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+
+    document.getElementById('migrationPromptOverlay').style.display = 'flex';
+  }
+
+  async function confirmMigration() {
+    const projectId = document.getElementById('migrationProjectSelect').value;
+    const legacy = window.BusinessBrainCloud.checkLegacyData();
+    if (!projectId || !legacy) { dismissMigration(); return; }
+
+    // Write into that project's scoped local key + push to cloud
+    localStorage.setItem('seo-current-project', projectId);
+    window.IntelligenceEngine.brain.save(legacy, 'Migrated from legacy global brain');
+
+    document.getElementById('migrationPromptOverlay').style.display = 'none';
+
+    // Refresh the page state to reflect the migrated data
+    const migrated = window.IntelligenceEngine.brain.load();
+    populateForm(migrated);
+    updateScoreUI(window.IntelligenceEngine.brain.getCompletionScore());
+    updateTabCompleteness();
+    showSaveStatus('success', 'Legacy Business Brain data assigned to this project.');
+  }
+
+  function dismissMigration() {
+    document.getElementById('migrationPromptOverlay').style.display = 'none';
+  }
+
   /* ── Initialise on load ──────────────────────────────────────────────────── */
 
   function init() {
@@ -1469,11 +2553,39 @@
     updateScoreUI(score);
     updateTabCompleteness();
 
+    // If data is already saved, reflect that in the badge and save card heading
+    if (score > 0) {
+      const badge = document.getElementById('autosaveBadge');
+      badge.textContent = 'All changes saved';
+      badge.className = 'autosave-badge saved';
+
+      const heading = document.getElementById('saveCardHeading');
+      if (heading) heading.textContent = 'Intelligence foundation active';
+    }
+
     // Listen for changes to update tab completeness
     document.querySelectorAll('[data-path], .chip').forEach(el => {
       el.addEventListener('input', updateTabCompleteness);
       el.addEventListener('change', updateTabCompleteness);
       el.addEventListener('click', updateTabCompleteness);
+    });
+
+    // Set up intelligence profiles (multi-business scoping), then pull the
+    // latest cloud copy in case it's newer than this device's cache, then
+    // check for legacy data to migrate.
+    initIntelProfiles().catch(() => {}).finally(() => {
+      if (window.IntelligenceEngine.brain.hydrateFromCloud) {
+        window.IntelligenceEngine.brain.hydrateFromCloud().then((hydrated) => {
+          if (hydrated) {
+            populateForm(hydrated);
+            updateScoreUI(window.IntelligenceEngine.brain.getCompletionScore());
+            updateTabCompleteness();
+          }
+          checkForLegacyMigration();
+        }).catch(() => checkForLegacyMigration());
+      } else {
+        checkForLegacyMigration();
+      }
     });
   }
 
@@ -1483,6 +2595,15 @@
   } else {
     init();
   }
+
+  // Re-populate form if intelligence-sync.js writes new brain data after init runs
+  document.addEventListener('intelligence:synced', function (e) {
+    if (!e.detail || !e.detail.brain) return; // nothing new written for brain
+    const existing = window.IntelligenceEngine
+      ? window.IntelligenceEngine.brain.load()
+      : (JSON.parse(localStorage.getItem('intel_business_brain') || '{}'));
+    populateForm(existing);
+  });
   </script>
 
 </body>

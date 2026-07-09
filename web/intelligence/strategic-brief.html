@@ -218,10 +218,14 @@
     <!-- Generate Brief -->
     <div class="generate-area">
       <h3>Generate Strategic Brief</h3>
-      <p>Claude will synthesize your inputs — plus context from your competitive radar and market signals — into a full strategic brief document.</p>
-      <button class="btn-primary" id="generate-btn" onclick="generateBrief()" style="width:100%;">
+      <p>Claude synthesises your inputs with competitive radar, market pulse signals, and Business Brain into a full actionable brief — including campaign ideas.</p>
+      <button class="btn-primary" id="generate-btn" onclick="generateBrief()" style="width:100%;margin-bottom:10px;">
         Generate Strategic Brief →
       </button>
+      <button class="btn-secondary" id="auto-btn" onclick="autoGenerateBrief()" style="width:100%;font-size:13px;" title="Let AI read all your intelligence data and write the brief for you">
+        ✨ Auto-Brief from Intelligence Data
+      </button>
+      <div style="font-size:11px;color:#475569;margin-top:8px;text-align:center;">Auto-Brief reads Business Brain + Radar + Pulse and writes the entire brief without you filling in every field.</div>
     </div>
 
     <!-- Agent Assignment (hidden until brief generated) -->
@@ -253,12 +257,31 @@
 
     <!-- Final brief output -->
     <div id="brief-result" style="display:none;">
+      <!-- Strategic score bar -->
+      <div id="brief-score-bar" style="display:none;margin-bottom:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:12px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;">Strategic Clarity Score</span>
+          <span id="score-value" style="font-size:24px;font-weight:800;color:#10b981;">--</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;">
+          <div id="score-bar" style="height:100%;background:linear-gradient(90deg,#7c3aed,#10b981);border-radius:6px;width:0%;transition:width 0.8s ease;"></div>
+        </div>
+        <div id="score-notes" style="font-size:12px;color:#64748b;margin-top:8px;line-height:1.5;"></div>
+      </div>
+
       <div class="brief-output" id="brief-output-content"></div>
+
+      <!-- Campaign ideas -->
+      <div id="campaign-ideas-wrap" style="display:none;margin-top:16px;">
+        <div style="font-size:11px;font-weight:700;color:#ec4899;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Campaign Ideas from this Brief</div>
+        <div id="campaign-ideas-content"></div>
+      </div>
 
       <div class="action-row">
         <button class="btn-secondary btn-sm" onclick="copyBrief()">Copy Brief</button>
         <button class="btn-secondary btn-sm" onclick="exportBriefText()">Export as Text</button>
         <button class="btn-secondary btn-sm" onclick="saveBriefToHistory()">Save to History</button>
+        <button class="btn-secondary btn-sm" id="score-btn" onclick="scoreBrief()" style="margin-left:auto;">⚡ Score Brief</button>
       </div>
     </div>
 
@@ -276,310 +299,444 @@
   </div>
 </div>
 
+<script src="/js/claude-service.js"></script>
 <script src="/js/intelligence-engine.js"></script>
+<script src="/js/intelligence-sync.js"></script>
 <script>
 (function() {
   'use strict';
 
   const BRIEF_HISTORY_KEY = 'tmd_brief_history';
-  const RADAR_KEY = 'tmd_radar';
-  const PULSE_KEY = 'tmd_pulse_signals';
+  const RADAR_KEY  = 'tmd_radar';
+  const PULSE_KEY  = 'tmd_pulse_signals';
+  const BRAIN_KEY  = 'intel_business_brain';
 
-  let currentBriefText = '';
+  let currentBriefText       = '';
   let currentBriefStructured = null;
 
   // ── Agents registry ────────────────────────────────────────────────
   const AGENTS = [
-    { id: 'content-writer', label: 'Content Writer', icon: '✍️', path: '/marketing/ai-content-writer.html' },
-    { id: 'seo', label: 'SEO', icon: '🔍', path: '/seo/keywords.html' },
-    { id: 'email', label: 'Email', icon: '📧', path: '/marketing/email-marketing.html' },
-    { id: 'social', label: 'Social', icon: '📱', path: '/marketing/social-media.html' },
-    { id: 'ad-creative', label: 'Ad Creative', icon: '🎯', path: '/marketing/paid-media.html' },
-    { id: 'linkedin', label: 'LinkedIn', icon: '💼', path: '/marketing/linkedin-prospecting.html' },
-    { id: 'content-strategist', label: 'Content Strategist', icon: '🗺️', path: '/marketing/content-strategist.html' },
-    { id: 'product-marketing', label: 'Product Marketing', icon: '🚀', path: '/marketing/product-marketing.html' }
+    { id: 'content-writer',    label: 'Content Writer',    icon: '✍️',  path: '/marketing/ai-content-writer.html' },
+    { id: 'seo',               label: 'SEO',               icon: '🔍',  path: '/seo/keywords.html' },
+    { id: 'email',             label: 'Email',             icon: '📧',  path: '/marketing/email-marketing.html' },
+    { id: 'social',            label: 'Social',            icon: '📱',  path: '/marketing/social-media.html' },
+    { id: 'ad-creative',       label: 'Ad Creative',       icon: '🎯',  path: '/marketing/paid-media.html' },
+    { id: 'linkedin',          label: 'LinkedIn',          icon: '💼',  path: '/marketing/linkedin-prospecting.html' },
+    { id: 'content-strategist',label: 'Content Strategist',icon: '🗺️', path: '/marketing/content-strategist.html' },
+    { id: 'product-marketing', label: 'Product Marketing', icon: '🚀',  path: '/marketing/product-marketing.html' }
   ];
 
   function renderAgentsGrid() {
     const grid = document.getElementById('agents-grid');
+    if (!grid) return;
     grid.innerHTML = AGENTS.map(agent => `
       <div class="agent-option" id="agent-opt-${agent.id}">
         <input type="checkbox" id="agent-cb-${agent.id}" onchange="toggleAgentSelect('${agent.id}')">
         <label for="agent-cb-${agent.id}" class="agent-label" style="margin:0;cursor:pointer;color:#e2e8f0;">${agent.icon} ${agent.label}</label>
         <button class="agent-open-btn" onclick="openAgent('${agent.id}')" title="Open with brief pre-loaded">Open →</button>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
   window.toggleAgentSelect = function(id) {
     const opt = document.getElementById('agent-opt-' + id);
-    const cb = document.getElementById('agent-cb-' + id);
-    opt.classList.toggle('selected', cb.checked);
+    const cb  = document.getElementById('agent-cb-' + id);
+    if (opt && cb) opt.classList.toggle('selected', cb.checked);
   };
 
   window.openAgent = function(agentId) {
     const agent = AGENTS.find(a => a.id === agentId);
     if (!agent) return;
-
-    // Store brief in sessionStorage for the agent to pick up
     if (currentBriefText) {
       sessionStorage.setItem('tmd_strategic_brief', JSON.stringify({
-        text: currentBriefText,
-        initiative: document.getElementById('f-initiative').value,
+        text:        currentBriefText,
+        initiative:  document.getElementById('f-initiative').value,
         contentType: document.getElementById('f-content-type').value,
-        audience: document.getElementById('f-audience').value,
-        icp: document.getElementById('f-icp').value,
-        success: document.getElementById('f-success').value,
-        generated: new Date().toISOString()
+        audience:    document.getElementById('f-audience').value,
+        icp:         document.getElementById('f-icp').value,
+        success:     document.getElementById('f-success').value,
+        generated:   new Date().toISOString()
       }));
     }
-
     window.open(agent.path, '_blank');
   };
 
-  // ── Context gathering ──────────────────────────────────────────────
+  // ── Intelligence context helpers ───────────────────────────────────
+  function getBrain() {
+    try { return JSON.parse(localStorage.getItem(BRAIN_KEY) || 'null'); } catch { return null; }
+  }
+
   function getRadarContext() {
     try {
       const data = JSON.parse(localStorage.getItem(RADAR_KEY) || '[]');
-      if (!data.length) return 'No competitive data logged yet.';
-      return data.slice(0, 3).map(c =>
-        `Competitor: ${c.name} | Positioning: ${(c.positioning||'').slice(0,120)} | Key gaps: ${(c.marketGaps||[]).slice(0,2).map(g=>g.description).join('; ')}`
-      ).join('\n');
-    } catch { return 'No competitive data available.'; }
+      if (!data.length) return null;
+      return data.slice(0, 5).map(c => {
+        const gaps    = (c.marketGaps  || []).slice(0, 2).map(g => g.description || g).filter(Boolean);
+        const threats = (c.threats     || []).slice(0, 2).filter(Boolean);
+        const moves   = (c.moves       || []).slice(0, 2).filter(Boolean);
+        return [
+          `Competitor: ${c.name}`,
+          c.positioning  ? `  Positioning: ${String(c.positioning).slice(0,150)}`  : '',
+          c.theyAreStrongAt ? `  Strong at: ${String(c.theyAreStrongAt).slice(0,120)}` : '',
+          c.theyAreWeakAt   ? `  Weak at:   ${String(c.theyAreWeakAt).slice(0,120)}`   : '',
+          gaps.length        ? `  Gaps they leave: ${gaps.join('; ')}`                  : '',
+          moves.length       ? `  Recent moves: ${moves.join('; ')}`                    : '',
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
+    } catch { return null; }
   }
 
   function getPulseContext() {
     try {
       const signals = JSON.parse(localStorage.getItem(PULSE_KEY) || '[]');
-      const strong = signals.filter(s => s.strength === 'Strong').slice(0, 5);
-      if (!strong.length) return 'No strong market signals logged yet.';
-      return strong.map(s => `[${s.type}] ${s.content.slice(0,100)}`).join('\n');
-    } catch { return 'No market signals available.'; }
+      if (!signals.length) return null;
+      const strong = signals.filter(s => s.strength === 'Strong');
+      const pool   = strong.length ? strong : signals;
+      return pool.slice(0, 6).map(s => {
+        const insight = s.analysis ? s.analysis.split('\n')[0] : '';
+        const tactic  = s.tags?.tactic        || '';
+        const driver  = s.tags?.emotionalDriver || '';
+        return `[${s.type} | ${s.strength}] ${s.content.slice(0,150)}` +
+               (tactic  ? ` | Tactic: ${tactic}`   : '') +
+               (driver  ? ` | Driver: ${driver}`    : '') +
+               (insight ? `\n  Insight: ${insight.slice(0,120)}` : '');
+      }).join('\n');
+    } catch { return null; }
   }
 
-  // ── Generate Brief ─────────────────────────────────────────────────
-  window.generateBrief = async function() {
-    const initiative = document.getElementById('f-initiative').value.trim();
-    const contentType = document.getElementById('f-content-type').value;
-    const audience = document.getElementById('f-audience').value.trim();
-    const whyNow = document.getElementById('f-why-now').value.trim();
-    const gap = document.getElementById('f-gap').value.trim();
-    const signals = document.getElementById('f-signals').value.trim();
-    const differentiation = document.getElementById('f-differentiation').value.trim();
-    const outcome = document.getElementById('f-outcome').value.trim();
-    const icp = document.getElementById('f-icp').value.trim();
-    const success = document.getElementById('f-success').value.trim();
+  function getBrainContext() {
+    const brain = getBrain();
+    if (!brain) return '';
+    const lines = [
+      brain.company?.name            ? `Company: ${brain.company.name}` : '',
+      brain.company?.industry        ? `Industry: ${brain.company.industry}` : '',
+      brain.positioning?.uniqueValue ? `UVP: ${String(brain.positioning.uniqueValue).slice(0,200)}` : '',
+      (brain.icp?.primaryBuyer?.role || brain.icp?.primaryBuyer?.industry)
+        ? `ICP: ${[brain.icp.primaryBuyer.role, brain.icp.primaryBuyer.companySize, brain.icp.primaryBuyer.industry].filter(Boolean).join(', ')}` : '',
+      brain.icp?.painPoints          ? `Pain points: ${String(brain.icp.painPoints).slice(0,200)}` : '',
+      brain.positioning?.competitorGap ? `Competitive gap we own: ${String(brain.positioning.competitorGap).slice(0,200)}` : '',
+      brain.objectives?.currentChallenge ? `Current challenge: ${String(brain.objectives.currentChallenge).slice(0,150)}` : '',
+      brain.objectives?.annualGoal       ? `Annual goal: ${String(brain.objectives.annualGoal).slice(0,150)}`             : '',
+    ].filter(Boolean).join('\n');
+    return lines ? lines : '';
+  }
 
-    if (!initiative) { alert('Please enter an initiative name.'); return; }
-    if (!whyNow) { alert('The "Why now?" field is required — it\'s the most important part of the brief.'); return; }
+  const BRIEF_SYSTEM_PROMPT = `You are a senior B2B marketing strategist. You write sharp, opinionated strategic briefs that force clear thinking and cut through vagueness. Your output is used directly by AI agents to create campaigns — so every section must be specific, not generic.
 
-    // Show streaming state
-    document.getElementById('brief-empty').style.display = 'none';
-    document.getElementById('brief-result').style.display = 'none';
-    document.getElementById('brief-streaming').style.display = 'block';
+Return a brief using EXACTLY these ## headers (no others):
 
-    const btn = document.getElementById('generate-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="loading"></span>Generating Brief...';
-
-    const radarContext = getRadarContext();
-    const pulseContext = getPulseContext();
-
-    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
-      // Compile manual brief
-      const brief = buildManualBrief({ initiative, contentType, audience, whyNow, gap, signals, differentiation, outcome, icp, success });
-      currentBriefText = brief.text;
-      currentBriefStructured = brief;
-      showBriefResult(brief);
-      btn.disabled = false;
-      btn.textContent = 'Generate Strategic Brief →';
-      document.getElementById('brief-streaming').style.display = 'none';
-      return;
-    }
-
-    const systemPrompt = `You are a senior marketing strategist and strategic brief writer for Audema - Your AI Marketing Department. You write precise, actionable strategic briefs that cut through vagueness and force clear thinking. Your briefs are used to brief AI agents before content creation begins.
-
-Format your response as a structured brief with these exact sections:
 ## EXECUTIVE SUMMARY
-(2-3 sentences synthesizing the core strategic opportunity)
+2-3 sentences. State the specific opportunity, the exact timing catalyst, and the single desired outcome. No hedging.
 
 ## STRATEGIC RATIONALE
-(The "why now" — the market moment, timing, and why this is the right move)
+What specific market shift, competitor move, or customer behaviour change makes NOW the right moment? Name it precisely. One concrete event or trend, not a general observation.
 
 ## COMPETITIVE CONTEXT
-(What competitors are doing, what they're missing, and how this creates an opening)
+What are the top 2-3 competitors doing? More importantly — what are they NOT doing, not saying, or doing poorly? Be specific about the gap this creates.
 
 ## SIGNAL EVIDENCE
-(The data points, quotes, and observations that validate this direction)
+List 3-5 specific data points, customer quotes, market observations, or signals that validate this direction will resonate. Each one should make the case.
 
 ## DIFFERENTIATION ANGLE
-(The specific, ownable angle that makes this genuinely different — not just better)
+One specific, ownable angle. Not "we'll do it better" — a genuinely different positioning, frame, format, or emotional territory. Name the angle in 10 words or less, then explain why it's ownable.
 
 ## TARGET AUDIENCE
-(The surgical ICP description — who exactly, and what they care about)
+Surgical description: job title, company size, industry, current situation, specific pain point they feel RIGHT NOW, and what they're trying to avoid. Not a demographic — a human in a specific situation.
 
-## SUCCESS METRIC
-(The specific, measurable outcome that defines success)
+## SUCCESS METRICS
+3 specific, measurable outcomes within 30/60/90 days. No vanity metrics.
 
-## RECOMMENDED APPROACH
-(3-5 tactical recommendations for execution that follow from the strategy)`;
+## RECOMMENDED EXECUTION
+4-6 concrete tactical actions — specific enough to act on immediately. Channel, format, angle, message. Not "create content" — "publish a LinkedIn post framing X as the hidden cost of Y, targeting VPs who have recently mentioned Z".`;
 
-    const userMessage = `Create a strategic brief from these inputs:
+  // ── Generate Brief (from form) ─────────────────────────────────────
+  window.generateBrief = async function() {
+    const initiative    = document.getElementById('f-initiative').value.trim();
+    const contentType   = document.getElementById('f-content-type').value;
+    const audience      = document.getElementById('f-audience').value.trim();
+    const whyNow        = document.getElementById('f-why-now').value.trim();
+    const gap           = document.getElementById('f-gap').value.trim();
+    const signals       = document.getElementById('f-signals').value.trim();
+    const differentiation = document.getElementById('f-differentiation').value.trim();
+    const outcome       = document.getElementById('f-outcome').value.trim();
+    const icp           = document.getElementById('f-icp').value.trim();
+    const success       = document.getElementById('f-success').value.trim();
+
+    if (!initiative) { showToast('Please enter an initiative name first.'); return; }
+    if (!whyNow && !audience) { showToast('Fill in at least "Why now?" or the audience to generate a brief.'); return; }
+
+    startStreaming('generate-btn', 'Generating Brief…');
+
+    const brainCtx  = getBrainContext();
+    const radarCtx  = getRadarContext();
+    const pulseCtx  = getPulseContext();
+
+    const userMessage = `Generate a strategic brief using the inputs and intelligence data below.
 
 INITIATIVE: ${initiative}
 CONTENT TYPE: ${contentType || 'Not specified'}
 AUDIENCE: ${audience || 'Not specified'}
+WHY NOW: ${whyNow || 'Not specified'}
+COMPETITIVE GAP: ${gap || 'Not specified'}
+SIGNAL EVIDENCE: ${signals || 'Not specified'}
+DIFFERENTIATION: ${differentiation || 'Not specified'}
+DESIRED OUTCOME: ${outcome || 'Not specified'}
+ICP SEGMENT: ${icp || 'Not specified'}
+SUCCESS METRIC: ${success || 'Not specified'}
 
-WHY NOW:
-${whyNow}
+${brainCtx  ? `=== BUSINESS BRAIN ===\n${brainCtx}\n`  : ''}
+${radarCtx  ? `=== COMPETITIVE RADAR ===\n${radarCtx}\n` : ''}
+${pulseCtx  ? `=== MARKET PULSE SIGNALS ===\n${pulseCtx}\n` : ''}
 
-COMPETITIVE GAP:
-${gap || 'Not specified'}
+Do NOT restate inputs verbatim. Synthesise them into a strategic narrative. Push the thinking further — identify implications, name the real opportunity, sharpen the angle. Where data is missing, make a well-reasoned inference and flag it briefly.`;
 
-SIGNAL EVIDENCE:
-${signals || 'Not specified'}
+    await runGeneration({ initiative, contentType }, userMessage, 'generate-btn', 'Generate Strategic Brief →');
+  };
 
-DIFFERENTIATION:
-${differentiation || 'Not specified'}
+  // ── Auto-Brief from Intelligence Data ─────────────────────────────
+  window.autoGenerateBrief = async function() {
+    const brain    = getBrain();
+    const radarCtx = getRadarContext();
+    const pulseCtx = getPulseContext();
 
-DESIRED OUTCOME:
-${outcome || 'Not specified'}
+    if (!brain && !radarCtx && !pulseCtx) {
+      showToast('No intelligence data found. Fill in Business Brain, Competitive Radar, or Market Pulse first.');
+      return;
+    }
 
-ICP SEGMENT:
-${icp || 'Not specified'}
+    startStreaming('auto-btn', 'Reading intelligence data…');
 
-SUCCESS METRIC:
-${success || 'Not specified'}
+    const brainCtx = getBrainContext();
+    const initiative = brain?.company?.name ? `${brain.company.name} — Strategic Brief` : 'Auto-Generated Brief';
 
---- COMPETITIVE CONTEXT FROM RADAR ---
-${radarContext}
+    const userMessage = `You have access to a company's full intelligence layer. Analyse it and generate the most strategically compelling brief for their most important marketing opportunity RIGHT NOW.
 
---- STRONG MARKET SIGNALS FROM PULSE ---
-${pulseContext}
+Do not ask for more information. Work with what you have. Make confident, specific recommendations. Identify the #1 highest-leverage opportunity based on the data.
 
-Synthesize all of this into a sharp, strategic brief that could be handed directly to an AI agent to execute. Be specific. Cut vagueness. Every section should push thinking forward, not restate inputs.`;
+${brainCtx  ? `=== BUSINESS BRAIN ===\n${brainCtx}\n`   : ''}
+${radarCtx  ? `=== COMPETITIVE RADAR ===\n${radarCtx}\n` : ''}
+${pulseCtx  ? `=== MARKET PULSE SIGNALS ===\n${pulseCtx}\n` : ''}
 
+Based on this intelligence:
+1. Identify the single most compelling strategic opportunity
+2. Write a full brief for it using the required ## sections
+3. In the Executive Summary, explicitly state WHY this is the #1 opportunity right now based on the evidence
+
+Be bold. Be specific. No hedging. The team should read this and immediately know exactly what to do and why.`;
+
+    // Fill initiative field
+    const initEl = document.getElementById('f-initiative');
+    if (initEl && !initEl.value.trim()) initEl.value = initiative;
+
+    await runGeneration({ initiative, contentType: 'Auto-Brief' }, userMessage, 'auto-btn', '✨ Auto-Brief from Intelligence Data');
+  };
+
+  // ── Shared generation runner ───────────────────────────────────────
+  async function runGeneration(meta, userMessage, btnId, resetLabel) {
+    const outputEl = document.getElementById('streaming-output');
     try {
-      const outputEl = document.getElementById('streaming-output');
       const result = await window.ClaudeService.streamResponse({
-        systemPrompt,
+        systemPrompt: BRIEF_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
         outputEl
       });
 
-      currentBriefText = result;
-      currentBriefStructured = parseStructuredBrief(result, { initiative, contentType, audience, icp, success });
+      currentBriefText       = result;
+      currentBriefStructured = parseStructuredBrief(result, meta);
       showBriefResult(currentBriefStructured);
+
+      // Auto-generate campaign ideas after brief
+      generateCampaignIdeas(result);
     } catch(e) {
-      document.getElementById('streaming-output').textContent = 'Error generating brief: ' + e.message;
+      outputEl.textContent = 'Error: ' + e.message;
+      document.getElementById('brief-streaming').style.display = 'block';
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Generate Strategic Brief →';
+      const btn = document.getElementById(btnId);
+      if (btn) { btn.disabled = false; btn.innerHTML = resetLabel; }
+    }
+  }
+
+  function startStreaming(btnId, label) {
+    document.getElementById('brief-empty').style.display    = 'none';
+    document.getElementById('brief-result').style.display   = 'none';
+    document.getElementById('brief-streaming').style.display = 'block';
+    document.getElementById('streaming-output').textContent  = '';
+    document.getElementById('brief-score-bar').style.display = 'none';
+    document.getElementById('campaign-ideas-wrap').style.display = 'none';
+
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="loading"></span>${label}`; }
+  }
+
+  // ── Brief scoring ──────────────────────────────────────────────────
+  window.scoreBrief = async function() {
+    if (!currentBriefText) return;
+    const scoreBtn = document.getElementById('score-btn');
+    scoreBtn.disabled = true;
+    scoreBtn.textContent = 'Scoring…';
+
+    try {
+      const raw = await window.ClaudeService.callAgent({
+        systemPrompt: 'You are a strategic brief quality assessor. Return ONLY valid JSON — no markdown, no prose.',
+        messages: [{
+          role: 'user',
+          content: `Score this strategic brief on a scale of 0-100 and return JSON:
+{
+  "score": <number>,
+  "verdict": "<10-word verdict>",
+  "strengths": ["<string>", "<string>"],
+  "gaps": ["<string>", "<string>"],
+  "single_biggest_improvement": "<one sentence — the single change that would most improve this brief>"
+}
+
+Brief:
+${currentBriefText.slice(0, 4000)}`
+        }]
+      });
+
+      let parsed;
+      try { const m = raw.match(/\{[\s\S]*\}/); parsed = JSON.parse(m ? m[0] : raw); } catch { parsed = null; }
+
+      if (parsed) renderScore(parsed);
+    } catch(e) {
+      showToast('Score failed: ' + e.message);
+    } finally {
+      scoreBtn.disabled = false;
+      scoreBtn.textContent = '⚡ Score Brief';
     }
   };
 
-  function buildManualBrief({ initiative, contentType, audience, whyNow, gap, signals, differentiation, outcome, icp, success }) {
-    const text = [
-      `STRATEGIC BRIEF: ${initiative}`,
-      `Generated: ${new Date().toLocaleString()}`,
-      `Content Type: ${contentType || 'Not specified'}`,
-      '',
-      'EXECUTIVE SUMMARY',
-      `${initiative} — targeting ${audience || 'defined audience'} to ${outcome || 'drive business results'}.`,
-      '',
-      'STRATEGIC RATIONALE (WHY NOW)',
-      whyNow,
-      '',
-      'COMPETITIVE CONTEXT',
-      gap || 'No competitive context specified.',
-      '',
-      'SIGNAL EVIDENCE',
-      signals || 'No signals logged.',
-      '',
-      'DIFFERENTIATION ANGLE',
-      differentiation || 'To be defined.',
-      '',
-      'TARGET AUDIENCE',
-      icp || audience || 'Not specified.',
-      '',
-      'SUCCESS METRIC',
-      success || 'Not defined.',
-      '',
-      'RECOMMENDED APPROACH',
-      '• Start with a strong "why this matters" hook based on the market signals above.',
-      '• Position against the competitive gap — name what others are missing.',
-      '• Speak directly to the ICP pain point, not the product features.',
-      '• Define one clear call to action aligned with the success metric.',
-      '• Test the differentiation angle with a small audience before full rollout.',
-    ].join('\n');
+  function renderScore(data) {
+    const bar     = document.getElementById('brief-score-bar');
+    const val     = document.getElementById('score-value');
+    const barEl   = document.getElementById('score-bar');
+    const notes   = document.getElementById('score-notes');
+    bar.style.display = 'block';
 
-    return {
-      text,
-      sections: {
-        'Executive Summary': `${initiative} — targeting ${audience || 'defined audience'} to ${outcome || 'drive business results'}.`,
-        'Strategic Rationale': whyNow,
-        'Competitive Context': gap || 'No competitive context specified.',
-        'Signal Evidence': signals || 'No signals logged.',
-        'Differentiation Angle': differentiation || 'To be defined.',
-        'Target Audience': icp || audience || 'Not specified.',
-        'Success Metric': success || 'Not defined.',
-        'Recommended Approach': '• Start with a strong "why this matters" hook.\n• Position against the competitive gap.\n• Speak directly to the ICP pain point.\n• Define one clear call to action.\n• Test the differentiation angle before full rollout.'
-      },
-      initiative,
-      contentType
-    };
+    const score = Math.max(0, Math.min(100, data.score || 0));
+    const colour = score >= 75 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+    val.textContent  = score;
+    val.style.color  = colour;
+    barEl.style.background = `linear-gradient(90deg, #7c3aed, ${colour})`;
+    barEl.style.width = score + '%';
+
+    const parts = [];
+    if (data.verdict) parts.push(`<strong>${escHtml(data.verdict)}</strong>`);
+    if (data.strengths?.length) parts.push('✅ ' + data.strengths.map(s => escHtml(s)).join(' · '));
+    if (data.gaps?.length)      parts.push('⚠️ ' + data.gaps.map(g => escHtml(g)).join(' · '));
+    if (data.single_biggest_improvement) parts.push(`💡 <em>${escHtml(data.single_biggest_improvement)}</em>`);
+    notes.innerHTML = parts.join('<br>');
   }
 
+  // ── Campaign ideas ─────────────────────────────────────────────────
+  async function generateCampaignIdeas(briefText) {
+    try {
+      const raw = await window.ClaudeService.callAgent({
+        systemPrompt: 'You are a senior campaign strategist. Return ONLY valid JSON — no markdown.',
+        messages: [{
+          role: 'user',
+          content: `Based on this strategic brief, generate 4 specific campaign ideas. Return JSON:
+{
+  "campaigns": [
+    {
+      "name": "string — punchy campaign name",
+      "channel": "string — primary channel",
+      "format": "string — specific content format",
+      "hook": "string — the specific hook or angle in 15 words or less",
+      "why": "string — one sentence on why this fits the strategy"
+    }
+  ]
+}
+
+Brief:
+${briefText.slice(0, 3000)}`
+        }]
+      });
+
+      let parsed;
+      try { const m = raw.match(/\{[\s\S]*\}/); parsed = JSON.parse(m ? m[0] : raw); } catch { parsed = null; }
+
+      if (parsed?.campaigns?.length) renderCampaignIdeas(parsed.campaigns);
+    } catch(_) { /* non-critical */ }
+  }
+
+  function renderCampaignIdeas(campaigns) {
+    const wrap    = document.getElementById('campaign-ideas-wrap');
+    const content = document.getElementById('campaign-ideas-content');
+    const channelColour = { LinkedIn: '#0a66c2', Email: '#10b981', Blog: '#6366f1', Social: '#ec4899', Ad: '#f59e0b', Video: '#ef4444', Podcast: '#8b5cf6' };
+
+    content.innerHTML = campaigns.map(c => {
+      const colour = Object.entries(channelColour).find(([k]) => c.channel?.includes(k))?.[1] || '#64748b';
+      return `
+        <div style="padding:14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:700;color:#e2e8f0;">${escHtml(c.name||'')}</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:${colour}22;color:${colour};font-weight:600;">${escHtml(c.channel||'')}</span>
+            <span style="font-size:11px;color:#475569;">${escHtml(c.format||'')}</span>
+          </div>
+          <div style="font-size:13px;color:#c4b5fd;font-weight:500;margin-bottom:4px;">"${escHtml(c.hook||'')}"</div>
+          <div style="font-size:12px;color:#64748b;">${escHtml(c.why||'')}</div>
+        </div>`;
+    }).join('');
+
+    wrap.style.display = 'block';
+  }
+
+  // ── Brief parsing & display ────────────────────────────────────────
   function parseStructuredBrief(text, meta) {
     const sectionTitles = [
-      'EXECUTIVE SUMMARY', 'STRATEGIC RATIONALE', 'COMPETITIVE CONTEXT',
-      'SIGNAL EVIDENCE', 'DIFFERENTIATION ANGLE', 'TARGET AUDIENCE',
-      'SUCCESS METRIC', 'RECOMMENDED APPROACH'
+      'EXECUTIVE SUMMARY','STRATEGIC RATIONALE','COMPETITIVE CONTEXT',
+      'SIGNAL EVIDENCE','DIFFERENTIATION ANGLE','TARGET AUDIENCE',
+      'SUCCESS METRICS','RECOMMENDED EXECUTION'
     ];
-
     const sections = {};
-    let remaining = text;
-
     sectionTitles.forEach((title, i) => {
-      const nextTitle = sectionTitles[i + 1];
-      // Match ## TITLE or TITLE (with optional **)
-      const pattern = new RegExp(`##?\\s*\\*{0,2}${title}\\*{0,2}[\\s\\S]*?(?=##?\\s*\\*{0,2}${nextTitle ? nextTitle : 'ZZZNOMATCH'}|$)`, 'i');
+      const next    = sectionTitles[i + 1];
+      const pattern = new RegExp(
+        `##?\\s*\\*{0,2}${title}\\*{0,2}[\\s\\S]*?(?=##?\\s*\\*{0,2}${next || 'ZZZNOMATCH'}|$)`, 'i'
+      );
       const match = text.match(pattern);
       if (match) {
         const content = match[0].replace(/^##?\s*\*{0,2}[A-Z ]+\*{0,2}\s*/i, '').trim();
-        const displayTitle = title.split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
-        sections[displayTitle] = content;
+        const display = title.split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
+        sections[display] = content;
       }
     });
-
     return { text, sections, initiative: meta.initiative, contentType: meta.contentType };
   }
 
+  const sectionIcons = {
+    'Executive Summary':    '⚡',
+    'Strategic Rationale':  '🎯',
+    'Competitive Context':  '🔭',
+    'Signal Evidence':      '📡',
+    'Differentiation Angle':'✨',
+    'Target Audience':      '👤',
+    'Success Metrics':      '📊',
+    'Recommended Execution':'🚀'
+  };
+
   function showBriefResult(brief) {
     document.getElementById('brief-streaming').style.display = 'none';
-    document.getElementById('brief-result').style.display = 'block';
+    document.getElementById('brief-result').style.display    = 'block';
 
     const outputEl = document.getElementById('brief-output-content');
 
     if (brief.sections && Object.keys(brief.sections).length > 0) {
       outputEl.innerHTML = Object.entries(brief.sections).map(([title, content]) => `
         <div class="brief-section">
-          <div class="brief-section-title">${escHtml(title)}</div>
+          <div class="brief-section-title">${sectionIcons[title] || ''} ${escHtml(title)}</div>
           <div class="brief-section-content">${escHtml(content)}</div>
         </div>
-        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:16px 0;">
-      `).join('');
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.04);margin:14px 0;">`
+      ).join('');
     } else {
-      // Raw text fallback
-      outputEl.innerHTML = `<div class="brief-section-content" style="white-space:pre-wrap;">${escHtml(brief.text || '')}</div>`;
+      outputEl.innerHTML = `<div class="brief-section-content" style="white-space:pre-wrap;">${escHtml(brief.text||'')}</div>`;
     }
 
-    // Show agent assignment
     document.getElementById('agent-assignment').style.display = 'block';
     renderAgentsGrid();
-
-    // Auto-save to history
     saveBriefToHistory(false);
+    document.querySelector('.panel-right').scrollTo(0, 0);
   }
 
   // ── Copy / Export ──────────────────────────────────────────────────
@@ -591,85 +748,74 @@ Synthesize all of this into a sharp, strategic brief that could be handed direct
   window.exportBriefText = function() {
     if (!currentBriefText) return;
     const blob = new Blob([currentBriefText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `strategic-brief-${Date.now()}.txt`;
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `strategic-brief-${Date.now()}.txt` });
     a.click();
     URL.revokeObjectURL(url);
   };
 
   // ── Brief History ──────────────────────────────────────────────────
-  window.saveBriefToHistory = function(showNotification = true) {
+  window.saveBriefToHistory = function(notify = true) {
     if (!currentBriefText) return;
     const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
-    const entry = {
-      id: 'br_' + Date.now(),
-      initiative: document.getElementById('f-initiative').value || 'Untitled Brief',
+    history.unshift({
+      id:          'br_' + Date.now(),
+      initiative:  document.getElementById('f-initiative').value || 'Untitled Brief',
       contentType: document.getElementById('f-content-type').value || '',
-      date: new Date().toISOString(),
-      status: 'Draft',
-      text: currentBriefText
-    };
-    history.unshift(entry);
-    // Keep last 20
+      date:        new Date().toISOString(),
+      status:      'Draft',
+      text:        currentBriefText
+    });
     if (history.length > 20) history.splice(20);
     localStorage.setItem(BRIEF_HISTORY_KEY, JSON.stringify(history));
     renderHistory();
-    if (showNotification) showToast('Brief saved to history.');
+    if (notify) showToast('Brief saved to history.');
   };
 
   function renderHistory() {
     const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
-    const body = document.getElementById('history-body');
+    const body    = document.getElementById('history-body');
     if (!history.length) {
       body.innerHTML = '<div style="padding:16px 0;font-size:13px;color:#475569;">No briefs saved yet.</div>';
       return;
     }
-
-    const statusClass = { Draft: 'tag-draft', Approved: 'tag-approved', Executed: 'tag-executed' };
-
+    const cls = { Draft: 'tag-draft', Approved: 'tag-approved', Executed: 'tag-executed' };
     body.innerHTML = history.map(b => `
       <div class="history-item" onclick="loadBriefFromHistory('${escAttr(b.id)}')">
         <div class="history-name">${escHtml(b.initiative)}</div>
         <div class="history-meta">
           <span>${new Date(b.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
           ${b.contentType ? `<span>${escHtml(b.contentType)}</span>` : ''}
-          <span class="tag ${statusClass[b.status]||'tag-draft'}">${escHtml(b.status)}</span>
+          <span class="tag ${cls[b.status]||'tag-draft'}">${escHtml(b.status)}</span>
           <button class="btn-xs btn-secondary" style="margin-left:auto;" onclick="event.stopPropagation();updateBriefStatus('${escAttr(b.id)}')">Update Status</button>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
   window.loadBriefFromHistory = function(id) {
     const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
-    const entry = history.find(b => b.id === id);
+    const entry   = history.find(b => b.id === id);
     if (!entry) return;
-
-    currentBriefText = entry.text;
+    currentBriefText       = entry.text;
     currentBriefStructured = parseStructuredBrief(entry.text, { initiative: entry.initiative, contentType: entry.contentType });
     showBriefResult(currentBriefStructured);
-    // Scroll to top of right panel
     document.querySelector('.panel-right').scrollTo(0, 0);
     showToast('Brief loaded.');
   };
 
   window.updateBriefStatus = function(id) {
     const statuses = ['Draft', 'Approved', 'Executed'];
-    const history = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
-    const entry = history.find(b => b.id === id);
+    const history  = JSON.parse(localStorage.getItem(BRIEF_HISTORY_KEY) || '[]');
+    const entry    = history.find(b => b.id === id);
     if (!entry) return;
-    const currentIdx = statuses.indexOf(entry.status);
-    entry.status = statuses[(currentIdx + 1) % statuses.length];
+    entry.status = statuses[(statuses.indexOf(entry.status) + 1) % statuses.length];
     localStorage.setItem(BRIEF_HISTORY_KEY, JSON.stringify(history));
     renderHistory();
-    showToast(`Status updated to ${entry.status}.`);
+    showToast('Status updated to ' + entry.status + '.');
   };
 
-  // ── History Accordion ──────────────────────────────────────────────
   window.toggleHistory = function() {
-    const body = document.getElementById('history-body');
+    const body    = document.getElementById('history-body');
     const chevron = document.getElementById('history-chevron');
     body.classList.toggle('open');
     chevron.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
@@ -678,7 +824,7 @@ Synthesize all of this into a sharp, strategic brief that could be handed direct
 
   // ── Utilities ──────────────────────────────────────────────────────
   function escHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
   function escAttr(str) { return escHtml(str); }
 
@@ -687,12 +833,57 @@ Synthesize all of this into a sharp, strategic brief that could be handed direct
     t.textContent = msg;
     Object.assign(t.style, { position:'fixed', bottom:'24px', right:'24px', background:'#7c3aed', color:'white', padding:'12px 20px', borderRadius:'10px', fontSize:'13px', zIndex:'9999', fontFamily:'Inter,sans-serif' });
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
+    setTimeout(() => t.remove(), 2800);
+  }
+
+  // ── Pre-fill form from Business Brain ─────────────────────────────
+  function fillIfEmpty(id, value) {
+    if (!value) return;
+    const el = document.getElementById(id);
+    if (el && !el.value.trim()) el.value = value;
+  }
+
+  function prefillFromBrain() {
+    try {
+      const brain = getBrain();
+      if (brain) {
+        const role     = brain.icp?.primaryBuyer?.role      || '';
+        const industry = brain.icp?.primaryBuyer?.industry  || brain.company?.industry || '';
+        const compSize = brain.icp?.primaryBuyer?.companySize || '';
+        if (role || industry) fillIfEmpty('f-audience', [role, compSize, industry].filter(Boolean).join(', '));
+        if (brain.icp?.painPoints)           fillIfEmpty('f-icp', String(brain.icp.painPoints));
+        if (brain.positioning?.uniqueValue)  fillIfEmpty('f-differentiation', brain.positioning.uniqueValue);
+        if (brain.objectives?.currentChallenge) fillIfEmpty('f-why-now', brain.objectives.currentChallenge);
+        else if (brain.objectives?.q1Focus)  fillIfEmpty('f-why-now', brain.objectives.q1Focus);
+        if (brain.objectives?.annualGoal)    fillIfEmpty('f-outcome', brain.objectives.annualGoal);
+        if (brain.company?.name)             fillIfEmpty('f-initiative', brain.company.name + ' — ');
+      }
+
+      const brainGap = brain?.positioning?.competitorGap || '';
+      if (brainGap) {
+        fillIfEmpty('f-gap', brainGap);
+      } else {
+        const comps = JSON.parse(localStorage.getItem(RADAR_KEY) || '[]');
+        if (comps.length) {
+          const names = comps.slice(0,3).map(c=>c.name).filter(Boolean).join(', ');
+          if (names) fillIfEmpty('f-gap', `Main competitors: ${names}. What gaps are they leaving open?`);
+        }
+      }
+
+      const strong = JSON.parse(localStorage.getItem(PULSE_KEY) || '[]').filter(s => s.strength === 'Strong').slice(0,3);
+      if (strong.length) {
+        fillIfEmpty('f-signals', strong.map(s => `• ${(s.content||'').slice(0,120)}`).join('\n'));
+      }
+    } catch(_) {}
   }
 
   // ── Init ──────────────────────────────────────────────────────────
   renderAgentsGrid();
   renderHistory();
+  prefillFromBrain();
+
+  document.addEventListener('brain:saved',        prefillFromBrain);
+  document.addEventListener('intelligence:synced', prefillFromBrain);
 })();
 </script>
 </body>

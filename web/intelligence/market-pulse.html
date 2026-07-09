@@ -148,8 +148,9 @@
       </div>
 
       <div class="form-group">
-        <label>URL (optional)</label>
-        <input type="url" id="signal-url" placeholder="https://...">
+        <label>URL — paste to auto-fetch content (optional)</label>
+        <input type="url" id="signal-url" placeholder="https://… tab out to fetch">
+        <div id="url-fetch-status" style="margin-top:5px;font-size:12px;min-height:16px;"></div>
       </div>
 
       <div class="form-group">
@@ -219,7 +220,7 @@
             <p>Add strong signals to see patterns emerge.</p>
           </div>
         </div>
-        <button class="btn-secondary btn-sm" style="width:100%;margin-top:12px;" onclick="refreshAnalysis()">↻ Refresh Analysis</button>
+        <button class="btn-secondary btn-sm" style="width:100%;margin-top:12px;" onclick="refreshAnalysis(false)">↻ Re-run AI Synthesis</button>
       </div>
 
       <hr class="divider">
@@ -254,45 +255,49 @@
 
 </div>
 
+<script src="/js/claude-service.js"></script>
 <script src="/js/intelligence-engine.js"></script>
+<script src="/js/intelligence-sync.js"></script>
 <script>
 (function() {
   'use strict';
 
   let selectedSourceType = null;
-  let pendingAnalysis = '';
+  let pendingAnalysis = null; // structured object parsed from Claude
   let activeFilter = 'all';
+  let patternSynthesisTimer = null;
 
   // ── Storage ───────────────────────────────────────────────────────────
   const SIGNALS_KEY = 'tmd_pulse_signals';
-  const GAPS_KEY = 'tmd_pulse_gaps';
+  const GAPS_KEY    = 'tmd_pulse_gaps';
 
-  function getPulse() {
-    if (window.IntelligenceEngine && window.IntelligenceEngine.pulse) {
-      return window.IntelligenceEngine.pulse;
-    }
-    return {
-      getSignals: () => JSON.parse(localStorage.getItem(SIGNALS_KEY) || '[]'),
-      saveSignals: (data) => localStorage.setItem(SIGNALS_KEY, JSON.stringify(data)),
-      addSignal(signal) {
-        const all = this.getSignals();
-        signal.id = 's_' + Date.now();
-        signal.date = new Date().toISOString();
-        all.unshift(signal);
-        this.saveSignals(all);
-        return signal;
-      },
-      getGaps: () => JSON.parse(localStorage.getItem(GAPS_KEY) || '[]'),
-      saveGaps: (data) => localStorage.setItem(GAPS_KEY, JSON.stringify(data)),
-      addGap(text) {
-        const all = this.getGaps();
-        all.unshift({ id: 'g_' + Date.now(), text, date: new Date().toISOString() });
-        this.saveGaps(all);
-      }
-    };
+  function getSignals() { try { return JSON.parse(localStorage.getItem(SIGNALS_KEY) || '[]'); } catch { return []; } }
+  function saveSignals(data) { localStorage.setItem(SIGNALS_KEY, JSON.stringify(data)); }
+  function getGaps()    { try { return JSON.parse(localStorage.getItem(GAPS_KEY)    || '[]'); } catch { return []; } }
+  function saveGaps(data)    { localStorage.setItem(GAPS_KEY,    JSON.stringify(data)); }
+
+  function addSignal(signal) {
+    const all = getSignals();
+    signal.id   = 's_' + Date.now();
+    signal.date = new Date().toISOString();
+    all.unshift(signal);
+    saveSignals(all);
+    return signal;
   }
 
-  function pulse() { return getPulse(); }
+  // ── Brain context ─────────────────────────────────────────────────
+  function brainContext() {
+    try {
+      const b = JSON.parse(localStorage.getItem('intel_business_brain') || 'null');
+      if (!b) return '';
+      return [
+        b.company?.name      ? `Company: ${b.company.name}` : '',
+        b.company?.industry  ? `Industry: ${b.company.industry}` : '',
+        b.icp?.primaryBuyer?.role ? `ICP: ${b.icp.primaryBuyer.role}` : '',
+        b.positioning?.uniqueValue ? `Our edge: ${b.positioning.uniqueValue}` : '',
+      ].filter(Boolean).join(' | ');
+    } catch { return ''; }
+  }
 
   // ── Source type chip selection ─────────────────────────────────────
   document.querySelectorAll('#source-chips .chip').forEach(chip => {
@@ -313,60 +318,110 @@
     });
   });
 
+  // ── URL auto-fetch ─────────────────────────────────────────────────
+  document.getElementById('signal-url').addEventListener('blur', async function() {
+    const url = this.value.trim();
+    if (!url || !url.startsWith('http')) return;
+    const contentEl = document.getElementById('signal-content');
+    if (contentEl.value.trim()) return; // don't overwrite existing content
+
+    const status = document.getElementById('url-fetch-status');
+    if (status) { status.textContent = 'Fetching page content…'; status.style.color = '#94a3b8'; }
+
+    try {
+      const apiUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+      const r = await fetch(apiUrl);
+      const data = await r.json();
+      if (data.contents) {
+        // Strip HTML tags, collapse whitespace, take first 2000 chars
+        const text = data.contents
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+          .slice(0, 2000);
+        contentEl.value = text;
+        if (status) { status.textContent = 'Page content loaded — ready to extract insights.'; status.style.color = '#10b981'; }
+        // Auto-detect source type from URL
+        if (!selectedSourceType) {
+          if (url.includes('linkedin')) { selectChip('Social Post'); }
+          else if (url.includes('podcast') || url.includes('spotify') || url.includes('apple.com/podcast')) { selectChip('Podcast Observation'); }
+          else { selectChip('Industry Article'); }
+        }
+      }
+    } catch(e) {
+      if (status) { status.textContent = 'Could not fetch page — paste content manually.'; status.style.color = '#f59e0b'; }
+    }
+  });
+
+  function selectChip(type) {
+    document.querySelectorAll('#source-chips .chip').forEach(c => {
+      c.classList.toggle('selected', c.dataset.type === type);
+    });
+    selectedSourceType = type;
+  }
+
   // ── Extract Insights ───────────────────────────────────────────────
   window.extractInsights = async function() {
     const content = document.getElementById('signal-content').value.trim();
     if (!content) { alert('Please paste content or describe what you observed.'); return; }
-    if (!selectedSourceType) { alert('Please select a source type.'); return; }
+    if (!selectedSourceType) { alert('Please select a source type first.'); return; }
 
     const analysisArea = document.getElementById('analysis-area');
-    const outputEl = document.getElementById('analysis-output');
-    const manualArea = document.getElementById('manual-notes-area');
-    const saveArea = document.getElementById('save-signal-area');
+    const outputEl     = document.getElementById('analysis-output');
+    const saveArea     = document.getElementById('save-signal-area');
 
     analysisArea.style.display = 'block';
     outputEl.textContent = '';
-    manualArea.style.display = 'none';
     saveArea.style.display = 'none';
-    pendingAnalysis = '';
-
-    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
-      outputEl.textContent = 'Claude API key not configured. Go to Settings to add your key.';
-      manualArea.style.display = 'block';
-      saveArea.style.display = 'block';
-      return;
-    }
+    pendingAnalysis = null;
 
     const btn = document.getElementById('extract-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="loading"></span>Analyzing...';
+    btn.innerHTML = '<span class="loading"></span>Analyzing…';
 
-    const systemPrompt = `You are a strategic marketing analyst for Audema - Your AI Marketing Department. You analyze market signals with precise, actionable strategic intelligence. Be specific and direct. No filler.`;
+    const ctx = brainContext();
+    const systemPrompt = `You are a sharp strategic marketing analyst.${ctx ? ` Context: ${ctx}.` : ''} Analyse market signals with precision and return ONLY valid JSON — no markdown, no prose, no fences.`;
 
-    const userMessage = `Analyze this market signal:
+    const userMessage = `Analyse this market signal and return a JSON object with exactly these fields:
+{
+  "signalType": "string — what category of signal this is",
+  "tactic": "string — the specific marketing or growth tactic being deployed",
+  "emotionalDriver": "string — the core psychological trigger being targeted",
+  "strength": "Strong | Moderate | Weak",
+  "strengthReason": "string — one sentence explaining the strength rating",
+  "keyInsight": "string — 2-3 sentences: the most important strategic takeaway from this signal",
+  "actionableImplication": "string — one concrete thing we should consider doing or testing based on this signal",
+  "marketGapHint": "string or null — does this signal hint at something the market is NOT addressing? If yes, describe it briefly. If no, return null."
+}
 
 SOURCE TYPE: ${selectedSourceType}
-CONTENT: ${content}
-
-As a strategic marketing analyst, analyze this signal from our competitive landscape. Provide:
-
-SIGNAL TYPE: [What kind of signal this is]
-TACTIC USED: [The specific marketing or growth tactic being deployed]
-EMOTIONAL DRIVER: [The core emotion or psychological trigger being targeted]
-STRENGTH: [Strong / Moderate / Weak] — and one sentence explaining why
-KEY INSIGHT: [The most important thing this signal tells us about what's working in this market right now — 2-3 sentences]`;
+CONTENT: ${content.slice(0, 3000)}`;
 
     try {
-      const result = await window.ClaudeService.streamResponse({
+      const raw = await window.ClaudeService.callAgent({
         systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-        outputEl
+        messages: [{ role: 'user', content: userMessage }]
       });
-      pendingAnalysis = result;
+
+      let parsed;
+      try {
+        const m = raw.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(m ? m[0] : raw);
+      } catch(_) { parsed = null; }
+
+      if (parsed) {
+        pendingAnalysis = parsed;
+        outputEl.innerHTML = renderAnalysisCard(parsed);
+      } else {
+        // Fallback: display raw text
+        outputEl.textContent = raw;
+        pendingAnalysis = { keyInsight: raw, strength: 'Moderate', tactic: '', emotionalDriver: '' };
+      }
       saveArea.style.display = 'block';
     } catch(e) {
-      outputEl.textContent = 'Error: ' + e.message;
-      manualArea.style.display = 'block';
+      outputEl.innerHTML = `<div style="color:#ef4444;font-size:13px;">Error: ${escHtml(e.message)}</div>`;
       saveArea.style.display = 'block';
     } finally {
       btn.disabled = false;
@@ -374,74 +429,126 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
     }
   };
 
+  function renderAnalysisCard(p) {
+    const strengthColor = p.strength === 'Strong' ? '#10b981' : p.strength === 'Weak' ? '#ef4444' : '#f59e0b';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:700;color:${strengthColor};background:rgba(${p.strength==='Strong'?'16,185,129':p.strength==='Weak'?'239,68,68':'245,158,11'},0.12);padding:4px 12px;border-radius:20px;">${escHtml(p.strength)}</span>
+        <span style="font-size:12px;color:#64748b;">${escHtml(p.strengthReason||'')}</span>
+      </div>
+      ${row('Signal type', p.signalType)}
+      ${row('Tactic', p.tactic)}
+      ${row('Emotional driver', p.emotionalDriver)}
+      <div style="margin-top:12px;padding:12px;background:rgba(124,58,237,0.1);border-left:3px solid #7c3aed;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Key Insight</div>
+        <div style="font-size:13px;color:#e2e8f0;line-height:1.65;">${escHtml(p.keyInsight||'')}</div>
+      </div>
+      ${p.actionableImplication ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(16,185,129,0.07);border-left:3px solid #10b981;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Action to Consider</div>
+        <div style="font-size:13px;color:#cbd5e1;line-height:1.6;">${escHtml(p.actionableImplication)}</div>
+      </div>` : ''}
+      ${p.marketGapHint ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.07);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Market Gap Hint</div>
+        <div style="font-size:13px;color:#cbd5e1;line-height:1.6;">${escHtml(p.marketGapHint)}</div>
+      </div>` : ''}
+    `;
+  }
+
+  function row(label, value) {
+    if (!value) return '';
+    return `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px;"><span style="color:#64748b;min-width:130px;flex-shrink:0;">${escHtml(label)}:</span><span style="color:#e2e8f0;">${escHtml(value)}</span></div>`;
+  }
+
+  // ── Save signal ────────────────────────────────────────────────────
   window.saveSignal = function() {
     const content = document.getElementById('signal-content').value.trim();
     if (!content) return;
-
     const relevanceEl = document.querySelector('input[name=relevance]:checked');
-    const manualNotes = document.getElementById('manual-notes').value.trim();
 
-    const analysis = pendingAnalysis || manualNotes;
-
-    // Parse strength from analysis
     let strength = 'Moderate';
-    if (analysis) {
-      const lower = analysis.toLowerCase();
-      if (lower.includes('strength: strong') || lower.match(/strength.*\bstrong\b/i)) strength = 'Strong';
-      else if (lower.includes('strength: weak') || lower.match(/strength.*\bweak\b/i)) strength = 'Weak';
+    let analysis = '';
+    let tags = {};
 
-      // Try to extract KEY INSIGHT
+    if (pendingAnalysis) {
+      strength = pendingAnalysis.strength || 'Moderate';
+      analysis = [
+        pendingAnalysis.keyInsight,
+        pendingAnalysis.actionableImplication ? 'Action: ' + pendingAnalysis.actionableImplication : ''
+      ].filter(Boolean).join('\n');
+      tags = {
+        tactic:          pendingAnalysis.tactic,
+        emotionalDriver: pendingAnalysis.emotionalDriver,
+        signalType:      pendingAnalysis.signalType,
+        marketGapHint:   pendingAnalysis.marketGapHint
+      };
     }
 
-    const signal = {
+    addSignal({
       type: selectedSourceType || 'Industry Article',
       content,
-      url: document.getElementById('signal-url').value.trim(),
+      url:       document.getElementById('signal-url').value.trim(),
       relevance: relevanceEl ? relevanceEl.value : 'Direct',
       analysis,
-      strength
-    };
+      strength,
+      tags
+    });
 
-    pulse().addSignal(signal);
+    // If there's a gap hint, auto-save it
+    if (pendingAnalysis?.marketGapHint) {
+      const gaps = getGaps();
+      gaps.unshift({ id: 'g_' + Date.now(), text: pendingAnalysis.marketGapHint, date: new Date().toISOString(), auto: true });
+      saveGaps(gaps);
+    }
+
     resetForm();
     renderLibrary();
-    renderPatterns();
-    showToast('Signal saved.');
+    // Debounced auto-synthesis so multiple rapid saves batch together
+    scheduleSynthesis();
+    showToast('Signal saved — synthesising patterns…');
   };
 
   window.cancelSignal = function() {
     document.getElementById('analysis-area').style.display = 'none';
-    pendingAnalysis = '';
+    pendingAnalysis = null;
   };
 
   function resetForm() {
     document.getElementById('signal-content').value = '';
     document.getElementById('signal-url').value = '';
     document.getElementById('analysis-area').style.display = 'none';
-    document.getElementById('analysis-output').textContent = '';
+    document.getElementById('analysis-output').innerHTML = '';
     document.getElementById('save-signal-area').style.display = 'none';
-    document.getElementById('manual-notes').value = '';
     document.querySelector('input[name=relevance][value=Direct]').checked = true;
     document.querySelectorAll('#source-chips .chip').forEach(c => c.classList.remove('selected'));
+    const s = document.getElementById('url-fetch-status');
+    if (s) s.textContent = '';
     selectedSourceType = null;
-    pendingAnalysis = '';
+    pendingAnalysis = null;
+  }
+
+  // ── Auto-synthesis scheduler ───────────────────────────────────────
+  function scheduleSynthesis() {
+    if (patternSynthesisTimer) clearTimeout(patternSynthesisTimer);
+    patternSynthesisTimer = setTimeout(() => { refreshAnalysis(true); }, 800);
   }
 
   // ── Signal Library ─────────────────────────────────────────────────
   const typeToClass = {
     'Competitor Blog Post': 'badge-blog',
-    'Competitor Ad': 'badge-ad',
-    'Customer Quote': 'badge-quote',
-    'Industry Article': 'badge-article',
-    'Social Post': 'badge-social',
-    'Podcast Observation': 'badge-podcast',
-    'Sales Call Insight': 'badge-sales'
+    'Competitor Ad':        'badge-ad',
+    'Customer Quote':       'badge-quote',
+    'Industry Article':     'badge-article',
+    'Social Post':          'badge-social',
+    'Podcast Observation':  'badge-podcast',
+    'Sales Call Insight':   'badge-sales'
   };
 
   function renderLibrary() {
-    let signals = pulse().getSignals();
+    let signals = getSignals();
+    const total = signals.length;
 
-    // Filter
     if (activeFilter === 'week') {
       const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
       signals = signals.filter(s => new Date(s.date).getTime() >= weekAgo);
@@ -451,8 +558,7 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
       signals = signals.filter(s => s.type === activeFilter);
     }
 
-    const count = pulse().getSignals().length;
-    document.getElementById('signal-count').textContent = count + ' signal' + (count !== 1 ? 's' : '') + ' captured';
+    document.getElementById('signal-count').textContent = total + ' signal' + (total !== 1 ? 's' : '') + ' captured';
 
     const el = document.getElementById('signal-library');
     if (!signals.length) {
@@ -461,16 +567,11 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
     }
 
     el.innerHTML = signals.map(s => {
-      const preview = s.content.length > 120 ? s.content.slice(0, 120) + '…' : s.content;
+      const preview = s.content.length > 140 ? s.content.slice(0, 140) + '…' : s.content;
       const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-
-      // Extract KEY INSIGHT line from analysis if available
-      let keyInsight = '';
-      if (s.analysis) {
-        const m = s.analysis.match(/KEY INSIGHT[:\s]+(.+?)(\n|$)/i);
-        if (m) keyInsight = m[1].trim();
-        else keyInsight = s.analysis.split('\n').find(l => l.trim().length > 20) || '';
-      }
+      const keyInsight = s.analysis ? s.analysis.split('\n')[0] : '';
+      const tactic     = s.tags?.tactic || '';
+      const driver     = s.tags?.emotionalDriver || '';
 
       return `
         <div class="signal-card">
@@ -482,90 +583,145 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
             </div>
           </div>
           <div class="signal-preview">${escHtml(preview)}</div>
-          ${keyInsight ? `<div class="signal-insight">${escHtml(keyInsight)}</div>` : ''}
+          ${tactic  ? `<div style="margin-top:6px;font-size:12px;color:#64748b;">🎯 <strong>Tactic:</strong> ${escHtml(tactic)}</div>` : ''}
+          ${driver  ? `<div style="margin-top:3px;font-size:12px;color:#64748b;">💡 <strong>Driver:</strong> ${escHtml(driver)}</div>` : ''}
+          ${keyInsight ? `<div class="signal-insight" style="margin-top:8px;">${escHtml(keyInsight)}</div>` : ''}
           ${s.url ? `<div style="margin-top:6px;"><a href="${escHtml(s.url)}" target="_blank" style="font-size:11px;color:#7c3aed;">View source →</a></div>` : ''}
-        </div>
-      `;
+        </div>`;
     }).join('');
   }
 
-  // ── Pattern Summary ────────────────────────────────────────────────
-  function renderPatterns() {
-    const signals = pulse().getSignals();
-    const strong = signals.filter(s => s.strength === 'Strong');
-    const el = document.getElementById('patterns-output');
-
-    if (!strong.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><p>Add strong signals to see patterns emerge.</p></div>';
-      return;
-    }
-
-    // Group by type
-    const typeCounts = {};
-    strong.forEach(s => { typeCounts[s.type] = (typeCounts[s.type] || 0) + 1; });
-
-    const items = Object.entries(typeCounts)
-      .sort((a,b) => b[1]-a[1])
-      .map(([type, count]) => `<div class="pattern-item">${count} strong signal${count>1?'s':''} from <strong>${escHtml(type)}</strong></div>`);
-
-    // Recent 30-day strong signals
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
-    const recent = strong.filter(s => new Date(s.date).getTime() >= thirtyDaysAgo);
-
-    el.innerHTML = `
-      <div class="pattern-item">📈 ${strong.length} strong signal${strong.length!==1?'s':''} total — market intelligence is building.</div>
-      ${recent.length ? `<div class="pattern-item">🔥 ${recent.length} strong signal${recent.length!==1?'s':''} in the last 30 days</div>` : ''}
-      ${items.slice(0,4).join('')}
-    `;
-
-    // Gaps
-    renderGaps();
-  }
-
-  function renderGaps() {
-    const gaps = pulse().getGaps();
-    const el = document.getElementById('gaps-output');
-    if (!gaps.length) {
-      el.innerHTML = '<div class="empty-state" style="padding:20px 0;"><p style="font-size:12px;">Gaps appear when you identify what\'s NOT being addressed.</p></div>';
-      return;
-    }
-    el.innerHTML = gaps.map(g => `<div class="gap-item">${escHtml(g.text)}</div>`).join('');
-  }
-
-  // ── Refresh Analysis (Claude-powered) ─────────────────────────────
-  window.refreshAnalysis = async function() {
-    const signals = pulse().getSignals().filter(s => s.strength === 'Strong').slice(0, 10);
+  // ── Pattern synthesis (AI) ─────────────────────────────────────────
+  window.refreshAnalysis = async function(silent) {
+    const signals = getSignals();
     const el = document.getElementById('patterns-output');
 
     if (!signals.length) {
-      el.innerHTML = '<div class="empty-state"><p>Add some strong signals first.</p></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><p>Add signals to see patterns emerge.</p></div>';
+      renderGaps();
       return;
     }
 
-    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
-      el.innerHTML = '<div class="analysis-box" style="color:#f59e0b;">Configure API key in Settings to enable AI pattern synthesis.</div>';
-      return;
+    if (!silent) {
+      el.innerHTML = '<div class="analysis-box"><span class="loading"></span>Synthesising patterns with AI…</div>';
     }
 
-    el.innerHTML = '<div class="analysis-box"><span class="loading"></span>Synthesizing patterns...</div>';
+    // Build signal summary — mix strong and recent for richer context
+    const strong = signals.filter(s => s.strength === 'Strong');
+    const recent = signals.slice(0, 5);
+    const pool   = [...new Map([...strong, ...recent].map(s => [s.id, s])).values()].slice(0, 12);
 
-    const signalSummary = signals.map((s,i) => `Signal ${i+1} [${s.type}]: ${s.content.slice(0,200)}${s.analysis ? '\nAnalysis: ' + s.analysis.slice(0,150) : ''}`).join('\n\n');
+    const ctx = brainContext();
+    const systemPrompt = `You are a senior market intelligence analyst.${ctx ? ` Context: ${ctx}.` : ''} Return ONLY valid JSON — no markdown, no prose.`;
+
+    const signalDump = pool.map((s, i) =>
+      `Signal ${i+1} [${s.type} | ${s.strength}]: ${s.content.slice(0, 200)}` +
+      (s.tags?.tactic ? ` | Tactic: ${s.tags.tactic}` : '') +
+      (s.tags?.emotionalDriver ? ` | Driver: ${s.tags.emotionalDriver}` : '') +
+      (s.analysis ? ` | Insight: ${s.analysis.slice(0, 120)}` : '')
+    ).join('\n');
 
     try {
-      const result = await window.ClaudeService.callAgent({
-        systemPrompt: `You are a senior market intelligence analyst. Synthesize patterns across signals into concise, actionable insights. Format as 3-5 bullet points starting with "•". Be specific, not generic.`,
+      const raw = await window.ClaudeService.callAgent({
+        systemPrompt,
         messages: [{
           role: 'user',
-          content: `Analyze these strong market signals and identify what patterns are emerging about what's working in this market:\n\n${signalSummary}\n\nIdentify 3-5 clear patterns. What tactics, emotional drivers, or angles are repeatedly showing up? What does this tell us about the market right now?`
+          content: `Analyse these ${pool.length} market signals and return a JSON object:
+{
+  "patterns": [
+    { "headline": "string — punchy 6-10 word pattern headline", "detail": "string — 1-2 sentences explaining this pattern with specific evidence", "emoji": "string — one relevant emoji" }
+  ],
+  "topTactics": ["string", "string", "string"],
+  "dominantDriver": "string — the single most common emotional/psychological driver across signals",
+  "marketMoment": "string — 2 sentences: what moment is this market in right now?",
+  "gaps": [
+    { "gap": "string — a specific unaddressed need or angle competitors are missing", "opportunity": "string — how you could exploit it" }
+  ]
+}
+
+Signals:
+${signalDump}
+
+Return 3-5 patterns, up to 3 gaps. Be specific — name tactics, emotions, formats. No generic observations.`
         }]
       });
-      el.innerHTML = result.split('\n').filter(l=>l.trim()).map(l => `<div class="pattern-item">${escHtml(l)}</div>`).join('');
+
+      let parsed;
+      try { const m = raw.match(/\{[\s\S]*\}/); parsed = JSON.parse(m ? m[0] : raw); } catch(_) { parsed = null; }
+
+      if (parsed) {
+        renderSynthesisResult(parsed, el);
+      } else {
+        // Fallback plain text
+        el.innerHTML = raw.split('\n').filter(l=>l.trim()).map(l => `<div class="pattern-item">${escHtml(l)}</div>`).join('');
+      }
     } catch(e) {
-      el.innerHTML = `<div class="analysis-box" style="color:#ef4444;">Error: ${escHtml(e.message)}</div>`;
+      if (!silent) el.innerHTML = `<div class="analysis-box" style="color:#ef4444;">Error: ${escHtml(e.message)}</div>`;
     }
   };
 
-  // ── Manual gap ─────────────────────────────────────────────────────
+  function renderSynthesisResult(data, el) {
+    let html = '';
+
+    if (data.marketMoment) {
+      html += `<div style="padding:12px;background:rgba(124,58,237,0.1);border-radius:10px;font-size:13px;color:#c4b5fd;line-height:1.65;margin-bottom:14px;">🌐 <em>${escHtml(data.marketMoment)}</em></div>`;
+    }
+
+    if (data.patterns?.length) {
+      data.patterns.forEach(p => {
+        html += `
+          <div class="pattern-item" style="margin-bottom:10px;">
+            <div style="font-weight:700;margin-bottom:3px;">${escHtml(p.emoji||'')}&nbsp;${escHtml(p.headline||'')}</div>
+            <div style="font-size:12px;color:#94a3b8;line-height:1.55;">${escHtml(p.detail||'')}</div>
+          </div>`;
+      });
+    }
+
+    if (data.topTactics?.length) {
+      html += `<div style="margin-top:10px;"><div style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Top Tactics Spotted</div>`;
+      html += data.topTactics.map(t => `<span style="display:inline-block;margin:0 4px 4px 0;padding:3px 10px;background:rgba(124,58,237,0.12);border-radius:20px;font-size:12px;color:#c4b5fd;">${escHtml(t)}</span>`).join('');
+      html += '</div>';
+    }
+
+    if (data.dominantDriver) {
+      html += `<div style="margin-top:10px;font-size:12px;color:#64748b;">💡 Dominant driver across signals: <strong style="color:#e2e8f0;">${escHtml(data.dominantDriver)}</strong></div>`;
+    }
+
+    el.innerHTML = html || '<div class="empty-state">No patterns found yet.</div>';
+
+    // Save Claude-generated gaps
+    if (data.gaps?.length) {
+      const existing = getGaps();
+      const autoIds  = new Set(existing.filter(g => g.auto).map(g => g.text.slice(0, 60)));
+      let added = false;
+      data.gaps.forEach(g => {
+        const text = g.gap + (g.opportunity ? ' → ' + g.opportunity : '');
+        if (!autoIds.has(text.slice(0, 60))) {
+          existing.unshift({ id: 'g_ai_' + Date.now() + Math.random(), text, date: new Date().toISOString(), auto: true });
+          added = true;
+        }
+      });
+      if (added) { saveGaps(existing.slice(0, 20)); renderGaps(); }
+    } else {
+      renderGaps();
+    }
+  }
+
+  // ── Gaps ───────────────────────────────────────────────────────────
+  function renderGaps() {
+    const gaps = getGaps();
+    const el   = document.getElementById('gaps-output');
+    if (!gaps.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:16px 0;"><p style="font-size:12px;">Gaps are auto-generated as you add signals, or add one manually below.</p></div>';
+      return;
+    }
+    el.innerHTML = gaps.map(g => `
+      <div class="gap-item" style="display:flex;align-items:flex-start;gap:8px;">
+        ${g.auto ? '<span style="font-size:10px;color:#f59e0b;flex-shrink:0;margin-top:2px;">AI</span>' : '<span style="font-size:10px;color:#64748b;flex-shrink:0;margin-top:2px;">📌</span>'}
+        <span>${escHtml(g.text)}</span>
+      </div>`).join('');
+  }
+
   window.addGapManually = function() {
     const f = document.getElementById('add-gap-form');
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -574,7 +730,9 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
   window.saveManualGap = function() {
     const text = document.getElementById('gap-text').value.trim();
     if (!text) return;
-    pulse().addGap(text);
+    const gaps = getGaps();
+    gaps.unshift({ id: 'g_' + Date.now(), text, date: new Date().toISOString(), auto: false });
+    saveGaps(gaps);
     document.getElementById('gap-text').value = '';
     document.getElementById('add-gap-form').style.display = 'none';
     renderGaps();
@@ -585,47 +743,60 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
   window.generateDigest = async function() {
     const outputEl = document.getElementById('digest-output');
     outputEl.style.display = 'block';
-    outputEl.innerHTML = '<div class="analysis-box"><span class="loading"></span>Generating digest...</div>';
+    outputEl.innerHTML = '<div class="analysis-box"><span class="loading"></span>Generating digest…</div>';
 
-    const signals = pulse().getSignals();
-    const gaps = pulse().getGaps();
+    const signals = getSignals();
+    const gaps    = getGaps();
 
     if (!signals.length) {
       outputEl.innerHTML = '<div class="analysis-box" style="color:#f59e0b;">No signals logged yet. Add signals to generate a digest.</div>';
       return;
     }
 
-    if (!window.ClaudeService || !window.ClaudeService.getApiKey()) {
-      // Generate a manual digest
-      const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
-      const recent = signals.filter(s => new Date(s.date).getTime() >= weekAgo);
-      const strong = signals.filter(s => s.strength === 'Strong');
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    const recent  = signals.filter(s => new Date(s.date).getTime() >= weekAgo);
+    const strong  = signals.filter(s => s.strength === 'Strong');
+    const ctx     = brainContext();
 
-      const digest = `MARKET PULSE — WEEKLY DIGEST\n${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}\n\n` +
-        `SIGNALS THIS WEEK: ${recent.length}\n` +
-        `STRONG SIGNALS: ${strong.length}\n\n` +
-        `TOP SIGNALS:\n` +
-        signals.slice(0,5).map((s,i) => `${i+1}. [${s.type}] ${s.content.slice(0,100)}...`).join('\n') +
-        (gaps.length ? `\n\nIDENTIFIED GAPS:\n` + gaps.map(g=>`• ${g.text}`).join('\n') : '') +
-        '\n\n— Generated by Audema - Your AI Marketing Department';
-
-      outputEl.innerHTML = `<div class="analysis-box" style="white-space:pre-wrap;">${escHtml(digest)}</div>
-        <button class="btn-secondary btn-sm" style="margin-top:10px;" onclick="copyDigest()">Copy Digest</button>`;
-      outputEl.dataset.digest = digest;
-      return;
-    }
-
-    const signalSummary = signals.slice(0,15).map(s => `[${s.type} | ${s.strength}] ${s.content.slice(0,150)}`).join('\n');
+    const signalSummary = signals.slice(0, 15).map(s =>
+      `[${s.type} | ${s.strength}] ${s.content.slice(0, 150)}` +
+      (s.tags?.tactic ? ` (Tactic: ${s.tags.tactic})` : '')
+    ).join('\n');
 
     try {
       const result = await window.ClaudeService.callAgent({
-        systemPrompt: `You are a senior marketing intelligence analyst writing a concise weekly digest for a marketing team. Be crisp, insightful, and immediately useful. Use bullet points.`,
+        systemPrompt: `You are a senior marketing intelligence analyst writing a sharp, actionable weekly digest.${ctx ? ` Context: ${ctx}.` : ''} Be crisp and specific. No filler.`,
         messages: [{
           role: 'user',
-          content: `Generate a Weekly Market Pulse Digest from these signals. Structure it as:\n\n**MARKET PULSE — WEEKLY DIGEST**\n**What We're Seeing** (3-4 bullets on key trends)\n**Strongest Signals** (2-3 specific callouts)\n**Watch List** (what to monitor next week)\n**Potential Gaps to Exploit** (1-2 opportunities)\n\nSignals:\n${signalSummary}`
+          content: `Write a Weekly Market Pulse Digest. Use this structure (use **bold headers**):
+
+**MARKET PULSE — WEEKLY DIGEST**
+Week ending ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+${recent.length} signals captured this week · ${strong.length} rated Strong
+
+**What The Market Is Doing**
+3-4 bullets — specific trends and movements, name tactics and angles
+
+**Strongest Signals This Week**
+2-3 bullets — the most strategically significant observations with why they matter
+
+**Tactics Worth Stealing**
+2-3 bullets — specific tactics spotted that could be adapted
+
+**Market Gaps To Exploit**
+1-3 bullets — clear opportunities competitors are missing
+
+**Watch List For Next Week**
+2-3 things to monitor
+
+Signals:
+${signalSummary}
+${gaps.length ? '\nIdentified gaps:\n' + gaps.slice(0,5).map(g=>`• ${g.text}`).join('\n') : ''}`
         }]
       });
-      outputEl.innerHTML = `<div class="analysis-box">${escHtml(result)}</div>
+
+      outputEl.innerHTML = `
+        <div class="analysis-box" style="white-space:pre-wrap;">${escHtml(result)}</div>
         <button class="btn-secondary btn-sm" style="margin-top:10px;" onclick="copyDigest()">Copy Digest</button>`;
       outputEl.dataset.digest = result;
     } catch(e) {
@@ -635,14 +806,12 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
 
   window.copyDigest = function() {
     const text = document.getElementById('digest-output').dataset.digest || '';
-    if (text) {
-      navigator.clipboard.writeText(text).then(() => showToast('Digest copied!'));
-    }
+    if (text) navigator.clipboard.writeText(text).then(() => showToast('Digest copied!'));
   };
 
   // ── Utilities ──────────────────────────────────────────────────────
   function escHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function showToast(msg) {
@@ -654,9 +823,16 @@ KEY INSIGHT: [The most important thing this signal tells us about what's working
   }
 
   // ── Init ──────────────────────────────────────────────────────────
+  document.addEventListener('intelligence:synced', function () {
+    renderLibrary();
+    refreshAnalysis(true);
+    renderGaps();
+  });
+
   renderLibrary();
-  renderPatterns();
   renderGaps();
+  // Run AI synthesis on load if we already have signals
+  if (getSignals().length > 0) refreshAnalysis(true);
 })();
 </script>
 </body>

@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * CMO SERVICE - Chief Marketing Officer Executive Orchestration
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Executive-level orchestration service that coordinates all marketing agents

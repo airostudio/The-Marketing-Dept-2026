@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * LINKEDIN PROSPECTING SERVICE
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * Manages LinkedIn prospect tracking, outreach campaigns, and sales funnel
