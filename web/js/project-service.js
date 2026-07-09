@@ -1,6 +1,6 @@
 /**
  * Project Service - Supabase-backed Project Management
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * Handles persistent project storage using Supabase with localStorage fallback.
  * Projects are stored in the user's account and sync across devices.
@@ -168,7 +168,7 @@
      * Create a new project
      *
      * Persistence priority:
-     *   1. Aduma Express backend at /api/projects (requires a real JWT)
+     *   1. Audema Express backend at /api/projects (requires a real JWT)
      *   2. Supabase (if configured and authenticated)
      *   3. localStorage (offline / demo fallback)
      */

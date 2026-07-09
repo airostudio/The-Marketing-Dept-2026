@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * SCOTTY INTAKE — Aduma - Your AI Marketing Department
+ * SCOTTY INTAKE — Audema - Your AI Marketing Department
  *
  * Included on every specialist agent page. On load, checks whether Scotty
  * dispatched a task to this agent. If so:

@@ -1,5 +1,5 @@
 /**
- * api/mcp.js — Aduma A/B Testing MCP Server (HTTP transport)
+ * api/mcp.js — Audema A/B Testing MCP Server (HTTP transport)
  *
  * Implements the Model Context Protocol (MCP) Streamable HTTP transport.
  * Claude Desktop / Cursor / any MCP client connects to this endpoint.
@@ -283,13 +283,13 @@ async function tool_generate_tracking_snippet(args, env) {
 
   const variantMap = variants.map(v => `    { id: '${v.id}', name: '${v.name}', weight: ${v.traffic_allocation / 100}, isControl: ${v.is_control} }`).join(',\n');
   const goalSelectors = goals.filter(g => g.type === 'click' && g.selector)
-    .map(g => `    document.querySelectorAll('${g.selector}').forEach(el => el.addEventListener('click', () => AdumaAB.convert('${g.id}')));`)
+    .map(g => `    document.querySelectorAll('${g.selector}').forEach(el => el.addEventListener('click', () => AudemaAB.convert('${g.id}')));`)
     .join('\n');
   const urlGoals = goals.filter(g => g.type === 'pageview' && g.url_pattern)
-    .map(g => `  if (window.location.href.includes('${g.url_pattern}')) AdumaAB.convert('${g.id}');`)
+    .map(g => `  if (window.location.href.includes('${g.url_pattern}')) AudemaAB.convert('${g.id}');`)
     .join('\n');
 
-  const snippet = `<!-- Aduma A/B Tracking | Experiment: ${exp.name} -->
+  const snippet = `<!-- Audema A/B Tracking | Experiment: ${exp.name} -->
 <script>
 (function() {
   var EXPERIMENT_ID = '${exp.id}';
@@ -298,7 +298,7 @@ async function tool_generate_tracking_snippet(args, env) {
 ${variantMap}
   ];
 
-  window.AdumaAB = {
+  window.AudemaAB = {
     _variantId: null,
     _visitorId: null,
 
@@ -343,16 +343,16 @@ ${variantMap}
     }
   };
 
-  AdumaAB.init();
+  AudemaAB.init();
 
   // Auto-bind click goals
   document.addEventListener('DOMContentLoaded', function() {
-${goalSelectors || '    // No click goals defined yet — call AdumaAB.convert(\'goal_id\') manually'}
+${goalSelectors || '    // No click goals defined yet — call AudemaAB.convert(\'goal_id\') manually'}
 ${urlGoals || ''}
   });
 })();
 </script>
-<!-- End Aduma A/B Tracking -->`;
+<!-- End Audema A/B Tracking -->`;
 
   return `**Tracking snippet for "${exp.name}"**\n\nPaste this into the \`<head>\` of every page in the experiment:\n\n\`\`\`html\n${snippet}\n\`\`\`\n\n**CSS targeting example:**\n\`\`\`css\n/* Show/hide based on variant */\n[data-ab-variant="Control"] .promo-banner { display: none; }\n[data-ab-variant="Variant B"] .promo-banner { display: block; }\n\`\`\``;
 }
@@ -581,7 +581,7 @@ module.exports = async function handler(req, res) {
     return res.json(jsonrpc(id, {
       protocolVersion: '2025-03-26',
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'aduma-ab-testing', version: '1.0.0', description: 'Aduma A/B Testing & Experimentation MCP Server' },
+      serverInfo: { name: 'aduma-ab-testing', version: '1.0.0', description: 'Audema A/B Testing & Experimentation MCP Server' },
     }));
   }
 

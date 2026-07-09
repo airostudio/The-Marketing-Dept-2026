@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * AUTONOMOUS AI AGENTS SERVICE - 24/7 SEO Optimization Engine
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * This service provides 7 autonomous AI agents that continuously optimize SEO

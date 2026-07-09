@@ -1,6 +1,6 @@
 /**
  * SEO Pulse Handler - Handles autofix navigation from SEO Pulse
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * When users click on issues in SEO Pulse, they're directed to the relevant
  * tool page with URL parameters. This handler processes those parameters

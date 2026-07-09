@@ -1,6 +1,6 @@
 /**
  * Application Configuration
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * This file contains environment-specific configuration.
  * For deployment, update these values or replace this file via CI/CD.
@@ -189,7 +189,7 @@ window.APP_CONFIG = {
     // ═══════════════════════════════════════════════════════════════════════════
     // APP SETTINGS
     // ═══════════════════════════════════════════════════════════════════════════
-    APP_NAME: 'Aduma - Aduma Marketing',
+    APP_NAME: 'Audema - Audema Marketing',
     APP_VERSION: '2026.1.0',
 
     // API rate limiting (requests per minute)

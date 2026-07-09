@@ -1,6 +1,6 @@
 /**
  * Lead Generation Specialist Service
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * Comprehensive lead generation and qualification system
  * for identifying, attracting, and nurturing potential customers.

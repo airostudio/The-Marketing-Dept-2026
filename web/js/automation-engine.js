@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * AUTOMATION ENGINE — Aduma - Your AI Marketing Department
+ * AUTOMATION ENGINE — Audema - Your AI Marketing Department
  * Workflow orchestration layer that executes end-to-end marketing automation.
  *
  * This module manages four automated workflows:

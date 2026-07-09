@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * CUSTOMER LIFECYCLE ENGINE — Aduma - Your AI Marketing Department
+ * CUSTOMER LIFECYCLE ENGINE — Audema - Your AI Marketing Department
  * Customer retention, expansion, and advocacy automation layer.
  *
  * This module manages the post-sale customer journey:

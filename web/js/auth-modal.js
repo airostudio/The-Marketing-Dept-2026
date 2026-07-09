@@ -1,5 +1,5 @@
 /**
- * AUTH MODAL — Aduma
+ * AUTH MODAL — Audema
  *
  * Self-contained login / sign-up modal with built-in localStorage auth.
  * No dependency on window.Auth, window.apiClient, or any external module.
@@ -293,7 +293,7 @@
     <div id="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="am-title">
       <div id="auth-modal-box">
         <div class="am-header">
-          <h2 id="am-title">Aduma</h2>
+          <h2 id="am-title">Audema</h2>
           <p>Your AI Marketing Department</p>
           <button class="am-close" id="am-close-btn" aria-label="Close">&times;</button>
         </div>

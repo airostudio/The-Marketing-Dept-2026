@@ -1,6 +1,6 @@
 /**
  * agent-characters.js
- * Pop-art character portraits for every Aduma marketing agent.
+ * Pop-art character portraits for every Audema marketing agent.
  * Add data-agent="rex" (or any agent ID below) to any .hero element to activate.
  * The script auto-initialises on DOMContentLoaded.
  */
@@ -214,11 +214,6 @@
       tagline: 'Obsessive researcher. Turns search chaos into rankings dominance.',
       svg: function(c) { return buildSVG(c, wavyHair(), roundGlasses(c), SMILE); }
     },
-    blaze: {
-      name: 'BLAZE', color: '#f97316',
-      tagline: 'ROI-obsessed. Every dollar in, maximum impact out.',
-      svg: function(c) { return buildSVG(c, spikyHair(), '', WIDE); }
-    },
     nova: {
       name: 'NOVA', color: '#ec4899',
       tagline: 'Relationship-builder. Turns cold lists into loyal audiences.',
@@ -284,7 +279,6 @@
   // Real portrait images
   var AGENT_IMGS = {
     rex:    '/assets/agents/rex.png',
-    blaze:  '/assets/agents/blaze.png',
     nova:   '/assets/agents/nova.png',
     reel:   '/assets/agents/reel.png',
     pulse:  '/assets/agents/pulse.png',

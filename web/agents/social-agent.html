@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Studio | Aduma - Your AI Marketing Department</title>
+    <title>Social Studio | Audema - Your AI Marketing Department</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,6 +67,37 @@
         .platform-btn.active { border-color: var(--purple); color: var(--purple); background: rgba(124,58,237,0.1); }
         .platform-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
 
+        /* Mode toggle: Organic Posts vs Ad Campaign */
+        .mode-toggle { display: flex; gap: 0; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .mode-btn {
+            flex: 1; padding: 11px 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+            border: none; background: none; color: var(--text2); font-family: 'Inter', sans-serif;
+            transition: all 0.15s; text-align: center;
+        }
+        .mode-btn.active { background: rgba(124,58,237,0.18); color: #a78bfa; }
+        .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+
+        /* Ad-mode: platform pills (multi-select) */
+        .platform-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .platform-pill {
+            padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+            background: rgba(255,255,255,0.04); transition: all 0.15s; user-select: none;
+        }
+        .platform-pill.active { border-color: #f97316; color: #f97316; background: rgba(249,115,22,0.1); }
+
+        /* Ad-mode: framework chips */
+        .framework-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+        .framework-chip {
+            padding: 5px 11px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+            background: rgba(255,255,255,0.03); transition: all 0.15s; user-select: none;
+            letter-spacing: 0.3px;
+        }
+        .framework-chip.active { border-color: #8b5cf6; color: #c4b5fd; background: rgba(139,92,246,0.12); }
+        .framework-chip:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
+        .framework-chip .chip-tag { display: block; font-size: 9px; color: rgba(255,255,255,0.3); font-weight: 400; margin-top: 1px; }
+
         .btn-run { width: 100%; padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--pink)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; margin-top: 4px; }
         .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
         .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -113,7 +144,7 @@
     <div class="nav-left">
         <a class="nav-logo" href="/index.html">
             <div class="nav-logo-icon">📱</div>
-            Aduma
+            Audema
         </a>
         <span class="nav-sep">/</span>
         <span class="nav-breadcrumb"><span style="color:#8b5cf6;font-weight:700;letter-spacing:1px;">PULSE</span> · Social Studio</span>
@@ -127,7 +158,7 @@
 <div class="hero" data-agent="pulse">
     <span class="hero-emoji">📱</span>
     <h1>Social Studio</h1>
-    <p class="hero-tagline">Platform-native content, calendars, and viral hooks</p>
+    <p class="hero-tagline">Platform-native content, ad campaigns, calendars, and viral hooks</p>
     <span class="powered-pill">⚡ Powered by Claude</span>
     <span class="intelligence-badge" id="intelligenceBadge" style="display:none;">⚡ Intelligence Layer Active</span>
 </div>
@@ -139,6 +170,14 @@
             <span class="panel-title">Content Brief</span>
         </div>
         <div class="panel-body">
+            <!-- Mode toggle: organic content vs paid ad campaign -->
+            <div class="mode-toggle" id="modeToggle">
+                <button type="button" class="mode-btn active" data-mode="organic" onclick="setStudioMode('organic')">📱 Organic Posts</button>
+                <button type="button" class="mode-btn" data-mode="ads" onclick="setStudioMode('ads')">🎯 Ad Campaign</button>
+            </div>
+
+            <!-- ── Organic mode fields ─────────────────────────────────── -->
+            <div id="organicFields">
             <div class="field-group">
                 <label class="field-label">Platform</label>
                 <div class="platform-grid" id="platformGrid">
@@ -184,7 +223,84 @@
                     </select>
                 </div>
             </div>
-            <button class="btn-run" id="runBtn" onclick="agent.run()">Create Content</button>
+            </div><!-- /organicFields -->
+
+            <!-- ── Ad Campaign mode fields (merged from Ad Creative Lab) ── -->
+            <div id="adFields" style="display:none;">
+            <div class="field-group">
+                <label class="field-label">Platforms <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— select one or more</span></label>
+                <div class="platform-pills" id="adPlatformPills">
+                    <span class="platform-pill active" data-value="Meta/Facebook">Meta / Facebook</span>
+                    <span class="platform-pill active" data-value="LinkedIn">LinkedIn</span>
+                    <span class="platform-pill" data-value="Google Search">Google Search</span>
+                    <span class="platform-pill" data-value="Google Display">Google Display</span>
+                    <span class="platform-pill" data-value="TikTok">TikTok</span>
+                    <span class="platform-pill" data-value="Twitter/X">Twitter / X</span>
+                    <span class="platform-pill" data-value="YouTube">YouTube</span>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Advertising Framework <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— world's best models (pick 1–3)</span></label>
+                <div class="framework-grid" id="frameworkChips">
+                    <span class="framework-chip active" data-value="AIDA">AIDA<span class="chip-tag">Ogilvy / Hopkins</span></span>
+                    <span class="framework-chip active" data-value="PAS">PAS<span class="chip-tag">Dan Kennedy</span></span>
+                    <span class="framework-chip" data-value="BAB">BAB<span class="chip-tag">Before-After-Bridge</span></span>
+                    <span class="framework-chip" data-value="Hook-Story-Offer">Hook / Story / Offer<span class="chip-tag">Hormozi · Brunson</span></span>
+                    <span class="framework-chip" data-value="Ogilvy">Ogilvy Principles<span class="chip-tag">Research-Driven</span></span>
+                    <span class="framework-chip" data-value="StoryBrand">StoryBrand<span class="chip-tag">Donald Miller</span></span>
+                    <span class="framework-chip" data-value="Byron Sharp">Byron Sharp<span class="chip-tag">How Brands Grow</span></span>
+                    <span class="framework-chip" data-value="Cialdini">Cialdini 7<span class="chip-tag">Influence Principles</span></span>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Campaign Objective</label>
+                <select class="field-select" id="adObjective">
+                    <option value="Awareness">Awareness — Build brand salience</option>
+                    <option value="Traffic">Traffic — Drive clicks</option>
+                    <option value="Leads">Leads — Generate leads / downloads</option>
+                    <option value="Conversions" selected>Conversions — Direct response</option>
+                    <option value="Retargeting">Retargeting — Close warm audiences</option>
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Product / Offer</label>
+                <textarea class="field-textarea" id="adProduct" style="min-height:80px;" placeholder="What are you advertising? Key benefits, unique angles, special offer or pricing…"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Target Audience</label>
+                <textarea class="field-textarea" id="adAudience" style="min-height:70px;" placeholder="Who is this for? Role, company size, pain points, funnel stage…"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="field-group" style="margin-bottom:0">
+                    <label class="field-label">Budget (optional)</label>
+                    <input class="field-input" id="adBudget" type="text" placeholder="e.g. $5k/mo">
+                </div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label class="field-label">Variants per platform</label>
+                    <select class="field-select" id="adVariantCount">
+                        <option value="3">3 variants</option>
+                        <option value="5" selected>5 variants</option>
+                        <option value="7">7 variants</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group" style="margin-top:12px;">
+                <label class="field-label">Competitors (optional — adds displacement angles)</label>
+                <input class="field-input" id="adCompetitors" type="text" placeholder="e.g. HubSpot, Salesforce, Mailchimp">
+            </div>
+
+            <!-- Convert A/B Experiment Data -->
+            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;">
+                <div style="font-weight:700;color:#10b981;margin-bottom:4px;">Convert A/B Data Loaded</div>
+                <div id="convertExperimentSummary" style="color:rgba(255,255,255,0.6);line-height:1.5;"></div>
+            </div>
+            <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
+            </div><!-- /adFields -->
+
+            <button class="btn-run" id="runBtn" onclick="agent.run()" style="margin-top:14px;">Create Content</button>
         </div>
     </div>
 
@@ -225,6 +341,16 @@
                 <div class="feature-name">Content Calendar View</div>
                 <div class="feature-desc">Posts are scheduled across your week with timing recommendations for peak engagement per platform.</div>
             </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-name">Ad Campaign Mode</div>
+                <div class="feature-desc">Switch to Ad Campaign for conversion-ready ad variants built on AIDA, PAS, Hook/Story/Offer, Ogilvy, StoryBrand, and Cialdini — with exact platform character limits.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧪</div>
+                <div class="feature-name">A/B Test Intelligence</div>
+                <div class="feature-desc">Pull winning copy from your Convert A/B experiments straight into new ad variants — build on what already converts.</div>
+            </div>
         </div>
     </div>
 
@@ -248,6 +374,78 @@ document.querySelectorAll('.platform-btn').forEach(btn => {
 function getSelectedPlatform() {
     const active = document.querySelector('.platform-btn.active');
     return active ? active.dataset.value : 'LinkedIn';
+}
+
+/* ── Studio mode: organic posts vs ad campaign ─────────────────────────── */
+let studioMode = 'organic';
+
+function setStudioMode(mode) {
+    studioMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    document.getElementById('organicFields').style.display = mode === 'organic' ? '' : 'none';
+    document.getElementById('adFields').style.display      = mode === 'ads' ? '' : 'none';
+    document.getElementById('runBtn').textContent          = mode === 'ads' ? 'Generate Ad Variants' : 'Create Content';
+    const empty = document.querySelector('#output .output-empty');
+    if (empty) empty.textContent = mode === 'ads'
+        ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
+        : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.';
+    if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+}
+
+/* Ad-mode platform pills — multi-select */
+document.querySelectorAll('#adPlatformPills .platform-pill').forEach(pill => {
+    pill.addEventListener('click', () => pill.classList.toggle('active'));
+});
+
+function getSelectedAdPlatforms() {
+    const active = document.querySelectorAll('#adPlatformPills .platform-pill.active');
+    return active.length ? [...active].map(p => p.dataset.value) : ['Meta/Facebook'];
+}
+
+/* Ad-mode framework chips — multi-select, cap at 3 */
+document.querySelectorAll('.framework-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        if (chip.classList.contains('active')) {
+            chip.classList.remove('active');
+        } else {
+            const active = document.querySelectorAll('.framework-chip.active');
+            if (active.length >= 3) { active[0].classList.remove('active'); }
+            chip.classList.add('active');
+        }
+    });
+});
+
+function getSelectedFrameworks() {
+    const active = document.querySelectorAll('.framework-chip.active');
+    return active.length ? [...active].map(c => c.dataset.value) : ['AIDA', 'PAS'];
+}
+
+/* Convert A/B experiment data (winning copy feeds new ad variants) */
+let _convertData = null;
+
+async function loadConvertData() {
+    const btn = document.getElementById('loadConvertBtn');
+    const panel = document.getElementById('convertExperimentPanel');
+    const summary = document.getElementById('convertExperimentSummary');
+    btn.disabled = true;
+    btn.textContent = 'Loading experiments…';
+    try {
+        const res = await fetch('/api/convert-experiments', { method: 'GET' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load experiments');
+        _convertData = data;
+        const expCount = data.experiments?.length || 0;
+        const winners = data.experiments?.filter(e => e.winner).length || 0;
+        summary.innerHTML = `${expCount} experiments found · ${winners} with declared winners · Top performer: ${data.topPerformer || 'N/A'}`;
+        panel.style.display = 'block';
+        btn.textContent = 'Reload Convert Data';
+    } catch (err) {
+        summary.innerHTML = `<span style="color:#ef4444;">${err.message}</span><br><span style="color:rgba(255,255,255,0.4);">Add CONVERT_API_KEY + CONVERT_API_SECRET in Vercel env vars.</span>`;
+        panel.style.display = 'block';
+        btn.textContent = 'Retry Convert Data';
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 class SocialAgent {
@@ -460,7 +658,112 @@ class SocialAgent {
         return prompt;
     }
 
+    /* Auto-fill the ad brief from BusinessBrain (product from positioning, audience from ICP) */
+    loadAdBriefFromBrain() {
+        if (!this.intelligenceEngine || !this.intelligenceEngine.brain) return;
+        const data = this.intelligenceEngine.brain.load();
+        if (!data) return;
+
+        const productEl = document.getElementById('adProduct');
+        if (productEl && !productEl.value && data.positioning && data.positioning.uniqueValue) {
+            let productDesc = data.positioning.uniqueValue;
+            const diffs = (data.positioning.differentiation || []).filter(d => d && d.trim());
+            if (diffs.length > 0) productDesc += `. Key differentiators: ${diffs.slice(0, 2).join(', ')}`;
+            productEl.value = `✨ ${productDesc} (from BusinessBrain)`;
+            productEl.style.color = '#10b981';
+        }
+
+        const audienceEl = document.getElementById('adAudience');
+        if (audienceEl && !audienceEl.value && data.icp && data.icp.primaryBuyer && data.icp.primaryBuyer.role) {
+            const icp = data.icp;
+            let audienceSummary = icp.primaryBuyer.role;
+            if (icp.primaryBuyer.companySize) audienceSummary += ` at ${icp.primaryBuyer.companySize} companies`;
+            if (icp.primaryBuyer.industry) audienceSummary += `, ${icp.primaryBuyer.industry}`;
+            const pains = (icp.painPoints || []).filter(p => p);
+            if (pains.length) audienceSummary += `. Pain points: ${pains.slice(0, 2).join(', ')}`;
+            audienceEl.value = `✨ ${audienceSummary} (from BusinessBrain ICP)`;
+            audienceEl.style.color = '#10b981';
+        }
+    }
+
     async run() {
+        if (studioMode === 'ads') return this.runAds();
+        return this.runOrganic();
+    }
+
+    /* Ad Campaign mode — dedicated /api/generate-ads endpoint with 8 advertising frameworks */
+    async runAds() {
+        const product  = document.getElementById('adProduct').value.trim();
+        const audience = document.getElementById('adAudience').value.trim();
+        if (!product || !audience) { alert('Please fill in the Product/Offer and Target Audience fields.'); return; }
+
+        const platforms   = getSelectedAdPlatforms();
+        const frameworks  = getSelectedFrameworks();
+        const objective   = document.getElementById('adObjective').value;
+        const budget      = document.getElementById('adBudget').value.trim();
+        const competitors = document.getElementById('adCompetitors').value.trim();
+        const variants    = parseInt(document.getElementById('adVariantCount').value, 10) || 5;
+        const tone        = Array.isArray(this.brandVoice) ? this.brandVoice.join(', ') : '';
+
+        const outputEl = document.getElementById('output');
+        const runBtn   = document.getElementById('runBtn');
+
+        let contextBundle = null;
+        if (this.intelligenceEngine) {
+            contextBundle = this.intelligenceEngine.getContextBundle();
+            if (contextBundle?.completionScore < 30) {
+                outputEl.innerHTML = `<div style="padding:14px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
+                    <strong style="color:#f59e0b;">Tip:</strong> BusinessBrain is ${contextBundle.completionScore}% configured. Ad variants will be more targeted once ICP, brand voice, and value props are set up.
+                    <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure →</a>
+                </div>`;
+            }
+        }
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Generating…';
+        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
+
+        const body = { platforms, objective, product, audience, models: frameworks, tone, budget, competitors, variants };
+
+        // Inject Convert A/B experiment winners as context if loaded
+        if (_convertData?.experiments?.length) {
+            const winners = _convertData.experiments
+                .filter(e => e.winner)
+                .map(e => `"${e.winnerVariant?.name}" beat control by ${e.winnerVariant?.uplift} (${e.name})`)
+                .slice(0, 5).join('; ');
+            if (winners) body.product = body.product + `\n\nConvert A/B Winners: ${winners}`;
+        }
+
+        try {
+            const res  = await fetch('/api/generate-ads', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            const content = data.content || '';
+            outputEl.innerHTML = marked.parse(content);
+            outputEl.scrollTop = 0;
+
+            if (window.AgentHistory && content.trim()) {
+                window.AgentHistory.save({
+                    agentKey: 'ads',
+                    taskType: platforms.join('+') + ' Ad Variants',
+                    content,
+                    topic: product.slice(0, 60),
+                });
+            }
+        } catch (err) {
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${err.message}</div>`;
+        } finally {
+            runBtn.disabled    = false;
+            runBtn.textContent = 'Generate Ad Variants';
+        }
+    }
+
+    async runOrganic() {
         const topic = document.getElementById('topic').value.trim();
         if (!topic) { alert('Please enter a topic or theme.'); return; }
 
@@ -540,10 +843,12 @@ function copyOutput() {
 
 function downloadOutput() {
     const text = document.getElementById('output').innerText;
-    const platform = getSelectedPlatform().replace(/\s+\/\s+|\s+/g,'-').toLowerCase();
+    const label = studioMode === 'ads'
+        ? 'ads-' + getSelectedAdPlatforms().join('-').replace(/[^a-z0-9-]/gi,'-').toLowerCase()
+        : 'social-' + getSelectedPlatform().replace(/\s+\/\s+|\s+/g,'-').toLowerCase();
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `social-${platform}-${Date.now()}.txt`; a.click();
+    a.download = `${label}-${Date.now()}.txt`; a.click();
 }
 
 // ── Buffer / Hootsuite CSV Export ──────────────────────────────────────────

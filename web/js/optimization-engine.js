@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * OPTIMIZATION ENGINE — Aduma - Your AI Marketing Department
+ * OPTIMIZATION ENGINE — Audema - Your AI Marketing Department
  * Closed-loop feedback and optimization layer for autonomous marketing platform.
  *
  * This module manages the feedback loop from execution → analysis → optimization:

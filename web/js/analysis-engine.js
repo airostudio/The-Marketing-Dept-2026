@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * SEO ANALYSIS ENGINE - PRODUCTION VERSION
- * Aduma Marketing 2026 - Real SEO Analysis System
+ * Audema Marketing 2026 - Real SEO Analysis System
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  * This engine performs REAL SEO analysis using:

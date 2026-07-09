@@ -15,7 +15,7 @@
     'email':                { name: 'Email Engine',            icon: '📧', color: '#10b981' },
     'social':               { name: 'Social Studio',           icon: '📱', color: '#ec4899' },
     'competitive':          { name: 'Competitive Intelligence',icon: '🎯', color: '#14b8a6' },
-    'ads':                  { name: 'Ad Creative Lab',         icon: '📣', color: '#f97316' },
+    'ads':                  { name: 'Ad Campaigns',            icon: '🎯', color: '#f97316' },
     'analytics':            { name: 'Analytics Brain',         icon: '📊', color: '#3b82f6' },
     'sales':                { name: 'Sales Intelligence',      icon: '💼', color: '#a855f7' },
     'video':                { name: 'Video Studio',            icon: '🎬', color: '#ef4444' },

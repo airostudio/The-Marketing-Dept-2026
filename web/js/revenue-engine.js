@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * REVENUE ENGINE — Aduma - Your AI Marketing Department
+ * REVENUE ENGINE — Audema - Your AI Marketing Department
  * Revenue planning, pipeline attribution, and sales enablement layer.
  *
  * This module bridges the gap between marketing execution and revenue accountability:
@@ -1185,7 +1185,7 @@ class SalesEnablementEngine {
     const company = lead.company || 'your company';
 
     return `
-Hi ${name}, this is [Your Name] from Aduma.
+Hi ${name}, this is [Your Name] from Audema.
 
 I saw you ${behavior.contentConsumed.length > 0 ? `recently downloaded our ${behavior.contentConsumed[0]}` : 'visited our website'}.
 
@@ -1212,7 +1212,7 @@ I noticed you ${behavior.contentConsumed.length > 0 ? `downloaded our ${behavior
 
 Are you currently evaluating ways to [solve pain point]?
 
-I'd love to share how companies like ${lead.company} are using Aduma to [achieve outcome].
+I'd love to share how companies like ${lead.company} are using Audema to [achieve outcome].
 
 Open to a quick 15-minute call this week?
 

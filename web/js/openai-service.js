@@ -1,7 +1,7 @@
 /**
  * OpenAIService — frontend client for /api/openai (GPT-4o)
  * Mirrors the ClaudeService/GeminiService interface: streamResponse() and callAgent()
- * Used by: Ad Creative Lab (BLAZE), Social Studio (PULSE)
+ * Used by: Social Studio (PULSE) — organic content and ad campaigns
  */
 window.OpenAIService = (function () {
   'use strict';

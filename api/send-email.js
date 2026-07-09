@@ -19,7 +19,7 @@
  * Required env vars:
  *   RESEND_API_KEY      — Resend API key (re_...)
  *   RESEND_FROM_EMAIL   — verified sender address, e.g. hello@yourdomain.com
- *   RESEND_FROM_NAME    — (optional) sender display name, defaults to "Aduma"
+ *   RESEND_FROM_NAME    — (optional) sender display name, defaults to "Audema"
  */
 
 'use strict';
@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
 
   const apiKey    = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;
-  const fromName  = process.env.RESEND_FROM_NAME || 'Aduma';
+  const fromName  = process.env.RESEND_FROM_NAME || 'Audema';
 
   if (!apiKey)    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
   if (!fromEmail) return res.status(500).json({ error: 'RESEND_FROM_EMAIL not configured' });

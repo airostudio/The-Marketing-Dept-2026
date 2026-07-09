@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
   try {
     const homeRes = await fetch(parsedUrl.href, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; AdumaBot/1.0; +https://aduma.io)',
+        'User-Agent': 'Mozilla/5.0 (compatible; AudemaBot/1.0; +https://aduma.io)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       signal: AbortSignal.timeout(10_000),

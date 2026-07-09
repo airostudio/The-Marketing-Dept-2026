@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * SCOTTY ORCHESTRATOR — Aduma - Your AI Marketing Department
+ * SCOTTY ORCHESTRATOR — Audema - Your AI Marketing Department
  *
  * Scotty is the AI CMO. Routes tasks to specialist agents — but always runs
  * the Intelligence Layer FIRST so every execution is grounded in upstream
@@ -27,7 +27,7 @@ const ScottyOrchestrator = (() => {
     seo:         '/agents/seo-agent.html',
     email:       '/agents/email-agent.html',
     sales:       '/agents/sales-agent.html',
-    ads:         '/agents/ads-agent.html',
+    ads:         '/agents/social-agent.html',
     social:      '/agents/social-agent.html',
     analytics:   '/agents/analytics-agent.html',
     competitive: '/agents/competitive-agent.html',
@@ -370,7 +370,7 @@ ${contextBundle.marketSignals ? `\n### Market Signals\n${contextBundle.marketSig
 
     const prompts = {
 
-      seo: `You are the SEO Intelligence agent for Aduma — Your AI Marketing Department.
+      seo: `You are the SEO Intelligence agent for Audema — Your AI Marketing Department.
 Produce a focused, actionable SEO Opportunity Report.
 ${ctx}
 ## OUTPUT FORMAT (use these exact sections)
@@ -388,7 +388,7 @@ Month 1 / Month 2 / Month 3 priorities. Be specific — actual page titles, not 
 
 Be specific. No filler. Every recommendation must be actionable this week.`,
 
-      competitive: `You are the Competitive Intelligence agent for Aduma — Your AI Marketing Department.
+      competitive: `You are the Competitive Intelligence agent for Audema — Your AI Marketing Department.
 Produce a sharp, strategic competitor analysis.
 ${ctx}
 ## OUTPUT FORMAT (use these exact sections)
@@ -407,7 +407,7 @@ Specific, executable competitive moves — new keywords to target, content to pu
 ### 90-Day Watch List
 What to monitor monthly: product releases, pricing changes, content themes, hiring signals (signals future product focus).`,
 
-      content: `You are the Content Studio agent for Aduma — Your AI Marketing Department.
+      content: `You are the Content Studio agent for Audema — Your AI Marketing Department.
 Create a priority content plan with real, usable output.
 ${ctx}
 ## OUTPUT FORMAT (use these exact sections)
@@ -426,7 +426,7 @@ Topic, 10 cluster topics, internal linking structure.
 ### Content Distribution Plan
 Where each piece goes after publishing — social adaptations, email repurpose, ad angles, SEO optimisation.`,
 
-      email: `You are the Email Engine agent for Aduma — Your AI Marketing Department.
+      email: `You are the Email Engine agent for Audema — Your AI Marketing Department.
 Write a complete, deployable lead nurture sequence.
 ${ctx}
 ## OUTPUT FORMAT
@@ -446,7 +446,7 @@ Write 5 emails. For each:
 
 Sequence arc: Email 1 = hook with ICP pain point | Email 2 = education/reframe | Email 3 = social proof | Email 4 = objection handler | Email 5 = direct ask with urgency.`,
 
-      ads: `You are the Ad Creative Lab agent for Aduma — Your AI Marketing Department.
+      ads: `You are the Ad Creative Lab agent for Audema — Your AI Marketing Department.
 Create platform-native, high-converting ad concepts.
 ${ctx}
 ## OUTPUT FORMAT
@@ -462,7 +462,7 @@ For each: Hook (first 3 words stop the scroll) | Primary text (≤125 chars befo
 ### A/B Testing Recommendations
 Which variant to test first for each platform and why. What success metric to use.`,
 
-      social: `You are the Social Studio agent for Aduma — Your AI Marketing Department.
+      social: `You are the Social Studio agent for Audema — Your AI Marketing Department.
 Create a deployable 7-day social content calendar.
 ${ctx}
 ## OUTPUT FORMAT
@@ -480,7 +480,7 @@ X Thread: Tweet 1 (hook) → Tweet 2 → Tweet 3 → Tweet 4 → Tweet 5 (CTA)
 Mix: 30% educational, 20% behind-the-scenes/POV, 20% social proof, 20% opinion/hot-take, 10% promotional.
 Write like a real person, not a brand account.`,
 
-      cro: `You are the CRO Lab agent for Aduma — Your AI Marketing Department.
+      cro: `You are the CRO Lab agent for Audema — Your AI Marketing Department.
 Provide conversion rate optimization recommendations that will move numbers this quarter.
 ${ctx}
 ## OUTPUT FORMAT
@@ -499,7 +499,7 @@ Where visitors drop off and why (based on typical patterns for this business typ
 ### This Week's Quick Wins
 3 changes to implement before Friday that will improve conversion immediately. No testing needed.`,
 
-      analytics: `You are the Analytics Brain agent for Aduma — Your AI Marketing Department.
+      analytics: `You are the Analytics Brain agent for Audema — Your AI Marketing Department.
 Build a marketing analytics framework that connects spend to pipeline.
 ${ctx}
 ## OUTPUT FORMAT
@@ -518,7 +518,7 @@ Essential tools to have, what each tracks, integration priority.
 ### Measurement Setup Checklist
 10 tracking setups to complete (UTM taxonomy, conversion events, custom dimensions, audiences) — in priority order.`,
 
-      sales: `You are the Sales Intelligence agent for Aduma — Your AI Marketing Department.
+      sales: `You are the Sales Intelligence agent for Audema — Your AI Marketing Department.
 Build an outbound sales strategy with real, deployable assets.
 ${ctx}
 ## OUTPUT FORMAT
@@ -537,7 +537,7 @@ Top 5 objections + ideal responses (short enough to say in 30 seconds).
 ### Competitive Battlecard
 vs. top 3 competitors: their strengths, their weaknesses, how to position against them when they come up in conversation.`,
 
-      linkedin: `You are the LinkedIn Outreach agent for Aduma — Your AI Marketing Department.
+      linkedin: `You are the LinkedIn Outreach agent for Audema — Your AI Marketing Department.
 Create a LinkedIn prospecting system with deployable templates.
 ${ctx}
 ## OUTPUT FORMAT
@@ -558,7 +558,7 @@ Exact filters to set for ICP targeting: job titles, seniority, company size, ind
 ### InMail Templates (3 Variants)
 Cold outreach under 200 words each. Different angles: problem-aware, solution-aware, insight-led.`,
 
-      video: `You are the Video Studio agent for Aduma — Your AI Marketing Department.
+      video: `You are the Video Studio agent for Audema — Your AI Marketing Department.
 Create a video content strategy with real, executable scripts.
 ${ctx}
 ## OUTPUT FORMAT
@@ -577,7 +577,7 @@ Content pillars (3-4 themes) | upload cadence | thumbnail formula | playlist str
 ### Production Brief Template
 What to prepare before filming: key messages (3 max), stats/proof points, b-roll requirements, CTA, brand guidelines.`,
 
-      compliance: `You are the Compliance Guard agent for Aduma — Your AI Marketing Department.
+      compliance: `You are the Compliance Guard agent for Audema — Your AI Marketing Department.
 Review marketing compliance and brand safety.
 ${ctx}
 ## OUTPUT FORMAT
@@ -596,7 +596,7 @@ When and how to disclose: AI-generated content, paid partnerships, affiliate lin
 ### Content Review Process
 Suggested approval workflow: who reviews what, at which stage, before publishing.`,
 
-      deck: `You are the Deck Maker agent for Aduma — Your AI Marketing Department.
+      deck: `You are the Deck Maker agent for Audema — Your AI Marketing Department.
 Create a compelling sales or pitch deck structure.
 ${ctx}
 ## OUTPUT FORMAT

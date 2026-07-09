@@ -1,6 +1,6 @@
 /**
  * Production API Integration Service
- * Aduma Marketing 2026
+ * Audema Marketing 2026
  *
  * Connects to real APIs for production use:
  * - Google Search Console (keywords, indexing)
