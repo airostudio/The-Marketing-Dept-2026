@@ -33,6 +33,35 @@ This is now fixed:
 
 ---
 
+## Intelligence Profiles — Multi-Business Intelligence Layer
+
+One intelligence profile = one business's complete Intelligence Layer (Business Brain, cloud-synced and versioned). Users switch the active profile to work across multiple businesses; agencies manage one profile per client.
+
+**Plan limits** (enforced server-side by a Postgres trigger and mirrored in the UI):
+
+| Plan | Profiles |
+|------|----------|
+| Free / Basic | 1 |
+| Pro / Professional | 3 |
+| Agency | 8 |
+| Enterprise | Admin-configured per account |
+
+### Setup
+
+1. Run `supabase-business-brain.sql` first (if not already), then `supabase-intelligence-profiles.sql` in Supabase Dashboard → SQL Editor.
+2. No new env vars — uses the existing client-side Supabase auth.
+3. Set a user's plan in the `profiles` table (`plan` column: `basic` / `professional` / `agency` / `enterprise`).
+4. **Enterprise accounts**: an admin sets the custom allowance directly on the account row — `UPDATE profiles SET plan = 'enterprise', intel_profile_limit = <N> WHERE email = '<customer>';` — sized to what the customer pays for.
+
+### How it works
+
+- The Business Brain page shows a **profile selector** (when more than one exists) and a **⚙ Profiles** manager: create (limit-enforced), rename, delete, switch. Switching reloads the Brain into that profile's data instantly, then hydrates from the cloud.
+- On first login a "Default" profile is auto-created; pre-profile local Brain data is offered for one-click import.
+- Shared access is built in at the schema level: `intelligence_profile_members` grants owner/editor/viewer roles on a profile to other users (RLS-enforced), ready for team features.
+- Data isolation: each profile has its own `business_brain` row, its own last-20 snapshot history, and its own localStorage cache key. Legacy per-project scoping still works as a fallback for accounts that haven't run the migration.
+
+---
+
 ## A/B Testing MCP Server
 
 The Aduma MCP server exposes your A/B experiment data to Claude so you can manage experiments, analyse results, generate tracking snippets, and trigger new ad creative directly from a chat interface.

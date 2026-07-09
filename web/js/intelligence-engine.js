@@ -138,17 +138,28 @@ class BusinessBrain {
   }
 
   /**
-   * Per-project storage key. Falls back to a 'default' bucket when no
-   * project is selected (e.g. brand-new account before first project).
-   * Reads the same current-project pointer project-service.js maintains,
-   * so Business Brain data is isolated per project instead of one shared
-   * brain across the whole account.
+   * Scoped storage key. Preference order:
+   *   1. Active intelligence profile ('intel_active_profile') — one profile
+   *      per business, switchable by the user, plan-limited.
+   *   2. Current project ('seo-current-project') — legacy per-project scope
+   *      for accounts that haven't adopted profiles yet.
+   *   3. 'default' bucket.
    * @returns {string}
    * @private
    */
   _key() {
+    const profileId = localStorage.getItem('intel_active_profile');
+    if (profileId) return `${STORAGE_KEYS.BUSINESS_BRAIN}__profile_${profileId}`;
     const projectId = localStorage.getItem('seo-current-project');
     return `${STORAGE_KEYS.BUSINESS_BRAIN}__${projectId || 'default'}`;
+  }
+
+  /**
+   * The active intelligence profile ID, or null.
+   * @returns {string|null}
+   */
+  currentProfileId() {
+    return localStorage.getItem('intel_active_profile');
   }
 
   /**
@@ -227,11 +238,14 @@ class BusinessBrain {
     _lsSet(this._key(), data);
 
     // Fire-and-forget cloud sync — never blocks or throws on the caller.
-    const projectId = this.currentProjectId();
-    if (window.BusinessBrainCloud && projectId) {
-      window.BusinessBrainCloud
-        .pushSnapshot(projectId, data, data.intelligence.confidenceScore, label)
-        .catch(() => {});
+    // Scope: active intelligence profile first, project fallback.
+    if (window.BusinessBrainCloud) {
+      const scope = window.BusinessBrainCloud.getScope();
+      if (scope) {
+        window.BusinessBrainCloud
+          .pushSnapshot(scope, data, data.intelligence.confidenceScore, label)
+          .catch(() => {});
+      }
     }
 
     return data;
@@ -265,10 +279,11 @@ class BusinessBrain {
    * @returns {Promise<Object|null>} the hydrated data, or null if nothing pulled
    */
   async hydrateFromCloud() {
-    const projectId = this.currentProjectId();
-    if (!window.BusinessBrainCloud || !projectId) return null;
+    if (!window.BusinessBrainCloud) return null;
+    const scope = window.BusinessBrainCloud.getScope();
+    if (!scope) return null;
 
-    const cloud = await window.BusinessBrainCloud.pullLatest(projectId);
+    const cloud = await window.BusinessBrainCloud.pullLatest(scope);
     if (!cloud || !cloud.data) return null;
 
     const local = _lsGet(this._key());

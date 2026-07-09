@@ -1,16 +1,18 @@
 /**
- * BusinessBrainCloud — per-project cloud sync + version history for BusinessBrain
+ * BusinessBrainCloud — cloud sync + version history for BusinessBrain
  *
- * Talks directly to Supabase (client-side, RLS-protected) using the same
- * shared client as project-service.js / supabase-client.js. BusinessBrain
- * itself stays localStorage-backed for instant synchronous reads (many call
- * sites in the app call brain.load() synchronously), but every save is
- * mirrored to Supabase here — scoped per-project, with an append-only
- * history so a bad autofill overwrite or accidental edit can be rolled back.
+ * Scope-aware: Business Brain data is scoped to the ACTIVE INTELLIGENCE
+ * PROFILE when one is selected (multi-business support, plan-limited), and
+ * falls back to the legacy per-project scope for accounts that haven't
+ * adopted profiles. BusinessBrain itself stays localStorage-backed for
+ * instant synchronous reads; every save is mirrored to Supabase here with
+ * an append-only history (last 20 snapshots per scope).
  *
- * Tables (see supabase-business-brain.sql):
- *   business_brain          — one row per project, current state
- *   business_brain_history  — append-only snapshot log, capped at 20/project
+ * A scope is { profileId } or { projectId } — see getScope().
+ *
+ * Tables (supabase-business-brain.sql + supabase-intelligence-profiles.sql):
+ *   business_brain          — one row per profile (or legacy project)
+ *   business_brain_history  — append-only snapshot log, capped at 20/scope
  */
 window.BusinessBrainCloud = (function () {
   'use strict';
@@ -32,26 +34,41 @@ window.BusinessBrainCloud = (function () {
     } catch { return null; }
   }
 
-  /** Reads the same current-project pointer that project-service.js maintains. */
+  /** Active scope: intelligence profile first, legacy project fallback. */
+  function getScope() {
+    const profileId = localStorage.getItem('intel_active_profile');
+    if (profileId) return { profileId };
+    const projectId = localStorage.getItem('seo-current-project');
+    if (projectId) return { projectId };
+    return null;
+  }
+
+  /** Legacy helper kept for older call sites. */
   function getCurrentProjectId() {
     return localStorage.getItem('seo-current-project') || null;
   }
 
-  /**
-   * Pull the latest cloud brain for a project. Returns null if none exists
-   * or the user isn't authenticated / Supabase isn't configured.
-   */
-  async function pullLatest(projectId) {
+  function scopeFilter(query, scope) {
+    return scope.profileId
+      ? query.eq('intel_profile_id', scope.profileId)
+      : query.eq('project_id', scope.projectId);
+  }
+
+  function scopeColumns(scope) {
+    return scope.profileId
+      ? { intel_profile_id: scope.profileId }
+      : { project_id: scope.projectId };
+  }
+
+  /** Pull the latest cloud brain for a scope. Null if none / offline. */
+  async function pullLatest(scope) {
     const client = getSupabase();
-    if (!client || !projectId) return null;
+    if (!client || !scope) return null;
 
     try {
-      const { data, error } = await client
-        .from('business_brain')
-        .select('data, confidence_score, updated_at')
-        .eq('project_id', projectId)
-        .maybeSingle();
-
+      let q = client.from('business_brain').select('data, confidence_score, updated_at');
+      q = scopeFilter(q, scope);
+      const { data, error } = await q.maybeSingle();
       if (error || !data) return null;
       return data;
     } catch (e) {
@@ -64,35 +81,35 @@ window.BusinessBrainCloud = (function () {
    * Save current state to Supabase and append a history snapshot.
    * Fire-and-forget safe — never throws, resolves false on failure.
    */
-  async function pushSnapshot(projectId, data, confidenceScore, label) {
+  async function pushSnapshot(scope, data, confidenceScore, label) {
     const client = getSupabase();
-    if (!client || !projectId) return false;
+    if (!client || !scope) return false;
 
     const userId = await getCurrentUserId();
     if (!userId) return false;
 
+    const cols = scopeColumns(scope);
+
     try {
       await client.from('business_brain').upsert({
-        project_id:       projectId,
+        ...cols,
         user_id:          userId,
         data,
         confidence_score: confidenceScore || 0,
-      }, { onConflict: 'project_id' });
+      }, { onConflict: scope.profileId ? 'intel_profile_id' : 'project_id' });
 
       await client.from('business_brain_history').insert({
-        project_id:       projectId,
+        ...cols,
         user_id:          userId,
         data,
         confidence_score: confidenceScore || 0,
         label:            label || 'Autosave',
       });
 
-      // Prune to last MAX_HISTORY snapshots for this project
-      const { data: rows } = await client
-        .from('business_brain_history')
-        .select('id, created_at')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
+      // Prune to last MAX_HISTORY snapshots for this scope
+      let hq = client.from('business_brain_history').select('id, created_at');
+      hq = scopeFilter(hq, scope);
+      const { data: rows } = await hq.order('created_at', { ascending: false });
 
       if (rows && rows.length > MAX_HISTORY) {
         const staleIds = rows.slice(MAX_HISTORY).map(r => r.id);
@@ -108,19 +125,16 @@ window.BusinessBrainCloud = (function () {
     }
   }
 
-  /** List up to MAX_HISTORY snapshots for a project, newest first. */
-  async function listHistory(projectId) {
+  /** List up to MAX_HISTORY snapshots for a scope, newest first. */
+  async function listHistory(scope) {
     const client = getSupabase();
-    if (!client || !projectId) return [];
+    if (!client || !scope) return [];
 
     try {
-      const { data, error } = await client
-        .from('business_brain_history')
-        .select('id, data, confidence_score, label, created_at')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
-        .limit(MAX_HISTORY);
-
+      let q = client.from('business_brain_history')
+        .select('id, data, confidence_score, label, created_at');
+      q = scopeFilter(q, scope);
+      const { data, error } = await q.order('created_at', { ascending: false }).limit(MAX_HISTORY);
       if (error) return [];
       return data || [];
     } catch (e) {
@@ -129,10 +143,10 @@ window.BusinessBrainCloud = (function () {
     }
   }
 
-  /** Restore a snapshot's data as the current brain state (writes a new history entry marking the restore). */
-  async function restoreSnapshot(projectId, snapshotId) {
+  /** Restore a snapshot as current state (records the restore in history). */
+  async function restoreSnapshot(scope, snapshotId) {
     const client = getSupabase();
-    if (!client || !projectId) throw new Error('Cloud sync not available');
+    if (!client || !scope) throw new Error('Cloud sync not available');
 
     const { data: snapshot, error } = await client
       .from('business_brain_history')
@@ -142,11 +156,12 @@ window.BusinessBrainCloud = (function () {
 
     if (error || !snapshot) throw new Error('Snapshot not found');
 
-    await pushSnapshot(projectId, snapshot.data, snapshot.confidence_score, `Restored from ${new Date(snapshot.created_at).toLocaleString()}`);
+    await pushSnapshot(scope, snapshot.data, snapshot.confidence_score,
+      `Restored from ${new Date(snapshot.created_at).toLocaleString()}`);
     return snapshot.data;
   }
 
-  /** Check for pre-migration global (non-project-scoped) brain data. */
+  /** Check for pre-migration global (unscoped) brain data. */
   function checkLegacyData() {
     try {
       const raw = localStorage.getItem(LEGACY_KEY);
@@ -161,6 +176,7 @@ window.BusinessBrainCloud = (function () {
     getSupabase,
     getCurrentUserId,
     getCurrentProjectId,
+    getScope,
     pullLatest,
     pushSnapshot,
     listHistory,
