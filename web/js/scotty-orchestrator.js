@@ -34,6 +34,7 @@ const ScottyOrchestrator = (() => {
     video:       '/agents/video-agent.html',
     cro:         '/agents/cro-agent.html',
     compliance:  '/agents/compliance-agent.html',
+    'compliance-automation': '/agents/compliance-automation.html',
     deck:        '/agents/deck-agent.html',
     linkedin:    '/agents/linkedin-agent.html',
   };
@@ -787,7 +788,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
 Rules:
 - Identify 4-6 specific automation actions, each producing a tangible deliverable
 - Each automation runs inline via Claude — no external API or tool access required
-- agentKey must be one of: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, deck
+- agentKey must be one of: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
 - prompt must be a specific 2-3 sentence instruction telling the agent exactly what to CREATE as a deployable asset (not analyse — CREATE)
 - Prioritise by impact: the user should feel they got a week's work done in 5 minutes
 
