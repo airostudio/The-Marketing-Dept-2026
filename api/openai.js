@@ -10,6 +10,19 @@
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
+/**
+ * OpenAI can return a 200 with zero visible content — most commonly
+ * finish_reason "content_filter" (moderation blocked the output) or
+ * "length" cutting off before any content token was emitted. Give a real
+ * reason instead of silently forwarding an empty string.
+ */
+function describeEmptyOpenAIResponse(finishReason) {
+  if (finishReason === 'content_filter') return 'OpenAI blocked this response due to content moderation. Try rephrasing the prompt.';
+  if (finishReason === 'length') return 'OpenAI hit the output token limit before producing any visible text. Try a shorter prompt.';
+  if (finishReason) return `OpenAI stopped generating without producing text (reason: ${finishReason}).`;
+  return 'OpenAI returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -62,6 +75,9 @@ module.exports = async function handler(req, res) {
       }
       const data = await r.json();
       const text = data.choices?.[0]?.message?.content || '';
+      if (!text) {
+        return res.status(502).json({ error: describeEmptyOpenAIResponse(data.choices?.[0]?.finish_reason) });
+      }
       return res.json({ text });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -91,6 +107,8 @@ module.exports = async function handler(req, res) {
     const reader  = r.body.getReader();
     const decoder = new TextDecoder();
     let buffer    = '';
+    let sawAnyText = false;
+    let lastFinishReason = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -106,10 +124,19 @@ module.exports = async function handler(req, res) {
         if (!json || json === '[DONE]') continue;
         try {
           const parsed = JSON.parse(json);
-          const text   = parsed.choices?.[0]?.delta?.content;
-          if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          const choice = parsed.choices?.[0];
+          if (choice?.finish_reason) lastFinishReason = choice.finish_reason;
+          const text = choice?.delta?.content;
+          if (text) { sawAnyText = true; res.write(`data: ${JSON.stringify({ text })}\n\n`); }
         } catch (_) {}
       }
+    }
+
+    // Valid SSE stream, but never a single character of content — a content
+    // filter block or a length cutoff before any token was emitted. Without
+    // this the client sees a clean [DONE] and a permanently blank response.
+    if (!sawAnyText) {
+      res.write(`data: ${JSON.stringify({ error: describeEmptyOpenAIResponse(lastFinishReason) })}\n\n`);
     }
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);

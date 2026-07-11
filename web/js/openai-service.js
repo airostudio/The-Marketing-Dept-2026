@@ -29,6 +29,7 @@ window.OpenAIService = (function () {
       const decoder = new TextDecoder();
       let buffer      = '';
       let accumulated = '';
+      let hadError    = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -50,12 +51,17 @@ window.OpenAIService = (function () {
               if (onChunk) onChunk(parsed.text, accumulated);
             }
           } catch (e) {
-            if (onError && !(e instanceof SyntaxError)) onError(e);
+            if (!(e instanceof SyntaxError)) {
+              hadError = true;
+              if (onError) onError(e);
+            }
           }
         }
       }
 
-      if (onDone) onDone(accumulated);
+      // Don't call onDone after an error event — an empty "success" would
+      // silently override the specific error just reported via onError.
+      if (!hadError && onDone) onDone(accumulated);
     } catch (err) {
       if (onError) onError(err);
     }
