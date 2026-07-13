@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="../js/marked.min.js"></script>
+    <script src="/js/supabase.min.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/social-posts-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -114,6 +117,52 @@
         .output-area hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
         .output-area blockquote { border-left: 3px solid var(--purple); padding-left: 14px; color: var(--text2); margin: 12px 0; font-style: italic; }
         .output-empty { color: var(--text2); text-align: center; padding: 60px 20px; font-style: italic; }
+
+        /* ── Review queue: swipe-style approve/reject/regenerate cards ─────── */
+        .review-plan-note {
+            font-size: 12.5px; color: var(--text2); line-height: 1.6;
+            padding: 10px 14px; margin-bottom: 14px;
+            background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.18); border-radius: 8px;
+        }
+        .review-signin-note {
+            font-size: 12px; color: #f59e0b; padding: 9px 14px; margin-bottom: 14px;
+            background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.22); border-radius: 8px;
+        }
+        .review-signin-note a { color: #f59e0b; font-weight: 600; }
+        .post-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 12px; transition: opacity 0.2s, transform 0.2s;
+        }
+        .post-card[data-status="rejected"] { opacity: 0.4; }
+        .post-card[data-status="approved"] { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.04); }
+        .post-card[data-status="regenerating"] { opacity: 0.5; pointer-events: none; }
+        .post-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .post-card-platform { font-size: 11px; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: 0.4px; }
+        .post-card-status { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .post-card-status.pending_review { background: rgba(255,255,255,0.06); color: var(--text2); }
+        .post-card-status.approved { background: rgba(16,185,129,0.15); color: #10b981; }
+        .post-card-status.rejected { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .post-card-hook { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .post-card-text { font-size: 13px; color: var(--text2); line-height: 1.55; margin-bottom: 8px; white-space: pre-wrap; }
+        .post-card-cta { display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--agent-color); border: 1px solid rgba(var(--agent-color-rgb),0.3); padding: 3px 10px; border-radius: 20px; margin-bottom: 8px; }
+        .post-card-hashtags { font-size: 11.5px; color: #06b6d4; margin-bottom: 8px; }
+        .post-card-meta { font-size: 11px; color: rgba(255,255,255,0.4); font-style: italic; margin-bottom: 10px; }
+        .post-card-actions { display: flex; gap: 8px; }
+        .post-card-btn {
+            flex: 1; padding: 7px 10px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--text2);
+            font-family: 'Inter', sans-serif; transition: all 0.15s;
+        }
+        .post-card-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+        .post-card-btn.reject:hover { border-color: rgba(239,68,68,0.4); color: #ef4444; }
+        .post-card-btn.regen:hover { border-color: rgba(6,182,212,0.4); color: #06b6d4; }
+        .post-card-btn.approve { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
+        .post-card-btn.approve:hover { background: rgba(16,185,129,0.18); }
+        .review-queue-summary {
+            display: flex; gap: 14px; font-size: 12px; color: var(--text2); margin-bottom: 14px;
+            padding-bottom: 12px; border-bottom: 1px solid var(--border);
+        }
+        .review-queue-summary strong { color: #fff; }
 
         .typing-indicator { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 20px; }
         .dot-pulse span { display: inline-block; width: 6px; height: 6px; background: var(--agent-color); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; margin: 0 2px; }
@@ -394,6 +443,8 @@ function setStudioMode(mode) {
         document.getElementById('output').innerHTML = `<div class="output-empty">${emptyText}</div>`;
         const csvBtn = document.getElementById('csvBtn');
         if (csvBtn) csvBtn.style.display = 'none';
+        _reviewPosts = [];
+        _reviewPlanNote = '';
     } else {
         const empty = document.querySelector('#output .output-empty');
         if (empty) empty.textContent = emptyText;
@@ -403,6 +454,203 @@ function setStudioMode(mode) {
         if (csvBtn) csvBtn.style.display = 'none';
     }
     if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+}
+
+/* ── Review queue: swipe-style approve/reject/regenerate per post ────────
+   Every generation batch is persisted (when signed in) to social_posts via
+   SocialPostsStore, then rendered as individually-actionable cards — the
+   core interaction Native.no's product is built around — instead of one
+   markdown blob the user could only copy/paste as a whole. ─────────────── */
+let _reviewPosts    = [];   // current batch: normalized {id, platform, hook, headline, body, cta, hashtags, meta, status}
+let _reviewPlanNote = '';
+let _reviewCloudBacked = false; // true once persisted to SocialPostsStore (signed in)
+
+function normalizeAdVariant(v, i) {
+    return {
+        id: `local_${Date.now()}_${i}`,
+        source: 'ad',
+        platform: v.platform,
+        angleType: v.framework,
+        hook: v.angleName,
+        headline: v.headline,
+        body: v.body,
+        cta: v.cta,
+        hashtags: [],
+        proofPoint: null,
+        urgencyLine: null,
+        visualDirection: v.visualDirection,
+        meta: `${v.psychologicalTrigger} — ${v.abHypothesis}`,
+        metadata: { framework: v.framework, psychologicalTrigger: v.psychologicalTrigger, abHypothesis: v.abHypothesis },
+        status: 'pending_review',
+    };
+}
+
+function normalizeOrganicPost(p, i) {
+    return {
+        id: `local_${Date.now()}_${i}`,
+        source: 'organic',
+        platform: p.platform,
+        angleType: null,
+        hook: p.hook,
+        headline: p.title,
+        body: p.body,
+        cta: null,
+        hashtags: p.hashtags || [],
+        proofPoint: null,
+        urgencyLine: null,
+        visualDirection: null,
+        meta: `${p.postingTime} — ${p.engagementNote}`,
+        metadata: { postingTime: p.postingTime, engagementNote: p.engagementNote },
+        status: 'pending_review',
+    };
+}
+
+/** Persist a freshly-generated batch (best-effort — works signed-out too, just not saved). */
+async function persistReviewBatch(posts) {
+    _reviewCloudBacked = false;
+    if (!window.SocialPostsStore) return posts;
+    try {
+        const { posts: saved } = await window.SocialPostsStore.createBatch(posts.map(p => ({
+            source: p.source, platform: p.platform, angleType: p.angleType, hook: p.hook,
+            headline: p.headline, body: p.body, cta: p.cta, hashtags: p.hashtags,
+            proofPoint: p.proofPoint, urgencyLine: p.urgencyLine, visualDirection: p.visualDirection,
+            metadata: p.metadata,
+        })));
+        _reviewCloudBacked = true;
+        // Re-attach real DB ids/status to the normalized posts, preserving order
+        return posts.map((p, i) => ({ ...p, id: saved[i]?.id || p.id, status: saved[i]?.status || p.status }));
+    } catch (err) {
+        console.warn('[SocialStudio] Could not save review queue to cloud:', err.message);
+        return posts;
+    }
+}
+
+function escHtmlCard(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function renderReviewQueue() {
+    const outputEl = document.getElementById('output');
+    if (!_reviewPosts.length) {
+        outputEl.innerHTML = `<div class="output-empty">${studioMode === 'ads'
+            ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
+            : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.'}</div>`;
+        return;
+    }
+
+    const approvedCount = _reviewPosts.filter(p => p.status === 'approved').length;
+    const rejectedCount = _reviewPosts.filter(p => p.status === 'rejected').length;
+    const pendingCount  = _reviewPosts.length - approvedCount - rejectedCount;
+
+    let html = `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
+    if (!_reviewCloudBacked) {
+        html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
+    }
+    html += `<div class="review-queue-summary"><span><strong>${_reviewPosts.length}</strong> total</span><span><strong>${pendingCount}</strong> pending</span><span><strong style="color:#10b981">${approvedCount}</strong> approved</span><span><strong style="color:#ef4444">${rejectedCount}</strong> rejected</span></div>`;
+
+    html += _reviewPosts.map((p) => `
+        <div class="post-card" data-post-id="${p.id}" data-status="${p.status}">
+            <div class="post-card-header">
+                <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
+                <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
+            </div>
+            <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
+            <div class="post-card-text">${escHtmlCard(p.body)}</div>
+            ${p.cta ? `<div class="post-card-cta">${escHtmlCard(p.cta)}</div>` : ''}
+            ${p.hashtags && p.hashtags.length ? `<div class="post-card-hashtags">${p.hashtags.map(h => '#' + escHtmlCard(h)).join(' ')}</div>` : ''}
+            ${p.meta ? `<div class="post-card-meta">${escHtmlCard(p.meta)}</div>` : ''}
+            <div class="post-card-actions">
+                <button class="post-card-btn reject" onclick="rejectPost('${p.id}')" ${p.status === 'rejected' ? 'disabled' : ''}>✕ Reject</button>
+                <button class="post-card-btn regen" onclick="regeneratePost('${p.id}')">↻ Regenerate</button>
+                <button class="post-card-btn approve" onclick="approvePost('${p.id}')" ${p.status === 'approved' ? 'disabled' : ''}>✓ Approve</button>
+            </div>
+        </div>
+    `).join('');
+
+    outputEl.innerHTML = html;
+
+    const csvBtn = document.getElementById('csvBtn');
+    if (csvBtn) csvBtn.style.display = studioMode === 'organic' ? '' : 'none';
+}
+
+function findReviewPost(id) {
+    return _reviewPosts.find(p => p.id === id);
+}
+
+async function approvePost(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+    post.status = 'approved';
+    renderReviewQueue();
+    if (_reviewCloudBacked && window.SocialPostsStore && !id.startsWith('local_')) {
+        try { await window.SocialPostsStore.updateStatus(id, 'approved'); } catch (err) { console.warn(err.message); }
+    }
+}
+
+async function rejectPost(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+    post.status = 'rejected';
+    renderReviewQueue();
+    if (_reviewCloudBacked && window.SocialPostsStore && !id.startsWith('local_')) {
+        try { await window.SocialPostsStore.updateStatus(id, 'rejected'); } catch (err) { console.warn(err.message); }
+    }
+}
+
+/** Regenerate a single card: reject the old one, generate one replacement in its place. */
+async function regeneratePost(id) {
+    const idx = _reviewPosts.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    const original = _reviewPosts[idx];
+    const instruction = prompt('Optional: how should the replacement be different? (e.g. "punchier", "less salesy", "lead with a stat")', '') || '';
+
+    const cardEl = document.querySelector(`.post-card[data-post-id="${id}"]`);
+    if (cardEl) cardEl.dataset.status = 'regenerating';
+
+    try {
+        let replacement;
+        if (original.source === 'ad') {
+            const res = await fetch('/api/generate-ads', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platforms: [original.platform], objective: document.getElementById('adObjective')?.value || 'Conversions',
+                    product: (document.getElementById('adProduct')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this variant distinctly different from: "${original.headline}"` : `\n\nMake this variant distinctly different from: "${original.headline}"`),
+                    audience: document.getElementById('adAudience')?.value || '',
+                    models: [original.angleType].filter(Boolean),
+                    variants: 1,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            replacement = normalizeAdVariant(data.variants[0], idx);
+        } else {
+            const res = await fetch('/api/generate-social-posts', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platforms: [original.platform], contentGoal: document.getElementById('contentGoal')?.value || 'Engagement',
+                    topic: (document.getElementById('topic')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this distinctly different from: "${original.hook}"` : `\n\nMake this distinctly different from: "${original.hook}"`),
+                    frequency: document.getElementById('frequency')?.value || '3x per week',
+                    postCount: 1,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            replacement = normalizeOrganicPost(data.posts[0], idx);
+        }
+
+        // Reject the old one (kept, not deleted — preserves history) and insert the replacement.
+        if (_reviewCloudBacked && window.SocialPostsStore && !original.id.startsWith('local_')) {
+            try { await window.SocialPostsStore.updateStatus(original.id, 'rejected', `Regenerated${instruction ? ': ' + instruction : ''}`); } catch (err) { console.warn(err.message); }
+        }
+        original.status = 'rejected';
+
+        const [persisted] = await persistReviewBatch([replacement]);
+        _reviewPosts.splice(idx + 1, 0, persisted);
+        renderReviewQueue();
+    } catch (err) {
+        alert('Regenerate failed: ' + err.message);
+        if (cardEl) cardEl.dataset.status = original.status;
+    }
 }
 
 /* Ad-mode platform pills — multi-select */
@@ -781,15 +1029,16 @@ class SocialAgent {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-            const content = data.content || '';
-            outputEl.innerHTML = tipHtml + marked.parse(content);
+            _reviewPlanNote = data.campaignStrategyNote || '';
+            _reviewPosts = await persistReviewBatch(data.variants.map(normalizeAdVariant));
+            renderReviewQueue();
             outputEl.scrollTop = 0;
 
-            if (window.AgentHistory && content.trim()) {
+            if (window.AgentHistory && data.content?.trim()) {
                 window.AgentHistory.save({
                     agentKey: 'ads',
                     taskType: platforms.join('+') + ' Ad Variants',
-                    content,
+                    content: data.content,
                     topic: product.slice(0, 60),
                 });
             }
@@ -801,6 +1050,21 @@ class SocialAgent {
         }
     }
 
+    /** Concatenate just the BusinessBrain context blocks (no platform/output-format
+     *  instructions — those now live server-side in generate-social-posts.js). */
+    buildBusinessContextString(contextBundle) {
+        let ctx = '';
+        if (contextBundle && contextBundle.isReady && contextBundle.businessContext) {
+            ctx += contextBundle.businessContext + '\n\n';
+        }
+        ctx += this.buildICPSocialHooks(contextBundle);
+        ctx += this.buildBrandVoiceGuidelines(contextBundle);
+        ctx += this.buildValuePropMessaging(contextBundle);
+        ctx += this.buildCompetitiveDifferentiation(contextBundle);
+        ctx += this.buildHashtagStrategy(contextBundle);
+        return ctx.trim();
+    }
+
     async runOrganic() {
         const topic = document.getElementById('topic').value.trim();
         if (!topic) { alert('Please enter a topic or theme.'); return; }
@@ -808,83 +1072,81 @@ class SocialAgent {
         const platform = getSelectedPlatform();
         const contentGoal = document.getElementById('contentGoal').value;
         const frequency = document.getElementById('frequency').value;
-        const postCount = document.getElementById('postCount').value;
+        const postCount = parseInt(document.getElementById('postCount').value, 10) || 5;
 
         // Non-blocking warning: brand-sensitive goals without a configured brand voice
         // get an amber heads-up banner, but generation continues.
         const brandSensitiveGoals = ['Thought Leadership', 'Product Launch', 'Case Study'];
         let warnHtml = '';
         if (brandSensitiveGoals.includes(contentGoal) && !this.brandVoice) {
-            window._bvWarnDismissed = false;
             warnHtml = `<div style="padding:12px 16px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;margin-bottom:16px;font-size:13px;color:rgba(255,255,255,0.8);">
-                <span onclick="window._bvWarnDismissed=true;this.parentElement.remove();" style="float:right;cursor:pointer;color:rgba(255,255,255,0.5);font-weight:700;padding-left:10px;">✕</span>
                 <strong style="color:#f59e0b;">Heads up:</strong> Brand voice isn't configured — ${contentGoal} posts may be off-brand or inconsistent.
                 <a href="/intelligence/business-brain.html" style="color:#f59e0b;margin-left:6px;font-weight:600;">Configure Brand Voice →</a>
             </div>`;
         }
-        const bvWarn = () => (warnHtml && !window._bvWarnDismissed) ? warnHtml : '';
 
         const outputEl = document.getElementById('output');
         const runBtn = document.getElementById('runBtn');
         runBtn.disabled = true;
         runBtn.textContent = 'Creating...';
-
-        outputEl.innerHTML = bvWarn() + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
+        outputEl.innerHTML = warnHtml + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${postCount} ${platform} posts...</div>`;
 
         let contextBundle = null;
         if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
+        const businessContext = this.buildBusinessContextString(contextBundle);
 
-        const systemPrompt = this.buildSystemPrompt(platform, contextBundle);
-        const userMessage = `Create ${postCount} ${platform} posts for ${frequency} posting.
+        try {
+            const res = await fetch('/api/generate-social-posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platforms: [platform], contentGoal, topic, frequency, postCount, businessContext }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-Content Goal: ${contentGoal}
-Topic/Theme: ${topic}
+            _reviewPlanNote = data.contentPlanNote || '';
+            _reviewPosts = await persistReviewBatch(data.posts.map(normalizeOrganicPost));
+            renderReviewQueue();
+            if (warnHtml) document.getElementById('output').insertAdjacentHTML('afterbegin', warnHtml);
 
-Generate a complete content package: strategy overview, ${postCount} ready-to-publish posts with hooks, copy, hashtags, and posting time recommendations. Organize as a content calendar spanning the week.`;
-
-        if (this.claudeService && this.claudeService.streamResponse) {
-            let fullResponse = '';
-            outputEl.innerHTML = bvWarn();
-            try {
-                await this.claudeService.streamResponse({
-                    systemPrompt,
-                    messages: [{ role: 'user', content: userMessage }],
-                    onChunk: (chunk) => {
-                        fullResponse += chunk;
-                        outputEl.innerHTML = bvWarn() + marked.parse(fullResponse);
-                        outputEl.scrollTop = outputEl.scrollHeight;
-                    },
-                    onDone: () => {
-                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
-                        if (!fullResponse.trim()) {
-                            outputEl.innerHTML = bvWarn() + `<div style="color:#f59e0b;padding:16px;font-size:13px;">The AI service returned no content — check the OPENAI_API_KEY / ANTHROPIC_API_KEY server configuration.</div>`;
-                            return;
-                        }
-                        if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: fullResponse, topic });
-                    },
-                    onError: (e) => {
-                        outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                        runBtn.disabled = false; runBtn.textContent = 'Create Content';
-                    }
-                });
-            } catch (e) {
-                outputEl.innerHTML = bvWarn() + `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                runBtn.disabled = false; runBtn.textContent = 'Create Content';
+            if (window.AgentHistory && data.content?.trim()) {
+                window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: data.content, topic });
             }
-        } else {
-            outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
-                <strong style="color:#fff;">AI service not configured.</strong><br><br>
-                The server-side AI key is missing. Set the OPENAI_API_KEY (or ANTHROPIC_API_KEY) environment variable on the server to enable AI generation.
-            </div>`;
-            runBtn.disabled = false; runBtn.textContent = 'Create Content';
+        } catch (err) {
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${err.message}</div>`;
+        } finally {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Create Content';
         }
     }
 }
 
 const agent = new SocialAgent();
 
+// ── Copy / Download / Calendar export — driven by the real structured
+// review-queue data (_reviewPosts), not by scraping rendered HTML text. ────
+
+function nonRejected() {
+    return _reviewPosts.filter(p => p.status !== 'rejected');
+}
+
+function renderPostsAsPlainText(posts) {
+    return posts.map((p, i) => {
+        const lines = [`Post ${i + 1} — ${p.platform}${p.angleType ? ' — ' + p.angleType : ''}`];
+        if (p.hook) lines.push(`Hook: ${p.hook}`);
+        lines.push(p.headline);
+        if (p.body) lines.push(p.body);
+        if (p.cta) lines.push(`CTA: ${p.cta}`);
+        if (p.hashtags && p.hashtags.length) lines.push(p.hashtags.map(h => '#' + h).join(' '));
+        if (p.meta) lines.push(p.meta);
+        return lines.join('\n');
+    }).join('\n\n---\n\n');
+}
+
 function copyOutput() {
-    const text = document.getElementById('output').innerText;
+    const posts = nonRejected();
+    if (!posts.length) { alert('Nothing to copy yet — generate some content first.'); return; }
+    const text = renderPostsAsPlainText(posts);
     navigator.clipboard.writeText(text).then(() => {
         const btn = event.target; btn.textContent = 'Copied!'; btn.style.color = '#10b981';
         setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
@@ -892,7 +1154,9 @@ function copyOutput() {
 }
 
 function downloadOutput() {
-    const text = document.getElementById('output').innerText;
+    const posts = nonRejected();
+    if (!posts.length) { alert('Nothing to download yet — generate some content first.'); return; }
+    const text = renderPostsAsPlainText(posts);
     const label = studioMode === 'ads'
         ? 'ads-' + getSelectedAdPlatforms().join('-').replace(/[^a-z0-9-]/gi,'-').toLowerCase()
         : 'social-' + getSelectedPlatform().replace(/\s+\/\s+|\s+/g,'-').toLowerCase();
@@ -901,39 +1165,13 @@ function downloadOutput() {
     a.download = `${label}-${Date.now()}.txt`; a.click();
 }
 
-// ── Buffer / Hootsuite CSV Export ──────────────────────────────────────────
-
-function parsePostsFromOutput(text) {
-    // Split on post separators: "## Post N", "---", or "**Post N**"
-    const sections = text.split(/\n(?:---+|={3,}|\*{2}Post \d+|#{1,3}\s*Post \d+)/i)
-        .map(s => s.trim()).filter(s => s.length > 40);
-    if (sections.length < 2) {
-        // Fallback: treat whole output as one post
-        return [{ content: text.trim(), hashtags: '', time: '10:00 AM' }];
-    }
-    return sections.map(section => {
-        const lines = section.split('\n').map(l => l.trim()).filter(Boolean);
-        const hashtagLine = lines.find(l => /#[A-Za-z]/.test(l)) || '';
-        const timeLine = lines.find(l => /posting time|best time|\d{1,2}:\d{2}/i.test(l)) || '';
-        const timeMatch = timeLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-        const body = lines
-            .filter(l => !/#[A-Za-z]/.test(l) && !/posting time|best time|why this|^hook:/i.test(l) && !l.startsWith('**') && l.length > 10)
-            .join(' ').trim();
-        return {
-            content: body || section.substring(0, 280),
-            hashtags: hashtagLine.replace(/\*\*/g, '').trim(),
-            time: timeMatch ? timeMatch[1] : '10:00 AM'
-        };
-    });
-}
+// ── Buffer / Hootsuite CSV Export — real structured hashtags/posting-time
+// per post, no regex-scraping of rendered markdown. ─────────────────────────
 
 function exportCalendarCSV() {
     if (studioMode !== 'organic') return;
-    const outputEl = document.getElementById('output');
-    if (!outputEl || outputEl.querySelector('.output-empty')) { alert('Generate content first.'); return; }
-    const text = outputEl.innerText || outputEl.textContent;
-    const posts = parsePostsFromOutput(text);
-    const platform = getSelectedPlatform();
+    const posts = nonRejected().filter(p => p.source === 'organic');
+    if (!posts.length) { alert('Generate content first.'); return; }
     const today = new Date();
 
     // Buffer-compatible CSV format
@@ -941,8 +1179,11 @@ function exportCalendarCSV() {
     posts.forEach((post, i) => {
         const d = new Date(today); d.setDate(today.getDate() + i * 2);
         const dateStr = d.toISOString().split('T')[0];
-        const msg = post.content + (post.hashtags ? '\n\n' + post.hashtags : '');
-        rows.push([dateStr, post.time, platform, msg, '', '']);
+        const timeMatch = (post.meta || '').match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+        const time = timeMatch ? timeMatch[1] : '10:00 AM';
+        const hashtags = (post.hashtags || []).map(h => '#' + h).join(' ');
+        const msg = post.body + (hashtags ? '\n\n' + hashtags : '');
+        rows.push([dateStr, time, post.platform, msg, '', '']);
     });
 
     // Standard CSV quoting: fields containing commas, quotes, or newlines are
@@ -954,21 +1195,8 @@ function exportCalendarCSV() {
     const csv = rows.map(r => r.map(escapeCSVField).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `social-calendar-${platform.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}.csv`; a.click();
+    a.download = `social-calendar-${Date.now()}.csv`; a.click();
 }
-
-// Show CSV button once output is populated
-const _csvObserver = new MutationObserver(() => {
-    const out = document.getElementById('output');
-    const btn = document.getElementById('csvBtn');
-    if (btn && out && studioMode === 'organic' && !out.querySelector('.output-empty') && out.textContent.trim().length > 100) {
-        btn.style.display = '';
-    }
-});
-document.addEventListener('DOMContentLoaded', () => {
-    const out = document.getElementById('output');
-    if (out) _csvObserver.observe(out, { childList: true, subtree: true });
-});
 </script>
 </body>
 </html>
