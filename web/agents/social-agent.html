@@ -59,6 +59,21 @@
         .field-select option { background: #13131f; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+        /* One-shot business research widget */
+        .research-widget { margin-bottom: 16px; }
+        .research-toggle-btn { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+        .research-toggle-btn:hover { background: rgba(124,58,237,0.18); }
+        .research-input-row { display: flex; gap: 8px; margin-top: 10px; }
+        .research-input-row .field-input { flex: 1; }
+        .research-go-btn { padding: 10px 16px; background: var(--agent-color); border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .research-go-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .research-status { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 8px; }
+        .research-status.error { color: #ef4444; }
+        .research-chips { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .research-chip { display: block; width: 100%; text-align: left; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: rgba(255,255,255,0.75); font-size: 12.5px; line-height: 1.4; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+        .research-chip:hover { border-color: var(--agent-color); background: rgba(124,58,237,0.06); }
+        .research-chip strong { display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+
         /* Platform toggle grid */
         .platform-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
         .platform-btn {
@@ -223,6 +238,17 @@
             <div class="mode-toggle" id="modeToggle">
                 <button type="button" class="mode-btn active" data-mode="organic" onclick="setStudioMode('organic')">📱 Organic Posts</button>
                 <button type="button" class="mode-btn" data-mode="ads" onclick="setStudioMode('ads')">🎯 Ad Campaign</button>
+            </div>
+
+            <!-- ── One-shot business research (native.no-style "just paste a URL") ── -->
+            <div class="research-widget" id="researchWidget">
+                <button type="button" class="research-toggle-btn" id="researchToggleBtn" onclick="toggleResearchWidget()">✨ Research my business from a URL</button>
+                <div class="research-input-row" id="researchInputRow" style="display:none;">
+                    <input type="url" class="field-input" id="researchUrlInput" placeholder="https://yourcompany.com">
+                    <button type="button" class="research-go-btn" id="researchGoBtn" onclick="runBusinessResearch()">Research</button>
+                </div>
+                <div class="research-status" id="researchStatus"></div>
+                <div class="research-chips" id="researchChips" style="display:none;"></div>
             </div>
 
             <!-- ── Organic mode fields ─────────────────────────────────── -->
@@ -454,6 +480,107 @@ function setStudioMode(mode) {
         if (csvBtn) csvBtn.style.display = 'none';
     }
     if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+}
+
+/* ── One-shot business research: native.no's "just paste a URL" onboarding ──
+   Calls /api/enrich-business (real homepage scrape + Perplexity research,
+   already built for BusinessBrain's autofill) directly from Social Studio so
+   a brand-new user gets grounded content ideas and business context without
+   ever leaving the page or setting up BusinessBrain first. ─────────────── */
+let _researchedBusiness = null;
+
+function toggleResearchWidget() {
+    const row = document.getElementById('researchInputRow');
+    const showing = row.style.display !== 'none';
+    row.style.display = showing ? 'none' : 'flex';
+    if (!showing) document.getElementById('researchUrlInput').focus();
+}
+
+async function runBusinessResearch() {
+    const input  = document.getElementById('researchUrlInput');
+    const goBtn  = document.getElementById('researchGoBtn');
+    const status = document.getElementById('researchStatus');
+    const chips  = document.getElementById('researchChips');
+
+    let url = input.value.trim();
+    if (!url) { status.textContent = 'Enter your website URL first.'; status.className = 'research-status error'; return; }
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+    goBtn.disabled = true;
+    goBtn.textContent = 'Researching…';
+    status.textContent = 'Analyzing your website and researching your business…';
+    status.className = 'research-status';
+    chips.style.display = 'none';
+    chips.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/enrich-business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        _researchedBusiness = data;
+        status.textContent = `Done — ${data.company?.name || 'your business'} researched. Pick an idea below or just generate — this context now informs every post.`;
+        renderResearchIdeas(data);
+
+        if (studioMode === 'ads' && typeof agent !== 'undefined') agent.applyResearchToAdBrief(data);
+
+        // Best-effort: quietly enrich BusinessBrain too (never overwrites existing fields)
+        // so the rest of the platform benefits from this research, not just Social Studio.
+        try {
+            if (window.IntelligenceEngine?.brain) {
+                const brain = window.IntelligenceEngine.brain.load();
+                if (!brain.company?.name && data.company?.name) brain.company = { ...brain.company, ...data.company, website: url };
+                if (!brain.icp?.primaryBuyer?.role && data.icp?.primaryBuyerRole) {
+                    brain.icp = brain.icp || {};
+                    brain.icp.primaryBuyer = { role: data.icp.primaryBuyerRole, industry: data.icp.primaryBuyerIndustry, companySize: data.icp.primaryBuyerCompanySize };
+                    if (data.icp.painPoints?.length) brain.icp.painPoints = data.icp.painPoints;
+                }
+                if (!brain.positioning?.uniqueValue && data.positioning?.uniqueValue) {
+                    brain.positioning = brain.positioning || {};
+                    brain.positioning.uniqueValue = data.positioning.uniqueValue;
+                    if (data.positioning.differentiation?.length) brain.positioning.differentiation = data.positioning.differentiation;
+                    if (data.positioning.voiceAndTone?.length && !brain.positioning.voiceAndTone?.length) brain.positioning.voiceAndTone = data.positioning.voiceAndTone;
+                }
+                window.IntelligenceEngine.brain.save(brain, 'Social Studio one-shot research');
+                if (typeof agent !== 'undefined') agent._checkIntelligence();
+            }
+        } catch (e) { console.warn('[SocialStudio] Could not merge research into BusinessBrain:', e.message); }
+
+    } catch (err) {
+        status.textContent = 'Research failed: ' + err.message;
+        status.className = 'research-status error';
+    } finally {
+        goBtn.disabled = false;
+        goBtn.textContent = 'Research';
+    }
+}
+
+function renderResearchIdeas(data) {
+    const chips = document.getElementById('researchChips');
+    const ideas = [];
+    (data.icp?.painPoints || []).forEach(p => { if (p) ideas.push({ label: 'Pain point', text: p }); });
+    if (data.positioning?.uniqueValue) ideas.push({ label: 'Value prop', text: data.positioning.uniqueValue });
+    (data.positioning?.differentiation || []).forEach(d => { if (d) ideas.push({ label: 'Differentiator', text: d }); });
+
+    if (!ideas.length) { chips.style.display = 'none'; return; }
+
+    chips.innerHTML = ideas.slice(0, 5).map((idea, i) =>
+        `<button type="button" class="research-chip" data-idea-idx="${i}"><strong>${idea.label}</strong>${escHtmlCard ? escHtmlCard(idea.text) : idea.text}</button>`
+    ).join('');
+    chips.style.display = 'flex';
+    chips._ideas = ideas;
+
+    chips.querySelectorAll('.research-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idea = chips._ideas[Number(btn.dataset.ideaIdx)];
+            const topicField = document.getElementById('topic');
+            if (topicField) { topicField.value = idea.text; topicField.focus(); }
+        });
+    });
 }
 
 /* ── Review queue: swipe-style approve/reject/regenerate per post ────────
@@ -955,6 +1082,26 @@ class SocialAgent {
         }
     }
 
+    /* Fill the ad brief from a one-shot business research result (only empty fields). */
+    applyResearchToAdBrief(data) {
+        const productEl = document.getElementById('adProduct');
+        if (productEl && !productEl.value.trim() && (data.positioning?.uniqueValue || data.company?.description)) {
+            productEl.value = data.positioning?.uniqueValue || data.company.description;
+        }
+        const audienceEl = document.getElementById('adAudience');
+        if (audienceEl && !audienceEl.value.trim() && data.icp?.primaryBuyerRole) {
+            let summary = data.icp.primaryBuyerRole;
+            if (data.icp.primaryBuyerCompanySize) summary += ` at ${data.icp.primaryBuyerCompanySize} companies`;
+            if (data.icp.primaryBuyerIndustry) summary += `, ${data.icp.primaryBuyerIndustry}`;
+            if (data.icp.painPoints?.length) summary += `. Pain points: ${data.icp.painPoints.slice(0, 2).join(', ')}`;
+            audienceEl.value = summary;
+        }
+        const competitorsEl = document.getElementById('adCompetitors');
+        if (competitorsEl && !competitorsEl.value.trim() && data.competitors?.length) {
+            competitorsEl.value = data.competitors.map(c => c.name).filter(Boolean).join(', ');
+        }
+    }
+
     async run() {
         if (studioMode === 'ads') return this.runAds();
         return this.runOrganic();
@@ -1006,6 +1153,7 @@ class SocialAgent {
             if (pains.length) bizContext += `\nICP pain points: ${pains.join('; ')}`;
             if (brainData?.positioning?.thingsWeNeverSay) bizContext += `\nNever say: ${brainData.positioning.thingsWeNeverSay}`;
         }
+        bizContext += this.buildResearchedContext();
         bizContext = bizContext.trim().slice(0, 800);
         if (bizContext) {
             body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
@@ -1062,7 +1210,21 @@ class SocialAgent {
         ctx += this.buildValuePropMessaging(contextBundle);
         ctx += this.buildCompetitiveDifferentiation(contextBundle);
         ctx += this.buildHashtagStrategy(contextBundle);
+        ctx += this.buildResearchedContext();
         return ctx.trim();
+    }
+
+    /** One-shot research (Phase D) — grounds generation even before/without a
+     *  fully configured BusinessBrain, mirroring native.no's zero-setup flow. */
+    buildResearchedContext() {
+        const d = _researchedBusiness;
+        if (!d) return '';
+        let ctx = '\n\n**Business Research (from website analysis):**\n';
+        if (d.company?.description) ctx += `${d.company.description}\n`;
+        if (d.positioning?.uniqueValue) ctx += `Value proposition: ${d.positioning.uniqueValue}\n`;
+        if (d.icp?.painPoints?.length) ctx += `Customer pain points: ${d.icp.painPoints.join('; ')}\n`;
+        if (d.competitors?.length) ctx += `Competitors: ${d.competitors.map(c => c.name).filter(Boolean).join(', ')}\n`;
+        return ctx;
     }
 
     async runOrganic() {
