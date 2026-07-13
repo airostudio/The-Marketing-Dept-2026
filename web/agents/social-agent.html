@@ -758,10 +758,14 @@ async function generateCardImage(id) {
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
         post.imageUrl = data.dataUri;
+        post.hostedImageUrl = data.hostedUrl || null;
         post._imageLoading = false;
 
         if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
-            try { await window.SocialPostsStore.updatePost(id, { image_url: data.dataUri, image_render_status: 'rendered' }); } catch (err) { console.warn(err.message); }
+            // Prefer the hosted URL when available — Instagram/TikTok publishing
+            // needs a real fetchable URL, not a data: URI. Falls back to the data
+            // URI when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't configured.
+            try { await window.SocialPostsStore.updatePost(id, { image_url: data.hostedUrl || data.dataUri, image_render_status: 'rendered' }); } catch (err) { console.warn(err.message); }
         }
     } catch (err) {
         post._imageLoading = false;

@@ -154,6 +154,51 @@ function backgroundSvg(width, height, colours) {
   `;
 }
 
+// ── Optional hosted upload (Supabase Storage) ───────────────────────────────
+// Instagram and TikTok's publish APIs require a real, publicly fetchable
+// image URL — they cannot accept a data: URI. When SUPABASE_URL and
+// SUPABASE_SERVICE_ROLE_KEY are configured, best-effort upload the rendered
+// SVG to a public bucket and return that URL alongside the data URI (which
+// keeps working for the inline card preview regardless — this is purely
+// additive, never a requirement for Phase F's zero-dependency guarantee).
+const STORAGE_BUCKET = 'social-creatives';
+let _bucketEnsured = false;
+
+async function ensureBucket(supabaseUrl, serviceKey) {
+  if (_bucketEnsured) return;
+  try {
+    await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+      method: 'POST',
+      headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: true }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch { /* bucket likely already exists — upload below will surface any real problem */ }
+  _bucketEnsured = true;
+}
+
+async function uploadHostedCreative(svg, platformSize) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return null;
+
+  try {
+    await ensureBucket(supabaseUrl, serviceKey);
+    const fileName = `${platformSize}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.svg`;
+    const upRes = await fetch(`${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${fileName}`, {
+      method: 'POST',
+      headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'image/svg+xml' },
+      body: svg,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!upRes.ok) return null;
+    return `${supabaseUrl}/storage/v1/object/public/${STORAGE_BUCKET}/${fileName}`;
+  } catch (err) {
+    console.warn('[render-social-image] hosted upload failed:', err.message);
+    return null;
+  }
+}
+
 function textFor(role, concept) {
   switch (role) {
     case 'headline': return concept.headline;
@@ -227,14 +272,16 @@ module.exports = async function handler(req, res) {
   const layout = generateLayout(concept, platformSize);
   const svg = buildSvg(concept, layout, fonts);
   const dataUri = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`;
+  const hostedUrl = await uploadHostedCreative(svg, platformSize);
 
   return res.json({
     success: true,
     svg,
     dataUri,
+    hostedUrl,
     width: layout.width,
     height: layout.height,
     platformSize,
-    notes: layout.notes,
+    notes: hostedUrl ? layout.notes : [...layout.notes, 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured (or upload failed) — hostedUrl is unavailable, so Instagram/TikTok publishing will reject this image. The data URI still renders fine everywhere else.'],
   });
 };

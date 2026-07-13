@@ -633,18 +633,21 @@
                 var res = await fetch('/api/publish-social-post', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ platform: post.platform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags }),
+                    body: JSON.stringify({ platform: post.platform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '' }),
                 });
                 var result = await res.json();
 
                 if (result.success) {
+                    // TikTok's init call only queues the post for async processing —
+                    // 'publishing' means accepted, not necessarily live yet. Only a
+                    // real 'published' response marks the post fully done.
+                    var isFullyPublished = result.status === 'published';
                     if (window.SocialPostsStore) {
                         try {
-                            await window.SocialPostsStore.updatePost(id, {
-                                status: 'published', publish_status: 'published',
+                            await window.SocialPostsStore.updatePost(id, Object.assign({
+                                publish_status: isFullyPublished ? 'published' : 'publishing',
                                 publish_platform_post_id: result.platformPostId || null,
-                                published_at: new Date().toISOString(),
-                            });
+                            }, isFullyPublished ? { status: 'published', published_at: new Date().toISOString() } : {}));
                         } catch (e) { console.warn(e.message); }
                     }
                     await loadPipeline();
