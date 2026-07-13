@@ -309,6 +309,9 @@
                 </div>
                 <h4 style="font-size:0.88rem;margin-bottom:0.75rem;color:var(--text-secondary);">Approved &mdash; Ready to Schedule</h4>
                 <div id="approved-queue"><div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Sign in to see your approved content queue.</div></div>
+
+                <h4 style="font-size:0.88rem;margin:1.5rem 0 0.75rem;color:var(--text-secondary);">Scheduled &mdash; Ready to Publish</h4>
+                <div id="scheduled-queue"></div>
             </div>
 
             <!-- Engagement Analytics -->
@@ -563,6 +566,7 @@
             document.getElementById('pipeline-published').textContent = published.length;
 
             renderApprovedQueue(approvedUnscheduled);
+            renderScheduledQueue(scheduled);
             renderPosts(_allPipelinePosts.slice(0, 15));
         }
 
@@ -593,6 +597,69 @@
                 await loadSchedulerData();
             } catch (e) {
                 alert('Could not schedule: ' + e.message);
+            }
+        }
+
+        /* ── Publish adapter (Phase H) — sends only post content to
+           /api/publish-social-post, never a token/credential (those live
+           exclusively in Vercel env vars). Honestly reports not_connected/
+           not_supported until a platform's real OAuth app is wired in. ── */
+        function renderScheduledQueue(posts) {
+            var el = document.getElementById('scheduled-queue');
+            if (!posts.length) {
+                el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Nothing scheduled yet.</div>';
+                return;
+            }
+            el.innerHTML = posts.map(function(p) {
+                var when = p.scheduled_at ? new Date(p.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                return '<div class="approved-item" data-post-id="' + p.id + '">' +
+                    '<div class="approved-body">' +
+                    '<div class="approved-headline">' + escHtml(p.headline) + '</div>' +
+                    '<div class="approved-meta">' + escHtml(p.platform) + ' &middot; ' + when + '</div>' +
+                    '</div>' +
+                    '<button class="btn btn-primary" id="publish-btn-' + p.id + '" onclick="publishScheduledPost(\'' + p.id + '\')">Publish Now</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        async function publishScheduledPost(id) {
+            var post = _allPipelinePosts.find(function(p) { return p.id === id; });
+            if (!post) return;
+            var btn = document.getElementById('publish-btn-' + id);
+            btn.disabled = true;
+            btn.textContent = 'Publishing…';
+
+            try {
+                var res = await fetch('/api/publish-social-post', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platform: post.platform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags }),
+                });
+                var result = await res.json();
+
+                if (result.success) {
+                    if (window.SocialPostsStore) {
+                        try {
+                            await window.SocialPostsStore.updatePost(id, {
+                                status: 'published', publish_status: 'published',
+                                publish_platform_post_id: result.platformPostId || null,
+                                published_at: new Date().toISOString(),
+                            });
+                        } catch (e) { console.warn(e.message); }
+                    }
+                    await loadPipeline();
+                } else {
+                    if (window.SocialPostsStore) {
+                        try { await window.SocialPostsStore.updatePost(id, { publish_status: 'failed', publish_error: result.error || result.status }); } catch (e) { console.warn(e.message); }
+                    }
+                    alert((result.status === 'not_connected' ? 'Not connected: ' : result.status === 'not_supported' ? 'Not supported yet: ' : 'Publish failed: ') + (result.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.textContent = 'Publish Now';
+                }
+            } catch (err) {
+                alert('Publish request failed: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Publish Now';
             }
         }
 
