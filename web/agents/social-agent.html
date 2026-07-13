@@ -173,6 +173,10 @@
         .post-card-btn.regen:hover { border-color: rgba(6,182,212,0.4); color: #06b6d4; }
         .post-card-btn.approve { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
         .post-card-btn.approve:hover { background: rgba(16,185,129,0.18); }
+        .post-card-btn.image:hover { border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+        .post-card-image-wrap { margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .post-card-image-wrap img { display: block; width: 100%; height: auto; }
+        .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
         .review-queue-summary {
             display: flex; gap: 14px; font-size: 12px; color: var(--text2); margin-bottom: 14px;
             padding-bottom: 12px; border-bottom: 1px solid var(--border);
@@ -681,6 +685,8 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
+            ${p.imageUrl ? `<div class="post-card-image-wrap"><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
+            ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
             ${p.cta ? `<div class="post-card-cta">${escHtmlCard(p.cta)}</div>` : ''}
@@ -689,6 +695,7 @@ function renderReviewQueue() {
             <div class="post-card-actions">
                 <button class="post-card-btn reject" onclick="rejectPost('${p.id}')" ${p.status === 'rejected' ? 'disabled' : ''}>✕ Reject</button>
                 <button class="post-card-btn regen" onclick="regeneratePost('${p.id}')">↻ Regenerate</button>
+                <button class="post-card-btn image" onclick="generateCardImage('${p.id}')" ${p._imageLoading ? 'disabled' : ''}>${p._imageLoading ? '⏳ Rendering…' : '🎨 ' + (p.imageUrl ? 'Re-render' : 'Image')}</button>
                 <button class="post-card-btn approve" onclick="approvePost('${p.id}')" ${p.status === 'approved' ? 'disabled' : ''}>✓ Approve</button>
             </div>
         </div>
@@ -722,6 +729,45 @@ async function rejectPost(id) {
     if (_reviewCloudBacked && window.SocialPostsStore && !id.startsWith('local_')) {
         try { await window.SocialPostsStore.updateStatus(id, 'rejected'); } catch (err) { console.warn(err.message); }
     }
+}
+
+/** Render a deterministic on-brand creative for one card via /api/render-social-image. */
+async function generateCardImage(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+
+    post._imageLoading = true;
+    post.imageError = null;
+    renderReviewQueue();
+
+    try {
+        const res = await fetch('/api/render-social-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                headline: post.headline || post.hook,
+                subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
+                cta: post.cta || '',
+                proofPoint: post.proofPoint || '',
+                urgencyLine: post.urgencyLine || '',
+                platform: post.platform,
+                visualDirection: post.visualDirection || '',
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        post.imageUrl = data.dataUri;
+        post._imageLoading = false;
+
+        if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
+            try { await window.SocialPostsStore.updatePost(id, { image_url: data.dataUri, image_render_status: 'rendered' }); } catch (err) { console.warn(err.message); }
+        }
+    } catch (err) {
+        post._imageLoading = false;
+        post.imageError = err.message;
+    }
+    renderReviewQueue();
 }
 
 /** Regenerate a single card: reject the old one, generate one replacement in its place. */
