@@ -131,6 +131,11 @@
         .sentiment-neutral { background: rgba(245,158,11,0.15); color: var(--warning); }
         .loading-spinner { display: none; width: 18px; height: 18px; border: 2px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .approved-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.6rem; }
+        .approved-item .approved-body { flex: 1; min-width: 0; }
+        .approved-item .approved-headline { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .approved-item .approved-meta { font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.15rem; }
+        .approved-item input[type="datetime-local"] { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0.4rem 0.5rem; font-size: 0.78rem; font-family: inherit; }
         @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .platform-grid { grid-template-columns: repeat(2, 1fr); } .analytics-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) { .sidebar { display: none; } .main-content { margin-left: 0; padding: 1rem; } .kpi-grid, .platform-grid { grid-template-columns: 1fr; } .ai-generator { grid-template-columns: 1fr; } .trending-grid { grid-template-columns: 1fr; } }
     </style>
@@ -187,7 +192,7 @@
                     <span class="current">Dashboard</span>
                 </div>
                 <div class="top-bar-actions">
-                    <button class="btn btn-outline" onclick="refreshData()">&#8635; Refresh</button>
+                    <button class="btn btn-outline" onclick="refreshData(); loadPipeline(); loadSchedulerData();">&#8635; Refresh</button>
                     <button class="btn btn-primary" onclick="openScheduler()">+ Schedule Post</button>
                 </div>
             </div>
@@ -287,53 +292,23 @@
                 <div class="scheduler-timeline" id="scheduler-timeline"></div>
             </div>
 
-            <!-- AI Post Generator -->
-            <div class="card-panel">
-                <h3 class="section-title">&#9889; AI Post Generator</h3>
-                <div class="ai-generator">
-                    <div class="ai-form">
-                        <div class="form-group">
-                            <label for="ai-platform">Platform</label>
-                            <select id="ai-platform">
-                                <option value="facebook">Facebook</option>
-                                <option value="instagram">Instagram</option>
-                                <option value="twitter">Twitter / X</option>
-                                <option value="linkedin">LinkedIn</option>
-                                <option value="tiktok">TikTok</option>
-                                <option value="youtube">YouTube</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="ai-topic">Topic / Subject</label>
-                            <input type="text" id="ai-topic" placeholder="e.g. Product launch, Industry trends, Company culture...">
-                        </div>
-                        <div class="form-group">
-                            <label for="ai-tone">Tone</label>
-                            <select id="ai-tone">
-                                <option value="professional">Professional</option>
-                                <option value="casual">Casual &amp; Friendly</option>
-                                <option value="humorous">Humorous</option>
-                                <option value="inspirational">Inspirational</option>
-                                <option value="educational">Educational</option>
-                                <option value="urgent">Urgent / FOMO</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="ai-context">Additional Context (optional)</label>
-                            <textarea id="ai-context" placeholder="Add any brand guidelines, key messages, or hashtags to include..."></textarea>
-                        </div>
-                        <div style="display:flex;gap:0.75rem;align-items:center;">
-                            <button class="btn btn-primary" id="btn-generate" onclick="generatePost()">&#9889; Generate Post</button>
-                            <div class="loading-spinner" id="generate-spinner"></div>
-                        </div>
-                    </div>
-                    <div class="ai-preview" id="ai-preview">
-                        <div class="ai-preview-header">Generated Preview</div>
-                        <div class="ai-preview-content" id="ai-preview-content">
-                            Select a platform, enter a topic and tone, then click Generate to create an AI-powered social media post.
-                        </div>
-                    </div>
+            <!-- Content Pipeline (real data — social_posts, generated & reviewed in Pulse) -->
+            <div class="card-panel" id="content-pipeline-panel">
+                <div class="scheduler-header">
+                    <h3 class="section-title" style="margin-bottom:0;">&#9889; Content Pipeline</h3>
+                    <a href="/agents/social-agent.html" class="btn btn-primary">&#9889; Create Content in Pulse &#8594;</a>
                 </div>
+                <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:1.25rem;">
+                    Content is generated and reviewed in Pulse (Social Studio) — approve/reject/regenerate there, then schedule the winners here.
+                </p>
+                <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem;" id="pipeline-counts">
+                    <div class="kpi-card"><div class="kpi-label">Pending Review</div><div class="kpi-value" id="pipeline-pending">--</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Approved</div><div class="kpi-value" id="pipeline-approved">--</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Scheduled</div><div class="kpi-value" id="pipeline-scheduled">--</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Published</div><div class="kpi-value" id="pipeline-published">--</div></div>
+                </div>
+                <h4 style="font-size:0.88rem;margin-bottom:0.75rem;color:var(--text-secondary);">Approved &mdash; Ready to Schedule</h4>
+                <div id="approved-queue"><div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Sign in to see your approved content queue.</div></div>
             </div>
 
             <!-- Engagement Analytics -->
@@ -359,7 +334,9 @@
                 </div>
             </div>
 
-            <!-- Recent Posts Table -->
+            <!-- Recent Posts Table — real social_posts rows. Engagement columns show
+                 "Not connected" until a real platform publish integration is live
+                 (see api/render-social-image.js-era Phase H) rather than fabricated numbers. -->
             <div class="card-panel">
                 <h3 class="section-title">&#128240; Recent Posts</h3>
                 <div style="overflow-x:auto;">
@@ -368,11 +345,9 @@
                             <tr>
                                 <th>Platform</th>
                                 <th>Content</th>
-                                <th>Date</th>
-                                <th>Likes</th>
-                                <th>Comments</th>
-                                <th>Shares</th>
-                                <th>Reach</th>
+                                <th>Status</th>
+                                <th>Scheduled / Created</th>
+                                <th>Publish Status</th>
                             </tr>
                         </thead>
                         <tbody id="posts-tbody"></tbody>
@@ -399,6 +374,8 @@
     <script src="/js/api-connector.js"></script>
     <script src="/js/ai-service.js"></script>
     <script src="/js/social-media-service.js"></script>
+    <script src="/js/intelligence-engine.js"></script>
+    <script src="/js/social-posts-store.js"></script>
     <script>
         /* ── Sidebar toggle ── */
         function toggleNav(section) {
@@ -443,16 +420,15 @@
         function renderPlatforms(platforms) {
             const keys = ['fb', 'ig', 'tw', 'li', 'tt', 'yt'];
             keys.forEach(function(key) {
-                var p = platforms[key];
-                if (!p) return;
-                document.getElementById(key + '-followers').textContent = formatNumber(p.followers);
-                document.getElementById(key + '-engagement').textContent = p.engagement.toFixed(2) + '%';
-                document.getElementById(key + '-growth').textContent = (p.growth >= 0 ? '+' : '') + p.growth.toFixed(1) + '%';
-                document.getElementById(key + '-reach').textContent = formatNumber(p.reach);
+                var p = platforms[key] || {};
+                document.getElementById(key + '-followers').textContent = formatNumber(p.followers || 0);
+                document.getElementById(key + '-engagement').textContent = (p.engagement || 0).toFixed(2) + '%';
+                document.getElementById(key + '-growth').textContent = ((p.growth || 0) >= 0 ? '+' : '') + (p.growth || 0).toFixed(1) + '%';
+                document.getElementById(key + '-reach').textContent = formatNumber(p.reach || 0);
             });
         }
 
-        /* ── Content Scheduler ── */
+        /* ── Content Scheduler — real data from social_posts via SocialPostsStore ── */
         var schedulerOffset = 0;
         function renderScheduler(posts) {
             var container = document.getElementById('scheduler-timeline');
@@ -466,14 +442,25 @@
                 var dayDiv = document.createElement('div');
                 dayDiv.className = 'timeline-day';
                 var dateStr = date.toISOString().split('T')[0];
-                var dayPosts = posts.filter(function(p) { return p.date === dateStr; });
+                var dayPosts = posts.filter(function(p) {
+                    return p.scheduled_at && p.scheduled_at.slice(0, 10) === dateStr;
+                });
                 var postsHtml = dayPosts.length === 0 ? '<div style="font-size:0.7rem;color:var(--text-secondary);text-align:center;padding:0.5rem 0;">No posts</div>' :
-                    dayPosts.map(function(p) { return '<div class="scheduled-post"><div class="post-time">' + p.time + '</div><div class="post-platform">' + p.platform + '</div></div>'; }).join('');
+                    dayPosts.map(function(p) {
+                        var time = new Date(p.scheduled_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        return '<div class="scheduled-post"><div class="post-time">' + time + '</div><div class="post-platform">' + escHtml(p.platform) + '</div></div>';
+                    }).join('');
                 dayDiv.innerHTML = '<div class="day-label">' + dayNames[date.getDay()] + '</div><div class="day-date">' + monthNames[date.getMonth()] + ' ' + date.getDate() + '</div>' + postsHtml;
                 container.appendChild(dayDiv);
             }
         }
         function shiftScheduler(dir) { schedulerOffset += dir * 7; loadSchedulerData(); }
+
+        function escHtml(str) {
+            var d = document.createElement('div');
+            d.textContent = str == null ? '' : String(str);
+            return d.innerHTML;
+        }
 
         /* ── Heatmap ── */
         function renderHeatmap(data) {
@@ -500,19 +487,26 @@
             });
         }
 
-        /* ── Recent Posts ── */
+        /* ── Recent Posts — real social_posts rows ── */
         function renderPosts(posts) {
             var tbody = document.getElementById('posts-tbody');
+            if (!posts.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);">No posts yet. Create content in <a href="/agents/social-agent.html" style="color:var(--primary-light);">Pulse</a> to get started.</td></tr>';
+                return;
+            }
             tbody.innerHTML = posts.map(function(p) {
-                var badgeClass = 'badge-' + p.platformKey;
+                var when = p.scheduled_at || p.created_at;
+                var whenLabel = when ? new Date(when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+                var publishLabel = p.publish_status === 'published' ? 'Published'
+                    : p.publish_status === 'failed' ? 'Failed'
+                    : p.publish_status === 'queued' || p.publish_status === 'publishing' ? 'Queued'
+                    : 'Not connected';
                 return '<tr>' +
-                    '<td><span class="platform-badge ' + badgeClass + '">' + p.platformLabel + '</span></td>' +
-                    '<td><div class="post-content-preview">' + p.content + '</div></td>' +
-                    '<td class="stat-mono">' + p.date + '</td>' +
-                    '<td class="stat-mono">' + formatNumber(p.likes) + '</td>' +
-                    '<td class="stat-mono">' + formatNumber(p.comments) + '</td>' +
-                    '<td class="stat-mono">' + formatNumber(p.shares) + '</td>' +
-                    '<td class="stat-mono">' + formatNumber(p.reach) + '</td>' +
+                    '<td><span class="platform-badge">' + escHtml(p.platform) + '</span></td>' +
+                    '<td><div class="post-content-preview">' + escHtml(p.headline) + '</div></td>' +
+                    '<td class="stat-mono">' + escHtml(p.status.replace('_', ' ')) + '</td>' +
+                    '<td class="stat-mono">' + whenLabel + '</td>' +
+                    '<td class="stat-mono">' + publishLabel + '</td>' +
                     '</tr>';
             }).join('');
         }
@@ -532,171 +526,160 @@
             }).join('');
         }
 
-        /* ── AI Post Generator ── */
-        async function generatePost() {
-            var platform = document.getElementById('ai-platform').value;
-            var topic = document.getElementById('ai-topic').value;
-            var tone = document.getElementById('ai-tone').value;
-            var context = document.getElementById('ai-context').value;
-            if (!topic) { alert('Please enter a topic.'); return; }
-            var spinner = document.getElementById('generate-spinner');
-            var btn = document.getElementById('btn-generate');
-            var preview = document.getElementById('ai-preview-content');
-            spinner.style.display = 'block';
-            btn.disabled = true;
-            preview.textContent = 'Generating your post...';
-            preview.className = 'ai-preview-content';
+        /* ── Content Pipeline — real data from social_posts via SocialPostsStore ──
+           Generation happens in Pulse (Social Studio); this dashboard is where
+           approved content gets scheduled and where the real pipeline/publish
+           state lives. Replaces the old fake canned-template "AI Generate"
+           panel and the alert()-stub scheduler. ── */
+        var _allPipelinePosts = [];
+
+        async function loadPipeline() {
+            var queueEl = document.getElementById('approved-queue');
+            if (!window.SocialPostsStore || !window.SocialPostsStore.getScope()) {
+                queueEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Sign in to see your approved content queue.</div>';
+                ['pending', 'approved', 'scheduled', 'published'].forEach(function(k) {
+                    document.getElementById('pipeline-' + k).textContent = '--';
+                });
+                renderPosts([]);
+                return;
+            }
+
             try {
-                if (typeof window.aiService !== 'undefined' && window.aiService.generateSocialPost) {
-                    var result = await window.aiService.generateSocialPost({ platform: platform, topic: topic, tone: tone, context: context });
-                    preview.textContent = result;
-                } else {
-                    await new Promise(function(r) { setTimeout(r, 1500); });
-                    var templates = {
-                        professional: 'We are excited to share insights on ' + topic + '. In today\'s landscape, staying ahead means embracing change and driving innovation. What strategies are you implementing? #' + topic.replace(/\s+/g, '') + ' #Marketing',
-                        casual: 'Hey everyone! Let\'s talk about ' + topic + ' - it\'s been a game changer for us lately and we wanted to share some thoughts with you all! Drop your take below.',
-                        humorous: 'POV: You just discovered the secret to ' + topic + ' and now you can\'t stop telling everyone about it. We\'ve all been there, right? #Relatable',
-                        inspirational: 'The future belongs to those who believe in ' + topic + '. Every great journey starts with a single step. What\'s yours? #Inspiration #' + topic.replace(/\s+/g, ''),
-                        educational: 'Did you know? ' + topic + ' is transforming how businesses operate. Here are 3 key takeaways you need to know:\n\n1. Efficiency gains of up to 40%\n2. Improved customer satisfaction\n3. Scalable growth opportunities\n\nSave this post for later!',
-                        urgent: 'This won\'t last! ' + topic + ' is changing FAST and you don\'t want to miss out. Here\'s what you need to do RIGHT NOW to stay ahead of the curve.'
-                    };
-                    preview.textContent = templates[tone] || templates.professional;
-                }
-                preview.className = 'ai-preview-content generated';
-            } catch (err) {
-                preview.textContent = 'Error generating post. Please try again.';
-                console.error('AI generation error:', err);
+                _allPipelinePosts = await window.SocialPostsStore.listPosts({ limit: 100 });
+            } catch (e) {
+                console.warn('[SocialMedia] Could not load content pipeline:', e.message);
+                _allPipelinePosts = [];
             }
-            spinner.style.display = 'none';
-            btn.disabled = false;
+
+            var pending = _allPipelinePosts.filter(function(p) { return p.status === 'pending_review'; });
+            var approved = _allPipelinePosts.filter(function(p) { return p.status === 'approved'; });
+            var approvedUnscheduled = approved.filter(function(p) { return !p.scheduled_at; });
+            var scheduled = _allPipelinePosts.filter(function(p) { return p.status === 'scheduled' || (p.status === 'approved' && p.scheduled_at); });
+            var published = _allPipelinePosts.filter(function(p) { return p.status === 'published'; });
+
+            document.getElementById('pipeline-pending').textContent = pending.length;
+            document.getElementById('pipeline-approved').textContent = approved.length;
+            document.getElementById('pipeline-scheduled').textContent = scheduled.length;
+            document.getElementById('pipeline-published').textContent = published.length;
+
+            renderApprovedQueue(approvedUnscheduled);
+            renderPosts(_allPipelinePosts.slice(0, 15));
         }
 
-        /* ── Data Loading ── */
-        const STORAGE_KEY = 'social-media';
-
-        async function loadStoredData() {
-            console.log('[SocialMedia] Loading stored data');
-            var data = null;
-
-            // Try MarketingStore first (Supabase with localStorage fallback)
-            if (window.MarketingStore) {
-                try {
-                    data = await window.MarketingStore.get(STORAGE_KEY, 'dashboard-data', null);
-                } catch (e) {
-                    console.warn('[SocialMedia] MarketingStore unavailable:', e);
-                }
+        function renderApprovedQueue(posts) {
+            var el = document.getElementById('approved-queue');
+            if (!posts.length) {
+                el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Nothing waiting to be scheduled. Approve posts in <a href="/agents/social-agent.html" style="color:var(--primary-light);">Pulse</a> and they\'ll show up here.</div>';
+                return;
             }
-
-            // Fallback to direct localStorage
-            if (!data) {
-                try {
-                    var stored = localStorage.getItem(STORAGE_KEY + '-dashboard');
-                    if (stored) data = JSON.parse(stored);
-                } catch (e) {}
-            }
-
-            if (data && Object.keys(data).length > 0) {
-                // Render stored data
-                if (data.kpis) renderKPIs(data.kpis);
-                if (data.platforms) renderPlatforms(data.platforms);
-                if (data.scheduledPosts) renderScheduler(data.scheduledPosts);
-                if (data.heatmap) renderHeatmap(data.heatmap);
-                if (data.posts) renderPosts(data.posts);
-                if (data.trending) renderTrending(data.trending);
-            } else {
-                // Show empty states - no demo data
-                renderEmptyState();
-            }
+            el.innerHTML = posts.map(function(p) {
+                return '<div class="approved-item" data-post-id="' + p.id + '">' +
+                    '<div class="approved-body">' +
+                    '<div class="approved-headline">' + escHtml(p.headline) + '</div>' +
+                    '<div class="approved-meta">' + escHtml(p.platform) + (p.angle_type ? ' &middot; ' + escHtml(p.angle_type) : '') + '</div>' +
+                    '</div>' +
+                    '<input type="datetime-local" id="schedtime-' + p.id + '">' +
+                    '<button class="btn btn-primary" onclick="scheduleApprovedPost(\'' + p.id + '\')">Schedule</button>' +
+                    '</div>';
+            }).join('');
         }
 
-        function renderEmptyState() {
-            console.log('[SocialMedia] Showing empty state - no data yet');
-
-            // KPIs with zeros
-            renderKPIs({
-                totalFollowers: 0, followersChange: 0,
-                engagementRate: 0, engagementChange: 0,
-                socialTraffic: 0, trafficChange: 0,
-                shareOfVoice: 0, sovChange: 0
-            });
-
-            // Platforms with zeros
-            renderPlatforms({
-                fb: { followers: 0, engagement: 0, growth: 0, reach: 0 },
-                ig: { followers: 0, engagement: 0, growth: 0, reach: 0 },
-                tw: { followers: 0, engagement: 0, growth: 0, reach: 0 },
-                li: { followers: 0, engagement: 0, growth: 0, reach: 0 },
-                tt: { followers: 0, engagement: 0, growth: 0, reach: 0 },
-                yt: { followers: 0, engagement: 0, growth: 0, reach: 0 }
-            });
-
-            // Empty scheduler
-            document.getElementById('scheduler-timeline').innerHTML = '<div class="empty-state" style="padding:2rem;text-align:center;color:var(--text-secondary);"><p>No posts scheduled</p><p style="font-size:0.8rem;opacity:0.7;">Click "Schedule Post" to plan your content</p></div>';
-
-            // Empty heatmap
-            renderHeatmap({
-                '6am':  [0, 0, 0, 0, 0, 0, 0],
-                '9am':  [0, 0, 0, 0, 0, 0, 0],
-                '12pm': [0, 0, 0, 0, 0, 0, 0],
-                '3pm':  [0, 0, 0, 0, 0, 0, 0],
-                '6pm':  [0, 0, 0, 0, 0, 0, 0],
-                '9pm':  [0, 0, 0, 0, 0, 0, 0]
-            });
-
-            // Empty posts
-            document.getElementById('posts-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);">No posts yet. Connect your social accounts to see performance data.</td></tr>';
-
-            // Empty trending
-            document.getElementById('trending-grid').innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">No trending topics tracked yet</div>';
-
-            // Empty chart
-            document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
-        }
-
-        async function saveData(data) {
-            // Save to MarketingStore (Supabase with localStorage fallback)
-            if (window.MarketingStore) {
-                try {
-                    await window.MarketingStore.set(STORAGE_KEY, 'dashboard-data', data);
-                } catch (e) {
-                    console.warn('[SocialMedia] Could not save to MarketingStore:', e);
-                }
-            }
-            // Also save to localStorage as fallback
+        async function scheduleApprovedPost(id) {
+            var input = document.getElementById('schedtime-' + id);
+            if (!input || !input.value) { alert('Pick a date and time first.'); return; }
             try {
-                localStorage.setItem(STORAGE_KEY + '-dashboard', JSON.stringify(data));
-            } catch (e) {}
-        }
-
-        async function loadSchedulerData() {
-            try {
-                if (typeof window.socialMediaService !== 'undefined' && window.socialMediaService.getScheduledPosts) {
-                    var posts = await window.socialMediaService.getScheduledPosts(schedulerOffset);
-                    renderScheduler(posts);
-                }
-            } catch (e) { console.warn('Scheduler service unavailable, using fallback'); }
+                await window.SocialPostsStore.schedulePost(id, new Date(input.value).toISOString());
+                await loadPipeline();
+                await loadSchedulerData();
+            } catch (e) {
+                alert('Could not schedule: ' + e.message);
+            }
         }
 
         function openScheduler() {
-            alert('Post scheduling dialog would open here. Connect your social media accounts in Settings to enable scheduling.');
+            var panel = document.getElementById('content-pipeline-panel');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        async function refreshData() {
+        async function loadSchedulerData() {
+            if (!window.SocialPostsStore || !window.SocialPostsStore.getScope()) {
+                renderScheduler([]);
+                return;
+            }
             try {
-                if (typeof window.socialMediaService !== 'undefined' && window.socialMediaService.getDashboardData) {
-                    var data = await window.socialMediaService.getDashboardData();
-                    renderKPIs(data.kpis);
-                    renderPlatforms(data.platforms);
-                    renderScheduler(data.scheduledPosts);
-                    renderHeatmap(data.heatmap);
-                    renderPosts(data.recentPosts);
-                    renderTrending(data.trending);
-                } else {
-                    loadStoredData();
-                }
-            } catch (err) {
-                console.warn('Social media service unavailable, loading fallback data:', err);
-                loadStoredData();
+                var today = new Date();
+                var start = new Date(today); start.setDate(today.getDate() + schedulerOffset);
+                var end = new Date(start); end.setDate(start.getDate() + 7);
+                var posts = await window.SocialPostsStore.listCalendar(start.toISOString(), end.toISOString());
+                renderScheduler(posts);
+            } catch (e) {
+                console.warn('[SocialMedia] Calendar load failed:', e.message);
+                renderScheduler([]);
+            }
+        }
+
+        /* ── Connected-account analytics — real SocialMediaService data (zeros
+           until accounts are actually connected via Settings), composed here
+           since SocialMediaService never shipped a single getDashboardData(). ── */
+        var PLATFORM_KEY_MAP = { facebook: 'fb', instagram: 'ig', twitter: 'tw', linkedin: 'li', tiktok: 'tt', youtube: 'yt' };
+
+        async function refreshData() {
+            var svc = window.SocialMediaService;
+            if (!svc) {
+                renderKPIs({ totalFollowers: 0, followersChange: 0, engagementRate: 0, engagementChange: 0, socialTraffic: 0, trafficChange: 0, shareOfVoice: 0, sovChange: 0 });
+                renderPlatforms({ fb: {}, ig: {}, tw: {}, li: {}, tt: {}, yt: {} });
+                document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
+                document.getElementById('trending-grid').innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">No trending topics tracked yet</div>';
+                renderHeatmap({});
+                return;
+            }
+
+            var connected = svc.getConnectedPlatforms().filter(function(c) { return c.connected; });
+            var platforms = { fb: {}, ig: {}, tw: {}, li: {}, tt: {}, yt: {} };
+            var totalFollowers = 0;
+            connected.forEach(function(c) {
+                var key = PLATFORM_KEY_MAP[c.platform];
+                if (!key) return;
+                var stats = svc.getPlatformStats(c.platform);
+                platforms[key] = { followers: stats.followers, engagement: stats.engagementRate, growth: 0, reach: stats.reach };
+                totalFollowers += stats.followers;
+            });
+            renderPlatforms(platforms);
+
+            var eng = svc.getEngagementMetrics();
+            renderKPIs({
+                totalFollowers: totalFollowers, followersChange: 0,
+                engagementRate: parseFloat(eng.totals.engagementRate) || 0, engagementChange: 0,
+                socialTraffic: eng.totals.clicks || 0, trafficChange: 0,
+                shareOfVoice: 0, sovChange: 0
+            });
+
+            document.getElementById('engagement-chart').innerHTML = connected.length
+                ? '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>' + eng.postCount + ' published posts tracked. Connect analytics in Settings for a full trend chart.</p></div>'
+                : '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
+
+            renderHeatmap({});
+            document.getElementById('trending-grid').innerHTML = '<div style="padding:1rem;text-align:center;"><button class="btn btn-outline" onclick="loadTrendingTopics()">&#128293; Analyze Trending Topics</button></div>';
+        }
+
+        async function loadTrendingTopics() {
+            var grid = document.getElementById('trending-grid');
+            var brain = window.IntelligenceEngine && window.IntelligenceEngine.brain ? window.IntelligenceEngine.brain.load() : null;
+            var industry = brain && brain.company && brain.company.industry;
+            if (!industry) {
+                grid.innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Set your industry in <a href="/intelligence/business-brain.html" style="color:var(--primary-light);">BusinessBrain</a> to analyze trending topics.</div>';
+                return;
+            }
+            grid.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Analyzing trending topics for ' + escHtml(industry) + '&hellip;</div>';
+            try {
+                var result = await window.SocialMediaService.getTrendingTopics(industry);
+                var topics = (result && result.topics) || [];
+                if (!topics.length) throw new Error('No topics returned');
+                renderTrending(topics.map(function(t) {
+                    return { topic: t.topic, volume: 0, velocity: t.suggestedAngle || '', sentiment: 'neutral' };
+                }));
+            } catch (e) {
+                grid.innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">Could not analyze trending topics: ' + escHtml(e.message) + '</div>';
             }
         }
 
@@ -711,6 +694,8 @@
                 console.warn('Auth check unavailable:', e);
             }
             await refreshData();
+            await loadPipeline();
+            await loadSchedulerData();
         });
     </script>
 </body>
