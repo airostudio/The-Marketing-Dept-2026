@@ -976,14 +976,10 @@ class SocialAgent {
 
     buildCompetitiveDifferentiation(contextBundle) {
         let competitive = '';
-        if (this.intelligenceEngine && this.intelligenceEngine.radar) {
-            const competitors = this.intelligenceEngine.radar.getAll();
-            if (competitors && competitors.length > 0) {
-                competitive += `\n\n**Competitive Differentiation:**\n`;
-                competitive += `We compete with: ${competitors.map(c => c.name).join(', ')}\n`;
-                competitive += `When creating thought leadership content, subtly differentiate without directly naming competitors.\n`;
-                competitive += `Focus on what makes us unique and better.\n`;
-            }
+        if (this.intelligenceEngine && this.intelligenceEngine.radar && this.intelligenceEngine.radar.hasData()) {
+            competitive += `\n\n**Competitive Intelligence (SCOUT):**\n`;
+            competitive += this.intelligenceEngine.radar.getSummaryForClaude() + '\n';
+            competitive += `When creating thought leadership content, subtly differentiate without directly naming competitors — lean on the gaps and positioning above.\n`;
         }
         return competitive;
     }
@@ -1080,6 +1076,14 @@ class SocialAgent {
             audienceEl.title = 'Auto-filled from BusinessBrain';
             audienceEl.style.color = '#10b981';
         }
+
+        // SCOUT competitive radar — real tracked competitors, not manual free-text
+        const competitorsEl = document.getElementById('adCompetitors');
+        if (competitorsEl && !competitorsEl.value.trim() && this.intelligenceEngine.radar?.hasData()) {
+            competitorsEl.value = this.intelligenceEngine.radar.getAll().map(c => c.name).filter(Boolean).join(', ');
+            competitorsEl.title = 'Auto-filled from SCOUT (competitive radar)';
+            competitorsEl.style.color = '#10b981';
+        }
     }
 
     /* Fill the ad brief from a one-shot business research result (only empty fields). */
@@ -1117,7 +1121,10 @@ class SocialAgent {
         const frameworks  = getSelectedFrameworks();
         const objective   = document.getElementById('adObjective').value;
         const budget      = document.getElementById('adBudget').value.trim();
-        const competitors = document.getElementById('adCompetitors').value.trim();
+        // SCOUT (competitive-agent) radar names as a fallback so ad copy always has
+        // real, current competitor context even if this field was never hand-typed.
+        const radarNames  = (this.intelligenceEngine?.radar?.getAll() || []).map(c => c.name).filter(Boolean);
+        const competitors = document.getElementById('adCompetitors').value.trim() || radarNames.join(', ');
         const variants    = parseInt(document.getElementById('adVariantCount').value, 10) || 5;
         const tone        = Array.isArray(this.brandVoice) ? this.brandVoice.join(', ') : '';
 
@@ -1153,8 +1160,13 @@ class SocialAgent {
             if (pains.length) bizContext += `\nICP pain points: ${pains.join('; ')}`;
             if (brainData?.positioning?.thingsWeNeverSay) bizContext += `\nNever say: ${brainData.positioning.thingsWeNeverSay}`;
         }
+        // SCOUT competitive radar — real tracked positioning, high-priority gaps,
+        // and borrowed-idea notes, not just a list of competitor names.
+        if (this.intelligenceEngine?.radar?.hasData()) {
+            bizContext += `\n\n**Competitive Intelligence (SCOUT):**\n${this.intelligenceEngine.radar.getSummaryForClaude()}`;
+        }
         bizContext += this.buildResearchedContext();
-        bizContext = bizContext.trim().slice(0, 800);
+        bizContext = bizContext.trim().slice(0, 1400);
         if (bizContext) {
             body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
         }
