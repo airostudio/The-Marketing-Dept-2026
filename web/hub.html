@@ -1096,6 +1096,9 @@
 <!-- Agent Characters -->
 <script src="js/agent-characters.js"></script>
 
+<!-- Intelligence Layer (for real BusinessBrain completion status below) -->
+<script src="js/intelligence-engine.js"></script>
+
 <!-- API Client (Backend Integration) -->
 <script src="js/api-client.js"></script>
 <script src="js/auth-modal.js"></script>
@@ -1181,10 +1184,15 @@
       }
     }
 
-    // BusinessBrain — configured if it has a company name
-    const brain = safeRead('intel_business_brain');
-    const brainOk = !!(brain && (brain.company?.name || brain.companyName));
-    setModule('dotBrain', 'badgeBrain', 'modBrain', brainOk, 'Configured');
+    // BusinessBrain — green "Complete" once the wizard hits 100%. Reads via
+    // IntelligenceEngine rather than the bare 'intel_business_brain' key
+    // directly: BusinessBrain has been per-profile/per-project scoped since
+    // the multi-profile Intelligence Layer shipped (key is actually
+    // 'intel_business_brain__<profileId|projectId>'), so the flat legacy key
+    // this used to read is never written to and always empty — the badge
+    // was stuck on "Needs Setup" regardless of real completion.
+    const brainScore = window.IntelligenceEngine?.brain?.getCompletionScore?.() ?? 0;
+    setModule('dotBrain', 'badgeBrain', 'modBrain', brainScore >= 100, 'Complete');
 
     // Competitive Radar — active if any competitors exist (stored in tmd_radar as array)
     const radar = safeRead('tmd_radar');
@@ -1205,7 +1213,10 @@
   // Run on load and whenever another tab writes to the intelligence stores
   updateIntelStatus();
   window.addEventListener('storage', function (e) {
-    if (['intel_business_brain','tmd_radar','tmd_pulse_signals','intel_strategic_briefs'].includes(e.key)) {
+    // BusinessBrain's real key is scoped (intel_business_brain__default,
+    // intel_business_brain__profile_<id>, ...), not the bare legacy key.
+    if (e.key && e.key.startsWith('intel_business_brain')) { updateIntelStatus(); return; }
+    if (['tmd_radar','tmd_pulse_signals','intel_strategic_briefs'].includes(e.key)) {
       updateIntelStatus();
     }
   });
