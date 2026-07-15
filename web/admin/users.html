@@ -652,20 +652,22 @@
                     const password = document.getElementById('userPassword').value;
 
                     if (window.Supabase && window.Supabase.isConfigured()) {
-                        const result = await window.Supabase.Auth.signUp(userData.email, password, {
-                            firstname: userData.firstname,
-                            lastname: userData.lastname,
-                            first_name: userData.firstname,
-                            last_name: userData.lastname
-                        });
+                        // Routed through /api/admin-users (service-role Auth Admin API) rather
+                        // than the client-side self-service signUp() call — signUp() operates
+                        // on OUR OWN browser session and would risk swapping this admin's
+                        // session over to the brand-new account, plus it leaves the account
+                        // unconfirmed if email confirmation is enabled. The server endpoint
+                        // creates a pre-confirmed account without touching our session at all.
+                        const session = await window.Supabase.Auth.getSession();
+                        if (!session) throw new Error('Your session has expired — please sign in again.');
 
-                        // Update role and plan
-                        if (result.user) {
-                            await window.Supabase.DB.updateProfile(result.user.id, {
-                                role: userData.role,
-                                plan: userData.plan
-                            });
-                        }
+                        const res = await fetch('/api/admin-users', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                            body: JSON.stringify({ action: 'create', ...userData, password }),
+                        });
+                        const result = await res.json();
+                        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to create user');
                     } else {
                         // Local mode create
                         await Auth.register({ ...userData, password });
@@ -689,13 +691,19 @@
 
             try {
                 if (window.Supabase && window.Supabase.isConfigured()) {
-                    const client = window.Supabase.getClient();
-                    const { error } = await client
-                        .from('profiles')
-                        .delete()
-                        .eq('id', userId);
+                    // Routed through /api/admin-users so the actual auth.users account is
+                    // removed too — deleting only the profiles row (the old behavior) left
+                    // a live, loginable account with a missing profile behind.
+                    const session = await window.Supabase.Auth.getSession();
+                    if (!session) throw new Error('Your session has expired — please sign in again.');
 
-                    if (error) throw error;
+                    const res = await fetch('/api/admin-users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ action: 'delete', userId }),
+                    });
+                    const result = await res.json();
+                    if (!res.ok || !result.success) throw new Error(result.error || 'Failed to delete user');
                 } else {
                     // Local mode delete
                     const users = Auth.getStoredUsers();

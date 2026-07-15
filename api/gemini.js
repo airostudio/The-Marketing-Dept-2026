@@ -8,6 +8,28 @@
  * Non-streaming: JSON    → { "text": "..." }
  */
 
+/**
+ * Gemini can return HTTP 200 with zero generated text — blocked by a safety
+ * filter, blocked for recitation, or truncated at maxOutputTokens before any
+ * visible text was produced. None of those are HTTP errors, so without this
+ * check the proxy would silently forward an empty string and the caller has
+ * no way to know why. Inspect promptFeedback/candidate finishReason to give
+ * a real explanation instead of "the API returned an empty response."
+ */
+function describeEmptyGeminiResponse(data) {
+  const blockReason = data?.promptFeedback?.blockReason;
+  if (blockReason) return `Gemini blocked this request before generating a response (reason: ${blockReason}). Rephrase the prompt or reduce sensitive content.`;
+
+  const candidate = data?.candidates?.[0];
+  const finishReason = candidate?.finishReason;
+  if (finishReason === 'SAFETY') return 'Gemini blocked its response for this request due to safety filters. Try rephrasing the prompt.';
+  if (finishReason === 'RECITATION') return 'Gemini blocked its response because the output too closely matched existing copyrighted content. Try a more specific, original prompt.';
+  if (finishReason === 'MAX_TOKENS') return 'Gemini hit the output token limit before producing any visible text (it may have spent the budget on internal reasoning). Try a shorter prompt or a more direct request.';
+  if (finishReason && finishReason !== 'STOP') return `Gemini stopped generating without producing text (reason: ${finishReason}).`;
+  if (!candidate) return 'Gemini returned no candidates for this request — the prompt may have been rejected before generation started.';
+  return 'Gemini returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -62,6 +84,9 @@ module.exports = async function handler(req, res) {
       }
       const data = await r.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text) {
+        return res.status(502).json({ error: describeEmptyGeminiResponse(data) });
+      }
       return res.json({ text });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -93,6 +118,8 @@ module.exports = async function handler(req, res) {
     const reader  = r.body.getReader();
     const decoder = new TextDecoder();
     let buffer    = '';
+    let sawAnyText = false;
+    let lastParsed = null; // last successfully-parsed chunk, for diagnosing an empty stream
 
     while (true) {
       const { done, value } = await reader.read();
@@ -108,10 +135,19 @@ module.exports = async function handler(req, res) {
         if (!json || json === '[DONE]') continue;
         try {
           const parsed = JSON.parse(json);
-          const text   = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          lastParsed = parsed;
+          const text  = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) { sawAnyText = true; res.write(`data: ${JSON.stringify({ text })}\n\n`); }
         } catch (_) {}
       }
+    }
+
+    // The stream completed with valid SSE framing but never produced a single
+    // character of text — a safety block, recitation block, or MAX_TOKENS cut
+    // off before any visible output. Without this, the client sees a clean
+    // [DONE] and a permanently blank response with no idea why.
+    if (!sawAnyText) {
+      res.write(`data: ${JSON.stringify({ error: describeEmptyGeminiResponse(lastParsed || {}) })}\n\n`);
     }
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);

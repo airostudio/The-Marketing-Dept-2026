@@ -72,6 +72,45 @@ const Auth = {
     },
 
     /**
+     * Build the public user object for a Supabase auth user, merging in the
+     * authoritative role/plan/name from the `profiles` table. user_metadata
+     * is only a snapshot taken at signup/login time — it never reflects an
+     * admin promotion (`UPDATE profiles SET role = ...`) or a plan change
+     * made afterward, so profiles is the source of truth whenever it's
+     * reachable. Falls back to user_metadata if the profile fetch fails
+     * (offline, transient error, or the on-signup trigger hasn't run yet)
+     * so login/session checks never hard-fail on a profiles read.
+     */
+    async _mergeProfile(user) {
+        const base = {
+            id: user.id,
+            email: user.email,
+            firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
+            lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
+            role: 'user',
+            plan: user.user_metadata?.plan || 'free',
+            createdAt: user.created_at
+        };
+
+        if (!window.Supabase?.DB?.getProfile) return base;
+        try {
+            const profile = await window.Supabase.DB.getProfile(user.id);
+            if (!profile) return base;
+            return {
+                ...base,
+                firstname: profile.firstname || base.firstname,
+                lastname: profile.lastname || base.lastname,
+                role: profile.role || 'user',
+                plan: profile.plan || base.plan,
+                company: profile.company || '',
+            };
+        } catch (e) {
+            console.warn('[Auth] Could not load profile, using session metadata only:', e.message);
+            return base;
+        }
+    },
+
+    /**
      * Get current user data
      */
     async getUser() {
@@ -80,14 +119,7 @@ const Auth = {
             try {
                 const user = await window.Supabase.Auth.getUser();
                 if (user) {
-                    return {
-                        id: user.id,
-                        email: user.email,
-                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
-                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
-                        plan: user.user_metadata?.plan || 'free',
-                        createdAt: user.created_at
-                    };
+                    return await this._mergeProfile(user);
                 }
             } catch (e) {
                 console.warn('Supabase getUser failed, falling back to local:', e);
@@ -139,14 +171,7 @@ const Auth = {
                         source: 'supabase'
                     };
 
-                    const userPublic = {
-                        id: user.id,
-                        email: user.email,
-                        firstname: user.user_metadata?.firstname || user.user_metadata?.first_name || '',
-                        lastname: user.user_metadata?.lastname || user.user_metadata?.last_name || '',
-                        plan: user.user_metadata?.plan || 'free',
-                        createdAt: user.created_at
-                    };
+                    const userPublic = await this._mergeProfile(user);
 
                     localStorage.setItem(this.SESSION_KEY, JSON.stringify(localSession));
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userPublic));
@@ -235,11 +260,16 @@ const Auth = {
                         source: 'supabase'
                     };
 
+                    // A brand-new account genuinely is role='user'/plan='free' — matches
+                    // the on_auth_user_created trigger's default profiles row, so there's
+                    // no profiles read needed here (unlike login/getUser, which must
+                    // reflect whatever an admin may have changed since signup).
                     const userPublic = {
                         id: user.id,
                         email: user.email,
                         firstname,
                         lastname,
+                        role: 'user',
                         plan: 'free',
                         createdAt: user.created_at || new Date().toISOString()
                     };

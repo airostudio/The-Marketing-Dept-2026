@@ -6,14 +6,26 @@
  *   objective:    string,     // 'Awareness'|'Traffic'|'Leads'|'Conversions'|'Retargeting'
  *   product:      string,     // what is being advertised
  *   audience:     string,     // target audience description
- *   models:       string[],   // advertising frameworks: 'AIDA'|'PAS'|'BAB'|'Hook-Story-Offer'|'Ogilvy'|'StoryBrand'
+ *   models:       string[],   // advertising frameworks: 'AIDA'|'PAS'|'BAB'|'Hook-Story-Offer'|'Ogilvy'|'StoryBrand'|'Byron Sharp'|'Cialdini'
  *   tone:         string,     // brand voice tone
  *   budget?:      string,     // optional budget context
  *   competitors?: string,     // optional competitor context
  *   variants:     number,     // number of variants per platform (default 5)
  * }
  *
- * Returns: { campaigns: [{ platform, framework, variants: [{headline, body, cta, visualDirection, abHypothesis, charCount}] }] }
+ * Returns: {
+ *   success: true,
+ *   campaignStrategyNote: string,
+ *   variants: [{ platform, framework, angleName, psychologicalTrigger, headline, body,
+ *                description?, cta, visualDirection, abHypothesis }],  // flat, one per generated ad
+ *   content: string,   // human-readable markdown rendering of the same data, for copy/download
+ *   platforms, objective, models, variantsRequested, usage
+ * }
+ *
+ * Structured output is obtained via a forced Claude tool call (submit_ad_variants),
+ * not by parsing markdown — every variant is real, schema-shaped JSON, not text
+ * regex'd back apart. This is what makes each ad a real per-post record instead
+ * of a fragment of one big blob.
  *
  * Uses Claude claude-sonnet-4-6. Requires ANTHROPIC_API_KEY env var.
  */
@@ -222,32 +234,81 @@ ${frameworkInstructions}
 ## OBJECTIVE-SPECIFIC STRATEGY
 ${getObjectiveStrategy(objective)}
 
-## OUTPUT FORMAT — STRICT
-For each platform and each variant, use this exact structure:
-
----
-## [Platform Name]
-
-### Variant [N]: [Framework Name] — [Angle/Hook Name]
-**Psychological Trigger:** [e.g. Pain Awareness + Urgency]
-**Headline:** "[text]" (XX chars)
-**Body/Primary Text:** "[text]" (XX chars)
-**Description/Long Headline:** "[text]" (XX chars) ← only if platform has this field
-**CTA Button:** [exact button text]
-**Visual Direction:** [One sentence describing the ideal creative — what to show, mood, colours, format]
-**A/B Hypothesis:** [What this variant tests, what winning looks like — e.g. ">2.5% CTR", "Lower CPL vs Variant 1"]
-
----
+## OUTPUT
+Call the \`submit_ad_variants\` tool with your complete campaign. Do not write prose output — every variant must be submitted as structured data through the tool.
 
 RULES:
-1. Character counts MUST be accurate (count every character including spaces)
-2. Never exceed platform character limits
-3. No placeholder text — every field must be real, usable copy
-4. Each variant must test a genuinely distinct angle, not just word changes
-5. Visual Direction must be specific enough for a designer to execute immediately
-6. Include a brief Campaign Strategy Note at the very top before the variants
-7. For Google Search, provide 5 headlines + 2 descriptions in responsive ad format (not a single ad)
+1. Character counts MUST respect each platform's limits given above (count every character including spaces)
+2. No placeholder text — every field must be real, usable copy
+3. Each variant must test a genuinely distinct angle, not just word changes
+4. Visual Direction must be specific enough for a designer to execute immediately — subject, composition, mood, colour treatment
+5. For Google Search, the "body" field should contain 5 headlines + 2 descriptions formatted for a responsive ad (not a single static ad)
+6. Every variant needs its own concrete A/B hypothesis — what it tests and what winning looks like (e.g. ">2.5% CTR", "Lower CPL vs the pain-point variant")
 `;
+}
+
+// ── Tool schema for forced structured output ────────────────────────────────
+// Using a forced tool call instead of asking for a fenced JSON block or parsing
+// markdown means every variant Claude produces is validated, schema-shaped
+// data from the API itself — no regex, no "did the markdown parse" fragility.
+const AD_VARIANTS_TOOL = {
+  name: 'submit_ad_variants',
+  description: 'Submit the complete generated ad campaign as structured variants, one object per ad.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      campaignStrategyNote: {
+        type: 'string',
+        description: 'A 2-4 sentence strategic note on the overall campaign approach and how the variants differ from each other.',
+      },
+      variants: {
+        type: 'array',
+        description: 'One object per generated ad variant, across all requested platforms.',
+        items: {
+          type: 'object',
+          properties: {
+            platform:             { type: 'string', description: 'Exact platform name from the request, e.g. "Meta/Facebook"' },
+            framework:            { type: 'string', description: 'Which advertising framework this variant applies, e.g. "PAS"' },
+            angleName:            { type: 'string', description: 'Short descriptive name for this angle/hook, e.g. "The 2am Panic"' },
+            psychologicalTrigger: { type: 'string', description: 'e.g. "Pain Awareness + Urgency"' },
+            headline:             { type: 'string' },
+            body:                 { type: 'string', description: 'Primary text / body copy, respecting the platform character limit' },
+            description:          { type: 'string', description: 'Optional secondary field — link description, long headline, etc., only if the platform has one' },
+            cta:                  { type: 'string', description: 'Exact CTA button text' },
+            visualDirection:      { type: 'string', description: 'Concrete art direction a designer could execute immediately' },
+            abHypothesis:         { type: 'string', description: 'What this variant tests and what winning looks like' },
+          },
+          required: ['platform', 'framework', 'angleName', 'psychologicalTrigger', 'headline', 'body', 'cta', 'visualDirection', 'abHypothesis'],
+        },
+      },
+    },
+    required: ['campaignStrategyNote', 'variants'],
+  },
+};
+
+/** Render the structured variants back to readable markdown for copy/download UX. */
+function renderVariantsAsMarkdown(strategyNote, variants) {
+  const byPlatform = new Map();
+  for (const v of variants) {
+    if (!byPlatform.has(v.platform)) byPlatform.set(v.platform, []);
+    byPlatform.get(v.platform).push(v);
+  }
+
+  let out = `**Campaign Strategy:** ${strategyNote}\n\n`;
+  for (const [platform, vs] of byPlatform) {
+    out += `---\n## ${platform}\n\n`;
+    vs.forEach((v, i) => {
+      out += `### Variant ${i + 1}: ${v.framework} — ${v.angleName}\n`;
+      out += `**Psychological Trigger:** ${v.psychologicalTrigger}\n`;
+      out += `**Headline:** "${v.headline}" (${v.headline.length} chars)\n`;
+      out += `**Body/Primary Text:** "${v.body}" (${v.body.length} chars)\n`;
+      if (v.description) out += `**Description:** "${v.description}" (${v.description.length} chars)\n`;
+      out += `**CTA Button:** ${v.cta}\n`;
+      out += `**Visual Direction:** ${v.visualDirection}\n`;
+      out += `**A/B Hypothesis:** ${v.abHypothesis}\n\n`;
+    });
+  }
+  return out;
 }
 
 function getObjectiveStrategy(objective) {
@@ -301,6 +362,9 @@ module.exports = async function handler(req, res) {
     Math.min(Number(variants) || 5, 8)
   );
 
+  const modelsArr = Array.isArray(models) ? models : [models];
+  const variantCount = Math.min(Number(variants) || 5, 8);
+
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -313,9 +377,11 @@ module.exports = async function handler(req, res) {
         model:      'claude-sonnet-4-6',
         max_tokens: 8000,
         system:     systemPrompt,
+        tools:      [AD_VARIANTS_TOOL],
+        tool_choice: { type: 'tool', name: 'submit_ad_variants' },
         messages: [{
           role:    'user',
-          content: `Generate the complete ad campaign now. ${platforms.length} platform(s): ${platforms.join(', ')}. ${Math.min(Number(variants)||5,8)} variants each. Frameworks: ${(Array.isArray(models)?models:[models]).join(', ')}. Objective: ${objective}. Make every word count — this is real ad spend going out the door.`,
+          content: `Generate the complete ad campaign now. ${platforms.length} platform(s): ${platforms.join(', ')}. ${variantCount} variants each. Frameworks: ${modelsArr.join(', ')}. Objective: ${objective}. Make every word count — this is real ad spend going out the door.`,
         }],
       }),
       signal: AbortSignal.timeout(55000),
@@ -327,15 +393,23 @@ module.exports = async function handler(req, res) {
       return res.status(upstream.status).json({ error: errMsg });
     }
 
-    const content = data.content?.[0]?.text || '';
+    const toolUse = data.content?.find(b => b.type === 'tool_use' && b.name === 'submit_ad_variants');
+    if (!toolUse || !Array.isArray(toolUse.input?.variants) || !toolUse.input.variants.length) {
+      return res.status(502).json({ error: 'Claude did not return structured ad variants. Try again — this is usually transient.' });
+    }
+
+    const { campaignStrategyNote, variants: structuredVariants } = toolUse.input;
+
     return res.json({
-      success:    true,
-      content,
+      success:              true,
+      campaignStrategyNote,
+      variants:             structuredVariants,
+      content:              renderVariantsAsMarkdown(campaignStrategyNote, structuredVariants),
       platforms,
       objective,
-      models,
-      variants:   Math.min(Number(variants)||5, 8),
-      usage:      data.usage,
+      models:               modelsArr,
+      variantsRequested:    variantCount,
+      usage:                data.usage,
     });
 
   } catch (err) {

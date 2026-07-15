@@ -28,6 +28,7 @@ window.GeminiService = (function () {
       const decoder = new TextDecoder();
       let buffer      = '';
       let accumulated = '';
+      let hadError    = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -49,12 +50,20 @@ window.GeminiService = (function () {
               if (onChunk) onChunk(parsed.text, accumulated);
             }
           } catch (e) {
-            if (onError && e.message !== 'Unexpected token') onError(e);
+            if (e.message !== 'Unexpected token') {
+              hadError = true;
+              if (onError) onError(e);
+            }
           }
         }
       }
 
-      if (onDone) onDone(accumulated);
+      // If the stream ended with an error event, don't also call onDone —
+      // that would hand the caller an empty "success" (accumulated === '')
+      // right after telling them why it failed, and callers that treat an
+      // empty onDone as a generic "empty response" would silently discard
+      // the real, specific error message above.
+      if (!hadError && onDone) onDone(accumulated);
     } catch (err) {
       if (onError) onError(err);
     }
