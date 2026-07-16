@@ -876,6 +876,11 @@
 </div>
 
 <script src="/js/marked.min.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/project-service.js"></script>
+<script src="/js/marketing-store.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/agent-history.js"></script>
@@ -885,56 +890,56 @@
 // ─────────────────────────────────────────
 const EVIDENCE_ITEMS = [
   // SOC 2
-  { id: 'soc2-01', fw: 'soc2', name: 'Access Control Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'soc2-02', fw: 'soc2', name: 'User Access Review', category: 'Access Control', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'soc2-03', fw: 'soc2', name: 'MFA Enforcement Screenshot', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-04', fw: 'soc2', name: 'Encryption at Rest Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-05', fw: 'soc2', name: 'Encryption in Transit Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'soc2-01', fw: 'soc2', name: 'Access Control Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'soc2-02', fw: 'soc2', name: 'User Access Review', category: 'Access Control', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'missing' },
+  { id: 'soc2-03', fw: 'soc2', name: 'MFA Enforcement Screenshot', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
+  { id: 'soc2-04', fw: 'soc2', name: 'Encryption at Rest Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
+  { id: 'soc2-05', fw: 'soc2', name: 'Encryption in Transit Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
   { id: 'soc2-06', fw: 'soc2', name: 'Vulnerability Scan Report', category: 'Security Monitoring', method: 'Automated', owner: 'Security', freq: 'Monthly', defaultStatus: 'pending' },
   { id: 'soc2-07', fw: 'soc2', name: 'Penetration Test Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'soc2-08', fw: 'soc2', name: 'Incident Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-08', fw: 'soc2', name: 'Incident Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'soc2-09', fw: 'soc2', name: 'Incident Response Test', category: 'Incident Response', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'soc2-10', fw: 'soc2', name: 'Business Continuity Plan', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-10', fw: 'soc2', name: 'Business Continuity Plan', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'soc2-11', fw: 'soc2', name: 'BCP Test Results', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'soc2-12', fw: 'soc2', name: 'Employee Security Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'soc2-13', fw: 'soc2', name: 'Background Check Records', category: 'HR & Training', method: 'Manual', owner: 'HR', freq: 'Per Hire', defaultStatus: 'collected' },
+  { id: 'soc2-12', fw: 'soc2', name: 'Employee Security Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'missing' },
+  { id: 'soc2-13', fw: 'soc2', name: 'Background Check Records', category: 'HR & Training', method: 'Manual', owner: 'HR', freq: 'Per Hire', defaultStatus: 'missing' },
   { id: 'soc2-14', fw: 'soc2', name: 'Vendor Risk Assessment', category: 'Vendor Management', method: 'Manual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'soc2-15', fw: 'soc2', name: 'Change Management Log', category: 'Change Management', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-16', fw: 'soc2', name: 'System Monitoring Logs', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-17', fw: 'soc2', name: 'Backup Verification Report', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-18', fw: 'soc2', name: 'Data Classification Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'soc2-15', fw: 'soc2', name: 'Change Management Log', category: 'Change Management', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
+  { id: 'soc2-16', fw: 'soc2', name: 'System Monitoring Logs', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
+  { id: 'soc2-17', fw: 'soc2', name: 'Backup Verification Report', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
+  { id: 'soc2-18', fw: 'soc2', name: 'Data Classification Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'soc2-19', fw: 'soc2', name: 'Asset Inventory', category: 'Change Management', method: 'Manual', owner: 'Engineering', freq: 'Quarterly', defaultStatus: 'pending' },
-  { id: 'soc2-20', fw: 'soc2', name: 'Security Awareness Training Completion', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
+  { id: 'soc2-20', fw: 'soc2', name: 'Security Awareness Training Completion', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'missing' },
   // ISO 27001
-  { id: 'iso-01', fw: 'iso27001', name: 'Information Security Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-01', fw: 'iso27001', name: 'Information Security Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'iso-02', fw: 'iso27001', name: 'Risk Assessment Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-03', fw: 'iso27001', name: 'Statement of Applicability', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-03', fw: 'iso27001', name: 'Statement of Applicability', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'iso-04', fw: 'iso27001', name: 'Internal Audit Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'iso-05', fw: 'iso27001', name: 'Supplier Security Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-06', fw: 'iso27001', name: 'Physical Security Controls', category: 'Security Monitoring', method: 'Manual', owner: 'Operations', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-07', fw: 'iso27001', name: 'Cryptography Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-08', fw: 'iso27001', name: 'Network Security Controls', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'iso-06', fw: 'iso27001', name: 'Physical Security Controls', category: 'Security Monitoring', method: 'Manual', owner: 'Operations', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'iso-07', fw: 'iso27001', name: 'Cryptography Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'iso-08', fw: 'iso27001', name: 'Network Security Controls', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
   { id: 'iso-09', fw: 'iso27001', name: 'Mobile Device Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'iso-10', fw: 'iso27001', name: 'Business Continuity Controls', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-11', fw: 'iso27001', name: 'Incident Management Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'iso-11', fw: 'iso27001', name: 'Incident Management Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'iso-12', fw: 'iso27001', name: 'Compliance Monitoring Records', category: 'Security Monitoring', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'pending' },
   // GDPR
-  { id: 'gdpr-01', fw: 'gdpr', name: 'Data Processing Register (ROPA)', category: 'Access Control', method: 'Manual', owner: 'Legal', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'gdpr-02', fw: 'gdpr', name: 'Privacy Notice / Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
+  { id: 'gdpr-01', fw: 'gdpr', name: 'Data Processing Register (ROPA)', category: 'Access Control', method: 'Manual', owner: 'Legal', freq: 'Quarterly', defaultStatus: 'missing' },
+  { id: 'gdpr-02', fw: 'gdpr', name: 'Privacy Notice / Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'gdpr-03', fw: 'gdpr', name: 'Data Subject Request Procedures', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
   { id: 'gdpr-04', fw: 'gdpr', name: 'Data Breach Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'gdpr-05', fw: 'gdpr', name: 'DPA Agreements with Processors', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'gdpr-06', fw: 'gdpr', name: 'Cookie Consent Records', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'gdpr-05', fw: 'gdpr', name: 'DPA Agreements with Processors', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'gdpr-06', fw: 'gdpr', name: 'Cookie Consent Records', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
   { id: 'gdpr-07', fw: 'gdpr', name: 'DPIA for High-Risk Processing', category: 'Security Monitoring', method: 'Annual', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'gdpr-08', fw: 'gdpr', name: 'Data Retention Schedule', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
   // HIPAA
   { id: 'hipaa-01', fw: 'hipaa', name: 'HIPAA Security Risk Analysis', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'hipaa-02', fw: 'hipaa', name: 'Business Associate Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'hipaa-03', fw: 'hipaa', name: 'PHI Access Audit Logs', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'hipaa-02', fw: 'hipaa', name: 'Business Associate Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
+  { id: 'hipaa-03', fw: 'hipaa', name: 'PHI Access Audit Logs', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
   { id: 'hipaa-04', fw: 'hipaa', name: 'Workforce Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Annual', defaultStatus: 'pending' },
   { id: 'hipaa-05', fw: 'hipaa', name: 'Sanction Policy', category: 'HR & Training', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
   { id: 'hipaa-06', fw: 'hipaa', name: 'Emergency Access Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'hipaa-07', fw: 'hipaa', name: 'Transmission Security Evidence', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
+  { id: 'hipaa-07', fw: 'hipaa', name: 'Transmission Security Evidence', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'missing' },
   { id: 'hipaa-08', fw: 'hipaa', name: 'PHI Disposal Records', category: 'Change Management', method: 'Manual', owner: 'Operations', freq: 'Quarterly', defaultStatus: 'missing' },
 ];
 
@@ -945,11 +950,11 @@ const FW_CONFIG = {
   hipaa:    { label: 'HIPAA',    count:  8 },
 };
 
-const DEFAULT_RISKS = [
-  { id: 'r1', desc: 'Single admin account without MFA', category: 'Technical',    severity: 'Critical', likelihood: 'High',   owner: 'Engineering', status: 'Open',       date: '2026-04-12' },
-  { id: 'r2', desc: 'Vendor SOC 2 reports not collected annually', category: 'Third-party', severity: 'High',     likelihood: 'Medium', owner: 'Security',    status: 'Mitigating', date: '2026-04-20' },
-  { id: 'r3', desc: 'Employee offboarding access revocation delay', category: 'Human',       severity: 'Medium',   likelihood: 'Low',    owner: 'HR',          status: 'Open',       date: '2026-05-01' },
-];
+// No seeded risks — a fabricated risk register (or evidence "already collected"
+// out of the box) is worse than an empty one for a compliance tool: it can
+// read as false assurance in real audit prep. Every risk here is one the
+// user has actually entered via "Add Risk".
+const DEFAULT_RISKS = [];
 
 // ─────────────────────────────────────────
 //  STATE
@@ -957,17 +962,55 @@ const DEFAULT_RISKS = [
 const LS_EVIDENCE = 'tmd_compliance_evidence';
 const LS_RISKS    = 'tmd_compliance_risks';
 
+// localStorage is kept as a fast local cache; MarketingStore (Supabase,
+// scoped to user + project) is the real source of truth so evidence/risk
+// state survives across browsers and devices instead of vanishing whenever
+// local storage is cleared or a different machine is used.
 function loadEvidence() {
   try { return JSON.parse(localStorage.getItem(LS_EVIDENCE) || '{}'); } catch { return {}; }
 }
-function saveEvidence(state) { localStorage.setItem(LS_EVIDENCE, JSON.stringify(state)); }
+function saveEvidence(state) {
+  localStorage.setItem(LS_EVIDENCE, JSON.stringify(state));
+  if (window.MarketingStore) window.MarketingStore.set('compliance', 'evidence', state).catch(() => {});
+}
 function loadRisks() {
   try {
     const r = JSON.parse(localStorage.getItem(LS_RISKS));
     return Array.isArray(r) ? r : DEFAULT_RISKS;
   } catch { return DEFAULT_RISKS; }
 }
-function saveRisks(risks) { localStorage.setItem(LS_RISKS, JSON.stringify(risks)); }
+function saveRisks(risksArr) {
+  localStorage.setItem(LS_RISKS, JSON.stringify(risksArr));
+  if (window.MarketingStore) window.MarketingStore.set('compliance', 'risks', risksArr).catch(() => {});
+}
+
+/** Pull the cloud copy once on load and re-render if it has real content —
+ *  this is what makes evidence/risk state survive a device switch instead
+ *  of silently reverting to the empty local defaults. */
+async function hydrateComplianceFromCloud() {
+  if (!window.MarketingStore) return;
+  try {
+    const [cloudEvidence, cloudRisks] = await Promise.all([
+      window.MarketingStore.get('compliance', 'evidence', null),
+      window.MarketingStore.get('compliance', 'risks', null),
+    ]);
+    let changed = false;
+    if (cloudEvidence && Object.keys(cloudEvidence).length) { evidenceState = cloudEvidence; changed = true; }
+    if (Array.isArray(cloudRisks) && cloudRisks.length) { risks = cloudRisks; changed = true; }
+    if (!changed) return;
+
+    localStorage.setItem(LS_EVIDENCE, JSON.stringify(evidenceState));
+    localStorage.setItem(LS_RISKS, JSON.stringify(risks));
+    renderEvidence();
+    renderRisks();
+    updateScoreRing();
+    updateFrameworkCards();
+    renderFwHealthGrid();
+    updateKPIs();
+  } catch (e) {
+    console.warn('[Compliance] Cloud hydrate failed:', e.message);
+  }
+}
 
 let evidenceState = loadEvidence();
 let risks = loadRisks();
@@ -1094,11 +1137,11 @@ function renderEvidence() {
   }
 
   list.innerHTML = items.map(item => {
-    const checked = evidenceState[item.id];
+    const collectedAt = evidenceState[item.id];
+    const checked = !!collectedAt;
     const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
     const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
     const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
-    const lastUpdated = checked ? '2026-05-' + String(Math.floor(Math.random()*28+1)).padStart(2,'0') : '—';
     return `
       <div class="ev-card ${checked ? 'collected' : ''}" id="evcard-${item.id}">
         <input type="checkbox" class="ev-checkbox" ${checked ? 'checked' : ''}
@@ -1112,18 +1155,27 @@ function renderEvidence() {
         </div>
         <div class="ev-right">
           <span class="ev-status ${statusClass}" id="evstatus-${item.id}">${statusLabel}</span>
-          <span class="ev-date">${checked ? lastUpdated : '—'}</span>
+          <span class="ev-date">${checked ? formatEvidenceDate(collectedAt) : '—'}</span>
         </div>
       </div>`;
   }).join('');
 }
 
+/** Real collection date the user actually toggled this item on — never a
+ *  fabricated/random one. evidenceState[id] holds an ISO timestamp (or
+ *  false), not a bare boolean, precisely so this date is real. */
+function formatEvidenceDate(isoString) {
+  const d = new Date(isoString);
+  return isNaN(d.getTime()) ? '—' : d.toISOString().split('T')[0];
+}
+
 function toggleEvidence(id, checked) {
-  evidenceState[id] = checked;
+  evidenceState[id] = checked ? new Date().toISOString() : false;
   saveEvidence(evidenceState);
   // Update card class
   const card = document.getElementById('evcard-' + id);
   const statusEl = document.getElementById('evstatus-' + id);
+  const dateEl = card ? card.querySelector('.ev-date') : null;
   if (card) {
     if (checked) { card.classList.add('collected'); }
     else { card.classList.remove('collected'); }
@@ -1131,6 +1183,9 @@ function toggleEvidence(id, checked) {
   if (statusEl) {
     statusEl.className = 'ev-status ' + (checked ? 'collected' : 'pending');
     statusEl.textContent = checked ? 'Collected' : 'Pending';
+  }
+  if (dateEl) {
+    dateEl.textContent = checked ? formatEvidenceDate(evidenceState[id]) : '—';
   }
   updateScoreRing();
   updateFrameworkCards();
@@ -1168,7 +1223,8 @@ function filterEvidenceByFramework(fw) {
   const list = document.getElementById('evidenceList');
   const items = EVIDENCE_ITEMS.filter(i => i.fw === fw);
   list.innerHTML = items.map(item => {
-    const checked = evidenceState[item.id];
+    const collectedAt = evidenceState[item.id];
+    const checked = !!collectedAt;
     const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
     const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
     const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
@@ -1185,7 +1241,7 @@ function filterEvidenceByFramework(fw) {
         </div>
         <div class="ev-right">
           <span class="ev-status ${statusClass}" id="evstatus-${item.id}">${statusLabel}</span>
-          <span class="ev-date">${checked ? '2026-05-15' : '—'}</span>
+          <span class="ev-date">${checked ? formatEvidenceDate(collectedAt) : '—'}</span>
         </div>
       </div>`;
   }).join('');
@@ -1402,9 +1458,8 @@ function init() {
   updateFrameworkCards();
   renderFwHealthGrid();
   updateKPIs();
-  // Risks seeded if empty
-  if (!localStorage.getItem(LS_RISKS)) saveRisks(DEFAULT_RISKS);
   renderRisks();
+  hydrateComplianceFromCloud();
 }
 
 document.addEventListener('DOMContentLoaded', init);
