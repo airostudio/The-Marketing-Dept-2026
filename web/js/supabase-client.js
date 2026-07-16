@@ -256,6 +256,37 @@
     }
 
     /**
+     * Async-safe client getter — waits for initialization instead of racing it.
+     *
+     * getClient() kicks off initSupabase() but returns immediately without
+     * awaiting it, so the very first call on a fresh page load (e.g. the
+     * user submits the login form before the client has finished its first
+     * getSession() round-trip) gets `null` back even though Supabase IS
+     * configured — which every Auth.* method below used to treat as "not
+     * configured" and throw, silently kicking auth.js's login() into its
+     * local-storage-only fallback ("No account found with this email
+     * address"), a completely misleading error for what's actually just a
+     * timing race. Every Auth method that needs a working client now awaits
+     * this instead of calling getClient() directly.
+     */
+    let _pendingInit = null;
+    async function ensureClient() {
+        if (supabaseClient) return supabaseClient;
+        loadConfig();
+        if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+            await fetchRemoteConfigIfNeeded();
+        }
+        if (!supabaseConfig.url || !supabaseConfig.anonKey) return null;
+        if (!_pendingInit) {
+            _pendingInit = initSupabase(supabaseConfig.url, supabaseConfig.anonKey).finally(() => {
+                _pendingInit = null;
+            });
+        }
+        await _pendingInit;
+        return supabaseClient;
+    }
+
+    /**
      * Check if Supabase is configured
      */
     function isConfigured() {
@@ -318,7 +349,7 @@
          * Sign up a new user
          */
         async signUp(email, password, metadata = {}) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.signUp({
@@ -337,7 +368,7 @@
          * Sign in with email and password
          */
         async signIn(email, password) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.signInWithPassword({
@@ -353,7 +384,7 @@
          * Sign in with OAuth provider
          */
         async signInWithOAuth(provider) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.signInWithOAuth({
@@ -371,7 +402,7 @@
          * Sign out the current user
          */
         async signOut() {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client.auth.signOut();
@@ -382,7 +413,7 @@
          * Get the current user
          */
         async getUser() {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) return null;
 
             const { data: { user } } = await client.auth.getUser();
@@ -393,7 +424,7 @@
          * Get the current session
          */
         async getSession() {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) return null;
 
             const { data: { session } } = await client.auth.getSession();
@@ -404,7 +435,7 @@
          * Reset password
          */
         async resetPassword(email) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.resetPasswordForEmail(email, {
@@ -419,7 +450,7 @@
          * Update user password
          */
         async updatePassword(newPassword) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.updateUser({
@@ -434,7 +465,7 @@
          * Update user metadata
          */
         async updateProfile(metadata) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.auth.updateUser({
@@ -468,7 +499,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getProfile(userId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -482,7 +513,7 @@
         },
 
         async updateProfile(userId, updates) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -500,7 +531,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getProjects(userId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -514,7 +545,7 @@
         },
 
         async getProject(projectId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -528,7 +559,7 @@
         },
 
         async createProject(project) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -542,7 +573,7 @@
         },
 
         async updateProject(projectId, updates) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -557,7 +588,7 @@
         },
 
         async deleteProject(projectId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client
@@ -573,7 +604,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getAudits(projectId, limit = 20) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -588,7 +619,7 @@
         },
 
         async getAudit(auditId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -602,7 +633,7 @@
         },
 
         async createAudit(audit) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -616,7 +647,7 @@
         },
 
         async saveAuditIssues(auditId, issues) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const issuesWithAuditId = issues.map(issue => ({
@@ -638,7 +669,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getKeywords(projectId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -652,7 +683,7 @@
         },
 
         async addKeywords(projectId, keywords) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const keywordsWithProject = keywords.map(kw => ({
@@ -671,7 +702,7 @@
         },
 
         async updateKeyword(keywordId, updates) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -686,7 +717,7 @@
         },
 
         async deleteKeyword(keywordId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client
@@ -702,7 +733,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getKeywordRankings(keywordId, days = 30) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const startDate = new Date();
@@ -720,7 +751,7 @@
         },
 
         async saveKeywordRanking(ranking) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -738,7 +769,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getCompetitors(projectId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -752,7 +783,7 @@
         },
 
         async addCompetitor(competitor) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -766,7 +797,7 @@
         },
 
         async deleteCompetitor(competitorId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client
@@ -782,7 +813,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getBacklinks(projectId, limit = 100) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -797,7 +828,7 @@
         },
 
         async addBacklinks(backlinks) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -814,7 +845,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getAlerts(projectId, unreadOnly = false) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             let query = client
@@ -833,7 +864,7 @@
         },
 
         async createAlert(alert) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -847,7 +878,7 @@
         },
 
         async markAlertRead(alertId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -862,7 +893,7 @@
         },
 
         async markAllAlertsRead(projectId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client
@@ -879,7 +910,7 @@
         // ─────────────────────────────────────────────────────────────────────────
 
         async getSettings(userId) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -893,7 +924,7 @@
         },
 
         async saveSettings(userId, settings) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client
@@ -984,7 +1015,7 @@
          * Upload a file
          */
         async uploadFile(bucket, path, file) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { data, error } = await client.storage
@@ -1016,7 +1047,7 @@
          * Delete a file
          */
         async deleteFile(bucket, path) {
-            const client = getClient();
+            const client = await ensureClient();
             if (!client) throw new Error('Supabase not configured');
 
             const { error } = await client.storage
@@ -1035,6 +1066,7 @@
         // Core functions
         init: initSupabase,
         getClient,
+        getClientAsync: ensureClient,
         isConfigured,
         setConfig,
         disconnect,
@@ -1052,13 +1084,48 @@
         Storage
     };
 
-    // Auto-initialize if configured
-    function autoInit() {
+    /**
+     * js/config.js is a static, checked-into-git file — it can never safely
+     * carry the real per-deployment Supabase URL/anon key (they'd have to be
+     * hand-edited into a tracked file on every environment, and silently
+     * revert to the blank placeholders on the next deploy). api/app-config.js
+     * already exists specifically to serve those two values from real Vercel
+     * env vars at runtime — this was previously only ever fetched by
+     * auth-modal.js (index.html/hub.html), so every OTHER page that loads
+     * only this file and a blank config.js never got Supabase configured at
+     * all on a fresh visit: not "wiping" any user data, just never reaching
+     * the database in the first place. Fetched once and cached the same way
+     * auth-modal.js does, so every page converges on the same real config.
+     */
+    let _remoteConfigAttempted = false;
+    async function fetchRemoteConfigIfNeeded() {
         loadConfig();
+        if (supabaseConfig.url && supabaseConfig.anonKey) return true;
+        if (_remoteConfigAttempted) return !!(supabaseConfig.url && supabaseConfig.anonKey);
+        _remoteConfigAttempted = true;
+
+        try {
+            const res = await fetch('/api/app-config', { signal: AbortSignal.timeout(5000) });
+            const data = await res.json();
+            if (data.configured && data.supabaseUrl && data.supabaseKey) {
+                localStorage.setItem('supabase-url', data.supabaseUrl);
+                localStorage.setItem('supabase-anon-key', data.supabaseKey);
+                loadConfig();
+                return true;
+            }
+        } catch (e) {
+            console.warn('Supabase: could not fetch /api/app-config:', e.message);
+        }
+        return false;
+    }
+
+    // Auto-initialize if configured
+    async function autoInit() {
+        await fetchRemoteConfigIfNeeded();
         if (supabaseConfig.url && supabaseConfig.anonKey) {
             // Check if Supabase library is available
             if (typeof supabase !== 'undefined') {
-                initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+                ensureClient(); // shares _pendingInit with any concurrent Auth.* call
             } else {
                 // Wait for library to load
                 console.log('Supabase: Waiting for library to load...');
@@ -1067,7 +1134,7 @@
                     attempts++;
                     if (typeof supabase !== 'undefined') {
                         clearInterval(checkLibrary);
-                        initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+                        ensureClient();
                     } else if (attempts > 50) { // 5 seconds max
                         clearInterval(checkLibrary);
                         console.error('Supabase: Library failed to load after 5 seconds');

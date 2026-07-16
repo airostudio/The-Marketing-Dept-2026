@@ -123,7 +123,7 @@
   }
 
   // ── Session helpers ───────────────────────────────────────────────────────
-  function _createSessionFromSupabase(sbData) {
+  async function _createSessionFromSupabase(sbData) {
     var sbUser = sbData.user || {};
     var meta   = sbUser.user_metadata || {};
     var pub = {
@@ -157,6 +157,24 @@
       userId: pub.id, email: pub.email,
       created: Date.now(), expires: Date.now() + expiresIn * 1000, source: 'supabase',
     }));
+
+    // This login/signup happened over a raw REST call (_sbLogin/_sbSignup),
+    // completely bypassing the Supabase JS SDK — so without this, the SDK
+    // client every other page creates via Supabase.getClient() has no idea
+    // this user is signed in, and every RLS-protected read/write (BusinessBrain,
+    // social_posts, profiles, everything) silently runs as anonymous and
+    // returns nothing. setSession() hands the SDK the real tokens so it
+    // persists and auto-refreshes them exactly like a normal SDK-driven
+    // login would, and every other page picks the same session back up.
+    if (window.Supabase && window.Supabase.getClientAsync && accessToken && refreshToken) {
+      try {
+        var client = await window.Supabase.getClientAsync();
+        if (client) await client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      } catch (e) {
+        console.warn('[AuthModal] Could not hydrate Supabase SDK session:', e.message);
+      }
+    }
+
     return pub;
   }
 
