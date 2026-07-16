@@ -150,6 +150,8 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
     .enrich-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:5px; }
     .enrich-chip { font-size:11px; color:var(--text2); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; padding:2px 8px; }
+    .btn-link-sm { font-size:11px; color:var(--amber); background:none; border:none; padding:0; cursor:pointer; text-decoration:underline; font-family:inherit; }
+    .btn-link-sm:hover { color:var(--indigo); }
     .social-link { font-size:11px; color:var(--indigo); text-decoration:none; }
     .social-link:hover { text-decoration:underline; }
     .lead-name    { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
@@ -746,7 +748,7 @@
 
         <div class="section-header">
           <div class="section-title">Prospect List</div>
-          <button class="btn btn-ghost btn-sm" onclick="openModal('prospectModal')">+ Add Prospect</button>
+          <button class="btn btn-ghost btn-sm" onclick="openAddProspect()">+ Add Prospect</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -993,10 +995,10 @@
   </div>
 </div>
 
-<!-- ── ADD PROSPECT MODAL ── -->
+<!-- ── ADD / EDIT PROSPECT MODAL ── -->
 <div class="modal-overlay" id="prospectModal">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">🎯 Add Prospect</div><button class="modal-close" onclick="closeModal('prospectModal')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="prospectModalTitle">🎯 Add Prospect</div><button class="modal-close" onclick="closeProspectModal()">✕</button></div>
     <div class="modal-body">
       <div class="form-row">
         <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="pName" placeholder="Jane Smith"></div>
@@ -1006,12 +1008,15 @@
         <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="pTitle" placeholder="VP Sales"></div>
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="pEmail" type="email" placeholder="jane@acme.com"></div>
       </div>
+      <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="pWebsite" type="text" placeholder="acme.com">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Fill this in if enrichment couldn't find the company's site — re-enriching afterward will use it to search for an email.</div>
+      </div>
       <div class="form-group"><label class="form-label">Trigger / Signal</label><input class="form-input" id="pTrigger" placeholder="e.g. Hiring 3 SDRs, raised Series A, visited pricing"></div>
       <div class="form-group"><label class="form-label">Campaign</label><select class="form-select" id="pCampaign"><option value="">— Select Campaign —</option></select></div>
       <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="pStatus"><option value="pending">Not Contacted</option><option value="inseq">In Sequence</option><option value="replied">Replied</option><option value="positive">Positive Reply</option><option value="negative">Negative / Opt-out</option></select></div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="closeModal('prospectModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveProspect()">Save Prospect</button>
+        <button class="btn btn-ghost" onclick="closeProspectModal()">Cancel</button>
+        <button class="btn btn-primary" id="prospectSaveBtn" onclick="saveProspect()">Save Prospect</button>
       </div>
     </div>
   </div>
@@ -1202,7 +1207,11 @@ document.getElementById('inboxFilters').addEventListener('click', e => {
 function openModal(id) { populateCampaignSelects(); document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  m.addEventListener('click', e => {
+    if (e.target !== m) return;
+    if (m.id === 'prospectModal') { closeProspectModal(); return; }
+    m.classList.remove('open');
+  });
 });
 function populateCampaignSelects() {
   ['lCampaign', 'pCampaign', 'sCampaign'].forEach(id => {
@@ -1393,17 +1402,77 @@ function renderCampaigns() {
 }
 
 // ── Prospects ────────────────────────────────────────────────────────────────
+let editingProspectId = null; // null = "Add Prospect" mode; set = editing that prospect in place
+
+function closeProspectModal() {
+  editingProspectId = null;
+  ['pName','pCompany','pTitle','pEmail','pWebsite','pTrigger'].forEach(id => document.getElementById(id).value = '');
+  closeModal('prospectModal');
+}
+
+function openAddProspect() {
+  editingProspectId = null;
+  document.getElementById('prospectModalTitle').textContent = '🎯 Add Prospect';
+  document.getElementById('prospectSaveBtn').textContent = 'Save Prospect';
+  ['pName','pCompany','pTitle','pEmail','pWebsite','pTrigger'].forEach(id => document.getElementById(id).value = '');
+  openModal('prospectModal');
+  document.getElementById('pStatus').value = 'pending';
+}
+
+/** Open the same modal pre-filled to edit an existing prospect — the fix for
+ *  "enrichment couldn't find a website/email, let me add it myself" instead
+ *  of only ever being able to add brand-new prospects. */
+function openEditProspect(id) {
+  const p = prospects.find(x => x.id === id);
+  if (!p) return;
+  editingProspectId = id;
+  document.getElementById('prospectModalTitle').textContent = '✎ Edit Prospect';
+  document.getElementById('prospectSaveBtn').textContent = 'Save Changes';
+  document.getElementById('pName').value     = p.name || '';
+  document.getElementById('pCompany').value  = p.company || '';
+  document.getElementById('pTitle').value    = p.title || '';
+  document.getElementById('pEmail').value    = p.email || '';
+  document.getElementById('pWebsite').value  = p.website || '';
+  document.getElementById('pTrigger').value  = p.trigger || '';
+  openModal('prospectModal');
+  document.getElementById('pCampaign').value = p.campaign || '';
+  document.getElementById('pStatus').value   = p.status || 'pending';
+}
+
 function saveProspect() {
   const name = document.getElementById('pName').value.trim();
   const company = document.getElementById('pCompany').value.trim();
   if (!name || !company) { alert('Name and company are required.'); return; }
+  const title    = document.getElementById('pTitle').value.trim();
+  const email    = document.getElementById('pEmail').value.trim();
+  const website  = document.getElementById('pWebsite').value.trim();
+  const trigger  = document.getElementById('pTrigger').value.trim();
+  const campaign = document.getElementById('pCampaign').value;
+  const status   = document.getElementById('pStatus').value;
+
+  if (editingProspectId) {
+    const idx = prospects.findIndex(x => x.id === editingProspectId);
+    if (idx === -1) { closeProspectModal(); return; }
+    const prev = prospects[idx];
+    const emailChanged = email && email !== prev.email;
+    Object.assign(prev, { name, company, title, email, website, trigger, campaign, status });
+    LS.set(K.PROSPECTS, prospects);
+    const editedId = editingProspectId;
+    closeProspectModal();
+    renderProspects(); refreshStats();
+    if (emailChanged) {
+      // A manually-found email is worth verifying right away, same as an
+      // auto-discovered one would be — not just saved and left unverified.
+      toast('Prospect updated — verifying email…');
+      enrichProspect(editedId);
+    } else {
+      toast('Prospect updated.');
+    }
+    return;
+  }
+
   const p = {
-    id: uid(), name, company,
-    title:    document.getElementById('pTitle').value.trim(),
-    email:    document.getElementById('pEmail').value.trim(),
-    trigger:  document.getElementById('pTrigger').value.trim(),
-    campaign: document.getElementById('pCampaign').value,
-    status:   document.getElementById('pStatus').value,
+    id: uid(), name, company, title, email, website, trigger, campaign, status,
     createdAt: new Date().toISOString(),
     enriched: false,
     emailVerification: null,
@@ -1415,8 +1484,7 @@ function saveProspect() {
   };
   prospects.push(p);
   LS.set(K.PROSPECTS, prospects);
-  closeModal('prospectModal');
-  ['pName','pCompany','pTitle','pEmail','pTrigger'].forEach(id => document.getElementById(id).value = '');
+  closeProspectModal();
   renderProspects(); refreshStats(); toast('Prospect added — enriching profile…');
   enrichProspect(p.id);
 }
@@ -1438,6 +1506,13 @@ async function enrichProspect(id) {
       title:   p.title || undefined,
     };
     if (p.email) body.email = p.email;
+    // A manually-entered website (added after auto-enrichment couldn't find
+    // one) gives Hunter's email finder a domain to search when there's
+    // still no email — strip protocol/www/path down to the bare domain.
+    if (!p.email && p.website) {
+      const domain = p.website.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+      if (domain) body.domain = domain;
+    }
 
     const res = await fetch('/api/lead-enrich', {
       method: 'POST',
@@ -1516,16 +1591,19 @@ function renderProspects() {
       : (p.seniorityLevel ? `<span style="font-size:10px;color:var(--text3);margin-left:4px;">${esc(p.seniorityLevel)}</span>` : '');
     const titleCell = `${esc(p.title) || '–'}${seniorityTag}`;
 
-    // Email cell with verification badge
+    // Email cell with verification badge — if enrichment ran and still came up
+    // empty, offer a direct path to add it by hand instead of a dead end.
+    const emailNotFoundPrompt = `<button class="btn-link-sm" onclick="openEditProspect('${p.id}')" title="Enrichment didn't find an email — add it manually">Not found — add manually</button>`;
     const emailCell = p.email
       ? `<div><a href="mailto:${esc(p.email)}" style="color:var(--indigo);text-decoration:none;">${esc(p.email)}</a></div>
          <div style="margin-top:3px;">${evBadge(p.emailVerification, p.enriching)}</div>`
       : (p.enriching
           ? '<span class="ev-badge ev-loading">⟳ Looking up…</span>'
-          : '<span style="color:var(--text3);font-size:12px;">–</span>');
+          : (p.enriched ? emailNotFoundPrompt : '<span style="color:var(--text3);font-size:12px;">–</span>'));
 
-    // Profile chips: LinkedIn, Twitter, company info
+    // Profile chips: LinkedIn, Twitter, company info, website
     const chips = [];
+    if (p.website)        chips.push(`<a href="${/^https?:\/\//i.test(p.website) ? esc(p.website) : 'https://' + esc(p.website)}" target="_blank" class="social-link">🌐 ${esc(p.website)}</a>`);
     if (p.linkedin)       chips.push(`<a href="${esc(p.linkedin)}" target="_blank" class="social-link">🔗 LinkedIn</a>`);
     if (p.twitter)        chips.push(`<a href="${esc(p.twitter)}"  target="_blank" class="social-link">𝕏 Twitter</a>`);
     if (p.companyLinkedin) chips.push(`<a href="${esc(p.companyLinkedin)}" target="_blank" class="social-link">🏢 Co. Page</a>`);
@@ -1534,6 +1612,9 @@ function renderProspects() {
     if (p.location)       chips.push(`<span class="enrich-chip">📍 ${esc(p.location)}</span>`);
     if (p.fundingStage)   chips.push(`<span class="enrich-chip">💰 ${esc(p.fundingStage)}</span>`);
     if (p.techStack?.length) chips.push(`<span class="enrich-chip" title="${esc(p.techStack.join(', '))}">🛠 ${p.techStack.slice(0,2).map(esc).join(', ')}${p.techStack.length > 2 ? ` +${p.techStack.length-2}` : ''}</span>`);
+    if (!p.website && p.enriched && !p.enriching) {
+      chips.push(`<button class="btn-link-sm" onclick="openEditProspect('${p.id}')" title="Enrichment didn't find a website — add it manually">Website not found — add manually</button>`);
+    }
     const profileCell = chips.length
       ? `<div class="enrich-row">${chips.join('')}</div>`
       : (p.enriching ? '<span style="font-size:11px;color:var(--text3);">⟳ Enriching…</span>' : '<span style="color:var(--text3);font-size:12px;">–</span>');
@@ -1563,6 +1644,7 @@ function renderProspects() {
       : '';
     const draftBtn = `<button class="btn btn-primary btn-sm" onclick="draftOutreach('${p.id}')" title="AI draft outreach">✍ Draft</button>`;
     const sigBtn = `<button class="btn btn-ghost btn-sm" onclick="detectProspectSignals('${p.id}')" title="Detect signals">📡</button>`;
+    const editBtn = `<button class="btn btn-ghost btn-sm" onclick="openEditProspect('${p.id}')" title="Edit prospect">✎</button>`;
 
     return `<tr>
       <td style="font-weight:600;">${esc(p.name)}</td>
@@ -1574,7 +1656,7 @@ function renderProspects() {
       <td>${scoreCell}</td>
       <td style="color:var(--text2);font-size:12px;">${esc(cName(p.campaign))}</td>
       <td><span class="pill ${st.cls}">${st.label}</span></td>
-      <td style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${draftBtn}${sigBtn}${sendBtn}${reEnrichBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
+      <td style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${draftBtn}${sigBtn}${sendBtn}${reEnrichBtn}${editBtn}<button class="btn btn-danger btn-sm" onclick="deleteProspect('${p.id}')">✕</button></td>
     </tr>`;
   }).join('');
 }
