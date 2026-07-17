@@ -1,23 +1,16 @@
 # Decisions Log
 
-Open architectural questions raised by comparing the current repository (`CURRENT_ARCHITECTURE.md`) against the requested target (`TARGET_ARCHITECTURE.md`). Items are only marked 🟢 Decided when they follow directly from a hard requirement already stated in the source prompts, or from a standing project rule — not from a preference call. Decision #1 remains genuinely open: it hinges on product/business intent this document has no visibility into, and needs the project owner's answer before Prompt 2 begins.
+Open architectural questions raised by comparing the current repository (`CURRENT_ARCHITECTURE.md`) against the requested target (`TARGET_ARCHITECTURE.md`). Items are only marked 🟢 Decided when they follow directly from a hard requirement already stated in the source prompts, from a standing project rule, or from an explicit answer given by the project owner.
 
 Status legend: 🔴 Open (blocks later phases) · 🟡 Open (non-blocking, can default safely) · 🟢 Decided
 
 ---
 
-### 1. 🔴 What is "workspace" — a new concept, or `intelligence_profiles` formalized?
+### 1. 🟢 What is "workspace" — a new concept, or `intelligence_profiles` formalized?
 
-**Why it matters:** Every entity in Prompt 2's shared-contracts list (Organisation, Workspace, User, Workspace membership, Role, Permission) and every later domain service's scoping rule depends on this. The live schema has no `organizations` table; `intelligence_profiles` + `intelligence_profile_members` is the closest existing multi-member, plan-limited grouping, but it was built for one purpose (BusinessBrain/content scoping), not as a general-purpose workspace primitive.
+**Decided (project owner, 2026-07):** One agency (one paying account) manages multiple profiles — not multiple client organizations, each with their own billing/ownership. This confirms **Option (a): formalize `intelligence_profiles` as "workspace" in place** — rename/extend the existing table and RLS patterns rather than introducing a new `organizations`/`workspaces` table pair. The agency plan tier (`PLAN_LIMITS.agency = 8`) represents plan-limited profile *count* under one account, matching the flat "one account, N profiles" shape `web/js/intelligence-profiles.js` already assumes. No organization-level entity is needed; `profiles.id` (the account) is the billing/ownership boundary, and `intelligence_profiles` (→ workspace) is the content/scoping boundary beneath it.
 
-**Options:**
-- (a) Formalize `intelligence_profiles` as "workspace" — rename/extend in place, minimal migration, preserves existing data and RLS patterns.
-- (b) Introduce a new `organizations`/`workspaces` table pair (mirroring the shape already sketched, unused, in `backend/database/schema.sql`), and migrate `intelligence_profiles` under it.
-- (c) Keep both concepts distinct (organization owns billing/plan; workspace/intelligence_profile owns content scoping) — closer to common SaaS shape, more migration work.
-
-**Recommendation:** (a) for the shortest path with least migration risk, *if* the project doesn't anticipate needing true multi-organization hierarchies (e.g. one agency org with multiple client workspaces) — the plan-limit logic in `web/js/intelligence-profiles.js` already assumes a flat "one account, N profiles" shape that maps cleanly to (a). Needs explicit confirmation before Prompt 2.
-
-**Verification before deciding:** confirm whether any customer-facing plan (agency tier, `PLAN_LIMITS.agency = 8`) is meant to represent multiple *client organizations* under one paying account, or just multiple *businesses* one user manages — that distinction determines whether (a) is actually sufficient.
+**Practical implication for Prompt 2:** "Workspace" in the shared contracts maps directly onto `intelligence_profiles`; "Workspace membership" maps onto `intelligence_profile_members` (owner/editor roles, already multi-member-capable); there is no separate "Organisation" entity to define — the existing `profiles` row *is* the organization/account for scoping purposes. This also means Decision #5 (`backend/`'s unused `organizations` schema) can be treated as reference material only, not a shape to migrate toward.
 
 ---
 

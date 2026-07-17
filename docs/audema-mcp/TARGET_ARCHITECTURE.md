@@ -51,7 +51,7 @@ flowchart TB
 
     subgraph DataLayer["Database"]
         Supabase["Supabase Postgres<br/>(exists — no ORM, raw SQL)"]
-        Orgs["organizations/workspaces<br/>(does not exist in live schema — only in unused backend/)"]
+        Orgs["workspaces = intelligence_profiles<br/>(decided: formalize in place, no separate org entity)"]
     end
 
     subgraph Storage["Asset Storage"]
@@ -92,7 +92,7 @@ See `IMPLEMENTATION_STATUS.md` for the full capability-by-capability breakdown.
 
 ## 3. Key structural gaps between current and target
 
-1. **No workspace/organization boundary in the live schema.** Every domain service in the target architecture is workspace-scoped by design (Prompt 2's requirement #4: "Organisation and workspace isolation"). Today, scoping is per-`user_id` with an optional `intelligence_profiles` grouping — workable as a *stand-in* for "workspace," but not identical (no true organization-level membership/roles beyond profile-sharing). This needs an explicit decision (see `DECISIONS.md` #1).
+1. **No formal workspace boundary yet, though the model is now decided.** Every domain service in the target architecture is workspace-scoped by design (Prompt 2's requirement #4: "Organisation and workspace isolation"). Per `DECISIONS.md` #1 (confirmed by the project owner: one agency manages multiple profiles), `intelligence_profiles` is formalized as "workspace" in place — there is no separate Organisation entity; the account (`profiles`) is the billing/ownership boundary. This is now a decided target shape, not an open question — the remaining work is formalizing it (Prompt 2), not choosing between options.
 2. **No TypeScript, no runtime schema validation library in the live `api/` layer.** Prompt 2 requires "strict TypeScript types" and "runtime validation... using the project's existing validation and ORM libraries where suitable" — there are none to reuse in the live deployment (the `zod` usage lives only inside the disconnected `audema-adforge-mcp/`). Introducing TypeScript to `api/*.js` means introducing a build step where there currently is none.
 3. **Two competing MCP implementations, neither matching the target.** Prompt 11 asks for one MCP gateway with a specific tool/resource/prompt catalogue at `/mcp`. Two exist today (`api/mcp.js`, `audema-adforge-mcp/`) and neither is that gateway. A decision is needed on whether to extend one, merge both, or build a third (`DECISIONS.md` #2).
 4. **No queue/worker system beyond Vercel Cron.** Fine for the one recurring job that exists today; the target's "Background Workers" box (per Prompt 5's "recurring monitoring" for Market Pulse, Prompt 9's performance ingestion) will need more than a single 15-minute cron once there's more than one recurring job — Vercel Cron's minimum interval is hourly per its own docs pattern used elsewhere in this repo, and `cron-auto-publish.js` already needs 15-minute granularity via a workaround. **UNCERTAIN**: exact Vercel Cron interval limits on the current plan — verify against the Vercel account before assuming more jobs can be added without a real queue.
@@ -101,4 +101,4 @@ See `IMPLEMENTATION_STATUS.md` for the full capability-by-capability breakdown.
 
 ## 4. Recommended sequencing implication
 
-Because of gaps #1 and #2 above, **Prompt 2 (shared domain contracts) cannot be done honestly without first resolving DECISIONS.md #1 and #2** — the identifier/scoping shape for every entity in Prompt 2's list (Organisation, Workspace, User, Workspace membership...) depends entirely on whether "workspace" becomes a real new concept or is formalized on top of `intelligence_profiles`. Building the shared types before that decision would mean guessing, which the brief explicitly prohibits.
+All three questions that would have blocked Prompt 2 (`DECISIONS.md` #1, #2, #3) are now resolved. Prompt 2 (shared domain contracts) can proceed on the decided model: Workspace = `intelligence_profiles`, Workspace membership = `intelligence_profile_members`, no separate Organisation entity, TypeScript + `zod` for the new contracts only.
