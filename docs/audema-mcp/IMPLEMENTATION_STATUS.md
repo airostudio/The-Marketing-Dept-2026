@@ -4,7 +4,11 @@ Capability-by-capability mapping of the full 14-prompt program against what actu
 
 ## Prompt 2 — Shared domain contracts
 
-| Entity | Status | Evidence / gap |
+**✅ Done.** `domain/` (package `audema-domain-contracts`) now has a real, tested TypeScript + zod schema for all 22 entities below — see `DATA_MODEL.md` for the full breakdown and `PERMISSIONS.md` for Role/Permission. `npm run build` compiles clean; `npm test` passes 13 tests including the required cross-workspace isolation proofs (`domain/test/workspaceIsolation.test.ts`).
+
+**Important distinction:** the table below still describes the *live product's* status (unchanged by this phase — no migrations were written, no existing code was touched, per `DECISIONS.md` #3/#7). A row marked ⬜ here means the live product has no such table/class yet — it does NOT mean the *shared contract* is missing; the contract now exists for all 22 regardless of live-product status, ready for the phase that actually wires each one up to persistence.
+
+| Entity | Live product status | Evidence / gap |
 |---|---|---|
 | Organisation | ⬜ | No `organizations` table live (see `DECISIONS.md` #1). Exists only in unused `backend/database/schema.sql`. |
 | Workspace | 🟨 | `intelligence_profiles` (`supabase-intelligence-profiles.sql`) is the closest analog — multi-member, plan-limited, but not named/shaped as "workspace." |
@@ -126,7 +130,7 @@ This sequencing accounts for what's already built (reuse), what's adjacent (exte
 
 **Stage 0 — resolved.** All three blocking questions in `DECISIONS.md` are now decided: #1 (workspace = `intelligence_profiles` formalized in place, confirmed by the project owner: one agency manages multiple profiles, no separate organization entity needed), #2 (canonical MCP = `api/mcp.js`), #3 (TypeScript scope = new domain-service code only). Prompt 2 (shared domain contracts) can now proceed on that basis.
 
-**Stage 1 — Shared contracts on the resolved model (Prompt 2):** Formalize the entities that already exist adjacent-shape (Workspace = `intelligence_profiles`, Workspace membership = `intelligence_profile_members`, Competitor, Market Signal, Strategic Brief, Approval) rather than inventing new ones. No separate Organisation entity — `profiles` (the account) is the billing/ownership boundary per Decision #1. Add the genuinely missing ones (Offer, Campaign Concept, Creative Specification, Campaign Learning).
+**Stage 1 — ✅ Done.** Shared contracts (Prompt 2) built in `domain/`: all 22 entities as TypeScript types + zod schemas, composed from shared mixins (timestamps, workspace-scoping, versioning, approval state, evidence, lineage), with consistent branded UUID identifiers, no untyped JSON blobs outside three documented extension points, and a tested workspace-isolation enforcement contract. No separate Organisation table — `profiles` (the account) is the billing/ownership boundary per Decision #1. See `DATA_MODEL.md` and `PERMISSIONS.md` for the full write-up.
 
 **Stage 2 — BusinessBrain approval workflow (Prompt 3, narrow scope):** The data model and versioning already exist; the only real net-new piece is the propose/approve/reject gate around enrichment writes. This is a small, well-bounded addition to existing code, not a rebuild.
 

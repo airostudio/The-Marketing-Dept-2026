@@ -53,3 +53,13 @@ Status legend: 🔴 Open (blocks later phases) · 🟡 Open (non-blocking, can d
 ### 6. 🟢 Preserve the "credentials never client-side" rule
 
 **Decision:** Standing rule from existing project conventions, carried forward without debate: all API keys/secrets (AI providers, publish-platform OAuth tokens, Supabase service-role key) live exclusively in Vercel environment variables. No exceptions for MCP or OAuth work in later phases. This is already how every server-side integration built this session (`api/admin-users.js`, `api/publish-social-post.js`, `api/cron-auto-publish.js`) works, and later phases (MCP Gateway, OAuth) must not regress it.
+
+---
+
+### 7. 🟡 Migrations are deferred until a phase actually persists these types
+
+**Why it matters:** Prompt 2 says "add migrations only after reviewing current conventions." Reviewed (`CURRENT_ARCHITECTURE.md` §9): every existing migration is a hand-written, idempotent `.sql` file (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`) applied manually through the Supabase SQL editor — no migration tool, no sequential migration chain, no ORM.
+
+**Decision:** No SQL was written in this phase. `domain/` is contracts-only (TypeScript types + zod schemas + an in-memory reference store for testing the isolation contract) — nothing in it persists anywhere yet, so there is nothing to migrate. When a later phase actually wires a schema up to Supabase (starting with the narrow BusinessBrain-approval-workflow migration Prompt 3 needs), it should follow the exact same idempotent, manually-applied `.sql` file convention already in use — not introduce a migration tool as a side effect of unrelated feature work.
+
+**Still open when that phase arrives:** whether `Experiment`/`PerformanceSnapshot` (this phase's contracts) get their own new tables or are reconciled with the existing `supabase-ab-testing.sql` visitors/conversions tables and `api/mcp.js`'s Convert.com-style tooling — flagged here so Prompt 9 doesn't design a second, parallel experiment-tracking schema without first checking whether the existing one can be extended.
