@@ -1,6 +1,6 @@
 # Decisions Log
 
-Open architectural questions raised by comparing the current repository (`CURRENT_ARCHITECTURE.md`) against the requested target (`TARGET_ARCHITECTURE.md`). Each needs an explicit answer from the project owner before the phase that depends on it begins — none are decided unilaterally here.
+Open architectural questions raised by comparing the current repository (`CURRENT_ARCHITECTURE.md`) against the requested target (`TARGET_ARCHITECTURE.md`). Items are only marked 🟢 Decided when they follow directly from a hard requirement already stated in the source prompts, or from a standing project rule — not from a preference call. Decision #1 remains genuinely open: it hinges on product/business intent this document has no visibility into, and needs the project owner's answer before Prompt 2 begins.
 
 Status legend: 🔴 Open (blocks later phases) · 🟡 Open (non-blocking, can default safely) · 🟢 Decided
 
@@ -21,33 +21,19 @@ Status legend: 🔴 Open (blocks later phases) · 🟡 Open (non-blocking, can d
 
 ---
 
-### 2. 🔴 Which MCP implementation is canonical?
+### 2. 🟢 Which MCP implementation is canonical?
 
-**Why it matters:** Prompt 11 asks for one MCP gateway with a specific tool/resource/prompt catalogue at a stable `/mcp` path. Two independent implementations exist today (`api/mcp.js` — hand-rolled JSON-RPC, live on Vercel; `audema-adforge-mcp/` — real SDK, stdio transport, standalone, not deployed to the web).
+**Decided:** `api/mcp.js` is canonical. Not a preference — dictated by Prompt 11's hard requirement that the gateway be "deployable as a remote service" at a public HTTPS URL. `audema-adforge-mcp/` uses stdio transport, a local/subprocess protocol; it cannot serve remote clients over HTTPS without rebuilding its transport layer, at which point it's no longer "extending" that project, it's building a new one in its place. `api/mcp.js` is already HTTP-shaped and already deployed. Action: replace its hand-rolled JSON-RPC with the official SDK's HTTP/streamable transport; port over `audema-adforge-mcp/`'s tool definitions and rendering approach as needed; retire the standalone server once migrated.
 
-**Options:**
-- (a) Extend `api/mcp.js` in place (already deployed, already HTTP-transport-shaped, already uses the service-role-key pattern this repo trusts) — replace its hand-rolled JSON-RPC with the official SDK's HTTP/streamable transport.
-- (b) Port `audema-adforge-mcp/`'s tool set (and its Sharp-based rendering, if kept) into a new Vercel-deployed server using the official SDK, retiring `api/mcp.js`.
-- (c) Keep `audema-adforge-mcp/` as a separate stdio-only dev tool and build the real gateway as a third, new implementation.
-
-**Recommendation:** (a) — it's the one actually reachable at a public URL today, and Prompt 11 explicitly requires a deployable remote service at `https://mcp.audema.marketing/mcp`. `audema-adforge-mcp/`'s renderer approach is *already* being reused (ported into `api/render-social-image.js`), so its useful IP isn't stranded even if the server itself is retired.
-
-**Verification before deciding:** confirm `MCP_SECRET`'s current usage/rotation plan in `api/mcp.js` and whether its existing A/B-testing tool surface (Convert.com-style) needs to be preserved for any active caller before folding it into a broader gateway.
+**Still needs verification before executing:** `MCP_SECRET`'s current usage/rotation plan and whether its existing A/B-testing (Convert.com-style) tool surface has any active caller that must keep working through the migration.
 
 ---
 
-### 3. 🔴 Is TypeScript / an ORM / a build step in scope?
+### 3. 🟢 Is TypeScript / an ORM / a build step in scope?
 
-**Why it matters:** Prompt 2 requires "strict TypeScript types" and reusing "the project's existing validation and ORM libraries." The live `api/` and `web/` layers have neither (see `CURRENT_ARCHITECTURE.md` §2, §8). Introducing either is a foundational, repo-wide decision, not an incidental one — it changes how every future `api/*.js` file is authored, reviewed, and deployed (Vercel needs a build step it doesn't have today).
+**Decided:** Not really optional — Prompt 2 itself explicitly requires "strict TypeScript types" and runtime validation for the new shared contracts, so TypeScript is introduced for that new code regardless. The only real choice was *how much* of the repo it touches, and of the three options only one is consistent with the standing "no broad refactor" instruction: **introduce TypeScript + `zod` runtime validation for new domain-service code only, compiled to JS at deploy time — existing `api/*.js` files stay untouched.** Full-repo migration would itself be the broad refactor the brief prohibits; staying in plain JS with no compile step would fail Prompt 2's explicit requirement. No ORM — the existing raw-SQL-via-Supabase-client pattern is kept.
 
-**Options:**
-- (a) Introduce TypeScript + a lightweight runtime validator (`zod`, already a known-good dependency via `audema-adforge-mcp/`) for **new domain-service code only**, compiled to JS at deploy time, leaving existing `api/*.js` files untouched.
-- (b) Full-repo TypeScript migration (large, out of scope for "no broad refactor").
-- (c) Stay in plain JS, add only runtime validation (no compile step) — smaller lift, loses compile-time guarantees Prompt 2 explicitly asks for.
-
-**Recommendation:** (a) — matches the "no broad refactor" instruction while still satisfying Prompt 2's strict-typing requirement for new code.
-
-**Verification before deciding:** confirm Vercel project settings allow a build step (`buildCommand` is currently `null` in `vercel.json`) without disrupting the existing zero-build static deploy of `web/`.
+**Still needs verification before executing:** confirm Vercel project settings allow a build step (`buildCommand` is currently `null` in `vercel.json`) for the new TypeScript code path without disrupting the existing zero-build static deploy of `web/` and the existing plain-JS `api/*.js` functions.
 
 ---
 

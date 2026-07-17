@@ -124,7 +124,7 @@ Capability-by-capability mapping of the full 14-prompt program against what actu
 
 This sequencing accounts for what's already built (reuse), what's adjacent (extend), and what's genuinely new (build), and respects the dependency Decision #1/#2/#3 create.
 
-**Stage 0 (must happen first, blocks everything below):** Resolve `DECISIONS.md` #1 (workspace model), #2 (canonical MCP), #3 (TypeScript scope) with the project owner.
+**Stage 0 (must happen first, blocks Stage 1 onward):** `DECISIONS.md` #2 (canonical MCP) and #3 (TypeScript scope) are resolved — both followed directly from hard requirements already stated in the source prompts, not from a preference call. #1 (workspace model) is still genuinely open and blocks Stage 1: it depends on product/business intent (does the agency plan tier represent multiple client organizations or multiple businesses one user manages?) that isn't answerable from the repository — needs the project owner's call before Prompt 2 begins.
 
 **Stage 1 — Shared contracts on the resolved model (Prompt 2):** Formalize the entities that already exist adjacent-shape (Workspace/membership, Competitor, Market Signal, Strategic Brief, Approval) rather than inventing new ones; add the genuinely missing ones (Organisation-or-not per Decision #1, Offer, Campaign Concept, Creative Specification, Campaign Learning).
 
