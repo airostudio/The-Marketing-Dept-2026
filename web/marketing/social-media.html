@@ -753,16 +753,16 @@
             }
         }
 
-        /* ── Auth Protection & Initialization ── */
+        /* ── Initialization ──
+           No hard auth gate here by design: loadPipeline() already handles
+           the signed-out case gracefully (shows a real "sign in to see
+           your content queue" prompt rather than a redirect — see Phase G).
+           The previous `window.checkAuth` reference here was dead code
+           (that function was never defined anywhere in the app, so this
+           never actually redirected); removed rather than wired up to a
+           real check, to avoid changing this page's intended degraded
+           signed-out UX into a forced redirect. */
         document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                if (typeof window.checkAuth === 'function') {
-                    var user = await window.checkAuth();
-                    if (!user) { window.location.href = '/login.html'; return; }
-                }
-            } catch (e) {
-                console.warn('Auth check unavailable:', e);
-            }
             await refreshData();
             await loadPipeline();
             await loadSchedulerData();

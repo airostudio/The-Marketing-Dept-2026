@@ -487,8 +487,10 @@
         /* ── Auth gate ── */
         async function checkAuth() {
             if (typeof Auth !== 'undefined') {
+                // /login.html doesn't exist as a page in this app — the
+                // real sign-in surface is index.html's login modal.
                 var ok = await Auth.isAuthenticated();
-                if (!ok) { window.location.href = '/login.html'; return false; }
+                if (!ok) { window.location.href = '/index.html?openAuth=login'; return false; }
             }
             return true;
         }

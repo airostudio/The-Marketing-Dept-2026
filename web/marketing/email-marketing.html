@@ -584,9 +584,9 @@
         // Auth protection
         document.addEventListener('DOMContentLoaded', async function() {
             try {
-                if (typeof window.checkAuth === 'function') {
-                    const user = await window.checkAuth();
-                    if (!user) { window.location.href = '/login.html'; return; }
+                if (typeof Auth !== 'undefined' && Auth.requireAuth) {
+                    const user = await Auth.requireAuth();
+                    if (!user) return; // requireAuth() already redirected
                 }
             } catch(e) { console.warn('Auth check skipped:', e.message); }
 

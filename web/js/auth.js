@@ -12,10 +12,27 @@ const Auth = {
     SESSION_KEY: 'seo_agent_session',
 
     /**
-     * Check if Supabase is available and configured
+     * Check if Supabase is available and configured.
+     *
+     * Deliberately does NOT gate on window.Supabase.isConfigured() — that
+     * check is synchronous and only reflects config already sitting in
+     * window.APP_CONFIG/localStorage at the exact instant it's called. On
+     * a page whose static config.js ships blank placeholders (every page
+     * except index.html/hub.html, until supabase-client.js's own runtime
+     * fetch of /api/app-config resolves), isConfigured() would return
+     * false on the very first check — even though Supabase genuinely IS
+     * configured via Vercel env vars — and every Auth method below would
+     * skip straight to the local-only fallback and (for isAuthenticated())
+     * incorrectly log the user out based on the local session's fixed,
+     * non-renewing expiry. window.Supabase.Auth.* methods already handle
+     * "wait for real config, then decide" correctly via getClientAsync()
+     * (see web/js/supabase-client.js's ensureClient()/
+     * fetchRemoteConfigIfNeeded()) and fail gracefully (null/throw) if
+     * Supabase genuinely isn't configured — so it's always correct to at
+     * least attempt the Supabase path whenever the SDK wrapper is loaded.
      */
     useSupabase() {
-        return typeof window.Supabase !== 'undefined' && window.Supabase.isConfigured();
+        return typeof window.Supabase !== 'undefined';
     },
 
     /**
@@ -52,8 +69,15 @@ const Auth = {
     },
 
     /**
-     * Synchronous check for immediate UI decisions
-     * For async operations, use isAuthenticated() instead
+     * Synchronous check for INSTANT UI DECISIONS ONLY (e.g. "show a login
+     * button vs. a profile menu before any async work resolves"). This
+     * checks ONLY the local `seo_agent_session` flag, whose `expires` is
+     * set once at login (24h, or 30 days with "remember me") and never
+     * renewed — it has no idea whether the real Supabase session is still
+     * valid and auto-refreshing. NEVER use this alone to gate page access
+     * or decide whether to redirect to login — that will force a logout
+     * after the fixed window even when the user never actually logged out.
+     * Use requireAuth() (page load) or isAuthenticated() (async) instead.
      */
     isAuthenticatedSync() {
         // Check local session first (fast)
@@ -149,6 +173,26 @@ const Auth = {
         } catch {
             return null;
         }
+    },
+
+    /**
+     * The one shared page-access gate every page should use. Checks the
+     * real, auto-refreshing Supabase session first via isAuthenticated()
+     * — never the fixed-expiry local `seo_agent_session` flag alone (that
+     * flag's `expires` is set once at login and never renewed, so a page
+     * gating on isAuthenticatedSync() alone forces a logout after 24h/30d
+     * even when the real session is still perfectly valid and would have
+     * kept refreshing forever). Redirects to `redirectTo` and returns null
+     * if not authenticated; otherwise returns the current user.
+     */
+    async requireAuth(redirectTo = '/index.html?openAuth=login') {
+        const ok = await this.isAuthenticated();
+        if (!ok) {
+            try { sessionStorage.setItem('auth_redirect', 'true'); } catch {}
+            window.location.href = redirectTo;
+            return null;
+        }
+        return await this.getUser();
     },
 
     /**

@@ -557,22 +557,18 @@
         // =====================================================================
         // Content Strategy - Auth Protection & Page Initialization
         // =====================================================================
-        (function () {
+        (async function () {
             'use strict';
 
             // -- Auth gate --------------------------------------------------------
-            if (!Auth.isAuthenticatedSync()) {
-                sessionStorage.setItem('auth_redirect', 'true');
-                window.location.href = '/index.html';
-                return;
-            }
+            var user = await Auth.requireAuth();
+            if (!user) return;
 
-            var user = Auth.getUserSync();
             if (user) {
                 var userName = document.querySelector('[data-metric="user-name"]');
                 var userInitials = document.querySelector('[data-metric="user-initials"]');
                 if (userName) userName.textContent = user.firstname + ' ' + user.lastname;
-                if (userInitials) userInitials.textContent = (user.firstname[0] + user.lastname[0]).toUpperCase();
+                if (userInitials) userInitials.textContent = ((user.firstname || user.email || '?')[0] + (user.lastname || '')[0]).toUpperCase();
             }
 
             // -- User dropdown ----------------------------------------------------

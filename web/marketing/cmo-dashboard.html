@@ -796,15 +796,11 @@
     <script src="/js/cmo-service.js"></script>
     <script>
         // CMO Dashboard Protection & Initialization
-        (function() {
-            if (!Auth.isAuthenticatedSync()) {
-                sessionStorage.setItem('auth_redirect', 'true');
-                window.location.href = '/index.html';
-                return;
-            }
+        (async function() {
+            const user = await Auth.requireAuth();
+            if (!user) return;
 
             // Update user info in sidebar
-            const user = Auth.getUserSync();
             if (user) {
                 const userName = document.querySelector('[data-metric="user-name"]');
                 const userInitials = document.querySelector('[data-metric="user-initials"]');
@@ -813,7 +809,7 @@
                     userName.textContent = user.firstname + ' ' + user.lastname;
                 }
                 if (userInitials) {
-                    userInitials.textContent = (user.firstname[0] + user.lastname[0]).toUpperCase();
+                    userInitials.textContent = ((user.firstname || user.email || '?')[0] + (user.lastname || '')[0]).toUpperCase();
                 }
             }
 

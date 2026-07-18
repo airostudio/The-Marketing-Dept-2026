@@ -1421,11 +1421,12 @@
     document.addEventListener('DOMContentLoaded', async function() {
         try {
             if (typeof Auth !== 'undefined' && Auth.requireAuth) {
+                // requireAuth() already redirects to the real sign-in page
+                // (index.html's login modal) on failure — no need to
+                // redirect again here, and definitely not to /login.html,
+                // which doesn't exist as a page in this app.
                 const user = await Auth.requireAuth();
-                if (!user) {
-                    window.location.href = '/login.html';
-                    return;
-                }
+                if (!user) return;
             }
         } catch (e) {
             console.warn('Auth check skipped:', e);

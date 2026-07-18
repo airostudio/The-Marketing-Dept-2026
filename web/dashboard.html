@@ -1187,8 +1187,13 @@
     <script src="/js/dashboard.js"></script>
     <script>
         // Dashboard Protection - Redirect if not authenticated
-        (function() {
-            const _authOk = Auth.isAuthenticatedSync() ||
+        (async function() {
+            // The real, auto-refreshing Supabase session is the primary
+            // check (never expires from a fixed local flag the way
+            // isAuthenticatedSync() alone would); apiClient's token check
+            // is kept only as a fallback for the local-demo/legacy-backend
+            // path, matching Auth.requireAuth()'s own internal fallback.
+            const _authOk = await Auth.isAuthenticated() ||
                             (window.apiClient && window.apiClient.isAuthenticated());
             if (!_authOk) {
                 sessionStorage.setItem('auth_redirect', 'true');
@@ -1197,7 +1202,7 @@
             }
 
             // Update user info in sidebar — try both storage keys
-            const user = Auth.getUserSync() ||
+            const user = (await Auth.getUser()) ||
                          JSON.parse(localStorage.getItem('user') || 'null');
             if (user) {
                 const userName = document.querySelector('[data-metric="user-name"]');
@@ -1209,7 +1214,7 @@
                 }
 
                 if (userInitials) {
-                    userInitials.textContent = (user.firstname[0] + user.lastname[0]).toUpperCase();
+                    userInitials.textContent = ((user.firstname || user.email || '?')[0] + (user.lastname || '')[0]).toUpperCase();
                 }
 
                 if (welcomeMessage) {
