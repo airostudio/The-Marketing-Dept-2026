@@ -21,38 +21,41 @@
     // AI PROVIDER CLIENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /**
+     * Both provider clients below call this project's own server-side
+     * proxies (api/openai.js, api/gemini.js) — never the provider's API
+     * directly from the browser. Those proxies read the real key
+     * exclusively from a Vercel environment variable (OPENAI_API_KEY /
+     * GEMINI_API_KEY) and never return it to the client. The two clients
+     * previously called https://api.openai.com / https://generativelanguage...
+     * directly using window.APP_CONFIG.AI.{OPENAI,GEMINI}.API_KEY — a
+     * client-side secret that must never actually be populated (doing so
+     * would ship the real key to every visitor via view-source), which
+     * meant this entire module (SEO/Content/Social/Ads/Reports below) was
+     * silently dead in production: isAvailable() always false, every
+     * method returning its empty fallback with no real AI call ever made.
+     */
+    async function callProxy(endpoint, messages, options = {}) {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages,
+                systemPrompt: options.systemPrompt,
+                model: options.model,
+                stream: false,
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+            throw new Error(data.error || `AI request failed (HTTP ${res.status})`);
+        }
+        return data.text || '';
+    }
+
     const OpenAI = {
-        baseUrl: 'https://api.openai.com/v1',
-
         async chat(messages, options = {}) {
-            const config = window.APP_CONFIG?.AI?.OPENAI;
-            if (!config?.API_KEY) throw new Error('OpenAI API key not configured');
-
-            const model = options.model || config.MODEL || 'gpt-4o';
-            const maxTokens = options.maxTokens || window.APP_CONFIG?.AI?.SETTINGS?.MAX_TOKENS?.MEDIUM || 1500;
-            const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
-
-            const response = await fetch(`${this.baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.API_KEY}`
-                },
-                body: JSON.stringify({
-                    model,
-                    messages,
-                    max_tokens: maxTokens,
-                    temperature
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || 'OpenAI API request failed');
-            }
-
-            const data = await response.json();
-            return data.choices[0]?.message?.content || '';
+            return callProxy('/api/openai', messages, { ...options, model: options.model || 'gpt-4o' });
         },
 
         async complete(prompt, options = {}) {
@@ -61,48 +64,12 @@
     };
 
     const Gemini = {
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-
         async generate(prompt, options = {}) {
-            const config = window.APP_CONFIG?.AI?.GEMINI;
-            if (!config?.API_KEY) throw new Error('Gemini API key not configured');
-
-            const model = options.model || config.MODEL || 'gemini-1.5-flash';
-            const maxTokens = options.maxTokens || window.APP_CONFIG?.AI?.SETTINGS?.MAX_TOKENS?.MEDIUM || 1500;
-            const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
-
-            const response = await fetch(
-                `${this.baseUrl}/models/${model}:generateContent?key=${config.API_KEY}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            maxOutputTokens: maxTokens,
-                            temperature
-                        }
-                    })
-                }
-            );
-
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || 'Gemini API request failed');
-            }
-
-            const data = await response.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            return this.chat([{ role: 'user', content: prompt }], options);
         },
 
         async chat(messages, options = {}) {
-            // Convert OpenAI format to Gemini format
-            const prompt = messages.map(m => {
-                const role = m.role === 'assistant' ? 'Model' : 'User';
-                return `${role}: ${m.content}`;
-            }).join('\n\n');
-
-            return this.generate(prompt, options);
+            return callProxy('/api/gemini', messages, { ...options, model: options.model || 'gemini-2.5-pro' });
         }
     };
 
@@ -112,32 +79,24 @@
 
     const AI = {
         /**
-         * Get the preferred AI provider
+         * The preferred AI provider. Both providers are always "available"
+         * from the client's perspective now — real availability (is the key
+         * actually set in Vercel env vars) is a server-side fact surfaced
+         * as a real error from the proxy on the actual call, not something
+         * guessable from client config.
          */
         getProvider() {
-            const config = window.APP_CONFIG?.AI;
-            const preferred = config?.DEFAULT_PROVIDER || 'openai';
-
-            // Check if preferred provider is available
-            if (preferred === 'openai' && config?.OPENAI?.ENABLED && config?.OPENAI?.API_KEY) {
-                return 'openai';
-            }
-            if (preferred === 'gemini' && config?.GEMINI?.ENABLED && config?.GEMINI?.API_KEY) {
-                return 'gemini';
-            }
-
-            // Fallback to any available provider
-            if (config?.OPENAI?.ENABLED && config?.OPENAI?.API_KEY) return 'openai';
-            if (config?.GEMINI?.ENABLED && config?.GEMINI?.API_KEY) return 'gemini';
-
-            return null;
+            return window.APP_CONFIG?.AI?.DEFAULT_PROVIDER || 'openai';
         },
 
         /**
-         * Check if AI is available
+         * Whether the AI module itself is loaded and its proxy endpoints
+         * are reachable in principle. Does NOT mean a real key is
+         * configured server-side — that's only knowable by actually
+         * calling prompt()/chat() and seeing whether it throws.
          */
         isAvailable() {
-            return this.getProvider() !== null;
+            return true;
         },
 
         /**
@@ -146,33 +105,28 @@
         async prompt(text, options = {}) {
             const provider = options.provider || this.getProvider();
 
-            if (!provider) {
-                throw new Error('No AI provider configured. Add API keys in config.js');
-            }
-
             try {
                 if (provider === 'openai') {
                     return await OpenAI.complete(text, options);
-                } else if (provider === 'gemini') {
+                } else {
                     return await Gemini.generate(text, options);
                 }
             } catch (error) {
                 console.error(`AI ${provider} error:`, error);
 
-                // Try fallback provider
+                // Try the other provider once — real availability can only
+                // be determined by attempting the call, not by checking a
+                // client-side config flag that's never actually populated.
                 const fallback = provider === 'openai' ? 'gemini' : 'openai';
-                const fallbackConfig = window.APP_CONFIG?.AI?.[fallback.toUpperCase()];
-
-                if (fallbackConfig?.ENABLED && fallbackConfig?.API_KEY) {
+                try {
                     console.log(`Falling back to ${fallback}...`);
-                    if (fallback === 'openai') {
-                        return await OpenAI.complete(text, options);
-                    } else {
-                        return await Gemini.generate(text, options);
-                    }
+                    return fallback === 'openai'
+                        ? await OpenAI.complete(text, options)
+                        : await Gemini.generate(text, options);
+                } catch (fallbackError) {
+                    console.error(`AI ${fallback} fallback also failed:`, fallbackError);
+                    throw error;
                 }
-
-                throw error;
             }
         },
 

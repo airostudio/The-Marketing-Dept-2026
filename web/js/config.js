@@ -138,36 +138,22 @@ window.APP_CONFIG = {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // AI/LLM APIs (for content generation, analysis)
+    //
+    // No API keys here, ever. This is a static, git-tracked file shipped to
+    // every visitor's browser — a real key pasted here would be exposed to
+    // anyone who views source. Every AI call in this app goes through a
+    // server-side proxy (api/openai.js, api/gemini.js, api/claude.js,
+    // api/perplexity.js) that reads its key exclusively from a Vercel
+    // environment variable (OPENAI_API_KEY, GEMINI_API_KEY, etc.) and never
+    // returns it to the client. web/js/ai-service.js's OpenAI/Gemini
+    // clients call those proxies directly — model/token defaults are set
+    // there and in the proxies themselves, not read from this file.
     // ═══════════════════════════════════════════════════════════════════════════
     AI: {
-        // Default provider: 'openai', 'gemini', or 'anthropic'
+        // Default provider: 'openai' or 'gemini' — which proxy
+        // ai-service.js's AI.prompt()/AI.chat() call first, with the other
+        // as an automatic fallback if the first one's call fails.
         DEFAULT_PROVIDER: 'openai',
-
-        // OpenAI - https://platform.openai.com/api-keys
-        // Best for: Complex analysis, content generation, strategic insights
-        OPENAI: {
-            ENABLED: true,
-            API_KEY: '',  // Add your key here
-            MODEL: 'gpt-4o',  // Latest model
-            FALLBACK_MODEL: 'gpt-4o-mini'  // Cost-effective fallback
-        },
-
-        // Google Gemini - https://aistudio.google.com/apikey
-        // Best for: High-volume tasks, multimodal analysis, Google ecosystem integration
-        GEMINI: {
-            ENABLED: true,
-            API_KEY: '',  // Add your key here
-            MODEL: 'gemini-1.5-flash',  // Fast and cost-effective
-            PRO_MODEL: 'gemini-1.5-pro'  // For complex tasks
-        },
-
-        // Anthropic Claude - https://console.anthropic.com/
-        // Best for: Long-form content, nuanced analysis
-        ANTHROPIC: {
-            ENABLED: false,
-            API_KEY: '',
-            MODEL: 'claude-3-5-sonnet-20241022'
-        },
 
         // AI Feature Settings
         SETTINGS: {
