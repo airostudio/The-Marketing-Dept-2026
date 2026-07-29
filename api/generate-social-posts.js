@@ -179,6 +179,24 @@ module.exports = async function handler(req, res) {
   const count = Math.min(Math.max(Number(postCount) || 5, 1), 20);
   const systemPrompt = buildSystemPrompt(platforms, contentGoal, frequency, businessContext, competitors);
 
+  // Scale the output budget to the batch size instead of always requesting the
+  // full 8000-token ceiling — smaller batches finish (and stream back) faster,
+  // which matters because the upstream call has to fit inside the function's
+  // maxDuration (60s, see vercel.json) alongside request/response overhead.
+  const maxTokens = Math.min(8000, 700 * count + 1200);
+
+  // The function's own maxDuration is 60s (vercel.json) — a retry inside this
+  // same invocation would blow straight past that ceiling, so there's exactly
+  // one attempt. 50s leaves real headroom (request parsing, response
+  // serialization, Vercel's own cold-start/network overhead) instead of the
+  // previous 55s, which left only ~5s and let the platform's own timeout race
+  // ahead of our clean error response on larger batches.
+  const UPSTREAM_TIMEOUT_MS = 50000;
+
+  function isTimeout(err) {
+    return err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted due to timeout/i.test(err.message || '');
+  }
+
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -189,7 +207,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model:       'claude-sonnet-4-6',
-        max_tokens:  8000,
+        max_tokens:  maxTokens,
         system:      systemPrompt,
         tools:       [SOCIAL_POSTS_TOOL],
         tool_choice: { type: 'tool', name: 'submit_social_posts' },
@@ -198,7 +216,7 @@ module.exports = async function handler(req, res) {
           content: `Create ${count} posts distributed across: ${platforms.join(', ')}. Topic/theme: ${topic}. Content goal: ${contentGoal}. Posting cadence: ${frequency}.`,
         }],
       }),
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
     const data = await upstream.json().catch(() => ({}));
@@ -226,6 +244,9 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
+    if (isTimeout(err)) {
+      return res.status(504).json({ error: `Claude took too long generating ${count} posts. Try again, or generate a smaller batch (5-7 posts) if this keeps happening.` });
+    }
     return res.status(502).json({ error: err.message });
   }
 };

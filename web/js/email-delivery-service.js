@@ -42,7 +42,7 @@ const EmailDeliveryService = (() => {
     const cleanSubject = (subject || '').trim();
     const cleanHtml     = (html || '').trim();
     const cleanRecipients = (recipients || [])
-      .map(r => (typeof r === 'string') ? { to: r.trim() } : { to: (r.to || '').trim(), toName: r.toName, mergeFields: r.mergeFields })
+      .map(r => (typeof r === 'string') ? { to: r.trim() } : { to: (r.to || '').trim(), toName: r.toName, mergeFields: r.mergeFields, _contactId: r._contactId })
       .filter(r => r.to);
 
     return {

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audience Manager | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --agent-color: #06b6d4;
+            --agent-color-rgb: 6,182,212;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981; --red: #ef4444; --yellow: #f59e0b;
+            --bg: #070711; --border: rgba(255,255,255,0.08);
+            --text: #ffffff; --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--border); font-size: 18px; }
+        .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+        .nav-right { display: flex; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .hero { padding: 56px 32px 40px; max-width: 900px; margin: 0 auto; text-align: center; }
+        .hero h1 { font-size: 40px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); margin-bottom: 20px; }
+        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(var(--agent-color-rgb),0.12); border: 1px solid rgba(var(--agent-color-rgb),0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--agent-color); }
+
+        .main-content { max-width: 1200px; margin: 0 auto; padding: 0 32px 80px; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .tab { padding: 10px 18px; font-size: 14px; font-weight: 600; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab.active { color: var(--text); border-color: var(--agent-color); }
+
+        .panel { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 24px; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .panel-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .field-group { margin-bottom: 16px; }
+        .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+        .field-input, .field-textarea, .field-select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; }
+        .field-input:focus, .field-textarea:focus, .field-select:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
+        .field-textarea { resize: vertical; min-height: 100px; line-height: 1.5; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; }
+        .field-select option { background: #13131f; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+
+        .btn-run { padding: 12px 22px; background: linear-gradient(135deg, var(--agent-color), var(--purple)); border: none; border-radius: 10px; color: white; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .btn-run:hover { opacity: 0.88; }
+        .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary { padding: 8px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.09); }
+        .btn-danger { color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .stat-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-pill { padding: 10px 18px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); text-align: center; min-width: 100px; }
+        .stat-pill .num { font-size: 22px; font-weight: 800; color: var(--agent-color); }
+        .stat-pill .label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.data-table th { text-align: left; padding: 8px 12px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        table.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .tag-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(var(--agent-color-rgb),0.12); color: var(--agent-color); font-size: 11px; font-weight: 600; margin-right: 4px; margin-bottom: 2px; }
+        .status-pill { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .status-pill.subscribed { background: rgba(16,185,129,0.12); color: var(--green); }
+        .status-pill.unsubscribed { background: rgba(148,163,184,0.12); color: #94a3b8; }
+        .status-pill.bounced, .status-pill.complained { background: rgba(239,68,68,0.12); color: var(--red); }
+        .row-actions a, .row-actions button { font-size: 12px; color: var(--text2); cursor: pointer; background: none; border: none; font-family: inherit; text-decoration: underline; margin-right: 10px; }
+        .row-actions button.danger { color: #fca5a5; }
+
+        .segment-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; background: rgba(255,255,255,0.02); }
+        .segment-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .segment-name { font-size: 15px; font-weight: 700; }
+        .segment-desc { font-size: 13px; color: var(--text2); margin-top: 2px; }
+        .segment-meta { font-size: 12px; color: var(--text3); margin-top: 8px; }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-style: italic; font-size: 14px; }
+        .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+        .msg.ok { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
+        .msg.err { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .signin-gate { text-align: center; padding: 60px 20px; color: var(--text2); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">🚀</span> Audema</a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Audience Manager</span>
+    </div>
+    <div class="nav-right">
+        <a href="/agents/email-delivery-agent.html" class="nav-link" style="color:#10b981;border-color:rgba(16,185,129,0.35);">📬 Pat — Email Delivery</a>
+        <a href="/hub.html" class="nav-link">Hub</a>
+        <a href="/scotty.html" class="nav-link">Scotty</a>
+    </div>
+</nav>
+
+<div class="hero">
+    <h1>Audience Manager</h1>
+    <p class="hero-tagline">Your persistent contact list. Import once, tag, group into segments, and reuse across every campaign Pat sends.</p>
+    <span class="powered-pill">👥 Contacts → Segments → Pat</span>
+</div>
+
+<div class="main-content">
+    <div id="signin-gate" class="signin-gate" style="display:none;">
+        Sign in to build a persistent audience — contacts and segments are saved to your account.
+        <div style="margin-top:12px;"><a class="nav-link" href="/settings.html">Go to Settings</a></div>
+    </div>
+
+    <div id="app-body">
+        <div class="tabs">
+            <div class="tab active" data-tab="contacts" onclick="AM.switchTab('contacts')">Contacts</div>
+            <div class="tab" data-tab="import" onclick="AM.switchTab('import')">Import</div>
+            <div class="tab" data-tab="segments" onclick="AM.switchTab('segments')">Segments</div>
+        </div>
+
+        <!-- CONTACTS TAB -->
+        <div class="tab-panel" id="tab-contacts">
+            <div class="stat-row" id="contact-stats"></div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Contacts</span>
+                    <div class="btn-row">
+                        <input type="text" class="field-input" id="search-input" placeholder="Search name/email/company…" style="width:220px;">
+                        <select class="field-select" id="filter-status" style="width:150px;">
+                            <option value="">All statuses</option>
+                            <option value="subscribed">Subscribed</option>
+                            <option value="unsubscribed">Unsubscribed</option>
+                            <option value="bounced">Bounced</option>
+                            <option value="complained">Complained</option>
+                        </select>
+                        <button class="btn-secondary" onclick="AM.loadContacts()">Filter</button>
+                    </div>
+                </div>
+                <div class="panel-body" id="contacts-body">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IMPORT TAB -->
+        <div class="tab-panel" id="tab-import" style="display:none;">
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Import Contacts</span></div>
+                <div class="panel-body">
+                    <div id="import-msg"></div>
+                    <div class="field-group">
+                        <label class="field-label">Paste contacts — one per line</label>
+                        <textarea class="field-textarea" id="import-text" style="min-height:220px;" placeholder="email@example.com&#10;Jane Doe <jane@company.com>&#10;jane@company.com, Jane, city=Melbourne;company=Acme"></textarea>
+                        <div class="field-hint">Formats: bare email · "Name &lt;email&gt;" · "email, Name, key=value;key2=value2" (extra key=value pairs become merge-tag fields)</div>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Tag all imported contacts with (optional)</label>
+                        <input type="text" class="field-input" id="import-tags" placeholder="e.g. newsletter, webinar-2026">
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn-run" onclick="AM.doImport()">Import Contacts</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEGMENTS TAB -->
+        <div class="tab-panel" id="tab-segments" style="display:none;">
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Create Segment</span></div>
+                <div class="panel-body">
+                    <div id="segment-msg"></div>
+                    <div class="form-row">
+                        <div class="field-group">
+                            <label class="field-label">Segment Name</label>
+                            <input type="text" class="field-input" id="seg-name" placeholder="e.g. VIP Customers">
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label">Description (optional)</label>
+                            <input type="text" class="field-input" id="seg-desc" placeholder="What this segment is for">
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Include contacts with ANY of these tags</label>
+                        <input type="text" class="field-input" id="seg-tags-any" placeholder="e.g. vip, webinar-2026 (comma-separated)">
+                        <div class="field-hint">Leave blank to match all subscribed contacts. Only subscribed contacts are ever included, regardless of tags.</div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn-run" onclick="AM.createSegment()">Create Segment</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Your Segments</span></div>
+                <div class="panel-body" id="segments-body">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/supabase-client.js"></script>
+<script src="../js/contacts-store.js"></script>
+<script>
+    const AM = (() => {
+        'use strict';
+
+        function escHtml(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+            document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+            document.getElementById('tab-' + name).style.display = '';
+            if (name === 'contacts') loadContacts();
+            if (name === 'segments') loadSegments();
+        }
+
+        async function loadContacts() {
+            const body = document.getElementById('contacts-body');
+            body.innerHTML = `<div class="empty-state"><span class="spinner"></span> Loading contacts…</div>`;
+            try {
+                const search = document.getElementById('search-input').value.trim();
+                const status = document.getElementById('filter-status').value;
+                const contacts = await window.ContactsStore.listContacts({ search, status, limit: 200 });
+                renderContacts(contacts);
+                renderStats(contacts);
+            } catch (e) {
+                body.innerHTML = `<div class="msg err">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        function renderStats(contacts) {
+            const total = contacts.length;
+            const subscribed = contacts.filter(c => c.status === 'subscribed').length;
+            const unsub = contacts.filter(c => c.status === 'unsubscribed').length;
+            const bounced = contacts.filter(c => c.status === 'bounced' || c.status === 'complained').length;
+            document.getElementById('contact-stats').innerHTML = `
+                <div class="stat-pill"><div class="num">${total}</div><div class="label">Loaded</div></div>
+                <div class="stat-pill"><div class="num">${subscribed}</div><div class="label">Subscribed</div></div>
+                <div class="stat-pill"><div class="num">${unsub}</div><div class="label">Unsubscribed</div></div>
+                <div class="stat-pill"><div class="num">${bounced}</div><div class="label">Bounced/Complained</div></div>
+            `;
+        }
+
+        function renderContacts(contacts) {
+            const body = document.getElementById('contacts-body');
+            if (!contacts.length) {
+                body.innerHTML = `<div class="empty-state">No contacts yet. Head to the Import tab to add your first list.</div>`;
+                return;
+            }
+            body.innerHTML = `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>
+                <th>Email</th><th>Name</th><th>Company</th><th>Tags</th><th>Status</th><th></th>
+            </tr></thead><tbody>
+                ${contacts.map(c => `<tr>
+                    <td>${escHtml(c.email)}</td>
+                    <td>${escHtml([c.first_name, c.last_name].filter(Boolean).join(' '))}</td>
+                    <td>${escHtml(c.company)}</td>
+                    <td>${(c.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join('')}</td>
+                    <td><span class="status-pill ${c.status}">${c.status}</span></td>
+                    <td class="row-actions">
+                        ${c.status !== 'unsubscribed' ? `<button onclick="AM.unsubscribe('${c.id}')">Unsubscribe</button>` : ''}
+                        <button class="danger" onclick="AM.deleteContact('${c.id}')">Delete</button>
+                    </td>
+                </tr>`).join('')}
+            </tbody></table></div>`;
+        }
+
+        async function unsubscribe(id) {
+            try { await window.ContactsStore.unsubscribeContact(id); loadContacts(); }
+            catch (e) { alert(e.message); }
+        }
+
+        async function deleteContact(id) {
+            if (!confirm('Delete this contact permanently?')) return;
+            try { await window.ContactsStore.deleteContact(id); loadContacts(); }
+            catch (e) { alert(e.message); }
+        }
+
+        function parseImportLine(line) {
+            const namedMatch = line.match(/^(.*?)<([^>]+)>$/);
+            if (namedMatch) {
+                const [first, ...rest] = namedMatch[1].trim().split(/\s+/);
+                return { email: namedMatch[2].trim(), firstName: first || undefined, lastName: rest.join(' ') || undefined };
+            }
+            const parts = line.split(',').map(p => p.trim());
+            const email = parts[0];
+            const name = parts[1] && !parts[1].includes('=') ? parts[1] : '';
+            const [first, ...rest] = name.split(/\s+/).filter(Boolean);
+            const customFields = {};
+            let company;
+            parts.slice(1).forEach(p => {
+                if (p.includes('=')) {
+                    const [k, v] = p.split('=');
+                    if (!k || v === undefined) return;
+                    if (k.trim() === 'company') company = v.trim();
+                    else customFields[k.trim()] = v.trim();
+                }
+            });
+            return { email, firstName: first, lastName: rest.join(' ') || undefined, company, customFields };
+        }
+
+        async function doImport() {
+            const msgEl = document.getElementById('import-msg');
+            const raw = document.getElementById('import-text').value;
+            const tags = document.getElementById('import-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+            const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+            if (!lines.length) { msgEl.innerHTML = `<div class="msg err">Paste at least one contact first.</div>`; return; }
+
+            const rows = lines.map(line => {
+                const parsed = parseImportLine(line);
+                return { ...parsed, tags, source: 'paste' };
+            });
+
+            msgEl.innerHTML = `<div class="msg"><span class="spinner"></span> Importing ${rows.length} contacts…</div>`;
+
+            try {
+                const result = await window.ContactsStore.upsertContacts(rows);
+                msgEl.innerHTML = `<div class="msg ok">Imported ${result.imported} new, updated ${result.updated} existing.${result.skipped.length ? ` Skipped ${result.skipped.length} invalid rows.` : ''}</div>`;
+                document.getElementById('import-text').value = '';
+            } catch (e) {
+                msgEl.innerHTML = `<div class="msg err">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        async function createSegment() {
+            const msgEl = document.getElementById('segment-msg');
+            const name = document.getElementById('seg-name').value.trim();
+            const description = document.getElementById('seg-desc').value.trim();
+            const tagsAny = document.getElementById('seg-tags-any').value.split(',').map(t => t.trim()).filter(Boolean);
+
+            if (!name) { msgEl.innerHTML = `<div class="msg err">Segment name is required.</div>`; return; }
+
+            try {
+                await window.ContactsStore.createSegment({
+                    name, description, memberMode: 'dynamic',
+                    filterRules: { tagsAny, status: 'subscribed' },
+                });
+                msgEl.innerHTML = `<div class="msg ok">Segment "${escHtml(name)}" created.</div>`;
+                document.getElementById('seg-name').value = '';
+                document.getElementById('seg-desc').value = '';
+                document.getElementById('seg-tags-any').value = '';
+                loadSegments();
+            } catch (e) {
+                msgEl.innerHTML = `<div class="msg err">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        async function loadSegments() {
+            const body = document.getElementById('segments-body');
+            body.innerHTML = `<div class="empty-state"><span class="spinner"></span> Loading segments…</div>`;
+            try {
+                const segments = await window.ContactsStore.listSegments();
+                if (!segments.length) {
+                    body.innerHTML = `<div class="empty-state">No segments yet. Create one above to group your contacts for reuse.</div>`;
+                    return;
+                }
+                const withCounts = await Promise.all(segments.map(async s => {
+                    let count = 0;
+                    try { count = (await window.ContactsStore.resolveSegmentContacts(s.id)).length; } catch {}
+                    return { ...s, count };
+                }));
+                body.innerHTML = withCounts.map(s => `
+                    <div class="segment-card">
+                        <div class="segment-card-top">
+                            <div>
+                                <div class="segment-name">${escHtml(s.name)}</div>
+                                ${s.description ? `<div class="segment-desc">${escHtml(s.description)}</div>` : ''}
+                                <div class="segment-meta">${s.count} sendable contact${s.count === 1 ? '' : 's'} right now
+                                    ${(s.filter_rules?.tagsAny || []).length ? ` · tags: ${s.filter_rules.tagsAny.map(escHtml).join(', ')}` : ' · all subscribed contacts'}
+                                </div>
+                            </div>
+                            <div class="btn-row">
+                                <a class="nav-link" style="color:#10b981;border-color:rgba(16,185,129,0.35);" href="/agents/email-delivery-agent.html?segment=${s.id}">📬 Send with Pat</a>
+                                <button class="btn-secondary btn-danger" onclick="AM.deleteSegment('${s.id}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                body.innerHTML = `<div class="msg err">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        async function deleteSegment(id) {
+            if (!confirm('Delete this segment? Contacts themselves are not deleted.')) return;
+            try { await window.ContactsStore.deleteSegment(id); loadSegments(); }
+            catch (e) { alert(e.message); }
+        }
+
+        async function init() {
+            const client = window.Supabase?.getClient?.();
+            let signedIn = false;
+            if (client) {
+                try { const { data: { user } } = await client.auth.getUser(); signedIn = !!user; } catch {}
+            }
+            if (!signedIn) {
+                document.getElementById('signin-gate').style.display = '';
+                document.getElementById('app-body').style.display = 'none';
+                return;
+            }
+            loadContacts();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        return { switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment };
+    })();
+</script>
+</body>
+</html>

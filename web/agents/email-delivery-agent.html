@@ -157,6 +157,14 @@
             </div>
             <div class="field-group">
                 <label class="field-label">Recipients</label>
+                <div class="btn-row" style="margin-bottom:8px;align-items:center;">
+                    <select class="field-select" id="segment-picker" style="width:auto;flex:1;min-width:180px;">
+                        <option value="">— Load from a saved segment —</option>
+                    </select>
+                    <button class="btn-secondary" type="button" onclick="EDA.loadFromSegmentPicker()">Load Segment</button>
+                    <button class="btn-secondary" type="button" id="btn-clear-segment" style="display:none;" onclick="EDA.clearSegment()">Clear / Paste Manually</button>
+                    <a class="btn-secondary" style="text-decoration:none;display:inline-block;" href="/agents/audience-agent.html">Manage Audience →</a>
+                </div>
                 <textarea class="field-textarea mono" id="in-recipients" placeholder="One per line:&#10;jane@company.com&#10;Jane Doe <jane@company.com>&#10;jane@company.com, Jane, firstName=Jane;company=Acme" style="min-height:140px;"></textarea>
                 <div class="field-hint" id="recipient-count">0 recipients parsed</div>
             </div>
@@ -192,12 +200,16 @@
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/contacts-store.js"></script>
 <script src="../js/email-delivery-service.js"></script>
 <script>
     const EDA = (() => {
         'use strict';
         let campaign = null;
         let lastReview = null;
+        let segmentRecipients = null; // {segmentId, recipients:[{to,toName,mergeFields,_contactId}]} when loaded from a saved segment
+
 
         function escHtml(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -218,9 +230,63 @@
         }
 
         function updateRecipientCount() {
+            if (segmentRecipients) return; // count already shown by loadFromSegment()
             const raw = document.getElementById('in-recipients').value;
             const parsed = window.EmailDeliveryService.parseRecipientList(raw);
             document.getElementById('recipient-count').textContent = `${parsed.length} recipient${parsed.length === 1 ? '' : 's'} parsed`;
+        }
+
+        async function populateSegmentPicker() {
+            const picker = document.getElementById('segment-picker');
+            if (!window.ContactsStore) return;
+            try {
+                const segments = await window.ContactsStore.listSegments();
+                picker.innerHTML = '<option value="">— Load from a saved segment —</option>' +
+                    segments.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+                return segments;
+            } catch (e) {
+                // Not signed in or no segments yet — leave the picker with just the placeholder.
+                return [];
+            }
+        }
+
+        function loadFromSegmentPicker() {
+            const id = document.getElementById('segment-picker').value;
+            if (!id) return alert('Choose a segment first.');
+            loadFromSegment(id);
+        }
+
+        async function loadFromSegment(segmentId) {
+            if (!window.ContactsStore) return alert('Sign in to load a saved segment.');
+            const textarea = document.getElementById('in-recipients');
+            const countEl = document.getElementById('recipient-count');
+            countEl.textContent = 'Loading segment…';
+            try {
+                const contacts = await window.ContactsStore.resolveSegmentContacts(segmentId);
+                const recipients = window.ContactsStore.toRecipients(contacts);
+                segmentRecipients = { segmentId, recipients };
+
+                textarea.value = recipients.map(r => `${r.to}${r.toName ? ' — ' + r.toName : ''}`).join('\n');
+                textarea.readOnly = true;
+                textarea.style.opacity = '0.7';
+                document.getElementById('segment-picker').value = segmentId;
+                document.getElementById('btn-clear-segment').style.display = '';
+                countEl.textContent = `${recipients.length} recipient${recipients.length === 1 ? '' : 's'} loaded from segment (unsubscribed contacts excluded automatically)`;
+            } catch (e) {
+                countEl.textContent = '';
+                alert('Could not load segment: ' + e.message);
+            }
+        }
+
+        function clearSegment() {
+            segmentRecipients = null;
+            const textarea = document.getElementById('in-recipients');
+            textarea.readOnly = false;
+            textarea.style.opacity = '';
+            textarea.value = '';
+            document.getElementById('segment-picker').value = '';
+            document.getElementById('btn-clear-segment').style.display = 'none';
+            updateRecipientCount();
         }
 
         function backToCollate() {
@@ -236,8 +302,9 @@
             const html      = document.getElementById('in-html').value.trim();
             const text      = document.getElementById('in-text').value.trim();
             const replyTo   = document.getElementById('in-replyto').value.trim();
-            const recipRaw  = document.getElementById('in-recipients').value;
-            const recipients = window.EmailDeliveryService.parseRecipientList(recipRaw);
+            const recipients = segmentRecipients
+                ? segmentRecipients.recipients
+                : window.EmailDeliveryService.parseRecipientList(document.getElementById('in-recipients').value);
 
             if (!subject) return alert('Subject line is required.');
             if (!html) return alert('Email body is required.');
@@ -246,6 +313,7 @@
             campaign = window.EmailDeliveryService.collateCampaign({
                 campaignName: name, subject, html, text, replyTo, recipients,
             });
+            campaign.segmentId = segmentRecipients ? segmentRecipients.segmentId : null;
 
             document.getElementById('panel-collate').style.display = 'none';
             document.getElementById('panel-review').style.display = '';
@@ -341,6 +409,7 @@
                     progressEl.innerHTML = `<div style="color:var(--text2);font-size:13px;">Batch ${batchIndex + 1} of ${batchCount} sent…</div>`;
                 });
                 renderSendResults(result);
+                logSendToAudience(result);
                 if (window.AgentHistory) {
                     window.AgentHistory.save({
                         agentKey: 'email-delivery',
@@ -354,6 +423,22 @@
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '🚀 Send Campaign Now';
             }
+        }
+
+        function logSendToAudience(result) {
+            if (!window.ContactsStore) return;
+            const contactIdByEmail = new Map(campaign.recipients.map(r => [r.to, r._contactId]));
+            const rows = [
+                ...result.results.map(r => ({ ...r, _contactId: contactIdByEmail.get(r.to) })),
+                ...result.rejected.map(r => ({ to: r.to, success: false, error: r.error, _contactId: contactIdByEmail.get(r.to) })),
+            ];
+            window.ContactsStore.logCampaignSend({
+                campaignId: campaign.id,
+                campaignName: campaign.campaignName,
+                subject: campaign.subject,
+                segmentId: campaign.segmentId,
+                results: rows,
+            }).catch(e => console.warn('[Pat] send log failed:', e.message));
         }
 
         function renderSendResults(result) {
@@ -379,11 +464,17 @@
             body.innerHTML = html;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('in-recipients').addEventListener('input', updateRecipientCount);
+            await populateSegmentPicker();
+            const segmentIdFromUrl = new URLSearchParams(location.search).get('segment');
+            if (segmentIdFromUrl) loadFromSegment(segmentIdFromUrl);
         });
 
-        return { collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend };
+        return {
+            collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend,
+            loadFromSegmentPicker, clearSegment,
+        };
     })();
 </script>
 </body>
