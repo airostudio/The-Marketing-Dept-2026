@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pat — Email Delivery | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --agent-color: #10b981;
+            --agent-color-rgb: 16,185,129;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --green: #10b981; --red: #ef4444; --yellow: #f59e0b;
+            --bg: #070711; --border: rgba(255,255,255,0.08);
+            --text: #ffffff; --text2: rgba(255,255,255,0.6); --text3: rgba(255,255,255,0.3);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(7,7,17,0.9); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-sep { color: var(--border); font-size: 18px; }
+        .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+        .nav-right { display: flex; gap: 8px; }
+        .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); transition: all 0.15s; }
+        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .hero { padding: 56px 32px 40px; max-width: 900px; margin: 0 auto; text-align: center; }
+        .hero h1 { font-size: 40px; font-weight: 800; background: linear-gradient(135deg, var(--agent-color), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+        .hero-tagline { font-size: 17px; color: var(--text2); margin-bottom: 20px; }
+        .powered-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background: rgba(var(--agent-color-rgb),0.12); border: 1px solid rgba(var(--agent-color-rgb),0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--agent-color); }
+
+        .main-content { max-width: 1200px; margin: 0 auto; padding: 0 32px 80px; }
+        .pipeline { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; }
+        .pipe-step { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); font-size: 13px; font-weight: 600; color: var(--text3); }
+        .pipe-step.active { color: var(--text); border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.1); }
+        .pipe-step.done { color: var(--green); border-color: var(--green); background: rgba(16,185,129,0.08); }
+        .pipe-arrow { color: var(--text3); font-size: 14px; }
+
+        .panel { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 24px; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .panel-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .panel-body { padding: 20px; }
+
+        .field-group { margin-bottom: 16px; }
+        .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .field-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+        .field-input, .field-textarea { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; }
+        .field-input:focus, .field-textarea:focus { outline: none; border-color: var(--agent-color); background: rgba(var(--agent-color-rgb),0.05); }
+        .field-textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
+        .field-textarea.mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn-run { padding: 13px 24px; background: linear-gradient(135deg, var(--agent-color), var(--cyan)); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s; font-family: 'Inter', sans-serif; }
+        .btn-run:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-run:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .btn-secondary { padding: 13px 24px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.09); }
+        .btn-danger { background: linear-gradient(135deg, var(--red), #dc2626); }
+        .btn-row { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+
+        .verdict-box { border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; border: 1px solid var(--border); }
+        .verdict-box.approved { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); }
+        .verdict-box.blocked { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); }
+        .verdict-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .verdict-title.approved { color: var(--green); }
+        .verdict-title.blocked { color: var(--red); }
+        .verdict-summary { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+        .issue-list { list-style: none; }
+        .issue-list li { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; display: flex; gap: 8px; }
+        .issue-list.blockers li { background: rgba(239,68,68,0.08); color: #fca5a5; }
+        .issue-list.warnings li { background: rgba(245,158,11,0.08); color: #fcd34d; }
+
+        .recipient-count { font-size: 13px; color: var(--text2); }
+        .recipient-count strong { color: var(--text); }
+
+        .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .results-table th { text-align: left; padding: 8px 12px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        .results-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+        .status-ok { color: var(--green); font-weight: 600; }
+        .status-fail { color: var(--red); font-weight: 600; }
+
+        .stat-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+        .stat-pill { padding: 10px 18px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); text-align: center; min-width: 100px; }
+        .stat-pill .num { font-size: 22px; font-weight: 800; }
+        .stat-pill .label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-pill.sent .num { color: var(--green); }
+        .stat-pill.failed .num { color: var(--red); }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-style: italic; font-size: 14px; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a href="/hub.html" class="nav-logo">
+            <span class="nav-logo-icon">🚀</span> Audema
+        </a>
+        <span class="nav-sep">/</span>
+        <span class="nav-breadcrumb">Pat — Email Delivery</span>
+    </div>
+    <div class="nav-right">
+        <a href="/agents/email-agent.html" class="nav-link">Email Engine</a>
+        <a href="/scotty.html" class="nav-link">Ask Scotty</a>
+        <a href="/hub.html" class="nav-link">Hub</a>
+    </div>
+</nav>
+
+<div class="hero">
+    <h1>Pat — Email Delivery</h1>
+    <p class="hero-tagline">Collates your drafted campaign, sends it to Scotty for a QA pass, then delivers it — like a mailman who won't leave the depot with a bad address.</p>
+    <span class="powered-pill">✉️ Draft → Scotty QA → Send</span>
+</div>
+
+<div class="main-content">
+
+    <div class="pipeline" id="pipeline">
+        <div class="pipe-step active" id="pipe-collate">1. Collate</div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step" id="pipe-review">2. Scotty QA</div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step" id="pipe-send">3. Send</div>
+    </div>
+
+    <!-- STEP 1: COLLATE -->
+    <div class="panel" id="panel-collate">
+        <div class="panel-header"><span class="panel-title">Campaign</span></div>
+        <div class="panel-body">
+            <div class="field-group">
+                <label class="field-label">Campaign Name</label>
+                <input type="text" class="field-input" id="in-name" placeholder="e.g. July Product Launch — Cold List">
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Subject Line</label>
+                    <input type="text" class="field-input" id="in-subject" placeholder="Subject (supports {{firstName}} merge tags)">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Reply-To (optional)</label>
+                    <input type="text" class="field-input" id="in-replyto" placeholder="you@yourdomain.com">
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Email Body (HTML)</label>
+                <textarea class="field-textarea mono" id="in-html" data-scotty-intake="primary" placeholder="Paste the HTML body from Content Studio / Email Engine here. Merge tags like {{firstName}} are supported." style="min-height:200px;"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Plain Text Fallback (optional)</label>
+                <textarea class="field-textarea" id="in-text" placeholder="Plain text version (optional but improves deliverability)"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Recipients</label>
+                <textarea class="field-textarea mono" id="in-recipients" placeholder="One per line:&#10;jane@company.com&#10;Jane Doe <jane@company.com>&#10;jane@company.com, Jane, firstName=Jane;company=Acme" style="min-height:140px;"></textarea>
+                <div class="field-hint" id="recipient-count">0 recipients parsed</div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-run" id="btn-collate" onclick="EDA.collate()">Collate Campaign →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 2: SCOTTY REVIEW -->
+    <div class="panel" id="panel-review" style="display:none;">
+        <div class="panel-header">
+            <span class="panel-title">Scotty QA Review</span>
+            <button class="btn-secondary" onclick="EDA.backToCollate()" style="padding:6px 14px;font-size:12px;">← Edit Campaign</button>
+        </div>
+        <div class="panel-body" id="review-body">
+            <div class="empty-state">Waiting to run review…</div>
+        </div>
+    </div>
+
+    <!-- STEP 3: SEND -->
+    <div class="panel" id="panel-send" style="display:none;">
+        <div class="panel-header"><span class="panel-title">Send Campaign</span></div>
+        <div class="panel-body" id="send-body">
+            <div class="empty-state">Not sent yet.</div>
+        </div>
+    </div>
+
+</div>
+
+<script src="../js/marked.min.js"></script>
+<script src="../js/intelligence-engine.js"></script>
+<script src="../js/scotty-intake.js"></script>
+<script src="../js/claude-service.js"></script>
+<script src="../js/agent-history.js"></script>
+<script src="../js/email-delivery-service.js"></script>
+<script>
+    const EDA = (() => {
+        'use strict';
+        let campaign = null;
+        let lastReview = null;
+
+        function escHtml(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function setPipeStep(step) {
+            ['collate', 'review', 'send'].forEach(s => {
+                const el = document.getElementById('pipe-' + s);
+                el.classList.remove('active', 'done');
+            });
+            const order = ['collate', 'review', 'send'];
+            const idx = order.indexOf(step);
+            order.forEach((s, i) => {
+                const el = document.getElementById('pipe-' + s);
+                if (i < idx) el.classList.add('done');
+                if (i === idx) el.classList.add('active');
+            });
+        }
+
+        function updateRecipientCount() {
+            const raw = document.getElementById('in-recipients').value;
+            const parsed = window.EmailDeliveryService.parseRecipientList(raw);
+            document.getElementById('recipient-count').textContent = `${parsed.length} recipient${parsed.length === 1 ? '' : 's'} parsed`;
+        }
+
+        function backToCollate() {
+            document.getElementById('panel-collate').style.display = '';
+            document.getElementById('panel-review').style.display = 'none';
+            document.getElementById('panel-send').style.display = 'none';
+            setPipeStep('collate');
+        }
+
+        async function collate() {
+            const name      = document.getElementById('in-name').value.trim();
+            const subject   = document.getElementById('in-subject').value.trim();
+            const html      = document.getElementById('in-html').value.trim();
+            const text      = document.getElementById('in-text').value.trim();
+            const replyTo   = document.getElementById('in-replyto').value.trim();
+            const recipRaw  = document.getElementById('in-recipients').value;
+            const recipients = window.EmailDeliveryService.parseRecipientList(recipRaw);
+
+            if (!subject) return alert('Subject line is required.');
+            if (!html) return alert('Email body is required.');
+            if (recipients.length === 0) return alert('Add at least one recipient.');
+
+            campaign = window.EmailDeliveryService.collateCampaign({
+                campaignName: name, subject, html, text, replyTo, recipients,
+            });
+
+            document.getElementById('panel-collate').style.display = 'none';
+            document.getElementById('panel-review').style.display = '';
+            document.getElementById('panel-send').style.display = 'none';
+            setPipeStep('review');
+
+            await runReview();
+        }
+
+        async function runReview() {
+            const body = document.getElementById('review-body');
+            body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><span class="spinner"></span> Scotty is reviewing "${escHtml(campaign.campaignName)}" for ${campaign.recipients.length} recipients…</div>`;
+
+            try {
+                lastReview = await window.EmailDeliveryService.reviewWithScotty(campaign);
+                renderReview(lastReview);
+            } catch (e) {
+                body.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">⚠️ Review failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>
+                <div class="btn-row"><button class="btn-secondary" onclick="EDA.runReview()">Retry Review</button></div>`;
+            }
+        }
+
+        function renderReview(review) {
+            const body = document.getElementById('review-body');
+            const cls = review.approved ? 'approved' : 'blocked';
+            const icon = review.approved ? '✅' : '🛑';
+            const title = review.approved ? 'Scotty approved this campaign' : 'Scotty blocked this campaign';
+
+            let html = `<div class="verdict-box ${cls}">
+                <div class="verdict-title ${cls}">${icon} ${title}</div>
+                <div class="verdict-summary">${escHtml(review.summary)}</div>`;
+
+            if (review.blockers.length) {
+                html += `<div class="field-label" style="margin-top:12px;">Blockers — must fix before sending</div><ul class="issue-list blockers">${review.blockers.map(b => `<li>🛑 ${escHtml(b)}</li>`).join('')}</ul>`;
+            }
+            if (review.warnings.length) {
+                html += `<div class="field-label" style="margin-top:12px;">Warnings — worth a look</div><ul class="issue-list warnings">${review.warnings.map(w => `<li>⚠️ ${escHtml(w)}</li>`).join('')}</ul>`;
+            }
+            html += `</div>`;
+
+            html += `<div class="recipient-count">Ready to send to <strong>${campaign.recipients.length}</strong> recipient${campaign.recipients.length === 1 ? '' : 's'}.</div>`;
+
+            html += `<div class="btn-row" style="margin-top:12px;">`;
+            if (review.approved) {
+                html += `<button class="btn-run" onclick="EDA.proceedToSend()">Proceed to Send →</button>`;
+            } else {
+                html += `<button class="btn-secondary" onclick="EDA.backToCollate()">Fix Campaign</button>
+                          <button class="btn-secondary" onclick="EDA.runReview()">Re-run Review</button>
+                          <button class="btn-danger btn-run" onclick="EDA.overrideAndSend()" title="Only use this if you have manually verified the flagged issues are false positives">Send Anyway (Override)</button>`;
+            }
+            html += `</div>`;
+
+            body.innerHTML = html;
+        }
+
+        function proceedToSend() {
+            document.getElementById('panel-send').style.display = '';
+            setPipeStep('send');
+            renderSendConfirm(false);
+            document.getElementById('panel-send').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function overrideAndSend() {
+            if (!confirm('Scotty flagged blockers on this campaign. Sending anyway may hurt deliverability or breach compliance. Continue?')) return;
+            document.getElementById('panel-send').style.display = '';
+            setPipeStep('send');
+            renderSendConfirm(true);
+            document.getElementById('panel-send').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderSendConfirm(overridden) {
+            const body = document.getElementById('send-body');
+            body.innerHTML = `
+                ${overridden ? `<div class="verdict-box blocked" style="margin-bottom:16px;"><div class="verdict-title blocked">⚠️ Sending with unresolved blockers (manual override)</div></div>` : ''}
+                <div class="recipient-count" style="margin-bottom:16px;">Sending "<strong>${escHtml(campaign.campaignName)}</strong>" to <strong>${campaign.recipients.length}</strong> recipient${campaign.recipients.length === 1 ? '' : 's'} via Resend, in batches of 25.</div>
+                <div class="btn-row">
+                    <button class="btn-run" id="btn-send" onclick="EDA.doSend()">🚀 Send Campaign Now</button>
+                </div>
+                <div id="send-progress" style="margin-top:16px;"></div>
+            `;
+        }
+
+        async function doSend() {
+            const sendBtn = document.getElementById('btn-send');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner"></span> Sending…';
+
+            const progressEl = document.getElementById('send-progress');
+            progressEl.innerHTML = `<div style="color:var(--text2);font-size:13px;">Dispatching to Resend…</div>`;
+
+            try {
+                const result = await window.EmailDeliveryService.sendCampaign(campaign, ({ batchIndex, batchCount }) => {
+                    progressEl.innerHTML = `<div style="color:var(--text2);font-size:13px;">Batch ${batchIndex + 1} of ${batchCount} sent…</div>`;
+                });
+                renderSendResults(result);
+                if (window.AgentHistory) {
+                    window.AgentHistory.save({
+                        agentKey: 'email-delivery',
+                        taskType: 'Campaign Send',
+                        content: `Sent "${campaign.campaignName}": ${result.sent} sent, ${result.failed} failed, ${result.rejected.length} rejected.`,
+                        topic: campaign.campaignName,
+                    });
+                }
+            } catch (e) {
+                progressEl.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">Send failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '🚀 Send Campaign Now';
+            }
+        }
+
+        function renderSendResults(result) {
+            const body = document.getElementById('send-body');
+            let html = `<div class="stat-row">
+                <div class="stat-pill sent"><div class="num">${result.sent}</div><div class="label">Sent</div></div>
+                <div class="stat-pill failed"><div class="num">${result.failed}</div><div class="label">Failed</div></div>
+                <div class="stat-pill"><div class="num">${result.rejected.length}</div><div class="label">Rejected</div></div>
+            </div>`;
+
+            const allRows = [
+                ...result.results.map(r => ({ to: r.to, ok: r.success, note: r.success ? (r.id || 'sent') : r.error })),
+                ...result.rejected.map(r => ({ to: r.to, ok: false, note: r.error })),
+            ];
+
+            if (allRows.length) {
+                html += `<table class="results-table"><thead><tr><th>Recipient</th><th>Status</th><th>Detail</th></tr></thead><tbody>`;
+                html += allRows.map(r => `<tr><td>${escHtml(r.to)}</td><td class="${r.ok ? 'status-ok' : 'status-fail'}">${r.ok ? '✓ Sent' : '✗ Failed'}</td><td>${escHtml(r.note)}</td></tr>`).join('');
+                html += `</tbody></table>`;
+            }
+
+            html += `<div class="btn-row" style="margin-top:16px;"><button class="btn-secondary" onclick="location.reload()">Start New Campaign</button></div>`;
+            body.innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('in-recipients').addEventListener('input', updateRecipientCount);
+        });
+
+        return { collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend };
+    })();
+</script>
+</body>
+</html>

@@ -37,6 +37,7 @@ const ScottyOrchestrator = (() => {
     'compliance-automation': '/agents/compliance-automation.html',
     deck:        '/agents/deck-agent.html',
     linkedin:    '/agents/linkedin-agent.html',
+    delivery:    '/agents/email-delivery-agent.html',
   };
 
   const AGENT_DESCRIPTIONS = {
@@ -53,6 +54,7 @@ const ScottyOrchestrator = (() => {
     compliance:  'Compliance Guard — brand safety, legal review, regulatory checks',
     deck:        'Deck Maker — presentations, investor decks, pitch structures',
     linkedin:    'LinkedIn Outreach — personalized connection and outreach sequences',
+    delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
   };
 
   const HUB_URL    = '/hub.html';
@@ -161,6 +163,9 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
 
     if (/seo|keyword|rank|backlink|serp|meta|schema|technical audit|site speed/.test(t))
       return { agent: 'seo', reason: 'SEO / search intent detected' };
+
+    if (/send (the |this |out )?(email|campaign|newsletter)|deliver (the |this )?campaign|mail(er|man)|blast|dispatch.*email/.test(t))
+      return { agent: 'delivery', reason: 'Email delivery/sending intent detected' };
 
     if (/email|subject line|newsletter|drip|sequence|flow|open rate|klaviyo/.test(t))
       return { agent: 'email', reason: 'Email marketing intent detected' };
