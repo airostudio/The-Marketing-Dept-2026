@@ -16,26 +16,29 @@ export const RoleSchema = z.discriminatedUnion('scope', [
 export type Role = z.infer<typeof RoleSchema>;
 
 /**
- * Workspace-scoped roles grant a fixed permission set. An 'owner' can do
- * anything an 'editor' can, plus manage membership/approvals — encoded here
- * as a strict superset rather than duplicated lists, so adding a permission
- * to 'editor' can never accidentally leave 'owner' behind.
+ * Workspace-scoped roles grant a fixed permission set, each a strict
+ * superset of the one below it (owner ⊇ editor ⊇ viewer) — encoded as
+ * additive layers rather than duplicated lists, so adding a permission to
+ * 'viewer' can never accidentally leave 'editor'/'owner' behind.
  */
-const EDITOR_PERMISSIONS: readonly Permission[] = [
+const VIEWER_PERMISSIONS: readonly Permission[] = [
   'businessbrain:read',
   'competitors:read',
   'market:read',
   'strategy:read',
-  'strategy:write',
   'creative:read',
-  'creative:generate',
-  'content:generate',
   'analytics:read',
   'campaigns:read',
-  'campaigns:draft',
   'crm:read',
-  'outreach:draft',
   'assets:read',
+];
+
+const EDITOR_ONLY_PERMISSIONS: readonly Permission[] = [
+  'strategy:write',
+  'creative:generate',
+  'content:generate',
+  'campaigns:draft',
+  'outreach:draft',
 ];
 
 const OWNER_ONLY_PERMISSIONS: readonly Permission[] = [
@@ -49,8 +52,9 @@ const OWNER_ONLY_PERMISSIONS: readonly Permission[] = [
 ];
 
 export const WORKSPACE_ROLE_PERMISSIONS: Readonly<Record<z.infer<typeof WorkspaceRoleSchema>, readonly Permission[]>> = {
-  editor: EDITOR_PERMISSIONS,
-  owner: [...EDITOR_PERMISSIONS, ...OWNER_ONLY_PERMISSIONS],
+  viewer: VIEWER_PERMISSIONS,
+  editor: [...VIEWER_PERMISSIONS, ...EDITOR_ONLY_PERMISSIONS],
+  owner: [...VIEWER_PERMISSIONS, ...EDITOR_ONLY_PERMISSIONS, ...OWNER_ONLY_PERMISSIONS],
 };
 
 /**

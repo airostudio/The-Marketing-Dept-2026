@@ -149,7 +149,7 @@ describe('runtime validation (the required layer for API/MCP/model-generated dat
     expect(PermissionSchema.safeParse('not_a_real_scope').success).toBe(false);
   });
 
-  it('WorkspaceRole never silently grows beyond what intelligence_profile_members actually enforces', () => {
-    expect(WorkspaceRoleSchema.options).toEqual(['owner', 'editor']);
+  it('WorkspaceRole matches exactly what intelligence_profile_members enforces (CHECK (role IN (\'owner\',\'editor\',\'viewer\')))', () => {
+    expect(WorkspaceRoleSchema.options).toEqual(['owner', 'editor', 'viewer']);
   });
 });

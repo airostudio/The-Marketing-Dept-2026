@@ -10,6 +10,7 @@ export * from './ids';
 export * from './enums';
 export * from './base';
 export * from './workspaceIsolation';
+export * from './agencyIsolation';
 
 export * from './entities/organisation';
 export * from './entities/workspace';
@@ -33,3 +34,12 @@ export * from './entities/performanceSnapshot';
 export * from './entities/campaignLearning';
 export * from './entities/mcpConnection';
 export * from './entities/mcpToolInvocation';
+
+// Agency Edition (docs/audema-agency/)
+export * from './entities/agency';
+export * from './entities/agencyMember';
+export * from './entities/agencyInvitation';
+export * from './entities/clientMemberAccess';
+export * from './entities/agencySubscription';
+export * from './entities/auditLog';
+export * from './billing/agencyPricing';

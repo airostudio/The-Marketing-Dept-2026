@@ -32,12 +32,14 @@ export type AccountRole = z.infer<typeof AccountRoleSchema>;
 
 /**
  * Workspace-scoped role — matches intelligence_profile_members' live role
- * values exactly (supabase-intelligence-profiles.sql). Do not add 'viewer'
- * or other values here until they exist in that table's CHECK constraint —
- * this schema must never claim more roles are supported than the database
- * actually enforces.
+ * CHECK constraint exactly: CHECK (role IN ('owner','editor','viewer'))
+ * (supabase-intelligence-profiles.sql). Corrected from an earlier version
+ * of this schema that omitted 'viewer' — that omission meant a real
+ * viewer-role membership row would have failed validation against this
+ * schema even though the database already accepted it. Do not add further
+ * values here until they exist in that table's CHECK constraint.
  */
-export const WorkspaceRoleSchema = z.enum(['owner', 'editor']);
+export const WorkspaceRoleSchema = z.enum(['owner', 'editor', 'viewer']);
 export type WorkspaceRole = z.infer<typeof WorkspaceRoleSchema>;
 
 /**
@@ -68,8 +70,68 @@ export const PermissionSchema = z.enum([
   'outreach:send',
   'assets:read',
   'assets:write',
+
+  // Agency Edition (docs/audema-agency/) — same colon convention as above,
+  // not the dot-separated style in that program's own example, per
+  // docs/audema-agency/DECISIONS.md #4.
+  'agency:manage',
+  'billing:manage',
+  'members:manage',
+  'clients:create',
+  'clients:manage',
+  'clients:archive',
+  'campaigns:create',
+  'campaigns:edit',
+  'campaigns:approve',
+  'reports:export',
+  'integrations:manage',
 ]);
 export type Permission = z.infer<typeof PermissionSchema>;
+
+/**
+ * Agency-scoped role (docs/audema-agency/) — distinct from and layered
+ * above WorkspaceRole. WorkspaceRole still governs direct profile sharing
+ * (intelligence_profile_members, unaffected by agency membership);
+ * AgencyRole governs what an agency member can do across the agency, with
+ * ClientMemberAccess further narrowing *which* client businesses they can
+ * exercise that role against. See domain/src/entities/agencyMember.ts for
+ * the permission table and docs/audema-agency/PERMISSIONS.md for the
+ * human-readable version.
+ */
+export const AgencyRoleSchema = z.enum([
+  'owner',
+  'admin',
+  'account_manager',
+  'marketing_specialist',
+  'analyst',
+  'client_viewer',
+]);
+export type AgencyRole = z.infer<typeof AgencyRoleSchema>;
+
+/** Lifecycle of an agency member's seat. */
+export const AgencyMemberStatusSchema = z.enum(['active', 'suspended', 'removed']);
+export type AgencyMemberStatus = z.infer<typeof AgencyMemberStatusSchema>;
+
+/** Lifecycle of an agency invitation. */
+export const AgencyInvitationStatusSchema = z.enum(['pending', 'accepted', 'expired', 'revoked']);
+export type AgencyInvitationStatus = z.infer<typeof AgencyInvitationStatusSchema>;
+
+/** Agency organization lifecycle — governs read/write vs. read-only access
+ *  across every client business under it, per the master prompt's billing
+ *  state machine (§14: active/payment_due/restricted/suspended), plus
+ *  'cancelled' for the post-cancellation retention window. */
+export const AgencyStatusSchema = z.enum(['active', 'payment_due', 'restricted', 'suspended', 'cancelled']);
+export type AgencyStatus = z.infer<typeof AgencyStatusSchema>;
+
+/** Client business lifecycle (master prompt §8's Client Directory statuses). */
+export const ClientBusinessStatusSchema = z.enum(['onboarding', 'active', 'paused', 'archived']);
+export type ClientBusinessStatus = z.infer<typeof ClientBusinessStatusSchema>;
+
+/** ClientMemberAccess's access level — a coarser grant than AgencyRole's
+ *  full permission set, scoping an agency member down to what they can do
+ *  on ONE specific client business regardless of their agency-wide role. */
+export const ClientAccessLevelSchema = z.enum(['full', 'campaigns_only', 'view_only']);
+export type ClientAccessLevel = z.infer<typeof ClientAccessLevelSchema>;
 
 /**
  * Where a piece of information came from — required on every entity that

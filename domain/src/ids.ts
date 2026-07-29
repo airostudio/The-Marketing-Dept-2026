@@ -84,3 +84,23 @@ export type McpToolInvocationId = z.infer<typeof McpToolInvocationIdSchema>;
  *  lineage fields elsewhere in this package. */
 export const BusinessBrainVersionIdSchema = brandedUuid<'BusinessBrainVersionId'>();
 export type BusinessBrainVersionId = z.infer<typeof BusinessBrainVersionIdSchema>;
+
+// ── Agency Edition (docs/audema-agency/) ────────────────────────────────────
+
+export const AgencyIdSchema = brandedUuid<'AgencyId'>();
+export type AgencyId = z.infer<typeof AgencyIdSchema>;
+
+export const AgencyMemberIdSchema = brandedUuid<'AgencyMemberId'>();
+export type AgencyMemberId = z.infer<typeof AgencyMemberIdSchema>;
+
+export const AgencyInvitationIdSchema = brandedUuid<'AgencyInvitationId'>();
+export type AgencyInvitationId = z.infer<typeof AgencyInvitationIdSchema>;
+
+export const ClientMemberAccessIdSchema = brandedUuid<'ClientMemberAccessId'>();
+export type ClientMemberAccessId = z.infer<typeof ClientMemberAccessIdSchema>;
+
+export const AgencySubscriptionIdSchema = brandedUuid<'AgencySubscriptionId'>();
+export type AgencySubscriptionId = z.infer<typeof AgencySubscriptionIdSchema>;
+
+export const AuditLogIdSchema = brandedUuid<'AuditLogId'>();
+export type AuditLogId = z.infer<typeof AuditLogIdSchema>;
