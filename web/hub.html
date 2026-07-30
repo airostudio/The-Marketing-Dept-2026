@@ -353,6 +353,11 @@
             background: rgba(245,158,11,0.05);
         }
 
+        a.intel-module.partial-setup:hover {
+            border-color: rgba(59,130,246,0.45);
+            background: rgba(59,130,246,0.05);
+        }
+
         .module-status-dot {
             width: 8px;
             height: 8px;
@@ -402,7 +407,19 @@
             content: ' →';
         }
 
+        .badge-partial {
+            background: rgba(59,130,246,0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59,130,246,0.30);
+            cursor: pointer;
+        }
+
+        .badge-partial::after {
+            content: ' →';
+        }
+
         .dot-amber { background: #f59e0b; }
+        .dot-blue  { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
 
         /* ── Section header ── */
         .section-header {
@@ -1131,6 +1148,7 @@
 <!-- API Client (Backend Integration) -->
 <script src="js/api-client.js"></script>
 <script src="js/auth-modal.js"></script>
+<script src="js/intelligence-engine.js"></script>
 
 <script>
   // ═══════════════════════════════════════════════════════════════
@@ -1204,7 +1222,37 @@
         badge.className = 'module-badge badge-configured';
         badge.textContent = configuredLabel;
         badge.style.removeProperty('cursor');
-        mod.classList.remove('needs-setup');
+        mod.classList.remove('needs-setup', 'partial-setup');
+      } else {
+        dot.className   = 'module-status-dot dot-amber';
+        badge.className = 'module-badge badge-setup';
+        badge.textContent = 'Needs Setup';
+        mod.classList.add('needs-setup');
+        mod.classList.remove('partial-setup');
+      }
+    }
+
+    // BusinessBrain — three states based on the real completion score:
+    // 100% = Complete (green), 70-99% = Partially Complete (blue, still
+    // needs attention), <70% = Needs Setup (amber).
+    function setBrainModule(score) {
+      const dot   = document.getElementById('dotBrain');
+      const badge = document.getElementById('badgeBrain');
+      const mod   = document.getElementById('modBrain');
+      if (!dot || !badge || !mod) return;
+
+      mod.classList.remove('needs-setup', 'partial-setup');
+
+      if (score >= 100) {
+        dot.className   = 'module-status-dot dot-green';
+        badge.className = 'module-badge badge-configured';
+        badge.textContent = 'Complete';
+        badge.style.removeProperty('cursor');
+      } else if (score >= 70) {
+        dot.className   = 'module-status-dot dot-blue';
+        badge.className = 'module-badge badge-partial';
+        badge.textContent = 'Partially Complete';
+        mod.classList.add('partial-setup');
       } else {
         dot.className   = 'module-status-dot dot-amber';
         badge.className = 'module-badge badge-setup';
@@ -1213,10 +1261,16 @@
       }
     }
 
-    // BusinessBrain — configured if it has a company name
-    const brain = safeRead('intel_business_brain');
-    const brainOk = !!(brain && (brain.company?.name || brain.companyName));
-    setModule('dotBrain', 'badgeBrain', 'modBrain', brainOk, 'Configured');
+    // BusinessBrain — score from the real scoped BusinessBrain store (falls
+    // back to a simple presence check if IntelligenceEngine isn't loaded).
+    let brainScore = 0;
+    if (window.IntelligenceEngine?.brain?.getCompletionScore) {
+      brainScore = window.IntelligenceEngine.brain.getCompletionScore() || 0;
+    } else {
+      const brain = safeRead('intel_business_brain');
+      brainScore = (brain && (brain.company?.name || brain.companyName)) ? 100 : 0;
+    }
+    setBrainModule(brainScore);
 
     // Competitive Radar — active if any competitors exist (stored in tmd_radar as array)
     const radar = safeRead('tmd_radar');
@@ -1237,7 +1291,11 @@
   // Run on load and whenever another tab writes to the intelligence stores
   updateIntelStatus();
   window.addEventListener('storage', function (e) {
-    if (['intel_business_brain','tmd_radar','tmd_pulse_signals','intel_strategic_briefs'].includes(e.key)) {
+    if (!e.key) return;
+    // Business Brain is stored per-profile/project (intel_business_brain__...),
+    // not under the bare legacy key, so match on prefix.
+    if (e.key.startsWith('intel_business_brain') ||
+        ['tmd_radar','tmd_pulse_signals','intel_strategic_briefs'].includes(e.key)) {
       updateIntelStatus();
     }
   });
