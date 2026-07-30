@@ -250,6 +250,7 @@
     async function crawlPages(baseUrl, maxPages) {
         const baseUrlObj = new URL(baseUrl);
         const baseDomain = baseUrlObj.hostname;
+        let pagesFetched = 0;
 
         while (AuditState.pendingUrls.length > 0 && AuditState.pagesCrawled < maxPages) {
             const { url, depth } = AuditState.pendingUrls.shift();
@@ -278,6 +279,8 @@
                 updatePagesCrawled();
 
                 if (html) {
+                    pagesFetched++;
+
                     // Store page data
                     AuditState.pageData[url] = {
                         html,
@@ -308,6 +311,14 @@
             } catch (e) {
                 console.warn(`Failed to crawl ${url}:`, e.message);
             }
+        }
+
+        // If every single page failed to fetch, this isn't a partial audit —
+        // it's a total failure to reach the site. Surface that clearly
+        // instead of letting the caller proceed and generate a report from
+        // zero real data.
+        if (pagesFetched === 0) {
+            throw new Error(`Could not fetch any pages from ${baseUrl}. The site may be down, blocking automated requests, or the URL may be incorrect.`);
         }
     }
 
@@ -429,7 +440,20 @@
      * Check link status code
      */
     async function checkLinkStatus(url) {
-        // Try HEAD request first (faster)
+        // Server-side reachability probe (/api/check-url) — a real HEAD/GET
+        // request from the server, not routed through a third-party proxy
+        // that may mask or rewrite the target's actual status code.
+        try {
+            const response = await fetch(`/api/check-url?url=${encodeURIComponent(url)}`, {
+                signal: AbortSignal.timeout(8000)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (typeof data.status === 'number' && data.status > 0) return data.status;
+        } catch (e) {
+            // fall through to proxy fallback
+        }
+
+        // Fallback: third-party CORS proxies (best-effort).
         for (const proxy of AUDIT_CONFIG.corsProxies) {
             try {
                 const response = await fetch(proxy + encodeURIComponent(url), {
@@ -438,7 +462,6 @@
                 });
                 return response.status;
             } catch (e) {
-                // Try GET
                 try {
                     const response = await fetch(proxy + encodeURIComponent(url), {
                         signal: AbortSignal.timeout(5000)
@@ -685,10 +708,39 @@
     }
 
     /**
-     * Fetch page content
+     * Fetch a URL via the server-side /api/fetch-page endpoint. Shared by
+     * fetchPage(), checkRobotsTxt() and checkSitemap() so all three real
+     * checks get the same reliable, non-CORS-restricted path instead of
+     * depending solely on flaky third-party proxies.
+     * @returns {Promise<string|null>}
+     */
+    async function fetchViaServer(targetUrl, timeoutMs) {
+        try {
+            const response = await fetch('/api/fetch-page', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: targetUrl }),
+                signal: AbortSignal.timeout(timeoutMs)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data.success && data.html) return data.html;
+        } catch (e) {
+            // fall through — caller tries proxies next
+        }
+        return null;
+    }
+
+    /**
+     * Fetch page content. Returns the real HTML, or null if the page truly
+     * could not be fetched — callers must treat null as "this page failed",
+     * never as an excuse to fabricate a page. A prior version of this
+     * function returned a hardcoded fake HTML stub whenever fetching failed,
+     * which produced a plausible-looking but entirely synthetic "audit" with
+     * no relationship to the real site. That fallback has been removed.
      */
     async function fetchPage(url) {
-        // Try direct fetch first (will work for same-origin)
+        // Try direct fetch first — cheap, and works when the target sets
+        // permissive CORS headers (rare, but free when it happens).
         try {
             const response = await fetch(url, {
                 mode: 'cors',
@@ -698,10 +750,15 @@
                 return await response.text();
             }
         } catch (e) {
-            // Expected for cross-origin
+            // Expected for cross-origin — fall through to the server-side fetch.
         }
 
-        // Try CORS proxies
+        // Server-side fetch (/api/fetch-page) — no CORS restriction since
+        // it's server-to-server, so this covers the vast majority of sites.
+        const serverHtml = await fetchViaServer(url, AUDIT_CONFIG.timeout);
+        if (serverHtml) return serverHtml;
+
+        // Last resort: third-party CORS proxies (best-effort, frequently rate-limited/down).
         for (const proxy of AUDIT_CONFIG.corsProxies) {
             try {
                 const response = await fetch(proxy + encodeURIComponent(url), {
@@ -715,29 +772,9 @@
             }
         }
 
-        // If all fetches fail, generate simulated audit based on URL analysis
-        console.warn('Could not fetch page, running limited audit');
-        return generateSimulatedHtml(url);
-    }
-
-    /**
-     * Generate simulated HTML for analysis when fetch fails
-     */
-    function generateSimulatedHtml(url) {
-        // Return a minimal HTML that will trigger some common issues
-        return `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title></title>
-            </head>
-            <body>
-                <h2>Content</h2>
-                <img src="image.jpg">
-                <a href="http://example.com">Link</a>
-            </body>
-            </html>
-        `;
+        // Every real fetch path failed — this page cannot be audited.
+        console.warn(`Could not fetch ${url} through any path — marking as failed, not faking data.`);
+        return null;
     }
 
     /**
@@ -1102,32 +1139,41 @@
         const robotsUrl = `${baseUrl.origin}/robots.txt`;
 
         try {
-            // Try to fetch robots.txt through proxy
-            for (const proxy of AUDIT_CONFIG.corsProxies) {
-                try {
-                    const response = await fetch(proxy + encodeURIComponent(robotsUrl), {
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (response.ok) {
-                        const text = await response.text();
-                        if (text.toLowerCase().includes('disallow: /')) {
-                            // Check if entire site is blocked
-                            if (text.match(/Disallow:\s*\/\s*$/m)) {
-                                addIssue({
-                                    severity: SEVERITY.CRITICAL,
-                                    category: CATEGORY.INDEXING,
-                                    title: 'robots.txt blocking entire site',
-                                    description: 'The robots.txt file is blocking all crawlers from the entire site.',
-                                    url: robotsUrl,
-                                    recommendation: 'Review your robots.txt file and ensure important pages are not blocked.'
-                                });
-                            }
+            // Server-side fetch first (reliable, no CORS restriction), then
+            // third-party proxies as a best-effort fallback.
+            let text = await fetchViaServer(robotsUrl, 5000);
+
+            if (!text) {
+                for (const proxy of AUDIT_CONFIG.corsProxies) {
+                    try {
+                        const response = await fetch(proxy + encodeURIComponent(robotsUrl), {
+                            signal: AbortSignal.timeout(5000)
+                        });
+                        if (response.ok) {
+                            text = await response.text();
+                            break;
                         }
-                        return;
+                    } catch (e) {
+                        continue;
                     }
-                } catch (e) {
-                    continue;
                 }
+            }
+
+            if (text) {
+                if (text.toLowerCase().includes('disallow: /')) {
+                    // Check if entire site is blocked
+                    if (text.match(/Disallow:\s*\/\s*$/m)) {
+                        addIssue({
+                            severity: SEVERITY.CRITICAL,
+                            category: CATEGORY.INDEXING,
+                            title: 'robots.txt blocking entire site',
+                            description: 'The robots.txt file is blocking all crawlers from the entire site.',
+                            url: robotsUrl,
+                            recommendation: 'Review your robots.txt file and ensure important pages are not blocked.'
+                        });
+                    }
+                }
+                return;
             }
 
             // If we can't fetch, add a warning
@@ -1152,78 +1198,79 @@
         const sitemapUrl = `${baseUrl.origin}/sitemap.xml`;
         const extractedUrls = [];
 
-        try {
+        // Server-side fetch first (reliable), then proxies as fallback.
+        async function fetchXml(targetUrl, timeoutMs) {
+            const viaServer = await fetchViaServer(targetUrl, timeoutMs);
+            if (viaServer) return viaServer;
             for (const proxy of AUDIT_CONFIG.corsProxies) {
                 try {
-                    const response = await fetch(proxy + encodeURIComponent(sitemapUrl), {
-                        signal: AbortSignal.timeout(10000)
+                    const response = await fetch(proxy + encodeURIComponent(targetUrl), {
+                        signal: AbortSignal.timeout(timeoutMs)
                     });
-                    if (response.ok) {
-                        const text = await response.text();
+                    if (response.ok) return await response.text();
+                } catch (e) {
+                    continue;
+                }
+            }
+            return null;
+        }
 
-                        // Check for sitemap index
-                        if (text.includes('<sitemapindex')) {
-                            // Parse sitemap index and get first few sitemaps
-                            const sitemapMatches = text.match(/<loc>([^<]+)<\/loc>/g) || [];
-                            for (const match of sitemapMatches.slice(0, 3)) {
-                                const nestedSitemapUrl = match.replace(/<\/?loc>/g, '');
-                                try {
-                                    const nestedResponse = await fetch(proxy + encodeURIComponent(nestedSitemapUrl), {
-                                        signal: AbortSignal.timeout(5000)
-                                    });
-                                    if (nestedResponse.ok) {
-                                        const nestedText = await nestedResponse.text();
-                                        const urlMatches = nestedText.match(/<loc>([^<]+)<\/loc>/g) || [];
-                                        urlMatches.forEach(m => {
-                                            const pageUrl = m.replace(/<\/?loc>/g, '');
-                                            if (pageUrl.startsWith(baseUrl.origin)) {
-                                                extractedUrls.push(pageUrl);
-                                            }
-                                        });
-                                    }
-                                } catch (e) {
-                                    // Continue
-                                }
-                            }
-                            return extractedUrls;
-                        }
+        try {
+            const text = await fetchXml(sitemapUrl, 10000);
 
-                        // Regular sitemap
-                        if (text.includes('<urlset')) {
-                            const urlMatches = text.match(/<loc>([^<]+)<\/loc>/g) || [];
-                            urlMatches.forEach(match => {
-                                const pageUrl = match.replace(/<\/?loc>/g, '');
+            if (text) {
+                // Check for sitemap index
+                if (text.includes('<sitemapindex')) {
+                    // Parse sitemap index and get first few sitemaps
+                    const sitemapMatches = text.match(/<loc>([^<]+)<\/loc>/g) || [];
+                    for (const match of sitemapMatches.slice(0, 3)) {
+                        const nestedSitemapUrl = match.replace(/<\/?loc>/g, '');
+                        const nestedText = await fetchXml(nestedSitemapUrl, 5000);
+                        if (nestedText) {
+                            const urlMatches = nestedText.match(/<loc>([^<]+)<\/loc>/g) || [];
+                            urlMatches.forEach(m => {
+                                const pageUrl = m.replace(/<\/?loc>/g, '');
                                 if (pageUrl.startsWith(baseUrl.origin)) {
                                     extractedUrls.push(pageUrl);
                                 }
                             });
-
-                            // Check sitemap quality
-                            if (extractedUrls.length === 0) {
-                                addIssue({
-                                    severity: SEVERITY.MEDIUM,
-                                    category: CATEGORY.INDEXING,
-                                    title: 'Empty sitemap',
-                                    description: 'The sitemap exists but contains no URLs.',
-                                    url: sitemapUrl,
-                                    recommendation: 'Ensure your sitemap includes all important pages.'
-                                });
-                            } else if (extractedUrls.length < 5) {
-                                addIssue({
-                                    severity: SEVERITY.LOW,
-                                    category: CATEGORY.INDEXING,
-                                    title: 'Sitemap has few URLs',
-                                    description: `The sitemap only contains ${extractedUrls.length} URLs.`,
-                                    url: sitemapUrl,
-                                    recommendation: 'Consider adding more pages to your sitemap for better indexing.'
-                                });
-                            }
-
-                            return extractedUrls;
                         }
                     }
-                } catch (e) {
-                    continue;
+                    return extractedUrls;
+                }
+
+                // Regular sitemap
+                if (text.includes('<urlset')) {
+                    const urlMatches = text.match(/<loc>([^<]+)<\/loc>/g) || [];
+                    urlMatches.forEach(match => {
+                        const pageUrl = match.replace(/<\/?loc>/g, '');
+                        if (pageUrl.startsWith(baseUrl.origin)) {
+                            extractedUrls.push(pageUrl);
+                        }
+                    });
+
+                    // Check sitemap quality
+                    if (extractedUrls.length === 0) {
+                        addIssue({
+                            severity: SEVERITY.MEDIUM,
+                            category: CATEGORY.INDEXING,
+                            title: 'Empty sitemap',
+                            description: 'The sitemap exists but contains no URLs.',
+                            url: sitemapUrl,
+                            recommendation: 'Ensure your sitemap includes all important pages.'
+                        });
+                    } else if (extractedUrls.length < 5) {
+                        addIssue({
+                            severity: SEVERITY.LOW,
+                            category: CATEGORY.INDEXING,
+                            title: 'Sitemap has few URLs',
+                            description: `The sitemap only contains ${extractedUrls.length} URLs.`,
+                            url: sitemapUrl,
+                            recommendation: 'Consider adding more pages to your sitemap for better indexing.'
+                        });
+                    }
+
+                    return extractedUrls;
                 }
             }
 

@@ -16,9 +16,11 @@
 const TIMEOUT_MS = 12000;
 const MAX_REDIRECTS = 5;
 
-// Rate limit: max 10 checks per IP per minute (per serverless instance)
+// Rate limit: max 80 checks per IP per minute (per serverless instance)
 const RL_WINDOW = 60_000;
-const RL_MAX = 10;
+// 80/min — high enough to cover both the project-wizard's one-off reachability
+// check and the SEO audit's bulk broken-link verification (up to 50 links/run).
+const RL_MAX = 80;
 const rateBuckets = new Map();
 
 function getIp(req) {
