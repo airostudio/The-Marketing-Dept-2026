@@ -56,7 +56,7 @@ const ScottyOrchestrator = (() => {
     deck:        'Deck Maker — presentations, investor decks, pitch structures',
     linkedin:    'LinkedIn Outreach — personalized connection and outreach sequences',
     delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
-    audience:    'Ledger — Audience Manager — persistent contact database and reusable segments for campaigns',
+    audience:    'Beeker — Audience Manager — persistent contact database and reusable segments for campaigns',
   };
 
   const HUB_URL    = '/hub.html';
