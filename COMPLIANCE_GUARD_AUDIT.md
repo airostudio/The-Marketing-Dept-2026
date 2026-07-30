@@ -3,6 +3,15 @@
 **Module:** Compliance Guard (compliance-agent.html)
 **Status:** ⚠️ CONTENT COMPLIANCE READY - ENTERPRISE COMPLIANCE AUTOMATION NOT IMPLEMENTED
 
+> ⚠️ **SUPERSEDED — see `COMPLIANCE_GUARD_FIXES.md` (2026-07-30).** Every "Required
+> Fix" and the entire "Critical Issue #1" gap below (no enterprise compliance
+> automation) have since been built: `compliance-agent.html` now has the full
+> Intelligence Layer integration described here, and enterprise compliance
+> automation now exists across two further surfaces —
+> `web/agents/compliance-automation.html` and `web/intelligence/compliance-command.html`.
+> This document is kept for history only. Do not use it to judge the current
+> state of the compliance system.
+
 ---
 
 ## Executive Summary

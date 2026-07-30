@@ -486,7 +486,8 @@
   </div>
   <div class="nav-right">
     <button class="nav-btn" onclick="openReviewPanel()">Content Review</button>
-    <a href="/intelligence/strategic-brief.html" class="nav-btn">Automation Plan</a>
+    <a href="/agents/compliance-agent.html" class="nav-btn">Compliance Guard</a>
+    <a href="/agents/compliance-automation.html" class="nav-btn">Full Automation Plan Agent</a>
     <a href="/hub.html" class="nav-btn">Hub</a>
     <a href="/settings.html" class="nav-btn">Settings</a>
   </div>
@@ -1299,16 +1300,22 @@ async function runContentReview() {
 
   try {
     if (window.ClaudeService && window.ClaudeService.streamResponse) {
-      let accumulated = '';
-      await window.ClaudeService.streamResponse(
-        userPrompt,
+      await window.ClaudeService.streamResponse({
         systemPrompt,
-        (chunk) => {
-          accumulated += chunk;
+        messages: [{ role: 'user', content: userPrompt }],
+        onChunk: (chunk, accumulated) => {
           output.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
           output.scrollTop = output.scrollHeight;
-        }
-      );
+        },
+        onDone: (text) => {
+          if (window.AgentHistory && text.trim()) {
+            window.AgentHistory.save({ agentKey: 'compliance-command', taskType: reviewType || 'Content Review', content: text, topic: content.slice(0, 80) });
+          }
+        },
+        onError: (err) => {
+          output.innerHTML = `<p style="color:var(--red)">Error: ${err.message}</p>`;
+        },
+      });
     } else {
       output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI reviews.</p>';
     }
@@ -1372,16 +1379,22 @@ Be specific, technical, and actionable. Include real tool names, API endpoints, 
 
   try {
     if (window.ClaudeService && window.ClaudeService.streamResponse) {
-      let accumulated = '';
-      await window.ClaudeService.streamResponse(
-        userPrompt,
+      await window.ClaudeService.streamResponse({
         systemPrompt,
-        (chunk) => {
-          accumulated += chunk;
+        messages: [{ role: 'user', content: userPrompt }],
+        onChunk: (chunk, accumulated) => {
           output.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated;
           output.scrollTop = output.scrollHeight;
-        }
-      );
+        },
+        onDone: (text) => {
+          if (window.AgentHistory && text.trim()) {
+            window.AgentHistory.save({ agentKey: 'compliance-command', taskType: goal || 'Automation Plan', content: text, topic: frameworks.join(', ') });
+          }
+        },
+        onError: (err) => {
+          output.innerHTML = `<p style="color:var(--red)">Error: ${err.message}</p>`;
+        },
+      });
     } else {
       output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI-generated plans.</p>';
     }

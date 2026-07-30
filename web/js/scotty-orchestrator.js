@@ -53,6 +53,7 @@ const ScottyOrchestrator = (() => {
     video:       'Video Studio — scripts, editing guides, thumbnail strategy',
     cro:         'CRO Lab — conversion optimization, A/B test design',
     compliance:  'Compliance Guard — brand safety, legal review, regulatory checks',
+    'compliance-automation': 'Enterprise Compliance Automation — SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness',
     deck:        'Deck Maker — presentations, investor decks, pitch structures',
     linkedin:    'LinkedIn Outreach — personalized connection and outreach sequences',
     delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
@@ -195,6 +196,9 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
 
     if (/conversion|cro|landing page|cta|form|checkout|split test|optimiz/.test(t))
       return { agent: 'cro', reason: 'CRO intent detected' };
+
+    if (/soc\s*2|iso\s*27001|hipaa|pci dss|evidence collection|audit.readiness|trust center|security questionnaire|vendor.risk|continuous monitoring|compliance automation/.test(t))
+      return { agent: 'compliance-automation', reason: 'Enterprise compliance automation intent detected' };
 
     if (/compliance|legal|brand safety|disclaimer|gdpr|ftc|review content/.test(t))
       return { agent: 'compliance', reason: 'Compliance review intent detected' };
@@ -607,6 +611,28 @@ When and how to disclose: AI-generated content, paid partnerships, affiliate lin
 ### Content Review Process
 Suggested approval workflow: who reviews what, at which stage, before publishing.`,
 
+      'compliance-automation': `You are the Enterprise Compliance Automation agent for Audema — Your AI Marketing Department.
+Build an automation plan to eliminate compliance busywork and accelerate enterprise sales.
+${ctx}
+## OUTPUT FORMAT
+### Target Frameworks & Current State
+Which of SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS apply here, and a realistic assessment of current readiness for each.
+
+### Evidence Collection Automation
+Specific controls to automate evidence for (access logs, MFA, encryption, backups) — tool names (Vanta/Drata/Secureframe/OneTrust) and collection frequency per control.
+
+### Continuous Monitoring Setup
+What to monitor in real time (security control status, vulnerability scans, compliance drift) and the alerting approach.
+
+### Security Workflow Automation
+Security questionnaire auto-fill approach, vendor risk assessment template, audit prep checklist.
+
+### Sales Acceleration
+How to turn compliance posture into a closing asset — trust center, compliance status page, what to say when a prospect asks "are you SOC 2 compliant?" before certification completes.
+
+### 30/60/90-Day Roadmap
+Concrete milestones with the fastest wins first — this should read like a week-one action list, not a certification-cycle timeline.`,
+
       deck: `You are the Deck Maker agent for Audema — Your AI Marketing Department.
 Create a compelling sales or pitch deck structure.
 ${ctx}
@@ -702,7 +728,7 @@ Market signals: ${(contextBundle.marketSignals || '').slice(0, 200)}`
 
     const systemPrompt = `You are a senior marketing operations director planning an autonomous, end-to-end marketing mission. Every task will execute automatically without human intervention — so make each task self-contained and immediately executable.
 
-Available agents: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, deck
+Available agents: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
 
 Agent capabilities:
 - sales: ICP research, prospect lists, outreach strategies, lead qualification
@@ -718,6 +744,7 @@ Agent capabilities:
 - deck: Pitch decks, sales presentations, one-pagers
 - video: Video scripts, thumbnails, YouTube strategy
 - compliance: Brand safety, legal review, GDPR, FTC checks
+- compliance-automation: SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration
 
 Rules:
 - Select the 4–7 agents that best match the goal — do NOT always default to seo+competitive
