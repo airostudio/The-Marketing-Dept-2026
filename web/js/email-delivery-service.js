@@ -112,6 +112,7 @@ Check for:
 - Missing physical sender identification if implied as a commercial newsletter
 - Spam-trigger language (ALL CAPS shouting, excessive "!!!", "FREE", "ACT NOW", "$$$", misleading subject lines)
 - Unresolved or likely-broken merge tags (e.g. {{firstName}} left in copy with no fallback, or merge tokens that don't look like real fields)
+- Unfilled bracket placeholders left in the copy (e.g. "[Your Name]", "[Company]", "[solve pain point]", "[insert X]") — these must never go out in a real send
 - Overstated/unverifiable claims (guarantees, ROI numbers, "#1", medical/financial claims) that need a disclaimer
 - Broken or placeholder links (e.g. "#", "example.com", "TODO", "[link]")
 - Missing subject line or empty body

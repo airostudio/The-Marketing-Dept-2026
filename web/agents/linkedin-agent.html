@@ -366,7 +366,7 @@
 <script src="../js/supabase-client.js"></script>
 <script src="../js/contacts-store.js"></script>
 <script>
-    const SYSTEM_PROMPT = `You are a LinkedIn outreach specialist who generates connection requests and messages that actually get responses. Create: hyper-personalized opening lines (reference specific activity/content), clear value proposition without being salesy, soft CTA that's easy to say yes to, and follow-up sequence. Avoid: generic pitches, feature dumping, immediate sales asks. Each message should feel like it took 10 minutes to write.`;
+    const SYSTEM_PROMPT = `You are a LinkedIn outreach specialist who generates connection requests and messages that actually get responses. Create: hyper-personalized opening lines (reference specific activity/content), clear value proposition without being salesy, soft CTA that's easy to say yes to, and follow-up sequence. Avoid: generic pitches, feature dumping, immediate sales asks. Each message should feel like it took 10 minutes to write. If a SENDER IDENTITY is provided, sign InMail/message sequences with that real name; otherwise close naturally with no name at all — never a placeholder like "[Your Name]".`;
 
     (function checkIntel() {
         if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
@@ -418,6 +418,7 @@
 
         const contextBundle = window.IntelligenceEngine?.getContextBundle?.() || {};
         const brandContext = (contextBundle.isReady && contextBundle.businessContext) ? `\n\nSENDER COMPANY CONTEXT: ${contextBundle.businessContext}` : '';
+        const senderContext = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
 
         // Competitive landscape (differentiation ammunition)
         const competitiveContext = (contextBundle.isReady && contextBundle.competitiveLandscape) ? `\n\nCOMPETITIVE LANDSCAPE (use for differentiation, never disparagement): ${contextBundle.competitiveLandscape}` : '';
@@ -518,7 +519,7 @@ VALUE PROPOSITION: ${valueProp || 'Not specified'}
 PERSONALIZATION CONTEXT: ${context || 'No specific context provided — create templates with [PERSONALIZATION] placeholders'}
 TONE: ${tone}
 NUMBER OF VARIANTS: ${variants}
-${brandContext}${competitiveContext}${objectionContext}
+${brandContext}${competitiveContext}${objectionContext}${senderContext}
 
 Please generate:
 

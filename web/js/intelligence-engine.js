@@ -211,6 +211,16 @@ class BusinessBrain {
         bestContentHistorically: '',
         bestLeadChannels: []
       },
+      // Who's actually signing outreach — deliberately excluded from
+      // _computeConfidence()'s weighted score (see getSenderIdentity() /
+      // buildSenderContext()): it's correspondence identity, not business
+      // context, so leaving it blank shouldn't move the completion badge.
+      sender: {
+        name: '',
+        title: '',
+        email: '',
+        phone: ''
+      },
       intelligence: {
         lastUpdated: null,
         confidenceScore: 0
@@ -385,6 +395,47 @@ class BusinessBrain {
   getCompletionScore() {
     const d = this.load();
     return this._computeConfidence(d);
+  }
+
+  /**
+   * The stored sender identity — the real person outreach emails/messages
+   * are signed by. Intentionally not part of getCompletionScore(); see the
+   * note on the 'sender' key in _emptyScaffold().
+   * @returns {{name:string, title:string, email:string, phone:string}}
+   */
+  getSenderIdentity() {
+    const d = this.load();
+    return d.sender || { name: '', title: '', email: '', phone: '' };
+  }
+
+  /**
+   * True once at least a name has been set.
+   * @returns {boolean}
+   */
+  hasSenderIdentity() {
+    return !!(this.getSenderIdentity().name || '').trim();
+  }
+
+  /**
+   * Prompt-ready instruction telling Claude who to sign outreach as, for
+   * every agent that generates emails/messages (Email Engine, LinkedIn
+   * Outreach, Sales Intelligence). Returns '' when nothing is configured,
+   * so callers can fall back to their own default sign-off instruction.
+   * @returns {string}
+   */
+  buildSenderContext() {
+    const s = this.getSenderIdentity();
+    const name = (s.name || '').trim();
+    if (!name) return '';
+
+    const title = (s.title || '').trim();
+    const contact = [(s.email || '').trim(), (s.phone || '').trim()].filter(Boolean).join(' · ');
+
+    let line = `Sign this as ${name}${title ? `, ${title}` : ''}`;
+    if (contact) line += ` (${contact})`;
+    line += '. Use this real name in the sign-off — never write a placeholder like "[Your Name]".';
+
+    return `\n\nSENDER IDENTITY: ${line}`;
   }
 
   /**

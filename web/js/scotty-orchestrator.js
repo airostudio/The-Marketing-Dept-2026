@@ -383,6 +383,11 @@ ${contextBundle.competitiveLandscape ? `\n### Competitive Landscape\n${contextBu
 ${contextBundle.marketSignals ? `\n### Market Signals\n${contextBundle.marketSignals}` : ''}
 ` : '\n*(Intelligence Layer not configured — apply general best practices.)*\n';
 
+    // Used by the email/sales/linkedin templates below — if a real sender
+    // identity is configured in BusinessBrain, outreach gets signed with
+    // that name instead of Claude inventing a "[Your Name]" placeholder.
+    const senderCtx = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
+
     const prompts = {
 
       seo: `You are the SEO Intelligence agent for Audema — Your AI Marketing Department.
@@ -443,7 +448,7 @@ Where each piece goes after publishing — social adaptations, email repurpose, 
 
       email: `You are the Email Engine agent for Audema — Your AI Marketing Department.
 Write a complete, deployable lead nurture sequence.
-${ctx}
+${ctx}${senderCtx}
 ## OUTPUT FORMAT
 Write 5 emails. For each:
 
@@ -535,7 +540,7 @@ Essential tools to have, what each tracks, integration priority.
 
       sales: `You are the Sales Intelligence agent for Audema — Your AI Marketing Department.
 Build an outbound sales strategy with real, deployable assets.
-${ctx}
+${ctx}${senderCtx}
 ## OUTPUT FORMAT
 ### ICP Scoring Matrix
 Firmographic signals (company size, industry, tech stack, funding stage) + behavioral signals (hiring patterns, content engagement, tool adoption) that indicate a high-fit prospect. Score each 1-3.
@@ -554,7 +559,7 @@ vs. top 3 competitors: their strengths, their weaknesses, how to position agains
 
       linkedin: `You are the LinkedIn Outreach agent for Audema — Your AI Marketing Department.
 Create a LinkedIn prospecting system with deployable templates.
-${ctx}
+${ctx}${senderCtx}
 ## OUTPUT FORMAT
 ### Connection Request Templates (5 Variants)
 For each trigger (mutual connection / content reaction / company news / job posting / event): subject line + note (≤300 chars).

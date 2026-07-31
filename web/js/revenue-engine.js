@@ -1177,15 +1177,39 @@ class SalesEnablementEngine {
   }
 
   /**
+   * Pulls real sender/company identity from BusinessBrain, so these
+   * templates sign off with the actual seller's name and their real
+   * company (not the "Audema" platform's own name) instead of a hardcoded
+   * placeholder. Falls back to a bracket only when nothing is configured —
+   * these are hand-edited scripts, not auto-sent copy, so an unset
+   * placeholder here is a legitimate "fill this in" cue, not a bug.
+   * @private
+   */
+  _senderIdentity() {
+    try {
+      const brain = this.intelligenceEngine?.brain;
+      const sender = brain?.getSenderIdentity?.() || {};
+      const company = brain?.load?.()?.company?.name || '';
+      return {
+        name: (sender.name || '').trim() || '[Your Name]',
+        company: company.trim() || 'our company',
+      };
+    } catch (e) {
+      return { name: '[Your Name]', company: 'our company' };
+    }
+  }
+
+  /**
    * Generate call script based on lead behavior.
    * @private
    */
   _generateCallScript(lead, behavior) {
     const name = lead.firstName || 'there';
     const company = lead.company || 'your company';
+    const sender = this._senderIdentity();
 
     return `
-Hi ${name}, this is [Your Name] from Audema.
+Hi ${name}, this is ${sender.name} from ${sender.company}.
 
 I saw you ${behavior.contentConsumed.length > 0 ? `recently downloaded our ${behavior.contentConsumed[0]}` : 'visited our website'}.
 
@@ -1203,6 +1227,7 @@ Quick question: Are you currently evaluating solutions to [relevant pain point]?
    * @private
    */
   _generateEmailTemplate(lead, behavior) {
+    const sender = this._senderIdentity();
     return {
       subject: `Following up on ${behavior.contentConsumed[0] || 'your interest'}`,
       body: `
@@ -1212,12 +1237,12 @@ I noticed you ${behavior.contentConsumed.length > 0 ? `downloaded our ${behavior
 
 Are you currently evaluating ways to [solve pain point]?
 
-I'd love to share how companies like ${lead.company} are using Audema to [achieve outcome].
+I'd love to share how companies like ${lead.company} are using ${sender.company} to [achieve outcome].
 
 Open to a quick 15-minute call this week?
 
 Best,
-[Your Name]
+${sender.name}
       `.trim()
     };
   }

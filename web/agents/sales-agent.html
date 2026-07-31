@@ -1679,8 +1679,9 @@ async function openQuickSend(prospectId, emailType) {
         const svc = window.ClaudeService;
         if (!svc) throw new Error('Claude service not available — enter copy manually.');
 
+        const senderCtx = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
         const raw = await svc.callAgent({
-            systemPrompt: bbContext() + 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble, no sign-off placeholder.',
+            systemPrompt: bbContext() + senderCtx + 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble. If a SENDER IDENTITY is given above, sign off with that real name; otherwise close naturally with no explicit signature — never a placeholder like "[Your Name]".',
             messages: [{ role: 'user', content: prompt }],
         });
         const lines = raw.split('\n');

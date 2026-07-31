@@ -496,6 +496,11 @@
             await populateSegmentPicker();
             const segmentIdFromUrl = new URLSearchParams(location.search).get('segment');
             if (segmentIdFromUrl) loadFromSegment(segmentIdFromUrl);
+
+            // Prefill Reply-To from BusinessBrain's configured sender identity, if set.
+            const replyToEl = document.getElementById('in-replyto');
+            const senderEmail = window.IntelligenceEngine?.brain?.getSenderIdentity?.()?.email;
+            if (replyToEl && !replyToEl.value.trim() && senderEmail) replyToEl.value = senderEmail;
         });
 
         return {
