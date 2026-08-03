@@ -84,6 +84,22 @@
         .segment-desc { font-size: 13px; color: var(--text2); margin-top: 2px; }
         .segment-meta { font-size: 12px; color: var(--text3); margin-top: 8px; }
 
+        .cal-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; background: rgba(255,255,255,0.02); }
+        .cal-card.highlighted { border-color: rgba(6,182,212,0.5); background: rgba(6,182,212,0.06); }
+        .cal-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .cal-platform { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--agent-color); }
+        .cal-headline { font-size: 14px; font-weight: 700; margin: 4px 0; }
+        .cal-body { font-size: 12px; color: var(--text2); line-height: 1.5; max-height: 60px; overflow: hidden; }
+        .cal-schedule-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+        .cal-datetime-input { padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; }
+        .cal-day-group { margin-bottom: 18px; }
+        .cal-day-label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .cal-status-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .cal-status-badge.queued { background: rgba(59,130,246,0.12); color: #60a5fa; }
+        .cal-status-badge.publishing { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .cal-status-badge.published { background: rgba(16,185,129,0.12); color: var(--green); }
+        .cal-status-badge.failed { background: rgba(239,68,68,0.12); color: #fca5a5; }
+
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-style: italic; font-size: 14px; }
         .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
         .msg.ok { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
@@ -125,6 +141,7 @@
             <div class="tab active" data-tab="contacts" onclick="AM.switchTab('contacts')">Contacts</div>
             <div class="tab" data-tab="import" onclick="AM.switchTab('import')">Import</div>
             <div class="tab" data-tab="segments" onclick="AM.switchTab('segments')">Segments</div>
+            <div class="tab" data-tab="calendar" onclick="AM.switchTab('calendar')">📅 Content Calendar</div>
         </div>
 
         <!-- CONTACTS TAB -->
@@ -207,11 +224,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- CALENDAR TAB -->
+        <div class="tab-panel" id="tab-calendar" style="display:none;">
+            <div class="panel" style="margin-bottom:20px;">
+                <div class="panel-header"><span class="panel-title">Needs Scheduling</span></div>
+                <div class="panel-body" id="calendar-unscheduled-body">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Upcoming Schedule — next 30 days</span>
+                    <button class="btn-secondary" onclick="AM.loadCalendar()">↻ Refresh</button>
+                </div>
+                <div class="panel-body" id="calendar-scheduled-body">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script src="../js/supabase-client.js"></script>
 <script src="../js/contacts-store.js"></script>
+<script src="../js/social-posts-store.js"></script>
 <script>
     const AM = (() => {
         'use strict';
@@ -226,6 +263,128 @@
             document.getElementById('tab-' + name).style.display = '';
             if (name === 'contacts') loadContacts();
             if (name === 'segments') loadSegments();
+            if (name === 'calendar') loadCalendar();
+        }
+
+        /* ── CONTENT CALENDAR — schedule approved Social Studio posts ───────────
+           Setting a time here (SocialPostsStore.schedulePost) is what makes the
+           post actually go out: it flips status='scheduled', publish_status
+           ='queued', and Vercel Cron (api/cron-auto-publish.js, every 15 min)
+           picks it up and publishes it for real through the same adapters
+           Pat's "Publish Now" uses — this isn't a separate/fake calendar. ─── */
+
+        let highlightedPostIds = new Set();
+
+        async function loadCalendar() {
+            const unschedEl = document.getElementById('calendar-unscheduled-body');
+            const schedEl = document.getElementById('calendar-scheduled-body');
+            if (!window.SocialPostsStore) {
+                unschedEl.innerHTML = schedEl.innerHTML = '<div class="empty-state">Social Studio integration unavailable — try reloading.</div>';
+                return;
+            }
+            unschedEl.innerHTML = schedEl.innerHTML = '<div class="empty-state">Loading…</div>';
+
+            try {
+                const [approved, scheduled] = await Promise.all([
+                    window.SocialPostsStore.listPosts({ status: 'approved' }),
+                    window.SocialPostsStore.listCalendar(new Date().toISOString(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
+                ]);
+                renderUnscheduled(approved.filter(p => !p.scheduled_at));
+                renderScheduled(scheduled);
+            } catch (e) {
+                unschedEl.innerHTML = schedEl.innerHTML = `<div class="empty-state">${escHtml(e.message)}</div>`;
+            }
+        }
+
+        function renderUnscheduled(posts) {
+            const el = document.getElementById('calendar-unscheduled-body');
+            if (!posts.length) {
+                el.innerHTML = '<div class="empty-state">Nothing waiting — approved posts with no schedule yet will show up here.</div>';
+                return;
+            }
+            // Highlighted first, so a hand-off from Pat is immediately visible.
+            const sorted = [...posts].sort((a, b) => (highlightedPostIds.has(String(b.id)) ? 1 : 0) - (highlightedPostIds.has(String(a.id)) ? 1 : 0));
+
+            el.innerHTML = sorted.map(p => {
+                const isHighlighted = highlightedPostIds.has(String(p.id));
+                const defaultDt = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16); // 1hr from now, local-ish
+                return `
+                <div class="cal-card${isHighlighted ? ' highlighted' : ''}" data-post-id="${p.id}">
+                    ${isHighlighted ? `<div style="font-size:11px;color:#06b6d4;font-weight:700;margin-bottom:6px;">📥 SENT FROM PAT — NEEDS A TIME</div>` : ''}
+                    <div class="cal-card-top">
+                        <div>
+                            <span class="cal-platform">${escHtml(p.platform)}</span>
+                            <div class="cal-headline">${escHtml(p.headline)}</div>
+                        </div>
+                    </div>
+                    <div class="cal-body">${escHtml(p.body)}</div>
+                    <div class="cal-schedule-row">
+                        <input type="datetime-local" class="cal-datetime-input" id="cal-dt-${p.id}" value="${defaultDt}">
+                        <button class="btn-secondary" onclick="AM.setPostSchedule('${p.id}')">Set Time</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderScheduled(posts) {
+            const el = document.getElementById('calendar-scheduled-body');
+            if (!posts.length) {
+                el.innerHTML = '<div class="empty-state">Nothing scheduled in the next 30 days.</div>';
+                return;
+            }
+
+            const byDay = {};
+            posts.forEach(p => {
+                const day = new Date(p.scheduled_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                (byDay[day] = byDay[day] || []).push(p);
+            });
+
+            el.innerHTML = Object.entries(byDay).map(([day, dayPosts]) => `
+                <div class="cal-day-group">
+                    <div class="cal-day-label">${escHtml(day)}</div>
+                    ${dayPosts.map(p => {
+                        const time = new Date(p.scheduled_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                        const statusClass = (p.publish_status || 'queued').replace(/[^a-z]/g, '');
+                        return `
+                        <div class="cal-card" data-post-id="${p.id}">
+                            <div class="cal-card-top">
+                                <div>
+                                    <span class="cal-platform">${escHtml(p.platform)}</span> · <span style="font-size:12px;color:var(--text2);">${escHtml(time)}</span>
+                                    <div class="cal-headline">${escHtml(p.headline)}</div>
+                                </div>
+                                <span class="cal-status-badge ${statusClass}">${escHtml(p.publish_status || 'queued')}</span>
+                            </div>
+                            <div class="cal-body">${escHtml(p.body)}</div>
+                            ${p.publish_error ? `<div style="font-size:12px;color:#fca5a5;margin-top:6px;">${escHtml(p.publish_error)}</div>` : ''}
+                            <div class="row-actions" style="margin-top:8px;">
+                                <button onclick="AM.unschedulePost('${p.id}')">Unschedule</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            `).join('');
+        }
+
+        async function setPostSchedule(postId) {
+            const input = document.getElementById('cal-dt-' + postId);
+            if (!input || !input.value) { alert('Pick a date and time first.'); return; }
+            try {
+                await window.SocialPostsStore.schedulePost(postId, new Date(input.value).toISOString());
+                highlightedPostIds.delete(String(postId));
+                loadCalendar();
+            } catch (e) {
+                alert('Could not schedule: ' + e.message);
+            }
+        }
+
+        async function unschedulePost(postId) {
+            if (!confirm('Remove this from the schedule? It goes back to "approved, needs a time."')) return;
+            try {
+                await window.SocialPostsStore.updatePost(postId, { status: 'approved', scheduled_at: null, publish_status: 'not_connected' });
+                loadCalendar();
+            } catch (e) {
+                alert('Could not unschedule: ' + e.message);
+            }
         }
 
         async function loadContacts() {
@@ -412,12 +571,25 @@
                 document.getElementById('app-body').style.display = 'none';
                 return;
             }
+
+            // Hand-off from Pat's Social Posting tab: land straight on the
+            // Calendar tab with the sent posts visibly flagged.
+            const params = new URLSearchParams(location.search);
+            if (params.get('tab') === 'calendar') {
+                (params.get('schedulePosts') || '').split(',').filter(Boolean).forEach(id => highlightedPostIds.add(id));
+                switchTab('calendar');
+                return;
+            }
+
             loadContacts();
         }
 
         document.addEventListener('DOMContentLoaded', init);
 
-        return { switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment };
+        return {
+            switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment,
+            loadCalendar, setPostSchedule, unschedulePost,
+        };
     })();
 </script>
 </body>

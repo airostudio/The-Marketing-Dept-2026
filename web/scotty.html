@@ -1313,6 +1313,38 @@
         }
         .mission-digest-row-title { font-size: 13px; color: #e2e8f0; flex: 1; min-width: 160px; }
         .mission-digest-row .task-result-actions { margin-top: 0; padding-top: 0; border-top: none; }
+
+        .mission-digest-complete-row {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .mission-digest-complete-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .mission-digest-complete-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .mission-digest-complete-hint { font-size: 12px; color: #94a3b8; }
+        .mission-digest-confirmed {
+            padding: 10px 16px;
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 10px;
+            color: #34d399;
+            font-size: 13px;
+            font-weight: 600;
+        }
         .task-result {
             display: none;
             padding: 12px 14px;
@@ -3190,7 +3222,11 @@ class ScottyChat {
                     <div class="mission-digest-sub">${this._escapeHtml(digest.missionTitle)}. Run any of these yourself, or let Scotty start the agent automatically with the same brief.</div>
                 </div>
             </div>
-            <div class="mission-digest-groups" id="missionDigestGroups"></div>`;
+            <div class="mission-digest-groups" id="missionDigestGroups"></div>
+            <div class="mission-digest-complete-row" id="missionDigestCompleteRow">
+                <button class="mission-digest-complete-btn" id="missionDigestCompleteBtn">✅ Mark Mission Complete</button>
+                <span class="mission-digest-complete-hint">Only click this once you've checked the deliverables above and sent/scheduled anything that needed to go out.</span>
+            </div>`;
 
         afterEl.appendChild(digestEl);
 
@@ -3213,6 +3249,32 @@ class ScottyChat {
 
             groupsEl.appendChild(groupEl);
         });
+
+        digestEl.querySelector('#missionDigestCompleteBtn').addEventListener('click', () => this._confirmMissionComplete(digestEl, digest));
+    }
+
+    /**
+     * The explicit "yes, I checked this and it's correct" gate — Scotty and
+     * its agents can produce and even auto-send deliverables, but a human
+     * confirms the mission is actually done, not the system deciding that
+     * for itself.
+     */
+    _confirmMissionComplete(digestEl, digest) {
+        const proceed = confirm(`Confirm mission complete: "${digest.missionTitle}"\n\n${digest.items.length} deliverable(s) reviewed and correct?\n\nThis just marks the mission as done in your history — it doesn't undo or resend anything.`);
+        if (!proceed) return;
+
+        const row = digestEl.querySelector('#missionDigestCompleteRow');
+        row.innerHTML = `<div class="mission-digest-confirmed">✅ Mission confirmed complete — ${new Date().toLocaleString()}</div>`;
+
+        InfoPanel.logActivity('🏁', `Mission confirmed complete: ${digest.missionTitle}`);
+        if (window.AgentHistory) {
+            window.AgentHistory.save({
+                agentKey: 'scotty',
+                taskType: 'Mission Complete',
+                content: `Mission "${digest.missionTitle}" confirmed complete by user.\n\n${digest.items.length} deliverables across ${new Set(digest.items.map(i => i.agentKey)).size} agents:\n` + digest.items.map(i => `- [${AGENT_META.displayNames[i.agentKey] || i.agentKey}] ${i.taskLabel}`).join('\n'),
+                topic: digest.missionTitle,
+            });
+        }
     }
 
     /* ── RETURNED AGENT DISPATCH DETECTION ─────────────────────────────────── */

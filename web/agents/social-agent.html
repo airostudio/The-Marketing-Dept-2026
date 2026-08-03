@@ -677,7 +677,7 @@ function renderReviewQueue() {
     if (!_reviewCloudBacked) {
         html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
     }
-    html += `<div class="review-queue-summary"><span><strong>${_reviewPosts.length}</strong> total</span><span><strong>${pendingCount}</strong> pending</span><span><strong style="color:#10b981">${approvedCount}</strong> approved</span><span><strong style="color:#ef4444">${rejectedCount}</strong> rejected</span></div>`;
+    html += `<div class="review-queue-summary"><span><strong>${_reviewPosts.length}</strong> total</span><span><strong>${pendingCount}</strong> pending</span><span><strong style="color:#10b981">${approvedCount}</strong> approved</span><span><strong style="color:#ef4444">${rejectedCount}</strong> rejected</span>${approvedCount > 0 ? `<a href="/agents/email-delivery-agent.html#social" style="margin-left:auto;color:#10b981;font-weight:600;text-decoration:none;">📬 Push ${approvedCount} approved to Pat →</a>` : ''}</div>`;
 
     html += _reviewPosts.map((p) => `
         <div class="post-card" data-post-id="${p.id}" data-status="${p.status}">
