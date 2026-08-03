@@ -8,13 +8,14 @@
  *   2. Pre-populates the primary input (marked with data-scotty-intake="primary")
  *   3. Stores the Scotty context so the agent's buildSystemPrompt can use it
  *
- * Dispatch payload shape (set by ScottyOrchestrator.dispatch):
+ * Dispatch payload shape (set by ScottyOrchestrator.dispatch/dispatchNewTab):
  *   {
  *     agentKey:      string,   // e.g. 'seo'
  *     task:          string,   // the pre-filled task text
  *     scottyContext: string,   // Scotty's strategic framing
  *     userRequest:   string,   // the original user message to Scotty
- *     timestamp:     number
+ *     timestamp:     number,
+ *     autoRun:       boolean,  // if true, auto-click #runBtn once prefilled
  *   }
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -60,6 +61,23 @@
   function inject(dispatch) {
     injectBanner(dispatch);
     prefillInput(dispatch.task);
+    if (dispatch.autoRun) autoRunPrimary();
+  }
+
+  /**
+   * Auto-clicks the page's primary action button (#runBtn, the de facto
+   * convention across every specialist agent page) once the prefilled
+   * primary field has settled. Only fires when that field actually has
+   * content — never blind-clicks an empty required field.
+   */
+  function autoRunPrimary() {
+    setTimeout(() => {
+      const btn = document.getElementById('runBtn');
+      if (!btn || btn.disabled) return;
+      const primary = document.querySelector('[data-scotty-intake="primary"]');
+      if (primary && !primary.value.trim()) return;
+      btn.click();
+    }, 900);
   }
 
   function injectBanner(dispatch) {
@@ -87,10 +105,11 @@
       ? dispatch.task.slice(0, 120) + (dispatch.task.length > 120 ? '…' : '')
       : dispatch.userRequest.slice(0, 120);
 
+    const label = dispatch.autoRun ? 'Scotty is running this automatically:' : 'Scotty dispatched this task:';
     banner.innerHTML = `
-      <span style="font-size:16px;flex-shrink:0;">🤖</span>
+      <span style="font-size:16px;flex-shrink:0;">${dispatch.autoRun ? '⚡' : '🤖'}</span>
       <span style="flex:1;min-width:0;">
-        <strong>Scotty dispatched this task:</strong>
+        <strong>${label}</strong>
         <span style="opacity:0.9;margin-left:6px;">${escapeHtml(taskPreview)}</span>
       </span>
       <a href="/scotty.html" style="color:#fff;opacity:0.8;font-size:12px;white-space:nowrap;text-decoration:none;border:1px solid rgba(255,255,255,0.3);padding:4px 10px;border-radius:20px;flex-shrink:0;">← Back to Scotty</a>

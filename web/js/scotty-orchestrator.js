@@ -310,6 +310,36 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
     window.location.href = url;
   }
 
+  /**
+   * Same as dispatch(), but opens the destination agent in a NEW TAB instead
+   * of navigating away — used when dispatching from Scotty's mission/
+   * automation result actions, so the mission summary stays open in the
+   * original tab. Optionally auto-runs the destination agent's primary
+   * action once it loads (autoRun) — see scotty-intake.js.
+   *
+   * @param {string} agentKey
+   * @param {string} task           — pre-filled into the agent's primary input
+   * @param {string} [scottyContext]
+   * @param {string} [userRequest]
+   * @param {boolean} [autoRun=false]
+   */
+  function dispatchNewTab(agentKey, task, scottyContext = '', userRequest = '', autoRun = false) {
+    const url = AGENT_ROUTES[agentKey];
+    if (!url) { console.warn(`ScottyOrchestrator.dispatchNewTab: unknown agent "${agentKey}"`); return; }
+
+    const payload = {
+      agentKey,
+      task,
+      scottyContext,
+      userRequest,
+      timestamp: Date.now(),
+      autoRun,
+    };
+
+    localStorage.setItem('scotty_dispatch', JSON.stringify(payload));
+    window.open(url, '_blank');
+  }
+
   /* ─────────────────────────────────────────────────────────────────────────
      NAVIGATION HELPERS
   ───────────────────────────────────────────────────────────────────────── */
@@ -933,6 +963,7 @@ Respond ONLY with valid JSON:
   return {
     ask,
     dispatch,
+    dispatchNewTab,
     goToScotty,
     goToHub,
     routeToAgent,
