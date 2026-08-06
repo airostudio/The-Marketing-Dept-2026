@@ -14,6 +14,8 @@
     <script src="../js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
     <script src="../js/intelligence-engine.js"></script>
     <script src="../js/supabase-client.js"></script>
+    <script src="../js/intelligence-profiles.js"></script>
+    <script src="../js/site-switcher.js"></script>
     <script src="../js/contacts-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -264,6 +266,7 @@
         <span class="nav-crumb">CHASE · <span>AI PROSPECTING</span></span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a href="/index.html" class="nav-btn">← Dashboard</a>
         <a href="/scotty.html" class="nav-btn">Scotty</a>
     </div>
@@ -1954,6 +1957,7 @@ function checkScottyDispatch() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    if (window.SiteSwitcher) SiteSwitcher.mount();
     renderPipe();
     populateProspectSelect();
     prefillOfferFields();

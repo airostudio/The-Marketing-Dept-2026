@@ -757,6 +757,7 @@
             <a href="/dashboard.html">Dashboard</a>
         </div>
 
+        <div id="site-switcher-mount"></div>
         <div class="nav-avatar" title="User account">U</div>
     </div>
 </nav>
@@ -1144,6 +1145,9 @@
 
 <!-- Agent Characters -->
 <script src="js/agent-characters.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/intelligence-profiles.js"></script>
+<script src="js/site-switcher.js"></script>
 
 <!-- API Client (Backend Integration) -->
 <script src="js/api-client.js"></script>
@@ -1290,6 +1294,7 @@
 
   // Run on load and whenever another tab writes to the intelligence stores
   updateIntelStatus();
+  if (window.SiteSwitcher) SiteSwitcher.mount();
   window.addEventListener('storage', function (e) {
     if (!e.key) return;
     // Business Brain is stored per-profile/project (intel_business_brain__...),

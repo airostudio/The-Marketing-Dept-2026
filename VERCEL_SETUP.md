@@ -62,6 +62,30 @@ One intelligence profile = one business's complete Intelligence Layer (Business 
 
 ---
 
+## Switching Between Multiple Sites/Clients — what's actually wired to what
+
+This app has **two separate multi-tenancy concepts** that are not reconciled with each other — there's no foreign key or shared ID between them. Knowing which is which matters when debugging "why didn't switching sites change this page."
+
+| | `projects` table | `intelligence_profiles` table |
+|---|---|---|
+| **What it represents** | An SEO tracking target: URL, sitemap, crawl depth, keywords | A business/client identity: name, brand, ICP, positioning |
+| **Active pointer** | `localStorage['seo-current-project']`, set by `ProjectService.setCurrentProject()` | `localStorage['intel_active_profile']`, set by `IntelligenceProfiles.setActiveProfile()` |
+| **Drives** | `dashboard.html`, the classic SEO audit chain (`seo-audit.js`, `analysis-engine.js`) | Business Brain, and — via each store's `getScope()`/`_key()` fallback chain (profile first, project second) — Audience Manager (Beeker), Social Studio, Pat, Sales Intelligence, LinkedIn Outreach |
+| **Switcher UI** | `dashboard.html`'s topbar dropdown (fixed — see below; previously **cosmetic only**, it relabeled a button and never called `setCurrentProject()`) | The global `site-switcher-mount` widget (`web/js/site-switcher.js`) in the nav of `hub.html` and the 5 agent pages above, plus Business Brain's own inline `⚙ Profiles` panel |
+
+**What this means in practice**: switching your active site via the global switcher (hub/agent pages) changes what Business Brain, Audience Manager, Social Studio, Pat, Sales Intelligence, and LinkedIn Outreach show — it does **not** change which SEO project the dashboard is tracking, and vice versa. For a single-business account this is invisible (there's only ever one of each). For an agency running multiple clients, you currently manage "which SEO project" and "which client's marketing" as two independent switches, not one.
+
+Unifying them into one canonical "site" concept is a real data-model decision (merge the tables, or add a mapping table linking a `project_id` to an `intelligence_profile_id`) — not something to silently paper over. Flagging it here rather than pretending it's already unified.
+
+### `web/js/site-switcher.js` — the global switcher
+
+- Mounts wherever a page has `<div id="site-switcher-mount"></div>` in its nav + calls `SiteSwitcher.mount()`.
+- Thin wrapper around `IntelligenceProfiles` — same plan limits, same `ensureActiveProfile()` auto-create-a-default-profile behavior.
+- Switching reloads the page (the simplest reliable way to make every store on that page re-scope, since most compute their storage key from `localStorage` at call time rather than reactively).
+- Syncs across open tabs via the `storage` event.
+
+---
+
 ## A/B Testing MCP Server
 
 The Aduma MCP server exposes your A/B experiment data to Claude so you can manage experiments, analyse results, generate tracking snippets, and trigger new ad creative directly from a chat interface.

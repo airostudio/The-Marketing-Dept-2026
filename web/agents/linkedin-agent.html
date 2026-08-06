@@ -176,6 +176,7 @@
         <span class="nav-breadcrumb"><span style="color:#3b82f6;font-weight:700;letter-spacing:1px;">MEX</span> · LinkedIn Outreach</span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a class="nav-link" href="/hub.html">Agent Hub</a>
         <a class="nav-link" href="/scotty.html">Scotty AI</a>
         <a class="nav-link primary" href="/settings.html">Settings</a>
@@ -364,6 +365,8 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="../js/intelligence-profiles.js"></script>
+<script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a LinkedIn outreach specialist who generates connection requests and messages that actually get responses. Create: hyper-personalized opening lines (reference specific activity/content), clear value proposition without being salesy, soft CTA that's easy to say yes to, and follow-up sequence. Avoid: generic pitches, feature dumping, immediate sales asks. Each message should feel like it took 10 minutes to write. If a SENDER IDENTITY is provided, sign InMail/message sequences with that real name; otherwise close naturally with no name at all — never a placeholder like "[Your Name]".`;
@@ -402,6 +405,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', populateFromIntelligence);
+    document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
 
     async function generateOutreach() {
         const task = document.getElementById('task').value;

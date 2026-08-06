@@ -118,6 +118,7 @@
         <span class="nav-breadcrumb"><span style="color:#06b6d4;font-weight:700;letter-spacing:1px;">BEEKER</span> · Audience Manager</span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a href="/agents/email-delivery-agent.html" class="nav-link" style="color:#10b981;border-color:rgba(16,185,129,0.35);">📬 Pat — Email Delivery</a>
         <a href="/hub.html" class="nav-link">Hub</a>
         <a href="/scotty.html" class="nav-link">Scotty</a>
@@ -247,6 +248,8 @@
 </div>
 
 <script src="../js/supabase-client.js"></script>
+<script src="../js/intelligence-profiles.js"></script>
+<script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
 <script src="../js/social-posts-store.js"></script>
 <script>
@@ -585,6 +588,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
 
         return {
             switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment,

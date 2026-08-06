@@ -11,6 +11,8 @@
     <script src="../js/marked.min.js"></script>
     <script src="/js/supabase.min.js"></script>
     <script src="/js/supabase-client.js"></script>
+    <script src="/js/intelligence-profiles.js"></script>
+    <script src="/js/site-switcher.js"></script>
     <script src="/js/social-posts-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -218,6 +220,7 @@
         <span class="nav-breadcrumb"><span style="color:#8b5cf6;font-weight:700;letter-spacing:1px;">PULSE</span> · Social Studio</span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a class="nav-link" href="/hub.html">Hub</a>
         <a class="nav-link" href="/scotty.html">Scotty</a>
     </div>
@@ -1346,6 +1349,7 @@ class SocialAgent {
 }
 
 const agent = new SocialAgent();
+if (window.SiteSwitcher) SiteSwitcher.mount();
 
 // ── Copy / Download / Calendar export — driven by the real structured
 // review-queue data (_reviewPosts), not by scraping rendered HTML text. ────
