@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
   const {
     messages    = [],
     systemPrompt,
-    model       = 'gemini-2.5-pro',
+    model       = 'gemini-3.1-pro',
     stream      = true,
   } = req.body || {};
 

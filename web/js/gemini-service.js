@@ -13,7 +13,7 @@ window.GeminiService = (function () {
         body: JSON.stringify({
           messages,
           systemPrompt,
-          model: model || 'gemini-2.5-pro',
+          model: model || 'gemini-3.1-pro',
           stream: true,
         }),
       });
@@ -74,7 +74,7 @@ window.GeminiService = (function () {
       streamResponse({
         systemPrompt,
         messages,
-        model: model || 'gemini-2.5-pro',
+        model: model || 'gemini-3.1-pro',
         onDone:  (text) => resolve(text),
         onError: (err)  => reject(err),
       });
