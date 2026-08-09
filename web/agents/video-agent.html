@@ -855,8 +855,24 @@ Format as a proper production script with clear section headers and timestamps.`
                             outputBody.appendChild(videoGenBtn);
                         }
 
+                        // Open the Seedance 2.0 AI Video Generator in a new window,
+                        // prefilled with a scene prompt distilled from this script.
+                        const seedanceHandoffBtn = document.createElement('div');
+                        seedanceHandoffBtn.style.cssText = 'margin-top:12px;padding:16px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);border-radius:12px;';
+                        seedanceHandoffBtn.innerHTML = `
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div style="flex:1;">
+                                    <div style="font-weight:600;margin-bottom:4px;color:#ec4899;">🎬 Run This Script in the Video Generator</div>
+                                    <div style="font-size:13px;color:rgba(255,255,255,0.6);">Opens the Seedance 2.0 generator in a new window with a scene prompt built from this script</div>
+                                </div>
+                                <button onclick="openScriptInVideoGenerator()" style="padding:10px 20px;background:linear-gradient(135deg,#ec4899,#7c3aed);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap;">Open Generator →</button>
+                            </div>
+                        `;
+                        outputBody.appendChild(seedanceHandoffBtn);
+
                         // Store script for video generation
                         window.lastGeneratedScript = text;
+                        window.lastGeneratedVideoType = videoType;
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
@@ -993,6 +1009,65 @@ Format as a proper production script with clear section headers and timestamps.`
         const d = document.createElement('div');
         d.textContent = str || '';
         return d.innerHTML;
+    }
+
+    const SCRIPT_HANDOFF_KEY = 'reel_script_handoff';
+
+    /** Strip a production script down to a scene-description prompt Seedance can act on. */
+    function condenseScriptForVideoPrompt(scriptText) {
+        let t = scriptText
+            .replace(/```[\s\S]*?```/g, ' ')          // fenced code blocks
+            .replace(/[#*_`>]/g, '')                   // markdown formatting chars
+            .replace(/^\s*[-•]\s*/gm, '')               // bullet markers
+            .replace(/\n{2,}/g, '\n')
+            .trim();
+        if (t.length > 900) t = t.slice(0, 900).trim() + '...';
+        return t;
+    }
+
+    /** Opens the Seedance 2.0 generator in a new window, prompt prefilled from the last script. */
+    function openScriptInVideoGenerator() {
+        const script = window.lastGeneratedScript;
+        if (!script) {
+            alert('Generate a script first.');
+            return;
+        }
+        const videoType = window.lastGeneratedVideoType || '';
+        const aspectRatio = /short.form|reels|tiktok/i.test(videoType) ? '9:16' : '16:9';
+
+        localStorage.setItem(SCRIPT_HANDOFF_KEY, JSON.stringify({
+            prompt: condenseScriptForVideoPrompt(script),
+            aspectRatio,
+            timestamp: Date.now(),
+        }));
+
+        window.open('/agents/video-agent.html?fromScript=1', '_blank');
+    }
+
+    /** Consumes a script handoff (from this page or another tab) on load. */
+    function consumeScriptHandoff() {
+        const raw = localStorage.getItem(SCRIPT_HANDOFF_KEY);
+        if (!raw) return;
+        localStorage.removeItem(SCRIPT_HANDOFF_KEY);
+
+        let handoff;
+        try { handoff = JSON.parse(raw); } catch { return; }
+        if (!handoff || Date.now() - handoff.timestamp > 10 * 60 * 1000) return; // stale after 10 min
+
+        const promptField = document.getElementById('videogenPrompt');
+        const ratioField = document.getElementById('videogenRatio');
+        if (!promptField) return;
+
+        promptField.value = handoff.prompt || '';
+        if (handoff.aspectRatio) ratioField.value = handoff.aspectRatio;
+
+        const panel = document.getElementById('videogenPrompt').closest('.panel');
+        if (panel) {
+            panel.style.transition = 'box-shadow 0.3s';
+            panel.style.boxShadow = '0 0 0 2px rgba(236,72,153,0.5)';
+            setTimeout(() => { panel.style.boxShadow = ''; }, 2500);
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
     async function generateAIVideoClip() {
@@ -1139,6 +1214,8 @@ Format as a proper production script with clear section headers and timestamps.`
             .forEach(item => { if (item.taskId) pollSeedanceStatus(item.id, 0); });
         renderGallery();
     })();
+
+    consumeScriptHandoff();
 </script>
 </body>
 </html>
