@@ -158,7 +158,7 @@ window.APP_CONFIG = {
             ENABLED: true,
             API_KEY: '',  // Add your key here
             MODEL: 'gemini-3.5-flash',  // Fast and cost-effective
-            PRO_MODEL: 'gemini-3.1-pro'  // For complex tasks
+            PRO_MODEL: 'gemini-3.1-pro-preview'  // For complex tasks
         },
 
         // Anthropic Claude - https://console.anthropic.com/
