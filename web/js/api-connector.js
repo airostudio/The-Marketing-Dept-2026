@@ -1239,8 +1239,56 @@
       };
     })();
 
+    // ----- Seedance 2.0 (prompt-driven AI video generation) -----
+    // Unlike Tavus above, this never touches the provider directly from the
+    // browser — the API key lives server-side only (SEEDANCE_API_KEY), and
+    // the client talks to /api/generate-video, which proxies to Seedance.
+    var SeedanceAPI = (function() {
+      function isAvailable() {
+        // No client-visible flag for a server-only key — the create call
+        // itself surfaces a clear "not configured" error if the env var
+        // is missing, same as Convert/OpenAI/other server-proxied APIs.
+        return true;
+      }
+
+      // Note: deliberately NOT wrapped in safeCall — that helper swallows
+      // errors down to a bare `null`, which would hide specific messages
+      // like "SEEDANCE_API_KEY is not configured" from the user. Callers
+      // catch the rejected promise directly and show err.message instead.
+      function createVideo(options) {
+        return fetchWithRetry('/api/generate-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            prompt: options.prompt,
+            mode: options.mode || 'text-to-video',
+            imageUrl: options.imageUrl || null,
+            aspectRatio: options.aspectRatio || '16:9',
+            duration: options.duration || 5,
+            resolution: options.resolution || '1080p'
+          })
+        });
+      }
+
+      function getVideoStatus(taskId) {
+        return fetchWithRetry('/api/generate-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'status', taskId: taskId })
+        });
+      }
+
+      return {
+        isAvailable: isAvailable,
+        createVideo: createVideo,
+        getVideoStatus: getVideoStatus
+      };
+    })();
+
     return {
-      tavus: TavusAPI
+      tavus: TavusAPI,
+      seedance: SeedanceAPI
     };
   })();
 
