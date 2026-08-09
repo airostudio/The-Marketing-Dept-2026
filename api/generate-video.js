@@ -1,8 +1,10 @@
 /**
  * api/generate-video.js
  * Vercel serverless function — proxies AI video generation to Seedance 2.0.
- * API key stored exclusively in the SEEDANCE_API_KEY environment variable
- * (never exposed client-side — the browser only ever talks to this endpoint).
+ * API key stored exclusively server-side, read from ARK_API_KEY (the name
+ * BytePlus/Volcengine's own Ark console docs use) or SEEDANCE_API_KEY as a
+ * fallback for non-Ark providers — never exposed client-side; the browser
+ * only ever talks to this endpoint.
  *
  * Seedance 2.0 ships through more than one host (BytePlus/Volcengine Ark
  * being the primary one at launch, with aggregators such as fal.ai/OpenRouter
@@ -41,9 +43,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.SEEDANCE_API_KEY;
+  // ARK_API_KEY is the key name BytePlus/Volcengine's own Ark console docs use;
+  // SEEDANCE_API_KEY is kept as a fallback for non-Ark providers of Seedance 2.0.
+  const apiKey = process.env.ARK_API_KEY || process.env.SEEDANCE_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'SEEDANCE_API_KEY is not configured in environment variables. Add it in Vercel → Settings → Environment Variables.' });
+    return res.status(500).json({ error: 'ARK_API_KEY (or SEEDANCE_API_KEY) is not configured in environment variables. Add it in Vercel → Settings → Environment Variables.' });
   }
 
   const baseUrl = (process.env.SEEDANCE_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');

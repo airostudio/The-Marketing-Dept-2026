@@ -22,13 +22,14 @@ Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text p
 
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
-| `SEEDANCE_API_KEY` | API key for your Seedance 2.0 provider (BytePlus/Volcengine Ark, or an aggregator) | ✅ For video generation |
-| `SEEDANCE_API_BASE_URL` | Base URL for the provider's REST API. Defaults to the BytePlus/Volcengine Ark endpoint (`https://ark.ap-southeast.bytepluses.com/api/v3`) | Optional |
-| `SEEDANCE_MODEL` | Model ID to request, e.g. `seedance-2-0` or your provider's exact model string | Optional (defaults to `seedance-2-0`) |
+| `ARK_API_KEY` | API key from your BytePlus/Volcengine Ark console (the name their own docs use). Checked first. | ✅ For video generation |
+| `SEEDANCE_API_KEY` | Fallback API key variable, used only if `ARK_API_KEY` isn't set — for non-Ark providers of Seedance 2.0 | Optional |
+| `SEEDANCE_API_BASE_URL` | Base URL for the provider's REST API. Defaults to the BytePlus (international) Ark endpoint `https://ark.ap-southeast.bytepluses.com/api/v3`. Volcengine mainland-China accounts need `https://ark.cn-beijing.volces.com/api/v3` instead. | Optional |
+| `SEEDANCE_MODEL` | The exact Model/Endpoint ID from your Ark console (Model Inference → Endpoints) — Ark frequently requires the provisioned Endpoint ID (e.g. `ep-20240611094208-xxxxx`), not a generic model name | Optional (defaults to `seedance-2-0`, which will 404 on most Ark accounts — set this to your real endpoint ID) |
 
 **Provider note:** Seedance 2.0 ships through more than one host, and exact field names vary slightly per host. `api/generate-video.js` implements the Ark-style async task contract (`POST .../contents/generations/tasks` → task id, `GET .../contents/generations/tasks/{id}` → status + video URL), which is the pattern ByteDance's video models have used since Seedance 1.0. If you're on a different provider (fal.ai, Replicate, OpenRouter, etc.), point `SEEDANCE_API_BASE_URL`/`SEEDANCE_MODEL` at it and adjust the two small request/response-shaping blocks in `api/generate-video.js` to match — everything else (validation, the create→poll contract the client speaks) stays the same. Verify the exact contract against your provider's live docs before going to production; third-party API surfaces move fast.
 
-Without `SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, Tavus avatar videos) keeps working either way.
+Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, Tavus avatar videos) keeps working either way.
 
 ---
 
