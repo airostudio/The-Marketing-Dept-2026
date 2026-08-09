@@ -148,8 +148,8 @@ window.APP_CONFIG = {
         OPENAI: {
             ENABLED: true,
             API_KEY: '',  // Add your key here
-            MODEL: 'gpt-4o',  // Latest model
-            FALLBACK_MODEL: 'gpt-4o-mini'  // Cost-effective fallback
+            MODEL: 'gpt-5.6-luna',  // Standardized model for all OpenAI calls
+            FALLBACK_MODEL: 'gpt-5.6-luna'
         },
 
         // Google Gemini - https://aistudio.google.com/apikey

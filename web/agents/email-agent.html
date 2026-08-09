@@ -173,6 +173,7 @@
             <div style="display:flex;gap:8px;">
                 <button class="btn-icon" onclick="copyOutput()">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
+                <button class="btn-icon" id="sendToPatBtn" style="display:none;color:#10b981;border-color:rgba(16,185,129,0.35);" onclick="sendToPat()">📬 Send with Pat</button>
             </div>
         </div>
         <div class="output-area" id="output">
@@ -368,8 +369,11 @@ Use markdown. Separate emails with horizontal rules (---).
 - Avoid spam-trigger phrasing: no ALL CAPS, no "FREE!!!", no excessive punctuation or dollar-sign spam.
 - Every email must include an unsubscribe mention for compliance (CAN-SPAM/GDPR).
 - Subject lines under 50 characters; preview text under 90 characters.
+- Sign-off: if a SENDER IDENTITY block is provided below, sign off with that real name. If not, close naturally without a name at all — never write a placeholder like "[Your Name]" or "[Sender]".
 
 `;
+
+        prompt += window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
 
         if (contextBundle && contextBundle.isReady) {
             // BUSINESS CONTEXT — ICP pain points, voice, value prop
@@ -625,7 +629,12 @@ Include a brief strategy overview at the top explaining the sequence flow.${icpE
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { runBtn.disabled = false; runBtn.textContent = 'Generate Sequence'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'email', taskType: 'Email Sequence', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' }); }
+                    onDone: () => {
+                        runBtn.disabled = false; runBtn.textContent = 'Generate Sequence';
+                        if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'email', taskType: 'Email Sequence', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' });
+                        const sendBtn = document.getElementById('sendToPatBtn');
+                        if (sendBtn && fullResponse.trim()) { sendBtn.style.display = ''; sendBtn._sequenceText = fullResponse; }
+                    }
                 });
             } catch (e) {
                 outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
@@ -657,6 +666,34 @@ function downloadOutput() {
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `email-${type}-${Date.now()}.txt`; a.click();
+}
+
+// Hands the generated sequence off to Pat (Email Delivery) so drafting and
+// sending are one connected flow instead of copy-paste between pages. The
+// whole generated markdown becomes the starting campaign body — this is a
+// multi-email sequence in one blob, not a single clean email, so Pat's
+// campaign fields are meant to be trimmed/edited before sending, not sent
+// as-is.
+function sendToPat() {
+    const btn = document.getElementById('sendToPatBtn');
+    const rawText = btn?._sequenceText;
+    if (!rawText) return;
+
+    const subjectMatch = rawText.match(/\*\*Subject(?:\s*A)?:?\*\*\s*(.+)/i) || rawText.match(/subject:\s*(.+)/i);
+    const guessedSubject = subjectMatch ? subjectMatch[1].replace(/[*_]/g, '').trim() : '';
+    const product = document.getElementById('product')?.value?.trim() || '';
+    const emailType = document.getElementById('emailType')?.value || 'Email Sequence';
+
+    const payload = {
+        campaignName: product ? `${product} — ${emailType}` : emailType,
+        subject: guessedSubject || product || emailType,
+        html: typeof marked !== 'undefined' ? marked.parse(rawText) : `<pre>${rawText}</pre>`,
+        text: rawText,
+        timestamp: Date.now(),
+    };
+
+    localStorage.setItem('pat_incoming_draft', JSON.stringify(payload));
+    window.location.href = '/agents/email-delivery-agent.html';
 }
 </script>
 </body>

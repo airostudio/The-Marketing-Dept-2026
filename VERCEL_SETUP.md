@@ -16,6 +16,23 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Reel Video Studio — Seedance 2.0 AI Video Generation
+
+Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text prompt (or a prompt + reference image) into a real rendered video clip via Seedance 2.0, proxied server-side through `api/generate-video.js` — the API key never reaches the browser.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `ARK_API_KEY` | API key from your BytePlus/Volcengine Ark console (the name their own docs use). Checked first. | ✅ For video generation |
+| `SEEDANCE_API_KEY` | Fallback API key variable, used only if `ARK_API_KEY` isn't set — for non-Ark providers of Seedance 2.0 | Optional |
+| `SEEDANCE_API_BASE_URL` | Base URL for the provider's REST API. Defaults to the BytePlus (international) Ark endpoint `https://ark.ap-southeast.bytepluses.com/api/v3`. Volcengine mainland-China accounts need `https://ark.cn-beijing.volces.com/api/v3` instead. | Optional |
+| `SEEDANCE_MODEL` | The exact Model/Endpoint ID from your Ark console (Model Inference → Endpoints) — Ark frequently requires the provisioned Endpoint ID (e.g. `ep-20240611094208-xxxxx`), not a generic model name | Optional (defaults to `seedance-2-0`, which will 404 on most Ark accounts — set this to your real endpoint ID) |
+
+**Provider note:** Seedance 2.0 ships through more than one host, and exact field names vary slightly per host. `api/generate-video.js` implements the Ark-style async task contract (`POST .../contents/generations/tasks` → task id, `GET .../contents/generations/tasks/{id}` → status + video URL), which is the pattern ByteDance's video models have used since Seedance 1.0. If you're on a different provider (fal.ai, Replicate, OpenRouter, etc.), point `SEEDANCE_API_BASE_URL`/`SEEDANCE_MODEL` at it and adjust the two small request/response-shaping blocks in `api/generate-video.js` to match — everything else (validation, the create→poll contract the client speaks) stays the same. Verify the exact contract against your provider's live docs before going to production; third-party API surfaces move fast.
+
+Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, Tavus avatar videos) keeps working either way.
+
+---
+
 ## Business Brain — Per-Project Memory + History
 
 Business Brain previously lived only in browser `localStorage`, shared globally across every project with no version history — so clearing browser data, switching devices, or an accidental "Overwrite all fields" click could silently destroy it with no way back.
@@ -59,6 +76,30 @@ One intelligence profile = one business's complete Intelligence Layer (Business 
 - On first login a "Default" profile is auto-created; pre-profile local Brain data is offered for one-click import.
 - Shared access is built in at the schema level: `intelligence_profile_members` grants owner/editor/viewer roles on a profile to other users (RLS-enforced), ready for team features.
 - Data isolation: each profile has its own `business_brain` row, its own last-20 snapshot history, and its own localStorage cache key. Legacy per-project scoping still works as a fallback for accounts that haven't run the migration.
+
+---
+
+## Switching Between Multiple Sites/Clients — what's actually wired to what
+
+This app has **two separate multi-tenancy concepts** that are not reconciled with each other — there's no foreign key or shared ID between them. Knowing which is which matters when debugging "why didn't switching sites change this page."
+
+| | `projects` table | `intelligence_profiles` table |
+|---|---|---|
+| **What it represents** | An SEO tracking target: URL, sitemap, crawl depth, keywords | A business/client identity: name, brand, ICP, positioning |
+| **Active pointer** | `localStorage['seo-current-project']`, set by `ProjectService.setCurrentProject()` | `localStorage['intel_active_profile']`, set by `IntelligenceProfiles.setActiveProfile()` |
+| **Drives** | `dashboard.html`, the classic SEO audit chain (`seo-audit.js`, `analysis-engine.js`) | Business Brain, and — via each store's `getScope()`/`_key()` fallback chain (profile first, project second) — Audience Manager (Beeker), Social Studio, Pat, Sales Intelligence, LinkedIn Outreach |
+| **Switcher UI** | `dashboard.html`'s topbar dropdown (fixed — see below; previously **cosmetic only**, it relabeled a button and never called `setCurrentProject()`) | The global `site-switcher-mount` widget (`web/js/site-switcher.js`) in the nav of `hub.html` and the 5 agent pages above, plus Business Brain's own inline `⚙ Profiles` panel |
+
+**What this means in practice**: switching your active site via the global switcher (hub/agent pages) changes what Business Brain, Audience Manager, Social Studio, Pat, Sales Intelligence, and LinkedIn Outreach show — it does **not** change which SEO project the dashboard is tracking, and vice versa. For a single-business account this is invisible (there's only ever one of each). For an agency running multiple clients, you currently manage "which SEO project" and "which client's marketing" as two independent switches, not one.
+
+Unifying them into one canonical "site" concept is a real data-model decision (merge the tables, or add a mapping table linking a `project_id` to an `intelligence_profile_id`) — not something to silently paper over. Flagging it here rather than pretending it's already unified.
+
+### `web/js/site-switcher.js` — the global switcher
+
+- Mounts wherever a page has `<div id="site-switcher-mount"></div>` in its nav + calls `SiteSwitcher.mount()`.
+- Thin wrapper around `IntelligenceProfiles` — same plan limits, same `ensureActiveProfile()` auto-create-a-default-profile behavior.
+- Switching reloads the page (the simplest reliable way to make every store on that page re-scope, since most compute their storage key from `localStorage` at call time rather than reactively).
+- Syncs across open tabs via the `storage` event.
 
 ---
 

@@ -28,7 +28,7 @@
             const config = window.APP_CONFIG?.AI?.OPENAI;
             if (!config?.API_KEY) throw new Error('OpenAI API key not configured');
 
-            const model = options.model || config.MODEL || 'gpt-4o';
+            const model = options.model || config.MODEL || 'gpt-5.6-luna';
             const maxTokens = options.maxTokens || window.APP_CONFIG?.AI?.SETTINGS?.MAX_TOKENS?.MEDIUM || 1500;
             const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
 

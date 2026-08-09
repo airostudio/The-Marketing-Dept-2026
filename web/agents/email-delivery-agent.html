@@ -94,6 +94,27 @@
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-style: italic; font-size: 14px; }
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── TABS ── */
+        .agent-tabs { display: flex; gap: 4px; max-width: 1200px; margin: 0 auto; padding: 0 32px; border-bottom: 1px solid var(--border); }
+        .agent-tab-btn { padding: 12px 18px; font-size: 13px; font-weight: 600; color: var(--text2); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; font-family: 'Inter', sans-serif; }
+        .agent-tab-btn:hover { color: var(--text); }
+        .agent-tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+        .agent-tab-panel { display: none; }
+        .agent-tab-panel.active { display: block; }
+
+        /* ── SOCIAL POSTING ── */
+        .conn-status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .conn-pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+        .conn-pill.connected { color: var(--green); border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08); }
+        .conn-pill.disconnected { color: var(--text3); }
+        .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .social-post-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; background: rgba(255,255,255,0.02); }
+        .social-post-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+        .social-post-platform { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cyan); }
+        .social-post-headline { font-size: 14px; font-weight: 700; margin: 4px 0; }
+        .social-post-body { font-size: 13px; color: var(--text2); line-height: 1.5; white-space: pre-wrap; max-height: 100px; overflow: hidden; }
+        .social-post-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
@@ -107,6 +128,7 @@
         <span class="nav-breadcrumb">Pat — Email Delivery</span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a href="/agents/email-agent.html" class="nav-link">Email Engine</a>
         <a href="/scotty.html" class="nav-link">Ask Scotty</a>
         <a href="/hub.html" class="nav-link">Hub</a>
@@ -119,6 +141,12 @@
     <span class="powered-pill">✉️ Draft → Scotty QA → Send</span>
 </div>
 
+<div class="agent-tabs">
+    <button class="agent-tab-btn active" id="tabbtn-email" onclick="switchPatTab('email')">✉️ Email Campaign</button>
+    <button class="agent-tab-btn" id="tabbtn-social" onclick="switchPatTab('social')">📱 Social Posting</button>
+</div>
+
+<div id="pat-tab-email" class="agent-tab-panel active">
 <div class="main-content">
 
     <div class="pipeline" id="pipeline">
@@ -194,6 +222,36 @@
     </div>
 
 </div>
+</div>
+
+<div id="pat-tab-social" class="agent-tab-panel">
+<div class="main-content">
+
+    <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header"><span class="panel-title">Platform Connections</span></div>
+        <div class="panel-body">
+            <div class="conn-status-row" id="connStatusRow">
+                <div class="empty-state" style="padding:10px;">Checking connections…</div>
+            </div>
+            <div class="field-hint" style="font-size:12px;color:var(--text3);">Publishing requires real platform credentials configured as Vercel environment variables (META_PAGE_ACCESS_TOKEN, LINKEDIN_ACCESS_TOKEN, etc). "Not Connected" platforms will report why when you try to publish.</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Approved Posts Ready to Post</span>
+            <div class="btn-row">
+                <button class="btn-secondary" onclick="loadSocialPosts()">↻ Refresh</button>
+                <button class="btn-secondary" id="btn-send-to-beeker" style="color:#06b6d4;border-color:rgba(6,182,212,0.35);" onclick="sendSelectedToBeeker()" disabled>📅 Send Selected to Beeker for Scheduling</button>
+            </div>
+        </div>
+        <div class="panel-body" id="social-posts-list">
+            <div class="empty-state">Loading…</div>
+        </div>
+    </div>
+
+</div>
+</div>
 
 <script src="../js/marked.min.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -201,7 +259,10 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="../js/intelligence-profiles.js"></script>
+<script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
+<script src="../js/social-posts-store.js"></script>
 <script src="../js/email-delivery-service.js"></script>
 <script>
     const EDA = (() => {
@@ -464,11 +525,43 @@
             body.innerHTML = html;
         }
 
+        /**
+         * Picks up a draft handed off from another agent (e.g. Email Engine's
+         * "Send with Pat" button) via localStorage, same pattern as
+         * scotty-intake.js's dispatch handoff. Consumed immediately so a
+         * refresh doesn't re-trigger it; stale drafts (>10 min) are ignored.
+         */
+        function loadIncomingDraft() {
+            const raw = localStorage.getItem('pat_incoming_draft');
+            if (!raw) return;
+            localStorage.removeItem('pat_incoming_draft');
+
+            let draft;
+            try { draft = JSON.parse(raw); } catch (e) { return; }
+            if (!draft || Date.now() - draft.timestamp > 10 * 60 * 1000) return;
+
+            if (draft.campaignName) document.getElementById('in-name').value = draft.campaignName;
+            if (draft.subject) document.getElementById('in-subject').value = draft.subject;
+            if (draft.html) document.getElementById('in-html').value = draft.html;
+            if (draft.text) document.getElementById('in-text').value = draft.text;
+
+            const banner = document.createElement('div');
+            banner.style.cssText = 'background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;color:rgba(255,255,255,0.85);';
+            banner.innerHTML = `📥 Draft handed off from Email Engine — review and edit before sending, then add recipients below.`;
+            document.querySelector('.main-content').prepend(banner);
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('in-recipients').addEventListener('input', updateRecipientCount);
+            loadIncomingDraft();
             await populateSegmentPicker();
             const segmentIdFromUrl = new URLSearchParams(location.search).get('segment');
             if (segmentIdFromUrl) loadFromSegment(segmentIdFromUrl);
+
+            // Prefill Reply-To from BusinessBrain's configured sender identity, if set.
+            const replyToEl = document.getElementById('in-replyto');
+            const senderEmail = window.IntelligenceEngine?.brain?.getSenderIdentity?.()?.email;
+            if (replyToEl && !replyToEl.value.trim() && senderEmail) replyToEl.value = senderEmail;
         });
 
         return {
@@ -476,6 +569,148 @@
             loadFromSegmentPicker, clearSegment,
         };
     })();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SOCIAL POSTING TAB — publish or hand off approved Social Studio posts.
+    // Real publishing goes through /api/publish-social-post.js's platform
+    // adapters, gated behind real credentials in Vercel env vars — a
+    // "Not Connected" result here means the adapter code is real but no
+    // developer app/token has been configured yet, not that this is a stub.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function switchPatTab(name) {
+        document.querySelectorAll('.agent-tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.agent-tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('pat-tab-' + name).classList.add('active');
+        document.getElementById('tabbtn-' + name).classList.add('active');
+        if (name === 'social') { loadConnectionStatus(); loadSocialPosts(); }
+    }
+
+    let selectedSocialPostIds = new Set();
+
+    function escHtmlSocial(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function loadConnectionStatus() {
+        const row = document.getElementById('connStatusRow');
+        try {
+            const res = await fetch('/api/social-connections-status');
+            const status = await res.json();
+            const platforms = ['LinkedIn', 'Meta/Facebook', 'Instagram', 'Twitter/X', 'TikTok'];
+            row.innerHTML = platforms.map(p => {
+                const connected = !!status[p];
+                return `<div class="conn-pill ${connected ? 'connected' : 'disconnected'}"><span class="conn-dot"></span>${p} — ${connected ? 'Connected' : 'Not Connected'}</div>`;
+            }).join('');
+        } catch (e) {
+            row.innerHTML = `<div class="empty-state" style="padding:10px;">Could not check connection status.</div>`;
+        }
+    }
+
+    async function loadSocialPosts() {
+        const listEl = document.getElementById('social-posts-list');
+        if (!window.SocialPostsStore) { listEl.innerHTML = '<div class="empty-state">Social Studio integration unavailable — try reloading.</div>'; return; }
+        listEl.innerHTML = '<div class="empty-state">Loading…</div>';
+        selectedSocialPostIds.clear();
+        updateSendToBeekerBtn();
+
+        try {
+            const posts = await window.SocialPostsStore.listPosts({ status: 'approved' });
+            // Only posts not already scheduled/published belong in this queue.
+            const ready = posts.filter(p => !p.scheduled_at && p.publish_status !== 'published');
+            if (!ready.length) {
+                listEl.innerHTML = '<div class="empty-state">No approved posts waiting. Approve posts in Social Studio\'s review queue first, then come back here.</div>';
+                return;
+            }
+            listEl.innerHTML = ready.map(p => `
+                <div class="social-post-card" data-post-id="${p.id}">
+                    <div class="social-post-top">
+                        <div>
+                            <input type="checkbox" onchange="toggleSocialPostSelect('${p.id}', this.checked)">
+                            <span class="social-post-platform">${escHtmlSocial(p.platform)}</span>
+                            <div class="social-post-headline">${escHtmlSocial(p.headline)}</div>
+                        </div>
+                    </div>
+                    <div class="social-post-body">${escHtmlSocial(p.body)}</div>
+                    <div class="social-post-actions">
+                        <button class="btn-secondary" onclick="publishSocialPostNow('${p.id}')" id="pub-btn-${p.id}">🚀 Publish Now</button>
+                        <a class="btn-secondary" style="text-decoration:none;display:inline-block;" href="/agents/audience-agent.html?tab=calendar&schedulePosts=${p.id}">📅 Schedule with Beeker</a>
+                    </div>
+                    <div id="pub-status-${p.id}"></div>
+                </div>
+            `).join('');
+        } catch (e) {
+            listEl.innerHTML = `<div class="empty-state">Error loading posts: ${escHtmlSocial(e.message)}</div>`;
+        }
+    }
+
+    function toggleSocialPostSelect(id, checked) {
+        if (checked) selectedSocialPostIds.add(String(id)); else selectedSocialPostIds.delete(String(id));
+        updateSendToBeekerBtn();
+    }
+
+    function updateSendToBeekerBtn() {
+        const btn = document.getElementById('btn-send-to-beeker');
+        if (btn) btn.disabled = selectedSocialPostIds.size === 0;
+    }
+
+    function sendSelectedToBeeker() {
+        if (!selectedSocialPostIds.size) return;
+        const ids = [...selectedSocialPostIds].join(',');
+        window.location.href = `/agents/audience-agent.html?tab=calendar&schedulePosts=${ids}`;
+    }
+
+    async function publishSocialPostNow(postId) {
+        const btn = document.getElementById('pub-btn-' + postId);
+        const statusEl = document.getElementById('pub-status-' + postId);
+
+        const posts = await window.SocialPostsStore.listPosts({ status: 'approved' });
+        const post = posts.find(p => String(p.id) === String(postId));
+        if (!post) { if (statusEl) statusEl.innerHTML = '<span style="color:#f87171;">Post not found — refresh and try again.</span>'; return; }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+        if (statusEl) statusEl.innerHTML = '';
+
+        try {
+            const res = await fetch('/api/publish-social-post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: post.platform, headline: post.headline, body: post.body,
+                    cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '',
+                }),
+            });
+            const result = await res.json();
+
+            if (result.success && result.status === 'published') {
+                await window.SocialPostsStore.updatePost(postId, {
+                    status: 'published', publish_status: 'published',
+                    publish_platform_post_id: result.platformPostId || null,
+                    published_at: new Date().toISOString(),
+                });
+                if (statusEl) statusEl.innerHTML = `<span style="color:#10b981;">✓ Published${result.url ? ` — <a href="${escHtmlSocial(result.url)}" target="_blank" rel="noopener" style="color:#10b981;">view →</a>` : ''}</span>`;
+                if (btn) btn.textContent = '✓ Published';
+            } else if (result.status === 'not_connected') {
+                if (statusEl) statusEl.innerHTML = `<span style="color:#f59e0b;">${escHtmlSocial(result.error)}</span>`;
+                if (btn) { btn.disabled = false; btn.textContent = '🚀 Publish Now'; }
+            } else {
+                await window.SocialPostsStore.updatePost(postId, { publish_status: 'failed', publish_error: result.error || result.status }).catch(() => {});
+                if (statusEl) statusEl.innerHTML = `<span style="color:#f87171;">✗ ${escHtmlSocial(result.error || 'Publish failed')}</span>`;
+                if (btn) { btn.disabled = false; btn.textContent = '🚀 Publish Now'; }
+            }
+        } catch (e) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:#f87171;">✗ ${escHtmlSocial(e.message)}</span>`;
+            if (btn) { btn.disabled = false; btn.textContent = '🚀 Publish Now'; }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
+
+    // Land straight on the Social Posting tab when arriving from Social
+    // Studio's "Push approved to Pat" link.
+    document.addEventListener('DOMContentLoaded', () => {
+        if (location.hash === '#social') switchPatTab('social');
+    });
 </script>
 </body>
 </html>

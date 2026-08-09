@@ -144,6 +144,13 @@
     </div>
 </section>
 
+<div style="max-width:1200px;margin:0 auto;padding:0 32px 24px;">
+    <div style="background:rgba(71,85,105,0.12);border:1px solid rgba(71,85,105,0.35);padding:16px 20px;border-radius:12px;font-size:13px;line-height:1.6;">
+        <div style="font-weight:700;margin-bottom:6px;color:#94a3b8;">📄 One-Time Automation Plan Generator</div>
+        <div style="color:rgba(255,255,255,0.8);">This tool generates a written <strong>automation plan</strong> — a roadmap of what to automate and how. For an ongoing, stateful <strong>evidence checklist, risk register, and continuous monitoring tracker</strong> you check off over time, use <a href="/intelligence/compliance-command.html" style="color:#94a3b8;font-weight:600;">Compliance Command →</a>. For reviewing marketing copy itself, use <a href="/agents/compliance-agent.html" style="color:#94a3b8;font-weight:600;">Compliance Guard →</a>.</div>
+    </div>
+</div>
+
 <div class="main-wrap">
 
     <!-- INPUT PANEL -->
@@ -303,7 +310,7 @@
     const SYSTEM_PROMPT = `You are an enterprise compliance automation specialist with expertise in SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS, and security frameworks. You help companies automate compliance evidence collection, continuous monitoring, and security workflows to close enterprise deals faster. Provide detailed, actionable automation plans with specific tools, API integrations, and step-by-step implementation guides. Focus on eliminating manual compliance busywork through automation.`;
 
     (function checkIntel() {
-        if (window.IntelligenceEngine) document.getElementById('intelBadge').classList.add('active');
+        if (window.IntelligenceEngine?.getContextBundle?.()?.isReady) document.getElementById('intelBadge').classList.add('active');
     })();
 
     function getSelectedFrameworks() {
@@ -358,6 +365,12 @@
         return '\n\n**COMPANY INTELLIGENCE CONTEXT:**\n' + lines.join('\n') + '\n';
     }
 
+    function getIntelligenceCompleteness() {
+        if (!window.IntelligenceEngine?.getContextBundle) return 0;
+        const bundle = window.IntelligenceEngine.getContextBundle();
+        return (bundle?.completionScore || 0) / 100;
+    }
+
     async function runAutomation() {
         const automationGoal = document.getElementById('automationGoal').value;
         const frameworks = getSelectedFrameworks();
@@ -368,6 +381,17 @@
         if (frameworks.length === 0) {
             alert('Please select at least one compliance framework.');
             return;
+        }
+
+        // Strategic Validation Warning — same threshold/pattern as compliance-agent.html
+        const completeness = getIntelligenceCompleteness();
+        if (completeness < 0.3) {
+            const alreadyWarned = sessionStorage.getItem('complianceAutomation_noIntel_warned');
+            if (!alreadyWarned) {
+                const proceed = confirm(`⚠️ Intelligence Layer is ${Math.round(completeness * 100)}% complete.\n\nFor an automation plan tailored to your actual industry, company stage, and ICP (instead of a generic template), configure:\n• Industry Context\n• Company Stage\n• ICP Definition\n\nProceed with a generic automation plan?`);
+                if (!proceed) return;
+                sessionStorage.setItem('complianceAutomation_noIntel_warned', 'true');
+            }
         }
 
         const intelligenceContext = buildIntelligenceContext();

@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
   const {
     messages    = [],
     systemPrompt,
-    model       = 'gpt-4o',
+    model       = 'gpt-5.6-luna',
     stream      = true,
   } = req.body || {};
 

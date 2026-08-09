@@ -534,35 +534,52 @@
         const issues = [];
 
         try {
-            // Try to fetch the page via CORS proxy with a timeout
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
-
             let html = '';
             let fetchOk = false;
 
+            // Primary: server-side fetch — no CORS restriction, works for any public site.
             try {
-                // Primary proxy
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl, { signal: controller.signal });
-                clearTimeout(timeout);
+                const response = await fetch('/api/fetch-page', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                    signal: AbortSignal.timeout(15000)
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success && data.html) {
+                    html = data.html;
+                    fetchOk = true;
+                }
+            } catch (e) {
+                // fall through to proxy fallback below
+            }
 
-                if (response.ok) {
-                    const json = await response.json();
-                    // allorigins /get returns { contents, status: { http_code } }
-                    if (json.status?.http_code >= 200 && json.status?.http_code < 400 && json.contents) {
-                        html = json.contents;
-                        fetchOk = true;
-                    } else if (json.status?.http_code === 0 || json.status?.http_code >= 400) {
-                        throw new Error(`Site returned HTTP ${json.status?.http_code || 'unreachable'}`);
+            // Fallback: third-party CORS proxy, best-effort only.
+            if (!fetchOk) {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 15000);
+                try {
+                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                    const response = await fetch(proxyUrl, { signal: controller.signal });
+                    clearTimeout(timeout);
+
+                    if (response.ok) {
+                        const json = await response.json();
+                        // allorigins /get returns { contents, status: { http_code } }
+                        if (json.status?.http_code >= 200 && json.status?.http_code < 400 && json.contents) {
+                            html = json.contents;
+                            fetchOk = true;
+                        } else if (json.status?.http_code === 0 || json.status?.http_code >= 400) {
+                            throw new Error(`Site returned HTTP ${json.status?.http_code || 'unreachable'}`);
+                        }
                     }
+                } catch (fetchErr) {
+                    clearTimeout(timeout);
+                    if (fetchErr.name === 'AbortError') {
+                        throw new Error('Request timed out — site may be down or blocking crawlers');
+                    }
+                    throw fetchErr;
                 }
-            } catch (fetchErr) {
-                clearTimeout(timeout);
-                if (fetchErr.name === 'AbortError') {
-                    throw new Error('Request timed out — site may be down or blocking crawlers');
-                }
-                throw fetchErr;
             }
 
             if (!fetchOk || !html || html.length < 100) {

@@ -1,5 +1,5 @@
 /**
- * OpenAIService — frontend client for /api/openai (GPT-4o)
+ * OpenAIService — frontend client for /api/openai (gpt-5.6-luna)
  * Mirrors the ClaudeService/GeminiService interface: streamResponse() and callAgent()
  * Used by: Social Studio (PULSE) — organic content and ad campaigns
  */
@@ -14,7 +14,7 @@ window.OpenAIService = (function () {
         body: JSON.stringify({
           messages,
           systemPrompt,
-          model: model || 'gpt-4o',
+          model: model || 'gpt-5.6-luna',
           stream: true,
         }),
       });
@@ -72,7 +72,7 @@ window.OpenAIService = (function () {
       streamResponse({
         systemPrompt,
         messages,
-        model: model || 'gpt-4o',
+        model: model || 'gpt-5.6-luna',
         onDone:  (text) => resolve(text),
         onError: (err)  => reject(err),
       });

@@ -126,7 +126,82 @@
             background: var(--card-bg);
         }
         .pill-claude { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); color: #a78bfa; }
+        .pill-seedance { background: rgba(236,72,153,0.15); border-color: rgba(236,72,153,0.3); color: var(--pink); }
         .pill-inspired { background: rgba(var(--agent-color-rgb),0.1); border-color: rgba(var(--agent-color-rgb),0.25); color: var(--cyan); }
+
+        /* VIDEO GENERATOR */
+        .videogen-mode-toggle { display: flex; gap: 6px; }
+        .mode-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text2);
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .mode-btn.active { background: var(--gradient); border-color: transparent; color: white; }
+        .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: var(--text); }
+        .videogen-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .video-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .video-card video, .video-card .video-placeholder {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: rgba(255,255,255,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text3);
+            font-size: 12px;
+        }
+        .video-card-body { padding: 12px 14px; }
+        .video-card-prompt {
+            font-size: 12px;
+            color: var(--text2);
+            line-height: 1.4;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .video-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .video-status-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 999px;
+        }
+        .video-status-badge.pending, .video-status-badge.processing { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .video-status-badge.succeeded { background: rgba(16,185,129,0.15); color: var(--green); }
+        .video-status-badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .video-card-actions { display: flex; gap: 6px; }
+        .video-card-actions button {
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            color: var(--text2);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+        .video-card-actions button:hover { color: var(--text); background: rgba(255,255,255,0.1); }
 
         /* MAIN LAYOUT */
         .main-wrap {
@@ -357,12 +432,78 @@
 <section class="hero" data-agent="reel">
     <span class="hero-emoji">🎬</span>
     <h1 class="hero-title">Video Studio</h1>
-    <p class="hero-tagline">Scripts, Descript-style editing guides, and thumbnail strategy for any video format</p>
+    <p class="hero-tagline">Scripts, Descript-style editing guides, thumbnail strategy — and real AI-generated video, prompt to screen</p>
     <div class="hero-pills">
-        <span class="pill pill-claude">Powered by Claude</span>
-        <span class="pill pill-inspired">Inspired by Descript · Tavus · PlayPlay · Vidyo.ai</span>
+        <span class="pill pill-claude">Scripts by Claude</span>
+        <span class="pill pill-seedance">Video by Seedance 2.0</span>
+        <span class="pill pill-inspired">Inspired by OpenArt.ai · Descript · Tavus · PlayPlay</span>
     </div>
 </section>
+
+<!-- AI VIDEO GENERATOR -->
+<div class="main-wrap" style="margin-bottom:0;">
+    <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-header">
+            <span class="panel-title">🎬 AI Video Generator — Seedance 2.0</span>
+            <div class="videogen-mode-toggle" id="videogenModeToggle">
+                <button class="mode-btn active" data-mode="text-to-video" onclick="setVideoGenMode('text-to-video')">Text → Video</button>
+                <button class="mode-btn" data-mode="image-to-video" onclick="setVideoGenMode('image-to-video')">Image → Video</button>
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="field-group" id="videogenImageField" style="display:none;">
+                <label class="field-label">Reference Image URL</label>
+                <input class="field-input" id="videogenImageUrl" type="text" placeholder="https://... (a hosted image to animate)">
+            </div>
+            <div class="field-group">
+                <label class="field-label">Prompt</label>
+                <textarea class="field-textarea" id="videogenPrompt" placeholder="e.g. A confident founder walks through a bright modern office, product shots dissolve in on a glass wall, energetic and cinematic, soft daylight"></textarea>
+            </div>
+            <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="field-group">
+                    <label class="field-label">Aspect Ratio</label>
+                    <select class="field-select" id="videogenRatio">
+                        <option value="16:9">16:9 — Landscape</option>
+                        <option value="9:16">9:16 — Reels / Shorts / TikTok</option>
+                        <option value="1:1">1:1 — Square</option>
+                        <option value="4:3">4:3</option>
+                        <option value="3:4">3:4</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Duration</label>
+                    <select class="field-select" id="videogenDuration">
+                        <option value="5">5 seconds</option>
+                        <option value="8">8 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="12">12 seconds</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Resolution</label>
+                    <select class="field-select" id="videogenResolution">
+                        <option value="1080p">1080p</option>
+                        <option value="720p">720p</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-run" id="videogenRunBtn" onclick="generateAIVideoClip()">
+                <span id="videogenBtnIcon">✨</span>
+                <span id="videogenBtnText">Generate Video</span>
+            </button>
+            <div id="videogenStatus" style="margin-top:14px;display:none;"></div>
+            <div id="videogenPreview" style="margin-top:14px;display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- GALLERY -->
+<div class="features-wrap" style="padding-bottom:24px;">
+    <div class="features-title">Your Generations</div>
+    <div class="videogen-gallery" id="videogenGallery">
+        <div class="output-empty" style="padding:32px 0;">No videos generated yet. Describe a scene above and click Generate Video.</div>
+    </div>
+</div>
 
 <!-- MAIN PANELS -->
 <div class="main-wrap">
@@ -464,6 +605,7 @@
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/video-gen-store.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/api-connector.js"></script>
 <script src="../js/agent-history.js"></script>
@@ -713,8 +855,24 @@ Format as a proper production script with clear section headers and timestamps.`
                             outputBody.appendChild(videoGenBtn);
                         }
 
+                        // Open the Seedance 2.0 AI Video Generator in a new window,
+                        // prefilled with a scene prompt distilled from this script.
+                        const seedanceHandoffBtn = document.createElement('div');
+                        seedanceHandoffBtn.style.cssText = 'margin-top:12px;padding:16px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);border-radius:12px;';
+                        seedanceHandoffBtn.innerHTML = `
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div style="flex:1;">
+                                    <div style="font-weight:600;margin-bottom:4px;color:#ec4899;">🎬 Run This Script in the Video Generator</div>
+                                    <div style="font-size:13px;color:rgba(255,255,255,0.6);">Opens the Seedance 2.0 generator in a new window with a scene prompt built from this script</div>
+                                </div>
+                                <button onclick="openScriptInVideoGenerator()" style="padding:10px 20px;background:linear-gradient(135deg,#ec4899,#7c3aed);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap;">Open Generator →</button>
+                            </div>
+                        `;
+                        outputBody.appendChild(seedanceHandoffBtn);
+
                         // Store script for video generation
                         window.lastGeneratedScript = text;
+                        window.lastGeneratedVideoType = videoType;
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
@@ -832,6 +990,232 @@ Format as a proper production script with clear section headers and timestamps.`
             generateScript();
         }
     });
+
+    /* ═══════════════════════════════════════════════════════════════════
+       AI VIDEO GENERATOR — Seedance 2.0 (openart.ai-style prompt → video)
+       ═══════════════════════════════════════════════════════════════════ */
+
+    let videogenMode = 'text-to-video';
+
+    function setVideoGenMode(mode) {
+        videogenMode = mode;
+        document.querySelectorAll('#videogenModeToggle .mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        document.getElementById('videogenImageField').style.display = mode === 'image-to-video' ? 'block' : 'none';
+    }
+
+    function escapeHtmlVG(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
+    }
+
+    const SCRIPT_HANDOFF_KEY = 'reel_script_handoff';
+
+    /** Strip a production script down to a scene-description prompt Seedance can act on. */
+    function condenseScriptForVideoPrompt(scriptText) {
+        let t = scriptText
+            .replace(/```[\s\S]*?```/g, ' ')          // fenced code blocks
+            .replace(/[#*_`>]/g, '')                   // markdown formatting chars
+            .replace(/^\s*[-•]\s*/gm, '')               // bullet markers
+            .replace(/\n{2,}/g, '\n')
+            .trim();
+        if (t.length > 900) t = t.slice(0, 900).trim() + '...';
+        return t;
+    }
+
+    /** Opens the Seedance 2.0 generator in a new window, prompt prefilled from the last script. */
+    function openScriptInVideoGenerator() {
+        const script = window.lastGeneratedScript;
+        if (!script) {
+            alert('Generate a script first.');
+            return;
+        }
+        const videoType = window.lastGeneratedVideoType || '';
+        const aspectRatio = /short.form|reels|tiktok/i.test(videoType) ? '9:16' : '16:9';
+
+        localStorage.setItem(SCRIPT_HANDOFF_KEY, JSON.stringify({
+            prompt: condenseScriptForVideoPrompt(script),
+            aspectRatio,
+            timestamp: Date.now(),
+        }));
+
+        window.open('/agents/video-agent.html?fromScript=1', '_blank');
+    }
+
+    /** Consumes a script handoff (from this page or another tab) on load. */
+    function consumeScriptHandoff() {
+        const raw = localStorage.getItem(SCRIPT_HANDOFF_KEY);
+        if (!raw) return;
+        localStorage.removeItem(SCRIPT_HANDOFF_KEY);
+
+        let handoff;
+        try { handoff = JSON.parse(raw); } catch { return; }
+        if (!handoff || Date.now() - handoff.timestamp > 10 * 60 * 1000) return; // stale after 10 min
+
+        const promptField = document.getElementById('videogenPrompt');
+        const ratioField = document.getElementById('videogenRatio');
+        if (!promptField) return;
+
+        promptField.value = handoff.prompt || '';
+        if (handoff.aspectRatio) ratioField.value = handoff.aspectRatio;
+
+        const panel = document.getElementById('videogenPrompt').closest('.panel');
+        if (panel) {
+            panel.style.transition = 'box-shadow 0.3s';
+            panel.style.boxShadow = '0 0 0 2px rgba(236,72,153,0.5)';
+            setTimeout(() => { panel.style.boxShadow = ''; }, 2500);
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    async function generateAIVideoClip() {
+        const prompt = document.getElementById('videogenPrompt').value.trim();
+        const imageUrl = document.getElementById('videogenImageUrl').value.trim();
+        const aspectRatio = document.getElementById('videogenRatio').value;
+        const duration = parseInt(document.getElementById('videogenDuration').value, 10);
+        const resolution = document.getElementById('videogenResolution').value;
+
+        if (!prompt) {
+            alert('Describe the scene you want to generate.');
+            return;
+        }
+        if (videogenMode === 'image-to-video' && !imageUrl) {
+            alert('Add a reference image URL for Image → Video mode.');
+            return;
+        }
+
+        const btn = document.getElementById('videogenRunBtn');
+        const btnIcon = document.getElementById('videogenBtnIcon');
+        const btnText = document.getElementById('videogenBtnText');
+        const statusDiv = document.getElementById('videogenStatus');
+        const previewDiv = document.getElementById('videogenPreview');
+
+        btn.disabled = true;
+        btnIcon.innerHTML = '<span class="spinner"></span>';
+        btnText.textContent = 'Submitting...';
+        statusDiv.style.display = 'block';
+        previewDiv.style.display = 'none';
+        statusDiv.innerHTML = '<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Sending to Seedance 2.0...</div>';
+
+        let record = window.VideoGenStore.create({
+            prompt, mode: videogenMode, imageUrl: videogenMode === 'image-to-video' ? imageUrl : null,
+            aspectRatio, duration, resolution
+        });
+        renderGallery();
+
+        try {
+            const result = await window.ApiConnector.VideoGeneration.seedance.createVideo({
+                prompt, mode: videogenMode, imageUrl: videogenMode === 'image-to-video' ? imageUrl : null,
+                aspectRatio, duration, resolution
+            });
+            if (!result || !result.taskId) throw new Error('Seedance did not return a task id.');
+
+            record = window.VideoGenStore.update(record.id, { taskId: result.taskId, status: 'processing' });
+            renderGallery();
+            statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering... (task ${result.taskId})</div>`;
+
+            pollSeedanceStatus(record.id, 0);
+        } catch (err) {
+            window.VideoGenStore.update(record.id, { status: 'failed', error: err.message });
+            renderGallery();
+            statusDiv.innerHTML = `<div style="color:#f87171;">❌ ${escapeHtmlVG(err.message)}</div><div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">Check SEEDANCE_API_KEY in Vercel environment variables.</div>`;
+        } finally {
+            btn.disabled = false;
+            btnIcon.textContent = '✨';
+            btnText.textContent = 'Generate Video';
+        }
+    }
+
+    async function pollSeedanceStatus(recordId, attempts) {
+        const maxAttempts = 60; // ~5 minutes at 5s intervals
+        const statusDiv = document.getElementById('videogenStatus');
+        const previewDiv = document.getElementById('videogenPreview');
+        const record = window.VideoGenStore.getById(recordId);
+        if (!record || !record.taskId) return;
+
+        if (attempts >= maxAttempts) {
+            window.VideoGenStore.update(recordId, { status: 'failed', error: 'Timed out waiting for Seedance.' });
+            renderGallery();
+            if (statusDiv) statusDiv.innerHTML = '<div style="color:#f87171;">❌ Video generation timed out. Check your Seedance dashboard for status.</div>';
+            return;
+        }
+
+        try {
+            const status = await window.ApiConnector.VideoGeneration.seedance.getVideoStatus(record.taskId);
+
+            if (status.status === 'succeeded' && status.videoUrl) {
+                window.VideoGenStore.update(recordId, { status: 'succeeded', videoUrl: status.videoUrl, thumbnailUrl: status.thumbnailUrl });
+                renderGallery();
+                if (statusDiv) statusDiv.innerHTML = '<div style="color:#10b981;font-weight:600;">✓ Video generated successfully!</div>';
+                if (previewDiv) {
+                    previewDiv.style.display = 'block';
+                    previewDiv.innerHTML = `
+                        <video controls style="width:100%;max-width:600px;border-radius:8px;">
+                            <source src="${status.videoUrl}" type="video/mp4">
+                            Your browser does not support video playback.
+                        </video>
+                        <div style="margin-top:8px;">
+                            <a href="${status.videoUrl}" download style="display:inline-block;padding:8px 16px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Download Video</a>
+                        </div>`;
+                }
+            } else if (status.status === 'failed') {
+                window.VideoGenStore.update(recordId, { status: 'failed', error: status.error || 'Video generation failed' });
+                renderGallery();
+                if (statusDiv) statusDiv.innerHTML = `<div style="color:#f87171;">❌ ${escapeHtmlVG(status.error || 'Video generation failed')}</div>`;
+            } else {
+                if (statusDiv) statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering... (checking status, attempt ${attempts + 1})</div>`;
+                setTimeout(() => pollSeedanceStatus(recordId, attempts + 1), 5000);
+            }
+        } catch (error) {
+            window.VideoGenStore.update(recordId, { status: 'failed', error: error.message });
+            renderGallery();
+            if (statusDiv) statusDiv.innerHTML = `<div style="color:#f87171;">❌ Error checking status: ${escapeHtmlVG(error.message)}</div>`;
+        }
+    }
+
+    function renderGallery() {
+        const gallery = document.getElementById('videogenGallery');
+        const items = window.VideoGenStore.list();
+        if (!items.length) {
+            gallery.innerHTML = '<div class="output-empty" style="padding:32px 0;">No videos generated yet. Describe a scene above and click Generate Video.</div>';
+            return;
+        }
+        gallery.innerHTML = items.map(item => `
+            <div class="video-card">
+                ${item.status === 'succeeded' && item.videoUrl
+                    ? `<video src="${item.videoUrl}" ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''} controls></video>`
+                    : `<div class="video-placeholder">${item.status === 'failed' ? '⚠️ Failed' : '⏳ Rendering...'}</div>`
+                }
+                <div class="video-card-body">
+                    <div class="video-card-prompt" title="${escapeHtmlVG(item.prompt)}">${escapeHtmlVG(item.prompt)}</div>
+                    <div class="video-card-meta">
+                        <span class="video-status-badge ${item.status}">${item.status}</span>
+                        <div class="video-card-actions">
+                            ${item.status === 'succeeded' && item.videoUrl ? `<button onclick="window.open('${item.videoUrl}','_blank')">Download</button>` : ''}
+                            <button onclick="deleteVideoGenRecord('${item.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function deleteVideoGenRecord(id) {
+        window.VideoGenStore.remove(id);
+        renderGallery();
+    }
+
+    // Resume polling any generations still in-flight from a previous page load
+    (function resumeInFlightGenerations() {
+        window.VideoGenStore.list()
+            .filter(item => item.status === 'processing' || item.status === 'pending')
+            .forEach(item => { if (item.taskId) pollSeedanceStatus(item.id, 0); });
+        renderGallery();
+    })();
+
+    consumeScriptHandoff();
 </script>
 </body>
 </html>

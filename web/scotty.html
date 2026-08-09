@@ -1263,6 +1263,88 @@
             transition: all 0.15s;
         }
         .task-action-btn:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+        .task-action-btn-auto {
+            background: rgba(16,185,129,0.12);
+            border-color: rgba(16,185,129,0.35);
+            color: #34d399;
+            font-weight: 600;
+        }
+        .task-action-btn-auto:hover { background: rgba(16,185,129,0.2); color: #34d399; }
+        .task-action-btn-auto:disabled { opacity: 0.6; cursor: default; }
+
+        .mission-digest-panel {
+            margin-top: 18px;
+            padding: 18px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+        }
+        .mission-digest-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+        .mission-digest-icon { font-size: 22px; flex-shrink: 0; }
+        .mission-digest-title { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+        .mission-digest-sub { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+        .mission-digest-groups { display: flex; flex-direction: column; gap: 14px; }
+        .mission-digest-group { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; }
+        .mission-digest-group-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .mission-digest-count {
+            background: rgba(139,92,246,0.15);
+            color: #a78bfa;
+            border-radius: 999px;
+            padding: 1px 8px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .mission-digest-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 8px 0;
+        }
+        .mission-digest-row-title { font-size: 13px; color: #e2e8f0; flex: 1; min-width: 160px; }
+        .mission-digest-row .task-result-actions { margin-top: 0; padding-top: 0; border-top: none; }
+
+        .mission-digest-complete-row {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .mission-digest-complete-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .mission-digest-complete-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .mission-digest-complete-hint { font-size: 12px; color: #94a3b8; }
+        .mission-digest-confirmed {
+            padding: 10px 16px;
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 10px;
+            color: #34d399;
+            font-size: 13px;
+            font-weight: 600;
+        }
         .task-result {
             display: none;
             padding: 12px 14px;
@@ -2177,6 +2259,56 @@ const ScottyBoot = (() => {
 })();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AGENT META — shared across mission execution, automation execution, and the
+// end-of-mission digest, so "Open in Agent" / "Auto-Start" work consistently
+// wherever a completed task or automation is rendered.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AGENT_META = {
+    emojis: {
+        seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
+        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
+        video:'🎬', compliance:'🛡️', deck:'📽️', 'compliance-automation':'🔒',
+    },
+    routes: {
+        content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
+        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html',
+        ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
+        analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
+        video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
+        compliance:'/agents/compliance-agent.html', deck:'/agents/deck-agent.html',
+        linkedin:'/agents/linkedin-agent.html',
+        'compliance-automation':'/agents/compliance-automation.html',
+    },
+    displayNames: {
+        seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
+        ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
+        compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
+        sales:'Sales Intelligence', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        'compliance-automation':'Enterprise Compliance Automation',
+    },
+    serviceNames: {
+        seo:'Gemini 2.5 Pro', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
+        ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
+        compliance:'Claude Opus 4.7',
+    },
+    // Pages with exactly one unambiguous primary action (#runBtn) that only
+    // requires the single prefilled field — verified safe to auto-click blind
+    // against each page's own run() validation. Excludes:
+    //  - sales/analytics: multi-workspace tools, no single runBtn
+    //  - ads: social-agent.html defaults to 'organic' mode on a fresh load,
+    //    so an auto-run would silently generate organic posts instead of ad
+    //    creative — wrong output, not just a missing field
+    //  - competitive: requires a separate 'competitors' field the primary
+    //    brief textarea doesn't fill — would hit an alert()
+    //  - compliance-automation: requires a framework checkbox Scotty can't infer
+    //  - email: handled separately — its output already IS the deliverable,
+    //    so "auto-start" skips straight to Pat instead of re-running Email Engine
+    autoRunCapable: new Set(['content','seo','social','video','cro','deck','compliance','linkedin']),
+    // Agent types whose completed output can be handed straight to Pat for
+    // sending, with no intermediate agent page needed.
+    chainToPat: new Set(['email']),
+};
 
 class ScottyChat {
     constructor() {
@@ -2560,32 +2692,13 @@ class ScottyChat {
         planningBubble.innerHTML = '';
         planningBubble.style.cssText = 'background:transparent;border:none;padding:0;';
 
-        const agentEmojis = {
-            seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
-            social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
-            video:'🎬', compliance:'🛡️', deck:'📽️'
-        };
-        const agentRoutes = {
-            content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
-            email:'/agents/email-agent.html', sales:'/agents/sales-agent.html',
-            ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
-            analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
-            video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
-            compliance:'/agents/compliance-agent.html', deck:'/agents/deck-agent.html',
-            linkedin:'/agents/linkedin-agent.html',
-            'compliance-automation':'/agents/compliance-automation.html',
-        };
-        const agentDisplayNames = {
-            seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
-            ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
-            compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
-            sales:'Sales Intelligence', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
-        };
-        const serviceNames = {
-            seo:'Gemini 2.5 Pro', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
-            ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
-            compliance:'Claude Opus 4.7',
-        };
+        const agentEmojis = AGENT_META.emojis;
+        const agentRoutes = AGENT_META.routes;
+        const agentDisplayNames = AGENT_META.displayNames;
+        const serviceNames = AGENT_META.serviceNames;
+
+        // Completed tasks/automations, accumulated for the end-of-mission digest.
+        this._missionDigest = { missionTitle: plan.missionTitle || 'Marketing Campaign', items: [] };
 
         const total = (plan.tasks || []).length;
 
@@ -2722,12 +2835,10 @@ class ScottyChat {
                 if (liveStatus) liveStatus.textContent = '';
                 if (agentLink) agentLink.classList.add('done');
 
-                // Action buttons: View in Agent, Copy, Download
+                // Action buttons: Open in Agent (manual) / Auto-Start or Send with Pat (automatic), Copy, Download
                 const actionsEl = document.createElement('div');
                 actionsEl.className = 'task-result-actions';
-                const agentUrl  = agentRoutes[task.agentKey] || '#';
-                const agentName = agentDisplayNames[task.agentKey] || task.agentKey;
-                actionsEl.innerHTML = `<a href="${agentUrl}" target="_blank" class="task-view-btn">→ Open in ${this._escapeHtml(agentName)}</a>`;
+                this._appendChainActions(actionsEl, task.agentKey, task.userPrompt || task.objective || '', fullText, task.taskName, task.objective);
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'task-action-btn';
                 copyBtn.textContent = '📋 Copy';
@@ -2809,6 +2920,87 @@ class ScottyChat {
 
         // Autonomous automation phase — no clicks required
         this._runAutomationAssessment(plan, results, contextBundle, missionEl);
+    }
+
+    /* ── CHAIN ACTIONS ────────────────────────────────────────────────────────
+       Shared by both mission-task results and automation-step results, and
+       by the end-of-mission digest — "manually run it yourself" vs. "let it
+       run itself" for whatever a completed piece of work naturally leads to
+       next. Also records the item into this._missionDigest for the summary.
+    ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * @param {HTMLElement} actionsEl   — container to append buttons into
+     * @param {string} agentKey
+     * @param {string} promptText       — the original instruction that produced this result (re-used as the destination agent's prefilled brief)
+     * @param {string} fullText         — the generated deliverable itself
+     * @param {string} taskLabel        — human-readable title, for digest + Pat campaign naming
+     * @param {string} [scottyContext]  — strategic framing shown on the destination agent page
+     * @param {boolean} [skipRecord]    — true when called from the digest itself, which already has this item recorded
+     */
+    _appendChainActions(actionsEl, agentKey, promptText, fullText, taskLabel, scottyContext, skipRecord) {
+        const meta = AGENT_META;
+        const agentUrl  = meta.routes[agentKey] || '#';
+        const agentName = meta.displayNames[agentKey] || agentKey;
+
+        // Record for the digest regardless of which actions are available.
+        if (this._missionDigest && !skipRecord) {
+            this._missionDigest.items.push({ agentKey, taskLabel, fullText, promptText, scottyContext });
+        }
+
+        // Manual: open the destination agent pre-filled with the same brief that produced this result.
+        const openBtn = document.createElement('a');
+        openBtn.href = agentUrl;
+        openBtn.target = '_blank';
+        openBtn.rel = 'noopener';
+        openBtn.className = 'task-view-btn';
+        openBtn.textContent = `→ Open in ${agentName}`;
+        openBtn.addEventListener('click', (e) => {
+            if (!window.ScottyOrchestrator?.dispatchNewTab) return; // fall back to plain link nav
+            e.preventDefault();
+            window.ScottyOrchestrator.dispatchNewTab(agentKey, promptText, scottyContext || '', taskLabel || '', false);
+        });
+        actionsEl.appendChild(openBtn);
+
+        // Automatic — one of two shapes:
+        if (meta.chainToPat.has(agentKey)) {
+            // The generated sequence IS the deliverable — hand it straight to Pat, no re-generation needed.
+            const patBtn = document.createElement('button');
+            patBtn.className = 'task-action-btn task-action-btn-auto';
+            patBtn.textContent = '📬 Send with Pat';
+            patBtn.title = 'Hand this sequence straight to Pat (Email Delivery) for Scotty QA + send — no need to re-open Email Engine';
+            patBtn.addEventListener('click', () => this._sendResultToPat(fullText, taskLabel));
+            actionsEl.appendChild(patBtn);
+        } else if (meta.autoRunCapable.has(agentKey)) {
+            // Re-run the specialist agent's own generation with this brief, with no clicks required.
+            const autoBtn = document.createElement('button');
+            autoBtn.className = 'task-action-btn task-action-btn-auto';
+            autoBtn.textContent = `⚡ Auto-Start ${agentName}`;
+            autoBtn.title = `Open ${agentName} in a new tab and run it automatically with this brief`;
+            autoBtn.addEventListener('click', () => {
+                if (!window.ScottyOrchestrator?.dispatchNewTab) return;
+                window.ScottyOrchestrator.dispatchNewTab(agentKey, promptText, scottyContext || '', taskLabel || '', true);
+                autoBtn.textContent = '⚡ Started ✓';
+                autoBtn.disabled = true;
+            });
+            actionsEl.appendChild(autoBtn);
+        }
+    }
+
+    /** Hands an already-generated email sequence straight to Pat via the same localStorage handoff email-agent.html uses. */
+    _sendResultToPat(fullText, taskLabel) {
+        const subjectMatch = fullText.match(/\*\*Subject(?:\s*A)?:?\*\*\s*(.+)/i) || fullText.match(/subject:\s*(.+)/i);
+        const guessedSubject = subjectMatch ? subjectMatch[1].replace(/[*_]/g, '').trim() : '';
+
+        const payload = {
+            campaignName: taskLabel || 'Email Campaign',
+            subject: guessedSubject || taskLabel || 'Email Campaign',
+            html: typeof marked !== 'undefined' ? marked.parse(fullText) : `<pre>${this._escapeHtml(fullText)}</pre>`,
+            text: fullText,
+            timestamp: Date.now(),
+        };
+        localStorage.setItem('pat_incoming_draft', JSON.stringify(payload));
+        window.open('/agents/email-delivery-agent.html', '_blank');
     }
 
     /* ── AUTOMATION ASSESSMENT ──────────────────────────────────────────────── */
@@ -2963,9 +3155,13 @@ class ScottyChat {
                     });
                 }
 
-                // Download button
+                // Action buttons: Open in Agent (manual) / Auto-Start or Send with Pat (automatic), Download
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-result-actions';
+                this._appendChainActions(actionsEl, auto.agentKey, auto.prompt || auto.description || '', fullText, auto.title, auto.description);
+
                 const dlBtn = document.createElement('button');
-                dlBtn.className = 'auto-step-download';
+                dlBtn.className = 'task-action-btn';
                 dlBtn.textContent = '⬇️ Download';
                 dlBtn.addEventListener('click', () => {
                     const blob = new Blob([fullText], { type: 'text/markdown' });
@@ -2974,7 +3170,8 @@ class ScottyChat {
                     a.download = `${auto.id || 'automation'}-${Date.now()}.md`;
                     a.click();
                 });
-                stepEl.querySelector('.auto-step-header').appendChild(dlBtn);
+                actionsEl.appendChild(dlBtn);
+                resultEl.appendChild(actionsEl);
             } else {
                 dot.className = 'auto-step-dot error';
                 statusEl.textContent = '⚠️ Failed';
@@ -2995,7 +3192,89 @@ class ScottyChat {
         const abortBtn = containerEl.querySelector('#autoAbortBtn');
         if (abortBtn) abortBtn.style.display = 'none';
         InfoPanel.logActivity('🏁', `All ${autos.length} automation(s) complete — saved to History`);
+
+        this._renderMissionDigest(containerEl);
         this._scrollToBottom();
+    }
+
+    /* ── MISSION DIGEST ───────────────────────────────────────────────────────
+       Everything Scotty and its agents produced this mission, in one place,
+       with the same manual/automatic choice repeated per item for anyone who
+       scrolled past the individual results above.
+    ──────────────────────────────────────────────────────────────────────── */
+
+    _renderMissionDigest(afterEl) {
+        const digest = this._missionDigest;
+        if (!digest || !digest.items.length) return;
+
+        const byAgent = {};
+        digest.items.forEach(item => {
+            (byAgent[item.agentKey] = byAgent[item.agentKey] || []).push(item);
+        });
+
+        const digestEl = document.createElement('div');
+        digestEl.className = 'mission-digest-panel';
+        digestEl.innerHTML = `
+            <div class="mission-digest-header">
+                <div class="mission-digest-icon">📋</div>
+                <div>
+                    <div class="mission-digest-title">Mission Summary — ${digest.items.length} deliverable${digest.items.length === 1 ? '' : 's'} across ${Object.keys(byAgent).length} agent${Object.keys(byAgent).length === 1 ? '' : 's'}</div>
+                    <div class="mission-digest-sub">${this._escapeHtml(digest.missionTitle)}. Run any of these yourself, or let Scotty start the agent automatically with the same brief.</div>
+                </div>
+            </div>
+            <div class="mission-digest-groups" id="missionDigestGroups"></div>
+            <div class="mission-digest-complete-row" id="missionDigestCompleteRow">
+                <button class="mission-digest-complete-btn" id="missionDigestCompleteBtn">✅ Mark Mission Complete</button>
+                <span class="mission-digest-complete-hint">Only click this once you've checked the deliverables above and sent/scheduled anything that needed to go out.</span>
+            </div>`;
+
+        afterEl.appendChild(digestEl);
+
+        const groupsEl = digestEl.querySelector('#missionDigestGroups');
+        Object.entries(byAgent).forEach(([agentKey, items]) => {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'mission-digest-group';
+            groupEl.innerHTML = `<div class="mission-digest-group-title">${AGENT_META.emojis[agentKey] || '🤖'} ${AGENT_META.displayNames[agentKey] || agentKey} <span class="mission-digest-count">${items.length}</span></div>`;
+
+            items.forEach(item => {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'mission-digest-row';
+                rowEl.innerHTML = `<span class="mission-digest-row-title">${this._escapeHtml(item.taskLabel || 'Untitled')}</span>`;
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-result-actions';
+                this._appendChainActions(actionsEl, item.agentKey, item.promptText, item.fullText, item.taskLabel, item.scottyContext, true);
+                rowEl.appendChild(actionsEl);
+                groupEl.appendChild(rowEl);
+            });
+
+            groupsEl.appendChild(groupEl);
+        });
+
+        digestEl.querySelector('#missionDigestCompleteBtn').addEventListener('click', () => this._confirmMissionComplete(digestEl, digest));
+    }
+
+    /**
+     * The explicit "yes, I checked this and it's correct" gate — Scotty and
+     * its agents can produce and even auto-send deliverables, but a human
+     * confirms the mission is actually done, not the system deciding that
+     * for itself.
+     */
+    _confirmMissionComplete(digestEl, digest) {
+        const proceed = confirm(`Confirm mission complete: "${digest.missionTitle}"\n\n${digest.items.length} deliverable(s) reviewed and correct?\n\nThis just marks the mission as done in your history — it doesn't undo or resend anything.`);
+        if (!proceed) return;
+
+        const row = digestEl.querySelector('#missionDigestCompleteRow');
+        row.innerHTML = `<div class="mission-digest-confirmed">✅ Mission confirmed complete — ${new Date().toLocaleString()}</div>`;
+
+        InfoPanel.logActivity('🏁', `Mission confirmed complete: ${digest.missionTitle}`);
+        if (window.AgentHistory) {
+            window.AgentHistory.save({
+                agentKey: 'scotty',
+                taskType: 'Mission Complete',
+                content: `Mission "${digest.missionTitle}" confirmed complete by user.\n\n${digest.items.length} deliverables across ${new Set(digest.items.map(i => i.agentKey)).size} agents:\n` + digest.items.map(i => `- [${AGENT_META.displayNames[i.agentKey] || i.agentKey}] ${i.taskLabel}`).join('\n'),
+                topic: digest.missionTitle,
+            });
+        }
     }
 
     /* ── RETURNED AGENT DISPATCH DETECTION ─────────────────────────────────── */

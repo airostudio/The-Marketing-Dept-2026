@@ -323,45 +323,17 @@
     // DOMAIN SELECTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function initDomainSelector() {
+    async function initDomainSelector() {
         const selector = document.querySelector('.domain-selector');
         const btn = document.getElementById('domainSelector');
         const dropdown = document.getElementById('domainDropdown');
+        const labelEl = btn?.querySelector('[data-metric="current-domain"]');
 
-        if (!selector || !btn || !dropdown) return;
+        if (!selector || !btn || !dropdown || !labelEl) return;
 
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             selector.classList.toggle('open');
-        });
-
-        // Handle item selection
-        dropdown.querySelectorAll('.dropdown-item:not(.add-project)').forEach(item => {
-            item.addEventListener('click', function() {
-                const domain = this.querySelector('span').textContent;
-
-                // Update button text
-                btn.querySelector('span').textContent = domain;
-
-                // Update active state
-                dropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-
-                // Add checkmark
-                this.innerHTML = `<span>${domain}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-                selector.classList.remove('open');
-
-                // Trigger data refresh for new domain
-                showNotification('Domain Changed', `Now viewing data for ${domain}`, 'info');
-                refreshDashboard();
-            });
-        });
-
-        // Handle add project
-        dropdown.querySelector('.add-project')?.addEventListener('click', () => {
-            selector.classList.remove('open');
-            showNotification('Add Project', 'Project creation coming soon.', 'info');
         });
 
         // Close on outside click
@@ -370,6 +342,71 @@
                 selector.classList.remove('open');
             }
         });
+
+        await renderDomainList();
+    }
+
+    /**
+     * Populates the dropdown from real projects (ProjectService.getProjects())
+     * and wires each item to actually switch the active project — this
+     * previously only relabeled the button text with no data behind it and
+     * never called ProjectService.setCurrentProject() at all.
+     */
+    async function renderDomainList() {
+        const btn = document.getElementById('domainSelector');
+        const dropdown = document.getElementById('domainDropdown');
+        const labelEl = btn?.querySelector('[data-metric="current-domain"]');
+        if (!btn || !dropdown || !labelEl) return;
+
+        if (!window.ProjectService) {
+            labelEl.textContent = 'No project selected';
+            return;
+        }
+
+        const [projects, currentId] = await Promise.all([
+            window.ProjectService.getProjects(),
+            window.ProjectService.getCurrentProject().then(p => p?.id).catch(() => window.ProjectService.getCurrentProjectSync()?.id),
+        ]);
+
+        const current = projects.find(p => p.id === currentId);
+        labelEl.textContent = current ? (current.name || current.websiteUrl) : (projects.length ? 'Select a project' : 'No projects configured');
+
+        const itemsHtml = projects.length
+            ? projects.map(p => {
+                const label = p.name || p.websiteUrl || 'Untitled project';
+                const isActive = p.id === currentId;
+                return `<div class="dropdown-item${isActive ? ' active' : ''}" data-project-id="${p.id}">
+                    <span>${escapeHtmlDash(label)}</span>
+                    ${isActive ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </div>`;
+            }).join('')
+            : `<div class="dropdown-item empty-state" id="noDomains"><span>No projects configured</span></div>`;
+
+        dropdown.innerHTML = itemsHtml
+            + `<div class="dropdown-divider"></div>`
+            + `<a href="project-wizard.html" class="dropdown-item add-project">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add New Project</span>
+            </a>`;
+
+        dropdown.querySelectorAll('.dropdown-item[data-project-id]').forEach(item => {
+            item.addEventListener('click', async () => {
+                const projectId = item.dataset.projectId;
+                if (projectId === currentId) { document.querySelector('.domain-selector')?.classList.remove('open'); return; }
+
+                await window.ProjectService.setCurrentProject(projectId);
+                document.querySelector('.domain-selector')?.classList.remove('open');
+                showNotification('Project Switched', `Now viewing ${item.querySelector('span').textContent}`, 'info');
+                // Reload rather than a soft refresh — every dashboard data call
+                // reads 'seo-current-project' at call time, and a full reload
+                // is the simplest way to guarantee everything re-scopes.
+                setTimeout(() => window.location.reload(), 400);
+            });
+        });
+    }
+
+    function escapeHtmlDash(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

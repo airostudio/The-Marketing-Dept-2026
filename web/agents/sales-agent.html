@@ -13,6 +13,10 @@
     <script src="../js/perplexity-service.js" onerror="console.info('PerplexityService not loaded')"></script>
     <script src="../js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
     <script src="../js/intelligence-engine.js"></script>
+    <script src="../js/supabase-client.js"></script>
+    <script src="../js/intelligence-profiles.js"></script>
+    <script src="../js/site-switcher.js"></script>
+    <script src="../js/contacts-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -262,6 +266,7 @@
         <span class="nav-crumb">CHASE · <span>AI PROSPECTING</span></span>
     </div>
     <div class="nav-right">
+        <div id="site-switcher-mount"></div>
         <a href="/index.html" class="nav-btn">← Dashboard</a>
         <a href="/scotty.html" class="nav-btn">Scotty</a>
     </div>
@@ -428,6 +433,7 @@
         </select>
         <button class="btn btn-sm btn-ghost" onclick="bulkMoveStage()">Apply</button>
         <button class="btn btn-sm btn-ghost" onclick="bulkExportCSV()">⬇ Export</button>
+        <button class="btn btn-sm btn-ghost" style="color:#10b981;border-color:rgba(16,185,129,0.35);" onclick="bulkSendToMarketing()">📬 Send to Marketing</button>
         <button class="btn btn-sm btn-danger" onclick="bulkDelete()">🗑 Delete</button>
         <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="clearSelection()">✕ Deselect</button>
     </div>
@@ -1259,6 +1265,112 @@ function bulkExportCSV() {
     showToast(`${rows.length} records exported`);
 }
 
+// ── SEND TO MARKETING ────────────────────────────────────────────────────────
+// Hands off pipeline prospects to Ledger's persistent contact database (as a
+// 'sales-pipeline' tagged segment) so they can flow into the next step of the
+// marketing process — an email campaign built and sent by Pat — instead of
+// dead-ending as a CSV export.
+
+const SALES_MARKETING_TAG = 'sales-pipeline';
+const SALES_MARKETING_SEGMENT_NAME = 'Sales Pipeline Prospects';
+const GENERIC_EMAIL_PREFIXES = ['contact','info','hello','hi','sales','enquiries','enquiry','support','admin','office','mail'];
+
+/** Picks the best available email for a prospect across every source the agent collects, preferring generic/role addresses. */
+function bestEmailForProspect(p) {
+    const candidates = [];
+    (p.emails || []).forEach(e => candidates.push(typeof e === 'object' ? e.email : e));
+    (p.crawlEmails || []).forEach(e => candidates.push(e));
+    (p.profileEmails || []).forEach(e => candidates.push(e));
+    if (p.email) candidates.unshift(p.email);
+
+    const seen = new Set();
+    const unique = candidates.filter(e => e && !seen.has(e) && seen.add(e));
+    if (!unique.length) return null;
+
+    unique.sort((a, b) => {
+        const aGeneric = GENERIC_EMAIL_PREFIXES.some(g => a.split('@')[0].toLowerCase().startsWith(g)) ? 0 : 1;
+        const bGeneric = GENERIC_EMAIL_PREFIXES.some(g => b.split('@')[0].toLowerCase().startsWith(g)) ? 0 : 1;
+        return aGeneric - bGeneric;
+    });
+    return unique[0];
+}
+
+async function bulkSendToMarketing() {
+    if (!window.ContactsStore) {
+        alert('Audience Manager is unavailable right now — try reloading the page.');
+        return;
+    }
+
+    const all = Store.load();
+    const selected = all.filter(p => selectedIds.has(String(p.id)));
+    if (!selected.length) return;
+
+    const rows = [];
+    const skipped = [];
+    selected.forEach(p => {
+        const email = bestEmailForProspect(p);
+        if (!email) { skipped.push(p.name || 'Unnamed prospect'); return; }
+        rows.push({
+            email,
+            company: p.name || undefined,
+            tags: [SALES_MARKETING_TAG, `stage-${p.status || 'new'}`],
+            customFields: {
+                industry: p.industry || '',
+                city: p.city || '',
+                country: p.country || '',
+                phone: p.phone || '',
+                website: p.website || '',
+                opportunityScore: p.opportunityScore != null ? String(p.opportunityScore) : '',
+                opportunityReason: p.opportunityReason || '',
+            },
+            source: 'sales-agent',
+        });
+    });
+
+    if (!rows.length) {
+        alert(`None of the ${selected.length} selected prospect(s) have a usable email address yet — enrich them first (Hunter lookup, website crawl, or web search) before sending to Marketing.`);
+        return;
+    }
+
+    let result;
+    try {
+        result = await window.ContactsStore.upsertContacts(rows);
+    } catch (e) {
+        alert(`Could not send to Audience Manager: ${e.message}`);
+        return;
+    }
+
+    // Ensure a reusable segment exists so this pipeline is one click away from a send in Pat.
+    let segmentId = null;
+    try {
+        const segments = await window.ContactsStore.listSegments();
+        const existing = segments.find(s => s.name === SALES_MARKETING_SEGMENT_NAME);
+        if (existing) {
+            segmentId = existing.id;
+        } else {
+            const created = await window.ContactsStore.createSegment({
+                name: SALES_MARKETING_SEGMENT_NAME,
+                description: 'Prospects sent from Sales Intelligence (CHASE) — auto-tagged, excludes anyone unsubscribed.',
+                memberMode: 'dynamic',
+                filterRules: { tagsAny: [SALES_MARKETING_TAG], status: 'subscribed' },
+            });
+            segmentId = created.id;
+        }
+    } catch (e) {
+        // Contacts still imported successfully even if segment creation failed — not fatal.
+        console.warn('[Sales → Marketing] segment creation failed:', e.message);
+    }
+
+    const skippedNote = skipped.length ? ` (${skipped.length} skipped — no email on file)` : '';
+    showToast(`${result.imported} added, ${result.updated} updated in Audience Manager${skippedNote}`);
+
+    if (segmentId && confirm(`${rows.length} prospect(s) are now in "${SALES_MARKETING_SEGMENT_NAME}" in Audience Manager.\n\nOpen Pat now to build and send a campaign to this segment?`)) {
+        window.location.href = `/agents/email-delivery-agent.html?segment=${segmentId}`;
+    }
+
+    clearSelection();
+}
+
 function renderPipe() {
     const all = Store.load();
     const statuses = ['new','contacted','qualified','proposal','won','lost'];
@@ -1570,8 +1682,9 @@ async function openQuickSend(prospectId, emailType) {
         const svc = window.ClaudeService;
         if (!svc) throw new Error('Claude service not available — enter copy manually.');
 
+        const senderCtx = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
         const raw = await svc.callAgent({
-            systemPrompt: bbContext() + 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble, no sign-off placeholder.',
+            systemPrompt: bbContext() + senderCtx + 'You write short, effective cold sales emails. Output only the email — subject line first (prefixed "Subject: "), blank line, then body. No preamble. If a SENDER IDENTITY is given above, sign off with that real name; otherwise close naturally with no explicit signature — never a placeholder like "[Your Name]".',
             messages: [{ role: 'user', content: prompt }],
         });
         const lines = raw.split('\n');
@@ -1844,6 +1957,7 @@ function checkScottyDispatch() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    if (window.SiteSwitcher) SiteSwitcher.mount();
     renderPipe();
     populateProspectSelect();
     prefillOfferFields();
