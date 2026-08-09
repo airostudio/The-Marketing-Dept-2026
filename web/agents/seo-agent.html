@@ -87,6 +87,30 @@
         .feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
 
         @media (max-width: 900px) { .main-content { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr 1fr; } .hero h1 { font-size: 30px; } }
+
+        /* EXPRESS CHECK */
+        .express-panel { grid-column: 1 / -1; }
+        .express-row { display: flex; gap: 10px; }
+        .express-row .field-input { flex: 1; }
+        .btn-express { padding: 0 20px; background: linear-gradient(135deg, var(--agent-color), var(--purple)); border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap; transition: opacity 0.15s; }
+        .btn-express:hover { opacity: 0.88; }
+        .btn-express:disabled { opacity: 0.5; cursor: not-allowed; }
+        .express-scorecard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+        .score-tile { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+        .score-tile-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+        .score-tile-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .score-good { color: var(--green); }
+        .score-mid { color: #fbbf24; }
+        .score-bad { color: #ef4444; }
+        .express-issues { margin-top: 16px; }
+        .express-issues-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 10px; }
+        .express-issue { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+        .express-issue:first-child { border-top: none; }
+        .express-issue-badge { flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(239,68,68,0.15); color: #ef4444; height: fit-content; }
+        .express-issue-text { color: var(--text2); line-height: 1.5; }
+        .express-issue-text strong { color: var(--text); }
+        .express-transfer-row { margin-top: 18px; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .express-transfer-row .btn-run { margin-top: 0; flex-shrink: 0; width: auto; padding: 11px 20px; }
     </style>
 </head>
 <body>
@@ -116,6 +140,20 @@
 
 <div class="main-content">
 
+    <div class="panel express-panel">
+        <div class="panel-header">
+            <span class="panel-title">⚡ Express Site Check</span>
+            <span style="font-size:11px;color:var(--text2);">Real Google PageSpeed data · ~10 seconds</span>
+        </div>
+        <div class="panel-body">
+            <div class="express-row">
+                <input class="field-input" id="expressUrl" type="text" placeholder="https://yoursite.com">
+                <button class="btn-express" id="expressBtn" onclick="runExpressCheck()">Run Express Check</button>
+            </div>
+            <div id="expressResults"></div>
+        </div>
+    </div>
+
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title">SEO Task</span>
@@ -124,6 +162,7 @@
             <div class="field-group">
                 <label class="field-label">Task Type</label>
                 <select class="field-select" id="taskType">
+                    <option value="Full Site Audit">Full Site Audit</option>
                     <option value="Keyword Research">Keyword Research</option>
                     <option value="Content Brief">Content Brief</option>
                     <option value="Title Optimization">Title Optimization</option>
@@ -495,6 +534,19 @@ IMPORTANT: You do not have live keyword databases. Present all search volume and
             let userMessage = `SEO Task: ${taskType}\nURL or Topic: ${urlTopic}`;
             if (audience) userMessage += `\nTarget Audience: ${audience}`;
             if (competitors) userMessage += `\nCompetitor URLs: ${competitors}`;
+
+            // Ground the analysis in real PageSpeed data from the Express Check, when available
+            const expressCheck = window.lastExpressCheck;
+            if (expressCheck && Date.now() - expressCheck.timestamp < 30 * 60 * 1000) {
+                userMessage += `\n\n## LIVE GOOGLE PAGESPEED DATA (Express Check — real, not estimated)\nChecked: ${expressCheck.url}\n`;
+                userMessage += `Scores (0-100): Performance ${expressCheck.scores.performance} · SEO ${expressCheck.scores.seo} · Accessibility ${expressCheck.scores.accessibility} · Best Practices ${expressCheck.scores.bestPractices}\n`;
+                if (expressCheck.issues.length) {
+                    userMessage += `Top real issues detected:\n`;
+                    expressCheck.issues.forEach(i => { userMessage += `- [${i.category}] ${i.title}\n`; });
+                }
+                userMessage += `Use these real scores/issues as ground truth for technical SEO recommendations — do not re-estimate performance figures already given above.\n`;
+            }
+
             userMessage += `\n\nProvide a comprehensive ${taskType} analysis with specific, immediately actionable recommendations. Include:
 - High-priority keyword opportunities (with difficulty and search intent)
 - Content gaps to fill
@@ -553,6 +605,118 @@ Make it detailed, practical, and competitive.${icpSearchIntent}${competitorSEOCo
 }
 
 const agent = new SEOAgent();
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPRESS SITE CHECK — real Google PageSpeed data via /api/pagespeed
+   ═══════════════════════════════════════════════════════════════════ */
+
+function scoreClass(score) {
+    if (score >= 90) return 'score-good';
+    if (score >= 50) return 'score-mid';
+    return 'score-bad';
+}
+
+function escapeHtmlSEO(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+}
+
+/** Pull the worst-scoring audits out of a PageSpeed category (score !== 1, has a real title). */
+function collectTopIssues(lighthouse, categoryKeys, limit) {
+    const audits = lighthouse?.audits || {};
+    const issues = [];
+    categoryKeys.forEach(catKey => {
+        const cat = lighthouse?.categories?.[catKey];
+        if (!cat?.auditRefs) return;
+        cat.auditRefs.forEach(ref => {
+            const audit = audits[ref.id];
+            if (!audit || audit.score === null || audit.score === 1 || !audit.title) return;
+            if (issues.some(i => i.id === ref.id)) return; // shared audits across categories
+            issues.push({ id: ref.id, title: audit.title, description: audit.description || '', score: audit.score, category: catKey });
+        });
+    });
+    return issues.sort((a, b) => a.score - b.score).slice(0, limit);
+}
+
+async function runExpressCheck() {
+    const urlInput = document.getElementById('expressUrl');
+    const btn = document.getElementById('expressBtn');
+    const resultsEl = document.getElementById('expressResults');
+    let url = urlInput.value.trim();
+    if (!url) { alert('Enter a website URL to check.'); return; }
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    resultsEl.innerHTML = `<div class="typing-indicator" style="padding:16px 0 0;"><div class="dot-pulse"><span></span><span></span><span></span></div> Running a live PageSpeed check on ${escapeHtmlSEO(url)}...</div>`;
+
+    try {
+        const res = await fetch(`/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`);
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error?.message || data.error || `PageSpeed request failed (${res.status})`);
+        }
+
+        const lighthouse = data.lighthouseResult;
+        const categories = lighthouse?.categories || {};
+        const scores = {
+            performance: Math.round((categories.performance?.score ?? 0) * 100),
+            accessibility: Math.round((categories.accessibility?.score ?? 0) * 100),
+            bestPractices: Math.round((categories['best-practices']?.score ?? 0) * 100),
+            seo: Math.round((categories.seo?.score ?? 0) * 100),
+        };
+        const issues = collectTopIssues(lighthouse, ['seo', 'performance', 'best-practices', 'accessibility'], 6);
+
+        window.lastExpressCheck = { url, scores, issues, timestamp: Date.now() };
+
+        resultsEl.innerHTML = `
+            <div class="express-scorecard">
+                <div class="score-tile"><div class="score-tile-value ${scoreClass(scores.performance)}">${scores.performance}</div><div class="score-tile-label">Performance</div></div>
+                <div class="score-tile"><div class="score-tile-value ${scoreClass(scores.seo)}">${scores.seo}</div><div class="score-tile-label">SEO</div></div>
+                <div class="score-tile"><div class="score-tile-value ${scoreClass(scores.accessibility)}">${scores.accessibility}</div><div class="score-tile-label">Accessibility</div></div>
+                <div class="score-tile"><div class="score-tile-value ${scoreClass(scores.bestPractices)}">${scores.bestPractices}</div><div class="score-tile-label">Best Practices</div></div>
+            </div>
+            ${issues.length ? `
+            <div class="express-issues">
+                <div class="express-issues-title">Top Issues Found</div>
+                ${issues.map(i => `
+                    <div class="express-issue">
+                        <span class="express-issue-badge">${escapeHtmlSEO(i.category)}</span>
+                        <span class="express-issue-text"><strong>${escapeHtmlSEO(i.title)}</strong></span>
+                    </div>
+                `).join('')}
+            </div>` : ''}
+            <div class="express-transfer-row">
+                <button class="btn-run" onclick="transferExpressCheckToForm()">Transfer to Main SEO Form →</button>
+                <span style="font-size:12px;color:var(--text2);">Pre-fills the URL and grounds the full analysis in this real data.</span>
+            </div>
+        `;
+    } catch (err) {
+        resultsEl.innerHTML = `<div style="color:#f87171;padding:16px 0 0;">❌ ${escapeHtmlSEO(err.message)}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Express Check';
+    }
+}
+
+function transferExpressCheckToForm() {
+    const check = window.lastExpressCheck;
+    if (!check) return;
+
+    const urlTopicField = document.getElementById('urlTopic');
+    const taskTypeField = document.getElementById('taskType');
+    urlTopicField.value = check.url;
+    taskTypeField.value = 'Full Site Audit';
+
+    const taskPanel = urlTopicField.closest('.panel');
+    if (taskPanel) {
+        taskPanel.style.transition = 'box-shadow 0.3s';
+        taskPanel.style.boxShadow = '0 0 0 2px rgba(6,182,212,0.5)';
+        setTimeout(() => { taskPanel.style.boxShadow = ''; }, 2500);
+        taskPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
 
 function copyOutput() {
     const text = document.getElementById('output').innerText;
