@@ -16,6 +16,23 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Pulse Social Studio — Real AI Ad Image Generation
+
+The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents/social-agent.html`) creates a real, finished PNG/JPEG/WEBP creative — headline, supporting line, and CTA baked in as real on-image typography, using direct-response ad design principles — via `api/generate-ad-image.js`, proxied server-side so the key never reaches the browser.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `OPENAI_API_KEY` | Same key already used by `api/openai.js` — no separate key needed | ✅ For AI ad images |
+| `OPENAI_IMAGE_MODEL` | Image model to request | Optional (defaults to `gpt-image-1`) |
+
+Without `OPENAI_API_KEY`, the button returns a clear "not configured" error — a free, instant, no-API-key "quick template" fallback (deterministic SVG background + typography, via `api/render-social-image.js`) stays available underneath every card either way, clearly labeled as a placeholder rather than a finished ad.
+
+Generated images upload to the same `social-creatives` Supabase Storage bucket as the quick-template ones (when `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are set), giving a real hosted URL — which is what unlocks Instagram/TikTok publishing, since those platforms reject `data:` URIs.
+
+**Publishing stays manual until platform credentials are added.** Every approved post/image can be pushed to Pat and published with one click today. Once you add a given platform's credentials (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`, `INSTAGRAM_USER_ID` + Meta token, `TIKTOK_ACCESS_TOKEN` — see `api/publish-social-post.js`), that platform starts publishing automatically too: `api/cron-auto-publish.js` already runs every 15 minutes via the Vercel Cron entry in `vercel.json`, publishing anything scheduled through Beeker's calendar with no further code changes needed.
+
+---
+
 ## Reel Video Studio — Seedance 2.0 AI Video Generation
 
 Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text prompt (or a prompt + reference image) into a real rendered video clip via Seedance 2.0, proxied server-side through `api/generate-video.js` — the API key never reaches the browser.

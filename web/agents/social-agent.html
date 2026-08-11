@@ -176,9 +176,14 @@
         .post-card-btn.approve { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
         .post-card-btn.approve:hover { background: rgba(16,185,129,0.18); }
         .post-card-btn.image:hover { border-color: rgba(124,58,237,0.4); color: #a78bfa; }
-        .post-card-image-wrap { margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .post-card-image-wrap { position: relative; margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.2); }
         .post-card-image-wrap img { display: block; width: 100%; height: auto; }
+        .post-card-image-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; backdrop-filter: blur(6px); }
+        .post-card-image-badge.ai { background: rgba(124,58,237,0.75); color: #fff; }
+        .post-card-image-badge.template { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
         .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
+        .post-card-quick-link { display: block; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: 'Inter', sans-serif; padding: 0; }
+        .post-card-quick-link:hover { color: var(--text2); }
         .review-queue-summary {
             display: flex; gap: 14px; font-size: 12px; color: var(--text2); margin-bottom: 14px;
             padding-bottom: 12px; border-bottom: 1px solid var(--border);
@@ -688,7 +693,7 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
-            ${p.imageUrl ? `<div class="post-card-image-wrap"><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
+            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
@@ -698,9 +703,10 @@ function renderReviewQueue() {
             <div class="post-card-actions">
                 <button class="post-card-btn reject" onclick="rejectPost('${p.id}')" ${p.status === 'rejected' ? 'disabled' : ''}>✕ Reject</button>
                 <button class="post-card-btn regen" onclick="regeneratePost('${p.id}')">↻ Regenerate</button>
-                <button class="post-card-btn image" onclick="generateCardImage('${p.id}')" ${p._imageLoading ? 'disabled' : ''}>${p._imageLoading ? '⏳ Rendering…' : '🎨 ' + (p.imageUrl ? 'Re-render' : 'Image')}</button>
+                <button class="post-card-btn image" onclick="generateCardImage('${p.id}')" ${p._imageLoading ? 'disabled' : ''}>${p._imageLoading ? '⏳ Generating…' : '✨ ' + (p.imageUrl ? 'Regenerate Image' : 'Generate Ad Image')}</button>
                 <button class="post-card-btn approve" onclick="approvePost('${p.id}')" ${p.status === 'approved' ? 'disabled' : ''}>✓ Approve</button>
             </div>
+            ${!p._imageLoading ? `<button class="post-card-quick-link" onclick="generateCardImageQuick('${p.id}')">Use free quick template instead (instant, no AI, placeholder-quality)</button>` : ''}
         </div>
     `).join('');
 
@@ -734,8 +740,55 @@ async function rejectPost(id) {
     }
 }
 
-/** Render a deterministic on-brand creative for one card via /api/render-social-image. */
+/** Generate a real, finished AI ad creative (PNG/JPEG/WEBP) for one card via /api/generate-ad-image. */
 async function generateCardImage(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+
+    post._imageLoading = true;
+    post.imageError = null;
+    renderReviewQueue();
+
+    try {
+        const res = await fetch('/api/generate-ad-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                headline: post.headline || post.hook,
+                subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
+                cta: post.cta || '',
+                proofPoint: post.proofPoint || '',
+                urgencyLine: post.urgencyLine || '',
+                platform: post.platform,
+                visualDirection: post.visualDirection || '',
+                product: document.getElementById('adProduct')?.value || '',
+                audience: document.getElementById('adAudience')?.value || '',
+                format: 'png',
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        post.imageUrl = data.dataUri;
+        post.hostedImageUrl = data.hostedUrl || null;
+        post.imageIsAI = true;
+        post._imageLoading = false;
+
+        if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
+            // Prefer the hosted URL when available — Instagram/TikTok publishing
+            // needs a real fetchable URL, not a data: URI. Falls back to the data
+            // URI when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't configured.
+            try { await window.SocialPostsStore.updatePost(id, { image_url: data.hostedUrl || data.dataUri, image_render_status: 'rendered' }); } catch (err) { console.warn(err.message); }
+        }
+    } catch (err) {
+        post._imageLoading = false;
+        post.imageError = err.message;
+    }
+    renderReviewQueue();
+}
+
+/** Fallback: instant, free, deterministic SVG-template creative via /api/render-social-image. */
+async function generateCardImageQuick(id) {
     const post = findReviewPost(id);
     if (!post) return;
 
@@ -762,12 +815,10 @@ async function generateCardImage(id) {
 
         post.imageUrl = data.dataUri;
         post.hostedImageUrl = data.hostedUrl || null;
+        post.imageIsAI = false;
         post._imageLoading = false;
 
         if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
-            // Prefer the hosted URL when available — Instagram/TikTok publishing
-            // needs a real fetchable URL, not a data: URI. Falls back to the data
-            // URI when SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't configured.
             try { await window.SocialPostsStore.updatePost(id, { image_url: data.hostedUrl || data.dataUri, image_render_status: 'rendered' }); } catch (err) { console.warn(err.message); }
         }
     } catch (err) {
