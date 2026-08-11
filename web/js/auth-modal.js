@@ -122,6 +122,40 @@
     } catch (_) { /* best-effort only — org is already safe in auth metadata */ }
   }
 
+  // ── Cross-account data isolation guard ────────────────────────────────────
+  // This modal is the primary login path on index.html and talks to Supabase
+  // via raw fetch — it never goes through the supabase-js SDK client, so
+  // supabase-client.js's own onAuthStateChange-based guard never fires for
+  // logins/logouts made here. Business Brain / Intelligence Layer data lives
+  // in localStorage keyed by *active profile*, not by user id, so without
+  // this a second person signing in on the same browser inherits whatever
+  // business data the previous account left behind. Shares the same
+  // 'audema_last_uid' tracker key as supabase-client.js's guard so both
+  // login paths cooperate on one browser-wide account-switch signal.
+  var LAST_UID_KEY = 'audema_last_uid';
+
+  function _clearLocalIntelligenceState() {
+    try {
+      if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true);
+    } catch (e) { console.error('[auth-modal] IntelligenceEngine.clearAll failed:', e); }
+    try {
+      localStorage.removeItem('intel_active_profile');
+      localStorage.removeItem('seo-current-project');
+    } catch (e) { console.error('[auth-modal] local cache cleanup failed:', e); }
+  }
+
+  function _guardAccountSwitch(userId) {
+    if (!userId) return;
+    var lastUid;
+    try { lastUid = localStorage.getItem(LAST_UID_KEY); } catch (e) { return; }
+
+    if (lastUid && lastUid !== userId) {
+      console.warn('[auth-modal] Different account detected on this browser — clearing local intelligence/profile cache to prevent cross-account data bleed.');
+      _clearLocalIntelligenceState();
+    }
+    try { localStorage.setItem(LAST_UID_KEY, userId); } catch (e) { /* ignore */ }
+  }
+
   // ── Session helpers ───────────────────────────────────────────────────────
   function _createSessionFromSupabase(sbData) {
     var sbUser = sbData.user || {};
@@ -157,6 +191,7 @@
       userId: pub.id, email: pub.email,
       created: Date.now(), expires: Date.now() + expiresIn * 1000, source: 'supabase',
     }));
+    _guardAccountSwitch(pub.id);
     return pub;
   }
 
@@ -183,6 +218,7 @@
     }
     localStorage.setItem('seo_agent_user', JSON.stringify(pub));
     localStorage.setItem('seo_agent_session', JSON.stringify({ userId: user.id, email: user.email, created: Date.now(), expires: Date.now() + TTL, source: 'local' }));
+    _guardAccountSwitch(pub.id);
     return pub;
   }
 
@@ -592,6 +628,11 @@
     localStorage.removeItem('seo_agent_user');
     localStorage.removeItem('seo_agent_session');
     _sbConfig = null; // Reset cache so next login re-checks
+    // Clear immediately — don't wait for the next login to detect the
+    // account switch, in case this browser gets handed straight to someone
+    // else without them logging in through this same modal path.
+    _clearLocalIntelligenceState();
+    try { localStorage.removeItem(LAST_UID_KEY); } catch (e) { /* ignore */ }
   }
 
   // Wire up the already-exposed AuthModal
