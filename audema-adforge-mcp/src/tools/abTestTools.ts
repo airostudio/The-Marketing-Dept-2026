@@ -1,7 +1,39 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { conceptStore } from '../storage/index.js';
+import { conceptStore, briefStore, campaignStore } from '../storage/index.js';
 import type { AdConcept } from '../types.js';
+import { calculateSampleSize, checkSignificance } from '../campaigns/statistics.js';
+
+/**
+ * Looks up a real historical conversion rate for the brand behind a concept
+ * (via its brief), from previously saved campaign results, so sample-size
+ * guidance can be computed from actual data instead of a generic rule of
+ * thumb. Returns null when there isn't enough history to trust a baseline.
+ */
+function findHistoricalBaselineRate(concept: AdConcept): number | null {
+  const brief = concept.briefId ? briefStore.get(concept.briefId) : undefined;
+  if (!brief?.brandProfileId) return null;
+
+  const results = campaignStore.find((r) => r.brandProfileId === brief.brandProfileId);
+  const withConversions = results.filter((r) => r.clicks > 0 && ((r.leads ?? 0) > 0 || (r.purchases ?? 0) > 0));
+  if (!withConversions.length) return null;
+
+  const totalClicks = withConversions.reduce((sum, r) => sum + r.clicks, 0);
+  const totalConversions = withConversions.reduce((sum, r) => sum + (r.leads ?? r.purchases ?? 0), 0);
+  if (totalClicks === 0) return null;
+
+  const rate = totalConversions / totalClicks;
+  return rate > 0 && rate < 1 ? rate : null;
+}
+
+function buildSampleGuidance(a: AdConcept, b: AdConcept): string {
+  const baseline = findHistoricalBaselineRate(a) ?? findHistoricalBaselineRate(b);
+  if (baseline === null) {
+    return 'Minimum sample before calling a winner: run until each variant has at least ~100 conversions (or 1,000+ clicks if optimising for CTR first) — no historical performance data yet for this brand to compute a precise number, so this is a general rule of thumb, not a calculation. Save campaign results first, or call calculate_test_sample_size directly with your own baseline conversion rate.';
+  }
+  const sample = calculateSampleSize({ baselineConversionRate: baseline, minimumDetectableEffect: 0.2 });
+  return `Minimum sample before calling a winner: **~${sample.perVariantSampleSize.toLocaleString()} visitors per variant** (${sample.totalSampleSize.toLocaleString()} total), calculated from this brand's historical ${(baseline * 100).toFixed(1)}% conversion rate, assuming you want to reliably detect a 20% relative lift at 80% power / 95% confidence. Once you have real click/conversion counts for both variants, call check_test_significance to see if you can call a winner yet.`;
+}
 
 function buildHypothesis(a: AdConcept, b: AdConcept): string {
   if (a.angleType !== b.angleType) {
@@ -68,7 +100,7 @@ export function registerAbTestTools(server: McpServer) {
         lines.push(`Hypothesis: ${buildHypothesis(a, b)}`);
         lines.push(`Primary metric: ${a.angleType === 'offer' || b.angleType === 'offer' ? 'Conversion rate (or CPA) — offer-led ads should be judged on completed action, not just clicks' : 'CTR, then conversion rate once you have volume'}`);
         lines.push(`Budget split: ${recommendSplit(a, b)}`);
-        lines.push(`Minimum sample before calling a winner: run until each variant has at least ~100 conversions (or 1,000+ clicks if optimising for CTR first) — calling it earlier risks reacting to noise rather than a real difference.`);
+        lines.push(buildSampleGuidance(a, b));
         lines.push('');
       });
 
@@ -77,6 +109,68 @@ export function registerAbTestTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+  );
+
+  server.tool(
+    'calculate_test_sample_size',
+    'Compute the real per-variant and total sample size needed for an A/B test, given a baseline conversion rate and the minimum relative lift you want to reliably detect. Standard two-proportion power calculation (not a rule of thumb) — use this before launching a test to know how long to run it for.',
+    {
+      baselineConversionRate: z.number().gt(0).lt(1).describe('Current/control conversion rate, e.g. 0.03 for 3%'),
+      minimumDetectableEffect: z.number().gt(0).describe('Smallest RELATIVE lift worth detecting, e.g. 0.2 for "a 20% relative improvement"'),
+      power: z.number().gt(0).lt(1).default(0.8).describe('Statistical power — probability of detecting a real effect if one exists. 0.8 (80%) is standard.'),
+      significanceLevel: z.number().gt(0).lt(1).default(0.05).describe('Two-sided significance level. 0.05 (95% confidence) is standard.'),
+    },
+    async (args) => {
+      try {
+        const result = calculateSampleSize(args);
+        return {
+          content: [{
+            type: 'text',
+            text: `**Sample size needed: ${result.perVariantSampleSize.toLocaleString()} per variant (${result.totalSampleSize.toLocaleString()} total)**\n\n` +
+              `Baseline conversion rate: ${(result.baselineConversionRate * 100).toFixed(2)}%\n` +
+              `Target conversion rate to detect: ${(result.targetConversionRate * 100).toFixed(2)}% (a ${(result.minimumDetectableEffect * 100).toFixed(0)}% relative lift)\n` +
+              `Power: ${(result.power * 100).toFixed(0)}% | Significance level: ${(result.significanceLevel * 100).toFixed(0)}%\n\n` +
+              `Below this sample size, even a test that looks "significant" is at meaningfully higher risk of being noise — don't call a winner before you get here.`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    'check_test_significance',
+    'Run a real two-proportion significance test (z-test) on two variants\' actual conversion counts, to tell you whether you can trust calling a winner yet. Reports the p-value and lift honestly, and flags when the sample is too thin to trust even if the math says "significant".',
+    {
+      variantAConversions: z.number().int().min(0),
+      variantAVisitors: z.number().int().min(1),
+      variantBConversions: z.number().int().min(0),
+      variantBVisitors: z.number().int().min(1),
+      significanceLevel: z.number().gt(0).lt(1).default(0.05),
+    },
+    async (args) => {
+      try {
+        const result = checkSignificance(
+          { conversions: args.variantAConversions, visitors: args.variantAVisitors },
+          { conversions: args.variantBConversions, visitors: args.variantBVisitors },
+          args.significanceLevel
+        );
+        const lines = [
+          `Variant A: ${(result.variantAConversionRate * 100).toFixed(2)}% (${args.variantAConversions}/${args.variantAVisitors})`,
+          `Variant B: ${(result.variantBConversionRate * 100).toFixed(2)}% (${args.variantBConversions}/${args.variantBVisitors})`,
+          `Relative lift (B vs A): ${(result.relativeLift * 100).toFixed(1)}%`,
+          `z-score: ${result.zScore.toFixed(3)} | p-value: ${result.pValue.toFixed(4)}`,
+          result.isSignificant
+            ? `**Statistically significant at ${(result.confidenceLevel * 100).toFixed(0)}% confidence — Variant ${result.winner} wins.**`
+            : `**Not statistically significant yet at ${(result.confidenceLevel * 100).toFixed(0)}% confidence — keep running the test.**`,
+        ];
+        if (result.warning) lines.push(`⚠️ ${result.warning}`);
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }], isError: true };
+      }
     }
   );
 }

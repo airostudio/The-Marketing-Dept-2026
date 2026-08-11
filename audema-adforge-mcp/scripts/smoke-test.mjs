@@ -224,6 +224,53 @@ async function main() {
   const listDraftsRes = await callTool('list_campaign_drafts', { brandProfileId: brandId });
   console.log(text(listDraftsRes));
 
+  console.log('\n=== 16. calculate_test_sample_size ===');
+  const sampleSizeRes = await callTool('calculate_test_sample_size', { baselineConversionRate: 0.1, minimumDetectableEffect: 0.2 });
+  console.log(text(sampleSizeRes));
+
+  console.log('\n=== 17. check_test_significance ===');
+  const significanceRes = await callTool('check_test_significance', {
+    variantAConversions: 100, variantAVisitors: 1000,
+    variantBConversions: 150, variantBVisitors: 1000,
+  });
+  console.log(text(significanceRes));
+
+  console.log('\n=== 18. suggest_pause_candidates (auto-derived rules from history) ===');
+  const pauseRes = await callTool('suggest_pause_candidates', { brandProfileId: brandId });
+  console.log(text(pauseRes));
+
+  console.log('\n=== 19. generate_creative_combinations (DCO) ===');
+  const dcoRes = await callTool('generate_creative_combinations', {
+    briefId,
+    angleType: 'urgency',
+    targetEmotion: 'urgency',
+    customerPainPoint: 'Frozen pipes ruining the week',
+    conversionRationale: 'Same-day availability removes the biggest objection to calling now',
+    headlines: ['Pipes Frozen? We Fix It Tonight.', 'Emergency Plumber — Same Day'],
+    ctas: ['Call Now', 'Book Emergency Repair'],
+    visualDirections: ['Frost-covered pipe close-up'],
+    maxCombinations: 10,
+  });
+  console.log(text(dcoRes));
+
+  console.log('\n=== 20. check_brand_compliance ===');
+  const complianceRes = await callTool('check_brand_compliance', { conceptId: conceptIds[0] });
+  console.log(text(complianceRes));
+
+  console.log('\n=== 21. get_brand_score_calibration (expect: not enough data yet) ===');
+  const calibrationRes = await callTool('get_brand_score_calibration', { brandProfileId: brandId });
+  console.log(text(calibrationRes));
+
+  console.log('\n=== 22. analyze_competitor_ad ===');
+  const teardownRes = await callTool('analyze_competitor_ad', {
+    competitorName: 'RivalPlumbing Co',
+    platform: 'Meta',
+    headline: 'Save 20% on emergency repairs today only',
+    body: 'Rated #1 by 5,000+ homeowners',
+    cta: 'Claim Your Discount',
+  });
+  console.log(text(teardownRes));
+
   console.log('\n=== ALL STEPS COMPLETED ===');
   proc.stdin.end();
   proc.kill();

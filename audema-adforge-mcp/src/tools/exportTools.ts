@@ -6,11 +6,12 @@ import { conceptStore, briefStore, brandStore, layoutStore, EXPORT_DIR } from '.
 import { generateLayoutSpec } from '../render/layout.js';
 import { renderAd } from '../render/renderer.js';
 import { generateBackgroundImage, isImageProviderConfigured, unavailableReason } from '../render/imageProvider.js';
+import { checkBrandCompliance } from '../render/compliance.js';
 
 export function registerExportTools(server: McpServer) {
   server.tool(
     'export_ad_image',
-    'Render a concept to a production-ready PNG or JPG file on disk at the given platform size. Generates the layout automatically if one hasn\'t been created yet. Returns the file path.',
+    'Render a concept to a production-ready PNG or JPG file on disk at the given platform size. Generates the layout automatically if one hasn\'t been created yet. Returns the file path, plus any brand-compliance warnings (logo overlap, low text contrast, forbidden phrases) — these never block the export, but are worth reading before shipping the file.',
     {
       conceptId: z.string(),
       platformSize: PlatformSizeSchema.optional().describe('Defaults to the concept\'s own platformSize field'),
@@ -53,12 +54,15 @@ export function registerExportTools(server: McpServer) {
 
       try {
         const result = await renderAd(concept, layout, brand, args.outputDir ?? EXPORT_DIR, args.format, backgroundImagePath);
-        return {
-          content: [{
-            type: 'text',
-            text: `Exported "${concept.conceptName}" (${size}, ${args.format.toUpperCase()}) → ${result.filePath} (${result.width}×${result.height}px)`,
-          }],
-        };
+        let text = `Exported "${concept.conceptName}" (${size}, ${args.format.toUpperCase()}) → ${result.filePath} (${result.width}×${result.height}px)`;
+
+        const issues = checkBrandCompliance(concept, layout, brand);
+        if (issues.length) {
+          text += `\n\n⚠️ ${issues.length} compliance issue(s) — export still succeeded, but review before shipping:\n` +
+            issues.map((i) => `- [${i.severity}] ${i.message}`).join('\n');
+        }
+
+        return { content: [{ type: 'text', text }] };
       } catch (err) {
         return {
           content: [{ type: 'text', text: `Export failed: ${err instanceof Error ? err.message : String(err)}` }],
