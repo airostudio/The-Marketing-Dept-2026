@@ -23,9 +23,21 @@
  *   audience?: string,       // who the ad targets — sharpens the visual hook
  *   brand?: { colours?: {primary,secondary,accent,background,text}, style?: string },
  *   format?: 'png'|'jpeg'|'webp',  // default 'png'
+ *   intelProfileId?: string, // credit-metering scope (see below)
+ *   projectId?: string,      // credit-metering scope, used when no active profile
  * }
  *
- * Returns: { success, dataUri, hostedUrl, mimeType, platformSize, notes }
+ * Returns: { success, dataUri, hostedUrl, mimeType, platformSize, notes, creditsRemaining? }
+ * On quota exhaustion: 402 { error: 'out_of_credits', message, creditsRemaining: 0, creditsRequired, upgradeUrl }
+ *
+ * ── Credit metering ──────────────────────────────────────────────────────
+ * Each call costs AD_IMAGE_CREDIT_COST credits (default 100) against a
+ * balance scoped to the caller's active intelligence profile (or legacy
+ * project as a fallback) — see supabase-credits.sql. New scopes start with
+ * DEFAULT_CREDIT_BALANCE credits (default 20,000). Metering only runs when
+ * both a scope id and SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY are present —
+ * without either, generation proceeds unmetered rather than hard-blocking
+ * callers who haven't set up Supabase or an active site/profile yet.
  */
 
 'use strict';
@@ -129,6 +141,51 @@ async function uploadHostedCreative(buffer, mimeType, format, platformSize) {
   }
 }
 
+// ── Credit metering (Supabase-backed, per intelligence profile/site) ───────
+const AD_IMAGE_CREDIT_COST = parseInt(process.env.AD_IMAGE_CREDIT_COST, 10) || 100;
+const DEFAULT_CREDIT_BALANCE = parseInt(process.env.DEFAULT_CREDIT_BALANCE, 10) || 20000;
+
+async function sb(supabaseUrl, serviceKey, method, path, body) {
+  const res = await fetch(`${supabaseUrl}/rest/v1${path}`, {
+    method,
+    headers: {
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation,resolution=merge-duplicates' : 'return=representation',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Supabase ${method} ${path} failed (${res.status}): ${errText}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+/** Fetches (or lazily creates) the credit balance row for a scope. Returns null if metering isn't configured/applicable. */
+async function getOrCreateBalance({ supabaseUrl, serviceKey, intelProfileId, projectId }) {
+  if (!supabaseUrl || !serviceKey || (!intelProfileId && !projectId)) return null;
+
+  const filter = intelProfileId ? `intel_profile_id=eq.${intelProfileId}` : `project_id=eq.${projectId}`;
+  const existing = await sb(supabaseUrl, serviceKey, 'GET', `/credit_balances?${filter}&select=*&limit=1`);
+  if (existing && existing.length) return existing[0];
+
+  const created = await sb(supabaseUrl, serviceKey, 'POST', '/credit_balances', {
+    intel_profile_id: intelProfileId || null,
+    project_id: intelProfileId ? null : (projectId || null),
+    credits_total: DEFAULT_CREDIT_BALANCE,
+    credits_used: 0,
+  });
+  return Array.isArray(created) ? created[0] : created;
+}
+
+async function deductCredits({ supabaseUrl, serviceKey, balanceId, newCreditsUsed }) {
+  await sb(supabaseUrl, serviceKey, 'PATCH', `/credit_balances?id=eq.${balanceId}`, { credits_used: newCreditsUsed });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -144,7 +201,7 @@ module.exports = async function handler(req, res) {
   const {
     headline, subheadline = '', cta = '', proofPoint = '', urgencyLine = '',
     platform = 'LinkedIn', visualDirection = '', product = '', audience = '',
-    brand = {}, format = 'png',
+    brand = {}, format = 'png', intelProfileId = null, projectId = null,
   } = req.body || {};
 
   if (!headline || !String(headline).trim()) {
@@ -152,6 +209,30 @@ module.exports = async function handler(req, res) {
   }
   if (!FORMATS.has(format)) {
     return res.status(400).json({ error: `format must be one of: ${[...FORMATS].join(', ')}` });
+  }
+
+  // ── Credit gate — checked before spending any money on the OpenAI call ──
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let balance = null;
+  try {
+    balance = await getOrCreateBalance({ supabaseUrl, serviceKey, intelProfileId, projectId });
+  } catch (err) {
+    console.warn('[generate-ad-image] credit balance lookup failed, proceeding unmetered:', err.message);
+  }
+
+  if (balance) {
+    const remaining = balance.credits_total - balance.credits_used;
+    if (remaining < AD_IMAGE_CREDIT_COST) {
+      return res.status(402).json({
+        error: 'out_of_credits',
+        message: `This site is out of AI image credits (0 of ${balance.credits_total} remaining). Upgrade to keep generating ad images.`,
+        creditsRemaining: Math.max(0, remaining),
+        creditsRequired: AD_IMAGE_CREDIT_COST,
+        creditsTotal: balance.credits_total,
+        upgradeUrl: '/index.html#pricing',
+      });
+    }
   }
 
   const platformSize = PLATFORM_TO_SIZE[platform] || 'square';
@@ -192,12 +273,25 @@ module.exports = async function handler(req, res) {
     const dataUri = `data:${mimeType};base64,${b64}`;
     const hostedUrl = await uploadHostedCreative(buffer, mimeType, format, platformSize);
 
+    // Only spend credits once generation actually succeeded.
+    let creditsRemaining;
+    if (balance) {
+      const newUsed = balance.credits_used + AD_IMAGE_CREDIT_COST;
+      try {
+        await deductCredits({ supabaseUrl, serviceKey, balanceId: balance.id, newCreditsUsed: newUsed });
+        creditsRemaining = Math.max(0, balance.credits_total - newUsed);
+      } catch (err) {
+        console.warn('[generate-ad-image] credit deduction failed (image still returned):', err.message);
+      }
+    }
+
     return res.json({
       success: true,
       dataUri,
       hostedUrl,
       mimeType,
       platformSize,
+      creditsRemaining,
       notes: hostedUrl
         ? [`Real AI-generated ${format.toUpperCase()} creative — hosted and ready for Instagram/TikTok publishing.`]
         : [`Real AI-generated ${format.toUpperCase()} creative. SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured (or upload failed) — hostedUrl is unavailable, so Instagram/TikTok publishing will reject this image until that's set up. It still displays and downloads fine everywhere else.`],

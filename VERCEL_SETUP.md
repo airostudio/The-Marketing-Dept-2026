@@ -31,6 +31,19 @@ Generated images upload to the same `social-creatives` Supabase Storage bucket a
 
 **Publishing stays manual until platform credentials are added.** Every approved post/image can be pushed to Pat and published with one click today. Once you add a given platform's credentials (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`, `INSTAGRAM_USER_ID` + Meta token, `TIKTOK_ACCESS_TOKEN` — see `api/publish-social-post.js`), that platform starts publishing automatically too: `api/cron-auto-publish.js` already runs every 15 minutes via the Vercel Cron entry in `vercel.json`, publishing anything scheduled through Beeker's calendar with no further code changes needed.
 
+### AI image credit quota
+
+Each real AI image generation call costs money, so `api/generate-ad-image.js` meters usage against a per-site credit balance stored in Supabase (`supabase-credits.sql` — run it after `supabase-intelligence-profiles.sql`). The balance is shared by everyone working on the same intelligence profile/site (falling back to the legacy `project_id` scope), not per individual login.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `AD_IMAGE_CREDIT_COST` | Credits deducted per successful image generation | Optional (defaults to `100`) |
+| `DEFAULT_CREDIT_BALANCE` | Starting balance for a site's first-ever image generation | Optional (defaults to `20000`, i.e. 200 images at the default cost) |
+
+At 0 remaining credits, generation is paused before the OpenAI call is made (never billed) and the UI shows an "Out of AI image credits — Upgrade for more credits →" prompt linking to `/index.html#pricing`. That's currently a message only — no payment is collected automatically. To actually sell credit top-ups, wire a real checkout (e.g. Stripe) that inserts/updates a `credit_balances` row (increase `credits_total`) on successful payment; the metering logic already reads whatever's in that table, so no changes to `api/generate-ad-image.js` would be needed for that follow-up.
+
+Metering only activates when both a site/profile scope *and* `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are present — without either, image generation proceeds unmetered rather than blocking users who haven't set up Supabase or picked an active site yet.
+
 ---
 
 ## Reel Video Studio — Seedance 2.0 AI Video Generation

@@ -183,6 +183,12 @@
         .post-card-image-badge.template { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
         .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
         .post-card-quick-link { display: block; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: 'Inter', sans-serif; padding: 0; }
+        .credits-upsell { margin-bottom: 10px; padding: 14px 16px; border-radius: 10px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); }
+        .credits-upsell-title { font-weight: 700; color: #fbbf24; margin-bottom: 4px; font-size: 13px; }
+        .credits-upsell-body { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.5; margin-bottom: 10px; }
+        .credits-upsell-btn { display: inline-block; padding: 8px 16px; border-radius: 8px; background: linear-gradient(135deg,#f59e0b,#ec4899); color: #fff; font-size: 12px; font-weight: 700; text-decoration: none; }
+        .credits-meter { font-size: 11px; color: rgba(255,255,255,0.4); }
+        .credits-meter.low { color: #fbbf24; font-weight: 600; }
         .post-card-quick-link:hover { color: var(--text2); }
         .review-queue-summary {
             display: flex; gap: 14px; font-size: 12px; color: var(--text2); margin-bottom: 14px;
@@ -685,7 +691,10 @@ function renderReviewQueue() {
     if (!_reviewCloudBacked) {
         html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
     }
-    html += `<div class="review-queue-summary"><span><strong>${_reviewPosts.length}</strong> total</span><span><strong>${pendingCount}</strong> pending</span><span><strong style="color:#10b981">${approvedCount}</strong> approved</span><span><strong style="color:#ef4444">${rejectedCount}</strong> rejected</span>${approvedCount > 0 ? `<a href="/agents/email-delivery-agent.html#social" style="margin-left:auto;color:#10b981;font-weight:600;text-decoration:none;">📬 Push ${approvedCount} approved to Pat →</a>` : ''}</div>`;
+    const creditsNote = _lastCreditsRemaining !== null
+        ? `<span class="credits-meter${_lastCreditsRemaining < 500 ? ' low' : ''}">🎨 ${_lastCreditsRemaining.toLocaleString()} AI image credits left</span>`
+        : '';
+    html += `<div class="review-queue-summary"><span><strong>${_reviewPosts.length}</strong> total</span><span><strong>${pendingCount}</strong> pending</span><span><strong style="color:#10b981">${approvedCount}</strong> approved</span><span><strong style="color:#ef4444">${rejectedCount}</strong> rejected</span>${creditsNote}${approvedCount > 0 ? `<a href="/agents/email-delivery-agent.html#social" style="margin-left:auto;color:#10b981;font-weight:600;text-decoration:none;">📬 Push ${approvedCount} approved to Pat →</a>` : ''}</div>`;
 
     html += _reviewPosts.map((p) => `
         <div class="post-card" data-post-id="${p.id}" data-status="${p.status}">
@@ -695,6 +704,12 @@ function renderReviewQueue() {
             </div>
             ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
+            ${p.outOfCredits ? `
+                <div class="credits-upsell">
+                    <div class="credits-upsell-title">⚡ Out of AI image credits</div>
+                    <div class="credits-upsell-body">${escHtmlCard(p.outOfCredits.message)}</div>
+                    <a class="credits-upsell-btn" href="${p.outOfCredits.upgradeUrl || '/index.html#pricing'}" target="_blank" rel="noopener">Upgrade for more credits →</a>
+                </div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
             ${p.cta ? `<div class="post-card-cta">${escHtmlCard(p.cta)}</div>` : ''}
@@ -740,6 +755,17 @@ async function rejectPost(id) {
     }
 }
 
+/** Same dual project/profile scope resolution as SocialPostsStore.getScope() — the credit balance follows the active site. */
+function getCreditScope() {
+    const profileId = localStorage.getItem('intel_active_profile');
+    if (profileId) return { intelProfileId: profileId };
+    const projectId = localStorage.getItem('seo-current-project');
+    if (projectId) return { projectId };
+    return {};
+}
+
+let _lastCreditsRemaining = null;
+
 /** Generate a real, finished AI ad creative (PNG/JPEG/WEBP) for one card via /api/generate-ad-image. */
 async function generateCardImage(id) {
     const post = findReviewPost(id);
@@ -747,6 +773,7 @@ async function generateCardImage(id) {
 
     post._imageLoading = true;
     post.imageError = null;
+    post.outOfCredits = null;
     renderReviewQueue();
 
     try {
@@ -764,15 +791,24 @@ async function generateCardImage(id) {
                 product: document.getElementById('adProduct')?.value || '',
                 audience: document.getElementById('adAudience')?.value || '',
                 format: 'png',
+                ...getCreditScope(),
             }),
         });
         const data = await res.json();
+
+        if (res.status === 402 && data.error === 'out_of_credits') {
+            post._imageLoading = false;
+            post.outOfCredits = data;
+            renderReviewQueue();
+            return;
+        }
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
         post.imageUrl = data.dataUri;
         post.hostedImageUrl = data.hostedUrl || null;
         post.imageIsAI = true;
         post._imageLoading = false;
+        if (typeof data.creditsRemaining === 'number') _lastCreditsRemaining = data.creditsRemaining;
 
         if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
             // Prefer the hosted URL when available — Instagram/TikTok publishing
