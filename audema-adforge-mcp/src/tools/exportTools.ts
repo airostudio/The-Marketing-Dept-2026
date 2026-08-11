@@ -5,6 +5,7 @@ import type { PlatformSizeKey } from '../types.js';
 import { conceptStore, briefStore, brandStore, layoutStore, EXPORT_DIR } from '../storage/index.js';
 import { generateLayoutSpec } from '../render/layout.js';
 import { renderAd } from '../render/renderer.js';
+import { generateBackgroundImage, isImageProviderConfigured, unavailableReason } from '../render/imageProvider.js';
 
 export function registerExportTools(server: McpServer) {
   server.tool(
@@ -15,6 +16,7 @@ export function registerExportTools(server: McpServer) {
       platformSize: PlatformSizeSchema.optional().describe('Defaults to the concept\'s own platformSize field'),
       format: z.enum(['png', 'jpg']).default('png'),
       backgroundImagePath: z.string().optional().describe('Absolute path to a photo/illustration to use as the background instead of a brand-colour gradient'),
+      backgroundPrompt: z.string().optional().describe('Describe a photo/illustration and have it generated via the configured AI image provider (ADFORGE_IMAGE_PROVIDER). Ignored if backgroundImagePath is given. Errors clearly if no provider is configured — never silently falls back to a flat background.'),
       outputDir: z.string().optional().describe('Defaults to ADFORGE_EXPORT_DIR env var / ./exports'),
     },
     async (args) => {
@@ -31,8 +33,26 @@ export function registerExportTools(server: McpServer) {
         layout = layoutStore.upsert(layout);
       }
 
+      let backgroundImagePath = args.backgroundImagePath;
+      if (!backgroundImagePath && args.backgroundPrompt) {
+        if (!isImageProviderConfigured()) {
+          return {
+            content: [{ type: 'text', text: `Cannot generate a background image: ${unavailableReason()}` }],
+            isError: true,
+          };
+        }
+        try {
+          backgroundImagePath = await generateBackgroundImage(args.backgroundPrompt, layout.width, layout.height);
+        } catch (err) {
+          return {
+            content: [{ type: 'text', text: `Background image generation failed: ${err instanceof Error ? err.message : String(err)}` }],
+            isError: true,
+          };
+        }
+      }
+
       try {
-        const result = await renderAd(concept, layout, brand, args.outputDir ?? EXPORT_DIR, args.format, args.backgroundImagePath);
+        const result = await renderAd(concept, layout, brand, args.outputDir ?? EXPORT_DIR, args.format, backgroundImagePath);
         return {
           content: [{
             type: 'text',

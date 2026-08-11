@@ -1,7 +1,7 @@
 import { JsonStore } from './jsonStore.js';
 import type { BrandProfile, AdBrief, AdConcept, LayoutSpec, CampaignResult } from '../types.js';
 
-const DATA_DIR = process.env.ADFORGE_DATA_DIR || './data';
+export const DATA_DIR = process.env.ADFORGE_DATA_DIR || './data';
 
 export const brandStore = new JsonStore<BrandProfile>(DATA_DIR, 'brand-profiles.json');
 export const briefStore = new JsonStore<AdBrief>(DATA_DIR, 'ad-briefs.json');

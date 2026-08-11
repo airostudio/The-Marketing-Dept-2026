@@ -81,10 +81,12 @@ audema-adforge-mcp/
 │       └── scoring.ts          # Heuristic scoring functions for the 6 criteria
 ├── scripts/
 │   └── smoke-test.mjs          # End-to-end test: drives the built server over stdio
+├── test/                       # Unit tests (vitest) for storage, layout, scoring, SVG, image provider
 ├── data/                       # JSON storage (gitignored, created on first run)
 ├── exports/                    # Rendered PNG/JPG output (gitignored, created on first run)
 ├── package.json
 ├── tsconfig.json
+├── vitest.config.ts
 ├── .env.example
 └── README.md
 ```
@@ -100,10 +102,22 @@ cp .env.example .env     # optional — defaults work with zero configuration
 npm run build
 ```
 
+Run the unit test suite (storage, layout math, scoring, SVG generation, image provider — no build required, no external calls made):
+
+```bash
+npm test
+```
+
 Verify everything works end-to-end (creates a brand, brief, concepts, layouts, and real exported images under `exports/`):
 
 ```bash
 npm run test:e2e
+```
+
+Run both in one command:
+
+```bash
+npm run test:all
 ```
 
 Run the server directly (for debugging — real MCP clients spawn this for you):
@@ -283,13 +297,17 @@ See `src/types.ts` for the full Zod definitions — every field has an inline de
 
 ## Optional: AI background images
 
-By default, ads render with a brand-colour solid or gradient background — genuinely fine for most static ads, and zero-config. If you want a photographic or illustrated background instead:
+By default, ads render with a brand-colour solid or gradient background — genuinely fine for most static ads, and zero-config. If you want a photographic or illustrated background instead, there are two ways to get one:
 
-1. Generate or source the image yourself (any provider — OpenAI's `gpt-image-1`, Replicate, Midjourney, a stock photo, a real product shot).
-2. Save it to disk.
-3. Pass its path as `backgroundImagePath` to `export_ad_image`.
+**Bring your own image.** Generate or source it yourself (any provider, a stock photo, a real product shot), save it to disk, and pass its path as `backgroundImagePath` to `export_ad_image`. No configuration needed — this always works.
 
-The server doesn't call an image-generation API directly — set `OPENAI_API_KEY` / `REPLICATE_API_TOKEN` in `.env` if you want to wire that step up yourself in `src/render/renderer.ts` (there's a clear seam where `backgroundImagePath` is consumed). This keeps the server usable with zero API keys out of the box while leaving the integration point obvious.
+**Generate one inline.** Pass a `backgroundPrompt` to `export_ad_image` instead of `backgroundImagePath`, and the server will call the configured AI image provider itself (`src/render/imageProvider.ts`), cache the result under `ADFORGE_DATA_DIR/generated-images`, and render with it. Requires setting `ADFORGE_IMAGE_PROVIDER` in `.env` to one of:
+
+- `openai` — calls `gpt-image-1` using `OPENAI_API_KEY`. **Uses the exact same environment variable name as the main Audema web app** — if you already have that key set for the live product, the same value works here too (this server never runs on Vercel itself; only the key value is shared).
+- `replicate` — calls a hosted diffusion model (`black-forest-labs/flux-schnell` by default, override with `REPLICATE_IMAGE_MODEL`) using `REPLICATE_API_TOKEN`.
+- `none` (default) — `backgroundPrompt` is rejected with a clear, specific error telling you which env var to set, rather than silently falling back to a flat background. If you asked for a generated image, you'll know when you didn't get one.
+
+Every call is cached by prompt + canvas size, so re-exporting the same concept at the same platform size never re-generates (or re-bills) the image.
 
 ## Storage
 
