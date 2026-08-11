@@ -196,6 +196,34 @@ async function main() {
   const abRes = await callTool('generate_ab_test_recommendations', { conceptIds });
   console.log(text(abRes));
 
+  console.log('\n=== 13. create_campaign_draft (no platform credentials — should save locally, not error) ===');
+  const draftRes = await callTool('create_campaign_draft', {
+    brandProfileId: brandId,
+    conceptId: conceptIds[0],
+    platform: 'meta',
+    campaignName: 'Smoke Test Campaign',
+    objective: 'OUTCOME_TRAFFIC',
+    dailyBudgetCents: 2500,
+    targeting: { countries: ['US'], ageMin: 25, ageMax: 54, interests: ['home services'] },
+  });
+  console.log(text(draftRes));
+
+  console.log('\n=== 14. create_campaign_draft (budget over ceiling — should be rejected, not created) ===');
+  const overBudgetRes = await callTool('create_campaign_draft', {
+    brandProfileId: brandId,
+    conceptId: conceptIds[0],
+    platform: 'meta',
+    campaignName: 'Should Be Rejected',
+    objective: 'OUTCOME_TRAFFIC',
+    dailyBudgetCents: 99_999_999,
+    targeting: { countries: ['US'] },
+  });
+  console.log(text(overBudgetRes), overBudgetRes.result?.isError ? '(correctly rejected)' : '(⚠️ SHOULD HAVE BEEN REJECTED)');
+
+  console.log('\n=== 15. list_campaign_drafts ===');
+  const listDraftsRes = await callTool('list_campaign_drafts', { brandProfileId: brandId });
+  console.log(text(listDraftsRes));
+
   console.log('\n=== ALL STEPS COMPLETED ===');
   proc.stdin.end();
   proc.kill();

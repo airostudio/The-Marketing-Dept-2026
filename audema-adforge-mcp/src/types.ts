@@ -203,3 +203,48 @@ export const ABTestRecommendationSchema = z.object({
 });
 
 export type ABTestRecommendation = z.infer<typeof ABTestRecommendationSchema>;
+
+// ─── Campaign Draft (real platform push, DRAFT/PAUSED only) ────────────────
+//
+// This is the one entity in this server with real financial consequence if
+// mishandled, so its schema enforces the guardrails directly rather than
+// leaving them to caller discipline:
+//   - status can only ever be a paused/draft state on create — there is no
+//     schema value this object can hold that represents "live". Publishing
+//     is a deliberate, separate, human-gated action outside this server's
+//     scope today (see README "Guardrails" section).
+//   - dailyBudgetCents is required and validated server-side against
+//     ADFORGE_MAX_DAILY_BUDGET_CENTS regardless of what a caller requests.
+
+export const CampaignDraftStatusSchema = z.enum([
+  'local_only',        // saved here; never reached a platform (no credentials configured)
+  'platform_paused',   // created on the real platform in a paused/draft state
+  'platform_error',    // a platform push was attempted and failed
+]);
+export type CampaignDraftStatus = z.infer<typeof CampaignDraftStatusSchema>;
+
+export const AdPlatformSchema = z.enum(['meta', 'linkedin', 'tiktok']);
+export type AdPlatform = z.infer<typeof AdPlatformSchema>;
+
+export const CampaignDraftSchema = z.object({
+  id: z.string().optional(),
+  brandProfileId: z.string(),
+  conceptId: z.string().describe('The scored ad concept this draft is built from'),
+  platform: AdPlatformSchema,
+  campaignName: z.string().min(1),
+  objective: z.string().describe('Platform-specific objective, e.g. "OUTCOME_TRAFFIC", "OUTCOME_SALES" for Meta'),
+  dailyBudgetCents: z.number().int().min(1).describe('Daily budget in the smallest currency unit (cents). Validated against ADFORGE_MAX_DAILY_BUDGET_CENTS server-side — requests above the ceiling are rejected, not silently capped.'),
+  targeting: z.object({
+    countries: z.array(z.string()).min(1).describe('ISO country codes'),
+    ageMin: z.number().int().min(13).max(65).default(18),
+    ageMax: z.number().int().min(13).max(65).default(65),
+    interests: z.array(z.string()).default([]),
+  }),
+  status: CampaignDraftStatusSchema,
+  platformCampaignId: z.string().optional().describe('Set once the platform has actually created the paused campaign'),
+  platformError: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type CampaignDraft = z.infer<typeof CampaignDraftSchema>;

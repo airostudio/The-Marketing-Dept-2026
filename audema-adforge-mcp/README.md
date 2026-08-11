@@ -66,14 +66,19 @@ audema-adforge-mcp/
 │   │   ├── layoutTools.ts
 │   │   ├── exportTools.ts
 │   │   ├── campaignTools.ts
+│   │   ├── campaignDraftTools.ts
 │   │   └── abTestTools.ts
 │   ├── render/
 │   │   ├── layout.ts           # Deterministic layout spec generator
 │   │   ├── svgTemplate.ts      # Builds the SVG for a concept + layout + brand
-│   │   └── renderer.ts         # Sharp: SVG → PNG/JPG, logo/background compositing
+│   │   ├── renderer.ts         # Sharp: SVG → PNG/JPG, logo/background compositing
+│   │   └── imageProvider.ts    # Optional AI-generated background images (OpenAI/Replicate)
+│   ├── campaigns/
+│   │   ├── guardrails.ts       # Budget ceiling + basic ad-copy policy checks
+│   │   └── platformAdapters.ts # Real ad-platform integration (Meta only so far), PAUSED-only
 │   ├── storage/
-│   │   ├── jsonStore.ts        # Tiny typed JSON file store (no native deps)
-│   │   └── index.ts            # brandStore, briefStore, conceptStore, layoutStore, campaignStore
+│   │   ├── jsonStore.ts        # Tiny typed JSON file store (atomic writes, cross-process locking)
+│   │   └── index.ts            # brandStore, briefStore, conceptStore, layoutStore, campaignStore, campaignDraftStore
 │   └── prompts/
 │       ├── angles.ts           # The 6 angle definitions + guidance builder
 │       ├── analysis.ts         # Customer-analysis guidance builder
@@ -81,7 +86,7 @@ audema-adforge-mcp/
 │       └── scoring.ts          # Heuristic scoring functions for the 6 criteria
 ├── scripts/
 │   └── smoke-test.mjs          # End-to-end test: drives the built server over stdio
-├── test/                       # Unit tests (vitest) for storage, layout, scoring, SVG, image provider
+├── test/                       # Unit tests (vitest) for storage, layout, scoring, SVG, image provider, guardrails, platform adapters
 ├── data/                       # JSON storage (gitignored, created on first run)
 ├── exports/                    # Rendered PNG/JPG output (gitignored, created on first run)
 ├── package.json
@@ -273,6 +278,8 @@ Claude → generate_ab_test_recommendations({ conceptIds: ["<id1>", "<id2>", "<i
 | `list_campaign_results` | Retrieve campaign results for a brand |
 | `get_campaign_insights` | Data-driven angle recommendations from past results |
 | `generate_ab_test_recommendations` | Concrete A/B test pairings for a set of concepts |
+| `create_campaign_draft` | Create a paused/draft campaign from a scored concept — never active, see Guardrails below |
+| `list_campaign_drafts` / `get_campaign_draft` | Retrieve campaign drafts for a brand |
 
 ## Platform sizes
 
@@ -308,6 +315,26 @@ By default, ads render with a brand-colour solid or gradient background — genu
 - `none` (default) — `backgroundPrompt` is rejected with a clear, specific error telling you which env var to set, rather than silently falling back to a flat background. If you asked for a generated image, you'll know when you didn't get one.
 
 Every call is cached by prompt + canvas size, so re-exporting the same concept at the same platform size never re-generates (or re-bills) the image.
+
+---
+
+## Campaign drafts & guardrails
+
+`create_campaign_draft` pushes a scored concept toward a real ad platform — but only ever as far as a **paused, non-spending draft**. This is the one part of the server with real financial and compliance consequence, so it's built around three guardrails rather than caller discipline:
+
+**1. Draft mode is not optional — there is no code path to "active".** `create_campaign_draft` hard-codes `status: 'PAUSED'` in the request to every platform adapter (`src/campaigns/platformAdapters.ts`); nothing in this server can flip a campaign live. Publishing is a deliberate action you take yourself in the platform's ads manager after reviewing the draft.
+
+**2. A hard budget ceiling, enforced server-side.** `ADFORGE_MAX_DAILY_BUDGET_CENTS` (default $100/day) is read from the environment, never from a tool argument — so an LLM asked (or tricked, e.g. via prompt injection in a brief) to request an oversized budget can't get past it. A request over the ceiling is **rejected outright**, never silently reduced to fit — you'll get a clear error, not a surprise.
+
+**3. A basic ad-copy policy pre-check.** Before anything is created, the concept's copy is scanned for the most obvious risk patterns (unsubstantiated guarantees, medical cure claims, excessive capitalization — `src/campaigns/guardrails.ts`). **This is not a substitute for the platform's own review** — Meta/LinkedIn run far more sophisticated policy checks server-side on submission — it exists to catch the obvious problems before spending an API call, not to certify compliance.
+
+**Platform status today: Meta only, and unverified against a live account.** `src/campaigns/platformAdapters.ts` implements Meta's Marketing API contract (`POST /act_{account}/campaigns`) from Meta's published docs, but no MCP tool call in this codebase has ever hit the real endpoint — there were no developer credentials to test against when this was built. LinkedIn and TikTok aren't implemented at all yet (drafts for those platforms always save locally). Before trusting the Meta adapter with real spend:
+
+1. Get a Meta developer app with Marketing API access approved (this can take a while — it's Meta's process, not something this server can shortcut).
+2. Set `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` in `.env`.
+3. Run `create_campaign_draft` once against a real, low/zero-budget test campaign and **confirm in Meta Ads Manager that it actually landed in PAUSED status** before relying on it for anything real.
+
+Without `META_ACCESS_TOKEN`/`META_AD_ACCOUNT_ID` set, drafts save locally only (`campaign-drafts.json`) — still genuinely useful for planning and review, just not pushed anywhere.
 
 ## Storage
 
