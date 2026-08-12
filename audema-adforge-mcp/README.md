@@ -87,7 +87,8 @@ audema-adforge-mcp/
 │   │   └── dco.ts              # Combinatorial creative variant generation
 │   ├── storage/
 │   │   ├── jsonStore.ts        # Tiny typed JSON file store (atomic writes, cross-process locking)
-│   │   └── index.ts            # brandStore, briefStore, conceptStore, layoutStore, campaignStore, campaignDraftStore
+│   │   ├── index.ts            # brandStore, briefStore, conceptStore, layoutStore, campaignStore, campaignDraftStore
+│   │   └── r2.ts               # Optional Cloudflare R2 upload for exported creative (hand-rolled SigV4)
 │   └── prompts/
 │       ├── angles.ts           # The 6 angle definitions + guidance builder
 │       ├── analysis.ts         # Customer-analysis guidance builder
@@ -370,6 +371,12 @@ These six were built after a competitive scan of AdCreative.ai, Foreplay.co, Mot
 ## Storage
 
 Brand profiles, briefs, concepts, layouts, and campaign results are stored as JSON files under `ADFORGE_DATA_DIR` (default `./data`), one file per entity type. No database server, no native SQLite build step — just plain files you can back up, inspect, or version-control if you want to.
+
+### Optional: hosted exports via Cloudflare R2
+
+`export_ad_image`/`export_ad_image_all_sizes` always write to local disk regardless of configuration — R2 is purely additive. When `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET_NAME` are set, the rendered file is also uploaded to the **same shared R2 bucket the main Audema web app uses** (under an `adforge/` prefix, alongside the web app's `social-creatives/` prefix), so a creative built here can be handed straight to a publish flow that needs a real fetchable URL instead of a local file path. Set `R2_PUBLIC_BASE_URL` (a custom domain or the bucket's `r2.dev` URL) to actually get that URL back — without it, uploads still succeed but there's no way to build a public link to the raw S3 API endpoint.
+
+Implemented via hand-rolled AWS SigV4 request signing (`src/storage/r2.ts`, Node's built-in `crypto` only — no `aws-sdk` dependency), since R2 exposes an S3-compatible API. SigV4 itself is a stable, long-documented public standard, not a shifting vendor contract — but verify with one real upload after adding credentials and confirm the object actually appears in the R2 dashboard; a signing bug fails loudly (403 `SignatureDoesNotMatch`), never silently.
 
 ## Notes on rendering
 

@@ -27,7 +27,7 @@ The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents
 
 Without `OPENAI_API_KEY`, the button returns a clear "not configured" error — a free, instant, no-API-key "quick template" fallback (deterministic SVG background + typography, via `api/render-social-image.js`) stays available underneath every card either way, clearly labeled as a placeholder rather than a finished ad.
 
-Generated images upload to the same `social-creatives` Supabase Storage bucket as the quick-template ones (when `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are set), giving a real hosted URL — which is what unlocks Instagram/TikTok publishing, since those platforms reject `data:` URIs.
+Generated images upload to a hosted bucket (Cloudflare R2 preferred, Supabase Storage as a fallback — see "Hosted storage" below) as the quick-template ones (`api/render-social-image.js`), giving a real hosted URL — which is what unlocks Instagram/TikTok publishing, since those platforms reject `data:` URIs.
 
 **Publishing stays manual until platform credentials are added.** Every approved post/image can be pushed to Pat and published with one click today. Once you add a given platform's credentials (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`, `INSTAGRAM_USER_ID` + Meta token, `TIKTOK_ACCESS_TOKEN` — see `api/publish-social-post.js`), that platform starts publishing automatically too: `api/cron-auto-publish.js` already runs every 15 minutes via the Vercel Cron entry in `vercel.json`, publishing anything scheduled through Beeker's calendar with no further code changes needed.
 
@@ -43,6 +43,25 @@ Each real AI image generation call costs money, so `api/generate-ad-image.js` me
 At 0 remaining credits, generation is paused before the OpenAI call is made (never billed) and the UI shows an "Out of AI image credits — Upgrade for more credits →" prompt linking to `/index.html#pricing`. That's currently a message only — no payment is collected automatically. To actually sell credit top-ups, wire a real checkout (e.g. Stripe) that inserts/updates a `credit_balances` row (increase `credits_total`) on successful payment; the metering logic already reads whatever's in that table, so no changes to `api/generate-ad-image.js` would be needed for that follow-up.
 
 Metering only activates when both a site/profile scope *and* `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are present — without either, image generation proceeds unmetered rather than blocking users who haven't set up Supabase or picked an active site yet.
+
+---
+
+## Hosted storage — Cloudflare R2
+
+Ad creative that needs a real public URL (Instagram/TikTok publishing, mainly) uploads to Cloudflare R2 when configured, falling back to Supabase Storage otherwise — purely additive, nothing breaks if you only have one or neither set up.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `R2_ACCOUNT_ID` | Cloudflare account ID | For R2 |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials (S3-compatible) | For R2 |
+| `R2_BUCKET_NAME` | The R2 bucket to upload into | For R2 |
+| `R2_PUBLIC_BASE_URL` | A custom domain or the bucket's `r2.dev` URL, used to build the returned public URL | Optional but effectively required — without it, uploads succeed but no fetchable URL comes back |
+
+Implemented via hand-rolled AWS SigV4 request signing (`api/_lib/r2.js` — Node's built-in `crypto` only, no `aws-sdk` dependency, matching this project's zero-npm-dependency `api/*.js` convention), since R2 exposes an S3-compatible API. `api/_lib/` is not treated as a route by Vercel — it's a shared module imported by `api/generate-ad-image.js` and `api/render-social-image.js`.
+
+Both the web app and the standalone AdForge MCP server (`audema-adforge-mcp/`) can share the **same R2 bucket** under different key prefixes — `social-creatives/` for the web app, `adforge/` for AdForge's exported creative — so a file exported from either one is reachable the same way. AdForge needs its own copy of the same four `R2_*` env vars in its own `.env` (see `audema-adforge-mcp/.env.example`); they aren't shared automatically since AdForge runs as a separate local process, not on Vercel.
+
+SigV4 is a stable, long-documented public standard, not a shifting vendor API contract — but a signing bug still fails loudly and immediately (403 `SignatureDoesNotMatch`), never silently. Verify with one real image generation after adding credentials and confirm the object actually appears in the R2 bucket.
 
 ---
 

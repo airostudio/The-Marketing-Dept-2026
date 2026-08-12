@@ -42,6 +42,8 @@
 
 'use strict';
 
+const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 
 const PLATFORM_TO_SIZE = {
@@ -100,9 +102,11 @@ function buildPrompt({ headline, subheadline, cta, proofPoint, urgencyLine, plat
   return lines.filter(Boolean).join('\n');
 }
 
-// ── Optional hosted upload (Supabase Storage) — same bucket render-social-image.js
-// uses, so approved AI creatives and quick-template creatives live side by side.
-// Instagram/TikTok publishing requires a real fetchable URL, not a data: URI.
+// ── Optional hosted upload — Cloudflare R2 preferred, Supabase Storage as a
+// fallback for setups that haven't added R2 credentials yet. Same bucket/
+// prefix render-social-image.js uses, so approved AI creatives and quick-
+// template creatives live side by side. Instagram/TikTok publishing
+// requires a real fetchable URL, not a data: URI.
 const STORAGE_BUCKET = 'social-creatives';
 let _bucketEnsured = false;
 
@@ -120,13 +124,22 @@ async function ensureBucket(supabaseUrl, serviceKey) {
 }
 
 async function uploadHostedCreative(buffer, mimeType, format, platformSize) {
+  const fileName = `ai-${platformSize}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format}`;
+
+  if (isR2Configured()) {
+    try {
+      return await uploadToR2(`social-creatives/${fileName}`, buffer, mimeType);
+    } catch (err) {
+      console.warn('[generate-ad-image] R2 upload failed, falling back to Supabase if configured:', err.message);
+    }
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) return null;
 
   try {
     await ensureBucket(supabaseUrl, serviceKey);
-    const fileName = `ai-${platformSize}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format}`;
     const upRes = await fetch(`${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${fileName}`, {
       method: 'POST',
       headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': mimeType },

@@ -31,6 +31,8 @@
 
 'use strict';
 
+const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+
 const PLATFORM_SIZES = {
   square:    { width: 1080, height: 1080 },
   portrait:  { width: 1080, height: 1350 },
@@ -154,13 +156,11 @@ function backgroundSvg(width, height, colours) {
   `;
 }
 
-// ── Optional hosted upload (Supabase Storage) ───────────────────────────────
-// Instagram and TikTok's publish APIs require a real, publicly fetchable
-// image URL — they cannot accept a data: URI. When SUPABASE_URL and
-// SUPABASE_SERVICE_ROLE_KEY are configured, best-effort upload the rendered
-// SVG to a public bucket and return that URL alongside the data URI (which
-// keeps working for the inline card preview regardless — this is purely
-// additive, never a requirement for Phase F's zero-dependency guarantee).
+// ── Optional hosted upload — Cloudflare R2 preferred, Supabase Storage as a
+// fallback. Instagram and TikTok's publish APIs require a real, publicly
+// fetchable image URL — they cannot accept a data: URI. This is purely
+// additive, never a requirement for Phase F's zero-dependency guarantee
+// (R2/Supabase upload code lives in a shared helper, not a new npm dep).
 const STORAGE_BUCKET = 'social-creatives';
 let _bucketEnsured = false;
 
@@ -178,13 +178,22 @@ async function ensureBucket(supabaseUrl, serviceKey) {
 }
 
 async function uploadHostedCreative(svg, platformSize) {
+  const fileName = `${platformSize}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.svg`;
+
+  if (isR2Configured()) {
+    try {
+      return await uploadToR2(`social-creatives/${fileName}`, Buffer.from(svg, 'utf8'), 'image/svg+xml');
+    } catch (err) {
+      console.warn('[render-social-image] R2 upload failed, falling back to Supabase if configured:', err.message);
+    }
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) return null;
 
   try {
     await ensureBucket(supabaseUrl, serviceKey);
-    const fileName = `${platformSize}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.svg`;
     const upRes = await fetch(`${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${fileName}`, {
       method: 'POST',
       headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'image/svg+xml' },
