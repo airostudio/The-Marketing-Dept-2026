@@ -1647,6 +1647,51 @@
         .auto-queue-dot.error    { background: #ef4444; }
         .auto-queue-name { flex: 1; }
         .auto-step-dot.error { background: #ef4444; }
+        /* Consequential-action approval panel — anything that looks like a
+           real send/publish/spend waits here instead of auto-running. */
+        .auto-approval-panel {
+            background: rgba(245,158,11,0.07);
+            border: 1px solid rgba(245,158,11,0.28);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+        .auto-approval-title {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #f59e0b;
+            margin-bottom: 4px;
+        }
+        .auto-approval-sub {
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .auto-approval-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .auto-approval-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .auto-approval-item-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .auto-approval-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
         .mission-run-btn {
             width: 100%;
             padding: 12px 20px;
@@ -2961,10 +3006,10 @@ class ScottyChat {
                     <div class="mission-summary">${this._escapeHtml(plan.missionSummary || '')}</div>
                 </div>
             </div>
-            <div class="mission-auto-bar" id="missionAutoBar">
-                <div class="mission-auto-pulse"></div>
-                <span id="missionAutoText">Launching ${total} agents autonomously…</span>
-                <button class="mission-abort-btn" id="missionAbortBtn">✕ Abort</button>
+            <div class="mission-auto-bar pending-start" id="missionAutoBar">
+                <span id="missionAutoText">Review the plan below, then start the mission.</span>
+                <button class="mission-report-btn primary" id="missionStartBtn" style="margin-left:auto;">🚀 Start Mission</button>
+                <button class="mission-abort-btn" id="missionAbortBtn">✕ Cancel</button>
             </div>
             <div class="mission-task-list" id="missionTaskList">
                 ${(plan.tasks || []).map((t, i) => `
@@ -3005,23 +3050,51 @@ class ScottyChat {
         planningBubble.appendChild(missionEl);
         this._scrollToBottom();
 
-        InfoPanel.logActivity('🚀', `Autonomous mission: ${total} agents queued`);
+        InfoPanel.logActivity('📋', `Mission plan ready — ${total} agents queued, waiting for approval to start`);
 
-        // Abort flag
+        // Approval gate — the plan above is fully visible and nothing runs
+        // until "Start Mission" is clicked. This is the fix for the 2026
+        // Agent Audit's Scotty finding: the plan used to start executing the
+        // moment it was generated, with the only human checkpoint arriving
+        // after every task had already run.
         let aborted = false;
-        missionEl.querySelector('#missionAbortBtn').addEventListener('click', () => {
+        let started = false;
+        let resolveStart;
+        const startWait = new Promise((resolve) => { resolveStart = resolve; });
+
+        const autoBarEl = missionEl.querySelector('#missionAutoBar');
+        const abortBtn  = missionEl.querySelector('#missionAbortBtn');
+        const startBtn  = missionEl.querySelector('#missionStartBtn');
+        const autoText  = missionEl.querySelector('#missionAutoText');
+
+        abortBtn.addEventListener('click', () => {
             aborted = true;
-            missionEl.querySelector('#missionAutoText').textContent = 'Aborted by user.';
-            missionEl.querySelector('#missionAutoBar').classList.add('aborted');
+            autoText.textContent = started ? 'Aborted by user.' : 'Cancelled — no tasks were run.';
+            autoBarEl.classList.add('aborted');
+            if (startBtn) startBtn.style.display = 'none';
             this.isWaiting = false;
             this.btnSend.disabled = false;
-        });
+            resolveStart();
+        }, { once: true });
+
+        startBtn.addEventListener('click', () => {
+            if (aborted) return;
+            started = true;
+            startBtn.style.display = 'none';
+            abortBtn.textContent = '✕ Abort';
+            autoBarEl.classList.remove('pending-start');
+            autoBarEl.insertAdjacentHTML('afterbegin', '<div class="mission-auto-pulse"></div>');
+            InfoPanel.logActivity('🚀', `Mission approved — launching ${total} agents`);
+            resolveStart();
+        }, { once: true });
+
+        await startWait;
+        if (aborted) return;
 
         // Execute all tasks autonomously
         const results = new Array(total).fill(null);
         const progressBar  = missionEl.querySelector('#missionProgressBar');
         const progressLabel = missionEl.querySelector('#missionProgressLabel');
-        const autoText = missionEl.querySelector('#missionAutoText');
 
         for (let i = 0; i < total; i++) {
             if (aborted) break;
@@ -3284,12 +3357,21 @@ class ScottyChat {
     }
 
     _renderAutomationPanel(containerEl, automationPlan, contextBundle) {
+        const orch = window.ScottyOrchestrator;
         const autos = (automationPlan.automations || []);
-        // Sort: High first, then Medium, then Low. Auto-run all by default.
+        // Sort: High first, then Medium, then Low.
         const sorted = [...autos].sort((a, b) => {
             const rank = { High: 0, Medium: 1, Low: 2 };
             return (rank[a.impact] ?? 1) - (rank[b.impact] ?? 1);
         });
+
+        // Central action-classification guard (ScottyOrchestrator.classifyAutomation):
+        // draft/analysis automations run autonomously as before; anything that
+        // reads as a real send/publish/spend/delete waits for an explicit click,
+        // regardless of impact rating. See the guard's own comment for why this
+        // lives in one place instead of per-agent.
+        const autoRun = sorted.filter(a => !orch || orch.classifyAutomation(a) === 'autonomous');
+        const needsApproval = sorted.filter(a => orch && orch.classifyAutomation(a) === 'requires_approval');
 
         const impactColor = { High: '#10b981', Medium: '#f59e0b', Low: '#94a3b8' };
 
@@ -3301,22 +3383,50 @@ class ScottyChat {
                     <div class="assessment-text">${this._escapeHtml(automationPlan.assessment || '')}</div>
                 </div>
             </div>
+            ${needsApproval.length ? `
+            <div class="auto-approval-panel">
+                <div class="auto-approval-title">⚠️ ${needsApproval.length} action${needsApproval.length !== 1 ? 's' : ''} need your OK before running</div>
+                <div class="auto-approval-sub">These look like a real send, publish, or spend — not a draft — so Scotty won't run them on its own.</div>
+                <div class="auto-approval-list" id="autoApprovalList">
+                    ${needsApproval.map((a, i) => `
+                        <div class="auto-approval-item" id="autoApproval${i}">
+                            <div class="auto-approval-item-head">
+                                <span class="auto-queue-name">${this._escapeHtml(a.title)}</span>
+                                <span class="auto-impact" style="color:${impactColor[a.impact] || '#94a3b8'};font-size:11px;">${this._escapeHtml(a.impact || '')} impact</span>
+                            </div>
+                            <div class="auto-approval-desc">${this._escapeHtml(a.description || '')}</div>
+                            <button class="mission-report-btn primary" id="autoApprovalRun${i}">▶ Run this</button>
+                            <div class="auto-step-result" id="autoApprovalResult${i}"></div>
+                        </div>`).join('')}
+                </div>
+            </div>` : ''}
+            ${autoRun.length ? `
             <div class="mission-auto-bar" style="margin:14px 0 10px;">
                 <div class="mission-auto-pulse"></div>
-                <span id="autoPhaseText">Executing ${sorted.length} automation${sorted.length !== 1 ? 's' : ''} autonomously…</span>
+                <span id="autoPhaseText">Executing ${autoRun.length} automation${autoRun.length !== 1 ? 's' : ''} autonomously…</span>
                 <button class="mission-abort-btn" id="autoAbortBtn">✕ Stop</button>
             </div>
             <div class="auto-queue-list">
-                ${sorted.map((a, i) => `
+                ${autoRun.map((a, i) => `
                     <div class="auto-queue-item" id="autoQueue${i}">
                         <span class="auto-queue-dot pending" id="autoQDot${i}"></span>
                         <span class="auto-queue-name">${this._escapeHtml(a.title)}</span>
                         <span class="auto-impact" style="color:${impactColor[a.impact] || '#94a3b8'};font-size:11px;margin-left:auto">${this._escapeHtml(a.impact || '')} impact</span>
                     </div>`).join('')}
             </div>
-            <div class="auto-execution-panel" id="autoExecPanel"></div>`;
+            <div class="auto-execution-panel" id="autoExecPanel"></div>` : ''}`;
 
-        InfoPanel.logActivity('⚡', `Auto-executing ${sorted.length} optimisations`);
+        // Wire the manual "Run this" buttons for consequential actions — each
+        // runs in isolation, on click only, never as part of the auto-loop.
+        needsApproval.forEach((a, i) => {
+            const btn = containerEl.querySelector(`#autoApprovalRun${i}`);
+            if (!btn) return;
+            btn.addEventListener('click', () => this._runSingleApprovedAutomation(a, i, contextBundle, containerEl), { once: true });
+        });
+
+        if (!autoRun.length) return;
+
+        InfoPanel.logActivity('⚡', `Auto-executing ${autoRun.length} optimisations`);
 
         let aborted = false;
         containerEl.querySelector('#autoAbortBtn').addEventListener('click', () => {
@@ -3326,8 +3436,50 @@ class ScottyChat {
             InfoPanel.logActivity('⏹', 'Automation stopped');
         });
 
-        // Start immediately — no button click needed
-        this._executeAutomationsAuto(sorted, contextBundle, containerEl, () => aborted);
+        // Start immediately — no button click needed, since everything left in
+        // this list already passed the consequential-action guard above.
+        this._executeAutomationsAuto(autoRun, contextBundle, containerEl, () => aborted);
+    }
+
+    async _runSingleApprovedAutomation(auto, i, contextBundle, containerEl) {
+        const orch = window.ScottyOrchestrator;
+        const btn = containerEl.querySelector(`#autoApprovalRun${i}`);
+        const resultEl = containerEl.querySelector(`#autoApprovalResult${i}`);
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Running…'; }
+        InfoPanel.logActivity('▶', `Running approved action: ${auto.title}`);
+
+        let fullText = '';
+        try {
+            await orch.executeAutomationStep(auto, contextBundle, {
+                onChunk: (chunk) => {
+                    fullText += chunk;
+                    if (resultEl) resultEl.innerHTML = this._renderMarkdownSimple(fullText);
+                    this._scrollToBottom();
+                },
+                onDone: (text) => { fullText = text; },
+                onError: (err) => { throw err; },
+            });
+            if (btn) { btn.textContent = '✓ Done'; }
+            InfoPanel.logActivity('✅', `Approved action complete: ${auto.title}`);
+            if (window.AgentHistory) {
+                window.AgentHistory.save({
+                    agentKey: auto.agentKey,
+                    taskType: `Approved: ${auto.title}`,
+                    content: fullText,
+                    topic: auto.title,
+                });
+            }
+            if (resultEl) {
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-result-actions';
+                this._appendChainActions(actionsEl, auto.agentKey, auto.prompt || auto.description || '', fullText, auto.title, auto.description);
+                resultEl.appendChild(actionsEl);
+            }
+        } catch (err) {
+            if (btn) { btn.textContent = '⚠️ Failed — Retry'; btn.disabled = false; }
+            if (resultEl) resultEl.innerHTML = `<span style="color:#ef4444">${this._escapeHtml(err.message)}</span>`;
+            InfoPanel.logActivity('⚠️', `Approved action failed: ${auto.title}`);
+        }
     }
 
     async _executeAutomationsAuto(autos, contextBundle, containerEl, abortFn) {
