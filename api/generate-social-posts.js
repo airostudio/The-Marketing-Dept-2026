@@ -50,12 +50,19 @@ function checkRateLimit(ip) {
 }
 
 // ── Platform content strategy (native format + posting norms) ──────────────
+// Format bias reflects current (2025-2026) engagement-velocity data: carousels
+// are the single highest-engagement organic format on Instagram/LinkedIn/
+// Facebook (up to ~3.1x standard posts), and Reels remain the top reach
+// format but have shifted toward storytelling/talking-head content over
+// short trend-clip mimicry. These are defaults to lean toward, not a rule
+// that every single post must be a carousel or Reel — content still needs
+// to fit the actual idea.
 const PLATFORM_STRATEGY = {
-  'LinkedIn': 'Professional register. Hook line must earn the "see more" click within ~2 lines. Long-form (150-300 words) performs for thought leadership; short + punchy for engagement. Native document/carousel framing where relevant. No link-in-first-line (algorithm suppresses it) — put links in the first comment if needed.',
-  'Instagram': 'Visual-first — caption supports the image/reel, doesn\'t replace it. Hook in the first line before the "more" fold. Conversational tone. Emojis as visual breaks, not decoration. Strong CTA to save/share/comment, not just like.',
-  'Twitter/X': 'Conversational, opinionated, native voice. Lead with the take, not a throat-clear. Thread format for multi-point arguments (mark "Post 1/2/3" clearly). No hashtag-stuffing — 0-2 max.',
-  'TikTok': 'Caption is secondary to the video/hook — write it as a companion, not a script. Short, punchy, trend-aware language. Native slang where authentic to the brand voice, never forced.',
-  'Facebook': 'Community/conversation framing. Questions and relatable statements outperform pure promotion. Slightly longer copy tolerated vs Instagram. Native video/photo framing.',
+  'LinkedIn': 'Professional register. Hook line must earn the "see more" click within ~2 lines. Long-form (150-300 words) performs for thought leadership; short + punchy for engagement. Native document/carousel framing where relevant — carousels are a genuine engagement goldmine here, default to one unless the idea is clearly a single-point take. No link-in-first-line (algorithm suppresses it) — put links in the first comment if needed.',
+  'Instagram': 'Visual-first — caption supports the image/reel/carousel, doesn\'t replace it. Hook in the first line before the "more" fold. Conversational tone. Emojis as visual breaks, not decoration. Strong CTA to save/share/comment, not just like. Default to Carousel or Reel (talking-head/storytelling style, not a fast trend-clip mimic) over a single static image unless the content genuinely only needs one frame.',
+  'Twitter/X': 'Conversational, opinionated, native voice. Lead with the take, not a throat-clear. Thread format for multi-point arguments (mark "Post 1/2/3" clearly). No hashtag-stuffing — 0-2 max, and even those secondary to keyword-rich phrasing in the copy itself.',
+  'TikTok': 'Caption is secondary to the video/hook — write it as a companion, not a script. Short, punchy, trend-aware language. Native slang where authentic to the brand voice, never forced. Favor a talking-head/storytelling Reel format over a pure trend-audio clip — it reaches new audiences better and ages better than trend-dependent content.',
+  'Facebook': 'Community/conversation framing. Questions and relatable statements outperform pure promotion. Slightly longer copy tolerated vs Instagram. Native video/photo framing; carousels perform well here too for multi-point or before/after content.',
 };
 
 // ── Content goal → strategic framing ────────────────────────────────────────
@@ -97,10 +104,13 @@ ${frequency}
   prompt += `
 ## HARD RULES
 1. Every post needs a real, specific hook — not "Are you struggling with X?" boilerplate. Reference something concrete from the topic/business context.
-2. Hashtags must be genuinely relevant to the post and platform norms (LinkedIn/Instagram: 3-8; Twitter/X: 0-2; TikTok: 3-6 trend-aware tags).
+2. Captions must be keyword-rich, natural-language writing built around the real topic and the ICP's own language — this is now a bigger discovery/algorithm signal than hashtag volume. Hashtags are secondary and still platform-appropriate in count (LinkedIn/Instagram: 3-8; Twitter/X: 0-2; TikTok: 3-6 trend-aware tags), but never a substitute for a keyword-dense caption.
 3. Posting time recommendations should reflect real platform behavior patterns (e.g. LinkedIn = weekday mornings, Instagram = evenings/weekends), not a generic "9am" default for every post.
 4. No two posts in the batch should share the same hook structure or opening line pattern — genuine variety, not the same template restated.
-5. Call the submit_social_posts tool with the complete batch. Do not write prose output.`;
+5. recommendedFormat: default to Carousel or Reel (talking-head/storytelling, not a trend-clip mimic) on platforms that support them, per the platform guide above — a single static image/text post is the exception when the idea genuinely doesn't need multiple frames or motion, not the default choice.
+6. When the content goal is promotional (Product Launch, or any post featuring the product/offer), frame it around the specific need/problem it solves — what changes for the customer — rather than a feature description, and where it fits naturally, prompt for user-generated content (encourage followers to share their own photos/videos using it) rather than only asking for likes/comments.
+7. storyFollowUp: for posts on platforms with a Stories feature (Instagram, Facebook), suggest ONE simple companion Stories interaction (a poll, quiz, or "Ask Me Anything" prompt) that extends the post's conversation — omit this field entirely (do not include empty string) for platforms without Stories or when nothing genuine fits.
+8. Call the submit_social_posts tool with the complete batch. Do not write prose output.`;
 
   return prompt;
 }
@@ -121,15 +131,17 @@ const SOCIAL_POSTS_TOOL = {
         items: {
           type: 'object',
           properties: {
-            platform:       { type: 'string', description: 'Exact platform name from the request, e.g. "LinkedIn"' },
-            title:          { type: 'string', description: 'Short internal label for this post, e.g. "The pricing objection post"' },
-            hook:           { type: 'string', description: 'The first line — must work as a scroll-stopper on its own' },
-            body:           { type: 'string', description: 'Full post copy including the hook as its opening line' },
-            hashtags:       { type: 'array', items: { type: 'string' }, description: 'Platform-appropriate hashtags, without the # symbol' },
-            postingTime:    { type: 'string', description: 'Recommended day/time to post, with a one-clause reason' },
-            engagementNote: { type: 'string', description: 'Why this specific post should perform well for this goal/platform' },
+            platform:         { type: 'string', description: 'Exact platform name from the request, e.g. "LinkedIn"' },
+            title:            { type: 'string', description: 'Short internal label for this post, e.g. "The pricing objection post"' },
+            hook:             { type: 'string', description: 'The first line — must work as a scroll-stopper on its own' },
+            body:             { type: 'string', description: 'Full post copy including the hook as its opening line' },
+            hashtags:         { type: 'array', items: { type: 'string' }, description: 'Platform-appropriate hashtags, without the # symbol — secondary to keyword-rich caption writing, not the primary discovery mechanism' },
+            recommendedFormat: { type: 'string', description: 'The creative format this post should be shot/built as, e.g. "Carousel (6 slides)", "Reel — talking-head storytelling", "Single image" — default to carousel/Reel per platform guidance unless the idea genuinely needs only one frame' },
+            postingTime:      { type: 'string', description: 'Recommended day/time to post, with a one-clause reason' },
+            engagementNote:   { type: 'string', description: 'Why this specific post should perform well for this goal/platform' },
+            storyFollowUp:    { type: 'string', description: 'Optional: one companion Stories interaction (poll/quiz/AMA) that extends this post\'s conversation — omit entirely for platforms without Stories or when nothing genuine fits' },
           },
-          required: ['platform', 'title', 'hook', 'body', 'hashtags', 'postingTime', 'engagementNote'],
+          required: ['platform', 'title', 'hook', 'body', 'hashtags', 'recommendedFormat', 'postingTime', 'engagementNote'],
         },
       },
     },
@@ -141,11 +153,14 @@ function renderPostsAsMarkdown(planNote, posts) {
   let out = `**Content Plan:** ${planNote}\n\n`;
   posts.forEach((p, i) => {
     out += `---\n## Post ${i + 1} — ${p.platform} — ${p.title}\n`;
+    out += `**Format:** ${p.recommendedFormat || 'Not specified'}\n\n`;
     out += `**Hook:** ${p.hook}\n\n`;
     out += `${p.body}\n\n`;
     out += `**Hashtags:** ${(p.hashtags || []).map(h => `#${h}`).join(' ')}\n`;
     out += `**Posting Time:** ${p.postingTime}\n`;
-    out += `**Engagement Note:** ${p.engagementNote}\n\n`;
+    out += `**Engagement Note:** ${p.engagementNote}\n`;
+    if (p.storyFollowUp) out += `**Stories Follow-Up:** ${p.storyFollowUp}\n`;
+    out += '\n';
   });
   return out;
 }
