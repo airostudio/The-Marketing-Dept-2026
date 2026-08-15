@@ -8,6 +8,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <script src="./js/marked.min.js"></script>
+    <script src="/js/supabase.min.js"></script>
+    <script src="/js/supabase-client.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -795,6 +797,218 @@
         @keyframes questionPulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
             50%       { box-shadow: 0 0 0 6px rgba(245,158,11,0.25); }
+        }
+
+        /* Agent Audit card — bi-monthly "stay current" research digest */
+        .audit-card {
+            background: linear-gradient(135deg, rgba(6,182,212,0.14), rgba(124,58,237,0.10));
+            border: 1px solid rgba(6,182,212,0.28);
+            border-radius: 12px;
+            padding: 14px;
+            display: none;
+        }
+
+        .audit-card.visible { display: block; }
+
+        .audit-card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #67e8f9;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .audit-card-date {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text3);
+            margin-left: auto;
+        }
+
+        .audit-card-sub {
+            font-size: 11px;
+            color: var(--text2);
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .audit-card-stats {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .audit-stat {
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            text-align: center;
+        }
+
+        .audit-stat-num {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .audit-stat-num.flagged { color: #f59e0b; }
+
+        .audit-stat-label {
+            font-size: 9px;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 2px;
+        }
+
+        .btn-audit-report {
+            width: 100%;
+            background: rgba(6,182,212,0.16);
+            border: 1px solid rgba(6,182,212,0.35);
+            color: #67e8f9;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-audit-report:hover {
+            background: rgba(6,182,212,0.26);
+        }
+
+        /* Audit report modal */
+        .audit-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .audit-modal-overlay.visible { display: flex; }
+
+        .audit-modal {
+            background: var(--bg2);
+            border: 1px solid var(--border-h);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 640px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .audit-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .audit-modal-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .audit-modal-close {
+            background: none;
+            border: none;
+            color: var(--text3);
+            font-size: 18px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+        }
+
+        .audit-modal-close:hover { color: var(--text); }
+
+        .audit-modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+        }
+
+        .audit-finding {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+        }
+
+        .audit-finding-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .audit-finding-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .audit-finding-badge {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 2px 7px;
+            border-radius: 20px;
+            margin-left: auto;
+        }
+
+        .audit-finding-badge.ok {
+            background: rgba(34,197,94,0.15);
+            color: var(--green);
+        }
+
+        .audit-finding-badge.flagged {
+            background: rgba(245,158,11,0.15);
+            color: #f59e0b;
+        }
+
+        .audit-finding-summary {
+            font-size: 11px;
+            color: var(--text2);
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .audit-finding-list {
+            font-size: 11px;
+            color: var(--text2);
+            line-height: 1.6;
+            margin: 0 0 6px 16px;
+            padding: 0;
+        }
+
+        .audit-finding-list li { margin-bottom: 2px; }
+
+        .audit-finding-list.recs li::marker { color: #67e8f9; }
+        .audit-finding-list.gaps li::marker { color: #f59e0b; }
+        .audit-finding-list.sec li::marker { color: #f87171; }
+
+        .audit-finding-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text3);
+            margin: 6px 0 3px;
         }
 
         .question-label {
@@ -1913,6 +2127,26 @@
                 </button>
             </div>
 
+            <!-- Agent Audit card — populated from the bi-monthly cron run, if any exists -->
+            <div class="audit-card" id="auditCard">
+                <div class="audit-card-title">
+                    🛰️ Agent Audit
+                    <span class="audit-card-date" id="auditCardDate"></span>
+                </div>
+                <div class="audit-card-sub" id="auditCardSub">Scotty checks every agent against current marketing best practices every 2 months.</div>
+                <div class="audit-card-stats">
+                    <div class="audit-stat">
+                        <div class="audit-stat-num" id="auditStatTotal">–</div>
+                        <div class="audit-stat-label">Agents</div>
+                    </div>
+                    <div class="audit-stat">
+                        <div class="audit-stat-num flagged" id="auditStatFlagged">–</div>
+                        <div class="audit-stat-label">Flagged</div>
+                    </div>
+                </div>
+                <button class="btn-audit-report" id="btnAuditReport">📋 View Report</button>
+            </div>
+
             <!-- Activity Log -->
             <div class="activity-section">
                 <div class="section-label">Background Activity</div>
@@ -1931,6 +2165,21 @@
 
         </div>
     </aside>
+</div>
+
+<!-- ════════════════════════════════════════
+     AGENT AUDIT REPORT MODAL
+════════════════════════════════════════ -->
+<div class="audit-modal-overlay" id="auditModalOverlay">
+    <div class="audit-modal">
+        <div class="audit-modal-header">
+            <span class="audit-modal-title">🛰️ Agent Audit Report</span>
+            <button class="audit-modal-close" id="btnAuditModalClose">✕</button>
+        </div>
+        <div class="audit-modal-body" id="auditModalBody">
+            <!-- Populated by JS -->
+        </div>
+    </div>
 </div>
 
 <!-- ════════════════════════════════════════
@@ -3919,11 +4168,134 @@ const QuickStart = (() => {
     return { init, open, close };
 })();
 
+// ════════════════════════════════════════
+// AGENT AUDIT — surfaces the bi-monthly
+// cron.js research run (api/cron-agent-audit.js)
+// ════════════════════════════════════════
+const AgentAudit = (() => {
+    const DISMISS_KEY_PREFIX = 'audema_audit_seen_';
+
+    function client() {
+        if (!window.Supabase || !window.Supabase.isConfigured || !window.Supabase.isConfigured()) return null;
+        try { return window.Supabase.getClient(); } catch (e) { return null; }
+    }
+
+    function fmtDate(iso) {
+        try {
+            return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (e) { return ''; }
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function renderList(items, cssClass) {
+        if (!items || !items.length) return '';
+        return `<ul class="audit-finding-list ${cssClass}">${items.map(i => `<li>${escapeHtml(typeof i === 'string' ? i : i.text)}</li>`).join('')}</ul>`;
+    }
+
+    async function loadReport(runId) {
+        const sb = client();
+        const body = document.getElementById('auditModalBody');
+        if (!sb || !body) return;
+        body.innerHTML = '<div style="color:var(--text3);font-size:12px;">Loading…</div>';
+        const { data: findings, error } = await sb
+            .from('agent_audit_findings')
+            .select('*')
+            .eq('run_id', runId)
+            .order('up_to_date', { ascending: true });
+        if (error || !findings) {
+            body.innerHTML = '<div style="color:var(--text3);font-size:12px;">Could not load the report.</div>';
+            return;
+        }
+        if (!findings.length) {
+            body.innerHTML = '<div style="color:var(--text3);font-size:12px;">No findings recorded for this run.</div>';
+            return;
+        }
+        body.innerHTML = findings.map(f => {
+            const badge = f.error
+                ? `<span class="audit-finding-badge flagged">Error</span>`
+                : f.up_to_date
+                    ? `<span class="audit-finding-badge ok">Up to date</span>`
+                    : `<span class="audit-finding-badge flagged">Flagged</span>`;
+            let inner = `<div class="audit-finding-summary">${escapeHtml(f.summary || (f.error ? 'This agent\'s research check failed to complete on this run.' : ''))}</div>`;
+            if (f.gaps && f.gaps.length) {
+                inner += `<div class="audit-finding-label">Gaps</div>${renderList(f.gaps, 'gaps')}`;
+            }
+            if (f.recommendations && f.recommendations.length) {
+                inner += `<div class="audit-finding-label">Recommendations</div>${renderList(f.recommendations, 'recs')}`;
+            }
+            if (f.security_notes && f.security_notes.length) {
+                inner += `<div class="audit-finding-label">Security notes</div>${renderList(f.security_notes, 'sec')}`;
+            }
+            return `<div class="audit-finding">
+                <div class="audit-finding-head">
+                    <span class="audit-finding-name">${escapeHtml(f.agent_label)}</span>
+                    ${badge}
+                </div>
+                ${inner}
+            </div>`;
+        }).join('');
+    }
+
+    function openModal(runId) {
+        const overlay = document.getElementById('auditModalOverlay');
+        if (!overlay) return;
+        overlay.classList.add('visible');
+        loadReport(runId);
+        localStorage.setItem(DISMISS_KEY_PREFIX + runId, '1');
+    }
+
+    function closeModal() {
+        const overlay = document.getElementById('auditModalOverlay');
+        if (overlay) overlay.classList.remove('visible');
+    }
+
+    async function init() {
+        const sb = client();
+        const card = document.getElementById('auditCard');
+        if (!sb || !card) return;
+
+        const { data: runs, error } = await sb
+            .from('agent_audit_runs')
+            .select('*')
+            .order('run_at', { ascending: false })
+            .limit(1);
+        if (error || !runs || !runs.length) return;
+
+        const run = runs[0];
+        card.classList.add('visible');
+        document.getElementById('auditCardDate').textContent = fmtDate(run.run_at);
+        document.getElementById('auditStatTotal').textContent = run.agent_count ?? '–';
+        document.getElementById('auditStatFlagged').textContent = run.flagged_count ?? '–';
+        if (run.overall_summary) {
+            document.getElementById('auditCardSub').textContent = run.overall_summary;
+        }
+
+        const btn = document.getElementById('btnAuditReport');
+        if (btn) btn.addEventListener('click', () => openModal(run.id));
+
+        const closeBtn = document.getElementById('btnAuditModalClose');
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        const overlay = document.getElementById('auditModalOverlay');
+        if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+        // Gentle nudge in activity log for a genuinely new, unseen run
+        if (!localStorage.getItem(DISMISS_KEY_PREFIX + run.id)) {
+            InfoPanel.logActivity('🛰️', `New agent audit ready — ${run.flagged_count ?? 0} of ${run.agent_count ?? 0} agents flagged for review`);
+        }
+    }
+
+    return { init };
+})();
+
 // Boot
 window.addEventListener('DOMContentLoaded', () => {
     window.scottyChat = new ScottyChat();
     InfoPanel.init();
     QuickStart.init();
+    AgentAudit.init();
 });
 </script>
 

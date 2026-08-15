@@ -440,6 +440,29 @@ Before deploying:
 
 ---
 
+## Agent Audit — Bi-Monthly "Stay Current" Research Run
+
+Every 2 months, `api/cron-agent-audit.js` runs a real, live web-search-backed research pass over all 15 specialist agents (Rex, Ink, CRO Lab, Nova, Pat, Beeker, Chase, Pulse, Mex, Reel, Scout, Vera, Shield, Lock, Deck Maker), asking Claude to check each one's current approach against up-to-date (not training-data-stale) marketing best practices, security considerations, and platform/compliance rules — then writes the findings to Supabase so Scotty can surface them.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Already required above — reused for the audit's Claude + web-search calls | ✅ Yes |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above — the cron job writes with the service-role key, bypassing RLS | ✅ Yes |
+| `CRON_SECRET` | Already used by `api/cron-auto-publish.js` — the same bearer token gates this endpoint too | ✅ Yes |
+
+### Setup
+
+1. Run `supabase-agent-audits.sql` in Supabase Dashboard → SQL Editor. This creates `agent_audit_runs` and `agent_audit_findings` — read-only for any signed-in user (it's meta-info about the product's own agents, not client data), writes only via the service-role key.
+2. No new env vars if `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` are already set from earlier sections — this feature reuses all four.
+3. The Vercel Cron entry (`vercel.json`) fires at `0 6 1 */2 *` — 06:00 UTC on the 1st of every odd month (Jan, Mar, May, Jul, Sep, Nov).
+4. Scotty (`web/scotty.html`) shows an "🛰️ Agent Audit" card in Mission Control whenever a run exists, with agent/flagged counts and a "View Report" button that opens the full per-agent findings (gaps, recommendations, security notes, sources).
+
+**What this job deliberately does NOT do**: it never modifies any other agent's code, prompts, or behavior — it only produces a research report for a human to act on. Auto-patching production files from an unsupervised cron job would be a real safety regression, not a step toward genuine autonomy; consequential changes stay gated behind human review.
+
+Each of the 15 per-agent research calls runs concurrently (`Promise.allSettled`, 40s timeout each) to fit inside Vercel's 60s function budget. If an individual agent's research call fails (timeout, rate limit, etc.), it's recorded with an `error` field and `up_to_date: true` — a failed run is never mistaken for a "this agent needs work" flag.
+
+---
+
 ## Additional Resources
 
 - [Vercel Environment Variables Docs](https://vercel.com/docs/concepts/projects/environment-variables)
