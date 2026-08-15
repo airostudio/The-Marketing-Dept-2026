@@ -97,6 +97,11 @@ function buildPrompt({ headline, subheadline, cta, proofPoint, urgencyLine, plat
     `- Clean, uncluttered composition with strong visual hierarchy — headline first, then supporting proof, then CTA`,
     `- Professional, premium, modern advertising design quality — the kind a top-tier paid social ad agency would ship`,
     `- No spelling mistakes, no garbled or duplicated text, no watermarks, no placeholder lorem-ipsum text`,
+    // Realistic depictions of people are exactly what triggers Meta's automatic
+    // "Made with AI" label and is the highest-scrutiny category under TikTok's
+    // 2026 AI-disclosure rules — default away from it unless a person is the
+    // actual point of the visual (a founder photo, a testimonial headshot).
+    `- Prefer product-forward, illustrative, abstract, or graphic-design compositions over photorealistic depictions of people; if a person genuinely belongs in this ad, keep them stylized/illustrated rather than photorealistic unless the brief specifically calls for a real-looking human portrait`,
   ];
 
   return lines.filter(Boolean).join('\n');
@@ -305,9 +310,12 @@ module.exports = async function handler(req, res) {
       mimeType,
       platformSize,
       creditsRemaining,
-      notes: hostedUrl
-        ? [`Real AI-generated ${format.toUpperCase()} creative — hosted and ready for Instagram/TikTok publishing.`]
-        : [`Real AI-generated ${format.toUpperCase()} creative. SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured (or upload failed) — hostedUrl is unavailable, so Instagram/TikTok publishing will reject this image until that's set up. It still displays and downloads fine everywhere else.`],
+      notes: [
+        ...(hostedUrl
+          ? [`Real AI-generated ${format.toUpperCase()} creative — hosted and ready for Instagram/TikTok publishing.`]
+          : [`Real AI-generated ${format.toUpperCase()} creative. SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured (or upload failed) — hostedUrl is unavailable, so Instagram/TikTok publishing will reject this image until that's set up. It still displays and downloads fine everywhere else.`]),
+        `⚠️ AI disclosure: this is AI-generated ad creative. Meta requires advertisers to self-certify AI-generated content when creating the ad, and may auto-apply a "Made with AI" label to realistic images; TikTok requires an AI-content label on paid ads. Declare it when you upload this to the ad platform.`,
+      ],
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });

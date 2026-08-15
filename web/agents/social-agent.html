@@ -182,6 +182,7 @@
         .post-card-image-badge.ai { background: rgba(124,58,237,0.75); color: #fff; }
         .post-card-image-badge.template { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
         .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
+        .post-card-ai-disclosure { font-size: 10.5px; color: #f59e0b; line-height: 1.5; margin: -4px 0 10px; }
         .post-card-quick-link { display: block; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: 'Inter', sans-serif; padding: 0; }
         .credits-upsell { margin-bottom: 10px; padding: 14px 16px; border-radius: 10px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); }
         .credits-upsell-title { font-weight: 700; color: #fbbf24; margin-bottom: 4px; font-size: 13px; }
@@ -731,6 +732,7 @@ function renderReviewQueue() {
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
             ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
+            ${p.imageUrl && p.imageIsAI ? `<div class="post-card-ai-disclosure">⚠️ AI-generated image — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
             ${p.outOfCredits ? `
                 <div class="credits-upsell">
