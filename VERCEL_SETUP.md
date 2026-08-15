@@ -16,6 +16,32 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Pat — Email Delivery: Unsubscribe Compliance & Bounce Handling
+
+Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had no `List-Unsubscribe` header (a hard Gmail/Yahoo/Apple requirement for bulk senders since May 2026) and nothing ever closed the loop when a send bounced or was marked as spam, so `contacts.status` sat unused.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `UNSUBSCRIBE_SECRET` | Signs the token in every unsubscribe link so it can't be forged. Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset — set a dedicated value if you'd rather not reuse that key for this. | Recommended |
+| `RESEND_WEBHOOK_SECRET` | The `whsec_...` signing secret Resend gives you when you add a webhook endpoint | ✅ For bounce/complaint tracking |
+| `PUBLIC_APP_URL` | Your deployment's public base URL, e.g. `https://app.yourdomain.com`. Falls back to the request's own `Host` header if unset — set this explicitly if you're behind a proxy/custom domain where that header isn't reliable. | Optional |
+
+### What changed
+
+- **`api/send-campaign.js`** now attaches `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers to every send, pointing at a signed link on `api/unsubscribe.js`. If `UNSUBSCRIBE_SECRET`/`SUPABASE_SERVICE_ROLE_KEY` isn't configured, sends still go out (nothing is blocked) but the response includes a `warnings` array saying so — check for that in Pat's UI/QA flow.
+- **`api/unsubscribe.js`** (new, public, no login required) — `GET` shows a confirmation page; `POST` (what mail clients send for one-click unsubscribe, and what the confirmation page's form submits to) flips the contact's `status` to `'unsubscribed'` in Supabase. Only works for recipients that came from a saved segment (i.e. had a real `contacts` row) — an ad-hoc pasted recipient has no CRM record to flip, and still sees a confirmation page rather than an error.
+- **`api/resend-webhook.js`** (new) — verifies Resend's Svix-style webhook signature (HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${raw body}`, keyed by the base64-decoded `whsec_` secret) and sets `contacts.status` to `'bounced'` on a **permanent** bounce or `'complained'` on a spam complaint. Transient bounces (full mailbox, greylisting) are deliberately left alone — that's not a signal to stop emailing someone. Requires `contact_id` to be present in the event's echoed-back tags, which only happens for recipients sent with a real contact — see above.
+
+### Setup
+
+1. In the Resend dashboard: **Webhooks → Add Endpoint** → URL `https://<your-domain>/api/resend-webhook`, events `email.bounced` and `email.complained`. Copy the signing secret into `RESEND_WEBHOOK_SECRET`.
+2. No new Supabase table needed — this only writes to the `status` column `supabase-audience.sql` already created.
+3. Send a real campaign to a segment-loaded recipient and confirm the outgoing message actually carries `List-Unsubscribe`/`List-Unsubscribe-Post` headers (most email clients' "view original" shows raw headers).
+
+**Not yet covered by this pass**: `api/send-email.js` (Chase's one-off/sales-sequence sends) doesn't attach these headers — those recipients aren't audience `contacts` rows today, so there's no contact record for a webhook or unsubscribe link to act on. Revisit once sales-sequence prospects have a server-side record to update.
+
+---
+
 ## Pulse Social Studio — Real AI Ad Image Generation
 
 The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents/social-agent.html`) creates a real, finished PNG/JPEG/WEBP creative — headline, supporting line, and CTA baked in as real on-image typography, using direct-response ad design principles — via `api/generate-ad-image.js`, proxied server-side so the key never reaches the browser.

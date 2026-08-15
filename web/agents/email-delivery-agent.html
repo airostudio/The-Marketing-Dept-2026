@@ -510,6 +510,10 @@
                 <div class="stat-pill"><div class="num">${result.rejected.length}</div><div class="label">Rejected</div></div>
             </div>`;
 
+            if (result.warnings && result.warnings.length) {
+                html += result.warnings.map(w => `<div class="verdict-box" style="margin-bottom:12px;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.08);"><div class="verdict-title" style="color:#f59e0b;">⚠️ ${escHtml(w)}</div></div>`).join('');
+            }
+
             const allRows = [
                 ...result.results.map(r => ({ to: r.to, ok: r.success, note: r.success ? (r.id || 'sent') : r.error })),
                 ...result.rejected.map(r => ({ to: r.to, ok: false, note: r.error })),

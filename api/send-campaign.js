@@ -33,6 +33,8 @@
 
 'use strict';
 
+const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscribe-token.js');
+
 const DAILY_SEND_LIMIT   = 50;
 const MAX_BATCH_SIZE     = 25;
 const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
@@ -93,6 +95,9 @@ module.exports = async function handler(req, res) {
   if (!checkRateLimit(ip))
     return res.status(429).json({ error: 'Too many campaign sends. Slow down.' });
 
+  const proto   = req.headers['x-forwarded-proto'] || 'https';
+  const baseUrl = process.env.PUBLIC_APP_URL || `${proto}://${req.headers.host}`;
+
   const apiKey    = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;
   const fromName  = process.env.RESEND_FROM_NAME || 'Audema';
@@ -135,15 +140,26 @@ module.exports = async function handler(req, res) {
   const results = [];
 
   for (const recipient of toSend) {
-    const { to, toName, mergeFields } = recipient;
+    const { to, toName, mergeFields, _contactId } = recipient;
 
     const personalizedSubject = applyMergeFields(subject, mergeFields);
     const personalizedHtml    = applyMergeFields(html, mergeFields);
     const personalizedText    = text ? applyMergeFields(text, mergeFields) : undefined;
 
     const tags = [
-      ...(campaignId ? [{ name: 'campaign_id', value: sanitizeTagValue(campaignId) }] : []),
+      ...(campaignId  ? [{ name: 'campaign_id', value: sanitizeTagValue(campaignId) }] : []),
+      ...(_contactId  ? [{ name: 'contact_id',  value: sanitizeTagValue(_contactId) }] : []),
     ];
+
+    // RFC 8058 List-Unsubscribe / List-Unsubscribe-Post — Gmail, Yahoo, and
+    // Apple all require these on bulk senders since May 2026 and will
+    // otherwise reject or spam-box the send. The link points at
+    // api/unsubscribe.js, signed so it can't be forged or reused for a
+    // different recipient.
+    const unsubToken = unsubscribeConfigured() ? sign(_contactId || null, to) : null;
+    const unsubUrl = unsubToken
+      ? `${baseUrl}/api/unsubscribe?c=${encodeURIComponent(_contactId || '-')}&e=${encodeURIComponent(Buffer.from(to).toString('base64url'))}&t=${unsubToken}`
+      : null;
 
     const payload = {
       from:    `${fromName} <${fromEmail}>`,
@@ -153,6 +169,12 @@ module.exports = async function handler(req, res) {
       ...(personalizedText ? { text: personalizedText } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
       ...(tags.length ? { tags } : {}),
+      ...(unsubUrl ? {
+        headers: {
+          'List-Unsubscribe':      `<${unsubUrl}>, <mailto:${fromEmail}?subject=unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      } : {}),
     };
 
     try {
@@ -191,5 +213,8 @@ module.exports = async function handler(req, res) {
     results,
     dailySent:  dailySendCount,
     dailyLimit: DAILY_SEND_LIMIT,
+    ...(unsubscribeConfigured() ? {} : {
+      warnings: ['UNSUBSCRIBE_SECRET / SUPABASE_SERVICE_ROLE_KEY not configured — sends went out without List-Unsubscribe headers, which Gmail/Yahoo/Apple require for bulk senders.'],
+    }),
   });
 };
