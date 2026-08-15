@@ -79,6 +79,7 @@
         .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
 
         .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .not-legal-advice-banner { padding: 10px 20px; font-size: 11.5px; line-height: 1.5; color: #f59e0b; background: rgba(245,158,11,0.08); border-bottom: 1px solid rgba(245,158,11,0.2); }
         .output-body { padding: 20px; min-height: 300px; font-size: 14px; line-height: 1.75; color: var(--text); }
         .output-body h2 { font-size: 16px; color: #a78bfa; margin: 16px 0 8px; font-weight: 700; }
         .output-body h3 { font-size: 14px; color: var(--cyan); margin: 12px 0 6px; font-weight: 700; }
@@ -204,6 +205,10 @@
                         <input type="checkbox" id="pci">
                         <label for="pci">PCI DSS (Payment Card Industry)</label>
                     </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="euaiact">
+                        <label for="euaiact">EU AI Act (AI System Governance)</label>
+                    </div>
                 </div>
             </div>
 
@@ -247,6 +252,7 @@
             <span class="panel-title">Compliance Automation Plan</span>
             <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
         </div>
+        <div class="not-legal-advice-banner">⚠️ This plan is an automation proposal, not a certification or legal opinion. Don't represent anything here to a customer or prospect as your company's verified compliance status — confirm with a real auditor or qualified counsel first.</div>
         <div id="outputArea">
             <div class="output-empty">Select your compliance frameworks and automation goal, then click Generate to get an AI-powered compliance automation plan with evidence collection, monitoring setup, and security workflow automation.</div>
         </div>
@@ -320,6 +326,7 @@
         if (document.getElementById('gdpr').checked) frameworks.push('GDPR');
         if (document.getElementById('hipaa').checked) frameworks.push('HIPAA');
         if (document.getElementById('pci').checked) frameworks.push('PCI DSS');
+        if (document.getElementById('euaiact').checked) frameworks.push('EU AI Act');
         return frameworks;
     }
 
@@ -516,6 +523,22 @@ ${frameworks.includes('PCI DSS') ? `### PCI DSS Automation
 - Quarterly compliance reports
 ` : ''}
 
+${frameworks.includes('EU AI Act') ? `### EU AI Act Automation
+**AI System Inventory & Risk Classification:**
+- Register every AI system in use or offered (internal tools, embedded vendor AI, AI-generated marketing content) with its risk tier (unacceptable / high-risk / limited-risk / minimal-risk)
+- Flag any high-risk use cases (e.g. AI in hiring, credit, biometric categorisation) for a full conformity assessment — most marketing/content-generation use falls under "limited-risk" transparency obligations, not high-risk, but confirm per system
+
+**Article 50 Transparency Automation:**
+- Machine-readable AI-disclosure labelling workflow for AI-generated marketing content, ad creative, and video (deadline for systems already on-market: Dec 2, 2026)
+- Chatbot/AI-assistant disclosure check ("you are interacting with an AI system")
+- Deepfake and synthetic-media labelling workflow
+
+**Documentation & Governance:**
+- AI system technical documentation template (what model, what data, what human oversight)
+- Incident/malfunction logging workflow
+- Annual AI Act compliance review reminder
+` : ''}
+
 ## EVIDENCE COLLECTION AUTOMATION PLAN
 
 **Automated Screenshot Tools:**
@@ -680,9 +703,9 @@ ${companyStage.includes('Audit ready') || companyStage.includes('Certified') ? `
 - [ ] Set up remediation task tracking
 
 **Week 9-10: Sales Acceleration**
-- [ ] Build trust center
+- [ ] Build trust center (publish only controls/certifications this company has actually verified — never a target date as if it were a current status)
 - [ ] Create security documentation portal
-- [ ] Develop sales enablement materials
+- [ ] Develop sales enablement materials (draft only — sales/legal must confirm actual certification status before anything here reaches a prospect)
 - [ ] Set up compliance status dashboard
 
 **Ongoing: Maintenance**
@@ -718,7 +741,10 @@ ESTIMATE cost and time-savings ranges appropriate to this company's stage (${com
 Explain how compliance readiness accelerates enterprise sales for THIS company (procurement blockers removed, security questionnaire friction reduced, trust center confidence, faster legal/security reviews). Where you quantify impact, ESTIMATE ranges appropriate to the company's stage and selected frameworks and label them "industry-typical ranges — validate for your company".
 
 **💡 COMPLIANCE BUSYWORK ELIMINATED:**
-List the manual tasks this plan automates (screenshot capture, access reviews, policy updates, vendor assessments, security questionnaires) with ESTIMATED time savings per task appropriate to this company — labeled as industry-typical ranges, not measured results. Close with an estimated total time-savings range for the compliance/security team, labeled the same way.`;
+List the manual tasks this plan automates (screenshot capture, access reviews, policy updates, vendor assessments, security questionnaires) with ESTIMATED time savings per task appropriate to this company — labeled as industry-typical ranges, not measured results. Close with an estimated total time-savings range for the compliance/security team, labeled the same way.
+
+**⚠️ NOT A CERTIFICATION OR LEGAL OPINION:**
+This is an automation plan, not evidence of compliance. Never phrase anything in this plan as a present-tense compliance claim (e.g. "SOC 2 Type II compliant", "audit ready") — describe only the work this plan proposes doing. End the response with this exact line, verbatim: "This plan describes proposed automation and estimated timelines — it is not a certification, an audit opinion, or legal advice, and none of it should be represented to a customer or prospect as your company's current compliance status until a real auditor/qualified counsel has verified it."`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
