@@ -291,44 +291,66 @@ module.exports = async function handler(req, res) {
     let sawToolUse = false;
     let streamError = null;
 
+    // Line-by-line, not a blind split on '\n\n' — SSE frames are terminated
+    // by a blank line, but relying on that exact double-newline boundary
+    // surviving chunk splits/CRLF line endings intact is fragile. Scanning
+    // for individual '\n'-terminated lines and pulling out any that start
+    // with "data:" is what SSE parsers actually do, and tolerates a
+    // trailing '\r' or a missing/blank blank-line separator without losing
+    // every event in the stream.
+    let eventCount = 0;
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const processLine = (rawLine) => {
+      const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+      if (!line.startsWith('data:')) return;
+      const jsonStr = line.slice(5).trim();
+      if (!jsonStr || jsonStr === '[DONE]') return;
+
+      let payload;
+      try {
+        payload = JSON.parse(jsonStr);
+      } catch {
+        return;
+      }
+      eventCount++;
+
+      if (payload.type === 'content_block_start' && payload.content_block?.type === 'tool_use') {
+        sawToolUse = true;
+      } else if (payload.type === 'content_block_delta' && payload.delta?.type === 'input_json_delta') {
+        toolInputJson += payload.delta.partial_json || '';
+      } else if (payload.type === 'message_start') {
+        usage = payload.message?.usage || null;
+      } else if (payload.type === 'message_delta') {
+        usage = { ...(usage || {}), ...(payload.usage || {}) };
+      } else if (payload.type === 'error') {
+        streamError = payload.error?.message || 'Anthropic stream error';
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
-
-      for (const evt of events) {
-        const dataLine = evt.split('\n').find(l => l.startsWith('data: '));
-        if (!dataLine) continue;
-        let payload;
-        try {
-          payload = JSON.parse(dataLine.slice(6));
-        } catch {
-          continue;
-        }
-
-        if (payload.type === 'content_block_start' && payload.content_block?.type === 'tool_use') {
-          sawToolUse = true;
-        } else if (payload.type === 'content_block_delta' && payload.delta?.type === 'input_json_delta') {
-          toolInputJson += payload.delta.partial_json || '';
-        } else if (payload.type === 'message_start') {
-          usage = payload.message?.usage || null;
-        } else if (payload.type === 'message_delta') {
-          usage = { ...(usage || {}), ...(payload.usage || {}) };
-        } else if (payload.type === 'error') {
-          streamError = payload.error?.message || 'Anthropic stream error';
-        }
+      if (value && value.length) buffer += decoder.decode(value, { stream: true });
+      if (done) {
+        buffer += decoder.decode();
+        if (buffer) processLine(buffer);
+        break;
+      }
+      let newlineIdx;
+      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+        processLine(buffer.slice(0, newlineIdx));
+        buffer = buffer.slice(newlineIdx + 1);
       }
     }
 
     if (streamError) return res.status(502).json({ error: streamError });
     if (!sawToolUse || !toolInputJson) {
+      // Logged (not surfaced to the client) so a repeat of this failure shows
+      // up in Vercel function logs with enough to tell "stream never parsed
+      // any events" apart from "parsed fine, model just didn't call the tool".
+      console.error('generate-social-posts: no tool_use captured', { eventCount, sawToolUse, toolInputJsonLength: toolInputJson.length });
       return res.status(502).json({ error: 'Claude did not return structured posts. Try again — this is usually transient.' });
     }
 
