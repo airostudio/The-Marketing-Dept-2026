@@ -24,6 +24,49 @@
 
 
 -- ═══════════════════════════════════════════════════════════════════════
+-- ⚠️  DESTRUCTIVE — CLEAR EXISTING TABLES BEFORE IMPORT
+-- ═══════════════════════════════════════════════════════════════════════
+-- Drops every table the migrations below create, so the CREATE TABLE
+-- statements that follow build a genuinely clean copy instead of
+-- upserting onto whatever is already there. CASCADE also removes any
+-- indexes, triggers, and RLS policies attached to these tables.
+--
+-- This ONLY touches tables this file creates — it never touches
+-- auth.users, projects, or anything else already in your database.
+--
+-- ⚠️  THIS PERMANENTLY DELETES ALL DATA IN THESE TABLES. There is no
+-- undo. If any of them already hold real data you care about, back it
+-- up first (Supabase Dashboard → Database → Backups, or pg_dump) —
+-- comment out this block instead of running it if you're unsure.
+-- ═══════════════════════════════════════════════════════════════════════
+
+DROP TABLE IF EXISTS competitor_changes         CASCADE;
+DROP TABLE IF EXISTS competitor_snapshots       CASCADE;
+DROP TABLE IF EXISTS competitor_watches         CASCADE;
+DROP TABLE IF EXISTS agent_audit_findings       CASCADE;
+DROP TABLE IF EXISTS agent_audit_runs           CASCADE;
+DROP TABLE IF EXISTS conversions                CASCADE;
+DROP TABLE IF EXISTS visitors                   CASCADE;
+DROP TABLE IF EXISTS goals                      CASCADE;
+DROP TABLE IF EXISTS variants                   CASCADE;
+DROP TABLE IF EXISTS experiments                CASCADE;
+DROP TABLE IF EXISTS campaign_sends              CASCADE;
+DROP TABLE IF EXISTS segment_members            CASCADE;
+DROP TABLE IF EXISTS segments                   CASCADE;
+DROP TABLE IF EXISTS contacts                   CASCADE;
+DROP TABLE IF EXISTS credit_balances            CASCADE;
+DROP TABLE IF EXISTS social_posts               CASCADE;
+DROP TABLE IF EXISTS intelligence_profile_members CASCADE;
+DROP TABLE IF EXISTS intelligence_profiles      CASCADE;
+DROP TABLE IF EXISTS business_brain_history     CASCADE;
+DROP TABLE IF EXISTS business_brain             CASCADE;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- END destructive block — fresh CREATE statements start below
+-- ═══════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════
 -- SOURCE: supabase-business-brain.sql
 -- ═══════════════════════════════════════════════════════════════════════
 
