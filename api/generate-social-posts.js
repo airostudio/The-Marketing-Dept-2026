@@ -74,12 +74,46 @@ const GOAL_STRATEGY = {
   'Community Building': 'Speak to the audience as peers/insiders. Reference shared frustrations or in-jokes of the space. Behind-the-scenes or "how we think about X" framing works well.',
 };
 
-function buildSystemPrompt(platforms, contentGoal, frequency, businessContext, competitors) {
+// Defense-in-depth cap on the client-assembled BusinessBrain context. The
+// client concatenates several context blocks (ICP hooks, brand voice, value
+// props, competitive differentiation, hashtag strategy, researched context)
+// with no length cap of its own — an unusually large BusinessBrain profile
+// could inflate this well past what's useful, which costs both latency (more
+// input to process before the model can start generating) and cache-hit
+// reliability (huge blocks are more likely to have already been truncated
+// differently between calls). ~24000 chars is roughly 6000 tokens — generous
+// for real ICP/brand-voice/value-prop content, well past diminishing returns.
+const MAX_BUSINESS_CONTEXT_CHARS = 24000;
+
+// System prompt is built as content blocks (not a single string) so the
+// business context — by far the largest and most session-repeated part of
+// the input — can be cached separately via cache_control. It's placed FIRST
+// so the cached prefix is unaffected by per-call variation in platforms/goal/
+// competitors; a user regenerating posts multiple times in a session (a very
+// common pattern) then gets a cache hit on that block every time after the
+// first, cutting both latency and the risk of tripping the upstream timeout.
+// Anthropic requires ~1024 min tokens (Sonnet) for a block to actually cache;
+// below that it's simply sent as normal, uncached text — no downside either way.
+function buildSystemBlocks(platforms, contentGoal, frequency, businessContext, competitors) {
+  const blocks = [];
+
+  const trimmedContext = (businessContext || '').trim();
+  if (trimmedContext) {
+    const capped = trimmedContext.length > MAX_BUSINESS_CONTEXT_CHARS
+      ? trimmedContext.slice(0, MAX_BUSINESS_CONTEXT_CHARS) + '\n[...context truncated for length]'
+      : trimmedContext;
+    blocks.push({
+      type: 'text',
+      text: `## BUSINESS CONTEXT (use this — real ICP, brand voice, value props, and pain points, not generic industry language)\n${capped}`,
+      cache_control: { type: 'ephemeral' },
+    });
+  }
+
   const platformGuides = platforms
     .map(p => `**${p}**: ${PLATFORM_STRATEGY[p] || 'Write in the platform\'s native voice and format.'}`)
     .join('\n');
 
-  let prompt = `You are a social media strategist who creates platform-native content that drives genuine engagement — not generic filler that could belong to any brand.
+  let rest = `You are a social media strategist who creates platform-native content that drives genuine engagement — not generic filler that could belong to any brand.
 
 ## PLATFORMS REQUESTED
 ${platformGuides}
@@ -91,17 +125,15 @@ ${GOAL_STRATEGY[contentGoal] || 'Write content that serves this specific goal co
 ${frequency}
 `;
 
-  if (businessContext && businessContext.trim()) {
-    prompt += `\n## BUSINESS CONTEXT (use this — real ICP, brand voice, value props, and pain points, not generic industry language)\n${businessContext.trim()}\n`;
-  } else {
-    prompt += `\n⚠️ No business context was provided — write the best generic-industry content you can, but flag in contentPlanNote that connecting BusinessBrain would sharpen targeting significantly.\n`;
+  if (!trimmedContext) {
+    rest += `\n⚠️ No business context was provided — write the best generic-industry content you can, but flag in contentPlanNote that connecting BusinessBrain would sharpen targeting significantly.\n`;
   }
 
   if (competitors && competitors.trim()) {
-    prompt += `\n## COMPETITIVE CONTEXT\nKnown competitors: ${competitors.trim()}. Where a differentiation angle fits naturally, use it — don't force it into every post.\n`;
+    rest += `\n## COMPETITIVE CONTEXT\nKnown competitors: ${competitors.trim()}. Where a differentiation angle fits naturally, use it — don't force it into every post.\n`;
   }
 
-  prompt += `
+  rest += `
 ## HARD RULES
 1. Every post needs a real, specific hook — not "Are you struggling with X?" boilerplate. Reference something concrete from the topic/business context.
 2. Captions must be keyword-rich, natural-language writing built around the real topic and the ICP's own language — this is now a bigger discovery/algorithm signal than hashtag volume. Hashtags are secondary and still platform-appropriate in count (LinkedIn/Instagram: 3-8; Twitter/X: 0-2; TikTok: 3-6 trend-aware tags), but never a substitute for a keyword-dense caption.
@@ -112,7 +144,8 @@ ${frequency}
 7. storyFollowUp: for posts on platforms with a Stories feature (Instagram, Facebook), suggest ONE simple companion Stories interaction (a poll, quiz, or "Ask Me Anything" prompt) that extends the post's conversation — omit this field entirely (do not include empty string) for platforms without Stories or when nothing genuine fits.
 8. Call the submit_social_posts tool with the complete batch. Do not write prose output.`;
 
-  return prompt;
+  blocks.push({ type: 'text', text: rest });
+  return blocks;
 }
 
 const SOCIAL_POSTS_TOOL = {
@@ -192,7 +225,7 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(platforms) || platforms.length === 0) return res.status(400).json({ error: 'platforms must be a non-empty array' });
 
   const count = Math.min(Math.max(Number(postCount) || 5, 1), 20);
-  const systemPrompt = buildSystemPrompt(platforms, contentGoal, frequency, businessContext, competitors);
+  const systemBlocks = buildSystemBlocks(platforms, contentGoal, frequency, businessContext, competitors);
 
   // Scale the output budget to the batch size instead of always requesting the
   // full 8000-token ceiling — smaller batches finish (and stream back) faster,
@@ -223,7 +256,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model:       'claude-sonnet-4-6',
         max_tokens:  maxTokens,
-        system:      systemPrompt,
+        system:      systemBlocks,
         tools:       [SOCIAL_POSTS_TOOL],
         tool_choice: { type: 'tool', name: 'submit_social_posts' },
         messages: [{
