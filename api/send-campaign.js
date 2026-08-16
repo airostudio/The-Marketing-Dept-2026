@@ -142,24 +142,27 @@ module.exports = async function handler(req, res) {
   for (const recipient of toSend) {
     const { to, toName, mergeFields, _contactId } = recipient;
 
-    const personalizedSubject = applyMergeFields(subject, mergeFields);
-    const personalizedHtml    = applyMergeFields(html, mergeFields);
-    const personalizedText    = text ? applyMergeFields(text, mergeFields) : undefined;
+    // RFC 8058 List-Unsubscribe / List-Unsubscribe-Post — Gmail, Yahoo, and
+    // Apple all require these on bulk senders since May 2026 and will
+    // otherwise reject or spam-box the send. The link points at
+    // api/unsubscribe.js, signed so it can't be forged or reused for a
+    // different recipient. Also exposed as an {{unsubscribe_url}} merge
+    // token so Nova's copy can link it directly in the footer, not just
+    // rely on the header mail clients don't always surface.
+    const unsubToken = unsubscribeConfigured() ? sign(_contactId || null, to) : null;
+    const unsubUrl = unsubToken
+      ? `${baseUrl}/api/unsubscribe?c=${encodeURIComponent(_contactId || '-')}&e=${encodeURIComponent(Buffer.from(to).toString('base64url'))}&t=${unsubToken}`
+      : null;
+    const mergeFieldsWithUnsub = { ...(mergeFields || {}), unsubscribe_url: unsubUrl || '#' };
+
+    const personalizedSubject = applyMergeFields(subject, mergeFieldsWithUnsub);
+    const personalizedHtml    = applyMergeFields(html, mergeFieldsWithUnsub);
+    const personalizedText    = text ? applyMergeFields(text, mergeFieldsWithUnsub) : undefined;
 
     const tags = [
       ...(campaignId  ? [{ name: 'campaign_id', value: sanitizeTagValue(campaignId) }] : []),
       ...(_contactId  ? [{ name: 'contact_id',  value: sanitizeTagValue(_contactId) }] : []),
     ];
-
-    // RFC 8058 List-Unsubscribe / List-Unsubscribe-Post — Gmail, Yahoo, and
-    // Apple all require these on bulk senders since May 2026 and will
-    // otherwise reject or spam-box the send. The link points at
-    // api/unsubscribe.js, signed so it can't be forged or reused for a
-    // different recipient.
-    const unsubToken = unsubscribeConfigured() ? sign(_contactId || null, to) : null;
-    const unsubUrl = unsubToken
-      ? `${baseUrl}/api/unsubscribe?c=${encodeURIComponent(_contactId || '-')}&e=${encodeURIComponent(Buffer.from(to).toString('base64url'))}&t=${unsubToken}`
-      : null;
 
     const payload = {
       from:    `${fromName} <${fromEmail}>`,
