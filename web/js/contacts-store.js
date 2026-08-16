@@ -46,9 +46,11 @@ window.ContactsStore = (function () {
    * merged in rather than overwritten — importing the same list twice is
    * safe and additive, not destructive.
    * @param {Array<{email, firstName?, lastName?, company?, tags?, customFields?, source?}>} rows
+   * @param {Object} [opts]
+   * @param {string} [opts.consentSource] - lawful basis applied to every row in this import, e.g. "Website signup form"
    * @returns {Promise<{imported:number, updated:number, skipped:Array}>}
    */
-  async function upsertContacts(rows) {
+  async function upsertContacts(rows, opts = {}) {
     const client = getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save contacts.');
@@ -78,6 +80,8 @@ window.ContactsStore = (function () {
         custom_fields: r.customFields || {},
         tags: r.tags || [],
         source: r.source || 'manual',
+        consent_source: r.consentSource || opts.consentSource || null,
+        consent_timestamp: r.consentTimestamp || (opts.consentSource ? new Date().toISOString() : null),
       });
     });
 
@@ -87,7 +91,7 @@ window.ContactsStore = (function () {
     const emails = clean.map(c => c.email);
     const { data: existing, error: fetchErr } = await client
       .from('contacts')
-      .select('id, email, tags')
+      .select('id, email, tags, consent_source, consent_timestamp')
       .eq('user_id', userId)
       .in('email', emails);
     if (fetchErr) throw new Error(fetchErr.message);
@@ -97,7 +101,14 @@ window.ContactsStore = (function () {
       const prior = existingByEmail.get(c.email);
       if (!prior) return c;
       const mergedTags = Array.from(new Set([...(prior.tags || []), ...c.tags]));
-      return { ...c, tags: mergedTags };
+      // Never clobber an existing consent record with this import's value —
+      // the earliest known lawful basis is the one that matters.
+      return {
+        ...c,
+        tags: mergedTags,
+        consent_source: prior.consent_source || c.consent_source,
+        consent_timestamp: prior.consent_timestamp || c.consent_timestamp,
+      };
     });
 
     const { data, error } = await client

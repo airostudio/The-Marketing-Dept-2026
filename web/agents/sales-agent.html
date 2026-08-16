@@ -1334,7 +1334,7 @@ async function bulkSendToMarketing() {
 
     let result;
     try {
-        result = await window.ContactsStore.upsertContacts(rows);
+        result = await window.ContactsStore.upsertContacts(rows, { consentSource: 'Sales prospect — verify opt-in/legitimate-interest basis before marketing email' });
     } catch (e) {
         alert(`Could not send to Audience Manager: ${e.message}`);
         return;
