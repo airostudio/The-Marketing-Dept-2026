@@ -159,6 +159,8 @@
         .workspace-title h1 { font-size: 20px; font-weight: 700; }
         .workspace-title p { font-size: 13px; color: var(--text2); margin-top: 2px; }
 
+        .not-legal-advice-banner { padding: 10px 24px; font-size: 11.5px; line-height: 1.5; color: #f59e0b; background: rgba(245,158,11,0.08); border-bottom: 1px solid rgba(245,158,11,0.2); flex-shrink: 0; }
+
         /* ── Tabs ── */
         .tabs-bar {
             display: flex;
@@ -538,9 +540,11 @@
             </div>
         </div>
 
+        <div class="not-legal-advice-banner">⚠️ Analytics Brain reasons over the numbers you give it — it isn't connected to a live GA4/ad-platform data source, so treat every figure below as an AI estimate to validate against your real dashboards, not a measured result. Don't paste customer names, emails, or other PII here — it goes to a third-party LLM API for analysis.</div>
+
         <div class="tabs-bar">
-            <button class="tab-btn active" data-tab="attribution">Campaign Attribution</button>
-            <button class="tab-btn" data-tab="mmm">Marketing Mix Model</button>
+            <button class="tab-btn active" data-tab="attribution">Attribution Advisor</button>
+            <button class="tab-btn" data-tab="mmm">MMM Advisor</button>
             <button class="tab-btn" data-tab="segmentation">Customer Segmentation</button>
             <button class="tab-btn" data-tab="performance">Performance Analysis</button>
             <button class="tab-btn" data-tab="report">Report Builder</button>
@@ -550,8 +554,8 @@
 
             <!-- Tab: Campaign Attribution -->
             <div class="tab-panel active" id="tab-attribution">
-                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Campaign Attribution Analysis</h2>
-                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Paste your campaign data (channel, spend, conversions) and get multi-touch attribution analysis with actionable recommendations.</p>
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Attribution Advisor</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Paste your campaign data (channel, spend, conversions) and get an AI narrative on likely attribution and where to shift budget — an estimate to sanity-check against your real analytics platform, not a computed multi-touch attribution model.</p>
                 <div class="field-group">
                     <label class="field-label">Campaign Data (CSV or paste rows: channel, spend, conversions)</label>
                     <textarea class="field-textarea" id="attr-data" style="min-height:140px;" placeholder="Channel, Spend, Conversions, Revenue&#10;Google Search, $12000, 340, $48000&#10;Meta Ads, $8000, 210, $28500&#10;LinkedIn Ads, $5000, 45, $18000&#10;Email, $1200, 380, $52000&#10;Organic Social, $0, 95, $14000"></textarea>
@@ -560,7 +564,7 @@
                     <div class="field-group">
                         <label class="field-label">Attribution Model</label>
                         <select class="field-select" id="attr-model">
-                            <option value="data-driven">Data-Driven (recommended)</option>
+                            <option value="data-driven">Data-Driven (AI estimate — real data-driven attribution needs a connected analytics platform)</option>
                             <option value="linear">Linear</option>
                             <option value="time-decay">Time Decay</option>
                             <option value="first-touch">First Touch</option>
@@ -595,8 +599,8 @@
 
             <!-- Tab: Marketing Mix Model -->
             <div class="tab-panel" id="tab-mmm">
-                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">Marketing Mix Model</h2>
-                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Enter your budget allocation across channels to get ROI analysis and reallocation suggestions.</p>
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:8px;">MMM Advisor</h2>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Enter your budget allocation across channels to get an AI narrative on likely ROI and reallocation ideas. This reasons over the numbers you enter — it doesn't run a statistical marketing mix model (regression, saturation curves, adstock decay) the way a tool like Meridian or Robyn does.</p>
                 <div class="field-group">
                     <label class="field-label">Current Budget Allocation (channel: budget, ROI or results)</label>
                     <textarea class="field-textarea" id="mmm-data" style="min-height:140px;" placeholder="Paste your budget allocation data here. Example:&#10;Paid Search: $30,000/mo | 3.2x ROAS | 1,200 conversions&#10;Paid Social: $20,000/mo | 2.1x ROAS | 800 conversions&#10;Content/SEO: $8,000/mo | 8x ROI (lagging) | 2,400 organic visits&#10;Email: $2,000/mo | 14x ROI | 600 conversions&#10;Events: $15,000/mo | 1.8x ROI | 40 SQLs"></textarea>
