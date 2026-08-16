@@ -154,6 +154,25 @@
         </div>
     </div>
 
+    <div class="panel express-panel">
+        <div class="panel-header">
+            <span class="panel-title">🔎 AI Citation Check (GEO)</span>
+            <span style="font-size:11px;color:var(--text2);">Live search via Perplexity — is your site actually cited?</span>
+        </div>
+        <div class="panel-body">
+            <div class="field-group">
+                <label class="field-label">Your domain</label>
+                <input class="field-input" id="geoDomain" type="text" placeholder="yoursite.com">
+            </div>
+            <div class="field-group">
+                <label class="field-label">Search queries to check — one per line (the questions your buyers actually ask an AI)</label>
+                <textarea class="field-textarea" id="geoQueries" style="min-height:80px;" placeholder="best CRM software for startups&#10;how to reduce customer churn&#10;alternatives to [competitor]"></textarea>
+            </div>
+            <button class="btn-run" id="geoBtn" onclick="runGeoCitationCheck()">Check AI Citations</button>
+            <div id="geoResults" style="margin-top:14px;"></div>
+        </div>
+    </div>
+
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title">SEO Task</span>
@@ -231,6 +250,7 @@
 <script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/gemini-service.js"></script>
+<script src="../js/perplexity-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-history.js"></script>
@@ -637,6 +657,77 @@ function collectTopIssues(lighthouse, categoryKeys, limit) {
         });
     });
     return issues.sort((a, b) => a.score - b.score).slice(0, limit);
+}
+
+const GEO_HISTORY_KEY = 'seo_geo_citation_history';
+
+async function runGeoCitationCheck() {
+    const domainInput = document.getElementById('geoDomain');
+    const queriesInput = document.getElementById('geoQueries');
+    const btn = document.getElementById('geoBtn');
+    const resultsEl = document.getElementById('geoResults');
+
+    const domain = domainInput.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const queries = queriesInput.value.split('\n').map(q => q.trim()).filter(Boolean);
+
+    if (!domain) { alert('Enter your domain first.'); return; }
+    if (!queries.length) { alert('Add at least one search query to check.'); return; }
+    if (typeof window.PerplexityService === 'undefined') {
+        resultsEl.innerHTML = `<div style="color:#ef4444;font-size:12px;">Perplexity isn't loaded on this page — check your connection and reload.</div>`;
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    resultsEl.innerHTML = `<div class="typing-indicator" style="padding:10px 0;"><div class="dot-pulse"><span></span><span></span><span></span></div> Running ${queries.length} live search${queries.length === 1 ? '' : 'es'}...</div>`;
+
+    const results = [];
+    for (const query of queries) {
+        try {
+            const citations = await new Promise((resolve, reject) => {
+                let caught = [];
+                window.PerplexityService.streamResponse({
+                    systemPrompt: "Answer the user's question directly and concisely, citing your sources.",
+                    messages: [{ role: 'user', content: query }],
+                    onChunk: () => {},
+                    onCitations: (c) => { caught = c || []; },
+                    onDone: () => resolve(caught),
+                    onError: (err) => reject(err),
+                });
+            });
+            const domains = (citations || []).map(c => { try { return new URL(c).hostname.replace(/^www\./, ''); } catch (e) { return c; } });
+            const cited = domains.some(d => d.includes(domain));
+            results.push({ query, cited, domains: domains.slice(0, 6) });
+        } catch (err) {
+            results.push({ query, error: err.message });
+        }
+    }
+
+    const citedCount = results.filter(r => r.cited).length;
+    const pct = results.length ? Math.round((citedCount / results.length) * 100) : 0;
+
+    resultsEl.innerHTML = `
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Cited in ${citedCount} of ${results.length} queries (${pct}%)</div>
+        ${results.map(r => `
+            <div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:600;flex:1;">${escapeHtmlSEO(r.query)}</span>
+                    ${r.error ? `<span style="font-size:11px;color:#ef4444;">Error</span>` : r.cited ? `<span style="font-size:11px;color:#10b981;font-weight:700;">✅ Cited</span>` : `<span style="font-size:11px;color:#f59e0b;font-weight:700;">❌ Not cited</span>`}
+                </div>
+                ${r.error ? `<div style="font-size:11px;color:#ef4444;">${escapeHtmlSEO(r.error)}</div>` : `<div style="font-size:11px;color:var(--text2);">Sources cited: ${r.domains.map(d => escapeHtmlSEO(d)).join(', ') || 'none found'}</div>`}
+            </div>
+        `).join('')}
+        <div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Snapshot from Perplexity's live search — a proxy for what AI search/AI Overviews are likely to cite, not a direct read of Google's own index. Re-run periodically; citations shift as content changes.</div>
+    `;
+
+    try {
+        const history = JSON.parse(localStorage.getItem(GEO_HISTORY_KEY) || '[]');
+        history.unshift({ at: new Date().toISOString(), domain, citedCount, total: results.length, pct });
+        localStorage.setItem(GEO_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+    } catch (e) { /* non-critical */ }
+
+    btn.disabled = false;
+    btn.textContent = 'Check AI Citations';
 }
 
 async function runExpressCheck() {
