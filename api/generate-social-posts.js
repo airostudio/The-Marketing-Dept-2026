@@ -235,17 +235,26 @@ module.exports = async function handler(req, res) {
 
   // The function's own maxDuration is 60s (vercel.json) — a retry inside this
   // same invocation would blow straight past that ceiling, so there's exactly
-  // one attempt. 50s leaves real headroom (request parsing, response
-  // serialization, Vercel's own cold-start/network overhead) instead of the
-  // previous 55s, which left only ~5s and let the platform's own timeout race
-  // ahead of our clean error response on larger batches.
-  const UPSTREAM_TIMEOUT_MS = 50000;
+  // one attempt. 55s leaves a little headroom for request parsing/response
+  // serialization while giving generation itself as much of the 60s budget
+  // as possible — output for a full 20-post batch (~8000 tokens) needs real
+  // time to generate, and that time comes from token throughput, not from
+  // input size, so it isn't something caching the input can shrink.
+  const UPSTREAM_TIMEOUT_MS = 55000;
 
   function isTimeout(err) {
     return err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted due to timeout/i.test(err.message || '');
   }
 
   try {
+    // Streamed, not a single non-streaming fetch: a non-streaming request
+    // that takes tens of seconds to produce its one response is exactly the
+    // shape most likely to get killed early by an idle-connection timeout
+    // somewhere in the network path (proxies/CDNs commonly kill a connection
+    // that's gone quiet for ~30s even when the overall request budget is
+    // larger) — that reads identically to "Claude took too long" even though
+    // Claude was still actively generating. Streaming keeps bytes flowing
+    // over the connection the whole time, so it isn't mistaken for hung.
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -259,6 +268,7 @@ module.exports = async function handler(req, res) {
         system:      systemBlocks,
         tools:       [SOCIAL_POSTS_TOOL],
         tool_choice: { type: 'tool', name: 'submit_social_posts' },
+        stream:      true,
         messages: [{
           role:    'user',
           content: `Create ${count} posts distributed across: ${platforms.join(', ')}. Topic/theme: ${topic}. Content goal: ${contentGoal}. Posting cadence: ${frequency}.`,
@@ -267,18 +277,72 @@ module.exports = async function handler(req, res) {
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
-    const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      const errMsg = data.error?.message || `Anthropic error ${upstream.status}`;
+      const errData = await upstream.json().catch(() => ({}));
+      const errMsg = errData.error?.message || `Anthropic error ${upstream.status}`;
       return res.status(upstream.status).json({ error: errMsg });
     }
 
-    const toolUse = data.content?.find(b => b.type === 'tool_use' && b.name === 'submit_social_posts');
-    if (!toolUse || !Array.isArray(toolUse.input?.posts) || !toolUse.input.posts.length) {
+    // Minimal SSE accumulator — we only need the one forced tool_use block's
+    // input JSON (built incrementally via input_json_delta events) plus the
+    // final usage stats; everything else in the stream is ignored.
+    let toolInputJson = '';
+    let usage = null;
+    let sawToolUse = false;
+    let streamError = null;
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+
+      for (const evt of events) {
+        const dataLine = evt.split('\n').find(l => l.startsWith('data: '));
+        if (!dataLine) continue;
+        let payload;
+        try {
+          payload = JSON.parse(dataLine.slice(6));
+        } catch {
+          continue;
+        }
+
+        if (payload.type === 'content_block_start' && payload.content_block?.type === 'tool_use') {
+          sawToolUse = true;
+        } else if (payload.type === 'content_block_delta' && payload.delta?.type === 'input_json_delta') {
+          toolInputJson += payload.delta.partial_json || '';
+        } else if (payload.type === 'message_start') {
+          usage = payload.message?.usage || null;
+        } else if (payload.type === 'message_delta') {
+          usage = { ...(usage || {}), ...(payload.usage || {}) };
+        } else if (payload.type === 'error') {
+          streamError = payload.error?.message || 'Anthropic stream error';
+        }
+      }
+    }
+
+    if (streamError) return res.status(502).json({ error: streamError });
+    if (!sawToolUse || !toolInputJson) {
       return res.status(502).json({ error: 'Claude did not return structured posts. Try again — this is usually transient.' });
     }
 
-    const { contentPlanNote, posts } = toolUse.input;
+    let toolInput;
+    try {
+      toolInput = JSON.parse(toolInputJson);
+    } catch {
+      return res.status(502).json({ error: 'Claude returned malformed structured output. Try again — this is usually transient.' });
+    }
+
+    const { contentPlanNote, posts } = toolInput;
+    if (!Array.isArray(posts) || !posts.length) {
+      return res.status(502).json({ error: 'Claude did not return structured posts. Try again — this is usually transient.' });
+    }
 
     return res.json({
       success:         true,
@@ -288,7 +352,7 @@ module.exports = async function handler(req, res) {
       platforms,
       contentGoal,
       postCount:       posts.length,
-      usage:           data.usage,
+      usage,
     });
 
   } catch (err) {
