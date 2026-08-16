@@ -489,6 +489,27 @@ Each of the 15 per-agent research calls runs concurrently (`Promise.allSettled`,
 
 ---
 
+## Scout — Monitored Competitors (Scheduled Change Detection)
+
+Addresses a gap from the 2026 Agent Audit: Scout was fully on-demand — it could research a competitor when asked, but nothing tracked change over time the way a real competitive-intelligence platform (Crayon, Klue) does. `api/cron-competitor-watch.js` runs daily, fetches every user's actively-monitored competitor URLs, and flags when the page's title, meta description, or visible text content actually changes.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above — the cron job writes with the service-role key | ✅ Yes |
+| `CRON_SECRET` | Already used by the other cron jobs — same bearer token gates this endpoint too | ✅ Yes |
+
+No paid API required — it fetches the tracked page's HTML directly and extracts `<title>`/meta description via regex (this project has no npm dependencies in `api/*.js`, so there's no DOM parser), plus a hash of the stripped visible text. A changed content hash means "the page's visible text is different than last time," not a diff of what changed — good enough to prompt a human to go look.
+
+### Setup
+
+1. Run `supabase-competitor-watch.sql` in Supabase Dashboard → SQL Editor. Creates `competitor_watches`, `competitor_snapshots`, and `competitor_changes` — owner-scoped via RLS.
+2. No new env vars beyond what's already configured for the other cron jobs.
+3. The Vercel Cron entry fires daily at `0 7 * * *` (07:00 UTC). **Note**: this is the third cron job in `vercel.json` — Vercel's Hobby plan allows only 2 cron jobs; a Pro plan (or higher) is needed for all three to run.
+4. Add competitors to monitor from the new "📡 Monitored Competitors" panel in Competitive Intel (`web/agents/competitive-agent.html`) — track a specific page (pricing, homepage) rather than a whole site for the clearest signal.
+5. Capped at 150 watches per run to stay inside Vercel's 60s function budget; the response includes a `truncated` flag if more active watches exist than one run could cover.
+
+---
+
 ## Additional Resources
 
 - [Vercel Environment Variables Docs](https://vercel.com/docs/concepts/projects/environment-variables)
