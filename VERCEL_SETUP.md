@@ -249,6 +249,29 @@ Claude: [calls get_experiment_stats]
 
 ---
 
+## Chase — Prospect Discovery & Enrichment (Real Data Only)
+
+Chase's Discover tab finds real businesses and enriches them through a five-source chain — every source is a real API call or a hard stop, never an invented fallback. This matters: cold-emailing or cold-calling a hallucinated business/contact is a real CAN-SPAM/TCPA exposure, not just an embarrassment, so the app refuses to run the discovery step at all without a working Perplexity key rather than quietly inventing businesses.
+
+**The chain**, per prospect, once discovered via Perplexity:
+
+1. **Perplexity** (`PERPLEXITY_API_KEY`, already covered above) — live web search finds the business in the first place, and later searches for its public profiles/social links.
+2. **Google Places** (`api/places.js`) — verifies the business is real and pulls its actual address, phone, rating, and website (or confirms it has none) directly from Google's own data.
+3. **Website crawl** (`api/crawl.js`) — no extra key needed; fetches the business's own site (if it has one) for listed emails/socials.
+4. **Hunter.io** (`api/hunter.js`) — domain-level email discovery from a broader database than what's listed on the site itself.
+5. **Apollo.io** (`api/apollo-enrich.js`) — real firmographic data (industry, employee count, LinkedIn) and real people Apollo has on file at that domain with owner/founder/decision-maker titles. This is what replaces "AI-invented owner names" with an actual name Apollo has verified — or an honest empty result if Apollo has nothing on file. Apollo's search step doesn't return email addresses (a separate, credit-costing enrichment call would be needed for that); Hunter.io covers that gap instead.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `PERPLEXITY_API_KEY` | Already covered above — discovery is hard-blocked without it | ✅ For Discover tab at all |
+| `GOOGLE_PLACES_API_KEY` | From Google Cloud Console → enable "Places API (New)" → create an API key | For Places verification step |
+| `HUNTER_API_KEY` | From hunter.io → API dashboard | For Hunter email discovery step |
+| `APOLLO_API_KEY` | From Apollo → Settings → Integrations → API Keys. This is Apollo's own REST API key — separate from any Apollo MCP connector a Claude session might have; the deployed app needs its own key since there's no Claude session in the loop for your actual users. | For Apollo firmographic/contact step |
+
+Every step in the chain degrades gracefully and independently — if a given key isn't configured, that step is silently skipped (logged to the browser console) and the prospect keeps whatever real data the other steps found. Nothing is ever backfilled with a guess.
+
+---
+
 ## How to Add Environment Variables in Vercel
 
 ### Option 1: Via Vercel Dashboard (Recommended)

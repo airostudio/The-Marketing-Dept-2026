@@ -283,7 +283,7 @@
 <!-- DISCOVER -->
 <div id="tab-discover" class="tab-panel active">
     <div class="section-title">Prospect Discovery</div>
-    <div class="section-sub">Find real businesses via Perplexity live search, then enrich with Google Places, website crawl + Hunter.io emails</div>
+    <div class="section-sub">Find real businesses via Perplexity live search, then enrich with Google Places, website crawl, Hunter.io emails, and Apollo firmographics + real decision-makers on file</div>
 
     <div class="card mt8">
         <div class="card-body">
@@ -957,7 +957,7 @@ function quickOutreach(idx) {
     }, 100);
 }
 
-// ── ENRICHMENT CHAIN: Google Places → Website Crawl → Hunter.io ──────────────
+// ── ENRICHMENT CHAIN: Google Places → Website Crawl → Perplexity → Hunter.io → Apollo ──
 async function enrichProspect(idx) {
     const p = discoveredProspects[idx];
     if (!p) return;
@@ -1083,6 +1083,37 @@ async function enrichProspect(idx) {
                 }
             }
         } catch(e) { console.warn('Hunter lookup failed:', e.message); }
+    }
+
+    // Step 6 — Apollo: real firmographic data + real decision-makers on file
+    //           at this domain (never an invented owner name)
+    if (websiteUrl) {
+        try {
+            const [orgRes, peopleRes] = await Promise.all([
+                fetch('/api/apollo-enrich', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mode: 'organization', domain: websiteUrl }),
+                }),
+                fetch('/api/apollo-enrich', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mode: 'people_search', domain: websiteUrl }),
+                }),
+            ]);
+            if (orgRes.ok) {
+                const d = await orgRes.json();
+                if (d.found) {
+                    if (d.industry) updates.apolloIndustry = d.industry;
+                    if (d.employeeCount != null) updates.apolloEmployeeCount = d.employeeCount;
+                    if (d.linkedinUrl) updates.apolloLinkedinUrl = d.linkedinUrl;
+                }
+            }
+            if (peopleRes.ok) {
+                const d = await peopleRes.json();
+                if (d.found && d.people?.length) updates.apolloContacts = d.people;
+            }
+        } catch(e) { console.warn('Apollo enrich failed:', e.message); }
     }
 
     updates.enriched = true;
@@ -1536,6 +1567,8 @@ function renderPipe() {
                 </div>
                 ${emailsHtml ? `<div style="margin-bottom:12px"><label>Discovered Emails</label><div style="margin-top:6px">${emailsHtml}</div></div>` : ''}
                 ${socialsDetailHtml ? `<div style="margin-bottom:12px"><label>Social Profiles</label><div style="margin-top:6px">${socialsDetailHtml}</div></div>` : ''}
+                ${p.apolloContacts && p.apolloContacts.length ? `<div style="margin-bottom:12px"><label>Real Decision-Makers on File (Apollo)</label><div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">${p.apolloContacts.map(c => `<div style="font-size:12px;color:var(--text2);">👤 <strong style="color:var(--text)">${escHtml(c.name||'Unnamed')}</strong>${c.title ? ' — ' + escHtml(c.title) : ''}${c.linkedinUrl ? ` · <a href="${escHtml(c.linkedinUrl)}" target="_blank" style="color:var(--cyan)">LinkedIn</a>` : ''}</div>`).join('')}</div></div>` : ''}
+                ${p.apolloIndustry || p.apolloEmployeeCount != null ? `<div style="margin-bottom:12px;font-size:12px;color:var(--text3);">🏢 Apollo: ${[p.apolloIndustry, p.apolloEmployeeCount != null ? `${p.apolloEmployeeCount} employees` : null].filter(Boolean).join(' · ')}</div>` : ''}
                 ${p.opportunityReason ? `<p style="font-size:12px;color:var(--text2);margin-bottom:12px;font-style:italic">${escHtml(p.opportunityReason)}</p>` : ''}
                 <div style="margin-bottom:10px">
                     <label>Notes</label>
