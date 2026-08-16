@@ -81,6 +81,7 @@
         .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
 
         .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .not-legal-advice-banner { padding: 10px 20px; font-size: 11.5px; line-height: 1.5; color: #f59e0b; background: rgba(245,158,11,0.08); border-bottom: 1px solid rgba(245,158,11,0.2); }
         .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
         .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
         .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
@@ -215,6 +216,7 @@
             <span class="panel-title">Compliance Review</span>
             <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
         </div>
+        <div class="not-legal-advice-banner">⚠️ AI-assisted screen, not legal advice. An "APPROVED" verdict means this review found no issues — not that a lawyer has signed off. Get qualified counsel for anything with real legal exposure.</div>
         <div id="outputArea">
             <div class="output-empty">Paste your content and click Review Content to get a line-by-line compliance analysis with severity ratings, corrected versions, and regulatory framework checks.</div>
         </div>
@@ -380,14 +382,19 @@
             context += `- Privacy policy must be accessible\n`;
             context += `- Cookie consent banners required\n`;
             context += `- Data processing must have legal basis\n`;
+            context += `\n**EU AI Act — Article 50 Transparency (in force since Aug 2, 2026):**\n`;
+            context += `- If this content (or the campaign it's part of) is AI-generated or AI-assisted, it needs a clear, machine-readable AI-disclosure — flag if that's missing\n`;
+            context += `- Synthetic imagery/video/audio ("deepfake"-style) must be labelled as artificially generated or manipulated\n`;
+            context += `- AI chatbots/assistants interacting with customers must disclose they are AI, not a human\n`;
+            context += `- Non-compliance risk: fines up to €15M or 3% of global annual turnover\n`;
         }
 
         if (region === 'US' || region === 'Global') {
             context += `\n**US Compliance Requirements:**\n`;
             context += `- FTC Act Section 5 (deceptive practices)\n`;
-            context += `- CAN-SPAM Act (email marketing)\n`;
-            context += `- CCPA (California consumer privacy)\n`;
-            context += `- TCPA (telemarketing, SMS)\n`;
+            context += `- CAN-SPAM Act (email marketing) — including the FTC's revived "Click-to-Cancel" rule making cancellation as easy as sign-up (in rulemaking as of 2026 — flag any subscription offer that doesn't have an equally easy cancellation path)\n`;
+            context += `- State consumer-privacy laws — this is no longer just CCPA/California: roughly two dozen US states now have comprehensive privacy laws (Virginia, Colorado, Connecticut, Utah, and others, with Indiana/Kentucky/Rhode Island among the most recently effective) — treat any nationwide US campaign as needing multi-state review, not just California\n`;
+            context += `- TCPA (telemarketing, SMS) — note the FCC's "one-to-one consent" rule for lead-gen was vacated by courts in 2025 and the "revoke-all-at-once" rule is delayed to Jan 2027; don't cite either as settled law, but existing prior-express-written-consent requirements for autodialed/prerecorded calls and texts still apply\n`;
         }
 
         if (region === 'UK' || region === 'Global') {
@@ -397,6 +404,10 @@
             context += `- CAP Code enforced by the ASA — advertising claims must be legal, decent, honest, and truthful\n`;
             context += `- FCA financial-promotion rules (if financial services content)\n`;
         }
+
+        context += `\n**AI-Content & AI-Capability Claims (check regardless of region):**\n`;
+        context += `- If this content is AI-generated or AI-assisted, check whether a disclosure is required (EU AI Act Article 50 where the audience includes the EU; platform-level AI-labelling rules on Meta/TikTok for ads and video)\n`;
+        context += `- Flag any claim about "AI-powered", "AI-driven", or specific AI capabilities that isn't substantiated — the FTC has brought "AI-washing" enforcement actions (13 cases since 2024, most recently May 2026) against exaggerated or false AI-capability claims in marketing\n`;
 
         return context;
     }
@@ -491,8 +502,9 @@ For each issue found, format as:
 ## REGULATORY COMPLIANCE CHECK
 Check against relevant frameworks for ${region} and ${industry}:
 - FTC Guidelines (endorsements, disclosures, claims)
-- ${region === 'EU' || region === 'Global' ? 'GDPR requirements' : region === 'UK' ? 'UK GDPR, PECR, and CAP Code (ASA) requirements' : 'CCPA requirements'}
+- ${region === 'EU' || region === 'Global' ? 'GDPR requirements and EU AI Act Article 50 transparency (if AI-generated/AI-assisted content or synthetic media)' : region === 'UK' ? 'UK GDPR, PECR, and CAP Code (ASA) requirements' : 'US state privacy law requirements (not just CCPA — treat as multi-state) and the FTC\'s Click-to-Cancel rule if a subscription/recurring offer'}
 - Industry-specific regulations (${industry})
+- AI-content disclosure and AI-capability claim substantiation (see AI-Content & AI-Capability Claims above)
 - Accessibility (WCAG) considerations
 
 ## UNSUBSTANTIATED CLAIMS
@@ -504,10 +516,12 @@ Flag any competitor references that could create legal exposure.
 ## CLEAN VERSION
 Provide a fully corrected version of the content with all issues resolved.
 
-Your response MUST END with exactly this machine-checkable block (fill in the values):
+Your response MUST END with exactly this machine-checkable block (fill in the values), followed immediately by the disclaimer line verbatim:
 ## VERDICT
 STATUS: APPROVED | NEEDS CHANGES
-Critical issues: N | Warnings: N | Suggestions: N`;
+Critical issues: N | Warnings: N | Suggestions: N
+
+*This is an AI-assisted compliance screen, not legal advice — an APPROVED status means no issues were found by this review, not that qualified counsel has signed off. Have a lawyer review anything with real legal exposure (health/financial claims, regulated industries, cross-border data).*`;
 
         const btn = document.getElementById('runBtn');
         btn.disabled = true;
