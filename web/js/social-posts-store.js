@@ -21,9 +21,29 @@ window.SocialPostsStore = (function () {
   async function getUserId() {
     const client = getSupabase();
     if (!client) return null;
+
+    // auth.getUser() re-verifies the JWT against Supabase's auth server on
+    // every call — unlike getSession() (what the rest of the app uses to
+    // show "you're logged in"), which just reads the cached token locally.
+    // A transient network blip or a brief token-refresh window makes
+    // getUser() fail even when the session is genuinely valid, which reads
+    // exactly like "the app shows me logged in, but this feature asks me to
+    // sign in." Fall back to the session's own user in that case — it's
+    // safe: if the session were actually invalid, the write below still
+    // gets rejected server-side by RLS (Postgres checks the real JWT, not
+    // this client-supplied id), so this can't grant access on a stale or
+    // forged session, only avoid a false "not signed in".
     try {
-      const { data: { user } } = await client.auth.getUser();
-      return user?.id || null;
+      const { data: { user }, error } = await client.auth.getUser();
+      if (user) return user.id;
+      if (error) throw error;
+    } catch (err) {
+      console.warn('[SocialPostsStore] auth.getUser() failed, falling back to cached session:', err.message);
+    }
+
+    try {
+      const { data: { session } } = await client.auth.getSession();
+      return session?.user?.id || null;
     } catch { return null; }
   }
 
