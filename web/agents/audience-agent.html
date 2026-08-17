@@ -184,6 +184,19 @@
                         <label class="field-label">Tag all imported contacts with (optional)</label>
                         <input type="text" class="field-input" id="import-tags" placeholder="e.g. newsletter, webinar-2026">
                     </div>
+                    <div class="field-group">
+                        <label class="field-label">How did these people agree to receive marketing email?</label>
+                        <select class="field-select" id="import-consent">
+                            <option value="">— Select (required for a real import) —</option>
+                            <option value="Website signup form">Website signup form</option>
+                            <option value="Existing customer / active account">Existing customer / active account</option>
+                            <option value="Event or conference opt-in">Event or conference opt-in</option>
+                            <option value="Imported from CRM (consent verified there)">Imported from CRM (consent verified there)</option>
+                            <option value="Business card / in-person exchange with stated interest">Business card / in-person exchange with stated interest</option>
+                            <option value="Unverified — needs review">Unverified — needs review</option>
+                        </select>
+                        <div class="field-hint">Recorded per contact as the lawful basis for emailing them — separate from where the row itself came from (paste/CSV). Skipping this leaves consent unverified.</div>
+                    </div>
                     <div class="btn-row">
                         <button class="btn-run" onclick="AM.doImport()">Import Contacts</button>
                     </div>
@@ -424,7 +437,7 @@
                 return;
             }
             body.innerHTML = `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>
-                <th>Email</th><th>Name</th><th>Company</th><th>Tags</th><th>Status</th><th></th>
+                <th>Email</th><th>Name</th><th>Company</th><th>Tags</th><th>Status</th><th>Consent</th><th></th>
             </tr></thead><tbody>
                 ${contacts.map(c => `<tr>
                     <td>${escHtml(c.email)}</td>
@@ -432,6 +445,7 @@
                     <td>${escHtml(c.company)}</td>
                     <td>${(c.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join('')}</td>
                     <td><span class="status-pill ${c.status}">${c.status}</span></td>
+                    <td>${c.consent_source ? `<span title="${escHtml(c.consent_source)}" style="font-size:11px;color:var(--text2);cursor:help;">${escHtml(c.consent_source.slice(0, 24))}${c.consent_source.length > 24 ? '…' : ''}</span>` : `<span style="font-size:11px;color:#f59e0b;">⚠️ Unverified</span>`}</td>
                     <td class="row-actions">
                         ${c.status !== 'unsubscribed' ? `<button onclick="AM.unsubscribe('${c.id}')">Unsubscribe</button>` : ''}
                         <button class="danger" onclick="AM.deleteContact('${c.id}')">Delete</button>
@@ -478,9 +492,11 @@
             const msgEl = document.getElementById('import-msg');
             const raw = document.getElementById('import-text').value;
             const tags = document.getElementById('import-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+            const consentSource = document.getElementById('import-consent').value;
             const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
 
             if (!lines.length) { msgEl.innerHTML = `<div class="msg err">Paste at least one contact first.</div>`; return; }
+            if (!consentSource) { msgEl.innerHTML = `<div class="msg err">Select how these contacts agreed to receive marketing email before importing.</div>`; return; }
 
             const rows = lines.map(line => {
                 const parsed = parseImportLine(line);
@@ -490,7 +506,7 @@
             msgEl.innerHTML = `<div class="msg"><span class="spinner"></span> Importing ${rows.length} contacts…</div>`;
 
             try {
-                const result = await window.ContactsStore.upsertContacts(rows);
+                const result = await window.ContactsStore.upsertContacts(rows, { consentSource });
                 msgEl.innerHTML = `<div class="msg ok">Imported ${result.imported} new, updated ${result.updated} existing.${result.skipped.length ? ` Skipped ${result.skipped.length} invalid rows.` : ''}</div>`;
                 document.getElementById('import-text').value = '';
             } catch (e) {

@@ -178,7 +178,7 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
       batches.push(recipients.slice(i, i + BATCH_SIZE));
     }
 
-    const aggregate = { sent: 0, failed: 0, rejected: [], results: [] };
+    const aggregate = { sent: 0, failed: 0, rejected: [], results: [], warnings: [] };
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
@@ -206,6 +206,9 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
       aggregate.failed  += data.failed  || 0;
       aggregate.rejected.push(...(data.rejected || []));
       aggregate.results.push(...(data.results || []));
+      for (const w of (data.warnings || [])) {
+        if (!aggregate.warnings.includes(w)) aggregate.warnings.push(w);
+      }
 
       if (onBatchComplete) onBatchComplete({ batchIndex: i, batchCount: batches.length, results: data });
 

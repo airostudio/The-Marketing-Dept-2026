@@ -339,6 +339,18 @@
             <div class="output-empty">Fill in your deck brief and click Build Deck Structure to get a complete slide-by-slide outline with titles, bullets, speaker notes, data viz recommendations, and narrative arc. Then download as editable PowerPoint with AI-generated visual design.</div>
         </div>
         <div id="slidePreviewSection" style="display:none" class="preview-section"></div>
+        <div id="dataOverridePanel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">📎 Attach real data to a chart slide (optional)</div>
+            <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px;">Chart numbers otherwise come from what the AI wrote in the outline — plausible, but invented. Paste real numbers here and they'll be used for that slide's chart instead, no matter what the outline text says.</div>
+            <div style="display:flex;gap:10px;margin-bottom:8px;">
+                <select class="field-select" id="dataOverrideSlide" style="flex:1;"></select>
+            </div>
+            <textarea class="field-textarea" id="dataOverrideCsv" style="min-height:80px;" placeholder="Label, Value&#10;Jan, 12000&#10;Feb, 18500&#10;Mar, 27000"></textarea>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+                <button class="btn-run" style="width:auto;padding:8px 18px;" onclick="attachSlideData()">Attach Data</button>
+                <span id="dataOverrideStatus" style="font-size:11.5px;color:var(--text2);align-self:center;"></span>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -812,7 +824,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
                     const checked = await window.GeminiService.callAgent({
                         systemPrompt: SPELLCHECK_PROMPT,
                         messages: [{ role: 'user', content: rawText }],
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3.5-flash',
                     });
                     if (checked && checked.length >= rawText.length * 0.5) {
                         finalText = checked;
@@ -1043,7 +1055,7 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
 
         // Live-update slide preview if deck already generated
         if (window.currentDeckData) {
-            const slides = parseDeckStructure(window.currentDeckData.text);
+            const slides = applyDataOverrides(parseDeckStructure(window.currentDeckData.text));
             if (slides.length) {
                 const design = key === 'auto'
                     ? resolveDesign(window.currentDeckData.deckType, '', [])
@@ -1115,6 +1127,48 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
         html += '</div>';
         section.innerHTML = html;
         section.style.display = 'block';
+
+        // Populate the "attach real data" slide picker + reflect override state
+        const overridePanel = document.getElementById('dataOverridePanel');
+        const selectEl = document.getElementById('dataOverrideSlide');
+        if (overridePanel && selectEl) {
+            overridePanel.style.display = 'block';
+            const prevSelection = selectEl.value;
+            selectEl.innerHTML = slides.map(s => {
+                const key = (s.title || '').trim().toLowerCase();
+                const hasOverride = !!window.DECK_DATA_OVERRIDES[key];
+                return `<option value="${esc(s.title)}">${hasOverride ? '✅ ' : ''}${esc(s.title)}</option>`;
+            }).join('');
+            if (prevSelection) selectEl.value = prevSelection;
+        }
+    }
+
+    function attachSlideData() {
+        const slideTitle = document.getElementById('dataOverrideSlide').value;
+        const csv = document.getElementById('dataOverrideCsv').value.trim();
+        const statusEl = document.getElementById('dataOverrideStatus');
+        if (!slideTitle) { statusEl.textContent = 'No slide selected.'; return; }
+        if (!csv) { statusEl.textContent = 'Paste some data first.'; return; }
+
+        const parsed = parseCsvToChartData(csv);
+        if (!parsed) {
+            statusEl.textContent = 'Need at least 2 rows of "Label, Value" — check the format.';
+            statusEl.style.color = '#ef4444';
+            return;
+        }
+
+        window.DECK_DATA_OVERRIDES[slideTitle.trim().toLowerCase()] = parsed;
+        statusEl.textContent = `✅ Attached ${parsed.chartLabels.length} data points to "${slideTitle}" — will use this instead of the AI's numbers.`;
+        statusEl.style.color = '#10b981';
+
+        // Re-render preview so the checkmark shows immediately.
+        if (window.currentDeckData) {
+            const slides = applyDataOverrides(parseDeckStructure(window.currentDeckData.text));
+            const design = (window.selectedTemplateKey && window.selectedTemplateKey !== 'auto' && TEMPLATES[window.selectedTemplateKey])
+                ? TEMPLATES[window.selectedTemplateKey]
+                : resolveDesign(window.currentDeckData.deckType, '', []);
+            renderSlidePreview(slides, design);
+        }
     }
 
     function copyOutput() {
@@ -1524,6 +1578,7 @@ No headers, no commentary, no other text.`;
     // SLIDE LAYOUT ROUTING
     // ============================================
     function getSlideLayout(slide) {
+        if (slide.chartOverride) return 'chart'; // real attached data always renders as a chart
         const type = (slide.slideType || '').toUpperCase();
         const text = (slide.title + ' ' + (slide.bullets||[]).join(' ')).toLowerCase();
         const vs   = (slide.visualSuggestion || '').toLowerCase();
@@ -1564,6 +1619,42 @@ No headers, no commentary, no other text.`;
         if (pairs.length >= 2) return { chartLabels: pairs.map(p => p.label), chartData: pairs.map(p => p.value) };
         // Fewer than 2 real "label: value" pairs — never fabricate chart data
         return null;
+    }
+
+    // ============================================
+    // REAL DATA OVERRIDES — CSV/table binding
+    // ============================================
+    // Deck Maker's numbers otherwise only ever come from LLM-written outline
+    // text — plausible-looking, but invented. This lets a user paste real
+    // data (a CSV, or "Label, Value" rows) and bind it directly to a slide
+    // by title, bypassing text-parsing entirely for that slide's chart.
+    // Keyed by lowercased slide title.
+    window.DECK_DATA_OVERRIDES = window.DECK_DATA_OVERRIDES || {};
+
+    function parseCsvToChartData(raw) {
+        const rows = raw.split('\n').map(r => r.trim()).filter(Boolean);
+        const labels = [];
+        const values = [];
+        rows.forEach(row => {
+            const cells = row.split(',').map(c => c.trim());
+            if (cells.length < 2) return;
+            const label = cells[0];
+            const value = parseFloat(cells[cells.length - 1].replace(/[^0-9.\-]/g, ''));
+            if (label && !isNaN(value)) { labels.push(label.slice(0, 24)); values.push(value); }
+        });
+        if (labels.length < 2) return null;
+        return { chartLabels: labels, chartData: values };
+    }
+
+    /** Mutates a freshly-parsed slides array in place, binding any matching real-data override. */
+    function applyDataOverrides(slides) {
+        (slides || []).forEach(slide => {
+            const key = (slide.title || '').trim().toLowerCase();
+            if (window.DECK_DATA_OVERRIDES[key]) {
+                slide.chartOverride = window.DECK_DATA_OVERRIDES[key];
+            }
+        });
+        return slides;
     }
 
     // ============================================
@@ -1773,7 +1864,10 @@ No headers, no commentary, no other text.`;
     // ============================================
     function addChartLayout(pptx, slide, slideData, design, yStart) {
         const y = yStart ?? 1.25;
-        const parsed = parseChartDataFromBullets(slideData.bullets || [], slideData.title);
+        // Real user-attached data (see DECK_DATA_OVERRIDES) always wins over
+        // anything parsed from LLM-written bullet text — that's the whole
+        // point of attaching it.
+        const parsed = slideData.chartOverride || parseChartDataFromBullets(slideData.bullets || [], slideData.title);
         if (!parsed) {
             // No real numeric data in the bullets — render bullets instead of a fabricated chart
             addBulletLayout(slide, slideData, design, yStart);
@@ -2453,8 +2547,8 @@ No headers, no commentary, no other text.`;
             btn.innerHTML = '<span class="spinner"></span> Designing...';
             const design = await generateVisualDesign(window.currentDeckData);
 
-            // Step 2: Parse deck structure from markdown
-            const slides = parseDeckStructure(window.currentDeckData.text);
+            // Step 2: Parse deck structure from markdown, binding any real data attached via the panel below
+            const slides = applyDataOverrides(parseDeckStructure(window.currentDeckData.text));
 
             if (slides.length === 0) {
                 alert('Could not parse slide structure from the generated deck.\n\nTip: Try regenerating — the AI occasionally uses a format the parser cannot read. If this happens repeatedly, check the browser console for the raw markdown.');

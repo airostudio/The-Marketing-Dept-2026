@@ -121,7 +121,10 @@ function clamp(n: number): number {
   return Math.max(0, Math.min(10, Math.round(n * 10) / 10));
 }
 
-const WEIGHTS = {
+export type ScoreDimension = 'clarity' | 'conversionIntent' | 'emotionalPull' | 'visualSimplicity' | 'platformFit' | 'ctaStrength';
+export type ScoreWeights = Record<ScoreDimension, number>;
+
+export const DEFAULT_WEIGHTS: ScoreWeights = {
   clarity: 0.2,
   conversionIntent: 0.2,
   emotionalPull: 0.15,
@@ -130,7 +133,13 @@ const WEIGHTS = {
   ctaStrength: 0.2,
 };
 
-export function scoreConcept(concept: AdConcept, _brand?: BrandProfile): AdConceptScores {
+/**
+ * @param weights Defaults to the fixed global weights. Pass a per-brand
+ * calibrated set (see src/prompts/calibration.ts) to weight dimensions by
+ * what has actually correlated with this brand's real results — the
+ * individual dimension scores themselves are unaffected either way.
+ */
+export function scoreConcept(concept: AdConcept, _brand?: BrandProfile, weights: ScoreWeights = DEFAULT_WEIGHTS): AdConceptScores {
   const clarity = scoreClarity(concept);
   const conversionIntent = scoreConversionIntent(concept);
   const emotionalPull = scoreEmotionalPull(concept);
@@ -139,12 +148,12 @@ export function scoreConcept(concept: AdConcept, _brand?: BrandProfile): AdConce
   const ctaStrength = scoreCtaStrength(concept);
 
   const overall =
-    clarity * WEIGHTS.clarity +
-    conversionIntent * WEIGHTS.conversionIntent +
-    emotionalPull * WEIGHTS.emotionalPull +
-    visualSimplicity * WEIGHTS.visualSimplicity +
-    platformFit * WEIGHTS.platformFit +
-    ctaStrength * WEIGHTS.ctaStrength;
+    clarity * weights.clarity +
+    conversionIntent * weights.conversionIntent +
+    emotionalPull * weights.emotionalPull +
+    visualSimplicity * weights.visualSimplicity +
+    platformFit * weights.platformFit +
+    ctaStrength * weights.ctaStrength;
 
   return {
     clarity,

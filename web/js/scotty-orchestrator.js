@@ -960,6 +960,32 @@ Respond ONLY with valid JSON:
     return JSON.parse(jsonMatch[0]);
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     CONSEQUENTIAL ACTION GUARD
+
+     Every automation Scotty currently plans is inline Claude text generation
+     — a draft, not a real send/publish/spend (see the "no external API or
+     tool access required" rule in assessAndPlanAutomation's own prompt
+     above). That's a policy this file enforces in ONE place, not something
+     left for whichever agent integration gets wired up next to remember by
+     hand — the 2026 Agent Audit flagged the absence of exactly this kind of
+     central guard as the real gap, not any specific missing confirm().
+
+     If a future automation genuinely represents sending an email, publishing
+     a post, spending ad budget, or deleting/removing something, this makes
+     it fail SAFE: it renders for manual review instead of auto-executing,
+     even if the underlying capability to auto-execute it exists by then.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  const CONSEQUENTIAL_ACTION_PATTERN = /\b(send|sent|sending|publish(ed|ing)?|post(ed|ing)?\s+(to|on|live)|go(es|ing)?\s+live|launch(ed|ing)?\s+(the\s+)?(ad|campaign|budget)|spend(ing)?|delete(d|ing)?|remove(d|ing)?|charge(d|ing)?|purchase(d|ing)?)\b/i;
+
+  function classifyAutomation(auto) {
+    const text = [auto && auto.title, auto && auto.description, auto && auto.prompt]
+      .filter(Boolean)
+      .join(' ');
+    return CONSEQUENTIAL_ACTION_PATTERN.test(text) ? 'requires_approval' : 'autonomous';
+  }
+
   return {
     ask,
     dispatch,
@@ -980,6 +1006,7 @@ Respond ONLY with valid JSON:
     assessAndPlanAutomation,
     executeAutomationStep,
     assessSingleAgentResult,
+    classifyAutomation,
     AGENT_ROUTES,
     AGENT_DESCRIPTIONS,
   };

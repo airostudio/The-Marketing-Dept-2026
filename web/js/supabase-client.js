@@ -167,6 +167,47 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CROSS-ACCOUNT DATA ISOLATION GUARD
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Business Brain / Intelligence Layer data lives in localStorage keyed by
+    // *active profile*, not by Supabase user id — so without this, a second
+    // person signing in on the same browser sees whatever business data the
+    // previous account left behind (the "Webese data bleeding into a new
+    // account" bug). Two layers of defense:
+    //   1. SIGNED_OUT clears every local intelligence/profile key immediately.
+    //   2. Any session-bearing event compares the signed-in user id against
+    //      the last known one and clears defensively on a mismatch — this
+    //      catches browsers where a previous account was never explicitly
+    //      signed out (tab closed, session simply replaced by a new login).
+    const LAST_UID_KEY = 'audema_last_uid';
+
+    function clearLocalIntelligenceState() {
+        try {
+            if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true);
+        } catch (e) { console.error('[supabase-client] IntelligenceEngine.clearAll failed:', e); }
+        try {
+            // Not covered by IntelligenceEngine.clearAll() — these are the
+            // per-browser "which profile/project is active" pointers that
+            // must never survive an account switch either.
+            localStorage.removeItem('intel_active_profile');
+            localStorage.removeItem('seo-current-project');
+        } catch (e) { console.error('[supabase-client] local cache cleanup failed:', e); }
+    }
+
+    function guardAccountSwitch(userId) {
+        if (!userId) return;
+        let lastUid;
+        try { lastUid = localStorage.getItem(LAST_UID_KEY); } catch { return; }
+
+        if (lastUid && lastUid !== userId) {
+            console.warn('[supabase-client] Different account detected on this browser — clearing local intelligence/profile cache to prevent cross-account data bleed.');
+            clearLocalIntelligenceState();
+        }
+
+        try { localStorage.setItem(LAST_UID_KEY, userId); } catch { /* ignore */ }
+    }
+
     /**
      * Setup auth state change listener for persistence
      */
@@ -187,12 +228,18 @@
 
             // Handle specific events
             switch (event) {
+                case 'INITIAL_SESSION':
                 case 'SIGNED_IN':
                 case 'TOKEN_REFRESHED':
-                    setConnectionState(ConnectionState.CONNECTED);
+                    if (event !== 'INITIAL_SESSION') setConnectionState(ConnectionState.CONNECTED);
+                    guardAccountSwitch(session?.user?.id || null);
                     break;
                 case 'SIGNED_OUT':
-                    // Keep connected state, just no user
+                    // Keep connected state, just no user. Clear immediately —
+                    // don't wait for the next login to detect the switch, in
+                    // case this browser gets handed straight to someone else.
+                    clearLocalIntelligenceState();
+                    try { localStorage.removeItem(LAST_UID_KEY); } catch { /* ignore */ }
                     break;
                 case 'USER_UPDATED':
                     // Refresh user data in UI

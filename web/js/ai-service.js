@@ -67,7 +67,7 @@
             const config = window.APP_CONFIG?.AI?.GEMINI;
             if (!config?.API_KEY) throw new Error('Gemini API key not configured');
 
-            const model = options.model || config.MODEL || 'gemini-1.5-flash';
+            const model = options.model || config.MODEL || 'gemini-3.5-flash';
             const maxTokens = options.maxTokens || window.APP_CONFIG?.AI?.SETTINGS?.MAX_TOKENS?.MEDIUM || 1500;
             const temperature = options.temperature ?? window.APP_CONFIG?.AI?.SETTINGS?.TEMPERATURE?.BALANCED ?? 0.5;
 

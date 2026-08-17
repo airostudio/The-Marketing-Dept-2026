@@ -189,6 +189,7 @@
         .video-status-badge.pending, .video-status-badge.processing { background: rgba(245,158,11,0.15); color: #f59e0b; }
         .video-status-badge.succeeded { background: rgba(16,185,129,0.15); color: var(--green); }
         .video-status-badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .video-card-ai-disclosure { font-size: 10.5px; color: #f59e0b; line-height: 1.5; padding: 0 12px 10px; margin-top: -4px; }
         .video-card-actions { display: flex; gap: 6px; }
         .video-card-actions button {
             padding: 4px 10px;
@@ -967,6 +968,7 @@ Format as a proper production script with clear section headers and timestamps.`
                     <div style="margin-top:8px;">
                         <a href="${status.download_url}" download style="display:inline-block;padding:8px 16px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Download Video</a>
                     </div>
+                    <div class="video-card-ai-disclosure" style="padding:0;margin-top:10px;">⚠️ AI-generated video — put a visible "AI-generated" label on screen in the first few seconds (FTC guidance) and declare it as AI content when you upload to TikTok/Meta; both platforms require it on paid or organic AI video as of 2026.</div>
                 `;
             } else if (status.status === 'failed') {
                 statusDiv.innerHTML = `<div style="color:#f87171;">❌ Video generation failed: ${status.error || 'Unknown error'}</div>`;
@@ -1198,6 +1200,7 @@ Format as a proper production script with clear section headers and timestamps.`
                         </div>
                     </div>
                 </div>
+                ${item.status === 'succeeded' && item.videoUrl ? `<div class="video-card-ai-disclosure">⚠️ AI-generated video — put a visible "AI-generated" label on screen in the first few seconds (FTC guidance) and declare it as AI content when you upload to TikTok/Meta; both platforms require it on paid or organic AI video as of 2026.</div>` : ''}
             </div>
         `).join('');
     }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AdAngleTypeSchema, PlatformSizeSchema } from '../types.js';
 import { conceptStore, briefStore, brandStore } from '../storage/index.js';
 import { scoreConcept, explainScores } from '../prompts/scoring.js';
+import { getBrandCalibration } from './calibrationTools.js';
 
 const ConceptInputSchema = z.object({
   id: z.string().optional().describe('Pass the existing concept id to update it; omit to create a new one'),
@@ -84,10 +85,26 @@ export function registerConceptTools(server: McpServer) {
         return { content: [{ type: 'text', text: 'No matching concepts found. Provide briefId or conceptIds.' }], isError: true };
       }
 
+      const calibrationCache = new Map<string, ReturnType<typeof getBrandCalibration>>();
+      let anyCalibrated = false;
+
       const rescored = targets.map((c) => {
         const brief = briefStore.get(c.briefId);
         const brand = brief?.brandProfileId ? brandStore.get(brief.brandProfileId) : undefined;
-        const scores = scoreConcept(c, brand);
+
+        let weights;
+        if (brief?.brandProfileId) {
+          if (!calibrationCache.has(brief.brandProfileId)) {
+            calibrationCache.set(brief.brandProfileId, getBrandCalibration(brief.brandProfileId));
+          }
+          const calibration = calibrationCache.get(brief.brandProfileId)!;
+          if (calibration.calibrated) {
+            weights = calibration.weights;
+            anyCalibrated = true;
+          }
+        }
+
+        const scores = scoreConcept(c, brand, weights);
         return conceptStore.upsert({ ...c, scores });
       });
 
@@ -95,6 +112,9 @@ export function registerConceptTools(server: McpServer) {
       const lines = ranked.map(
         (c, i) => `${i + 1}. **${c.conceptName}** (${c.angleType}) — overall ${c.scores?.overall}/10\n${explainScores(c.scores!)}`
       );
+      if (anyCalibrated) {
+        lines.push('ℹ️ Scored using this brand\'s calibrated weights (derived from its own real campaign results) rather than the default weights — call get_brand_score_calibration for details.');
+      }
       return { content: [{ type: 'text', text: lines.join('\n\n') }] };
     }
   );

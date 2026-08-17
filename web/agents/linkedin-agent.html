@@ -85,6 +85,7 @@
         .btn-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.4); }
 
         .output-empty { padding: 60px 20px; text-align: center; color: var(--text3); font-size: 13px; font-style: italic; }
+        .compliance-banner { padding: 10px 20px; font-size: 11.5px; line-height: 1.5; color: #f59e0b; background: rgba(245,158,11,0.08); border-bottom: 1px solid rgba(245,158,11,0.2); }
         .output-body { padding: 20px; min-height: 200px; font-size: 14px; line-height: 1.75; color: var(--text); }
         .output-body h2 { font-size: 15px; color: #a78bfa; margin: 16px 0 6px; font-weight: 700; }
         .output-body h3 { font-size: 13px; color: var(--cyan); margin: 12px 0 4px; font-weight: 700; }
@@ -266,6 +267,7 @@
             <span class="panel-title">Outreach Messages</span>
             <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
         </div>
+        <div class="compliance-banner">⚠️ This generates message copy only — nothing here sends, connects, or scrapes on LinkedIn. Send manually or via LinkedIn's own messaging. Third-party auto-send/scraping/automation tools violate LinkedIn's Terms of Service and are being actively enforced against (e.g. the March 2026 cease-and-desist that shut down a 30,000-user automation product overnight) — using one risks a permanent account ban.</div>
         <div id="outputArea">
             <div class="output-empty">Describe your target persona, value prop, and any personalization context. Click Generate Outreach to get hyper-personalized message variants with follow-up sequences and profile optimization tips.</div>
         </div>
@@ -809,7 +811,7 @@ ${requiredOutput}
 
         let result;
         try {
-            result = await window.ContactsStore.upsertContacts(rows);
+            result = await window.ContactsStore.upsertContacts(rows, { consentSource: 'LinkedIn connection/prospect — verify opt-in/legitimate-interest basis before marketing email' });
         } catch (e) {
             alert(`Could not send to Audience Manager: ${e.message}`);
             return;

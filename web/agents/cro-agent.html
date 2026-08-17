@@ -372,9 +372,60 @@
             <!-- Filled by calcRevenue() -->
         </div>
     </div>
+
+    <!-- LIVE EXPERIMENTS — actually launches a test and reads real results,
+         instead of the calculators above only ever taking hand-typed numbers -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-size:15px;font-weight:700;">🧪 Live Experiments</div>
+            <button onclick="openNewExperimentForm()" style="padding:5px 12px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:7px;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">+ New Experiment</button>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:16px;">Turns a test idea into a real tracking snippet and reads live results back into the stat-sig calculator above — not just a design tool.</div>
+
+        <div id="expSignInNote" style="display:none;font-size:12px;color:rgba(255,255,255,0.5);padding:16px;text-align:center;">Sign in to launch and track live experiments. <a href="/index.html?openAuth=login" style="color:#a78bfa;">Sign in →</a></div>
+
+        <div id="newExperimentForm" style="display:none;background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;margin-bottom:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Experiment Name</label>
+                    <input type="text" id="newExpName" placeholder="Homepage hero CTA test" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Goal Name</label>
+                    <input type="text" id="newExpGoal" placeholder="Clicked 'Start Free Trial'" style="width:100%;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:14px;font-family:Inter,sans-serif;">
+                </div>
+            </div>
+            <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Variants (first is the control)</label>
+            <div id="newExpVariants" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+            <button onclick="addVariantField()" style="padding:5px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#cbd5e1;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:14px;">+ Add Variant</button>
+            <div style="display:flex;gap:10px;">
+                <button onclick="submitNewExperiment()" style="padding:9px 18px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:8px;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Create Experiment</button>
+                <button onclick="closeNewExperimentForm()" style="padding:9px 18px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;">Cancel</button>
+            </div>
+            <div id="newExpError" style="color:#ef4444;font-size:12px;margin-top:10px;"></div>
+        </div>
+
+        <div id="experimentsList" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+        <!-- Tracking snippet modal -->
+        <div id="snippetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;padding:24px;">
+            <div style="background:#12121f;border:1px solid rgba(255,255,255,0.1);border-radius:14px;max-width:640px;width:100%;max-height:80vh;overflow:auto;padding:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="font-size:14px;font-weight:700;">Tracking Snippet</div>
+                    <button onclick="closeSnippetModal()" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;">✕</button>
+                </div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Paste this before <code>&lt;/body&gt;</code> on the page being tested. It assigns each visitor to a variant, records the visit, and exposes <code>window.audemaConvert()</code> to call when they complete the goal.</div>
+                <textarea id="snippetText" readonly style="width:100%;height:220px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:11px;font-family:ui-monospace,monospace;padding:10px;"></textarea>
+                <button onclick="copySnippet()" style="margin-top:10px;padding:8px 16px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:8px;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">📋 Copy Snippet</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="../js/marked.min.js"></script>
+<script src="../js/supabase.min.js"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/experiments-store.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-characters.js"></script>
@@ -789,6 +840,192 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     calcStatSig();
     renderIce();
     calcRevenue();
+
+    // ── LIVE EXPERIMENTS ──────────────────────────────────────────────────
+    // Wires this page to the A/B test infrastructure that already existed
+    // (supabase-ab-testing.sql, api/ab-track.js) but had no browser UI — see
+    // web/js/experiments-store.js for the actual Supabase calls.
+    let _experiments = [];
+    let _newVariantCount = 0;
+
+    function escHtmlCro(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    async function refreshExperiments() {
+        const client = window.Supabase?.getClient?.();
+        const signedIn = client ? !!(await client.auth.getUser()).data.user : false;
+        document.getElementById('expSignInNote').style.display = signedIn ? 'none' : 'block';
+        if (!signedIn) { document.getElementById('experimentsList').innerHTML = ''; return; }
+        try {
+            _experiments = await window.ExperimentsStore.listExperiments();
+        } catch (e) {
+            document.getElementById('experimentsList').innerHTML = `<div style="color:#ef4444;font-size:12px;">Couldn't load experiments: ${escHtmlCro(e.message)}</div>`;
+            return;
+        }
+        renderExperiments();
+    }
+
+    const STATUS_COLOR = { draft: '#94a3b8', active: '#10b981', paused: '#f59e0b', finished: '#a78bfa' };
+
+    function renderExperiments() {
+        const el = document.getElementById('experimentsList');
+        if (!_experiments.length) {
+            el.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;padding:12px 0;">No experiments yet — click "+ New Experiment" to launch your first test.</div>';
+            return;
+        }
+        el.innerHTML = _experiments.map(exp => `
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <span style="font-size:13px;font-weight:700;">${escHtmlCro(exp.name)}</span>
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:20px;background:${STATUS_COLOR[exp.status]}22;color:${STATUS_COLOR[exp.status]};">${escHtmlCro(exp.status)}</span>
+                    <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:auto;">${(exp.variants || []).length} variants</span>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                    ${exp.status === 'draft' ? `<button onclick="activateExperimentUI('${exp.id}')" style="padding:5px 10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:#10b981;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">▶ Activate</button>` : ''}
+                    ${exp.status === 'active' ? `<button onclick="pauseExperimentUI('${exp.id}')" style="padding:5px 10px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#f59e0b;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">⏸ Pause</button>` : ''}
+                    ${exp.status === 'paused' ? `<button onclick="activateExperimentUI('${exp.id}')" style="padding:5px 10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:#10b981;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">▶ Resume</button>` : ''}
+                    <button onclick="showSnippet('${exp.id}')" style="padding:5px 10px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:6px;color:#a78bfa;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">&lt;/&gt; Get Snippet</button>
+                    <button onclick="viewResults('${exp.id}')" style="padding:5px 10px;background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.3);border-radius:6px;color:#06b6d4;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">📊 View Results</button>
+                    <button onclick="deleteExperimentUI('${exp.id}')" style="padding:5px 10px;background:transparent;border:1px solid rgba(239,68,68,0.25);border-radius:6px;color:#ef4444;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">Delete</button>
+                </div>
+                <div id="expResults_${exp.id}" style="margin-top:10px;"></div>
+            </div>
+        `).join('');
+    }
+
+    function openNewExperimentForm() {
+        document.getElementById('newExperimentForm').style.display = 'block';
+        document.getElementById('newExpName').value = '';
+        document.getElementById('newExpGoal').value = '';
+        document.getElementById('newExpVariants').innerHTML = '';
+        document.getElementById('newExpError').textContent = '';
+        _newVariantCount = 0;
+        addVariantField('Control');
+        addVariantField('Variant B');
+    }
+
+    function closeNewExperimentForm() {
+        document.getElementById('newExperimentForm').style.display = 'none';
+    }
+
+    function addVariantField(prefill) {
+        _newVariantCount++;
+        const wrap = document.getElementById('newExpVariants');
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        row.innerHTML = `<input type="text" class="newExpVariantInput" value="${escHtmlCro(prefill || '')}" placeholder="Variant name" style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e2e8f0;font-size:13px;font-family:Inter,sans-serif;">
+            <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#ef4444;font-size:14px;cursor:pointer;padding:4px 8px;">✕</button>`;
+        wrap.appendChild(row);
+    }
+
+    async function submitNewExperiment() {
+        const name = document.getElementById('newExpName').value.trim();
+        const goalName = document.getElementById('newExpGoal').value.trim();
+        const variantNames = Array.from(document.querySelectorAll('.newExpVariantInput')).map(i => i.value.trim()).filter(Boolean);
+        const errEl = document.getElementById('newExpError');
+        errEl.textContent = '';
+        try {
+            await window.ExperimentsStore.createExperiment({
+                name,
+                variants: variantNames.map(n => ({ name: n })),
+                goal: { name: goalName || 'Primary conversion', type: 'click' },
+            });
+            closeNewExperimentForm();
+            await refreshExperiments();
+        } catch (e) {
+            errEl.textContent = e.message;
+        }
+    }
+
+    async function activateExperimentUI(id) {
+        try { await window.ExperimentsStore.setStatus(id, 'active'); await refreshExperiments(); }
+        catch (e) { alert('Could not activate: ' + e.message); }
+    }
+    async function pauseExperimentUI(id) {
+        try { await window.ExperimentsStore.setStatus(id, 'paused'); await refreshExperiments(); }
+        catch (e) { alert('Could not pause: ' + e.message); }
+    }
+    async function deleteExperimentUI(id) {
+        if (!confirm('Delete this experiment and all its tracking data? This cannot be undone.')) return;
+        try { await window.ExperimentsStore.deleteExperiment(id); await refreshExperiments(); }
+        catch (e) { alert('Could not delete: ' + e.message); }
+    }
+
+    function showSnippet(id) {
+        const exp = _experiments.find(e => e.id === id);
+        if (!exp) return;
+        document.getElementById('snippetText').value = window.ExperimentsStore.buildSnippet(exp);
+        document.getElementById('snippetModal').style.display = 'flex';
+    }
+    function closeSnippetModal() { document.getElementById('snippetModal').style.display = 'none'; }
+    function copySnippet() {
+        const ta = document.getElementById('snippetText');
+        ta.select();
+        navigator.clipboard.writeText(ta.value);
+    }
+
+    async function viewResults(id) {
+        const target = document.getElementById(`expResults_${id}`);
+        target.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,0.4);">Loading real results…</div>';
+        let results;
+        try {
+            results = await window.ExperimentsStore.getResults(id);
+        } catch (e) {
+            target.innerHTML = `<div style="color:#ef4444;font-size:11px;">${escHtmlCro(e.message)}</div>`;
+            return;
+        }
+
+        if (!results.some(r => r.visitors > 0)) {
+            target.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,0.4);padding-top:6px;">No tracked visits yet — install the snippet on the page being tested to start collecting real data.</div>';
+            return;
+        }
+
+        target.innerHTML = `
+            <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;">
+                <thead><tr>
+                    <th style="text-align:left;padding:5px 6px;color:rgba(255,255,255,0.4);font-weight:600;">Variant</th>
+                    <th style="text-align:right;padding:5px 6px;color:rgba(255,255,255,0.4);font-weight:600;">Visitors</th>
+                    <th style="text-align:right;padding:5px 6px;color:rgba(255,255,255,0.4);font-weight:600;">Conversions</th>
+                    <th style="text-align:right;padding:5px 6px;color:rgba(255,255,255,0.4);font-weight:600;">Rate</th>
+                    <th style="text-align:right;padding:5px 6px;color:rgba(255,255,255,0.4);font-weight:600;"></th>
+                </tr></thead>
+                <tbody>${results.map(r => `
+                    <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+                        <td style="padding:6px;">${escHtmlCro(r.name)}${r.isControl ? ' <span style="color:rgba(255,255,255,0.3);font-size:10px;">(control)</span>' : ''}</td>
+                        <td style="padding:6px;text-align:right;">${r.visitors}</td>
+                        <td style="padding:6px;text-align:right;">${r.conversions}</td>
+                        <td style="padding:6px;text-align:right;font-weight:700;">${r.convRate !== null ? r.convRate.toFixed(2) + '%' : '—'}</td>
+                        <td style="padding:6px;text-align:right;"><button onclick="declareWinnerUI('${id}','${r.id}')" style="padding:3px 8px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:#10b981;font-size:10px;cursor:pointer;font-family:Inter,sans-serif;">Declare Winner</button></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+            <div style="font-size:10.5px;color:rgba(255,255,255,0.35);margin-top:8px;">Real counts from api/ab-track.js — feed the control and your best-performing variant into the Statistical Significance Calculator above before declaring a winner.</div>`;
+
+        // Feed control vs. best-performing challenger straight into the real
+        // z-test above instead of leaving it as a design-time-only tool.
+        const control = results.find(r => r.isControl) || results[0];
+        const challenger = results.filter(r => r !== control && r.visitors > 0).sort((a, b) => (b.convRate || 0) - (a.convRate || 0))[0];
+        if (control && challenger && control.visitors > 0 && challenger.visitors > 0) {
+            document.getElementById('calcControl').value = control.convRate.toFixed(2);
+            document.getElementById('calcVariant').value = challenger.convRate.toFixed(2);
+            document.getElementById('calcVisitors').value = Math.min(control.visitors, challenger.visitors);
+            calcStatSig();
+            document.getElementById('statSigResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    async function declareWinnerUI(expId, variantId) {
+        if (!confirm('Declare this variant the winner and mark the experiment finished?')) return;
+        try {
+            await window.ExperimentsStore.declareWinner(expId, variantId);
+            await refreshExperiments();
+        } catch (e) { alert('Could not declare winner: ' + e.message); }
+    }
+
+    refreshExperiments();
 </script>
 </body>
 </html>

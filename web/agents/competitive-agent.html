@@ -285,6 +285,25 @@
         </div>
     </div>
 
+    <!-- MONITORED COMPETITORS — scheduled/background change detection,
+         separate from the on-demand analysis above -->
+    <div class="panel" style="grid-column:1 / -1;">
+        <div class="panel-header">
+            <span class="panel-title">📡 Monitored Competitors</span>
+            <span style="font-size:11px;color:var(--text2);">Checked daily — alerts when a page title, description, or content actually changes</span>
+        </div>
+        <div class="panel-body">
+            <div id="watchSignInNote" style="display:none;font-size:12px;color:var(--text3);padding:12px 0;">Sign in to monitor competitors for changes. <a href="/index.html?openAuth=login" style="color:var(--accent);">Sign in →</a></div>
+            <div id="watchAddRow" style="display:flex;gap:10px;margin-bottom:14px;">
+                <input class="field-input" id="watchName" type="text" placeholder="Competitor name" style="flex:1;">
+                <input class="field-input" id="watchUrl" type="text" placeholder="https://competitor.com/pricing" style="flex:2;">
+                <button class="btn-run" style="width:auto;padding:0 18px;" onclick="addCompetitorWatch()">+ Add</button>
+            </div>
+            <div id="watchList"></div>
+            <div style="font-size:10.5px;color:var(--text3);margin-top:10px;">Track a specific page (pricing, homepage) for the clearest signal — a whole-site check flags too much noise. Checks run once a day via a scheduled job.</div>
+        </div>
+    </div>
+
 </div>
 
 <div class="features-wrap">
@@ -314,6 +333,9 @@
 </div>
 
 <script src="../js/marked.min.js"></script>
+<script src="../js/supabase.min.js"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/competitor-watch-store.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
@@ -796,6 +818,87 @@ For each competitor, sales-ready format:
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         });
     }
+
+    // ── MONITORED COMPETITORS ────────────────────────────────────────────
+    function escHtmlWatch(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    function fmtWhen(iso) {
+        if (!iso) return 'never';
+        const diffMs = Date.now() - new Date(iso).getTime();
+        const hrs = Math.round(diffMs / 3600000);
+        if (hrs < 1) return 'just now';
+        if (hrs < 24) return `${hrs}h ago`;
+        return `${Math.round(hrs / 24)}d ago`;
+    }
+
+    async function refreshWatchList() {
+        const client = window.Supabase?.getClient?.();
+        const signedIn = client ? !!(await client.auth.getUser()).data.user : false;
+        document.getElementById('watchSignInNote').style.display = signedIn ? 'none' : 'block';
+        document.getElementById('watchAddRow').style.display = signedIn ? 'flex' : 'none';
+        if (!signedIn) { document.getElementById('watchList').innerHTML = ''; return; }
+
+        let watches, snapshots, changes;
+        try {
+            watches = await window.CompetitorWatchStore.listWatches();
+            snapshots = await window.CompetitorWatchStore.getLatestSnapshots(watches.map(w => w.id));
+            changes = await window.CompetitorWatchStore.getRecentChanges(30);
+        } catch (e) {
+            document.getElementById('watchList').innerHTML = `<div style="color:#ef4444;font-size:12px;">${escHtmlWatch(e.message)}</div>`;
+            return;
+        }
+
+        const listEl = document.getElementById('watchList');
+        if (!watches.length) {
+            listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0;">No competitors monitored yet — add one above.</div>';
+            return;
+        }
+
+        const changesByWatch = {};
+        changes.forEach(c => { (changesByWatch[c.watch_id] = changesByWatch[c.watch_id] || []).push(c); });
+
+        listEl.innerHTML = watches.map(w => {
+            const snap = snapshots[w.id];
+            const watchChanges = (changesByWatch[w.id] || []).slice(0, 3);
+            return `
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:13px;font-weight:700;">${escHtmlWatch(w.name)}</span>
+                        <a href="${escHtmlWatch(w.url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">${escHtmlWatch(w.url)} ↗</a>
+                        <span style="margin-left:auto;font-size:10.5px;color:var(--text3);">last checked ${fmtWhen(snap?.fetched_at)}</span>
+                        <button onclick="removeWatchUI('${w.id}')" style="background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;">Remove</button>
+                    </div>
+                    ${watchChanges.length ? `
+                        <div style="margin-top:8px;">
+                            ${watchChanges.map(c => `<div style="font-size:11px;color:#f59e0b;padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">⚠️ ${c.change_type === 'content' ? 'Page content changed' : c.change_type === 'title' ? `Title changed: "${escHtmlWatch(c.previous_value)}" → "${escHtmlWatch(c.new_value)}"` : `Meta description changed`} · ${fmtWhen(c.detected_at)}</div>`).join('')}
+                        </div>` : `<div style="font-size:11px;color:var(--text3);margin-top:6px;">No changes detected yet.</div>`}
+                </div>`;
+        }).join('');
+    }
+
+    async function addCompetitorWatch() {
+        const name = document.getElementById('watchName').value.trim();
+        const url = document.getElementById('watchUrl').value.trim();
+        if (!url) { alert('Enter a URL to monitor.'); return; }
+        try {
+            await window.CompetitorWatchStore.addWatch({ name, url });
+            document.getElementById('watchName').value = '';
+            document.getElementById('watchUrl').value = '';
+            await refreshWatchList();
+        } catch (e) { alert('Could not add: ' + e.message); }
+    }
+
+    async function removeWatchUI(id) {
+        if (!confirm('Stop monitoring this competitor?')) return;
+        try { await window.CompetitorWatchStore.removeWatch(id); await refreshWatchList(); }
+        catch (e) { alert('Could not remove: ' + e.message); }
+    }
+
+    refreshWatchList();
 </script>
 </body>
 </html>

@@ -7,6 +7,12 @@ import { registerCopyTools } from './copyTools.js';
 import { registerLayoutTools } from './layoutTools.js';
 import { registerExportTools } from './exportTools.js';
 import { registerCampaignTools } from './campaignTools.js';
+import { registerCampaignDraftTools } from './campaignDraftTools.js';
+import { registerOptimizationTools } from './optimizationTools.js';
+import { registerDcoTools } from './dcoTools.js';
+import { registerComplianceTools } from './complianceTools.js';
+import { registerCalibrationTools } from './calibrationTools.js';
+import { registerTeardownTools } from './teardownTools.js';
 import { registerAbTestTools } from './abTestTools.js';
 
 export function registerAllTools(server: McpServer) {
@@ -18,5 +24,11 @@ export function registerAllTools(server: McpServer) {
   registerLayoutTools(server);
   registerExportTools(server);
   registerCampaignTools(server);
+  registerCampaignDraftTools(server);
+  registerOptimizationTools(server);
+  registerDcoTools(server);
+  registerComplianceTools(server);
+  registerCalibrationTools(server);
+  registerTeardownTools(server);
   registerAbTestTools(server);
 }

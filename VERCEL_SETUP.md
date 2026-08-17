@@ -16,6 +16,81 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Pat — Email Delivery: Unsubscribe Compliance & Bounce Handling
+
+Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had no `List-Unsubscribe` header (a hard Gmail/Yahoo/Apple requirement for bulk senders since May 2026) and nothing ever closed the loop when a send bounced or was marked as spam, so `contacts.status` sat unused.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `UNSUBSCRIBE_SECRET` | Signs the token in every unsubscribe link so it can't be forged. Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset — set a dedicated value if you'd rather not reuse that key for this. | Recommended |
+| `RESEND_WEBHOOK_SECRET` | The `whsec_...` signing secret Resend gives you when you add a webhook endpoint | ✅ For bounce/complaint tracking |
+| `PUBLIC_APP_URL` | Your deployment's public base URL, e.g. `https://app.yourdomain.com`. Falls back to the request's own `Host` header if unset — set this explicitly if you're behind a proxy/custom domain where that header isn't reliable. | Optional |
+
+### What changed
+
+- **`api/send-campaign.js`** now attaches `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers to every send, pointing at a signed link on `api/unsubscribe.js`. If `UNSUBSCRIBE_SECRET`/`SUPABASE_SERVICE_ROLE_KEY` isn't configured, sends still go out (nothing is blocked) but the response includes a `warnings` array saying so — check for that in Pat's UI/QA flow.
+- **`api/unsubscribe.js`** (new, public, no login required) — `GET` shows a confirmation page; `POST` (what mail clients send for one-click unsubscribe, and what the confirmation page's form submits to) flips the contact's `status` to `'unsubscribed'` in Supabase. Only works for recipients that came from a saved segment (i.e. had a real `contacts` row) — an ad-hoc pasted recipient has no CRM record to flip, and still sees a confirmation page rather than an error.
+- **`api/resend-webhook.js`** (new) — verifies Resend's Svix-style webhook signature (HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${raw body}`, keyed by the base64-decoded `whsec_` secret) and sets `contacts.status` to `'bounced'` on a **permanent** bounce or `'complained'` on a spam complaint. Transient bounces (full mailbox, greylisting) are deliberately left alone — that's not a signal to stop emailing someone. Requires `contact_id` to be present in the event's echoed-back tags, which only happens for recipients sent with a real contact — see above.
+
+### Setup
+
+1. In the Resend dashboard: **Webhooks → Add Endpoint** → URL `https://<your-domain>/api/resend-webhook`, events `email.bounced` and `email.complained`. Copy the signing secret into `RESEND_WEBHOOK_SECRET`.
+2. No new Supabase table needed — this only writes to the `status` column `supabase-audience.sql` already created.
+3. Send a real campaign to a segment-loaded recipient and confirm the outgoing message actually carries `List-Unsubscribe`/`List-Unsubscribe-Post` headers (most email clients' "view original" shows raw headers).
+
+**Not yet covered by this pass**: `api/send-email.js` (Chase's one-off/sales-sequence sends) doesn't attach these headers — those recipients aren't audience `contacts` rows today, so there's no contact record for a webhook or unsubscribe link to act on. Revisit once sales-sequence prospects have a server-side record to update.
+
+---
+
+## Pulse Social Studio — Real AI Ad Image Generation
+
+The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents/social-agent.html`) creates a real, finished PNG/JPEG/WEBP creative — headline, supporting line, and CTA baked in as real on-image typography, using direct-response ad design principles — via `api/generate-ad-image.js`, proxied server-side so the key never reaches the browser.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `OPENAI_API_KEY` | Same key already used by `api/openai.js` — no separate key needed | ✅ For AI ad images |
+| `OPENAI_IMAGE_MODEL` | Image model to request | Optional (defaults to `gpt-image-1`) |
+
+Without `OPENAI_API_KEY`, the button returns a clear "not configured" error — a free, instant, no-API-key "quick template" fallback (deterministic SVG background + typography, via `api/render-social-image.js`) stays available underneath every card either way, clearly labeled as a placeholder rather than a finished ad.
+
+Generated images upload to a hosted bucket (Cloudflare R2 preferred, Supabase Storage as a fallback — see "Hosted storage" below) as the quick-template ones (`api/render-social-image.js`), giving a real hosted URL — which is what unlocks Instagram/TikTok publishing, since those platforms reject `data:` URIs.
+
+**Publishing stays manual until platform credentials are added.** Every approved post/image can be pushed to Pat and published with one click today. Once you add a given platform's credentials (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`, `INSTAGRAM_USER_ID` + Meta token, `TIKTOK_ACCESS_TOKEN` — see `api/publish-social-post.js`), that platform starts publishing automatically too: `api/cron-auto-publish.js` already runs every 15 minutes via the Vercel Cron entry in `vercel.json`, publishing anything scheduled through Beeker's calendar with no further code changes needed.
+
+### AI image credit quota
+
+Each real AI image generation call costs money, so `api/generate-ad-image.js` meters usage against a per-site credit balance stored in Supabase (`supabase-credits.sql` — run it after `supabase-intelligence-profiles.sql`). The balance is shared by everyone working on the same intelligence profile/site (falling back to the legacy `project_id` scope), not per individual login.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `AD_IMAGE_CREDIT_COST` | Credits deducted per successful image generation | Optional (defaults to `100`) |
+| `DEFAULT_CREDIT_BALANCE` | Starting balance for a site's first-ever image generation | Optional (defaults to `20000`, i.e. 200 images at the default cost) |
+
+At 0 remaining credits, generation is paused before the OpenAI call is made (never billed) and the UI shows an "Out of AI image credits — Upgrade for more credits →" prompt linking to `/index.html#pricing`. That's currently a message only — no payment is collected automatically. To actually sell credit top-ups, wire a real checkout (e.g. Stripe) that inserts/updates a `credit_balances` row (increase `credits_total`) on successful payment; the metering logic already reads whatever's in that table, so no changes to `api/generate-ad-image.js` would be needed for that follow-up.
+
+Metering only activates when both a site/profile scope *and* `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are present — without either, image generation proceeds unmetered rather than blocking users who haven't set up Supabase or picked an active site yet.
+
+---
+
+## Hosted storage — Cloudflare R2
+
+Ad creative that needs a real public URL (Instagram/TikTok publishing, mainly) uploads to Cloudflare R2 when configured, falling back to Supabase Storage otherwise — purely additive, nothing breaks if you only have one or neither set up.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `R2_ACCOUNT_ID` | Cloudflare account ID | For R2 |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials (S3-compatible) | For R2 |
+| `R2_BUCKET_NAME` | The R2 bucket to upload into | For R2 |
+| `R2_PUBLIC_BASE_URL` | A custom domain or the bucket's `r2.dev` URL, used to build the returned public URL | Optional but effectively required — without it, uploads succeed but no fetchable URL comes back |
+
+Implemented via hand-rolled AWS SigV4 request signing (`api/_lib/r2.js` — Node's built-in `crypto` only, no `aws-sdk` dependency, matching this project's zero-npm-dependency `api/*.js` convention), since R2 exposes an S3-compatible API. `api/_lib/` is not treated as a route by Vercel — it's a shared module imported by `api/generate-ad-image.js` and `api/render-social-image.js`.
+
+Both the web app and the standalone AdForge MCP server (`audema-adforge-mcp/`) can share the **same R2 bucket** under different key prefixes — `social-creatives/` for the web app, `adforge/` for AdForge's exported creative — so a file exported from either one is reachable the same way. AdForge needs its own copy of the same four `R2_*` env vars in its own `.env` (see `audema-adforge-mcp/.env.example`); they aren't shared automatically since AdForge runs as a separate local process, not on Vercel.
+
+SigV4 is a stable, long-documented public standard, not a shifting vendor API contract — but a signing bug still fails loudly and immediately (403 `SignatureDoesNotMatch`), never silently. Verify with one real image generation after adding credentials and confirm the object actually appears in the R2 bucket.
+
+---
+
 ## Reel Video Studio — Seedance 2.0 AI Video Generation
 
 Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text prompt (or a prompt + reference image) into a real rendered video clip via Seedance 2.0, proxied server-side through `api/generate-video.js` — the API key never reaches the browser.
@@ -171,6 +246,29 @@ Claude: [calls get_experiment_stats]
         [calls declare_winner]
         Winner declared. Want me to generate new ads based on this winning copy?
 ```
+
+---
+
+## Chase — Prospect Discovery & Enrichment (Real Data Only)
+
+Chase's Discover tab finds real businesses and enriches them through a five-source chain — every source is a real API call or a hard stop, never an invented fallback. This matters: cold-emailing or cold-calling a hallucinated business/contact is a real CAN-SPAM/TCPA exposure, not just an embarrassment, so the app refuses to run the discovery step at all without a working Perplexity key rather than quietly inventing businesses.
+
+**The chain**, per prospect, once discovered via Perplexity:
+
+1. **Perplexity** (`PERPLEXITY_API_KEY`, already covered above) — live web search finds the business in the first place, and later searches for its public profiles/social links.
+2. **Google Places** (`api/places.js`) — verifies the business is real and pulls its actual address, phone, rating, and website (or confirms it has none) directly from Google's own data.
+3. **Website crawl** (`api/crawl.js`) — no extra key needed; fetches the business's own site (if it has one) for listed emails/socials.
+4. **Hunter.io** (`api/hunter.js`) — domain-level email discovery from a broader database than what's listed on the site itself.
+5. **Apollo.io** (`api/apollo-enrich.js`) — real firmographic data (industry, employee count, LinkedIn) and real people Apollo has on file at that domain with owner/founder/decision-maker titles. This is what replaces "AI-invented owner names" with an actual name Apollo has verified — or an honest empty result if Apollo has nothing on file. Apollo's search step doesn't return email addresses (a separate, credit-costing enrichment call would be needed for that); Hunter.io covers that gap instead.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `PERPLEXITY_API_KEY` | Already covered above — discovery is hard-blocked without it | ✅ For Discover tab at all |
+| `GOOGLE_PLACES_API_KEY` | From Google Cloud Console → enable "Places API (New)" → create an API key | For Places verification step |
+| `HUNTER_API_KEY` | From hunter.io → API dashboard | For Hunter email discovery step |
+| `APOLLO_API_KEY` | From Apollo → Settings → Integrations → API Keys. This is Apollo's own REST API key — separate from any Apollo MCP connector a Claude session might have; the deployed app needs its own key since there's no Claude session in the loop for your actual users. | For Apollo firmographic/contact step |
+
+Every step in the chain degrades gracefully and independently — if a given key isn't configured, that step is silently skipped (logged to the browser console) and the prospect keeps whatever real data the other steps found. Nothing is ever backfilled with a guess.
 
 ---
 
@@ -388,6 +486,50 @@ Before deploying:
 4. Monitor daily API costs
 
 **Recommended**: Set up budget alerts in Anthropic Console to prevent overages.
+
+---
+
+## Agent Audit — Bi-Monthly "Stay Current" Research Run
+
+Every 2 months, `api/cron-agent-audit.js` runs a real, live web-search-backed research pass over all 15 specialist agents (Rex, Ink, CRO Lab, Nova, Pat, Beeker, Chase, Pulse, Mex, Reel, Scout, Vera, Shield, Lock, Deck Maker), asking Claude to check each one's current approach against up-to-date (not training-data-stale) marketing best practices, security considerations, and platform/compliance rules — then writes the findings to Supabase so Scotty can surface them.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Already required above — reused for the audit's Claude + web-search calls | ✅ Yes |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above — the cron job writes with the service-role key, bypassing RLS | ✅ Yes |
+| `CRON_SECRET` | Already used by `api/cron-auto-publish.js` — the same bearer token gates this endpoint too | ✅ Yes |
+
+### Setup
+
+1. Run `supabase-agent-audits.sql` in Supabase Dashboard → SQL Editor. This creates `agent_audit_runs` and `agent_audit_findings` — read-only for any signed-in user (it's meta-info about the product's own agents, not client data), writes only via the service-role key.
+2. No new env vars if `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` are already set from earlier sections — this feature reuses all four.
+3. The Vercel Cron entry (`vercel.json`) fires at `0 6 1 */2 *` — 06:00 UTC on the 1st of every odd month (Jan, Mar, May, Jul, Sep, Nov).
+4. Scotty (`web/scotty.html`) shows an "🛰️ Agent Audit" card in Mission Control whenever a run exists, with agent/flagged counts and a "View Report" button that opens the full per-agent findings (gaps, recommendations, security notes, sources).
+
+**What this job deliberately does NOT do**: it never modifies any other agent's code, prompts, or behavior — it only produces a research report for a human to act on. Auto-patching production files from an unsupervised cron job would be a real safety regression, not a step toward genuine autonomy; consequential changes stay gated behind human review.
+
+Each of the 15 per-agent research calls runs concurrently (`Promise.allSettled`, 40s timeout each) to fit inside Vercel's 60s function budget. If an individual agent's research call fails (timeout, rate limit, etc.), it's recorded with an `error` field and `up_to_date: true` — a failed run is never mistaken for a "this agent needs work" flag.
+
+---
+
+## Scout — Monitored Competitors (Scheduled Change Detection)
+
+Addresses a gap from the 2026 Agent Audit: Scout was fully on-demand — it could research a competitor when asked, but nothing tracked change over time the way a real competitive-intelligence platform (Crayon, Klue) does. `api/cron-competitor-watch.js` runs daily, fetches every user's actively-monitored competitor URLs, and flags when the page's title, meta description, or visible text content actually changes.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above — the cron job writes with the service-role key | ✅ Yes |
+| `CRON_SECRET` | Already used by the other cron jobs — same bearer token gates this endpoint too | ✅ Yes |
+
+No paid API required — it fetches the tracked page's HTML directly and extracts `<title>`/meta description via regex (this project has no npm dependencies in `api/*.js`, so there's no DOM parser), plus a hash of the stripped visible text. A changed content hash means "the page's visible text is different than last time," not a diff of what changed — good enough to prompt a human to go look.
+
+### Setup
+
+1. Run `supabase-competitor-watch.sql` in Supabase Dashboard → SQL Editor. Creates `competitor_watches`, `competitor_snapshots`, and `competitor_changes` — owner-scoped via RLS.
+2. No new env vars beyond what's already configured for the other cron jobs.
+3. The Vercel Cron entry fires daily at `0 7 * * *` (07:00 UTC). **Note**: this is the third cron job in `vercel.json` — Vercel's Hobby plan allows only 2 cron jobs; a Pro plan (or higher) is needed for all three to run.
+4. Add competitors to monitor from the new "📡 Monitored Competitors" panel in Competitive Intel (`web/agents/competitive-agent.html`) — track a specific page (pricing, homepage) rather than a whole site for the clearest signal.
+5. Capped at 150 watches per run to stay inside Vercel's 60s function budget; the response includes a `truncated` flag if more active watches exist than one run could cover.
 
 ---
 

@@ -532,6 +532,12 @@ Write compelling, SEO-optimized content that:
 - **Bold** key value propositions and differentiators
 - Bullet lists for feature/benefit breakdowns
 - Always include: compelling hook, clear value prop, proof/credibility, strong CTA
+- Near the top (after the hook, before the deep content), include one short, self-contained "quotable" block — a tight definition, a direct answer to the core question this piece addresses, or a 3-5 item FAQ. Write it so it reads correctly pulled out of context on its own — this is what gets cited by AI Overviews/AI search answers, and it needs no surrounding sentences to make sense.
+
+## Originality & Credibility (do not skip this)
+Generic AI-drafted content with no real insight underperforms in 2026 — both with readers and with AI-search citation. Every piece needs at least one concrete, specific detail that couldn't have been written about a generic competitor:
+- If BUSINESS CONTEXT below includes a real number, case study, customer result, or named example, use it — don't paraphrase it into something vaguer.
+- If no such concrete detail is available in context, do NOT invent a statistic, case study, or customer quote. Instead insert a clearly marked placeholder like "[ADD: a real stat or example here — e.g. a customer result, a before/after number]" so the human reviewer knows exactly what to fill in before publishing. A fabricated number is worse than an honest gap.
 
 `;
 
@@ -712,7 +718,8 @@ function showWpModal() {
         modal.innerHTML = `
 <div style="background:#13131f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:440px;max-width:92vw;">
     <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;">Publish to WordPress</h3>
-    <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:24px;">Your credentials stay in your browser — never sent to our servers.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:10px;">Your credentials stay in your browser — never sent to our servers.</p>
+    <p style="font-size:11.5px;color:#f59e0b;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.5;">⚠️ Read it once before publishing — swap any [ADD: ...] placeholder for a real stat/example, and add your own insight. Publishes as a draft, not live, so this is your last check.</p>
     <div style="margin-bottom:14px;">
         <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);display:block;margin-bottom:5px;">WordPress Site URL</label>
         <input id="wp-url" type="url" placeholder="https://yoursite.com" style="width:100%;padding:9px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
@@ -749,6 +756,12 @@ async function doPublishToWP() {
     const password = (document.getElementById('wp-password').value || '').trim();
     const statusEl = document.getElementById('wp-status');
     if (!url || !username || !password) { statusEl.innerHTML = '<span style="color:#ef4444;">Please fill in all fields.</span>'; return; }
+
+    const draftText = (typeof agent !== 'undefined' && agent.lastMarkdown) ? agent.lastMarkdown : (document.getElementById('output')?.innerText || '');
+    if (draftText.includes('[ADD:')) {
+        const proceed = confirm('This draft still has an [ADD: ...] placeholder where a real stat/example was supposed to go. Publish anyway?');
+        if (!proceed) return;
+    }
 
     sessionStorage.setItem('wp_config', JSON.stringify({ url, username }));
 

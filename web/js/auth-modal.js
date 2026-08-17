@@ -42,22 +42,27 @@
   // ── Supabase config (fetched once from /api/app-config) ──────────────────
   var _sbConfig = null; // { supabaseUrl, supabaseKey, configured }
 
-  async function _getSupabaseConfig() {
-    if (_sbConfig !== null) return _sbConfig;
-    // Also check if supabase-client.js already has valid config in APP_CONFIG
-    var ac = window.APP_CONFIG || {};
-    if (ac.SUPABASE_URL && ac.SUPABASE_ANON_KEY) {
-      _sbConfig = { supabaseUrl: ac.SUPABASE_URL, supabaseKey: ac.SUPABASE_ANON_KEY, configured: true };
-      return _sbConfig;
+  async function _getSupabaseConfig(forceServerRefresh) {
+    if (!forceServerRefresh && _sbConfig !== null) return _sbConfig;
+
+    if (!forceServerRefresh) {
+      // Also check if supabase-client.js already has valid config in APP_CONFIG
+      var ac = window.APP_CONFIG || {};
+      if (ac.SUPABASE_URL && ac.SUPABASE_ANON_KEY) {
+        _sbConfig = { supabaseUrl: ac.SUPABASE_URL, supabaseKey: ac.SUPABASE_ANON_KEY, configured: true };
+        return _sbConfig;
+      }
+      // Fall back to localStorage keys (set via Settings page) — skipped on
+      // a forced refresh, since a stale/wrong cached value here is exactly
+      // what a forced refresh is trying to route around.
+      var lsUrl = localStorage.getItem('supabase-url');
+      var lsKey = localStorage.getItem('supabase-anon-key');
+      if (lsUrl && lsKey) {
+        _sbConfig = { supabaseUrl: lsUrl, supabaseKey: lsKey, configured: true };
+        return _sbConfig;
+      }
     }
-    // Fall back to localStorage keys (set via Settings page)
-    var lsUrl = localStorage.getItem('supabase-url');
-    var lsKey = localStorage.getItem('supabase-anon-key');
-    if (lsUrl && lsKey) {
-      _sbConfig = { supabaseUrl: lsUrl, supabaseKey: lsKey, configured: true };
-      return _sbConfig;
-    }
-    // Fetch from Vercel env vars via API
+    // Fetch from Vercel env vars via API — the authoritative source
     try {
       var r = await fetch('/api/app-config', { signal: AbortSignal.timeout(4000) });
       var d = await r.json();
@@ -69,6 +74,14 @@
       }
     } catch { _sbConfig = { configured: false }; }
     return _sbConfig;
+  }
+
+  function _isNetworkFailure(err) {
+    // A raw "Failed to fetch" / "NetworkError" TypeError means the request
+    // never got a response at all (bad URL, DNS failure, CSP block) — as
+    // opposed to a resolved-but-unsuccessful auth response, which _sbLogin/
+    // _sbSignup turn into a regular Error with a real message.
+    return err && err.name === 'TypeError' && /fetch|network/i.test(err.message || '');
   }
 
   // ── Supabase Auth REST (no SDK needed) ───────────────────────────────────
@@ -122,6 +135,40 @@
     } catch (_) { /* best-effort only — org is already safe in auth metadata */ }
   }
 
+  // ── Cross-account data isolation guard ────────────────────────────────────
+  // This modal is the primary login path on index.html and talks to Supabase
+  // via raw fetch — it never goes through the supabase-js SDK client, so
+  // supabase-client.js's own onAuthStateChange-based guard never fires for
+  // logins/logouts made here. Business Brain / Intelligence Layer data lives
+  // in localStorage keyed by *active profile*, not by user id, so without
+  // this a second person signing in on the same browser inherits whatever
+  // business data the previous account left behind. Shares the same
+  // 'audema_last_uid' tracker key as supabase-client.js's guard so both
+  // login paths cooperate on one browser-wide account-switch signal.
+  var LAST_UID_KEY = 'audema_last_uid';
+
+  function _clearLocalIntelligenceState() {
+    try {
+      if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true);
+    } catch (e) { console.error('[auth-modal] IntelligenceEngine.clearAll failed:', e); }
+    try {
+      localStorage.removeItem('intel_active_profile');
+      localStorage.removeItem('seo-current-project');
+    } catch (e) { console.error('[auth-modal] local cache cleanup failed:', e); }
+  }
+
+  function _guardAccountSwitch(userId) {
+    if (!userId) return;
+    var lastUid;
+    try { lastUid = localStorage.getItem(LAST_UID_KEY); } catch (e) { return; }
+
+    if (lastUid && lastUid !== userId) {
+      console.warn('[auth-modal] Different account detected on this browser — clearing local intelligence/profile cache to prevent cross-account data bleed.');
+      _clearLocalIntelligenceState();
+    }
+    try { localStorage.setItem(LAST_UID_KEY, userId); } catch (e) { /* ignore */ }
+  }
+
   // ── Session helpers ───────────────────────────────────────────────────────
   function _createSessionFromSupabase(sbData) {
     var sbUser = sbData.user || {};
@@ -157,6 +204,7 @@
       userId: pub.id, email: pub.email,
       created: Date.now(), expires: Date.now() + expiresIn * 1000, source: 'supabase',
     }));
+    _guardAccountSwitch(pub.id);
     return pub;
   }
 
@@ -183,6 +231,7 @@
     }
     localStorage.setItem('seo_agent_user', JSON.stringify(pub));
     localStorage.setItem('seo_agent_session', JSON.stringify({ userId: user.id, email: user.email, created: Date.now(), expires: Date.now() + TTL, source: 'local' }));
+    _guardAccountSwitch(pub.id);
     return pub;
   }
 
@@ -190,8 +239,26 @@
   async function authLogin(email, password) {
     var cfg = await _getSupabaseConfig();
     if (cfg && cfg.configured) {
-      var data = await _sbLogin(email, password, cfg);
-      return _createSessionFromSupabase(data);
+      try {
+        var data = await _sbLogin(email, password, cfg);
+        return _createSessionFromSupabase(data);
+      } catch (err) {
+        // A supabase-url/supabase-anon-key pair cached in this browser's
+        // localStorage (from an old Settings entry, or a previous broken
+        // deploy) is trusted ahead of the live server config and never
+        // self-clears — if it's gone stale, every login fails at the
+        // network/DNS level with a bare "Failed to fetch" no matter how
+        // correct the server-side config is. Re-fetch the authoritative
+        // config and retry once before giving up.
+        if (_isNetworkFailure(err)) {
+          var fresh = await _getSupabaseConfig(true);
+          if (fresh && fresh.configured && (fresh.supabaseUrl !== cfg.supabaseUrl || fresh.supabaseKey !== cfg.supabaseKey)) {
+            var data2 = await _sbLogin(email, password, fresh);
+            return _createSessionFromSupabase(data2);
+          }
+        }
+        throw err;
+      }
     }
     // Fallback: localStorage-only (single browser)
     var users = _getUsers();
@@ -204,10 +271,22 @@
   async function authSignup(email, password, firstname, lastname, org) {
     var cfg = await _getSupabaseConfig();
     if (cfg && cfg.configured) {
-      var data = await _sbSignup(email, password, firstname, lastname, org, cfg);
-      if (data.access_token) return _createSessionFromSupabase(data);
-      // Email confirmation required — account created but not yet active
-      throw new Error('Check your email to confirm your account, then sign in.');
+      try {
+        var data = await _sbSignup(email, password, firstname, lastname, org, cfg);
+        if (data.access_token) return _createSessionFromSupabase(data);
+        // Email confirmation required — account created but not yet active
+        throw new Error('Check your email to confirm your account, then sign in.');
+      } catch (err) {
+        if (_isNetworkFailure(err)) {
+          var fresh = await _getSupabaseConfig(true);
+          if (fresh && fresh.configured && (fresh.supabaseUrl !== cfg.supabaseUrl || fresh.supabaseKey !== cfg.supabaseKey)) {
+            var data2 = await _sbSignup(email, password, firstname, lastname, org, fresh);
+            if (data2.access_token) return _createSessionFromSupabase(data2);
+            throw new Error('Check your email to confirm your account, then sign in.');
+          }
+        }
+        throw err;
+      }
     }
     // Fallback: localStorage-only
     var users = _getUsers();
@@ -592,6 +671,11 @@
     localStorage.removeItem('seo_agent_user');
     localStorage.removeItem('seo_agent_session');
     _sbConfig = null; // Reset cache so next login re-checks
+    // Clear immediately — don't wait for the next login to detect the
+    // account switch, in case this browser gets handed straight to someone
+    // else without them logging in through this same modal path.
+    _clearLocalIntelligenceState();
+    try { localStorage.removeItem(LAST_UID_KEY); } catch (e) { /* ignore */ }
   }
 
   // Wire up the already-exposed AuthModal
