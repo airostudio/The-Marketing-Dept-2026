@@ -84,6 +84,13 @@
     return err && err.name === 'TypeError' && /fetch|network/i.test(err.message || '');
   }
 
+  function _clearStaleSupabaseConfigCache() {
+    try {
+      localStorage.removeItem('supabase-url');
+      localStorage.removeItem('supabase-anon-key');
+    } catch (e) { /* ignore */ }
+  }
+
   // ── Supabase Auth REST (no SDK needed) ───────────────────────────────────
   async function _sbLogin(email, password, cfg) {
     var r = await fetch(`${cfg.supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -244,28 +251,42 @@
         return _createSessionFromSupabase(data);
       } catch (err) {
         // A supabase-url/supabase-anon-key pair cached in this browser's
-        // localStorage (from an old Settings entry, or a previous broken
-        // deploy) is trusted ahead of the live server config and never
-        // self-clears — if it's gone stale, every login fails at the
-        // network/DNS level with a bare "Failed to fetch" no matter how
-        // correct the server-side config is. Re-fetch the authoritative
-        // config and retry once before giving up.
+        // localStorage (from an old Settings entry, or a previous deploy
+        // that had it configured) is trusted ahead of the live server
+        // config and never self-clears — if it's gone stale, every login
+        // fails at the network/DNS level with a bare "Failed to fetch" no
+        // matter how correct the server-side config now is. Re-check the
+        // authoritative config before giving up.
         if (_isNetworkFailure(err)) {
           var fresh = await _getSupabaseConfig(true);
           if (fresh && fresh.configured && (fresh.supabaseUrl !== cfg.supabaseUrl || fresh.supabaseKey !== cfg.supabaseKey)) {
             var data2 = await _sbLogin(email, password, fresh);
             return _createSessionFromSupabase(data2);
           }
+          if (!fresh || !fresh.configured) {
+            // The server itself says Supabase isn't configured at all —
+            // the cached pair isn't just outdated, it's pointing at
+            // something that no longer exists server-side. Drop it and
+            // fall through to local-only auth below instead of surfacing
+            // a raw "Failed to fetch" for a URL that was never going to work.
+            _clearStaleSupabaseConfigCache();
+            cfg = fresh;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
         }
-        throw err;
       }
     }
-    // Fallback: localStorage-only (single browser)
-    var users = _getUsers();
-    var user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) throw new Error('No account found. Please create an account first.');
-    if (user.password !== _hash(password)) throw new Error('Incorrect password.');
-    return _createSessionLocal(user);
+    if (!cfg || !cfg.configured) {
+      // Fallback: localStorage-only (single browser)
+      var users = _getUsers();
+      var user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (!user) throw new Error('No account found. Please create an account first.');
+      if (user.password !== _hash(password)) throw new Error('Incorrect password.');
+      return _createSessionLocal(user);
+    }
   }
 
   async function authSignup(email, password, firstname, lastname, org) {
@@ -284,8 +305,15 @@
             if (data2.access_token) return _createSessionFromSupabase(data2);
             throw new Error('Check your email to confirm your account, then sign in.');
           }
+          if (!fresh || !fresh.configured) {
+            _clearStaleSupabaseConfigCache();
+            cfg = fresh;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
         }
-        throw err;
       }
     }
     // Fallback: localStorage-only
