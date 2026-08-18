@@ -145,11 +145,14 @@ Hard rules:
 
   const tool = buildTool(days, includeRationale);
 
-  // Each batch (at most 4 posts) needs a fraction of the output a full
-  // 7-post call did, so this budget has real headroom instead of racing
-  // max_tokens — that headroom is the actual fix, not a bigger number on
-  // the same all-7-at-once request.
-  const result = await callClaudeForJSON({ system, user, tool, maxTokens: 4500, timeoutMs: 45000 });
+  // Scaled to the actual batch size (as small as a single day when the
+  // client requests one post per call) instead of one fixed number sized
+  // for the largest possible batch — a 1-post call gets a small, safe
+  // budget and finishes fast; a larger batch still gets real headroom
+  // against max_tokens. ~900 tokens/post covers the schema's length
+  // budgets with room to spare, plus a fixed overhead for week_rationale.
+  const maxTokens = Math.min(7000, days.length * 900 + (includeRationale ? 300 : 0) + 400);
+  const result = await callClaudeForJSON({ system, user, tool, maxTokens, timeoutMs: 45000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({

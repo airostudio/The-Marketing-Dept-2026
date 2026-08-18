@@ -597,8 +597,13 @@ document.getElementById('photos-skip-btn').addEventListener('click', () => { Sta
 document.getElementById('photos-continue-btn').addEventListener('click', () => startGeneration());
 
 // ── STEP 6: Generation ────────────────────────────────────────────────────
+// One post per call, not two batches — the fewer posts a single call has
+// to produce, the smaller and safer its output, which is what actually
+// stops truncation (see nancy-content-plan.js's maxTokens scaling by
+// batch size). Seven small, reliable calls beat one or two bigger ones
+// that occasionally blow past their budget.
 const GEN_STAGES = [
-  { key: 'plan', label: 'Designing your 7-day content plan' },
+  ...[1, 2, 3, 4, 5, 6, 7].map(d => ({ key: `day${d}`, label: `Designing Day ${d}` })),
   { key: 'render', label: 'Building your 7 finished graphics' },
   { key: 'save', label: 'Saving your content week' },
 ];
@@ -608,22 +613,22 @@ async function startGeneration() {
   showStep('step-generating');
 
   try {
-    setStage('plan', 'active');
-    // Two smaller batches (days 1-4, then 5-7) instead of one call asking
-    // for all 7 fully-detailed posts at once — that single-call version
-    // kept truncating past even a generous token budget. Each batch here
-    // needs roughly half the output, with real headroom against that.
     const basePlanArgs = {
       businessProfile: State.businessProfile, brand: State.brand, strategy: State.strategy,
       personalization: State.personalization, previousTopics: State.previousTopics,
     };
-    const batchA = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [1, 4] });
-    const priorPosts = batchA.posts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
-    const batchB = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [5, 7], priorPosts });
 
-    const planPosts = [...batchA.posts, ...batchB.posts].sort((a, b) => a.day - b.day);
-    State.weekRationale = batchA.week_rationale;
-    setStage('plan', 'done');
+    const planPosts = [];
+    let weekRationale = null;
+    for (const day of [1, 2, 3, 4, 5, 6, 7]) {
+      setStage(`day${day}`, 'active');
+      const priorPosts = planPosts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
+      const dayResult = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [day, day], priorPosts });
+      planPosts.push(dayResult.posts[0]);
+      if (dayResult.week_rationale) weekRationale = dayResult.week_rationale;
+      setStage(`day${day}`, 'done');
+    }
+    State.weekRationale = weekRationale;
 
     setStage('render', 'active');
     const renderResult = await postJSON('/api/nancy-render-week', {
