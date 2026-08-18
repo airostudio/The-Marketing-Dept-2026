@@ -104,6 +104,6 @@ module.exports = async function handler(req, res) {
     success: true,
     profile: result.data,
     pagesFetched: crawl.pages.map(p => ({ url: p.url, title: p.title })),
-    homepageHtml: crawl.homepageHtml, // handed to nancy-brand-extract next; not persisted as-is
+    homepageHtml: crawl.homepageHtml, // unused by the client — nancy-screenshot.js re-crawls independently; kept here for parity/debugging
   });
 };

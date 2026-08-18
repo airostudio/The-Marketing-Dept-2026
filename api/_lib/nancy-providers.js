@@ -29,12 +29,11 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
   }
 
   try {
-    // Nancy's research endpoint chains this call directly into a second,
-    // slower Claude structuring call inside ONE Vercel function invocation
-    // (see api/nancy-research-market.js) — the whole thing shares a single
-    // 60s function ceiling (vercel.json), not 45s of independent budget.
-    // 25s leaves the Claude step real room to run without either call's own
-    // timeout ever being the actual limiting factor.
+    // This is the only slow call inside api/nancy-search-competitors.js —
+    // the structuring step that used to run in the same invocation now
+    // lives in its own function (api/nancy-structure-competitors.js), so
+    // this gets a generous standalone budget instead of splitting one 60s
+    // function ceiling two ways.
     const res = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -48,7 +47,7 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
         temperature: 0.2,
         stream: false,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(50000),
     });
 
     if (!res.ok) {
@@ -109,7 +108,7 @@ async function screenshotProvider(targetUrl) {
         force: '1', // bypass screenshotlayer's own cache — Nancy wants the live current page
       });
       const res = await fetch(`https://api.screenshotlayer.com/api/capture?${params.toString()}`, {
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(40000),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -139,7 +138,7 @@ async function screenshotProvider(targetUrl) {
         cache: 'true',
       });
       const res = await fetch(`https://api.screenshotone.com/take?${params.toString()}`, {
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(40000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());
@@ -152,7 +151,7 @@ async function screenshotProvider(targetUrl) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(40000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());

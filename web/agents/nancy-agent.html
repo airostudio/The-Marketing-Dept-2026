@@ -439,15 +439,33 @@ async function runResearchPipeline(url) {
   addDiscovery(`This looks like a ${State.businessProfile.business_category || State.businessProfile.industry} business serving ${State.businessProfile.target_customer || 'their customers'}.`);
   setStage('profile', 'done');
 
+  // Each of these is a single-slow-call endpoint — no Vercel function ever
+  // chains two slow external calls sharing one 60s ceiling. Screenshot
+  // capture and the Claude vision read run as two requests in sequence
+  // here on the client instead of inside one server-side invocation; same
+  // for competitor search and structuring below.
   setStage('brand', 'active');
-  const brandResult = await postJSON('/api/nancy-brand-extract', { url });
+  const screenshotResult = await postJSON('/api/nancy-screenshot', { url });
+  State.screenshot = screenshotResult.screenshot;
+  const brandResult = await postJSON('/api/nancy-brand-identity', {
+    origin: screenshotResult.origin,
+    screenshotDataUri: screenshotResult.screenshot?.available ? screenshotResult.screenshot.dataUri : null,
+    colourCandidates: screenshotResult.colourCandidates,
+    fontHints: screenshotResult.fontHints,
+  });
   State.brand = brandResult.brand;
-  State.screenshot = brandResult.screenshot;
   setStage('brand', 'done');
-  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (brandResult.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
+  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (State.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
 
   setStage('market', 'active');
-  const marketResult = await postJSON('/api/nancy-research-market', { businessProfile: State.businessProfile });
+  const searchResult = await postJSON('/api/nancy-search-competitors', { businessProfile: State.businessProfile });
+  let marketResult;
+  if (searchResult.available) {
+    marketResult = await postJSON('/api/nancy-structure-competitors', { searchText: searchResult.text, citations: searchResult.citations });
+    marketResult.available = true;
+  } else {
+    marketResult = { available: false, reason: searchResult.reason, competitors: [], citations: [] };
+  }
   State.competitors = marketResult.competitors || [];
   State.citations = marketResult.citations || [];
   setStage('market', 'done');

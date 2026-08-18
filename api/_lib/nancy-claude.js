@@ -17,7 +17,8 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6';
 /**
  * @param {object} opts
  * @param {string} opts.system - system prompt
- * @param {string} opts.user - user message (the actual task/content to analyze)
+ * @param {string|Array} opts.user - user message: a plain string, or an array
+ *   of Anthropic content blocks (e.g. image + text) for vision input
  * @param {object} opts.tool - { name, description, input_schema } — JSON Schema for the forced tool call
  * @param {number} [opts.maxTokens]
  * @param {number} [opts.timeoutMs]
