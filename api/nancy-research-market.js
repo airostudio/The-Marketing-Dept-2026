@@ -87,26 +87,42 @@ module.exports = async function handler(req, res) {
 
 Find 5-10 REAL businesses operating in a similar or closely related market — similar offer, similar target customer, or similar category. They do not need to be direct local competitors unless location is clearly central to this business. For each one report: business name, website URL, how they position themselves, who they target, their main offer, what topics they publish content about, their tone of voice, and anything distinctive about their approach. Only include businesses you can find real, current evidence for — cite your sources. Do not invent any business or URL.`;
 
-  const search = await searchProvider(query, {
-    systemPrompt: 'You are a market research analyst. Search the live web and report only real, verifiable businesses with real source URLs. Never invent a company, website, or fact.',
-    maxTokens: 2500,
-  });
+  try {
+    // This handler chains two sequential network calls (Perplexity search,
+    // then Claude structuring) inside one Vercel function invocation, which
+    // shares a single 60s function ceiling (vercel.json) — not the sum of
+    // each call's own timeout. searchProvider budgets ~25s; this call gets
+    // ~25s too, leaving headroom for request/response overhead so the pair
+    // reliably finishes under the platform limit instead of racing it.
+    const search = await searchProvider(query, {
+      systemPrompt: 'You are a market research analyst. Search the live web and report only real, verifiable businesses with real source URLs. Never invent a company, website, or fact.',
+      maxTokens: 1500,
+    });
 
-  if (!search.available) {
-    return res.json({ success: true, available: false, reason: search.reason, competitors: [], citations: [] });
+    if (!search.available) {
+      return res.json({ success: true, available: false, reason: search.reason, competitors: [], citations: [] });
+    }
+
+    const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list.`;
+    const user = `Research findings:\n${search.text}\n\nCitations available: ${JSON.stringify(search.citations)}\n\nStructure this into the competitor research schema.`;
+
+    const result = await callClaudeForJSON({ system, user, tool: COMPETITORS_TOOL, maxTokens: 2000, timeoutMs: 25000 });
+    if (!result.success) return res.status(502).json({ success: false, error: result.error });
+
+    return res.json({
+      success: true,
+      available: true,
+      category: result.data.category,
+      competitors: result.data.competitors || [],
+      citations: search.citations,
+    });
+  } catch (err) {
+    // Defense-in-depth: no path above should throw (searchProvider and
+    // callClaudeForJSON both return {available/success: false, ...} instead
+    // of throwing), but an uncaught exception here would otherwise crash
+    // the function with a non-JSON response — exactly the "Request to
+    // /api/nancy-research-market failed" generic client-side message this
+    // guarantees a real error instead of.
+    return res.status(500).json({ success: false, error: err.message || 'Market research failed unexpectedly.' });
   }
-
-  const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list.`;
-  const user = `Research findings:\n${search.text}\n\nCitations available: ${JSON.stringify(search.citations)}\n\nStructure this into the competitor research schema.`;
-
-  const result = await callClaudeForJSON({ system, user, tool: COMPETITORS_TOOL, maxTokens: 3000 });
-  if (!result.success) return res.status(502).json({ success: false, error: result.error });
-
-  return res.json({
-    success: true,
-    available: true,
-    category: result.data.category,
-    competitors: result.data.competitors || [],
-    citations: search.citations,
-  });
 };

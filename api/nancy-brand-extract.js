@@ -115,7 +115,12 @@ module.exports = async function handler(req, res) {
   // screenshot is available we need multi-block content (image + text), so
   // build that request directly here rather than stretching the shared
   // helper's contract. Same streaming/accumulation logic, inlined.
-  const result = await callClaudeVisionForJSON({ system, content, tool: BRAND_TOOL, maxTokens: 1500 });
+  //
+  // crawlSite + screenshotProvider + this call all share one function's 60s
+  // ceiling (vercel.json) — crawl is fast (parallelized, see nancy-crawl.js),
+  // screenshotProvider budgets ~25s, so this gets ~20s, leaving headroom for
+  // request/response overhead instead of racing the platform limit.
+  const result = await callClaudeVisionForJSON({ system, content, tool: BRAND_TOOL, maxTokens: 1500, timeoutMs: 20000 });
   if (!result.success) {
     return res.status(502).json({ success: false, error: result.error, screenshot: screenshotResult });
   }
@@ -130,7 +135,7 @@ module.exports = async function handler(req, res) {
 // Thin duplicate of callClaudeForJSON's streaming accumulator, but accepting
 // multi-block message content (image + text) for vision input — kept local
 // since this is the only Nancy endpoint that needs vision.
-async function callClaudeVisionForJSON({ system, content, tool, maxTokens }) {
+async function callClaudeVisionForJSON({ system, content, tool, maxTokens, timeoutMs = 55000 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { success: false, error: 'ANTHROPIC_API_KEY not configured' };
 
@@ -148,7 +153,7 @@ async function callClaudeVisionForJSON({ system, content, tool, maxTokens }) {
         stream: true,
         messages: [{ role: 'user', content }],
       }),
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     return { success: false, error: err.name === 'TimeoutError' || err.name === 'AbortError' ? 'Claude took too long. Try again.' : err.message };

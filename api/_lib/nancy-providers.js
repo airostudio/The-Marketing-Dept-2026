@@ -22,37 +22,53 @@
 // "never invent companies, every one needs a real source URL" requires.
 // A Tavily/Exa/Serper/Brave adapter could replace this by implementing the
 // same { query } -> { answer, citations: [{url,title}] } contract.
-async function searchProvider(query, { systemPrompt, maxTokens = 2000 } = {}) {
+async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
     return { available: false, reason: 'PERPLEXITY_API_KEY not configured — live web research is unavailable.' };
   }
 
-  const res = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [
-        { role: 'system', content: systemPrompt || 'You are a rigorous market research analyst. Only report real, verifiable businesses and facts you can cite. Never invent a company or URL.' },
-        { role: 'user', content: query },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.2,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
+  try {
+    // Nancy's research endpoint chains this call directly into a second,
+    // slower Claude structuring call inside ONE Vercel function invocation
+    // (see api/nancy-research-market.js) — the whole thing shares a single
+    // 60s function ceiling (vercel.json), not 45s of independent budget.
+    // 25s leaves the Claude step real room to run without either call's own
+    // timeout ever being the actual limiting factor.
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          { role: 'system', content: systemPrompt || 'You are a rigorous market research analyst. Only report real, verifiable businesses and facts you can cite. Never invent a company or URL.' },
+          { role: 'user', content: query },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+    return { available: true, text, citations };
+  } catch (err) {
+    // A timeout/network failure here must never throw — every Nancy caller
+    // relies on the "always returns {available, reason}, never throws"
+    // contract documented at the top of this file. An uncaught rejection
+    // would crash the whole handler with a non-JSON response instead of a
+    // real error message.
+    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+    return { available: false, reason: isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}` };
   }
-
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content || '';
-  const citations = data.citations || [];
-  return { available: true, text, citations };
 }
 
 // ── Screenshot provider ──────────────────────────────────────────────────────
@@ -93,7 +109,7 @@ async function screenshotProvider(targetUrl) {
         force: '1', // bypass screenshotlayer's own cache — Nancy wants the live current page
       });
       const res = await fetch(`https://api.screenshotlayer.com/api/capture?${params.toString()}`, {
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(25000),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -123,7 +139,7 @@ async function screenshotProvider(targetUrl) {
         cache: 'true',
       });
       const res = await fetch(`https://api.screenshotone.com/take?${params.toString()}`, {
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(25000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());
@@ -136,7 +152,7 @@ async function screenshotProvider(targetUrl) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(25000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());

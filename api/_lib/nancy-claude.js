@@ -23,7 +23,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6';
  * @param {number} [opts.timeoutMs]
  * @returns {Promise<{success:true, data:object, usage:object} | {success:false, error:string}>}
  */
-async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeoutMs = 55000 }) {
+async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeoutMs = 50000 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { success: false, error: 'ANTHROPIC_API_KEY not configured' };
 

@@ -93,7 +93,11 @@ module.exports = async function handler(req, res) {
 
   const user = `Website: ${crawl.origin}\n\nCrawled page content:\n\n${pagesText}\n\nExtract the structured business profile.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: PROFILE_TOOL, maxTokens: 3000 });
+  // Crawl + Claude extraction share this one function's 60s ceiling
+  // (vercel.json) — the crawl is now parallelized (see nancy-crawl.js) so it
+  // costs about as much as its single slowest page, leaving this call real
+  // room without either step racing the platform limit.
+  const result = await callClaudeForJSON({ system, user, tool: PROFILE_TOOL, maxTokens: 3000, timeoutMs: 40000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({
