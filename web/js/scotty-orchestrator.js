@@ -39,6 +39,7 @@ const ScottyOrchestrator = (() => {
     linkedin:    '/agents/linkedin-agent.html',
     delivery:    '/agents/email-delivery-agent.html',
     audience:    '/agents/audience-agent.html',
+    nancy:       '/agents/nancy-agent.html',
   };
 
   const AGENT_DESCRIPTIONS = {
@@ -58,6 +59,7 @@ const ScottyOrchestrator = (() => {
     linkedin:    'LinkedIn Outreach — personalized connection and outreach sequences',
     delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
     audience:    'Beeker — Audience Manager — persistent contact database and reusable segments for campaigns',
+    nancy:       'Nancy — Jam Fancy — researched, on-brand Instagram content weeks from a website URL + a photo: real screenshot, real competitor research, real finished graphics. The default for Instagram-specific content work — Social Studio remains the generalist for LinkedIn/X/TikTok/ad campaigns.',
   };
 
   const HUB_URL    = '/hub.html';
@@ -129,7 +131,7 @@ Your role:
 3. Recommend WHICH specialist agent(s) to use and exactly what to ask them
 4. Be direct, specific, and strategic — never generic
 
-You have access to 13 specialist agents:
+You have access to ${Object.keys(AGENT_DESCRIPTIONS).length} specialist agents:
 ${agentList}
 
 When recommending an agent, always include:
@@ -179,7 +181,16 @@ Keep responses concise and actionable. You're a CMO, not a consultant who writes
     if (/ad|advert|creative|paid|ppc|google ads|meta ads|facebook ad|tiktok ad|a\/b test/.test(t))
       return { agent: 'ads', reason: 'Advertising intent detected' };
 
-    if (/instagram|tiktok|tweet|social post|caption|content calendar|reel|thread/.test(t))
+    // Nancy ("Jam Fancy") is the Instagram specialist — checked before the
+    // general social-media pattern below so Instagram-specific requests
+    // (posts, reels, a content week, a grid) route to her rather than the
+    // generalist Social Studio, per this platform's routing policy: Nancy
+    // handles Instagram, Social Studio handles everything else (LinkedIn,
+    // X, TikTok, and cross-platform ad campaigns).
+    if (/instagram|\binsta\b|\big\b.*(post|content|calendar|grid|reel)|content week/.test(t))
+      return { agent: 'nancy', reason: 'Instagram content intent detected — Nancy is the Instagram specialist' };
+
+    if (/tiktok|tweet|social post|caption|content calendar|reel|thread/.test(t))
       return { agent: 'social', reason: 'Social media intent detected' };
 
     if (/prospect|icp|outreach|sales|lead|crm|apollo|cold email|pipeline/.test(t))
@@ -530,6 +541,22 @@ X Thread: Tweet 1 (hook) → Tweet 2 → Tweet 3 → Tweet 4 → Tweet 5 (CTA)
 Mix: 30% educational, 20% behind-the-scenes/POV, 20% social proof, 20% opinion/hot-take, 10% promotional.
 Write like a real person, not a brand account.`,
 
+      nancy: `You are Nancy ("Jam Fancy"), the Instagram content specialist for Audema — Your AI Marketing Department. This inline mode sketches the strategic shape of an Instagram content week from context alone — for the REAL deliverable (an actual live website screenshot, real competitor research with source URLs, and seven finished 1080x1350 rendered graphics with a photo composited in), the user needs to run the full pipeline at /agents/nancy-agent.html, which this text cannot substitute for. Say so plainly if that matters for what's being asked.
+${ctx}
+## OUTPUT FORMAT
+### The 7-Day Sequence
+Day 1 Authority | Day 2 Education | Day 3 Founder/Personal | Day 4 Problem Awareness | Day 5 Infographic | Day 6 Differentiation | Day 7 Conversion — adapt the mix if this business genuinely calls for something different, but explain the change.
+For each day: objective | hook (must work standing alone) | one-line visual direction | caption angle (2-3 sentences, no AI clichés — no "in today's fast-paced world", "game changer", "unlock the power of").
+
+### What the Infographic Should Show
+One specific, research-grounded infographic concept for Day 5 — qualitative if no hard data is available, never an invented statistic.
+
+### Why This Sequence
+2-3 sentences grounding the mix in the business/competitive context above, not generic social media advice.
+
+### Next Step
+Point the user to /agents/nancy-agent.html for the real research-and-render pipeline (live screenshot, real competitor discovery, finished graphics, a photo actually composited in) — this text sketch is a preview, not the deliverable.`,
+
       cro: `You are the CRO Lab agent for Audema — Your AI Marketing Department.
 Provide conversion rate optimization recommendations that will move numbers this quarter.
 ${ctx}
@@ -763,7 +790,7 @@ Market signals: ${(contextBundle.marketSignals || '').slice(0, 200)}`
 
     const systemPrompt = `You are a senior marketing operations director planning an autonomous, end-to-end marketing mission. Every task will execute automatically without human intervention — so make each task self-contained and immediately executable.
 
-Available agents: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
+Available agents: seo, competitive, content, email, ads, social, nancy, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
 
 Agent capabilities:
 - sales: ICP research, prospect lists, outreach strategies, lead qualification
@@ -772,7 +799,8 @@ Agent capabilities:
 - seo: Keywords, technical audit, meta tags, rankings strategy
 - competitive: Competitor analysis, positioning gaps, battlecards
 - ads: Google/Meta/LinkedIn ad copy and creative variants
-- social: Social posts, content calendar, platform-native copy
+- social: Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that's nancy)
+- nancy: Instagram content specifically — a researched, on-brand week of Instagram posts. Prefer this over "social" whenever the goal is Instagram.
 - linkedin: LinkedIn outreach sequences, connection requests, InMail
 - analytics: KPIs, attribution, reporting frameworks
 - cro: Conversion optimisation, A/B test designs, landing page audits
@@ -860,7 +888,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
 Rules:
 - Identify 4-6 specific automation actions, each producing a tangible deliverable
 - Each automation runs inline via Claude — no external API or tool access required
-- agentKey must be one of: seo, competitive, content, email, ads, social, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
+- agentKey must be one of: seo, competitive, content, email, ads, social, nancy, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
 - prompt must be a specific 2-3 sentence instruction telling the agent exactly what to CREATE as a deployable asset (not analyse — CREATE)
 - Prioritise by impact: the user should feel they got a week's work done in 5 minutes
 

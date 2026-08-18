@@ -12,6 +12,7 @@
 <script src="/js/supabase-client.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
+<script src="/js/scotty-intake.js"></script>
 <script src="/js/nancy-store.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -160,8 +161,8 @@
       <h1 class="headline">Turn your website into a week of Instagram content.</h1>
       <p class="sub">We research your business, study your market, learn your brand and build seven ready-to-post pieces of content.</p>
       <form class="url-form" id="url-form">
-        <input class="url-input" id="url-input" type="text" placeholder="https://yourwebsite.com" required>
-        <button class="btn btn-primary" type="submit" id="url-submit-btn">Research My Brand</button>
+        <input class="url-input" id="url-input" data-scotty-intake="primary" type="text" placeholder="https://yourwebsite.com" required>
+        <button class="btn btn-primary" type="submit" id="runBtn">Research My Brand</button>
       </form>
       <div class="err-note" id="url-err"></div>
     </div>
@@ -382,7 +383,7 @@ document.getElementById('url-form').addEventListener('submit', async (e) => {
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   State.websiteUrl = url;
 
-  const btn = document.getElementById('url-submit-btn');
+  const btn = document.getElementById('runBtn');
   btn.disabled = true; btn.innerHTML = '<span class="loader-spin"></span>';
 
   try {
@@ -514,7 +515,18 @@ function populateBrandReview() {
 }
 
 document.getElementById('brand-back-btn').addEventListener('click', () => showStep('step-url'));
-document.getElementById('brand-continue-btn').addEventListener('click', () => showStep('step-personalize'));
+document.getElementById('brand-continue-btn').addEventListener('click', () => {
+  // If Scotty dispatched this run with a strategic brief, seed it into
+  // Q5 (editable, never silently applied) so the content plan honours
+  // whatever Scotty was actually asked for — same intake contract every
+  // other specialist agent on this platform follows (see scotty-intake.js).
+  const mustTalkAbout = document.getElementById('must-talk-about');
+  if (mustTalkAbout && !mustTalkAbout.value.trim() && window.ScottyIntake?.getScottyContext) {
+    const ctx = window.ScottyIntake.getScottyContext();
+    if (ctx) mustTalkAbout.value = ctx.replace(/^\n+/, '').replace(/^## SCOTTY'S STRATEGIC BRIEF\n?/, '');
+  }
+  showStep('step-personalize');
+});
 
 // ── STEP 4: Personalization ─────────────────────────────────────────────────
 document.querySelectorAll('.opt-grid').forEach(grid => {
