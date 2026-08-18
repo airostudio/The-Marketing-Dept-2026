@@ -58,22 +58,57 @@ async function searchProvider(query, { systemPrompt, maxTokens = 2000 } = {}) {
 // ── Screenshot provider ──────────────────────────────────────────────────────
 // Interface: given a URL, return a hosted image URL (or base64) of the
 // rendered page. Any provider that exposes "give me a URL, get back a
-// screenshot" fits this contract — Browserless, ScreenshotOne, urlbox, etc.
-// Reads SCREENSHOT_API_KEY + SCREENSHOT_PROVIDER (defaults to screenshotone's
-// simple GET-based API, the lowest-integration-effort option) so swapping
-// providers is a two-env-var change, not a code change.
+// screenshot" fits this contract. Defaults to screenshotlayer (apilayer) —
+// Nancy's designated screenshot provider. ScreenshotOne/Browserless remain
+// as swap-in alternatives via SCREENSHOT_PROVIDER, since the whole point of
+// this adapter layer is that no other file needs to change to switch.
+// Reads SCREENSHOT_API_KEY + SCREENSHOT_PROVIDER so swapping providers is a
+// two-env-var change, not a code change.
 async function screenshotProvider(targetUrl) {
   const apiKey = process.env.SCREENSHOT_API_KEY;
   if (!apiKey) {
     return {
       available: false,
-      reason: 'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (e.g. ScreenshotOne, Browserless, urlbox). Brand colours will be extracted from raw HTML/CSS only.',
+      reason: 'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (screenshotlayer by default). Brand colours will be extracted from raw HTML/CSS only.',
     };
   }
 
-  const provider = (process.env.SCREENSHOT_PROVIDER || 'screenshotone').toLowerCase();
+  const provider = (process.env.SCREENSHOT_PROVIDER || 'screenshotlayer').toLowerCase();
 
   try {
+    if (provider === 'screenshotlayer') {
+      // screenshotlayer (apilayer) — https://screenshotlayer.com/documentation
+      // GET-only: success returns raw image bytes; failure returns 200 OK
+      // with a JSON body ({success:false, error:{code,type,info}}), so the
+      // only reliable way to tell them apart is the response Content-Type,
+      // not the HTTP status.
+      const FORMAT_MIME = { PNG: 'image/png', JPG: 'image/jpeg', GIF: 'image/gif', WEBP: 'image/webp' };
+      const format = 'PNG';
+      const params = new URLSearchParams({
+        access_key: apiKey,
+        url: targetUrl,
+        viewport: '1440x900',
+        fullpage: '1',
+        format,
+        force: '1', // bypass screenshotlayer's own cache — Nancy wants the live current page
+      });
+      const res = await fetch(`https://api.screenshotlayer.com/api/capture?${params.toString()}`, {
+        signal: AbortSignal.timeout(30000),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json') || contentType.includes('text/')) {
+        const body = await res.json().catch(() => null);
+        const info = body?.error?.info || body?.error?.type || `HTTP ${res.status}`;
+        return { available: false, reason: `screenshotlayer error: ${info}` };
+      }
+      if (!res.ok) return { available: false, reason: `screenshotlayer error ${res.status}` };
+
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (!buf.length) return { available: false, reason: 'screenshotlayer returned an empty response' };
+      return { available: true, buffer: buf, mimeType: FORMAT_MIME[format] || 'image/png' };
+    }
+
     if (provider === 'screenshotone') {
       // ScreenshotOne's access-key based GET API returns the image bytes directly.
       const params = new URLSearchParams({
@@ -108,7 +143,7 @@ async function screenshotProvider(targetUrl) {
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
 
-    return { available: false, reason: `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotone, browserless.` };
+    return { available: false, reason: `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotlayer, screenshotone, browserless.` };
   } catch (err) {
     return { available: false, reason: `Screenshot capture failed: ${err.message}` };
   }

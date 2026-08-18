@@ -273,6 +273,11 @@
       name: 'REEL', color: '#06b6d4',
       tagline: 'Script-to-screen specialist. Every frame purposeful, every hook magnetic.',
       svg: function(c) { return buildSVG(c, filmHair(), filmClapper(c), PRESENT); }
+    },
+    nancy: {
+      name: 'NANCY', color: '#e53e3e',
+      tagline: 'Instagram obsessed. One URL and a photo becomes a researched, on-brand week of content.',
+      svg: function(c) { return buildSVG(c, spikyHair(), '', GRIN); }
     }
   };
 
@@ -290,7 +295,8 @@
     lock:   '/assets/agents/lock.png',
     chase:  '/assets/agents/chase.png',
     lift:   '/assets/agents/lift.png',
-    slate:  '/assets/agents/slate.png'
+    slate:  '/assets/agents/slate.png',
+    nancy:  '/assets/agents/nancy.png'
   };
 
   // Per-agent photo adjustments (zoom/position for characters that sit small in frame)
