@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nancy "Jam Fancy" | Audema - Your AI Marketing Department</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/intelligence-profiles.js"></script>
+<script src="/js/site-switcher.js"></script>
+<script src="/js/nancy-store.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple: #7c3aed; --pink: #ec4899;
+    --bg: #0a0a10; --panel: #111117; --border: rgba(255,255,255,0.09);
+    --text: #f5f5f7; --text2: rgba(245,245,247,0.62); --text3: rgba(245,245,247,0.4);
+    --editorial-accent: #d4a24e;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  h1, h2, h3, .display { font-family: 'Fraunces', Georgia, serif; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-sep { color: var(--border); font-size: 18px; }
+  .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); }
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 64px 24px 120px; }
+  .center { max-width: 640px; margin: 0 auto; text-align: center; }
+
+  .step { display: none; }
+  .step.active { display: block; animation: fadein .35s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  /* Step 1 */
+  .headline { font-size: 44px; font-weight: 600; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 18px; }
+  .sub { font-size: 17px; color: var(--text2); line-height: 1.55; margin-bottom: 40px; }
+  .url-form { display: flex; gap: 10px; }
+  .url-input { flex: 1; padding: 16px 18px; font-size: 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text); outline: none; }
+  .url-input:focus { border-color: var(--purple); }
+  .btn { padding: 16px 26px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-sm { padding: 9px 16px; font-size: 13px; border-radius: 9px; }
+  .err-note { margin-top: 14px; padding: 12px 14px; border-radius: 9px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 13.5px; display: none; text-align: left; }
+  .err-note.show { display: block; }
+
+  /* Progress */
+  .progress-stage-list { max-width: 520px; margin: 0 auto; text-align: left; }
+  .progress-stage { display: flex; align-items: center; gap: 14px; padding: 12px 0; opacity: 0.35; transition: opacity .3s; }
+  .progress-stage.active { opacity: 1; }
+  .progress-stage.done { opacity: 0.65; }
+  .stage-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .progress-stage.active .stage-dot { border-color: var(--purple); background: rgba(124,58,237,0.15); }
+  .progress-stage.done .stage-dot { border-color: #10b981; background: rgba(16,185,129,0.15); color: #10b981; }
+  .stage-text { font-size: 15px; }
+  .discovery-feed { margin-top: 28px; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left; }
+  .discovery-item { font-size: 13.5px; color: var(--text2); padding: 8px 14px; border-left: 2px solid var(--purple); margin-bottom: 8px; background: rgba(124,58,237,0.06); border-radius: 0 8px 8px 0; }
+
+  /* Brand card */
+  .brand-card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+  .brand-shot { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #1a1a24; display: block; }
+  .brand-shot-empty { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 13px; background: #1a1a24; }
+  .brand-body { padding: 28px; }
+  .brand-name { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .brand-desc { font-size: 14.5px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
+  .swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .swatch input[type=color] { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border); background: none; cursor: pointer; padding: 0; }
+  .swatch-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .pill { padding: 5px 12px; border-radius: 20px; background: rgba(124,58,237,0.14); color: #c4b5fd; font-size: 12.5px; font-weight: 600; }
+
+  /* Questionnaire */
+  .q-block { margin-bottom: 32px; }
+  .q-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; }
+  .opt { padding: 13px 14px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 13.5px; text-align: center; }
+  .opt.selected { border-color: var(--purple); background: rgba(124,58,237,0.14); color: #c4b5fd; }
+  .q-textarea { width: 100%; min-height: 80px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px; resize: vertical; }
+
+  /* Photo upload */
+  .photo-drop { border: 2px dashed var(--border); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; }
+  .photo-drop:hover { border-color: var(--purple); }
+  .photo-thumbs { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+  .photo-thumb { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; border: 1px solid var(--border); }
+
+  /* Results grid */
+  .results-header { text-align: center; margin-bottom: 40px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+  .tab-btn { padding: 12px 18px; background: none; border: none; color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--purple); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 18px; }
+  .post-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; cursor: pointer; }
+  .post-card:hover { border-color: var(--purple); }
+  .post-card img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; background: #1a1a24; }
+  .post-card-body { padding: 12px 14px; }
+  .post-card-day { font-size: 11px; color: var(--purple); font-weight: 700; text-transform: uppercase; }
+  .post-card-cap { font-size: 12.5px; color: var(--text2); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .downloads-bar { display: flex; gap: 10px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
+
+  .strategy-section { margin-bottom: 28px; }
+  .strategy-section h3 { font-size: 16px; margin-bottom: 10px; }
+  .strategy-section ul { padding-left: 20px; color: var(--text2); font-size: 14px; line-height: 1.7; }
+  .opp-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .opp-card b { font-size: 14px; }
+  .opp-card p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .source-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .source-item a { color: #c4b5fd; }
+  .comp-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(4,4,10,0.86); backdrop-filter: blur(10px); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 920px; max-height: 90vh; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 720px) { .modal-box { grid-template-columns: 1fr; } }
+  .modal-preview { background: #0d0d14; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-preview img { max-width: 100%; max-height: 70vh; border-radius: 10px; }
+  .modal-controls { padding: 26px; }
+  .modal-close { float: right; background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); margin-bottom: 6px; }
+  .field input, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: #0d0d14; color: var(--text); font-family: inherit; font-size: 14px; }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+
+  .loader-spin { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">🍯</span> Audema</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">Nancy · Jam Fancy — Instagram Content Studio</span>
+  </div>
+  <div class="nav-right"><a href="/hub.html" class="nav-link">← Hub</a></div>
+</nav>
+
+<div class="wrap">
+
+  <!-- STEP 1: URL input -->
+  <div class="step active" id="step-url">
+    <div class="center">
+      <h1 class="headline">Turn your website into a week of Instagram content.</h1>
+      <p class="sub">We research your business, study your market, learn your brand and build seven ready-to-post pieces of content.</p>
+      <form class="url-form" id="url-form">
+        <input class="url-input" id="url-input" type="text" placeholder="https://yourwebsite.com" required>
+        <button class="btn btn-primary" type="submit" id="url-submit-btn">Research My Brand</button>
+      </form>
+      <div class="err-note" id="url-err"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Research progress -->
+  <div class="step" id="step-progress">
+    <div class="center">
+      <h2 style="font-size:26px;margin-bottom:34px;">Researching your brand</h2>
+      <div class="progress-stage-list" id="progress-stages"></div>
+      <div class="discovery-feed" id="discovery-feed"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Brand review -->
+  <div class="step" id="step-brand">
+    <h2 style="font-size:26px;margin-bottom:24px;">Here's what we found</h2>
+    <div class="brand-card">
+      <img id="brand-shot-img" class="brand-shot" style="display:none;">
+      <div class="brand-shot-empty" id="brand-shot-empty">No live screenshot available — colours were read from the site's HTML/CSS directly.</div>
+      <div class="brand-body">
+        <div class="brand-name" id="brand-name">—</div>
+        <div class="brand-desc" id="brand-desc">—</div>
+        <div class="pill-row" id="brand-personality"></div>
+        <div class="swatch-row" id="brand-swatches"></div>
+        <div style="font-size:13px;color:var(--text3);" id="brand-notes"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:26px;">
+      <button class="btn btn-ghost" id="brand-back-btn">Start over</button>
+      <button class="btn btn-primary" id="brand-continue-btn">Looks right, continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Personalization -->
+  <div class="step" id="step-personalize">
+    <h2 style="font-size:26px;margin-bottom:30px;">A few quick questions</h2>
+
+    <div class="q-block">
+      <div class="q-title">1. What do you most want Instagram to achieve?</div>
+      <div class="opt-grid" data-q="goal">
+        <div class="opt" data-v="Generate enquiries">Generate enquiries</div>
+        <div class="opt" data-v="Build authority">Build authority</div>
+        <div class="opt" data-v="Grow awareness">Grow awareness</div>
+        <div class="opt" data-v="Educate customers">Educate customers</div>
+        <div class="opt" data-v="Build my personal brand">Build my personal brand</div>
+        <div class="opt" data-v="Sell a product/service">Sell a product/service</div>
+      </div>
+    </div>
+
+    <div class="q-block">
+      <div class="q-title">2. Which offer should we focus on this week?</div>
+      <div class="opt-grid" id="offer-options" data-q="focusOffer"></div>
+    </div>
+
+    <div class="q-block">
+      <div class="q-title">3. How comfortable are you being the face of the brand?</div>
+      <div class="opt-grid" data-q="faceComfort">
+        <div class="opt" data-v="Use me frequently">Use me frequently</div>
+        <div class="opt" data-v="Use me occasionally">Use me occasionally</div>
+        <div class="opt" data-v="Mostly graphics">Mostly graphics</div>
+        <div class="opt" data-v="Don't use me">Don't use me</div>
+      </div>
+    </div>
+
+    <div class="q-block">
+      <div class="q-title">4. What style feels most like you?</div>
+      <div class="opt-grid" data-q="style">
+        <div class="opt" data-v="Expert">Expert</div>
+        <div class="opt" data-v="Friendly">Friendly</div>
+        <div class="opt" data-v="Bold">Bold</div>
+        <div class="opt" data-v="Premium">Premium</div>
+        <div class="opt" data-v="Minimal">Minimal</div>
+        <div class="opt" data-v="Playful">Playful</div>
+        <div class="opt" data-v="Direct">Direct</div>
+        <div class="opt" data-v="Inspirational">Inspirational</div>
+      </div>
+    </div>
+
+    <div class="q-block">
+      <div class="q-title">5. Anything you definitely want us to talk about this week? <span style="color:var(--text3);font-weight:400;">(optional)</span></div>
+      <textarea class="q-textarea" id="must-talk-about" placeholder="e.g. our new spring menu, a recent award..."></textarea>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button class="btn btn-ghost" id="personalize-back-btn">Back</button>
+      <button class="btn btn-primary" id="personalize-continue-btn">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Photo upload -->
+  <div class="step" id="step-photos">
+    <h2 style="font-size:26px;margin-bottom:10px;">Upload your photo</h2>
+    <p class="sub" style="text-align:left;max-width:560px;">For the best results, upload a clear, high-resolution photo with your face visible and good lighting. 1–5 photos, JPG/PNG/HEIC.</p>
+    <div class="photo-drop" id="photo-drop">
+      <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple style="display:none;">
+      <div>📸 Click to upload, or drag photos here</div>
+    </div>
+    <div class="photo-thumbs" id="photo-thumbs"></div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:26px;">
+      <button class="btn btn-ghost" id="photos-skip-btn">Skip — use graphics only</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" id="photos-back-btn">Back</button>
+        <button class="btn btn-primary" id="photos-continue-btn">Generate my content week →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 6: Generation progress -->
+  <div class="step" id="step-generating">
+    <div class="center">
+      <h2 style="font-size:26px;margin-bottom:34px;">Building your content week</h2>
+      <div class="progress-stage-list" id="gen-stages"></div>
+    </div>
+  </div>
+
+  <!-- STEP 7: Results -->
+  <div class="step" id="step-results">
+    <div class="results-header">
+      <h2 class="display" style="font-size:34px;">Your Week of Content Is Ready</h2>
+      <p class="sub" style="margin-bottom:0;">Built from your brand, your market and what your customers care about.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="grid">This Week</button>
+      <button class="tab-btn" data-tab="strategy">Why We Created This</button>
+      <button class="tab-btn" data-tab="sources">Research Sources</button>
+    </div>
+
+    <div class="tab-pane active" id="tab-grid">
+      <div class="post-grid" id="post-grid"></div>
+      <div class="downloads-bar">
+        <button class="btn btn-ghost btn-sm" id="download-all-zip-btn">⬇ Download all 7 graphics (ZIP)</button>
+        <button class="btn btn-ghost btn-sm" id="copy-all-captions-btn">📋 Copy all captions</button>
+        <button class="btn btn-ghost btn-sm" id="print-calendar-btn">🖨 Print content calendar (PDF)</button>
+        <button class="btn btn-primary btn-sm" id="another-week-btn">✨ Create Another Week</button>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-strategy">
+      <div class="strategy-section"><h3>What everyone is saying</h3><ul id="strategy-everyone"></ul></div>
+      <div class="strategy-section"><h3>What customers care about</h3><ul id="strategy-customers"></ul></div>
+      <div class="strategy-section"><h3>Where the opportunity is</h3><p id="strategy-opportunity" style="color:var(--text2);font-size:14px;line-height:1.7;"></p></div>
+      <div class="strategy-section"><h3>Content opportunities we drew from</h3><div id="strategy-opps"></div></div>
+      <div class="strategy-section"><h3>This week's rationale</h3><p id="strategy-week-rationale" style="color:var(--text2);font-size:14px;line-height:1.7;"></p></div>
+    </div>
+
+    <div class="tab-pane" id="tab-sources">
+      <p style="color:var(--text3);font-size:13px;margin-bottom:16px;" id="sources-empty" style="display:none;">No live web research was available for this run — PERPLEXITY_API_KEY isn't configured, so content decisions were based on your website only.</p>
+      <h3 style="font-size:15px;margin-bottom:10px;">Businesses studied</h3>
+      <div id="sources-competitors"></div>
+      <h3 style="font-size:15px;margin:20px 0 10px;">Raw sources</h3>
+      <div id="sources-citations"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Post editor modal -->
+<div class="modal-overlay" id="post-modal">
+  <div class="modal-box">
+    <div class="modal-preview"><img id="modal-img" src=""></div>
+    <div class="modal-controls">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      <div style="font-size:11px;color:var(--purple);font-weight:700;text-transform:uppercase;margin-bottom:14px;" id="modal-day-label"></div>
+      <div class="field"><label>Headline (on graphic)</label><input id="edit-headline"></div>
+      <div class="field"><label>Supporting copy (on graphic)</label><textarea id="edit-copy"></textarea></div>
+      <div class="field"><label>Caption</label><textarea id="edit-caption" style="min-height:120px;"></textarea></div>
+      <div class="field"><label>CTA</label><input id="edit-cta"></div>
+      <div class="action-row">
+        <button class="btn btn-ghost btn-sm" data-action="regen-headline">Regenerate headline</button>
+        <button class="btn btn-ghost btn-sm" data-action="rewrite-caption">Rewrite caption</button>
+        <button class="btn btn-ghost btn-sm" data-action="more-playful">More playful</button>
+        <button class="btn btn-ghost btn-sm" data-action="more-premium">More premium</button>
+        <button class="btn btn-ghost btn-sm" data-action="more-direct">More direct</button>
+        <button class="btn btn-ghost btn-sm" data-action="regen-design">Regenerate design</button>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary btn-sm" id="modal-save-btn">Save changes</button>
+        <button class="btn btn-ghost btn-sm" id="modal-download-btn">⬇ Download PNG-ready SVG</button>
+        <button class="btn btn-ghost btn-sm" id="modal-copy-caption-btn">📋 Copy caption</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Minimal state ────────────────────────────────────────────────────────
+const State = {
+  websiteUrl: '', businessProfile: null, brand: null, screenshot: null,
+  competitors: [], citations: [], strategy: null, personalization: {},
+  photos: [], // [{dataUri, storageUrl}]
+  weekRationale: '', posts: [], // final posts with rendered assets
+  brandId: null, contentWeekId: null, weekNumber: 1, previousTopics: [],
+};
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
+  return data;
+}
+
+// ── STEP 1: URL input ──────────────────────────────────────────────────────
+document.getElementById('url-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('url-err');
+  errEl.classList.remove('show');
+  let url = document.getElementById('url-input').value.trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  State.websiteUrl = url;
+
+  const btn = document.getElementById('url-submit-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader-spin"></span>';
+
+  try {
+    await runResearchPipeline(url);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+    showStep('step-url');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Research My Brand';
+  }
+});
+
+const RESEARCH_STAGES = [
+  { key: 'crawl', label: 'Reading your website' },
+  { key: 'profile', label: 'Understanding your offer & audience' },
+  { key: 'brand', label: 'Capturing your brand' },
+  { key: 'market', label: 'Finding businesses in your market' },
+  { key: 'strategy', label: 'Finding content opportunities' },
+];
+
+function renderStageList(containerId, stages) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = stages.map(s => `<div class="progress-stage" id="stage-${s.key}"><div class="stage-dot"></div><div class="stage-text">${s.label}</div></div>`).join('');
+}
+function setStage(key, state) { // state: 'active' | 'done'
+  const el = document.getElementById(`stage-${key}`);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  el.classList.add(state);
+  if (state === 'done') el.querySelector('.stage-dot').textContent = '✓';
+}
+function addDiscovery(text) {
+  const feed = document.getElementById('discovery-feed');
+  const item = document.createElement('div');
+  item.className = 'discovery-item';
+  item.textContent = text;
+  feed.appendChild(item);
+}
+
+async function runResearchPipeline(url) {
+  renderStageList('progress-stages', RESEARCH_STAGES);
+  document.getElementById('discovery-feed').innerHTML = '';
+  showStep('step-progress');
+
+  setStage('crawl', 'active');
+  const websiteResult = await postJSON('/api/nancy-analyze-website', { url });
+  State.businessProfile = websiteResult.profile;
+  setStage('crawl', 'done');
+  addDiscovery(`Read ${websiteResult.pagesFetched.length} pages, including ${websiteResult.pagesFetched.map(p => p.title).slice(0, 3).join(', ')}.`);
+
+  setStage('profile', 'active');
+  addDiscovery(`This looks like a ${State.businessProfile.business_category || State.businessProfile.industry} business serving ${State.businessProfile.target_customer || 'their customers'}.`);
+  setStage('profile', 'done');
+
+  setStage('brand', 'active');
+  const brandResult = await postJSON('/api/nancy-brand-extract', { url });
+  State.brand = brandResult.brand;
+  State.screenshot = brandResult.screenshot;
+  setStage('brand', 'done');
+  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (brandResult.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
+
+  setStage('market', 'active');
+  const marketResult = await postJSON('/api/nancy-research-market', { businessProfile: State.businessProfile });
+  State.competitors = marketResult.competitors || [];
+  State.citations = marketResult.citations || [];
+  setStage('market', 'done');
+  if (marketResult.available) addDiscovery(`We found ${State.competitors.length} businesses in your space.`);
+  else addDiscovery(`Live web research isn't connected yet (${marketResult.reason}) — continuing with your website data only.`);
+
+  setStage('strategy', 'active');
+  const strategyResult = await postJSON('/api/nancy-strategy', { businessProfile: State.businessProfile, brand: State.brand, competitors: State.competitors });
+  State.strategy = strategyResult.strategy;
+  setStage('strategy', 'done');
+  addDiscovery(`We've identified ${State.strategy.content_opportunities.length} content opportunities.`);
+
+  await new Promise(r => setTimeout(r, 500));
+  populateBrandReview();
+  showStep('step-brand');
+}
+
+// ── STEP 3: Brand review ───────────────────────────────────────────────────
+function populateBrandReview() {
+  const b = State.brand, p = State.businessProfile;
+  document.getElementById('brand-name').textContent = p.business_name || 'Your business';
+  document.getElementById('brand-desc').textContent = p.website_summary || '';
+  document.getElementById('brand-notes').textContent = b.design_notes || '';
+
+  const shotImg = document.getElementById('brand-shot-img'), shotEmpty = document.getElementById('brand-shot-empty');
+  if (State.screenshot?.available) {
+    shotImg.src = State.screenshot.hostedUrl || State.screenshot.dataUri;
+    shotImg.style.display = 'block'; shotEmpty.style.display = 'none';
+  } else {
+    shotImg.style.display = 'none'; shotEmpty.style.display = 'flex';
+  }
+
+  document.getElementById('brand-personality').innerHTML = (b.brand_personality || []).map(t => `<span class="pill">${t}</span>`).join('');
+
+  const swatches = [
+    { key: 'primary_colour', label: 'Primary', value: b.primary_colour },
+    ...(b.secondary_colours || []).slice(0, 2).map((c, i) => ({ key: `secondary_${i}`, label: 'Secondary', value: c })),
+    ...(b.accent_colours || []).slice(0, 2).map((c, i) => ({ key: `accent_${i}`, label: 'Accent', value: c })),
+  ];
+  document.getElementById('brand-swatches').innerHTML = swatches.map(s => `
+    <div class="swatch">
+      <input type="color" value="${s.value || '#7c3aed'}" data-key="${s.key}">
+      <span class="swatch-label">${s.label}</span>
+    </div>`).join('');
+
+  document.getElementById('brand-swatches').querySelectorAll('input[type=color]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const key = inp.dataset.key;
+      if (key === 'primary_colour') b.primary_colour = inp.value;
+      else if (key.startsWith('secondary_')) b.secondary_colours[Number(key.split('_')[1])] = inp.value;
+      else if (key.startsWith('accent_')) b.accent_colours[Number(key.split('_')[1])] = inp.value;
+    });
+  });
+
+  // Pre-populate offer options for Step 4, question 2
+  const offers = [p.primary_offer, ...(p.secondary_offers || [])].filter(Boolean);
+  document.getElementById('offer-options').innerHTML = offers.map(o => `<div class="opt" data-v="${o.replace(/"/g,'&quot;')}">${o}</div>`).join('') || '<div class="opt" data-v="General">General brand content</div>';
+
+  // Pre-select inferred style
+  const inferredStyle = (b.brand_personality || [])[0];
+  if (inferredStyle) {
+    const styleOpts = document.querySelectorAll('[data-q="style"] .opt');
+    styleOpts.forEach(o => { if (o.dataset.v.toLowerCase() === inferredStyle.toLowerCase()) o.classList.add('selected'); });
+  }
+}
+
+document.getElementById('brand-back-btn').addEventListener('click', () => showStep('step-url'));
+document.getElementById('brand-continue-btn').addEventListener('click', () => showStep('step-personalize'));
+
+// ── STEP 4: Personalization ─────────────────────────────────────────────────
+document.querySelectorAll('.opt-grid').forEach(grid => {
+  grid.addEventListener('click', (e) => {
+    const opt = e.target.closest('.opt');
+    if (!opt) return;
+    grid.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+  });
+});
+
+document.getElementById('personalize-back-btn').addEventListener('click', () => showStep('step-brand'));
+document.getElementById('personalize-continue-btn').addEventListener('click', () => {
+  const get = (q) => document.querySelector(`[data-q="${q}"] .opt.selected`)?.dataset.v || '';
+  State.personalization = {
+    goal: get('goal'),
+    focusOffer: get('focusOffer') || State.businessProfile.primary_offer,
+    faceComfort: get('faceComfort') || 'Use me occasionally',
+    style: get('style'),
+    mustTalkAbout: document.getElementById('must-talk-about').value.trim(),
+  };
+  showStep('step-photos');
+});
+
+// ── STEP 5: Photo upload ─────────────────────────────────────────────────────
+const photoDrop = document.getElementById('photo-drop'), photoInput = document.getElementById('photo-input');
+photoDrop.addEventListener('click', () => photoInput.click());
+photoDrop.addEventListener('dragover', (e) => e.preventDefault());
+photoDrop.addEventListener('drop', (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); });
+photoInput.addEventListener('change', () => handleFiles(photoInput.files));
+
+function handleFiles(fileList) {
+  const files = [...fileList].slice(0, 5 - State.photos.length);
+  files.forEach(file => {
+    if (file.size > 12 * 1024 * 1024) { alert(`${file.name} is over 12MB — please use a smaller file.`); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      State.photos.push({ dataUri: reader.result, fileName: file.name });
+      renderPhotoThumbs();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function renderPhotoThumbs() {
+  document.getElementById('photo-thumbs').innerHTML = State.photos.map(p => `<img class="photo-thumb" src="${p.dataUri}">`).join('');
+}
+
+document.getElementById('photos-back-btn').addEventListener('click', () => showStep('step-personalize'));
+document.getElementById('photos-skip-btn').addEventListener('click', () => { State.photos = []; startGeneration(); });
+document.getElementById('photos-continue-btn').addEventListener('click', () => startGeneration());
+
+// ── STEP 6: Generation ────────────────────────────────────────────────────
+const GEN_STAGES = [
+  { key: 'plan', label: 'Designing your 7-day content plan' },
+  { key: 'render', label: 'Building your 7 finished graphics' },
+  { key: 'save', label: 'Saving your content week' },
+];
+
+async function startGeneration() {
+  renderStageList('gen-stages', GEN_STAGES);
+  showStep('step-generating');
+
+  try {
+    setStage('plan', 'active');
+    const planResult = await postJSON('/api/nancy-content-plan', {
+      businessProfile: State.businessProfile, brand: State.brand, strategy: State.strategy,
+      personalization: State.personalization, previousTopics: State.previousTopics,
+    });
+    State.weekRationale = planResult.week_rationale;
+    setStage('plan', 'done');
+
+    setStage('render', 'active');
+    const renderResult = await postJSON('/api/nancy-render-week', {
+      posts: planResult.posts, brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+    });
+    const assetsByDay = new Map(renderResult.assets.map(a => [a.day, a]));
+    State.posts = planResult.posts.map(p => ({ ...p, asset: assetsByDay.get(p.day) }));
+    setStage('render', 'done');
+
+    setStage('save', 'active');
+    await persistWeek();
+    setStage('save', 'done');
+
+    await new Promise(r => setTimeout(r, 400));
+    renderResults();
+    showStep('step-results');
+  } catch (err) {
+    alert('Generation failed: ' + err.message);
+    showStep('step-photos');
+  }
+}
+
+async function persistWeek() {
+  if (!window.NancyStore) return;
+  try {
+    const userId = await NancyStore.getUserId();
+    if (!userId) return; // not signed in — content still works this session, just not saved
+    if (!State.brandId) {
+      const brand = await NancyStore.createBrand({
+        website_url: State.websiteUrl, business_name: State.businessProfile.business_name,
+        business_category: State.businessProfile.business_category, industry: State.businessProfile.industry,
+        location: State.businessProfile.location, products_services: State.businessProfile.products_services,
+        primary_offer: State.businessProfile.primary_offer, secondary_offers: State.businessProfile.secondary_offers,
+        target_customer: State.businessProfile.target_customer, customer_problems: State.businessProfile.customer_problems,
+        desired_outcomes: State.businessProfile.desired_customer_outcomes, unique_value_prop: State.businessProfile.unique_value_proposition,
+        proof_points: State.businessProfile.proof_points, brand_voice: State.businessProfile.brand_voice,
+        common_phrases: State.businessProfile.common_phrases, calls_to_action: State.businessProfile.calls_to_action,
+        important_topics: State.businessProfile.important_topics, website_summary: State.businessProfile.website_summary,
+        screenshot_url: State.screenshot?.hostedUrl || null, colours: State.brand, fonts: { detected: State.brand.fonts_detected || [] },
+        visual_style: State.brand.visual_style, brand_personality: State.brand.brand_personality,
+        design_notes: State.brand.design_notes, personalization: State.personalization, status: 'ready',
+      });
+      State.brandId = brand.id;
+    }
+    const researchRun = await NancyStore.createResearchRun(State.brandId, {
+      category: State.strategy?.category || State.businessProfile.business_category,
+      what_everyone_says: State.strategy.what_everyone_says, what_customers_care_about: State.strategy.what_customers_care_about,
+      where_opportunity_is: State.strategy.where_opportunity_is, content_opportunities: State.strategy.content_opportunities,
+    });
+    await NancyStore.saveCompetitors(researchRun.id, State.competitors);
+    await NancyStore.saveSourceDocuments(researchRun.id, State.citations);
+
+    const week = await NancyStore.createContentWeek(State.brandId, researchRun.id, State.weekNumber, { rationale: State.weekRationale });
+    State.contentWeekId = week.id;
+    await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, rendered_svg: p.asset?.svg, rendered_asset_url: p.asset?.hostedUrl })));
+    await NancyStore.setWeekStatus(week.id, 'ready');
+  } catch (err) {
+    console.warn('[Nancy] persistWeek failed (content still works this session):', err.message);
+  }
+}
+
+// ── STEP 7: Results ──────────────────────────────────────────────────────
+function renderResults() {
+  document.getElementById('post-grid').innerHTML = State.posts.map(p => `
+    <div class="post-card" data-day="${p.day}">
+      <img src="${p.asset.dataUri}">
+      <div class="post-card-body">
+        <div class="post-card-day">Day ${p.day} — ${p.objective}</div>
+        <div class="post-card-cap">${escapeHtml(p.caption)}</div>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('.post-card').forEach(card => card.addEventListener('click', () => openEditor(Number(card.dataset.day))));
+
+  document.getElementById('strategy-everyone').innerHTML = (State.strategy.what_everyone_says || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-customers').innerHTML = (State.strategy.what_customers_care_about || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-opportunity').textContent = State.strategy.where_opportunity_is || '';
+  document.getElementById('strategy-opps').innerHTML = (State.strategy.content_opportunities || []).map(o => `<div class="opp-card"><b>${escapeHtml(o.territory)}</b><p>${escapeHtml(o.rationale)}</p></div>`).join('');
+  document.getElementById('strategy-week-rationale').textContent = State.weekRationale || '';
+
+  document.getElementById('sources-competitors').innerHTML = State.competitors.length
+    ? State.competitors.map(c => `<div class="comp-card"><b>${escapeHtml(c.business_name)}</b> — <a href="${c.website}" target="_blank" rel="noopener">${escapeHtml(c.website)}</a><p style="color:var(--text2);font-size:13px;margin-top:6px;">${escapeHtml(c.positioning || '')}</p></div>`).join('')
+    : '<p style="color:var(--text3);font-size:13px;">No businesses were found or live research was unavailable for this run.</p>';
+  document.getElementById('sources-citations').innerHTML = (State.citations || []).map(c => {
+    const url = typeof c === 'string' ? c : c.url;
+    return `<div class="source-item"><a href="${url}" target="_blank" rel="noopener">${escapeHtml(url)}</a></div>`;
+  }).join('') || '<p style="color:var(--text3);font-size:13px;">No raw citations for this run.</p>';
+}
+
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}));
+
+// ── Post editor modal ─────────────────────────────────────────────────────
+let editingDay = null;
+function openEditor(day) {
+  editingDay = day;
+  const p = State.posts.find(x => x.day === day);
+  document.getElementById('modal-day-label').textContent = `Day ${p.day} — ${p.objective}`;
+  document.getElementById('modal-img').src = p.asset.dataUri;
+  document.getElementById('edit-headline').value = p.slide_headline || '';
+  document.getElementById('edit-copy').value = p.slide_copy || '';
+  document.getElementById('edit-caption').value = p.caption || '';
+  document.getElementById('edit-cta').value = p.cta || '';
+  document.getElementById('post-modal').classList.add('open');
+}
+document.getElementById('modal-close-btn').addEventListener('click', () => document.getElementById('post-modal').classList.remove('open'));
+
+document.getElementById('modal-save-btn').addEventListener('click', async () => {
+  const p = State.posts.find(x => x.day === editingDay);
+  p.slide_headline = document.getElementById('edit-headline').value;
+  p.slide_copy = document.getElementById('edit-copy').value;
+  p.caption = document.getElementById('edit-caption').value;
+  p.cta = document.getElementById('edit-cta').value;
+  await reRenderPost(p); // headline/copy/cta changed → the graphic needs to reflect it
+  renderResults();
+  document.getElementById('post-modal').classList.remove('open');
+});
+
+document.querySelectorAll('.action-row [data-action]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const p = State.posts.find(x => x.day === editingDay);
+    const action = btn.dataset.action;
+    btn.disabled = true;
+    try {
+      if (action === 'regen-design') {
+        await reRenderPost(p);
+      } else {
+        const instructionMap = { 'regen-headline': 'regenerate headline', 'rewrite-caption': 'rewrite caption', 'more-playful': 'more playful', 'more-premium': 'more premium', 'more-direct': 'more direct' };
+        const result = await postJSON('/api/nancy-edit-post', { post: p, instruction: instructionMap[action], businessProfile: State.businessProfile, brand: State.brand });
+        Object.assign(p, result.post);
+        await reRenderPost(p);
+      }
+      document.getElementById('edit-headline').value = p.slide_headline || '';
+      document.getElementById('edit-copy').value = p.slide_copy || '';
+      document.getElementById('edit-caption').value = p.caption || '';
+      document.getElementById('edit-cta').value = p.cta || '';
+      document.getElementById('modal-img').src = p.asset.dataUri;
+    } catch (err) {
+      alert('Could not update this post: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+
+async function reRenderPost(post) {
+  const renderResult = await postJSON('/api/nancy-render-week', { posts: [post], brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })) });
+  post.asset = renderResult.assets[0];
+  if (window.NancyStore && State.contentWeekId) {
+    try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, rendered_svg: p.asset.svg, rendered_asset_url: p.asset.hostedUrl }))); } catch {}
+  }
+}
+
+document.getElementById('modal-copy-caption-btn').addEventListener('click', () => {
+  const p = State.posts.find(x => x.day === editingDay);
+  navigator.clipboard?.writeText(p.caption || '');
+});
+document.getElementById('modal-download-btn').addEventListener('click', () => {
+  const p = State.posts.find(x => x.day === editingDay);
+  downloadSvg(p.asset.svg, `nancy-day${p.day}.svg`);
+});
+
+function downloadSvg(svgText, fileName) {
+  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Downloads: copy-all, ZIP, print calendar, another week ─────────────────
+document.getElementById('copy-all-captions-btn').addEventListener('click', () => {
+  const text = State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n');
+  navigator.clipboard?.writeText(text);
+});
+
+document.getElementById('print-calendar-btn').addEventListener('click', () => {
+  const w = window.open('', '_blank');
+  const rows = State.posts.map(p => `
+    <div style="page-break-inside:avoid;border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:14px;">
+      <h3>Day ${p.day} — ${escapeHtml(p.objective)}</h3>
+      <img src="${p.asset.dataUri}" style="width:200px;float:left;margin-right:16px;border-radius:8px;">
+      <p><b>Caption:</b> ${escapeHtml(p.caption)}</p>
+      <p><b>CTA:</b> ${escapeHtml(p.cta || '')}</p>
+      <p><b>Posting notes:</b> ${escapeHtml(p.visual_direction || '')}</p>
+      <div style="clear:both;"></div>
+    </div>`).join('');
+  w.document.write(`<html><head><title>Content Calendar</title></head><body style="font-family:sans-serif;">${rows}<script>window.print()<\/script></body></html>`);
+  w.document.close();
+});
+
+document.getElementById('another-week-btn').addEventListener('click', async () => {
+  State.previousTopics = [...State.previousTopics, ...State.posts.map(p => p.content_pillar)];
+  State.weekNumber += 1;
+  await startGeneration();
+});
+
+// ── Minimal ZIP (STORE method, no compression) — zero dependencies ─────────
+document.getElementById('download-all-zip-btn').addEventListener('click', () => buildAndDownloadZip());
+
+function crc32(buf) {
+  let c, crcTable = crc32.table || (crc32.table = (() => {
+    const t = [];
+    for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c; }
+    return t;
+  })());
+  let crc = 0 ^ (-1);
+  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
+  return (crc ^ (-1)) >>> 0;
+}
+function u16(n) { return [n & 0xFF, (n >> 8) & 0xFF]; }
+function u32(n) { return [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]; }
+
+function buildZip(files) { // files: [{name, data: Uint8Array}]
+  const localParts = [], centralParts = [];
+  let offset = 0;
+  const dosTime = 0, dosDate = 0x21; // fixed placeholder timestamp — fine for a generated download
+
+  files.forEach(f => {
+    const nameBytes = new TextEncoder().encode(f.name);
+    const crc = crc32(f.data);
+    const size = f.data.length;
+
+    const localHeader = new Uint8Array([
+      ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(dosTime), ...u16(dosDate),
+      ...u32(crc), ...u32(size), ...u32(size), ...u16(nameBytes.length), ...u16(0),
+    ]);
+    localParts.push(localHeader, nameBytes, f.data);
+
+    const centralHeader = new Uint8Array([
+      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(dosTime), ...u16(dosDate),
+      ...u32(crc), ...u32(size), ...u32(size), ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset),
+    ]);
+    centralParts.push(centralHeader, nameBytes);
+
+    offset += localHeader.length + nameBytes.length + size;
+  });
+
+  const centralStart = offset;
+  const centralSize = centralParts.reduce((s, p) => s + p.length, 0);
+  const endRecord = new Uint8Array([
+    ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+    ...u32(centralSize), ...u32(centralStart), ...u16(0),
+  ]);
+
+  return new Blob([...localParts, ...centralParts, endRecord], { type: 'application/zip' });
+}
+
+async function buildAndDownloadZip() {
+  const files = State.posts.map(p => ({ name: `day-${p.day}-${(p.objective||'post').replace(/\s+/g,'-').toLowerCase()}.svg`, data: new TextEncoder().encode(p.asset.svg) }));
+  files.push({ name: 'captions.txt', data: new TextEncoder().encode(State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n')) });
+  const blob = buildZip(files);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'nancy-content-week.zip';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+</script>
+</body>
+</html>
