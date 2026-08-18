@@ -49,10 +49,10 @@ const CONTENT_PLAN_TOOL = {
             objective: { type: 'string', description: 'e.g. Authority, Education, Founder/Personal, Problem Awareness, Infographic, Differentiation, Conversion' },
             content_pillar: { type: 'string' },
             format: { type: 'string', description: 'e.g. "Single graphic", "Carousel — 4 slides", "Infographic"' },
-            hook: { type: 'string', description: 'Must work as a scroll-stopper standing alone — no AI clichés' },
-            slide_headline: { type: 'string', description: 'Short headline text that will be rendered ON the graphic itself — must be short enough to read at a glance' },
-            slide_copy: { type: 'string', description: 'Supporting text rendered on the graphic, if any — keep brief' },
-            caption: { type: 'string', description: 'The actual Instagram caption — sounds like this specific business, not generic AI copy' },
+            hook: { type: 'string', description: 'Must work as a scroll-stopper standing alone — no AI clichés. Max ~12 words.' },
+            slide_headline: { type: 'string', description: 'Short headline text rendered ON the graphic itself — max ~8 words, must read at a glance' },
+            slide_copy: { type: 'string', description: 'Supporting text rendered on the graphic. For a normal day: max ~20 words. For the Infographic day: up to 5 short lines (one per finding), each under 12 words — this is parsed into separate numbered rows on the graphic, not read as one paragraph.' },
+            caption: { type: 'string', description: 'The actual Instagram caption — sounds like this specific business, not generic AI copy. 2-5 short paragraphs, roughly 60-120 words total — a real caption, not an essay.' },
             cta: { type: 'string' },
             visual_direction: { type: 'string', description: 'Creative direction for the designer/renderer' },
             uses_user_photo: { type: 'boolean' },
@@ -92,6 +92,7 @@ Day 6 Differentiation — the brand's own approach/point of view.
 Day 7 Conversion — moves the audience toward an enquiry, booking, or purchase.
 
 Hard rules:
+- Keep every field within the length noted in its schema description — these graphics are 1080x1350px, real space is limited, and captions are meant to be read in a feed, not scrolled through as an essay. Concise beats exhaustive.
 - Every caption must sound like THIS business, using its actual voice/phrases where available — never generic AI marketing copy.
 - Ban these phrases entirely: "in today's fast-paced world", "game changer", "unlock the power of", "whether you're...", excessive emojis, excessive hashtags (max 8, and only when genuinely useful).
 - Each hook must work standing completely alone, out of context.
@@ -102,7 +103,12 @@ Hard rules:
 
   const user = `BUSINESS PROFILE:\n${JSON.stringify(businessProfile, null, 2)}\n\nBRAND:\n${JSON.stringify(brand || {}, null, 2)}\n\nSTRATEGY:\n${JSON.stringify(strategy, null, 2)}\n\nPERSONALIZATION ANSWERS:\n${JSON.stringify(personalization, null, 2)}\n\nTOPICS ALREADY USED IN PREVIOUS WEEKS (do not repeat):\n${JSON.stringify(previousTopics)}\n\nProduce the 7-day content plan.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: CONTENT_PLAN_TOOL, maxTokens: 6000 });
+  // 7000 (up from 6000): the explicit per-field length limits above should
+  // keep actual usage well under this, but real captions can run long —
+  // this is headroom against truncation (stop_reason:'max_tokens' cutting
+  // the tool-call JSON off mid-object, which fails to parse), not an
+  // invitation to write more.
+  const result = await callClaudeForJSON({ system, user, tool: CONTENT_PLAN_TOOL, maxTokens: 7000, timeoutMs: 50000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({ success: true, week_rationale: result.data.week_rationale, posts: result.data.posts });

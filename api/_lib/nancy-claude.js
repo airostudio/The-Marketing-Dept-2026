@@ -62,6 +62,7 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
   let usage = null;
   let sawToolUse = false;
   let streamError = null;
+  let stopReason = null;
 
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
@@ -83,6 +84,7 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
       usage = payload.message?.usage || null;
     } else if (payload.type === 'message_delta') {
       usage = { ...(usage || {}), ...(payload.usage || {}) };
+      if (payload.delta?.stop_reason) stopReason = payload.delta.stop_reason;
     } else if (payload.type === 'error') {
       streamError = payload.error?.message || 'Anthropic stream error';
     }
@@ -109,6 +111,14 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
   try {
     return { success: true, data: JSON.parse(toolInputJson), usage };
   } catch {
+    // The single most common real cause of "valid tool_use started but the
+    // accumulated JSON doesn't parse" is stop_reason === 'max_tokens' — the
+    // response got cut off mid-generation before the JSON object closed.
+    // Surface that distinctly so it's diagnosable (and so a caller knows to
+    // raise its maxTokens) instead of a generic, unactionable message.
+    if (stopReason === 'max_tokens') {
+      return { success: false, error: 'Claude\'s response was cut off before it finished (hit the output length limit). Try again with a smaller request.' };
+    }
     return { success: false, error: 'Claude returned malformed structured output. Try again.' };
   }
 }
