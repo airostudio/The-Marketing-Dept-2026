@@ -609,19 +609,28 @@ async function startGeneration() {
 
   try {
     setStage('plan', 'active');
-    const planResult = await postJSON('/api/nancy-content-plan', {
+    // Two smaller batches (days 1-4, then 5-7) instead of one call asking
+    // for all 7 fully-detailed posts at once — that single-call version
+    // kept truncating past even a generous token budget. Each batch here
+    // needs roughly half the output, with real headroom against that.
+    const basePlanArgs = {
       businessProfile: State.businessProfile, brand: State.brand, strategy: State.strategy,
       personalization: State.personalization, previousTopics: State.previousTopics,
-    });
-    State.weekRationale = planResult.week_rationale;
+    };
+    const batchA = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [1, 4] });
+    const priorPosts = batchA.posts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
+    const batchB = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [5, 7], priorPosts });
+
+    const planPosts = [...batchA.posts, ...batchB.posts].sort((a, b) => a.day - b.day);
+    State.weekRationale = batchA.week_rationale;
     setStage('plan', 'done');
 
     setStage('render', 'active');
     const renderResult = await postJSON('/api/nancy-render-week', {
-      posts: planResult.posts, brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+      posts: planPosts, brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
     });
     const assetsByDay = new Map(renderResult.assets.map(a => [a.day, a]));
-    State.posts = planResult.posts.map(p => ({ ...p, asset: assetsByDay.get(p.day) }));
+    State.posts = planPosts.map(p => ({ ...p, asset: assetsByDay.get(p.day) }));
     setStage('render', 'done');
 
     setStage('save', 'active');
