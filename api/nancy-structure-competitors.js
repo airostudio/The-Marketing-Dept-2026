@@ -42,20 +42,20 @@ const COMPETITORS_TOOL = {
       category: { type: 'string', description: 'The market/category this business competes in' },
       competitors: {
         type: 'array',
-        maxItems: 10,
+        maxItems: 8,
         items: {
           type: 'object',
           properties: {
             business_name: { type: 'string' },
             website: { type: 'string' },
-            positioning: { type: 'string' },
-            target_customer: { type: 'string' },
-            main_offer: { type: 'string' },
-            content_topics: { type: 'array', items: { type: 'string' } },
-            tone: { type: 'string' },
-            differentiators: { type: 'array', items: { type: 'string' } },
-            notable_patterns: { type: 'array', items: { type: 'string' } },
-            source_urls: { type: 'array', items: { type: 'string' }, description: 'Must be real URLs from the research text — never invented' },
+            positioning: { type: 'string', description: 'One sentence, max ~20 words' },
+            target_customer: { type: 'string', description: 'One short phrase' },
+            main_offer: { type: 'string', description: 'One short phrase' },
+            content_topics: { type: 'array', items: { type: 'string' }, maxItems: 4 },
+            tone: { type: 'string', description: 'One or two words' },
+            differentiators: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+            notable_patterns: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+            source_urls: { type: 'array', items: { type: 'string' }, maxItems: 3, description: 'Must be real URLs from the research text — never invented' },
           },
           required: ['business_name', 'website', 'positioning', 'source_urls'],
         },
@@ -80,11 +80,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'searchText (from nancy-search-competitors) is required' });
   }
 
-  const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list.`;
+  const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list. Keep every field within the length noted in its schema description — this is a scannable research summary, not a full profile per competitor.`;
   const user = `Research findings:\n${searchText}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the competitor research schema.`;
 
   try {
-    const result = await callClaudeForJSON({ system, user, tool: COMPETITORS_TOOL, maxTokens: 2000, timeoutMs: 45000 });
+    // maxTokens was previously fixed at 2000, which up to 10 competitors
+    // each with 3 unbounded array fields could genuinely exceed —
+    // truncating the tool-call JSON mid-object. The schema above now caps
+    // every array field and gives string fields explicit length guidance,
+    // and this budget has real headroom against what that bounded shape
+    // can actually produce (8 competitors * ~9 fields, capped).
+    const result = await callClaudeForJSON({ system, user, tool: COMPETITORS_TOOL, maxTokens: 4000, timeoutMs: 45000 });
     if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
     return res.json({

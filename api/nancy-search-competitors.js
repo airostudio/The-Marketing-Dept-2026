@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
 
   const query = `I run a business in the "${businessProfile.business_category}" / "${businessProfile.industry || ''}" space. Business summary: ${businessProfile.website_summary || businessProfile.primary_offer}. Target customer: ${businessProfile.target_customer || 'not specified'}. Location: ${businessProfile.location || 'not specified, treat as not location-critical'}.
 
-Find 5-10 REAL businesses operating in a similar or closely related market — similar offer, similar target customer, or similar category. They do not need to be direct local competitors unless location is clearly central to this business. For each one report: business name, website URL, how they position themselves, who they target, their main offer, what topics they publish content about, their tone of voice, and anything distinctive about their approach. Only include businesses you can find real, current evidence for — cite your sources. Do not invent any business or URL.`;
+Find 5-8 REAL businesses operating in a similar or closely related market — similar offer, similar target customer, or similar category. They do not need to be direct local competitors unless location is clearly central to this business. For each one report: business name, website URL, how they position themselves, who they target, their main offer, what topics they publish content about, their tone of voice, and anything distinctive about their approach. Only include businesses you can find real, current evidence for — cite your sources. Do not invent any business or URL.`;
 
   try {
     const search = await searchProvider(query, {
