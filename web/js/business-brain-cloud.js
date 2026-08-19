@@ -25,12 +25,24 @@ window.BusinessBrainCloud = (function () {
     return null;
   }
 
+  // Same getUser()-with-getSession()-fallback fix applied to
+  // IntelligenceProfiles/NancyStore/SocialPostsStore: auth.getUser() can
+  // transiently fail right after a fresh login even with a valid session,
+  // and this function has no fallback, so a caller like getScope()'s
+  // callers can read "signed out" when the user genuinely isn't.
   async function getCurrentUserId() {
     const client = getSupabase();
     if (!client) return null;
     try {
-      const { data: { user } } = await client.auth.getUser();
-      return user?.id || null;
+      const { data: { user }, error } = await client.auth.getUser();
+      if (user) return user.id;
+      if (error) throw error;
+    } catch (err) {
+      console.warn('[BusinessBrainCloud] auth.getUser() failed, falling back to cached session:', err.message);
+    }
+    try {
+      const { data: { session } } = await client.auth.getSession();
+      return session?.user?.id || null;
     } catch { return null; }
   }
 
