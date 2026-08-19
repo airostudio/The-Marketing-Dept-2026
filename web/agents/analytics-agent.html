@@ -781,6 +781,19 @@
                     </div>
                     <div class="output-body" id="out-segmentation-body"><div class="output-empty">Segments will appear here...</div></div>
                 </div>
+
+                <div class="real-panel">
+                    <div class="real-panel-header">
+                        <div>
+                            <div class="real-panel-title"><span class="real-badge">✓ Real data</span> Audience Builder</div>
+                            <div class="real-panel-sub">Build a rule-based segment (AND/OR on tags + status) and see a real, live count from your actual contact database — the Segment Personas experience, using contacts already in Beeker's Audience Manager, not an estimate.</div>
+                        </div>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="loadAudienceBuilderTags()">↻ Refresh contacts</button>
+                    </div>
+                    <div id="audience-builder-body">
+                        <div class="output-empty" style="padding:30px 0;">Loading your contacts…</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab: Performance Analysis -->
@@ -887,6 +900,9 @@
 <script src="/js/marked.min.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/gemini-service.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/contacts-store.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
@@ -1205,6 +1221,169 @@
             <div class="btn-row"><button class="btn-secondary" onclick="runWorkspace('attribution', true)">Get AI narrative on this real result</button></div>
         `;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUDIENCE BUILDER — a real, rule-based segment over your actual contact
+    // database (ContactsStore, the same store Beeker's Audience Manager and
+    // Pat's sends use), not an AI-imagined persona. Segments built/saved here
+    // are real segments rows usable everywhere else in the app.
+    // ═══════════════════════════════════════════════════════════════════════
+    let audienceContacts = null; // real contacts fetched once, filtered client-side as rules change
+    let audienceRule = { tagsAny: [], tagsAll: [], status: 'subscribed' };
+    let lastAudienceSegment = null; // { count, tagsAny, tagsAll, status, sampleCompanies } for the AI persona call
+
+    async function loadAudienceBuilderTags() {
+        const body = document.getElementById('audience-builder-body');
+        if (!window.ContactsStore) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">Contact database isn't available on this page right now.</p>`;
+            return;
+        }
+        body.innerHTML = `<div class="output-empty" style="padding:30px 0;">Loading your contacts…</div>`;
+        try {
+            audienceContacts = await window.ContactsStore.listContacts({ limit: 2000 });
+        } catch (err) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">Couldn't load contacts: ${escHtmlAn(err.message)}</p>`;
+            return;
+        }
+        if (!audienceContacts.length) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">No contacts yet — add some in <a href="/agents/audience-agent.html" style="color:var(--accent);">Beeker's Audience Manager</a>, then come back and refresh.</p>`;
+            return;
+        }
+
+        const tagSet = new Set();
+        audienceContacts.forEach(c => (c.tags || []).forEach(t => tagSet.add(t)));
+        const tags = [...tagSet].sort();
+
+        if (!tags.length) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">${audienceContacts.length} contacts loaded, but none are tagged yet — tag contacts in Beeker's Audience Manager to build rule-based segments here.</p>`;
+            return;
+        }
+
+        body.innerHTML = `
+            <div class="rule-row"><strong style="font-size:12px;color:var(--text2);min-width:150px;">Must have ANY of:</strong>
+                ${tags.map(t => `<span class="tag-chip any" data-tag="${escHtmlAn(t)}" data-mode="any" onclick="toggleAudienceTag('${escHtmlAn(t).replace(/'/g, "\\'")}','any')">${escHtmlAn(t)}</span>`).join('')}
+            </div>
+            <div class="rule-row"><strong style="font-size:12px;color:var(--text2);min-width:150px;">Must have ALL of:</strong>
+                ${tags.map(t => `<span class="tag-chip" data-tag="${escHtmlAn(t)}" data-mode="all" onclick="toggleAudienceTag('${escHtmlAn(t).replace(/'/g, "\\'")}','all')">${escHtmlAn(t)}</span>`).join('')}
+            </div>
+            <div class="rule-row">
+                <strong style="font-size:12px;color:var(--text2);min-width:150px;">Status:</strong>
+                <select class="field-select" style="width:auto;" id="audience-status" onchange="audienceRule.status = this.value; renderAudienceBuilder();">
+                    <option value="subscribed" selected>Subscribed</option>
+                    <option value="">Any status</option>
+                    <option value="unsubscribed">Unsubscribed</option>
+                    <option value="bounced">Bounced</option>
+                </select>
+            </div>
+            <div id="audience-count-area" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);"></div>
+        `;
+        renderAudienceBuilder();
+    }
+
+    function toggleAudienceTag(tag, mode) {
+        const other = mode === 'any' ? audienceRule.tagsAll : audienceRule.tagsAny;
+        const list = mode === 'any' ? audienceRule.tagsAny : audienceRule.tagsAll;
+        const idx = list.indexOf(tag);
+        if (idx >= 0) list.splice(idx, 1);
+        else { list.push(tag); const oi = other.indexOf(tag); if (oi >= 0) other.splice(oi, 1); } // a tag can be an ANY or ALL condition, not both — ambiguous otherwise
+        renderAudienceBuilder();
+    }
+
+    function contactMatchesRule(c, rule) {
+        if (rule.status && c.status !== rule.status) return false;
+        const tags = c.tags || [];
+        if (rule.tagsAny.length && !rule.tagsAny.some(t => tags.includes(t))) return false;
+        if (rule.tagsAll.length && !rule.tagsAll.every(t => tags.includes(t))) return false;
+        return true;
+    }
+
+    function renderAudienceBuilder() {
+        if (!audienceContacts) return;
+        document.querySelectorAll('.tag-chip').forEach(el => {
+            const list = el.dataset.mode === 'any' ? audienceRule.tagsAny : audienceRule.tagsAll;
+            el.classList.toggle('selected', list.includes(el.dataset.tag));
+        });
+
+        const matches = audienceContacts.filter(c => contactMatchesRule(c, audienceRule));
+        const companies = [...new Set(matches.map(c => c.company).filter(Boolean))].slice(0, 6);
+        lastAudienceSegment = { count: matches.length, tagsAny: [...audienceRule.tagsAny], tagsAll: [...audienceRule.tagsAll], status: audienceRule.status, sampleCompanies: companies };
+
+        const countArea = document.getElementById('audience-count-area');
+        if (!countArea) return;
+        countArea.innerHTML = `
+            <div class="audience-count-badge">${matches.length}<span>of ${audienceContacts.length} contacts match</span></div>
+            ${companies.length ? `<p style="font-size:12px;color:var(--text2);margin-top:6px;">Includes: ${companies.map(escHtmlAn).join(', ')}${matches.length > companies.length ? '…' : ''}</p>` : ''}
+            <div class="btn-row">
+                <button class="btn-primary" onclick="saveAudienceSegment()" ${matches.length === 0 ? 'disabled' : ''}>💾 Save as Segment</button>
+                <button class="btn-secondary" onclick="describeAudienceSegment()" ${matches.length === 0 ? 'disabled' : ''}>Generate AI persona for this real segment</button>
+            </div>
+        `;
+    }
+
+    async function saveAudienceSegment() {
+        if (!lastAudienceSegment || !lastAudienceSegment.count) return;
+        const name = prompt('Name this segment:', `${lastAudienceSegment.count} contacts — ${[...lastAudienceSegment.tagsAny, ...lastAudienceSegment.tagsAll].join(', ') || 'all tags'}`);
+        if (!name) return;
+        try {
+            await window.ContactsStore.createSegment({
+                name,
+                description: `Built in Analytics Brain's Audience Builder — ${lastAudienceSegment.count} contacts.`,
+                memberMode: 'dynamic',
+                filterRules: { tagsAny: lastAudienceSegment.tagsAny, tagsAll: lastAudienceSegment.tagsAll, status: lastAudienceSegment.status },
+            });
+            alert(`Segment "${name}" saved — it's now available in Beeker's Audience Manager and Pat's send flow, same as any other segment.`);
+        } catch (err) {
+            alert('Could not save segment: ' + err.message);
+        }
+    }
+
+    async function describeAudienceSegment() {
+        if (!lastAudienceSegment || !lastAudienceSegment.count) return;
+        const outCard = document.getElementById('out-segmentation');
+        const outBody = document.getElementById('out-segmentation-body');
+        outCard.style.display = 'block';
+        outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Describing this real segment...</div>';
+
+        let prompt = `You are a customer segmentation strategist. A REAL segment has already been built from this business's actual contact database (not a hypothetical) — describe who this group of people actually is and how to target them.
+
+REAL SEGMENT DATA (not an estimate — this is an exact count and rule from a live database query):
+- ${lastAudienceSegment.count} real contacts match these rules
+- Must have ANY of these tags: ${lastAudienceSegment.tagsAny.join(', ') || '(none required)'}
+- Must have ALL of these tags: ${lastAudienceSegment.tagsAll.join(', ') || '(none required)'}
+- Status filter: ${lastAudienceSegment.status || 'any'}
+- Sample companies in this segment: ${lastAudienceSegment.sampleCompanies.join(', ') || '(none on file)'}`;
+
+        prompt += buildICPAttributionContext();
+        prompt += buildBrandVoiceAnalyticsStyle();
+        prompt += `
+
+Based on the tags and companies actually in this real segment (infer likely characteristics from the tag names and company names themselves — don't invent unrelated demographic details), provide:
+1. Who this segment likely is (persona sketch grounded in the actual tags/companies given)
+2. Why these ${lastAudienceSegment.count} people/companies likely ended up with these tags together
+3. Messaging angle that would resonate with this specific group
+4. Best channel(s) to reach them
+5. One concrete next campaign idea for exactly this segment
+
+Be specific to the real data given — do not generate a generic persona template.`;
+
+        try {
+            await streamWithFallback({
+                systemPrompt: 'You are Analytics Brain AI, describing a real customer segment from live contact data.',
+                messages: [{ role: 'user', content: prompt }],
+                onChunk: (chunk, accumulated) => { outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(accumulated) : accumulated; },
+                onDone: (text) => {
+                    if (!text || !text.trim()) { outBody.innerHTML = '<div style="color:#ef4444;padding:20px;">The AI service returned no content.</div>'; return; }
+                    outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                    if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'analytics', taskType: 'Real Segment Persona', content: text });
+                },
+                onError: (err) => { outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}</div>`; },
+            });
+        } catch (err) {
+            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}</div>`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { loadAudienceBuilderTags(); });
 
     const ESTIMATE_DISCLAIMER = "\nLabel all benchmark figures and attribution percentages as estimates ('est.') — you have no live data source; recommend validating against the user's analytics platform.";
 
