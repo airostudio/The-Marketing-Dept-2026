@@ -342,7 +342,7 @@
       </div>
       <div class="action-row">
         <button class="btn btn-primary btn-sm" id="modal-save-btn">Save changes</button>
-        <button class="btn btn-ghost btn-sm" id="modal-download-btn">⬇ Download PNG-ready SVG</button>
+        <button class="btn btn-ghost btn-sm" id="modal-download-btn">⬇ Download image</button>
         <button class="btn btn-ghost btn-sm" id="modal-copy-caption-btn">📋 Copy caption</button>
       </div>
     </div>
@@ -604,7 +604,6 @@ document.getElementById('photos-continue-btn').addEventListener('click', () => s
 // that occasionally blow past their budget.
 const GEN_STAGES = [
   ...[1, 2, 3, 4, 5, 6, 7].map(d => ({ key: `day${d}`, label: `Designing Day ${d}` })),
-  { key: 'render', label: 'Building your 7 finished graphics' },
   { key: 'save', label: 'Saving your content week' },
 ];
 
@@ -624,19 +623,21 @@ async function startGeneration() {
       setStage(`day${day}`, 'active');
       const priorPosts = planPosts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
       const dayResult = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [day, day], priorPosts });
-      planPosts.push(dayResult.posts[0]);
+      const post = dayResult.posts[0];
       if (dayResult.week_rationale) weekRationale = dayResult.week_rationale;
+
+      // Render this single post right away — image generation is its own
+      // slow external call, so it gets its own request per day rather than
+      // batching all 7 into one call that would blow the 60s ceiling.
+      const renderResult = await postJSON('/api/nancy-render-week', {
+        post, brand: State.brand, businessName: State.businessProfile?.business_name,
+        userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+      });
+      planPosts.push({ ...post, asset: renderResult.asset });
       setStage(`day${day}`, 'done');
     }
     State.weekRationale = weekRationale;
-
-    setStage('render', 'active');
-    const renderResult = await postJSON('/api/nancy-render-week', {
-      posts: planPosts, brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
-    });
-    const assetsByDay = new Map(renderResult.assets.map(a => [a.day, a]));
-    State.posts = planPosts.map(p => ({ ...p, asset: assetsByDay.get(p.day) }));
-    setStage('render', 'done');
+    State.posts = planPosts;
 
     setStage('save', 'active');
     await persistWeek();
@@ -683,7 +684,7 @@ async function persistWeek() {
 
     const week = await NancyStore.createContentWeek(State.brandId, researchRun.id, State.weekNumber, { rationale: State.weekRationale });
     State.contentWeekId = week.id;
-    await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, rendered_svg: p.asset?.svg, rendered_asset_url: p.asset?.hostedUrl })));
+    await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, ...assetForSave(p) })));
     await NancyStore.setWeekStatus(week.id, 'ready');
   } catch (err) {
     console.warn('[Nancy] persistWeek failed (content still works this session):', err.message);
@@ -780,11 +781,27 @@ document.querySelectorAll('.action-row [data-action]').forEach(btn => {
 });
 
 async function reRenderPost(post) {
-  const renderResult = await postJSON('/api/nancy-render-week', { posts: [post], brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })) });
-  post.asset = renderResult.assets[0];
+  const renderResult = await postJSON('/api/nancy-render-week', {
+    post, brand: State.brand, businessName: State.businessProfile?.business_name,
+    userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+  });
+  post.asset = renderResult.asset;
   if (window.NancyStore && State.contentWeekId) {
-    try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, rendered_svg: p.asset.svg, rendered_asset_url: p.asset.hostedUrl }))); } catch {}
+    try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, ...assetForSave(p) }))); } catch {}
   }
+}
+
+// AI-generated posts (asset.format === 'ai') are PNGs with no SVG source —
+// rendered_svg only makes sense for the SVG fallback path. When there's no
+// R2 hosted copy (R2 unconfigured), fall back to persisting the data: URI
+// itself in rendered_asset_url so the post still survives a reload — a
+// data: URI is a valid <img src> just like a real hosted URL.
+function assetForSave(p) {
+  const a = p.asset || {};
+  return {
+    rendered_svg: a.format === 'svg' ? a.svg : null,
+    rendered_asset_url: a.hostedUrl || a.dataUri || null,
+  };
 }
 
 document.getElementById('modal-copy-caption-btn').addEventListener('click', () => {
@@ -793,16 +810,31 @@ document.getElementById('modal-copy-caption-btn').addEventListener('click', () =
 });
 document.getElementById('modal-download-btn').addEventListener('click', () => {
   const p = State.posts.find(x => x.day === editingDay);
-  downloadSvg(p.asset.svg, `nancy-day${p.day}.svg`);
+  downloadAsset(p.asset, `nancy-day${p.day}`);
 });
 
-function downloadSvg(svgText, fileName) {
-  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+function downloadAsset(asset, fileNameBase) {
+  const isSvg = asset.format === 'svg';
+  const blob = isSvg
+    ? new Blob([asset.svg], { type: 'image/svg+xml' })
+    : dataUriToBlob(asset.dataUri);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = fileName;
+  a.href = url; a.download = `${fileNameBase}.${isSvg ? 'svg' : 'png'}`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function dataUriToBlob(dataUri) {
+  const [header, b64] = dataUri.split(',');
+  const mime = header.match(/data:(.*?);base64/)?.[1] || 'image/png';
+  return new Blob([dataUriToArrayBuffer(dataUri)], { type: mime });
+}
+
+function dataUriToArrayBuffer(dataUri) {
+  const b64 = dataUri.split(',')[1];
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return bytes.buffer;
 }
 
 // ── Downloads: copy-all, ZIP, print calendar, another week ─────────────────
@@ -884,7 +916,12 @@ function buildZip(files) { // files: [{name, data: Uint8Array}]
 }
 
 async function buildAndDownloadZip() {
-  const files = State.posts.map(p => ({ name: `day-${p.day}-${(p.objective||'post').replace(/\s+/g,'-').toLowerCase()}.svg`, data: new TextEncoder().encode(p.asset.svg) }));
+  const files = State.posts.map(p => {
+    const isSvg = p.asset.format === 'svg';
+    const slug = (p.objective || 'post').replace(/\s+/g, '-').toLowerCase();
+    const data = isSvg ? new TextEncoder().encode(p.asset.svg) : new Uint8Array(dataUriToArrayBuffer(p.asset.dataUri));
+    return { name: `day-${p.day}-${slug}.${isSvg ? 'svg' : 'png'}`, data };
+  });
   files.push({ name: 'captions.txt', data: new TextEncoder().encode(State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n')) });
   const blob = buildZip(files);
   const url = URL.createObjectURL(blob);

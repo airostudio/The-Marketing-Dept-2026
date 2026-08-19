@@ -165,22 +165,55 @@ async function screenshotProvider(targetUrl) {
 }
 
 // ── Image generation provider ────────────────────────────────────────────────
-// For backgrounds/illustrations only — the Nancy rendering engine never asks
-// a generative model to render exact text (see render-social-image.js's
-// deterministic SVG text layer). Contract: { prompt, width, height } ->
-// { buffer, mimeType }. Currently unconfigured by default; when
-// IMAGE_GEN_API_KEY is absent, the rendering engine falls back to a
-// programmatic gradient/pattern background derived from the brand palette,
-// which is a legitimate on-brand result, not a placeholder.
+// Generates the finished post image directly (not just a background) — the
+// prompt bakes in the brand palette and the exact headline/copy/CTA text so
+// the model renders a complete, trending Instagram graphic. Contract:
+// { prompt, width, height } -> { available, buffer, mimeType } |
+// { available:false, reason }. Currently implements OpenAI's gpt-image-1;
+// IMAGE_GEN_PROVIDER exists to swap to another service later without
+// touching any caller. When IMAGE_GEN_API_KEY is absent (or the call fails),
+// callers fall back to the deterministic SVG templates — a legitimate
+// on-brand result, not a placeholder.
 async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
   const apiKey = process.env.IMAGE_GEN_API_KEY;
   if (!apiKey) {
-    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — using a programmatic brand-colour background instead of a generated one.' };
+    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.' };
   }
-  // Adapter left intentionally thin: point IMAGE_GEN_PROVIDER at a concrete
-  // service (e.g. 'openai' for gpt-image, 'stability') once a key exists —
-  // the rendering engine only needs { buffer, mimeType } back.
-  return { available: false, reason: 'IMAGE_GEN_API_KEY is set but no provider implementation is wired yet — add one in api/_lib/nancy-providers.js#imageGenProvider.' };
+
+  const provider = (process.env.IMAGE_GEN_PROVIDER || 'openai').toLowerCase();
+
+  try {
+    if (provider === 'openai') {
+      // gpt-image-1 only supports 1024x1024, 1024x1536, 1536x1024, or
+      // 'auto' — pick the closest portrait size to a 4:5 Instagram post and
+      // let the caller lay the result into its own canvas.
+      const aspect = width / height;
+      const size = aspect < 0.9 ? '1024x1536' : aspect > 1.1 ? '1536x1024' : '1024x1024';
+
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality: 'high', n: 1 }),
+        signal: AbortSignal.timeout(50000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return { available: false, reason: `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}` };
+      }
+
+      const data = await res.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      if (!b64) return { available: false, reason: 'OpenAI image generation returned no image data.' };
+
+      return { available: true, buffer: Buffer.from(b64, 'base64'), mimeType: 'image/png' };
+    }
+
+    return { available: false, reason: `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai.` };
+  } catch (err) {
+    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+    return { available: false, reason: isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}` };
+  }
 }
 
 module.exports = { searchProvider, screenshotProvider, imageGenProvider };
