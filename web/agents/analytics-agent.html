@@ -862,9 +862,23 @@
                 <div class="output-card" id="out-report" style="display:none;">
                     <div class="output-header">
                         <span class="output-title">Generated Report</span>
-                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-report')">Copy</button>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" id="saveReportBtn" onclick="saveCurrentReport()" disabled>💾 Save to history</button>
+                            <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="copyOutput('out-report')">Copy</button>
+                        </div>
                     </div>
                     <div class="output-body" id="out-report-body"><div class="output-empty">Report will appear here...</div></div>
+                </div>
+
+                <div class="real-panel">
+                    <div class="real-panel-header">
+                        <div>
+                            <div class="real-panel-title"><span class="real-badge">✓ Cloud saved</span> Past Reports</div>
+                            <div class="real-panel-sub">Every report you save here is stored in your account (not just this browser) and reopenable any time.</div>
+                        </div>
+                        <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="loadReportHistory()">↻ Refresh</button>
+                    </div>
+                    <div id="report-history-body"><div class="output-empty" style="padding:20px 0;">Loading…</div></div>
                 </div>
             </div>
 
@@ -903,6 +917,7 @@
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
 <script src="/js/contacts-store.js"></script>
+<script src="/js/analytics-store.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/scotty-orchestrator.js"></script>
 <script src="/js/scotty-intake.js"></script>
@@ -1383,7 +1398,85 @@ Be specific to the real data given — do not generate a generic persona templat
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => { loadAudienceBuilderTags(); });
+    // ═══════════════════════════════════════════════════════════════════════
+    // REPORT HISTORY — real cross-device persistence via AnalyticsStore
+    // (Supabase), replacing the this-browser-only AgentHistory localStorage
+    // cache as the durable copy. AgentHistory.save() above still runs too —
+    // it's the shared quick-glance history other agent pages also use — but
+    // it never survives a cleared browser or a different device.
+    // ═══════════════════════════════════════════════════════════════════════
+    let lastGeneratedReport = null;
+
+    async function saveCurrentReport() {
+        if (!lastGeneratedReport) return;
+        if (!window.AnalyticsStore) { alert('Report saving isn\'t available right now.'); return; }
+        const btn = document.getElementById('saveReportBtn');
+        btn.disabled = true;
+        try {
+            const typeLabels = { monthly: 'Monthly Marketing Report', quarterly: 'Quarterly Business Review', campaign: 'Campaign Performance Report', exec: 'Executive Summary', board: 'Board-Level Report' };
+            const title = `${typeLabels[lastGeneratedReport.reportType] || lastGeneratedReport.reportType} — ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            await window.AnalyticsStore.createReport({ ...lastGeneratedReport, title });
+            btn.textContent = '✓ Saved';
+            loadReportHistory();
+        } catch (err) {
+            alert('Could not save report: ' + err.message);
+            btn.disabled = false;
+        }
+    }
+
+    async function loadReportHistory() {
+        const body = document.getElementById('report-history-body');
+        if (!window.AnalyticsStore) { body.innerHTML = `<p style="color:var(--text2);font-size:13px;">Report history isn't available right now.</p>`; return; }
+
+        const scope = window.AnalyticsStore.getScope();
+        if (!scope) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;">Select an intelligence profile or project to save/see report history — see the profile switcher elsewhere in the app.</p>`;
+            return;
+        }
+
+        const reports = await window.AnalyticsStore.listReports();
+        if (!reports.length) {
+            body.innerHTML = `<p style="color:var(--text2);font-size:13px;">No saved reports yet — generate one above and click "Save to history".</p>`;
+            return;
+        }
+
+        const typeLabels = { monthly: 'Monthly', quarterly: 'Quarterly', campaign: 'Campaign', exec: 'Executive', board: 'Board' };
+        body.innerHTML = reports.map(r => `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-size:13px;font-weight:600;">${escHtmlAn(r.title)}</div>
+                    <div style="font-size:11.5px;color:var(--text3);">${typeLabels[r.report_type] || r.report_type} · ${new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+                <button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="openReportFromHistory('${r.id}')">Open →</button>
+            </div>
+        `).join('');
+    }
+
+    async function openReportFromHistory(id) {
+        const report = await window.AnalyticsStore.getReport(id);
+        if (!report) { alert('Could not load this report.'); return; }
+
+        document.getElementById('report-type').value = report.report_type;
+        if (report.audience) document.getElementById('report-audience').value = report.audience;
+        document.getElementById('report-focus').value = report.focus || '';
+        document.getElementById('report-data').value = report.source_data || '';
+
+        const outCard = document.getElementById('out-report');
+        const outBody = document.getElementById('out-report-body');
+        outCard.style.display = 'block';
+        outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(report.content) : report.content;
+
+        lastGeneratedReport = { reportType: report.report_type, audience: report.audience, focus: report.focus, sourceData: report.source_data, content: report.content };
+        const saveBtn = document.getElementById('saveReportBtn');
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save as new copy';
+        outCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAudienceBuilderTags();
+        loadReportHistory();
+    });
 
     const ESTIMATE_DISCLAIMER = "\nLabel all benchmark figures and attribution percentages as estimates ('est.') — you have no live data source; recommend validating against the user's analytics platform.";
 
@@ -1697,6 +1790,10 @@ Format with clear sections, use the data provided, and write in a confident narr
         const outBody = document.getElementById('out-' + tabId + '-body');
         outCard.style.display = 'block';
         outBody.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><div class="spinner"></div> Analyzing with Analytics Brain AI...</div>';
+        if (tabId === 'report') {
+            const saveBtn = document.getElementById('saveReportBtn');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '💾 Save to history'; }
+        }
 
         try {
             await streamWithFallback({
@@ -1712,6 +1809,18 @@ Format with clear sections, use the data provided, and write in a confident narr
                     }
                     outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                     if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'analytics', taskType: tabId || 'Analytics Report', content: text });
+
+                    if (tabId === 'report') {
+                        lastGeneratedReport = {
+                            reportType: document.getElementById('report-type').value,
+                            audience: document.getElementById('report-audience').value,
+                            focus: document.getElementById('report-focus').value.trim(),
+                            sourceData: document.getElementById('report-data').value.trim(),
+                            content: text,
+                        };
+                        const saveBtn = document.getElementById('saveReportBtn');
+                        if (saveBtn) saveBtn.disabled = false;
+                    }
                 },
                 onError: (err) => {
                     outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
