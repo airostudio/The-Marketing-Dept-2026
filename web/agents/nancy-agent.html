@@ -588,7 +588,8 @@ async function runResearchPipeline(url) {
   const websiteResult = await postJSON('/api/nancy-analyze-website', { url });
   State.businessProfile = websiteResult.profile;
   setStage('crawl', 'done');
-  addDiscovery(`Read ${websiteResult.pagesFetched.length} pages, including ${websiteResult.pagesFetched.map(p => p.title).slice(0, 3).join(', ')}.`);
+  const pagesFetched = Array.isArray(websiteResult.pagesFetched) ? websiteResult.pagesFetched : [];
+  addDiscovery(`Read ${pagesFetched.length} pages, including ${pagesFetched.map(p => p.title).slice(0, 3).join(', ')}.`);
 
   setStage('profile', 'active');
   addDiscovery(`This looks like a ${State.businessProfile.business_category || State.businessProfile.industry} business serving ${State.businessProfile.target_customer || 'their customers'}.`);
@@ -917,8 +918,16 @@ async function persistWeek() {
 // ── STEP 7: Results ──────────────────────────────────────────────────────
 function ctaUrl(p) { return p.cta_url || State.websiteUrl || ''; }
 
+// Defensive against any upstream field that's supposed to be an array but
+// comes back as something else (a malformed/edge-case model response, a
+// half-populated history row, etc.) — `x || []` only protects against
+// falsy x; a truthy non-array (e.g. {}) still reaches .map and throws
+// "(intermediate value).map is not a function", which is exactly the
+// class of bug this guards against.
+function arr(x) { return Array.isArray(x) ? x : []; }
+
 function renderResults() {
-  document.getElementById('post-grid').innerHTML = State.posts.map(p => `
+  document.getElementById('post-grid').innerHTML = arr(State.posts).map(p => `
     <div class="post-card" data-day="${p.day}">
       <img src="${p.asset.dataUri}">
       <div class="post-card-body">
@@ -929,16 +938,18 @@ function renderResults() {
     </div>`).join('');
   document.querySelectorAll('.post-card').forEach(card => card.addEventListener('click', () => openEditor(Number(card.dataset.day))));
 
-  document.getElementById('strategy-everyone').innerHTML = (State.strategy.what_everyone_says || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
-  document.getElementById('strategy-customers').innerHTML = (State.strategy.what_customers_care_about || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
-  document.getElementById('strategy-opportunity').textContent = State.strategy.where_opportunity_is || '';
-  document.getElementById('strategy-opps').innerHTML = (State.strategy.content_opportunities || []).map(o => `<div class="opp-card"><b>${escapeHtml(o.territory)}</b><p>${escapeHtml(o.rationale)}</p></div>`).join('');
+  const strategy = State.strategy || {};
+  document.getElementById('strategy-everyone').innerHTML = arr(strategy.what_everyone_says).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-customers').innerHTML = arr(strategy.what_customers_care_about).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-opportunity').textContent = strategy.where_opportunity_is || '';
+  document.getElementById('strategy-opps').innerHTML = arr(strategy.content_opportunities).map(o => `<div class="opp-card"><b>${escapeHtml(o.territory)}</b><p>${escapeHtml(o.rationale)}</p></div>`).join('');
   document.getElementById('strategy-week-rationale').textContent = State.weekRationale || '';
 
-  document.getElementById('sources-competitors').innerHTML = State.competitors.length
-    ? State.competitors.map(c => `<div class="comp-card"><b>${escapeHtml(c.business_name)}</b> — <a href="${c.website}" target="_blank" rel="noopener">${escapeHtml(c.website)}</a><p style="color:var(--text2);font-size:13px;margin-top:6px;">${escapeHtml(c.positioning || '')}</p></div>`).join('')
+  const competitors = arr(State.competitors);
+  document.getElementById('sources-competitors').innerHTML = competitors.length
+    ? competitors.map(c => `<div class="comp-card"><b>${escapeHtml(c.business_name)}</b> — <a href="${c.website}" target="_blank" rel="noopener">${escapeHtml(c.website)}</a><p style="color:var(--text2);font-size:13px;margin-top:6px;">${escapeHtml(c.positioning || '')}</p></div>`).join('')
     : '<p style="color:var(--text3);font-size:13px;">No businesses were found or live research was unavailable for this run.</p>';
-  document.getElementById('sources-citations').innerHTML = (State.citations || []).map(c => {
+  document.getElementById('sources-citations').innerHTML = arr(State.citations).map(c => {
     const url = typeof c === 'string' ? c : c.url;
     return `<div class="source-item"><a href="${url}" target="_blank" rel="noopener">${escapeHtml(url)}</a></div>`;
   }).join('') || '<p style="color:var(--text3);font-size:13px;">No raw citations for this run.</p>';
