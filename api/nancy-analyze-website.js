@@ -42,19 +42,19 @@ const PROFILE_TOOL = {
       business_category: { type: 'string' },
       industry: { type: 'string' },
       location: { type: 'string', description: 'City/region if determinable, else empty string' },
-      products_services: { type: 'array', items: { type: 'string' } },
+      products_services: { type: 'array', items: { type: 'string' }, maxItems: 8 },
       primary_offer: { type: 'string' },
-      secondary_offers: { type: 'array', items: { type: 'string' } },
+      secondary_offers: { type: 'array', items: { type: 'string' }, maxItems: 5 },
       target_customer: { type: 'string' },
-      customer_problems: { type: 'array', items: { type: 'string' } },
-      desired_customer_outcomes: { type: 'array', items: { type: 'string' } },
+      customer_problems: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+      desired_customer_outcomes: { type: 'array', items: { type: 'string' }, maxItems: 5 },
       unique_value_proposition: { type: 'string' },
-      proof_points: { type: 'array', items: { type: 'string' }, description: 'Real testimonials, stats, credentials, case studies found on the site — never invented' },
-      brand_voice: { type: 'array', items: { type: 'string' }, description: '3-5 adjectives describing how the site actually reads' },
-      common_phrases: { type: 'array', items: { type: 'string' }, description: 'Distinctive phrases/language actually used on the site' },
-      founder_or_team: { type: 'array', items: { type: 'string' } },
-      calls_to_action: { type: 'array', items: { type: 'string' } },
-      important_topics: { type: 'array', items: { type: 'string' } },
+      proof_points: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Real testimonials, stats, credentials, case studies found on the site — never invented' },
+      brand_voice: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '3-5 adjectives describing how the site actually reads' },
+      common_phrases: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Distinctive phrases/language actually used on the site' },
+      founder_or_team: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+      calls_to_action: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+      important_topics: { type: 'array', items: { type: 'string' }, maxItems: 8 },
       website_summary: { type: 'string', description: '2-4 sentence plain-English summary of what this business actually does' },
     },
     required: [
@@ -93,13 +93,20 @@ module.exports = async function handler(req, res) {
 
   const user = `Website: ${crawl.origin}\n\nCrawled page content:\n\n${pagesText}\n\nExtract the structured business profile.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: PROFILE_TOOL, maxTokens: 3000 });
+  // Crawl + Claude extraction share this one function's 60s ceiling
+  // (vercel.json) — the crawl is now parallelized (see nancy-crawl.js) so it
+  // costs about as much as its single slowest page, leaving this call real
+  // room without either step racing the platform limit. maxTokens bumped
+  // 3000 -> 4000: this schema has 10 array fields (now capped, but still
+  // real content) plus several free-text fields — 3000 was tight enough to
+  // risk the same "cut off before it finished" truncation seen elsewhere.
+  const result = await callClaudeForJSON({ system, user, tool: PROFILE_TOOL, maxTokens: 4000, timeoutMs: 40000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({
     success: true,
     profile: result.data,
     pagesFetched: crawl.pages.map(p => ({ url: p.url, title: p.title })),
-    homepageHtml: crawl.homepageHtml, // handed to nancy-brand-extract next; not persisted as-is
+    homepageHtml: crawl.homepageHtml, // unused by the client — nancy-screenshot.js re-crawls independently; kept here for parity/debugging
   });
 };

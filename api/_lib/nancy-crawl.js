@@ -80,14 +80,22 @@ async function crawlSite(rawUrl) {
   const target = parseTarget(rawUrl);
   const origin = target.origin;
 
+  // Fetched in parallel, not sequentially — this crawl feeds directly into a
+  // Claude call in the same Vercel function invocation (see
+  // api/nancy-analyze-website.js), sharing one 60s function ceiling. Up to
+  // 11 CANDIDATE_PATHS fetched one at a time at 10s each could alone reach
+  // 110s; in parallel, the whole crawl costs about as much as its single
+  // slowest page.
+  const fetchResults = await Promise.all(
+    CANDIDATE_PATHS.map(async (path) => ({ path, result: await fetchOne(`${origin}${path}`) }))
+  );
+
   const pages = [];
   let homepageHtml = null;
   let totalChars = 0;
 
-  for (const path of CANDIDATE_PATHS) {
+  for (const { path, result } of fetchResults) {
     if (pages.length >= MAX_PAGES) break;
-    const url = `${origin}${path}`;
-    const result = await fetchOne(url);
     if (!result) continue;
 
     if (path === '') homepageHtml = result.html;

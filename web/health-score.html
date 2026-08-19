@@ -78,15 +78,15 @@
                     <div class="health-score-ring" style="width: 200px; height: 200px; margin: 0 auto 24px;">
                         <svg viewBox="0 0 200 200" style="transform: rotate(-90deg);">
                             <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="12"/>
-                            <circle cx="100" cy="100" r="90" fill="none" stroke="var(--color-primary)" stroke-width="12" stroke-dasharray="565" stroke-dashoffset="565" stroke-linecap="round" class="health-score-ring-progress"/>
+                            <circle cx="100" cy="100" r="90" fill="none" stroke="var(--color-primary)" stroke-width="12" stroke-dasharray="565" stroke-dashoffset="565" stroke-linecap="round" id="scoreRingProgress"/>
                         </svg>
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                            <span class="health-score-number" style="font-size: 48px; font-weight: 800; color: var(--color-text-primary);">--</span>
+                            <span id="scoreNumber" style="font-size: 48px; font-weight: 800; color: var(--color-text-primary);">--</span>
                             <span style="display: block; color: var(--color-text-secondary); font-size: 14px;">/ 100</span>
                         </div>
                     </div>
-                    <h3 style="margin-bottom: 8px;">No Score Yet</h3>
-                    <p style="color: var(--color-text-secondary);">Run a site audit to calculate your health score</p>
+                    <h3 id="scoreHeading" style="margin-bottom: 8px;">No Score Yet</h3>
+                    <p id="scoreSubtext" style="color: var(--color-text-secondary);">Run a site audit to calculate your health score</p>
                     <a href="/seo/audits.html" class="btn btn-primary" style="margin-top: 16px;">Run Audit</a>
                 </div>
 
@@ -99,7 +99,7 @@
                             </div>
                             <span class="metric-card-title">Technical SEO</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="metricTechnical">--</div>
                         <p class="metric-card-desc">Crawlability, indexing, structure</p>
                     </div>
                     <div class="metric-card">
@@ -109,7 +109,7 @@
                             </div>
                             <span class="metric-card-title">Performance</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="metricPerformance">--</div>
                         <p class="metric-card-desc">Core Web Vitals, speed</p>
                     </div>
                     <div class="metric-card">
@@ -117,25 +117,73 @@
                             <div class="metric-card-icon warning">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
                             </div>
-                            <span class="metric-card-title">Mobile</span>
+                            <span class="metric-card-title">Accessibility</span>
                         </div>
-                        <div class="metric-card-value">--</div>
-                        <p class="metric-card-desc">Mobile usability score</p>
+                        <div class="metric-card-value" id="metricAccessibility">--</div>
+                        <p class="metric-card-desc">Lighthouse accessibility score</p>
                     </div>
                     <div class="metric-card">
                         <div class="metric-card-header">
                             <div class="metric-card-icon">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                             </div>
-                            <span class="metric-card-title">Links</span>
+                            <span class="metric-card-title">Backlinks</span>
                         </div>
-                        <div class="metric-card-value">--</div>
-                        <p class="metric-card-desc">Internal & external links</p>
+                        <div class="metric-card-value" id="metricLinks">--</div>
+                        <p class="metric-card-desc" id="metricLinksDesc">External links pointing to your site</p>
                     </div>
                 </div>
             </div>
         </main>
     </div>
+    <script src="/js/config.js"></script>
     <script src="/js/dashboard.js"></script>
+    <script>
+        // This page used to be a permanent stub — the ring/cards never read
+        // any real data, and worse, an unused `state.data.healthScore`
+        // (always 0) got animated into the number/ring by dashboard.js's
+        // initHealthScore(), showing a literal "0/100" directly above text
+        // that said "No Score Yet". Wired here to the same real
+        // seo-analysis-results data dashboard.html already renders, sourced
+        // from an actual crawl + PageSpeed Insights run (see
+        // web/js/analysis-engine.js). Every field below either shows a real
+        // measured number or an honest "not available" state — nothing is
+        // computed from a formula with no real inputs.
+        (function () {
+            const complete = localStorage.getItem('seo-analysis-complete');
+            const raw = localStorage.getItem('seo-analysis-results');
+            if (!complete || !raw) return; // leave the honest "No Score Yet" empty state as-is
+
+            let data;
+            try { data = JSON.parse(raw); } catch { return; }
+
+            const score = typeof data.healthScore === 'number' ? data.healthScore : null;
+            if (score !== null) {
+                document.getElementById('scoreNumber').textContent = score;
+                const circumference = 565;
+                document.getElementById('scoreRingProgress').setAttribute('stroke-dashoffset', String(circumference - (circumference * score) / 100));
+                document.getElementById('scoreHeading').textContent = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Work';
+                document.getElementById('scoreSubtext').textContent = data.analyzedAt
+                    ? `Last analyzed ${new Date(data.analyzedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    : 'Based on your most recent site audit';
+            }
+
+            const pageSpeed = data.pageSpeedScores || {};
+            const setMetric = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = typeof value === 'number' ? value : '--'; };
+            setMetric('metricTechnical', pageSpeed.seo);
+            setMetric('metricPerformance', pageSpeed.performance);
+            setMetric('metricAccessibility', pageSpeed.accessibility);
+
+            const backlinksConfigured = !!(window.APP_CONFIG?.SEO_TOOLS?.DATAFORSEO?.ENABLED);
+            const linksEl = document.getElementById('metricLinks');
+            const linksDescEl = document.getElementById('metricLinksDesc');
+            if (Array.isArray(data.backlinks) && backlinksConfigured) {
+                if (linksEl) linksEl.textContent = String(data.backlinks.length);
+            } else {
+                if (linksEl) linksEl.textContent = '--';
+                if (linksDescEl) linksDescEl.textContent = 'Connect a backlink data source in Settings';
+            }
+        })();
+    </script>
 </body>
 </html>

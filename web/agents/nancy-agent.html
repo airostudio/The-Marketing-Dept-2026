@@ -14,6 +14,7 @@
 <script src="/js/site-switcher.js"></script>
 <script src="/js/scotty-intake.js"></script>
 <script src="/js/nancy-store.js"></script>
+<script src="/js/social-posts-store.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -27,6 +28,7 @@
 
   nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
   .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
   .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
   .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
   .nav-sep { color: var(--border); font-size: 18px; }
@@ -109,6 +111,8 @@
   .post-card-body { padding: 12px 14px; }
   .post-card-day { font-size: 11px; color: var(--purple); font-weight: 700; text-transform: uppercase; }
   .post-card-cap { font-size: 12.5px; color: var(--text2); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .post-card-cta-link { display: block; font-size: 11.5px; color: var(--purple); font-weight: 600; margin-top: 8px; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-card-cta-link:hover { text-decoration: underline; }
 
   .downloads-bar { display: flex; gap: 10px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
 
@@ -150,7 +154,10 @@
     <span class="nav-sep">/</span>
     <span class="nav-breadcrumb">Nancy · Jam Fancy — Instagram Content Studio</span>
   </div>
-  <div class="nav-right"><a href="/hub.html" class="nav-link">← Hub</a></div>
+  <div class="nav-right">
+    <a href="#" class="nav-link" id="my-weeks-nav-link">📅 My Weeks</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
 </nav>
 
 <div class="wrap">
@@ -165,6 +172,18 @@
         <button class="btn btn-primary" type="submit" id="runBtn">Research My Brand</button>
       </form>
       <div class="err-note" id="url-err"></div>
+    </div>
+  </div>
+
+  <!-- STEP: History — past content weeks -->
+  <div class="step" id="step-history">
+    <div class="results-header">
+      <h2 class="display" style="font-size:30px;">My Weeks</h2>
+      <p class="sub" style="margin-bottom:0;">Every content week Nancy has built for you, saved and ready to reopen.</p>
+    </div>
+    <div id="history-body"><p style="color:var(--text3);font-size:13px;">Loading…</p></div>
+    <div style="margin-top:24px;">
+      <button class="btn btn-ghost" id="history-new-week-btn">✨ Start a new week</button>
     </div>
   </div>
 
@@ -262,6 +281,26 @@
       <div>📸 Click to upload, or drag photos here</div>
     </div>
     <div class="photo-thumbs" id="photo-thumbs"></div>
+
+    <h2 style="font-size:20px;margin-top:36px;margin-bottom:10px;">Your logo <span style="font-weight:400;color:var(--text3);font-size:14px;">(optional)</span></h2>
+    <p class="sub" style="text-align:left;max-width:560px;">Upload your logo once and every post this week — and every week after — will carry it in the same spot, so your Instagram grid reads as one consistent brand. PNG with a transparent background works best.</p>
+    <div class="photo-drop" id="logo-drop" style="padding:24px 20px;">
+      <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+      <div id="logo-drop-label">🏷️ Click to upload your logo, or drag it here</div>
+      <img id="logo-preview" style="display:none;max-height:72px;max-width:200px;margin:0 auto;border-radius:8px;">
+    </div>
+    <div id="logo-controls" style="display:none;gap:14px;align-items:center;margin-top:14px;">
+      <label style="font-size:13px;color:var(--text2);">Position:
+        <select id="logo-position" style="margin-left:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);">
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+      <button class="btn btn-ghost btn-sm" id="logo-remove-btn">Remove logo</button>
+    </div>
+
     <div style="display:flex;justify-content:space-between;gap:10px;margin-top:26px;">
       <button class="btn btn-ghost" id="photos-skip-btn">Skip — use graphics only</button>
       <div style="display:flex;gap:10px;">
@@ -294,6 +333,23 @@
 
     <div class="tab-pane active" id="tab-grid">
       <div class="post-grid" id="post-grid"></div>
+
+      <div class="calendar-send-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:20px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);">
+        <div style="flex:1;min-width:220px;">
+          <div style="font-weight:700;font-size:14px;">Post this week for real</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-top:2px;">Send all 7 to the Content Calendar to schedule them, or publish through any connected platform — Instagram, Facebook, LinkedIn, X, TikTok.</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;" id="calendar-platform-picker">
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Instagram" checked> Instagram</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Facebook"> Facebook</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="LinkedIn"> LinkedIn</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Twitter/X"> X</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="TikTok"> TikTok</label>
+        </div>
+        <button class="btn btn-primary btn-sm" id="send-to-calendar-btn">📅 Send to Content Calendar</button>
+      </div>
+      <div id="calendar-send-status" style="font-size:12.5px;color:var(--text2);margin-top:8px;"></div>
+
       <div class="downloads-bar">
         <button class="btn btn-ghost btn-sm" id="download-all-zip-btn">⬇ Download all 7 graphics (ZIP)</button>
         <button class="btn btn-ghost btn-sm" id="copy-all-captions-btn">📋 Copy all captions</button>
@@ -332,6 +388,7 @@
       <div class="field"><label>Supporting copy (on graphic)</label><textarea id="edit-copy"></textarea></div>
       <div class="field"><label>Caption</label><textarea id="edit-caption" style="min-height:120px;"></textarea></div>
       <div class="field"><label>CTA</label><input id="edit-cta"></div>
+      <div class="field"><label>CTA link (where this post should send people)</label><input id="edit-cta-url" placeholder="https://yourwebsite.com"></div>
       <div class="action-row">
         <button class="btn btn-ghost btn-sm" data-action="regen-headline">Regenerate headline</button>
         <button class="btn btn-ghost btn-sm" data-action="rewrite-caption">Rewrite caption</button>
@@ -342,7 +399,7 @@
       </div>
       <div class="action-row">
         <button class="btn btn-primary btn-sm" id="modal-save-btn">Save changes</button>
-        <button class="btn btn-ghost btn-sm" id="modal-download-btn">⬇ Download PNG-ready SVG</button>
+        <button class="btn btn-ghost btn-sm" id="modal-download-btn">⬇ Download image</button>
         <button class="btn btn-ghost btn-sm" id="modal-copy-caption-btn">📋 Copy caption</button>
       </div>
     </div>
@@ -357,6 +414,7 @@ const State = {
   websiteUrl: '', businessProfile: null, brand: null, screenshot: null,
   competitors: [], citations: [], strategy: null, personalization: {},
   photos: [], // [{dataUri, storageUrl}]
+  logo: null, // { dataUri, position: 'bottom-right'|'bottom-left'|'top-right'|'top-left' }
   weekRationale: '', posts: [], // final posts with rendered assets
   brandId: null, contentWeekId: null, weekNumber: 1, previousTopics: [],
 };
@@ -372,6 +430,103 @@ async function postJSON(url, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
   return data;
+}
+
+// ── My Weeks — history of past content weeks ────────────────────────────────
+document.getElementById('my-weeks-nav-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  showStep('step-history');
+  loadHistory();
+});
+document.getElementById('history-new-week-btn').addEventListener('click', () => showStep('step-url'));
+
+async function loadHistory() {
+  const body = document.getElementById('history-body');
+  body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Loading…</p>';
+  if (!window.NancyStore) { body.innerHTML = '<p style="color:var(--text3);font-size:13px;">History isn\'t available right now.</p>'; return; }
+
+  const userId = await NancyStore.getUserId();
+  if (!userId) { body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Sign in to see your saved content weeks.</p>'; return; }
+
+  const brands = await NancyStore.listAllWeeksForUser();
+  const withWeeks = brands.filter(b => (b.nancy_content_weeks || []).length);
+  if (!withWeeks.length) {
+    body.innerHTML = '<p style="color:var(--text3);font-size:13px;">No content weeks yet — generate your first one and it\'ll show up here.</p>';
+    return;
+  }
+
+  body.innerHTML = withWeeks.map(b => `
+    <div class="opp-card" style="margin-bottom:18px;">
+      <b>${escapeHtml(b.business_name || b.website_url)}</b>
+      <p style="color:var(--text2);font-size:13px;margin-top:2px;">${escapeHtml(b.website_url)}</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        ${(b.nancy_content_weeks || []).sort((x, y) => y.week_number - x.week_number).map(w => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:8px;">
+            <div>
+              <span style="font-weight:600;font-size:13.5px;">Week ${w.week_number}</span>
+              <span style="color:var(--text3);font-size:12px;margin-left:8px;">${new Date(w.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · ${(w.nancy_posts || []).length} posts · ${escapeHtml(w.status)}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-week-id="${w.id}">Open →</button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  body.querySelectorAll('[data-week-id]').forEach(btn => btn.addEventListener('click', () => openHistoryWeek(btn.dataset.weekId)));
+}
+
+async function openHistoryWeek(weekId) {
+  const body = document.getElementById('history-body');
+  const prevHtml = body.innerHTML;
+  body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Opening…</p>';
+  try {
+    const week = await NancyStore.getWeekDetail(weekId);
+    if (!week) throw new Error('Could not load this content week.');
+    const brand = week.nancy_brands;
+    const run = week.nancy_research_runs;
+
+    State.brandId = brand?.id || null;
+    State.contentWeekId = week.id;
+    State.weekNumber = week.week_number;
+    State.weekRationale = week.strategy?.rationale || '';
+    State.websiteUrl = brand?.website_url || '';
+    State.brand = brand?.colours || {};
+    State.businessProfile = brand ? {
+      business_name: brand.business_name, business_category: brand.business_category, industry: brand.industry,
+      location: brand.location, products_services: brand.products_services, primary_offer: brand.primary_offer,
+      secondary_offers: brand.secondary_offers, target_customer: brand.target_customer, customer_problems: brand.customer_problems,
+      desired_customer_outcomes: brand.desired_outcomes, unique_value_proposition: brand.unique_value_prop,
+      proof_points: brand.proof_points, brand_voice: brand.brand_voice, common_phrases: brand.common_phrases,
+      founder_or_team: brand.founder_or_team, calls_to_action: brand.calls_to_action,
+      important_topics: brand.important_topics, website_summary: brand.website_summary,
+    } : {};
+    State.strategy = run ? {
+      what_everyone_says: run.what_everyone_says, what_customers_care_about: run.what_customers_care_about,
+      where_opportunity_is: run.where_opportunity_is, content_opportunities: run.content_opportunities,
+    } : {};
+    State.competitors = run?.nancy_competitors || [];
+    State.citations = (run?.nancy_source_documents || []).map(d => ({ url: d.url, title: d.title }));
+
+    State.posts = (week.nancy_posts || []).map(p => {
+      const dataUri = p.rendered_asset_url || (p.rendered_svg ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(p.rendered_svg)))}` : '');
+      return {
+        day: p.day, objective: p.objective, content_pillar: p.content_pillar, format: p.format, hook: p.hook,
+        slide_headline: p.slide_headline, slide_copy: p.slide_copy, caption: p.caption, cta: p.cta,
+        visual_direction: p.visual_direction, uses_user_photo: p.uses_user_photo, research_basis: p.research_basis,
+        hashtags: p.hashtags || [], design_data: p.design_data || {}, cta_url: p.design_data?.cta_url || null,
+        asset: {
+          day: p.day, format: p.rendered_svg ? 'svg' : 'png', svg: p.rendered_svg || undefined,
+          dataUri, hostedUrl: (p.rendered_asset_url && !p.rendered_asset_url.startsWith('data:')) ? p.rendered_asset_url : null,
+          mimeType: p.rendered_svg ? 'image/svg+xml' : 'image/png', width: 1080, height: 1350,
+        },
+      };
+    }).sort((a, b) => a.day - b.day);
+
+    renderResults();
+    showStep('step-results');
+  } catch (err) {
+    body.innerHTML = prevHtml;
+    alert('Could not open this week: ' + err.message);
+  }
 }
 
 // ── STEP 1: URL input ──────────────────────────────────────────────────────
@@ -433,21 +588,40 @@ async function runResearchPipeline(url) {
   const websiteResult = await postJSON('/api/nancy-analyze-website', { url });
   State.businessProfile = websiteResult.profile;
   setStage('crawl', 'done');
-  addDiscovery(`Read ${websiteResult.pagesFetched.length} pages, including ${websiteResult.pagesFetched.map(p => p.title).slice(0, 3).join(', ')}.`);
+  const pagesFetched = Array.isArray(websiteResult.pagesFetched) ? websiteResult.pagesFetched : [];
+  addDiscovery(`Read ${pagesFetched.length} pages, including ${pagesFetched.map(p => p.title).slice(0, 3).join(', ')}.`);
 
   setStage('profile', 'active');
   addDiscovery(`This looks like a ${State.businessProfile.business_category || State.businessProfile.industry} business serving ${State.businessProfile.target_customer || 'their customers'}.`);
   setStage('profile', 'done');
 
+  // Each of these is a single-slow-call endpoint — no Vercel function ever
+  // chains two slow external calls sharing one 60s ceiling. Screenshot
+  // capture and the Claude vision read run as two requests in sequence
+  // here on the client instead of inside one server-side invocation; same
+  // for competitor search and structuring below.
   setStage('brand', 'active');
-  const brandResult = await postJSON('/api/nancy-brand-extract', { url });
+  const screenshotResult = await postJSON('/api/nancy-screenshot', { url });
+  State.screenshot = screenshotResult.screenshot;
+  const brandResult = await postJSON('/api/nancy-brand-identity', {
+    origin: screenshotResult.origin,
+    screenshotDataUri: screenshotResult.screenshot?.available ? screenshotResult.screenshot.dataUri : null,
+    colourCandidates: screenshotResult.colourCandidates,
+    fontHints: screenshotResult.fontHints,
+  });
   State.brand = brandResult.brand;
-  State.screenshot = brandResult.screenshot;
   setStage('brand', 'done');
-  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (brandResult.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
+  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (State.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
 
   setStage('market', 'active');
-  const marketResult = await postJSON('/api/nancy-research-market', { businessProfile: State.businessProfile });
+  const searchResult = await postJSON('/api/nancy-search-competitors', { businessProfile: State.businessProfile });
+  let marketResult;
+  if (searchResult.available) {
+    marketResult = await postJSON('/api/nancy-structure-competitors', { searchText: searchResult.text, citations: searchResult.citations });
+    marketResult.available = true;
+  } else {
+    marketResult = { available: false, reason: searchResult.reason, competitors: [], citations: [] };
+  }
   State.competitors = marketResult.competitors || [];
   State.citations = marketResult.citations || [];
   setStage('market', 'done');
@@ -576,12 +750,83 @@ function renderPhotoThumbs() {
 
 document.getElementById('photos-back-btn').addEventListener('click', () => showStep('step-personalize'));
 document.getElementById('photos-skip-btn').addEventListener('click', () => { State.photos = []; startGeneration(); });
+
+// ── Logo upload — one logo, composited onto every rendered post ────────────
+const logoDrop = document.getElementById('logo-drop'), logoInput = document.getElementById('logo-input');
+logoDrop.addEventListener('click', () => logoInput.click());
+logoDrop.addEventListener('dragover', (e) => e.preventDefault());
+logoDrop.addEventListener('drop', (e) => { e.preventDefault(); handleLogoFile(e.dataTransfer.files[0]); });
+logoInput.addEventListener('change', () => handleLogoFile(logoInput.files[0]));
+
+function handleLogoFile(file) {
+  if (!file) return;
+  if (file.size > 6 * 1024 * 1024) { alert(`${file.name} is over 6MB — please use a smaller file.`); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    State.logo = { dataUri: reader.result, position: document.getElementById('logo-position').value || 'bottom-right' };
+    renderLogoPreview();
+  };
+  reader.readAsDataURL(file);
+}
+function renderLogoPreview() {
+  const hasLogo = !!State.logo;
+  document.getElementById('logo-drop-label').style.display = hasLogo ? 'none' : '';
+  const previewImg = document.getElementById('logo-preview');
+  previewImg.style.display = hasLogo ? 'block' : 'none';
+  if (hasLogo) previewImg.src = State.logo.dataUri;
+  document.getElementById('logo-controls').style.display = hasLogo ? 'flex' : 'none';
+}
+document.getElementById('logo-position').addEventListener('change', (e) => { if (State.logo) State.logo.position = e.target.value; });
+document.getElementById('logo-remove-btn').addEventListener('click', () => { State.logo = null; logoInput.value = ''; renderLogoPreview(); });
+
+// Composites State.logo onto a rendered asset using <canvas> — no server
+// dependency, and it works the same whether the asset came back as an
+// AI-generated PNG or an SVG fallback template, since both load into an
+// <img> the canvas can draw from. Runs client-side so it's a pure visual
+// finishing pass on top of whatever nancy-render-week.js already produced.
+function compositeLogo(asset) {
+  if (!State.logo) return Promise.resolve(asset);
+  return new Promise((resolve, reject) => {
+    const base = new Image();
+    base.onload = () => {
+      const logo = new Image();
+      logo.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = asset.width; canvas.height = asset.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(base, 0, 0, asset.width, asset.height);
+
+        const margin = Math.round(asset.width * 0.045);
+        const logoW = Math.round(asset.width * 0.16);
+        const logoH = Math.round(logoW * (logo.height / logo.width || 1));
+        const pos = State.logo.position || 'bottom-right';
+        const x = pos.includes('right') ? asset.width - logoW - margin : margin;
+        const y = pos.includes('bottom') ? asset.height - logoH - margin : margin;
+
+        ctx.save();
+        ctx.globalAlpha = 0.96;
+        ctx.drawImage(logo, x, y, logoW, logoH);
+        ctx.restore();
+
+        resolve({ ...asset, dataUri: canvas.toDataURL('image/png'), format: 'png', mimeType: 'image/png', hostedUrl: null });
+      };
+      logo.onerror = () => resolve(asset); // logo failed to decode — ship the post without it rather than failing generation
+      logo.src = State.logo.dataUri;
+    };
+    base.onerror = () => resolve(asset);
+    base.src = asset.dataUri;
+  });
+}
 document.getElementById('photos-continue-btn').addEventListener('click', () => startGeneration());
 
 // ── STEP 6: Generation ────────────────────────────────────────────────────
+// One post per call, not two batches — the fewer posts a single call has
+// to produce, the smaller and safer its output, which is what actually
+// stops truncation (see nancy-content-plan.js's maxTokens scaling by
+// batch size). Seven small, reliable calls beat one or two bigger ones
+// that occasionally blow past their budget.
 const GEN_STAGES = [
-  { key: 'plan', label: 'Designing your 7-day content plan' },
-  { key: 'render', label: 'Building your 7 finished graphics' },
+  ...[1, 2, 3, 4, 5, 6, 7].map(d => ({ key: `day${d}`, label: `Designing Day ${d}` })),
   { key: 'save', label: 'Saving your content week' },
 ];
 
@@ -590,21 +835,33 @@ async function startGeneration() {
   showStep('step-generating');
 
   try {
-    setStage('plan', 'active');
-    const planResult = await postJSON('/api/nancy-content-plan', {
+    const basePlanArgs = {
       businessProfile: State.businessProfile, brand: State.brand, strategy: State.strategy,
       personalization: State.personalization, previousTopics: State.previousTopics,
-    });
-    State.weekRationale = planResult.week_rationale;
-    setStage('plan', 'done');
+    };
 
-    setStage('render', 'active');
-    const renderResult = await postJSON('/api/nancy-render-week', {
-      posts: planResult.posts, brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
-    });
-    const assetsByDay = new Map(renderResult.assets.map(a => [a.day, a]));
-    State.posts = planResult.posts.map(p => ({ ...p, asset: assetsByDay.get(p.day) }));
-    setStage('render', 'done');
+    const planPosts = [];
+    let weekRationale = null;
+    for (const day of [1, 2, 3, 4, 5, 6, 7]) {
+      setStage(`day${day}`, 'active');
+      const priorPosts = planPosts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
+      const dayResult = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [day, day], priorPosts });
+      const post = dayResult.posts[0];
+      if (dayResult.week_rationale) weekRationale = dayResult.week_rationale;
+
+      // Render this single post right away — image generation is its own
+      // slow external call, so it gets its own request per day rather than
+      // batching all 7 into one call that would blow the 60s ceiling.
+      const renderResult = await postJSON('/api/nancy-render-week', {
+        post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
+        userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+      });
+      const finalAsset = await compositeLogo(renderResult.asset);
+      planPosts.push({ ...post, asset: finalAsset, cta_url: post.cta_url || State.websiteUrl });
+      setStage(`day${day}`, 'done');
+    }
+    State.weekRationale = weekRationale;
+    State.posts = planPosts;
 
     setStage('save', 'active');
     await persistWeek();
@@ -651,7 +908,7 @@ async function persistWeek() {
 
     const week = await NancyStore.createContentWeek(State.brandId, researchRun.id, State.weekNumber, { rationale: State.weekRationale });
     State.contentWeekId = week.id;
-    await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, rendered_svg: p.asset?.svg, rendered_asset_url: p.asset?.hostedUrl })));
+    await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, ...assetForSave(p) })));
     await NancyStore.setWeekStatus(week.id, 'ready');
   } catch (err) {
     console.warn('[Nancy] persistWeek failed (content still works this session):', err.message);
@@ -659,27 +916,40 @@ async function persistWeek() {
 }
 
 // ── STEP 7: Results ──────────────────────────────────────────────────────
+function ctaUrl(p) { return p.cta_url || State.websiteUrl || ''; }
+
+// Defensive against any upstream field that's supposed to be an array but
+// comes back as something else (a malformed/edge-case model response, a
+// half-populated history row, etc.) — `x || []` only protects against
+// falsy x; a truthy non-array (e.g. {}) still reaches .map and throws
+// "(intermediate value).map is not a function", which is exactly the
+// class of bug this guards against.
+function arr(x) { return Array.isArray(x) ? x : []; }
+
 function renderResults() {
-  document.getElementById('post-grid').innerHTML = State.posts.map(p => `
+  document.getElementById('post-grid').innerHTML = arr(State.posts).map(p => `
     <div class="post-card" data-day="${p.day}">
       <img src="${p.asset.dataUri}">
       <div class="post-card-body">
         <div class="post-card-day">Day ${p.day} — ${p.objective}</div>
         <div class="post-card-cap">${escapeHtml(p.caption)}</div>
+        ${ctaUrl(p) ? `<a class="post-card-cta-link" href="${escapeHtml(ctaUrl(p))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 ${escapeHtml(p.cta || 'Visit site')} — ${escapeHtml(ctaUrl(p).replace(/^https?:\/\//, ''))}</a>` : ''}
       </div>
     </div>`).join('');
   document.querySelectorAll('.post-card').forEach(card => card.addEventListener('click', () => openEditor(Number(card.dataset.day))));
 
-  document.getElementById('strategy-everyone').innerHTML = (State.strategy.what_everyone_says || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
-  document.getElementById('strategy-customers').innerHTML = (State.strategy.what_customers_care_about || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
-  document.getElementById('strategy-opportunity').textContent = State.strategy.where_opportunity_is || '';
-  document.getElementById('strategy-opps').innerHTML = (State.strategy.content_opportunities || []).map(o => `<div class="opp-card"><b>${escapeHtml(o.territory)}</b><p>${escapeHtml(o.rationale)}</p></div>`).join('');
+  const strategy = State.strategy || {};
+  document.getElementById('strategy-everyone').innerHTML = arr(strategy.what_everyone_says).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-customers').innerHTML = arr(strategy.what_customers_care_about).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  document.getElementById('strategy-opportunity').textContent = strategy.where_opportunity_is || '';
+  document.getElementById('strategy-opps').innerHTML = arr(strategy.content_opportunities).map(o => `<div class="opp-card"><b>${escapeHtml(o.territory)}</b><p>${escapeHtml(o.rationale)}</p></div>`).join('');
   document.getElementById('strategy-week-rationale').textContent = State.weekRationale || '';
 
-  document.getElementById('sources-competitors').innerHTML = State.competitors.length
-    ? State.competitors.map(c => `<div class="comp-card"><b>${escapeHtml(c.business_name)}</b> — <a href="${c.website}" target="_blank" rel="noopener">${escapeHtml(c.website)}</a><p style="color:var(--text2);font-size:13px;margin-top:6px;">${escapeHtml(c.positioning || '')}</p></div>`).join('')
+  const competitors = arr(State.competitors);
+  document.getElementById('sources-competitors').innerHTML = competitors.length
+    ? competitors.map(c => `<div class="comp-card"><b>${escapeHtml(c.business_name)}</b> — <a href="${c.website}" target="_blank" rel="noopener">${escapeHtml(c.website)}</a><p style="color:var(--text2);font-size:13px;margin-top:6px;">${escapeHtml(c.positioning || '')}</p></div>`).join('')
     : '<p style="color:var(--text3);font-size:13px;">No businesses were found or live research was unavailable for this run.</p>';
-  document.getElementById('sources-citations').innerHTML = (State.citations || []).map(c => {
+  document.getElementById('sources-citations').innerHTML = arr(State.citations).map(c => {
     const url = typeof c === 'string' ? c : c.url;
     return `<div class="source-item"><a href="${url}" target="_blank" rel="noopener">${escapeHtml(url)}</a></div>`;
   }).join('') || '<p style="color:var(--text3);font-size:13px;">No raw citations for this run.</p>';
@@ -705,6 +975,7 @@ function openEditor(day) {
   document.getElementById('edit-copy').value = p.slide_copy || '';
   document.getElementById('edit-caption').value = p.caption || '';
   document.getElementById('edit-cta').value = p.cta || '';
+  document.getElementById('edit-cta-url').value = ctaUrl(p);
   document.getElementById('post-modal').classList.add('open');
 }
 document.getElementById('modal-close-btn').addEventListener('click', () => document.getElementById('post-modal').classList.remove('open'));
@@ -715,6 +986,9 @@ document.getElementById('modal-save-btn').addEventListener('click', async () => 
   p.slide_copy = document.getElementById('edit-copy').value;
   p.caption = document.getElementById('edit-caption').value;
   p.cta = document.getElementById('edit-cta').value;
+  let ctaUrlValue = document.getElementById('edit-cta-url').value.trim();
+  if (ctaUrlValue && !/^https?:\/\//i.test(ctaUrlValue)) ctaUrlValue = 'https://' + ctaUrlValue;
+  p.cta_url = ctaUrlValue;
   await reRenderPost(p); // headline/copy/cta changed → the graphic needs to reflect it
   renderResults();
   document.getElementById('post-modal').classList.remove('open');
@@ -748,34 +1022,80 @@ document.querySelectorAll('.action-row [data-action]').forEach(btn => {
 });
 
 async function reRenderPost(post) {
-  const renderResult = await postJSON('/api/nancy-render-week', { posts: [post], brand: State.brand, userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })) });
-  post.asset = renderResult.assets[0];
+  const renderResult = await postJSON('/api/nancy-render-week', {
+    post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
+    userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
+  });
+  post.asset = await compositeLogo(renderResult.asset);
   if (window.NancyStore && State.contentWeekId) {
-    try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, rendered_svg: p.asset.svg, rendered_asset_url: p.asset.hostedUrl }))); } catch {}
+    try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, ...assetForSave(p) }))); } catch {}
   }
+}
+
+// AI-generated posts (asset.format === 'ai') are PNGs with no SVG source —
+// rendered_svg only makes sense for the SVG fallback path. When there's no
+// R2 hosted copy (R2 unconfigured), fall back to persisting the data: URI
+// itself in rendered_asset_url so the post still survives a reload — a
+// data: URI is a valid <img src> just like a real hosted URL.
+function assetForSave(p) {
+  const a = p.asset || {};
+  return {
+    rendered_svg: a.format === 'svg' ? a.svg : null,
+    rendered_asset_url: a.hostedUrl || a.dataUri || null,
+    // cta_url has no dedicated column — it rides in design_data (JSONB)
+    // instead of requiring a schema migration.
+    design_data: { ...(p.design_data || {}), cta_url: ctaUrl(p) },
+  };
 }
 
 document.getElementById('modal-copy-caption-btn').addEventListener('click', () => {
   const p = State.posts.find(x => x.day === editingDay);
   navigator.clipboard?.writeText(p.caption || '');
 });
-document.getElementById('modal-download-btn').addEventListener('click', () => {
+document.getElementById('modal-download-btn').addEventListener('click', async () => {
   const p = State.posts.find(x => x.day === editingDay);
-  downloadSvg(p.asset.svg, `nancy-day${p.day}.svg`);
+  await downloadAsset(p.asset, `nancy-day${p.day}`);
 });
 
-function downloadSvg(svgText, fileName) {
-  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+async function downloadAsset(asset, fileNameBase) {
+  const isSvg = asset.format === 'svg';
+  const blob = await assetToBlob(asset);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = fileName;
+  a.href = url; a.download = `${fileNameBase}.${isSvg ? 'svg' : 'png'}`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Handles all three shapes an asset's image can be in: SVG source text
+// (the deterministic fallback templates), a data: URI (what a fresh
+// generation always returns), or a real hosted https:// URL (what a post
+// reopened from history has when it was originally rendered with R2
+// configured — nancy-render-week.js never puts a hosted URL in dataUri
+// itself, but reopening a saved week reconstructs dataUri from whichever
+// of rendered_asset_url/rendered_svg the database actually has).
+async function assetToBlob(asset) {
+  if (asset.format === 'svg' && asset.svg) return new Blob([asset.svg], { type: 'image/svg+xml' });
+  if (asset.dataUri.startsWith('data:')) return dataUriToBlob(asset.dataUri);
+  const res = await fetch(asset.dataUri);
+  return await res.blob();
+}
+
+function dataUriToBlob(dataUri) {
+  const [header, b64] = dataUri.split(',');
+  const mime = header.match(/data:(.*?);base64/)?.[1] || 'image/png';
+  return new Blob([dataUriToArrayBuffer(dataUri)], { type: mime });
+}
+
+function dataUriToArrayBuffer(dataUri) {
+  const b64 = dataUri.split(',')[1];
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return bytes.buffer;
+}
+
 // ── Downloads: copy-all, ZIP, print calendar, another week ─────────────────
 document.getElementById('copy-all-captions-btn').addEventListener('click', () => {
-  const text = State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n');
+  const text = State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}${ctaUrl(p) ? `\n${p.cta || 'Link'}: ${ctaUrl(p)}` : ''}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n');
   navigator.clipboard?.writeText(text);
 });
 
@@ -786,7 +1106,7 @@ document.getElementById('print-calendar-btn').addEventListener('click', () => {
       <h3>Day ${p.day} — ${escapeHtml(p.objective)}</h3>
       <img src="${p.asset.dataUri}" style="width:200px;float:left;margin-right:16px;border-radius:8px;">
       <p><b>Caption:</b> ${escapeHtml(p.caption)}</p>
-      <p><b>CTA:</b> ${escapeHtml(p.cta || '')}</p>
+      <p><b>CTA:</b> ${escapeHtml(p.cta || '')}${ctaUrl(p) ? ` → <a href="${escapeHtml(ctaUrl(p))}">${escapeHtml(ctaUrl(p))}</a>` : ''}</p>
       <p><b>Posting notes:</b> ${escapeHtml(p.visual_direction || '')}</p>
       <div style="clear:both;"></div>
     </div>`).join('');
@@ -798,6 +1118,52 @@ document.getElementById('another-week-btn').addEventListener('click', async () =
   State.previousTopics = [...State.previousTopics, ...State.posts.map(p => p.content_pillar)];
   State.weekNumber += 1;
   await startGeneration();
+});
+
+// ── Send to Content Calendar — plugs Nancy into the same social_posts
+// pipeline Social Studio and the LinkedIn agent already use, rather than
+// building a second scheduler/publisher. Once here, Beeker's Content
+// Calendar tab schedules the time and api/cron-auto-publish.js (via
+// api/publish-social-post.js's real Facebook/Instagram/LinkedIn/X/TikTok
+// adapters) publishes it for real once real platform credentials exist in
+// Vercel — no code changes needed on either side to go from "queued" to
+// "actually posted".
+document.getElementById('send-to-calendar-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('calendar-send-status');
+  const platforms = [...document.querySelectorAll('#calendar-platform-picker input:checked')].map(el => el.value);
+  if (!platforms.length) { statusEl.textContent = 'Pick at least one platform first.'; return; }
+  if (!window.SocialPostsStore) { statusEl.textContent = 'Content Calendar isn\'t available right now.'; return; }
+
+  const btn = document.getElementById('send-to-calendar-btn');
+  btn.disabled = true;
+  statusEl.textContent = 'Sending…';
+  try {
+    let hasDataUriOnly = false;
+    const rows = [];
+    for (const p of State.posts) {
+      const imageUrl = p.asset?.hostedUrl || p.asset?.dataUri || '';
+      if (imageUrl.startsWith('data:')) hasDataUriOnly = true;
+      for (const platform of platforms) {
+        rows.push({
+          source: 'nancy', platform,
+          headline: p.slide_headline, body: p.caption, cta: p.cta, hashtags: p.hashtags || [],
+          visualDirection: p.visual_direction, imageUrl,
+          metadata: { day: p.day, objective: p.objective, content_pillar: p.content_pillar, cta_url: ctaUrl(p), nancy_content_week_id: State.contentWeekId || null },
+        });
+      }
+    }
+
+    const { posts: saved } = await window.SocialPostsStore.createBatch(rows);
+    const ids = saved.map(r => r.id).join(',');
+    const warn = hasDataUriOnly && platforms.some(p => p === 'Instagram' || p === 'TikTok')
+      ? ' Note: Instagram/TikTok need a real hosted image (configure R2 in Vercel) — these are currently only in-browser images, so those two platforms will show "failed" until R2 is set up.'
+      : '';
+    statusEl.innerHTML = `Sent ${State.posts.length} posts × ${platforms.length} platform${platforms.length > 1 ? 's' : ''} to the Content Calendar.${warn} <a href="/agents/audience-agent.html?tab=calendar&schedulePosts=${ids}">Open the Content Calendar to schedule them →</a>`;
+  } catch (err) {
+    statusEl.textContent = 'Could not send to Content Calendar: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // ── Minimal ZIP (STORE method, no compression) — zero dependencies ─────────
@@ -852,8 +1218,14 @@ function buildZip(files) { // files: [{name, data: Uint8Array}]
 }
 
 async function buildAndDownloadZip() {
-  const files = State.posts.map(p => ({ name: `day-${p.day}-${(p.objective||'post').replace(/\s+/g,'-').toLowerCase()}.svg`, data: new TextEncoder().encode(p.asset.svg) }));
-  files.push({ name: 'captions.txt', data: new TextEncoder().encode(State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n')) });
+  const files = await Promise.all(State.posts.map(async p => {
+    const isSvg = p.asset.format === 'svg';
+    const slug = (p.objective || 'post').replace(/\s+/g, '-').toLowerCase();
+    const blob = await assetToBlob(p.asset);
+    const data = new Uint8Array(await blob.arrayBuffer());
+    return { name: `day-${p.day}-${slug}.${isSvg ? 'svg' : 'png'}`, data };
+  }));
+  files.push({ name: 'captions.txt', data: new TextEncoder().encode(State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}${ctaUrl(p) ? `\n${p.cta || 'Link'}: ${ctaUrl(p)}` : ''}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n')) });
   const blob = buildZip(files);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

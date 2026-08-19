@@ -133,6 +133,39 @@ window.NancyStore = (function () {
     return data || [];
   }
 
+  /**
+   * Every brand this user has ever run Nancy on, each with its content
+   * weeks and post counts — the full "My Weeks" history view in one round
+   * trip via PostgREST's nested embedding, rather than N+1 queries.
+   */
+  async function listAllWeeksForUser() {
+    const client = getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return [];
+    const { data, error } = await client.from('nancy_brands')
+      .select('*, nancy_content_weeks(id, week_number, status, strategy, created_at, nancy_posts(id))')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) { console.warn('[NancyStore] listAllWeeksForUser failed:', error.message); return []; }
+    return data || [];
+  }
+
+  /**
+   * One content week fully hydrated — posts, and (via the research run) the
+   * strategy/competitor/citation data the results page's other two tabs
+   * need — so reopening a past week from history looks the same as just
+   * having generated it.
+   */
+  async function getWeekDetail(weekId) {
+    const client = getSupabase();
+    if (!client) return null;
+    const { data, error } = await client.from('nancy_content_weeks')
+      .select('*, nancy_posts(*), nancy_brands(*), nancy_research_runs(*, nancy_competitors(*), nancy_source_documents(*))')
+      .eq('id', weekId).single();
+    if (error) { console.warn('[NancyStore] getWeekDetail failed:', error.message); return null; }
+    return data;
+  }
+
   async function savePhotoRecord(userId, brandId, storageUrl, metadata) {
     const client = getSupabase();
     if (!client) return null;
@@ -145,6 +178,7 @@ window.NancyStore = (function () {
     getUserId, createBrand, updateBrand, listBrands,
     createResearchRun, saveCompetitors, saveSourceDocuments,
     createContentWeek, savePosts, updatePost, setWeekStatus, listContentWeeks,
+    listAllWeeksForUser, getWeekDetail,
     savePhotoRecord,
   };
 })();

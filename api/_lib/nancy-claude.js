@@ -17,13 +17,14 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6';
 /**
  * @param {object} opts
  * @param {string} opts.system - system prompt
- * @param {string} opts.user - user message (the actual task/content to analyze)
+ * @param {string|Array} opts.user - user message: a plain string, or an array
+ *   of Anthropic content blocks (e.g. image + text) for vision input
  * @param {object} opts.tool - { name, description, input_schema } — JSON Schema for the forced tool call
  * @param {number} [opts.maxTokens]
  * @param {number} [opts.timeoutMs]
  * @returns {Promise<{success:true, data:object, usage:object} | {success:false, error:string}>}
  */
-async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeoutMs = 55000 }) {
+async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeoutMs = 50000 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { success: false, error: 'ANTHROPIC_API_KEY not configured' };
 
@@ -61,6 +62,7 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
   let usage = null;
   let sawToolUse = false;
   let streamError = null;
+  let stopReason = null;
 
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
@@ -82,6 +84,7 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
       usage = payload.message?.usage || null;
     } else if (payload.type === 'message_delta') {
       usage = { ...(usage || {}), ...(payload.usage || {}) };
+      if (payload.delta?.stop_reason) stopReason = payload.delta.stop_reason;
     } else if (payload.type === 'error') {
       streamError = payload.error?.message || 'Anthropic stream error';
     }
@@ -108,6 +111,14 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
   try {
     return { success: true, data: JSON.parse(toolInputJson), usage };
   } catch {
+    // The single most common real cause of "valid tool_use started but the
+    // accumulated JSON doesn't parse" is stop_reason === 'max_tokens' — the
+    // response got cut off mid-generation before the JSON object closed.
+    // Surface that distinctly so it's diagnosable (and so a caller knows to
+    // raise its maxTokens) instead of a generic, unactionable message.
+    if (stopReason === 'max_tokens') {
+      return { success: false, error: 'Claude\'s response was cut off before it finished (hit the output length limit). Try again with a smaller request.' };
+    }
     return { success: false, error: 'Claude returned malformed structured output. Try again.' };
   }
 }

@@ -2036,6 +2036,29 @@
     }
   }
 
+  // IntelligenceEngine.brain.save() writes to localStorage synchronously
+  // (instant) and mirrors to Supabase in the background — the autosave
+  // badge above used to say "Saved" the instant the local write finished,
+  // with zero visibility into whether the cloud half actually succeeded.
+  // A user could be 100% complete and see "Saved" on every keystroke while
+  // every cloud push was silently failing underneath (no active profile,
+  // an RLS policy, a schema mismatch) — this is exactly what "the system
+  // isn't saving Business Brain" looks like from the outside. Listen for
+  // the real outcome and correct the badge/status if the cloud half failed.
+  window.addEventListener('businessbrain:cloud-sync', (e) => {
+    const { ok, noScope } = e.detail || {};
+    if (ok) return; // cloud sync succeeded — the "Saved" badge from performSave() is accurate
+
+    const badge = document.getElementById('autosaveBadge');
+    if (badge) {
+      badge.textContent = noScope ? 'Saved locally only — no profile selected' : 'Saved locally — cloud sync failed';
+      badge.className = 'autosave-badge';
+    }
+    showSaveStatus('error', noScope
+      ? 'This is only saved on this device/browser — select or create an intelligence profile above so it syncs to your account.'
+      : 'Saved on this device, but the cloud sync failed — it will NOT be visible on other devices or survive clearing browser data. Check the browser console for the specific error, or contact support if this keeps happening.');
+  });
+
   /* ── Live score recalculation on every input ─────────────────────────────── */
 
   function recalcScore() {

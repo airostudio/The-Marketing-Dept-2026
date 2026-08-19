@@ -22,37 +22,52 @@
 // "never invent companies, every one needs a real source URL" requires.
 // A Tavily/Exa/Serper/Brave adapter could replace this by implementing the
 // same { query } -> { answer, citations: [{url,title}] } contract.
-async function searchProvider(query, { systemPrompt, maxTokens = 2000 } = {}) {
+async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
     return { available: false, reason: 'PERPLEXITY_API_KEY not configured — live web research is unavailable.' };
   }
 
-  const res = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [
-        { role: 'system', content: systemPrompt || 'You are a rigorous market research analyst. Only report real, verifiable businesses and facts you can cite. Never invent a company or URL.' },
-        { role: 'user', content: query },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.2,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
+  try {
+    // This is the only slow call inside api/nancy-search-competitors.js —
+    // the structuring step that used to run in the same invocation now
+    // lives in its own function (api/nancy-structure-competitors.js), so
+    // this gets a generous standalone budget instead of splitting one 60s
+    // function ceiling two ways.
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          { role: 'system', content: systemPrompt || 'You are a rigorous market research analyst. Only report real, verifiable businesses and facts you can cite. Never invent a company or URL.' },
+          { role: 'user', content: query },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(50000),
+    });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+    return { available: true, text, citations };
+  } catch (err) {
+    // A timeout/network failure here must never throw — every Nancy caller
+    // relies on the "always returns {available, reason}, never throws"
+    // contract documented at the top of this file. An uncaught rejection
+    // would crash the whole handler with a non-JSON response instead of a
+    // real error message.
+    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+    return { available: false, reason: isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}` };
   }
-
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content || '';
-  const citations = data.citations || [];
-  return { available: true, text, citations };
 }
 
 // ── Screenshot provider ──────────────────────────────────────────────────────
@@ -93,7 +108,7 @@ async function screenshotProvider(targetUrl) {
         force: '1', // bypass screenshotlayer's own cache — Nancy wants the live current page
       });
       const res = await fetch(`https://api.screenshotlayer.com/api/capture?${params.toString()}`, {
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(40000),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -123,7 +138,7 @@ async function screenshotProvider(targetUrl) {
         cache: 'true',
       });
       const res = await fetch(`https://api.screenshotone.com/take?${params.toString()}`, {
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(40000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());
@@ -136,7 +151,7 @@ async function screenshotProvider(targetUrl) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(40000),
       });
       if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
       const buf = Buffer.from(await res.arrayBuffer());
@@ -150,22 +165,59 @@ async function screenshotProvider(targetUrl) {
 }
 
 // ── Image generation provider ────────────────────────────────────────────────
-// For backgrounds/illustrations only — the Nancy rendering engine never asks
-// a generative model to render exact text (see render-social-image.js's
-// deterministic SVG text layer). Contract: { prompt, width, height } ->
-// { buffer, mimeType }. Currently unconfigured by default; when
-// IMAGE_GEN_API_KEY is absent, the rendering engine falls back to a
-// programmatic gradient/pattern background derived from the brand palette,
-// which is a legitimate on-brand result, not a placeholder.
+// Generates the finished post image directly (not just a background) — the
+// prompt bakes in the brand palette and the exact headline/copy/CTA text so
+// the model renders a complete, trending Instagram graphic. Contract:
+// { prompt, width, height } -> { available, buffer, mimeType } |
+// { available:false, reason }. Currently implements OpenAI's gpt-image-1;
+// IMAGE_GEN_PROVIDER exists to swap to another service later without
+// touching any caller. When IMAGE_GEN_API_KEY is absent (or the call fails),
+// callers fall back to the deterministic SVG templates — a legitimate
+// on-brand result, not a placeholder.
 async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
   const apiKey = process.env.IMAGE_GEN_API_KEY;
   if (!apiKey) {
-    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — using a programmatic brand-colour background instead of a generated one.' };
+    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.' };
   }
-  // Adapter left intentionally thin: point IMAGE_GEN_PROVIDER at a concrete
-  // service (e.g. 'openai' for gpt-image, 'stability') once a key exists —
-  // the rendering engine only needs { buffer, mimeType } back.
-  return { available: false, reason: 'IMAGE_GEN_API_KEY is set but no provider implementation is wired yet — add one in api/_lib/nancy-providers.js#imageGenProvider.' };
+
+  const provider = (process.env.IMAGE_GEN_PROVIDER || 'openai').toLowerCase();
+
+  try {
+    if (provider === 'openai') {
+      // gpt-image-1 only supports 1024x1024, 1024x1536, 1536x1024, or
+      // 'auto' — pick the closest portrait size to a 4:5 Instagram post and
+      // let the caller lay the result into its own canvas.
+      const aspect = width / height;
+      const size = aspect < 0.9 ? '1024x1536' : aspect > 1.1 ? '1536x1024' : '1024x1024';
+      // 'high' looks best but costs ~3x 'medium' per image — default to
+      // 'medium' (a real, still-good-quality tier) and let IMAGE_GEN_QUALITY
+      // override it ('low' | 'medium' | 'high') without a code change.
+      const quality = (process.env.IMAGE_GEN_QUALITY || 'medium').toLowerCase();
+
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality, n: 1 }),
+        signal: AbortSignal.timeout(50000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return { available: false, reason: `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}` };
+      }
+
+      const data = await res.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      if (!b64) return { available: false, reason: 'OpenAI image generation returned no image data.' };
+
+      return { available: true, buffer: Buffer.from(b64, 'base64'), mimeType: 'image/png' };
+    }
+
+    return { available: false, reason: `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai.` };
+  } catch (err) {
+    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+    return { available: false, reason: isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}` };
+  }
 }
 
 module.exports = { searchProvider, screenshotProvider, imageGenProvider };

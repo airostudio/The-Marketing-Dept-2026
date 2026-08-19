@@ -25,12 +25,28 @@ window.IntelligenceProfiles = (function () {
     return window.Supabase?.getClient?.() || null;
   }
 
+  // auth.getUser() re-verifies the JWT against Supabase's auth server on
+  // every call, unlike getSession() (a local cache read) — a transient
+  // network blip or a brief post-login token-refresh window makes
+  // getUser() fail even when the session is genuinely valid. Without a
+  // fallback, ensureActiveProfile() below sees "signed out", bails, and no
+  // profile gets activated — which is exactly what "I logged back in and
+  // my Business Brain disappeared" looks like from the outside, even
+  // though the data was never touched. Same fix already applied to
+  // NancyStore/SocialPostsStore after finding this bug there.
   async function getUserId() {
     const client = getSupabase();
     if (!client) return null;
     try {
-      const { data: { user } } = await client.auth.getUser();
-      return user?.id || null;
+      const { data: { user }, error } = await client.auth.getUser();
+      if (user) return user.id;
+      if (error) throw error;
+    } catch (err) {
+      console.warn('[IntelligenceProfiles] auth.getUser() failed, falling back to cached session:', err.message);
+    }
+    try {
+      const { data: { session } } = await client.auth.getSession();
+      return session?.user?.id || null;
     } catch { return null; }
   }
 

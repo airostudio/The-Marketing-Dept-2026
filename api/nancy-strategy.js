@@ -41,8 +41,8 @@ const STRATEGY_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      what_everyone_says: { type: 'array', items: { type: 'string' }, description: 'Repeated messages/claims/themes common across the researched businesses' },
-      what_customers_care_about: { type: 'array', items: { type: 'string' }, description: 'Problems, fears, questions, objections, aspirations that appear important' },
+      what_everyone_says: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'Repeated messages/claims/themes common across the researched businesses' },
+      what_customers_care_about: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'Problems, fears, questions, objections, aspirations that appear important' },
       where_opportunity_is: { type: 'string', description: '2-4 sentences: what this specific brand could say that would make it more distinctive' },
       content_opportunities: {
         type: 'array',
@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
 
   const user = `BUSINESS PROFILE:\n${JSON.stringify(businessProfile, null, 2)}\n\nBRAND IDENTITY:\n${JSON.stringify(brand || {}, null, 2)}\n\nCOMPETITOR RESEARCH (${competitors.length} businesses found):\n${JSON.stringify(competitors, null, 2)}\n\nProduce the strategic analysis and 5-10 content opportunities.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: STRATEGY_TOOL, maxTokens: 2500 });
+  const result = await callClaudeForJSON({ system, user, tool: STRATEGY_TOOL, maxTokens: 3000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({ success: true, strategy: result.data });
