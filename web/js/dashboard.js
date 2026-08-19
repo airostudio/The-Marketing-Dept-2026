@@ -639,64 +639,18 @@
     // CHARTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function initCharts() {
-        // Traffic Chart
-        initTrafficChart();
-
-        // Rankings Distribution Chart
-        initRankingsChart();
-
-        // Backlinks Trend Chart
-        initBacklinksChart();
-    }
-
-    function initTrafficChart() {
-        const canvas = document.getElementById('trafficChart');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-
-        // Sample data
-        const data = {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            organic: [28500, 32100, 35400, 38200],
-            referral: [4200, 4800, 5100, 5600],
-            direct: [8900, 9200, 9800, 10400]
-        };
-
-        // Draw chart (simplified SVG-based chart)
-        drawLineChart(ctx, canvas, data);
-    }
-
-    function initRankingsChart() {
-        const container = document.getElementById('rankingsChart');
-        if (!container) return;
-
-        // Create donut chart for ranking distribution
-        const data = [
-            { label: 'Top 3', value: 45, color: CONFIG.chartColors.success },
-            { label: 'Top 10', value: 120, color: CONFIG.chartColors.primary },
-            { label: 'Top 20', value: 85, color: CONFIG.chartColors.info },
-            { label: 'Top 50', value: 60, color: CONFIG.chartColors.warning },
-            { label: '50+', value: 30, color: CONFIG.chartColors.error }
-        ];
-
-        createDonutChart(container, data);
-    }
-
-    function initBacklinksChart() {
-        const canvas = document.getElementById('backlinksChart');
-        if (!canvas) return;
-
-        // Draw backlinks trend chart
-        const ctx = canvas.getContext('2d');
-        const data = {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            values: [1250, 1380, 1520, 1780, 2100, 2450]
-        };
-
-        drawAreaChart(ctx, canvas, data);
-    }
+    // initCharts()/initTrafficChart()/initRankingsChart()/initBacklinksChart()
+    // used to live here and render hardcoded "sample data" (fake weekly
+    // traffic, a fake ranking distribution, a fake backlink trend) as if it
+    // were real. They had no live caller — initEmptyChartStates() is what
+    // actually runs, and correctly shows an honest "No Traffic Data,
+    // configure your API connection" empty state instead. Removed outright
+    // rather than left dormant, since dormant-but-wired fake-data code is
+    // exactly the kind of thing that gets silently reconnected in a future
+    // refactor. drawLineChart/drawAreaChart/createDonutChart below are kept
+    // — they're real, data-agnostic rendering primitives, not fake data —
+    // for whenever real chart data (GA4 traffic, real ranking buckets, a
+    // real backlink history) gets wired in.
 
     function drawLineChart(ctx, canvas, data) {
         const width = canvas.width = canvas.offsetWidth * 2;
@@ -1425,7 +1379,7 @@
         if (analysisComplete && analysisResults) {
             try {
                 const data = JSON.parse(analysisResults);
-                updateDashboardWithAnalysisData(data);
+                await updateDashboardWithAnalysisData(data);
                 console.log('Loaded dashboard with analysis data');
                 return;
             } catch (error) {
@@ -1449,7 +1403,7 @@
         }
     }
 
-    function updateDashboardWithAnalysisData(data) {
+    async function updateDashboardWithAnalysisData(data) {
         // Update health score
         const scoreEl = document.querySelector('[data-metric="health-score"]');
         if (scoreEl) scoreEl.textContent = data.healthScore || '--';
@@ -1469,20 +1423,39 @@
             }
         }
 
-        // Update organic traffic (from summary)
-        if (data.summary) {
-            const trafficEl = document.querySelector('[data-metric="organic-traffic"]');
-            if (trafficEl) {
-                // Estimate traffic based on keywords and pages
-                const estimatedTraffic = data.summary.totalKeywords * 10 + data.summary.totalPages * 50;
-                trafficEl.textContent = formatNumber(estimatedTraffic);
-            }
+        // Organic traffic/sessions used to be a made-up formula
+        // (keywords*10 + pages*50, pages*100) presented as if it were real
+        // analytics — it wasn't measuring anything and was silently NaN
+        // besides (totalKeywords was never a field on data.summary). Pull
+        // real numbers from Google Analytics when the account is actually
+        // connected; otherwise say so honestly instead of showing a
+        // fabricated number that looks like a real metric.
+        const trafficEl = document.querySelector('[data-metric="organic-traffic"]');
+        const trafficTrendEl = document.querySelector('[data-metric="traffic-trend"]');
+        const sessionsEl = document.querySelector('[data-metric="traffic-sessions"]');
 
-            const sessionsEl = document.querySelector('[data-metric="traffic-sessions"]');
-            if (sessionsEl) {
-                const totalSessions = data.summary.totalPages * 100;
-                sessionsEl.textContent = formatNumber(totalSessions);
+        if (window.ProductionAPI?.getTraffic) {
+            try {
+                const traffic = await window.ProductionAPI.getTraffic(30);
+                if (traffic && !traffic.error && traffic.overview) {
+                    if (trafficEl) trafficEl.textContent = formatNumber(traffic.overview.users || 0);
+                    if (sessionsEl) sessionsEl.textContent = formatNumber(traffic.overview.sessions || 0);
+                    if (trafficTrendEl) { trafficTrendEl.textContent = 'Last 30 days (GA4)'; trafficTrendEl.className = 'trend trend-neutral'; }
+                } else {
+                    if (trafficEl) trafficEl.textContent = '--';
+                    if (sessionsEl) sessionsEl.textContent = '--';
+                    if (trafficTrendEl) { trafficTrendEl.textContent = 'Connect Google Analytics in Settings'; trafficTrendEl.className = 'trend trend-neutral'; }
+                }
+            } catch (error) {
+                console.warn('Analytics fetch failed:', error);
+                if (trafficEl) trafficEl.textContent = '--';
+                if (sessionsEl) sessionsEl.textContent = '--';
+                if (trafficTrendEl) { trafficTrendEl.textContent = 'Connect Google Analytics in Settings'; trafficTrendEl.className = 'trend trend-neutral'; }
             }
+        } else {
+            if (trafficEl) trafficEl.textContent = '--';
+            if (sessionsEl) sessionsEl.textContent = '--';
+            if (trafficTrendEl) { trafficTrendEl.textContent = 'Connect Google Analytics in Settings'; trafficTrendEl.className = 'trend trend-neutral'; }
         }
 
         // Update keywords
@@ -1492,8 +1465,17 @@
 
             const top10El = document.querySelector('[data-metric="keywords-top10"]');
             if (top10El) {
-                const top10Count = data.keywords.filter(k => k.position <= 10).length;
-                top10El.textContent = `${top10Count} in Top 10`;
+                // position is only ever set when real Search Console
+                // ranking data is present (extractKeywordsFromPages never
+                // sets it) — showing "0 in Top 10" in that case reads as a
+                // real (bad) ranking result rather than "not measured".
+                const hasRankingData = data.keywords.some(k => typeof k.position === 'number');
+                if (hasRankingData) {
+                    const top10Count = data.keywords.filter(k => k.position <= 10).length;
+                    top10El.textContent = `${top10Count} in Top 10`;
+                } else {
+                    top10El.textContent = 'Rankings not tracked';
+                }
             }
         }
 
@@ -1612,11 +1594,6 @@
                 }, 500);
             }
         });
-    }
-
-    function updateCharts() {
-        // Reinitialize charts with new data
-        initCharts();
     }
 
     function updateActivityFeed() {
