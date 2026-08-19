@@ -264,6 +264,26 @@
       <div>📸 Click to upload, or drag photos here</div>
     </div>
     <div class="photo-thumbs" id="photo-thumbs"></div>
+
+    <h2 style="font-size:20px;margin-top:36px;margin-bottom:10px;">Your logo <span style="font-weight:400;color:var(--text3);font-size:14px;">(optional)</span></h2>
+    <p class="sub" style="text-align:left;max-width:560px;">Upload your logo once and every post this week — and every week after — will carry it in the same spot, so your Instagram grid reads as one consistent brand. PNG with a transparent background works best.</p>
+    <div class="photo-drop" id="logo-drop" style="padding:24px 20px;">
+      <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+      <div id="logo-drop-label">🏷️ Click to upload your logo, or drag it here</div>
+      <img id="logo-preview" style="display:none;max-height:72px;max-width:200px;margin:0 auto;border-radius:8px;">
+    </div>
+    <div id="logo-controls" style="display:none;gap:14px;align-items:center;margin-top:14px;">
+      <label style="font-size:13px;color:var(--text2);">Position:
+        <select id="logo-position" style="margin-left:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);">
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+      <button class="btn btn-ghost btn-sm" id="logo-remove-btn">Remove logo</button>
+    </div>
+
     <div style="display:flex;justify-content:space-between;gap:10px;margin-top:26px;">
       <button class="btn btn-ghost" id="photos-skip-btn">Skip — use graphics only</button>
       <div style="display:flex;gap:10px;">
@@ -360,6 +380,7 @@ const State = {
   websiteUrl: '', businessProfile: null, brand: null, screenshot: null,
   competitors: [], citations: [], strategy: null, personalization: {},
   photos: [], // [{dataUri, storageUrl}]
+  logo: null, // { dataUri, position: 'bottom-right'|'bottom-left'|'top-right'|'top-left' }
   weekRationale: '', posts: [], // final posts with rendered assets
   brandId: null, contentWeekId: null, weekNumber: 1, previousTopics: [],
 };
@@ -597,6 +618,73 @@ function renderPhotoThumbs() {
 
 document.getElementById('photos-back-btn').addEventListener('click', () => showStep('step-personalize'));
 document.getElementById('photos-skip-btn').addEventListener('click', () => { State.photos = []; startGeneration(); });
+
+// ── Logo upload — one logo, composited onto every rendered post ────────────
+const logoDrop = document.getElementById('logo-drop'), logoInput = document.getElementById('logo-input');
+logoDrop.addEventListener('click', () => logoInput.click());
+logoDrop.addEventListener('dragover', (e) => e.preventDefault());
+logoDrop.addEventListener('drop', (e) => { e.preventDefault(); handleLogoFile(e.dataTransfer.files[0]); });
+logoInput.addEventListener('change', () => handleLogoFile(logoInput.files[0]));
+
+function handleLogoFile(file) {
+  if (!file) return;
+  if (file.size > 6 * 1024 * 1024) { alert(`${file.name} is over 6MB — please use a smaller file.`); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    State.logo = { dataUri: reader.result, position: document.getElementById('logo-position').value || 'bottom-right' };
+    renderLogoPreview();
+  };
+  reader.readAsDataURL(file);
+}
+function renderLogoPreview() {
+  const hasLogo = !!State.logo;
+  document.getElementById('logo-drop-label').style.display = hasLogo ? 'none' : '';
+  const previewImg = document.getElementById('logo-preview');
+  previewImg.style.display = hasLogo ? 'block' : 'none';
+  if (hasLogo) previewImg.src = State.logo.dataUri;
+  document.getElementById('logo-controls').style.display = hasLogo ? 'flex' : 'none';
+}
+document.getElementById('logo-position').addEventListener('change', (e) => { if (State.logo) State.logo.position = e.target.value; });
+document.getElementById('logo-remove-btn').addEventListener('click', () => { State.logo = null; logoInput.value = ''; renderLogoPreview(); });
+
+// Composites State.logo onto a rendered asset using <canvas> — no server
+// dependency, and it works the same whether the asset came back as an
+// AI-generated PNG or an SVG fallback template, since both load into an
+// <img> the canvas can draw from. Runs client-side so it's a pure visual
+// finishing pass on top of whatever nancy-render-week.js already produced.
+function compositeLogo(asset) {
+  if (!State.logo) return Promise.resolve(asset);
+  return new Promise((resolve, reject) => {
+    const base = new Image();
+    base.onload = () => {
+      const logo = new Image();
+      logo.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = asset.width; canvas.height = asset.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(base, 0, 0, asset.width, asset.height);
+
+        const margin = Math.round(asset.width * 0.045);
+        const logoW = Math.round(asset.width * 0.16);
+        const logoH = Math.round(logoW * (logo.height / logo.width || 1));
+        const pos = State.logo.position || 'bottom-right';
+        const x = pos.includes('right') ? asset.width - logoW - margin : margin;
+        const y = pos.includes('bottom') ? asset.height - logoH - margin : margin;
+
+        ctx.save();
+        ctx.globalAlpha = 0.96;
+        ctx.drawImage(logo, x, y, logoW, logoH);
+        ctx.restore();
+
+        resolve({ ...asset, dataUri: canvas.toDataURL('image/png'), format: 'png', mimeType: 'image/png', hostedUrl: null });
+      };
+      logo.onerror = () => resolve(asset); // logo failed to decode — ship the post without it rather than failing generation
+      logo.src = State.logo.dataUri;
+    };
+    base.onerror = () => resolve(asset);
+    base.src = asset.dataUri;
+  });
+}
 document.getElementById('photos-continue-btn').addEventListener('click', () => startGeneration());
 
 // ── STEP 6: Generation ────────────────────────────────────────────────────
@@ -636,7 +724,8 @@ async function startGeneration() {
         post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
         userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
       });
-      planPosts.push({ ...post, asset: renderResult.asset, cta_url: post.cta_url || State.websiteUrl });
+      const finalAsset = await compositeLogo(renderResult.asset);
+      planPosts.push({ ...post, asset: finalAsset, cta_url: post.cta_url || State.websiteUrl });
       setStage(`day${day}`, 'done');
     }
     State.weekRationale = weekRationale;
@@ -795,7 +884,7 @@ async function reRenderPost(post) {
     post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
     userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
   });
-  post.asset = renderResult.asset;
+  post.asset = await compositeLogo(renderResult.asset);
   if (window.NancyStore && State.contentWeekId) {
     try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, ...assetForSave(p) }))); } catch {}
   }
