@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Content Engine | Audema - Your AI Marketing Department</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/intelligence-profiles.js"></script>
+<script src="/js/site-switcher.js"></script>
+<script src="/js/seo-pipeline-store.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #06b6d4; --accent2: #0891b2;
+    --bg: #0a0a10; --panel: #111117; --panel2: #16161f; --border: rgba(255,255,255,0.09);
+    --text: #f5f5f7; --text2: rgba(245,245,247,0.62); --text3: rgba(245,245,247,0.4);
+    --green: #34d399; --amber: #fbbf24; --red: #f87171;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-sep { color: var(--border); font-size: 18px; }
+  .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 24px 120px; }
+  .center { max-width: 640px; margin: 0 auto; text-align: center; }
+
+  .step { display: none; }
+  .step.active { display: block; animation: fadein .35s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  .headline { font-size: 38px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 16px; }
+  .sub { font-size: 16px; color: var(--text2); line-height: 1.55; margin-bottom: 36px; }
+  .url-form { display: flex; gap: 10px; }
+  .url-input { flex: 1; padding: 15px 18px; font-size: 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text); outline: none; }
+  .url-input:focus { border-color: var(--accent); }
+  .btn { padding: 15px 24px; border-radius: 10px; border: none; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-sm { padding: 8px 14px; font-size: 12.5px; border-radius: 8px; }
+  .err-note { margin-top: 14px; padding: 12px 14px; border-radius: 9px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 13.5px; display: none; text-align: left; }
+  .err-note.show { display: block; }
+
+  .progress-stage-list { max-width: 520px; margin: 0 auto; text-align: left; }
+  .progress-stage { display: flex; align-items: center; gap: 14px; padding: 12px 0; opacity: 0.35; transition: opacity .3s; }
+  .progress-stage.active { opacity: 1; }
+  .progress-stage.done { opacity: 0.65; }
+  .stage-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .progress-stage.active .stage-dot { border-color: var(--accent); background: rgba(6,182,212,0.15); }
+  .progress-stage.done .stage-dot { border-color: #10b981; background: rgba(16,185,129,0.15); color: #10b981; }
+  .stage-text { font-size: 15px; }
+
+  .banner { margin-bottom: 20px; padding: 12px 16px; border-radius: 10px; font-size: 13px; text-align: center; }
+  .banner-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); color: #fbbf24; }
+  .banner-warn a { color: #fbbf24; font-weight: 700; }
+
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text2); font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; animation: fadein .25s ease; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+  .real-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
+  .est-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 999px; background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
+
+  .task-row { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .task-row:last-child { border-bottom: none; }
+  .task-day { width: 52px; flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; padding-top: 3px; }
+  .task-body { flex: 1; }
+  .task-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .task-desc { font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+  .task-type-badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px; }
+  .task-type-write_article { background: rgba(6,182,212,0.14); color: #22d3ee; }
+  .task-type-technical_fix { background: rgba(245,158,11,0.14); color: #fbbf24; }
+  .task-type-backlink_outreach { background: rgba(168,85,247,0.14); color: #c084fc; }
+  .task-row.done { opacity: 0.5; }
+  .task-row.done .task-title { text-decoration: line-through; }
+
+  .topic-card { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+  .topic-info { flex: 1; }
+  .topic-title { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+  .topic-meta { font-size: 12px; color: var(--text2); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  .topic-rationale { font-size: 12.5px; color: var(--text3); margin-top: 6px; }
+
+  .article-list-item { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; cursor: pointer; }
+  .article-list-item:hover { border-color: var(--accent); }
+  .article-list-title { font-size: 14px; font-weight: 700; }
+  .article-list-meta { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+
+  .article-viewer { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .article-viewer h1 { font-size: 22px; margin-bottom: 6px; }
+  .article-meta-box { background: var(--panel2); border-radius: 10px; padding: 14px 16px; margin: 14px 0 20px; font-size: 12.5px; color: var(--text2); }
+  .article-meta-box div { margin-bottom: 4px; }
+  .article-body { font-size: 14.5px; line-height: 1.75; white-space: pre-wrap; color: var(--text); }
+
+  .field-textarea, .field-input { width: 100%; padding: 10px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13.5px; font-family: inherit; }
+  .field-textarea { min-height: 100px; resize: vertical; margin-top: 6px; }
+  .field-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; display: block; margin-bottom: 4px; }
+
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">🔍</span> Audema</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">SEO Content Engine</span>
+  </div>
+  <div class="nav-right">
+    <a href="/agents/seo-agent.html" class="nav-link">REX Chat →</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- STEP 1: URL input -->
+  <div class="step active" id="step-url">
+    <div class="center">
+      <h1 class="headline">Turn your website into a real SEO content engine.</h1>
+      <p class="sub">We analyze your business, research your real competitors, find genuine content gaps, and build a daily plan of articles to write and backlinks to pursue — real research where a data source is connected, honestly labeled estimates where it isn't.</p>
+      <form class="url-form" id="url-form">
+        <input class="url-input" id="url-input" type="text" placeholder="https://yourwebsite.com" required>
+        <button class="btn btn-primary" type="submit" id="runBtn">Analyze My Site</button>
+      </form>
+      <div class="err-note" id="url-err"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Analysis progress -->
+  <div class="step" id="step-progress">
+    <div class="center">
+      <h2 style="font-size:24px;margin-bottom:34px;">Researching your business & market</h2>
+      <div class="progress-stage-list" id="progress-stages"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Results -->
+  <div class="step" id="step-results">
+    <div id="not-signed-in-banner" class="banner banner-warn" style="display:none;">
+      ⚠️ This run isn't saved to your account — sign in to keep your topics, articles and backlink prospects. <a href="/hub.html">Sign in now →</a>
+    </div>
+
+    <div style="margin-bottom:28px;">
+      <h1 style="font-size:26px;margin-bottom:6px;" id="results-business-name">Your SEO Plan</h1>
+      <p style="color:var(--text2);font-size:14px;" id="results-summary"></p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="plan">📅 Daily Plan</button>
+      <button class="tab-btn" data-tab="topics">🎯 Topics</button>
+      <button class="tab-btn" data-tab="articles">📄 Articles</button>
+      <button class="tab-btn" data-tab="backlinks">🔗 Backlinks</button>
+    </div>
+
+    <!-- Tab: Daily Plan -->
+    <div class="tab-pane active" id="tab-plan">
+      <div class="card" id="plan-card">
+        <div id="plan-body"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Topics -->
+    <div class="tab-pane" id="tab-topics">
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;" id="topics-data-note"></p>
+      <div id="topics-list"></div>
+    </div>
+
+    <!-- Tab: Articles -->
+    <div class="tab-pane" id="tab-articles">
+      <div id="article-list-view">
+        <div id="articles-list"></div>
+      </div>
+      <div id="article-detail-view" style="display:none;">
+        <button class="btn btn-ghost btn-sm" style="margin-bottom:16px;" onclick="showArticleList()">← Back to articles</button>
+        <div id="article-viewer-body"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Backlinks -->
+    <div class="tab-pane" id="tab-backlinks">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">Backlink Prospects</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-top:2px;">Real, named sites — never automated outreach. Every email is drafted for you to review, edit, and send yourself.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="find-prospects-btn" onclick="findBacklinkProspects()">Find Prospects</button>
+      </div>
+      <div id="prospects-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Outreach draft modal -->
+<div id="outreach-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
+    <h3 style="font-size:17px;margin-bottom:4px;">Outreach draft</h3>
+    <p style="font-size:12.5px;color:var(--text2);margin-bottom:18px;" id="outreach-modal-to"></p>
+    <label class="field-label">Subject</label>
+    <input class="field-input" id="outreach-subject" style="margin-bottom:14px;">
+    <label class="field-label">Body</label>
+    <textarea class="field-textarea" id="outreach-body" style="min-height:180px;"></textarea>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="sendOutreachViaEmailClient()">✉️ Open in my email client</button>
+      <button class="btn btn-ghost btn-sm" onclick="copyOutreach()">📋 Copy</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeOutreachModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const State = {
+  websiteUrl: '', profile: null, competitors: [], crossCompetitorGaps: [],
+  topics: [], dailyTasks: [], articles: [], prospects: [],
+  runId: null, currentProspectId: null,
+};
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
+  return data;
+}
+
+function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function arr(x) { return Array.isArray(x) ? x : []; }
+
+// ── STEP 1: kick off analysis ───────────────────────────────────────────
+const PROGRESS_STAGES = [
+  { key: 'crawl', label: 'Reading your website' },
+  { key: 'competitors', label: 'Finding real competitors & content gaps' },
+  { key: 'keywords', label: 'Researching topics & keywords' },
+];
+
+function renderProgressStages() {
+  document.getElementById('progress-stages').innerHTML = PROGRESS_STAGES.map(s =>
+    `<div class="progress-stage" id="stage-${s.key}"><div class="stage-dot"></div><div class="stage-text">${s.label}</div></div>`
+  ).join('');
+}
+function setStage(key, state) {
+  const el = document.getElementById('stage-' + key);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  el.classList.add(state);
+  el.querySelector('.stage-dot').textContent = state === 'done' ? '✓' : '';
+}
+
+document.getElementById('url-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('url-err');
+  errEl.classList.remove('show');
+  let url = document.getElementById('url-input').value.trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  State.websiteUrl = url;
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = 'Starting…';
+
+  renderProgressStages();
+  showStep('step-progress');
+
+  try {
+    setStage('crawl', 'active');
+    const siteResult = await postJSON('/api/seo-analyze-site', { url });
+    State.profile = siteResult.profile;
+    setStage('crawl', 'done');
+
+    setStage('competitors', 'active');
+    const searchResult = await postJSON('/api/seo-search-competitors', { profile: State.profile });
+    if (searchResult.available) {
+      const structResult = await postJSON('/api/seo-structure-competitors', { searchText: searchResult.text, citations: searchResult.citations });
+      State.competitors = structResult.competitors || [];
+      State.crossCompetitorGaps = structResult.cross_competitor_gaps || [];
+    }
+    setStage('competitors', 'done');
+
+    setStage('keywords', 'active');
+    const kwResult = await postJSON('/api/seo-keyword-research', { profile: State.profile, competitors: State.competitors, cross_competitor_gaps: State.crossCompetitorGaps });
+    State.topics = kwResult.topics || [];
+    setStage('keywords', 'done');
+
+    // Persist the run if signed in — degrades honestly (banner) if not, never throws
+    if (window.SEOPipelineStore) {
+      try {
+        const userId = await SEOPipelineStore.getUserId();
+        if (userId) {
+          const run = await SEOPipelineStore.createRun({
+            websiteUrl: State.websiteUrl, businessSummary: State.profile.business_summary,
+            productsServices: State.profile.products_services, targetCustomer: State.profile.target_customer,
+            existingTopics: State.profile.existing_topics, competitors: State.competitors,
+          });
+          State.runId = run.id;
+          if (State.topics.length) await SEOPipelineStore.saveTopics(State.runId, State.topics);
+        }
+      } catch (err) {
+        console.warn('[SEO Content Engine] Could not save run to cloud:', err.message);
+      }
+    }
+
+    State.dailyTasks = buildDailyPlan(State.topics, false);
+    if (State.runId && State.dailyTasks.length) {
+      try { await SEOPipelineStore.saveDailyTasks(State.runId, State.dailyTasks); } catch (_) {}
+    }
+
+    await new Promise(r => setTimeout(r, 300));
+    renderResults();
+    showStep('step-results');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+    showStep('step-url');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analyze My Site';
+  }
+});
+
+// ── Daily plan — deterministic scheduling over real data, no AI call ────
+// The "plan" is fundamentally sequencing already-real topics/tasks into a
+// calendar — there's no need to ask an LLM to do this and risk it
+// inventing tasks; plain scheduling logic is both simpler and more honest.
+const TECHNICAL_TASKS = [
+  { title: 'Check Core Web Vitals', description: 'Run your site through PageSpeed Insights (Express Site Check in REX) and fix anything scoring red.' },
+  { title: 'Audit for broken internal links', description: 'Crawl your site for 404s and fix or redirect them — broken links hurt both users and crawl budget.' },
+  { title: 'Verify unique meta titles & descriptions', description: 'Check your top pages don\'t share duplicate title tags or meta descriptions.' },
+  { title: 'Submit updated sitemap to Search Console', description: 'After publishing new articles, resubmit your sitemap so Google discovers them faster.' },
+  { title: 'Check for thin/duplicate content', description: 'Review any pages under ~300 words or that closely duplicate another page on your site.' },
+];
+
+function buildDailyPlan(topics, hasProspects) {
+  const tasks = [];
+  let day = 1;
+  const sortedTopics = [...topics]; // already priority-ordered by the AI response
+  let topicIdx = 0, techIdx = 0;
+
+  const totalDays = Math.max(sortedTopics.length + Math.ceil(sortedTopics.length / 4), 10);
+  for (day = 1; day <= totalDays; day++) {
+    if (day % 5 === 0) {
+      const t = TECHNICAL_TASKS[techIdx % TECHNICAL_TASKS.length];
+      tasks.push({ day_number: day, task_type: 'technical_fix', title: t.title, description: t.description, topic_id: null });
+      techIdx++;
+    } else if (day % 7 === 0) {
+      tasks.push({
+        day_number: day, task_type: 'backlink_outreach',
+        title: hasProspects ? 'Review backlink prospects & send approved outreach' : 'Find backlink prospects',
+        description: hasProspects ? 'Check the Backlinks tab for new prospects and drafted emails ready to send.' : 'Head to the Backlinks tab and click "Find Prospects" to start real link-building research.',
+        topic_id: null,
+      });
+    } else if (topicIdx < sortedTopics.length) {
+      const topic = sortedTopics[topicIdx];
+      tasks.push({
+        day_number: day, task_type: 'write_article',
+        title: `Write: ${topic.topic}`,
+        description: `Target keyword: ${topic.target_keyword}${topic.data_source === 'real' ? ` (${topic.search_volume} real monthly searches)` : ' (est. volume)'}`,
+        topic_id: topic._localId,
+      });
+      topicIdx++;
+    }
+  }
+  return tasks;
+}
+
+// ── Results rendering ────────────────────────────────────────────────────
+function renderResults() {
+  (async () => {
+    const banner = document.getElementById('not-signed-in-banner');
+    const signedIn = window.SEOPipelineStore ? await SEOPipelineStore.getUserId() : null;
+    banner.style.display = (signedIn || State.runId) ? 'none' : 'block';
+  })();
+
+  document.getElementById('results-business-name').textContent = State.profile?.business_summary ? `SEO Plan for ${State.websiteUrl.replace(/^https?:\/\//, '')}` : 'Your SEO Plan';
+  document.getElementById('results-summary').textContent = State.profile?.business_summary || '';
+
+  // Assign a stable local id to each topic for cross-referencing (used
+  // before topics have real DB ids, e.g. when not signed in)
+  State.topics.forEach((t, i) => { if (!t._localId) t._localId = 'local_' + i; });
+
+  renderPlan();
+  renderTopics();
+  renderArticles();
+  renderProspects();
+}
+
+function renderPlan() {
+  const body = document.getElementById('plan-body');
+  if (!State.dailyTasks.length) { body.innerHTML = '<div class="empty-state">No tasks yet.</div>'; return; }
+  body.innerHTML = State.dailyTasks.map((t, i) => `
+    <div class="task-row ${t.status === 'done' ? 'done' : ''}" data-idx="${i}">
+      <div class="task-day">Day ${t.day_number}</div>
+      <div class="task-body">
+        <div class="task-title">${escHtml(t.title)} <span class="task-type-badge task-type-${t.task_type}">${t.task_type.replace('_', ' ')}</span></div>
+        <div class="task-desc">${escHtml(t.description || '')}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTaskDone(${i})">${t.status === 'done' ? 'Undo' : 'Mark done'}</button>
+    </div>
+  `).join('');
+}
+function toggleTaskDone(i) {
+  const t = State.dailyTasks[i];
+  t.status = t.status === 'done' ? 'pending' : 'done';
+  if (t.id && window.SEOPipelineStore) SEOPipelineStore.updateTaskStatus(t.id, t.status).catch(() => {});
+  renderPlan();
+}
+
+function renderTopics() {
+  const realCount = State.topics.filter(t => t.data_source === 'real').length;
+  document.getElementById('topics-data-note').textContent = realCount > 0
+    ? `${realCount} of ${State.topics.length} topics have real search-volume data (DataForSEO). The rest are AI estimates, clearly marked.`
+    : `All ${State.topics.length} topics use AI-estimated search volume/difficulty — add DATAFORSEO_LOGIN/PASSWORD in Vercel to get real numbers.`;
+
+  document.getElementById('topics-list').innerHTML = State.topics.map(t => `
+    <div class="topic-card">
+      <div class="topic-info">
+        <div class="topic-title">${escHtml(t.topic)}</div>
+        <div class="topic-meta">
+          ${t.data_source === 'real'
+            ? `<span class="real-badge">✓ Real</span><span>${t.search_volume} searches/mo · difficulty ${t.difficulty}</span>`
+            : `<span class="est-badge">Estimate</span><span>${escHtml(t.est_search_volume || '')} · ${escHtml(t.est_difficulty || '')} difficulty</span>`}
+          <span>· "${escHtml(t.target_keyword)}"</span>
+        </div>
+        <div class="topic-rationale">${escHtml(t.rationale || '')}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="writeArticleForTopic('${t._localId}')" ${t.status === 'written' ? 'disabled' : ''}>${t.status === 'written' ? '✓ Written' : 'Write Article'}</button>
+    </div>
+  `).join('') || '<div class="empty-state">No topics yet.</div>';
+}
+
+async function writeArticleForTopic(localId) {
+  const topic = State.topics.find(t => t._localId === localId);
+  if (!topic) return;
+  const btn = event.target;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const result = await postJSON('/api/seo-write-article', { topic, profile: State.profile, brandVoice: State.profile?.tone_notes });
+    const article = { ...result.article, _localId: 'art_' + Date.now(), topic_id: localId };
+    if (State.runId && window.SEOPipelineStore) {
+      try {
+        const saved = await SEOPipelineStore.saveArticle(State.runId, topic.id || null, article);
+        article.id = saved.id;
+      } catch (err) { console.warn('Could not save article to cloud:', err.message); }
+    }
+    State.articles.unshift(article);
+    topic.status = 'written';
+    if (topic.id && window.SEOPipelineStore) SEOPipelineStore.updateTopicStatus(topic.id, 'written').catch(() => {});
+    renderTopics();
+    renderArticles();
+    document.querySelector('.tab-btn[data-tab="articles"]').click();
+    openArticle(article._localId);
+  } catch (err) {
+    alert('Could not write article: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Write Article';
+  }
+}
+
+function renderArticles() {
+  document.getElementById('articles-list').innerHTML = State.articles.map(a => `
+    <div class="article-list-item" onclick="openArticle('${a._localId}')">
+      <div>
+        <div class="article-list-title">${escHtml(a.title)}</div>
+        <div class="article-list-meta">${a.word_count || '?'} words · "${escHtml(a.target_keyword || '')}" · ${a.status || 'draft'}</div>
+      </div>
+      <span style="color:var(--text3);">→</span>
+    </div>
+  `).join('') || '<div class="empty-state">No articles yet — write one from the Topics tab.</div>';
+}
+
+function showArticleList() {
+  document.getElementById('article-list-view').style.display = 'block';
+  document.getElementById('article-detail-view').style.display = 'none';
+}
+
+function openArticle(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  document.getElementById('article-list-view').style.display = 'none';
+  document.getElementById('article-detail-view').style.display = 'block';
+  document.getElementById('article-viewer-body').innerHTML = `
+    <div class="article-viewer">
+      <h1>${escHtml(a.title)}</h1>
+      <div class="article-meta-box">
+        <div><b>Meta description:</b> ${escHtml(a.meta_description || '')}</div>
+        <div><b>Slug:</b> /${escHtml(a.slug || '')}</div>
+        <div><b>Target keyword:</b> ${escHtml(a.target_keyword || '')}</div>
+        <div><b>Word count:</b> ${a.word_count || '?'}</div>
+      </div>
+      <div class="article-body">${escHtml(a.body_markdown)}</div>
+      ${arr(a.faqs).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">FAQs</h3>` + arr(a.faqs).map(f => `<p style="margin-bottom:10px;"><b>${escHtml(f.question)}</b><br>${escHtml(f.answer)}</p>`).join('') : ''}
+      ${arr(a.internal_link_suggestions).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">Suggested internal links</h3><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${arr(a.internal_link_suggestions).map(s => `<li>${escHtml(s)}</li>`).join('')}</ul>` : ''}
+      <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="downloadArticle('${a._localId}')">⬇ Download Markdown</button>
+        <button class="btn btn-ghost btn-sm" onclick="copyArticle('${a._localId}')">📋 Copy Markdown</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadSchema('${a._localId}')">⬇ Download Schema Markup (JSON-LD)</button>
+        <button class="btn btn-ghost btn-sm" onclick="markArticlePublished('${a._localId}')">${a.status === 'published_elsewhere' ? '✓ Marked published' : 'Mark as published'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function articleMarkdown(a) {
+  return `# ${a.title}\n\n*Meta description: ${a.meta_description}*\n*Slug: /${a.slug}*\n\n${a.body_markdown}` +
+    (arr(a.faqs).length ? `\n\n## FAQs\n\n` + arr(a.faqs).map(f => `**${f.question}**\n${f.answer}`).join('\n\n') : '');
+}
+function downloadArticle(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  const blob = new Blob([articleMarkdown(a)], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `${a.slug || 'article'}.md`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function copyArticle(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  navigator.clipboard?.writeText(articleMarkdown(a));
+}
+function downloadSchema(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  const blob = new Blob([JSON.stringify(a.schema_markup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `${a.slug || 'article'}-schema.json`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function markArticlePublished(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  a.status = 'published_elsewhere';
+  if (a.id && window.SEOPipelineStore) SEOPipelineStore.updateArticleStatus(a.id, 'published_elsewhere').catch(() => {});
+  openArticle(localId);
+  renderArticles();
+}
+
+// ── Backlinks ─────────────────────────────────────────────────────────
+async function findBacklinkProspects() {
+  const btn = document.getElementById('find-prospects-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const result = await postJSON('/api/seo-backlink-prospects', {
+      domain: State.websiteUrl, competitors: State.competitors, profile: State.profile,
+    });
+    State.prospects = (result.prospects || []).map((p, i) => ({ ...p, _localId: 'pros_' + i, status: 'found' }));
+    if (State.runId && State.prospects.length && window.SEOPipelineStore) {
+      try {
+        const saved = await SEOPipelineStore.saveProspects(State.runId, State.prospects);
+        saved.forEach((s, i) => { if (State.prospects[i]) State.prospects[i].id = s.id; });
+      } catch (err) { console.warn('Could not save prospects to cloud:', err.message); }
+    }
+    if (!State.prospects.length) {
+      alert(result.reason ? `No prospects found: ${result.reason}` : 'No prospects found this time — try again once you have more competitors researched.');
+    }
+    State.dailyTasks = buildDailyPlan(State.topics, State.prospects.length > 0);
+    renderPlan();
+    renderProspects();
+  } catch (err) {
+    alert('Could not find backlink prospects: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Find Prospects';
+  }
+}
+
+function renderProspects() {
+  const el = document.getElementById('prospects-list');
+  if (!State.prospects.length) { el.innerHTML = '<div class="empty-state">No prospects yet — click "Find Prospects" above.</div>'; return; }
+  el.innerHTML = State.prospects.map(p => `
+    <div class="topic-card">
+      <div class="topic-info">
+        <div class="topic-title">${escHtml(p.domain)} ${p.data_source === 'real' ? '<span class="real-badge">✓ Real backlink gap</span>' : '<span class="est-badge">Found via search</span>'}</div>
+        <div class="topic-rationale">${escHtml(p.relevance_reason || '')}</div>
+        ${p.status && p.status !== 'found' ? `<div class="topic-meta"><span class="est-badge">${escHtml(p.status)}</span></div>` : ''}
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="draftOutreach('${p._localId}')">${p.status === 'drafted' || p.status === 'queued' ? 'Edit Draft' : 'Draft Outreach'}</button>
+    </div>
+  `).join('');
+}
+
+async function draftOutreach(localId) {
+  const p = State.prospects.find(x => x._localId === localId);
+  if (!p) return;
+  State.currentProspectId = localId;
+
+  if (!p.outreach_subject) {
+    const btn = event.target;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const publishedArticle = State.articles.find(a => a.status === 'published_elsewhere') || State.articles[0];
+      const result = await postJSON('/api/seo-outreach-draft', { prospect: p, profile: State.profile, article: publishedArticle || null });
+      p.outreach_subject = result.subject;
+      p.outreach_body = result.body;
+      p.status = 'drafted';
+      if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { outreach_subject: result.subject, outreach_body: result.body, status: 'drafted' }).catch(() => {});
+      renderProspects();
+    } catch (err) {
+      alert('Could not draft outreach: ' + err.message);
+      btn.disabled = false; btn.textContent = 'Draft Outreach';
+      return;
+    }
+  }
+
+  document.getElementById('outreach-modal-to').textContent = `To: ${p.domain}${p.page_url ? ' (' + p.page_url + ')' : ''} — review and edit before sending. Nothing sends automatically.`;
+  document.getElementById('outreach-subject').value = p.outreach_subject || '';
+  document.getElementById('outreach-body').value = p.outreach_body || '';
+  document.getElementById('outreach-modal').style.display = 'flex';
+}
+function closeOutreachModal() {
+  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  if (p) {
+    p.outreach_subject = document.getElementById('outreach-subject').value;
+    p.outreach_body = document.getElementById('outreach-body').value;
+    if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { outreach_subject: p.outreach_subject, outreach_body: p.outreach_body }).catch(() => {});
+  }
+  document.getElementById('outreach-modal').style.display = 'none';
+  renderProspects();
+}
+function copyOutreach() {
+  const text = `Subject: ${document.getElementById('outreach-subject').value}\n\n${document.getElementById('outreach-body').value}`;
+  navigator.clipboard?.writeText(text);
+}
+function sendOutreachViaEmailClient() {
+  // mailto: opens the user's own email client with the draft pre-filled —
+  // the user reviews, can edit further, and clicks send themselves. This
+  // is deliberately NOT routed through any API that could send on its own.
+  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  const subject = encodeURIComponent(document.getElementById('outreach-subject').value);
+  const body = encodeURIComponent(document.getElementById('outreach-body').value);
+  const to = p?.contact_email || '';
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  if (p) {
+    p.status = 'sent';
+    if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { status: 'sent', sent_at: new Date().toISOString() }).catch(() => {});
+  }
+  closeOutreachModal();
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
+</script>
+</body>
+</html>
