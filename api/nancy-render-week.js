@@ -453,16 +453,33 @@ async function uploadHostedAsset(buffer, mimeType, ext, day) {
   }
 }
 
-function buildImagePrompt(post, colours, businessName) {
+function buildImagePrompt(post, colours, businessName, businessProfile = {}) {
   const palette = [colours.primary, ...(colours.secondary || []), ...(colours.accent || [])]
     .filter(Boolean).slice(0, 4).join(', ');
+
+  // What this business actually is/does/sells — this is what makes the
+  // background scene "correct" rather than a generic abstract backdrop.
+  const category = businessProfile.business_category || businessProfile.industry || '';
+  const offer = businessProfile.primary_offer || (businessProfile.products_services || []).slice(0, 3).join(', ');
+  const summary = businessProfile.website_summary || '';
+  const businessContext = [category && `Industry/category: ${category}.`, offer && `What they actually sell: ${offer}.`, summary]
+    .filter(Boolean).join(' ');
+
   const parts = [
     `Design a premium, thumb-stopping Instagram feed post (portrait, roughly 4:5) for the business "${businessName || 'this brand'}".`,
-    `Style: current trending 2026 social-media advertising design — bold confident large-scale typography, clean modern layout, generous whitespace, soft depth/shadow or subtle gradient, high-end editorial or premium-brand feel. Not a generic template, not clipart, not corporate stock imagery.`,
-    `Use ONLY this brand's colour palette throughout the design (backgrounds, accents, shapes, buttons): ${palette || colours.primary}. Only add white/black/neutral tones for contrast and legibility — introduce no colours outside this palette.`,
+    businessContext && `Business context — the background scene MUST be visually relevant to this, not a generic abstract backdrop: ${businessContext}`,
+    // This is the core fix for "flat/empty background" feedback: demand a
+    // real, specific, photographic or richly-illustrated scene tied to the
+    // creative direction and business context, with the brand palette
+    // applied as color grading/lighting/accents over that scene — not a
+    // solid or gently-gradiented color field with text floating on it.
+    `Background: a real, compelling, specific scene — think editorial photography or high-end illustration of an actual moment, object, environment, or result connected to this business (e.g. the product in use, the environment customers experience, a relevant real-world detail) — filling the full frame with depth, texture and visual interest. This is NOT a flat color, plain gradient, empty studio backdrop, or abstract shapes-only background.`,
+    post.visual_direction && `Specific creative direction for this scene: ${post.visual_direction}`,
+    `Style: current trending 2026 social-media advertising design — bold confident large-scale typography layered over the scene, cinematic lighting/depth, generous breathing room around the text for legibility, high-end premium-brand feel. Not a generic template, not clipart, not stock-photo cheese.`,
+    `Apply this brand's colour palette as the dominant grading/lighting/accent treatment across the scene and in every UI element (buttons, badges, overlays): ${palette || colours.primary}. Neutral white/black/grey is fine for contrast and legibility — introduce no other colours outside this palette.`,
     `Content objective: ${post.objective || 'brand awareness'}.`,
     `Render this headline exactly, as the dominant large text element, spelled correctly: "${post.slide_headline || ''}"`,
-  ];
+  ].filter(Boolean);
   if (post.slide_copy) parts.push(`Render this supporting text smaller and legible, spelled correctly: "${post.slide_copy}"`);
   if (post.cta) parts.push(`Render this call-to-action as a bold styled button or label, spelled correctly: "${post.cta}"`);
   parts.push('No watermarks, no placeholder Lorem Ipsum text, no misspelled words, no illegible text — every word of text specified above must be rendered clearly and accurately.');
@@ -476,7 +493,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { post, brand = {}, businessName = '', userPhotos = [] } = req.body || {};
+  const { post, brand = {}, businessName = '', businessProfile = {}, userPhotos = [] } = req.body || {};
   if (!post || typeof post !== 'object') return res.status(400).json({ error: 'post is required' });
 
   const colours = {
@@ -492,7 +509,7 @@ module.exports = async function handler(req, res) {
   // times out on its own and always resolves { available, ... }, so a slow
   // or failed generation still leaves room to fall back below rather than
   // failing the whole request.
-  const gen = await imageGenProvider(buildImagePrompt(post, colours, businessName), { width: CANVAS.width, height: CANVAS.height });
+  const gen = await imageGenProvider(buildImagePrompt(post, colours, businessName, businessProfile), { width: CANVAS.width, height: CANVAS.height });
   if (gen.available) {
     const hostedUrl = await uploadHostedAsset(gen.buffer, gen.mimeType, 'png', post.day);
     const dataUri = `data:${gen.mimeType};base64,${gen.buffer.toString('base64')}`;

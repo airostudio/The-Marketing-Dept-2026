@@ -630,7 +630,7 @@ async function startGeneration() {
       // slow external call, so it gets its own request per day rather than
       // batching all 7 into one call that would blow the 60s ceiling.
       const renderResult = await postJSON('/api/nancy-render-week', {
-        post, brand: State.brand, businessName: State.businessProfile?.business_name,
+        post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
         userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
       });
       planPosts.push({ ...post, asset: renderResult.asset });
@@ -782,7 +782,7 @@ document.querySelectorAll('.action-row [data-action]').forEach(btn => {
 
 async function reRenderPost(post) {
   const renderResult = await postJSON('/api/nancy-render-week', {
-    post, brand: State.brand, businessName: State.businessProfile?.business_name,
+    post, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
     userPhotos: State.photos.map(p => ({ dataUri: p.dataUri })),
   });
   post.asset = renderResult.asset;
