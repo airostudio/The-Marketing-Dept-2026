@@ -189,11 +189,15 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
       // let the caller lay the result into its own canvas.
       const aspect = width / height;
       const size = aspect < 0.9 ? '1024x1536' : aspect > 1.1 ? '1536x1024' : '1024x1024';
+      // 'high' looks best but costs ~3x 'medium' per image — default to
+      // 'medium' (a real, still-good-quality tier) and let IMAGE_GEN_QUALITY
+      // override it ('low' | 'medium' | 'high') without a code change.
+      const quality = (process.env.IMAGE_GEN_QUALITY || 'medium').toLowerCase();
 
       const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality: 'high', n: 1 }),
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality, n: 1 }),
         signal: AbortSignal.timeout(50000),
       });
 
