@@ -247,14 +247,32 @@ class BusinessBrain {
 
     _lsSet(this._key(), data);
 
-    // Fire-and-forget cloud sync — never blocks or throws on the caller.
-    // Scope: active intelligence profile first, project fallback.
+    // Fire-and-forget cloud sync — never blocks or throws on the caller,
+    // the local save above already succeeded and callers shouldn't have to
+    // await network I/O just to keep typing. But "fire-and-forget" used to
+    // mean the outcome (success or failure) was thrown away entirely —
+    // pushSnapshot() resolves to true/false rather than rejecting, and that
+    // boolean was never read. A user could be 100% complete locally while
+    // every single cloud save silently failed (missing/misconfigured scope,
+    // an RLS policy, a schema mismatch) with zero indication anything was
+    // wrong — the autosave badge just said "Saved" from the local write.
+    // Dispatch an event either way so the UI can show the real outcome.
     if (window.BusinessBrainCloud) {
       const scope = window.BusinessBrainCloud.getScope();
       if (scope) {
         window.BusinessBrainCloud
           .pushSnapshot(scope, data, data.intelligence.confidenceScore, label)
-          .catch(() => {});
+          .then(ok => {
+            window.dispatchEvent(new CustomEvent('businessbrain:cloud-sync', { detail: { ok, scope } }));
+          })
+          .catch(err => {
+            window.dispatchEvent(new CustomEvent('businessbrain:cloud-sync', { detail: { ok: false, scope, error: err?.message } }));
+          });
+      } else {
+        // No active profile and no project — cloud sync was never even
+        // attempted, not merely failed. Distinct from an actual push
+        // failure so the UI can say the right thing.
+        window.dispatchEvent(new CustomEvent('businessbrain:cloud-sync', { detail: { ok: false, scope: null, noScope: true } }));
       }
     }
 

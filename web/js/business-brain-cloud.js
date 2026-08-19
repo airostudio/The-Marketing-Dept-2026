@@ -132,7 +132,14 @@ window.BusinessBrainCloud = (function () {
 
       return true;
     } catch (e) {
-      console.warn('[BusinessBrainCloud] pushSnapshot failed:', e.message);
+      // Common cause: an account whose Supabase project hasn't had
+      // supabase-intelligence-profiles.sql run yet. That migration is what
+      // adds business_brain.intel_profile_id and its unique index — without
+      // it, upserting with { intel_profile_id: ... } either 404s with
+      // "column intel_profile_id does not exist" or fails a NOT NULL
+      // constraint on project_id (the pre-profiles schema required it).
+      // Both surface here as a plain error with no other symptom in the UI.
+      console.warn('[BusinessBrainCloud] pushSnapshot failed — if this mentions intel_profile_id or a NOT NULL constraint on project_id, run supabase-intelligence-profiles.sql against this Supabase project:', e.message);
       return false;
     }
   }
