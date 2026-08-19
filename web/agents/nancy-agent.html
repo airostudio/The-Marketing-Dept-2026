@@ -28,6 +28,7 @@
 
   nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
   .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
   .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
   .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
   .nav-sep { color: var(--border); font-size: 18px; }
@@ -153,7 +154,10 @@
     <span class="nav-sep">/</span>
     <span class="nav-breadcrumb">Nancy · Jam Fancy — Instagram Content Studio</span>
   </div>
-  <div class="nav-right"><a href="/hub.html" class="nav-link">← Hub</a></div>
+  <div class="nav-right">
+    <a href="#" class="nav-link" id="my-weeks-nav-link">📅 My Weeks</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
 </nav>
 
 <div class="wrap">
@@ -168,6 +172,18 @@
         <button class="btn btn-primary" type="submit" id="runBtn">Research My Brand</button>
       </form>
       <div class="err-note" id="url-err"></div>
+    </div>
+  </div>
+
+  <!-- STEP: History — past content weeks -->
+  <div class="step" id="step-history">
+    <div class="results-header">
+      <h2 class="display" style="font-size:30px;">My Weeks</h2>
+      <p class="sub" style="margin-bottom:0;">Every content week Nancy has built for you, saved and ready to reopen.</p>
+    </div>
+    <div id="history-body"><p style="color:var(--text3);font-size:13px;">Loading…</p></div>
+    <div style="margin-top:24px;">
+      <button class="btn btn-ghost" id="history-new-week-btn">✨ Start a new week</button>
     </div>
   </div>
 
@@ -414,6 +430,103 @@ async function postJSON(url, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
   return data;
+}
+
+// ── My Weeks — history of past content weeks ────────────────────────────────
+document.getElementById('my-weeks-nav-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  showStep('step-history');
+  loadHistory();
+});
+document.getElementById('history-new-week-btn').addEventListener('click', () => showStep('step-url'));
+
+async function loadHistory() {
+  const body = document.getElementById('history-body');
+  body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Loading…</p>';
+  if (!window.NancyStore) { body.innerHTML = '<p style="color:var(--text3);font-size:13px;">History isn\'t available right now.</p>'; return; }
+
+  const userId = await NancyStore.getUserId();
+  if (!userId) { body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Sign in to see your saved content weeks.</p>'; return; }
+
+  const brands = await NancyStore.listAllWeeksForUser();
+  const withWeeks = brands.filter(b => (b.nancy_content_weeks || []).length);
+  if (!withWeeks.length) {
+    body.innerHTML = '<p style="color:var(--text3);font-size:13px;">No content weeks yet — generate your first one and it\'ll show up here.</p>';
+    return;
+  }
+
+  body.innerHTML = withWeeks.map(b => `
+    <div class="opp-card" style="margin-bottom:18px;">
+      <b>${escapeHtml(b.business_name || b.website_url)}</b>
+      <p style="color:var(--text2);font-size:13px;margin-top:2px;">${escapeHtml(b.website_url)}</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        ${(b.nancy_content_weeks || []).sort((x, y) => y.week_number - x.week_number).map(w => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:8px;">
+            <div>
+              <span style="font-weight:600;font-size:13.5px;">Week ${w.week_number}</span>
+              <span style="color:var(--text3);font-size:12px;margin-left:8px;">${new Date(w.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · ${(w.nancy_posts || []).length} posts · ${escapeHtml(w.status)}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-week-id="${w.id}">Open →</button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  body.querySelectorAll('[data-week-id]').forEach(btn => btn.addEventListener('click', () => openHistoryWeek(btn.dataset.weekId)));
+}
+
+async function openHistoryWeek(weekId) {
+  const body = document.getElementById('history-body');
+  const prevHtml = body.innerHTML;
+  body.innerHTML = '<p style="color:var(--text3);font-size:13px;">Opening…</p>';
+  try {
+    const week = await NancyStore.getWeekDetail(weekId);
+    if (!week) throw new Error('Could not load this content week.');
+    const brand = week.nancy_brands;
+    const run = week.nancy_research_runs;
+
+    State.brandId = brand?.id || null;
+    State.contentWeekId = week.id;
+    State.weekNumber = week.week_number;
+    State.weekRationale = week.strategy?.rationale || '';
+    State.websiteUrl = brand?.website_url || '';
+    State.brand = brand?.colours || {};
+    State.businessProfile = brand ? {
+      business_name: brand.business_name, business_category: brand.business_category, industry: brand.industry,
+      location: brand.location, products_services: brand.products_services, primary_offer: brand.primary_offer,
+      secondary_offers: brand.secondary_offers, target_customer: brand.target_customer, customer_problems: brand.customer_problems,
+      desired_customer_outcomes: brand.desired_outcomes, unique_value_proposition: brand.unique_value_prop,
+      proof_points: brand.proof_points, brand_voice: brand.brand_voice, common_phrases: brand.common_phrases,
+      founder_or_team: brand.founder_or_team, calls_to_action: brand.calls_to_action,
+      important_topics: brand.important_topics, website_summary: brand.website_summary,
+    } : {};
+    State.strategy = run ? {
+      what_everyone_says: run.what_everyone_says, what_customers_care_about: run.what_customers_care_about,
+      where_opportunity_is: run.where_opportunity_is, content_opportunities: run.content_opportunities,
+    } : {};
+    State.competitors = run?.nancy_competitors || [];
+    State.citations = (run?.nancy_source_documents || []).map(d => ({ url: d.url, title: d.title }));
+
+    State.posts = (week.nancy_posts || []).map(p => {
+      const dataUri = p.rendered_asset_url || (p.rendered_svg ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(p.rendered_svg)))}` : '');
+      return {
+        day: p.day, objective: p.objective, content_pillar: p.content_pillar, format: p.format, hook: p.hook,
+        slide_headline: p.slide_headline, slide_copy: p.slide_copy, caption: p.caption, cta: p.cta,
+        visual_direction: p.visual_direction, uses_user_photo: p.uses_user_photo, research_basis: p.research_basis,
+        hashtags: p.hashtags || [], design_data: p.design_data || {}, cta_url: p.design_data?.cta_url || null,
+        asset: {
+          day: p.day, format: p.rendered_svg ? 'svg' : 'png', svg: p.rendered_svg || undefined,
+          dataUri, hostedUrl: (p.rendered_asset_url && !p.rendered_asset_url.startsWith('data:')) ? p.rendered_asset_url : null,
+          mimeType: p.rendered_svg ? 'image/svg+xml' : 'image/png', width: 1080, height: 1350,
+        },
+      };
+    }).sort((a, b) => a.day - b.day);
+
+    renderResults();
+    showStep('step-results');
+  } catch (err) {
+    body.innerHTML = prevHtml;
+    alert('Could not open this week: ' + err.message);
+  }
 }
 
 // ── STEP 1: URL input ──────────────────────────────────────────────────────
@@ -928,21 +1041,33 @@ document.getElementById('modal-copy-caption-btn').addEventListener('click', () =
   const p = State.posts.find(x => x.day === editingDay);
   navigator.clipboard?.writeText(p.caption || '');
 });
-document.getElementById('modal-download-btn').addEventListener('click', () => {
+document.getElementById('modal-download-btn').addEventListener('click', async () => {
   const p = State.posts.find(x => x.day === editingDay);
-  downloadAsset(p.asset, `nancy-day${p.day}`);
+  await downloadAsset(p.asset, `nancy-day${p.day}`);
 });
 
-function downloadAsset(asset, fileNameBase) {
+async function downloadAsset(asset, fileNameBase) {
   const isSvg = asset.format === 'svg';
-  const blob = isSvg
-    ? new Blob([asset.svg], { type: 'image/svg+xml' })
-    : dataUriToBlob(asset.dataUri);
+  const blob = await assetToBlob(asset);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `${fileNameBase}.${isSvg ? 'svg' : 'png'}`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Handles all three shapes an asset's image can be in: SVG source text
+// (the deterministic fallback templates), a data: URI (what a fresh
+// generation always returns), or a real hosted https:// URL (what a post
+// reopened from history has when it was originally rendered with R2
+// configured — nancy-render-week.js never puts a hosted URL in dataUri
+// itself, but reopening a saved week reconstructs dataUri from whichever
+// of rendered_asset_url/rendered_svg the database actually has).
+async function assetToBlob(asset) {
+  if (asset.format === 'svg' && asset.svg) return new Blob([asset.svg], { type: 'image/svg+xml' });
+  if (asset.dataUri.startsWith('data:')) return dataUriToBlob(asset.dataUri);
+  const res = await fetch(asset.dataUri);
+  return await res.blob();
 }
 
 function dataUriToBlob(dataUri) {
@@ -1082,12 +1207,13 @@ function buildZip(files) { // files: [{name, data: Uint8Array}]
 }
 
 async function buildAndDownloadZip() {
-  const files = State.posts.map(p => {
+  const files = await Promise.all(State.posts.map(async p => {
     const isSvg = p.asset.format === 'svg';
     const slug = (p.objective || 'post').replace(/\s+/g, '-').toLowerCase();
-    const data = isSvg ? new TextEncoder().encode(p.asset.svg) : new Uint8Array(dataUriToArrayBuffer(p.asset.dataUri));
+    const blob = await assetToBlob(p.asset);
+    const data = new Uint8Array(await blob.arrayBuffer());
     return { name: `day-${p.day}-${slug}.${isSvg ? 'svg' : 'png'}`, data };
-  });
+  }));
   files.push({ name: 'captions.txt', data: new TextEncoder().encode(State.posts.map(p => `Day ${p.day} — ${p.objective}\n${p.caption}${ctaUrl(p) ? `\n${p.cta || 'Link'}: ${ctaUrl(p)}` : ''}\n${(p.hashtags||[]).map(h=>'#'+h).join(' ')}`).join('\n\n---\n\n')) });
   const blob = buildZip(files);
   const url = URL.createObjectURL(blob);
