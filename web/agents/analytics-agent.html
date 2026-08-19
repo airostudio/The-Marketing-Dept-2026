@@ -485,6 +485,56 @@
         @keyframes blink { 50% { opacity: 0; } }
 
         .copy-success { color: #10b981 !important; }
+
+        /* ── Real-math panels (simulator / calculator / audience builder) ── */
+        .real-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+            padding: 3px 8px; border-radius: 999px;
+            background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399;
+        }
+        .real-panel {
+            margin-top: 18px; margin-bottom: 20px;
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+        }
+        .real-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+        .real-panel-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .real-panel-sub { font-size: 12.5px; color: var(--text2); margin-top: 2px; }
+
+        .sim-row { display: grid; grid-template-columns: 130px 1fr 90px 90px; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .sim-row:last-child { border-bottom: none; }
+        .sim-channel { font-size: 13px; font-weight: 600; }
+        .sim-row input[type=range] {
+            width: 100%; accent-color: var(--accent); cursor: pointer;
+        }
+        .sim-value { font-size: 12.5px; color: var(--text2); text-align: right; font-variant-numeric: tabular-nums; }
+        .sim-delta { font-size: 12px; font-weight: 700; text-align: right; }
+        .sim-delta.up { color: #34d399; }
+        .sim-delta.down { color: #f87171; }
+        .sim-delta.flat { color: var(--text3); }
+
+        .sim-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .sim-stat-label { font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .sim-stat-value { font-size: 20px; font-weight: 800; }
+        .sim-stat-value.up { color: #34d399; }
+        .sim-stat-value.down { color: #f87171; }
+
+        .real-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+        .real-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        .real-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .real-table tr:last-child td { border-bottom: none; }
+        .real-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+        .rule-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); font-size: 12px; cursor: pointer; user-select: none; }
+        .tag-chip.selected { background: var(--accent-glow); border-color: var(--accent); color: var(--text); }
+        .tag-chip.selected.any { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.4); }
+
+        .audience-count-badge {
+            display: inline-flex; align-items: baseline; gap: 6px;
+            font-size: 28px; font-weight: 800; color: var(--text);
+        }
+        .audience-count-badge span { font-size: 12px; font-weight: 500; color: var(--text2); }
     </style>
 </head>
 <body>
@@ -595,6 +645,35 @@
                     </div>
                     <div class="output-body" id="out-attribution-body"><div class="output-empty">Analysis will appear here...</div></div>
                 </div>
+
+                <div class="real-panel">
+                    <div class="real-panel-header">
+                        <div>
+                            <div class="real-panel-title"><span class="real-badge">✓ Real calculation</span> Multi-Touch Attribution Calculator</div>
+                            <div class="real-panel-sub">Give it the actual sequence of touchpoints per conversion (not just channel totals) and it runs the real math for the model you pick — first/last touch, linear, time-decay, or position-based U-shaped. No AI involved in the numbers below.</div>
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Touchpoint Sequences — one conversion per line: touchpoints in order, comma-separated, optional ($revenue) at the end</label>
+                        <textarea class="field-textarea" id="attr-paths" style="min-height:120px;" placeholder="Organic Search, Email, Google Ads ($4500)&#10;LinkedIn Ads, Email, Email, Retargeting ($8200)&#10;Google Ads, Organic Search ($2100)&#10;Referral, Email, Google Ads, Retargeting ($6000)"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="field-group">
+                            <label class="field-label">Model to compute</label>
+                            <select class="field-select" id="attr-real-model">
+                                <option value="linear">Linear</option>
+                                <option value="first-touch">First Touch</option>
+                                <option value="last-touch">Last Touch</option>
+                                <option value="time-decay" selected>Time Decay</option>
+                                <option value="position-based">Position Based (40/20/40 U-shaped)</option>
+                            </select>
+                        </div>
+                        <div class="field-group" style="display:flex;align-items:flex-end;">
+                            <button class="btn-primary" style="width:100%;justify-content:center;" onclick="calcRealAttribution()">Calculate Real Attribution</button>
+                        </div>
+                    </div>
+                    <div id="attr-real-output"></div>
+                </div>
             </div>
 
             <!-- Tab: Marketing Mix Model -->
@@ -621,9 +700,38 @@
                     </div>
                 </div>
                 <div class="btn-row">
-                    <button class="btn-primary" onclick="runWorkspace('mmm')">Run Mix Model</button>
+                    <button class="btn-primary" onclick="buildSimulator()">🎚 Build Budget Simulator</button>
+                    <button class="btn-secondary" onclick="runWorkspace('mmm')">Run AI Mix Model Narrative</button>
                     <button class="btn-secondary" onclick="sendToChat('Help me optimize my marketing mix model')">Ask AI</button>
                 </div>
+
+                <div class="real-panel" id="mmm-simulator" style="display:none;">
+                    <div class="real-panel-header">
+                        <div>
+                            <div class="real-panel-title"><span class="real-badge">✓ Real calculation</span> Budget Reallocation Simulator</div>
+                            <div class="real-panel-sub">Drag any channel's budget and every number below recalculates instantly — deterministic math on the figures you entered above, not an AI guess.</div>
+                        </div>
+                        <div class="field-group" style="max-width:220px;margin-bottom:0;">
+                            <label class="field-label">Diminishing returns</label>
+                            <select class="field-select" id="mmm-sim-curve" onchange="renderSimulator()">
+                                <option value="0.85">Conservative (channels scale well)</option>
+                                <option value="0.7" selected>Moderate (typical)</option>
+                                <option value="0.55">Aggressive (saturates fast)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="mmm-sim-rows"></div>
+                    <div class="sim-summary" id="mmm-sim-summary"></div>
+                    <p style="font-size:10.5px;color:var(--text3);margin-top:8px;">*Sums conversions/leads and revenue-derived figures together when your channels use different units — trust the per-channel % deltas above over this blended total.</p>
+                    <p style="font-size:11.5px;color:var(--text3);margin-top:14px;line-height:1.6;">
+                        Model: each channel's response follows <code>result ∝ budget^p</code> (a standard diminishing-returns curve shape), calibrated so it reproduces your entered budget/result exactly at the current allocation, then projects forward or back as you move the slider. <code>p</code> is an assumed elasticity (not fitted from your historical time-series — this app has no time-series to fit from), so treat the projected deltas as directionally useful, not a guaranteed forecast. A real MMM (Meridian, Robyn) fits <code>p</code> per channel from months of real spend/response data.
+                    </p>
+                    <div class="btn-row">
+                        <button class="btn-secondary" onclick="resetSimulator()">Reset to current allocation</button>
+                        <button class="btn-secondary" onclick="runWorkspace('mmm', true)">Get AI narrative on this scenario</button>
+                    </div>
+                </div>
+
                 <div class="output-card" id="out-mmm" style="display:none;">
                     <div class="output-header">
                         <span class="output-title">Mix Model Analysis</span>
@@ -882,25 +990,255 @@
         return '\n\n**BUSINESS OBJECTIVES — judge every recommendation against these:**\n' + lines.join('\n') + '\n';
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // MMM BUDGET REALLOCATION SIMULATOR — real client-side math, no AI call.
+    // Parses the channel rows the user already typed into mmm-data, fits a
+    // standard diminishing-returns response curve (result ∝ budget^p) to
+    // each channel's own entered budget/result pair, then lets the user
+    // drag a slider and see the projected result recompute instantly. p is
+    // an assumed elasticity (this app has no historical spend/response
+    // time series to fit p from) — labeled honestly in the panel copy.
+    // ═══════════════════════════════════════════════════════════════════════
+    let simState = null; // { curveP, channels: [{name, baselineBudget, currentBudget, baselineResponse, responseLabel}] }
+    let lastRealAttribution = null; // { model, paths, credit, totalWeight, totalRevenue } — see calcRealAttribution()
+
+    function parseMmmChannels(text) {
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const channels = [];
+        for (const line of lines) {
+            const nameMatch = line.match(/^([^:|,]+)[:|,]/);
+            if (!nameMatch) continue;
+            const name = nameMatch[1].trim();
+            if (!name) continue;
+
+            const budgetMatch = line.match(/\$\s?([\d,]+(?:\.\d+)?)/);
+            const budget = budgetMatch ? parseFloat(budgetMatch[1].replace(/,/g, '')) : null;
+            if (budget === null) continue;
+
+            const roasMatch = line.match(/([\d.]+)\s*x\b/i);
+            const roas = roasMatch ? parseFloat(roasMatch[1]) : null;
+            const convMatch = line.match(/([\d,]+(?:\.\d+)?)\s*(conversions|conv|leads|sqls|mqls|visits|clicks|sessions)/i);
+            const conversions = convMatch ? parseFloat(convMatch[1].replace(/,/g, '')) : null;
+
+            let baselineResponse, responseLabel;
+            if (conversions !== null) { baselineResponse = conversions; responseLabel = convMatch[2]; }
+            else if (roas !== null && budget > 0) { baselineResponse = budget * roas; responseLabel = 'revenue'; }
+            else continue; // nothing to model a response curve from
+
+            channels.push({ name, baselineBudget: budget, currentBudget: budget, baselineResponse, responseLabel });
+        }
+        return channels;
+    }
+
+    function simResponse(channel, budget, p) {
+        if (channel.baselineBudget <= 0) return channel.baselineResponse; // no cost basis to scale from — hold flat
+        if (budget <= 0) return 0;
+        return channel.baselineResponse * Math.pow(budget / channel.baselineBudget, p);
+    }
+
+    function buildSimulator() {
+        const text = document.getElementById('mmm-data').value.trim();
+        const panel = document.getElementById('mmm-simulator');
+        if (!text) { alert('Paste your channel budget/ROAS/conversions data above first.'); return; }
+
+        const parsed = parseMmmChannels(text);
+        if (parsed.length < 2) {
+            panel.style.display = 'block';
+            document.getElementById('mmm-sim-rows').innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">Couldn't find at least 2 channels with a $ budget and either a conversion/lead count or an "Xx ROAS/ROI" figure — the simulator needs a real number to build a response curve from. The AI narrative button still works from freeform text.</p>`;
+            document.getElementById('mmm-sim-summary').innerHTML = '';
+            return;
+        }
+
+        simState = { curveP: parseFloat(document.getElementById('mmm-sim-curve').value), channels: parsed };
+        panel.style.display = 'block';
+        renderSimulator();
+    }
+
+    function resetSimulator() {
+        if (!simState) return;
+        simState.channels.forEach(c => { c.currentBudget = c.baselineBudget; });
+        renderSimulator();
+    }
+
+    function updateSimChannel(idx, value) {
+        if (!simState) return;
+        simState.channels[idx].currentBudget = parseFloat(value);
+        renderSimulator();
+    }
+
+    function fmtMoney(n) {
+        if (n >= 1000) return '$' + Math.round(n).toLocaleString();
+        return '$' + n.toFixed(0);
+    }
+    function fmtNum(n) { return Math.round(n).toLocaleString(); }
+
+    function renderSimulator() {
+        if (!simState) return;
+        simState.curveP = parseFloat(document.getElementById('mmm-sim-curve').value);
+
+        const rowsEl = document.getElementById('mmm-sim-rows');
+        rowsEl.innerHTML = simState.channels.map((c, i) => {
+            const max = Math.max(c.baselineBudget * 3, 1000);
+            const projected = simResponse(c, c.currentBudget, simState.curveP);
+            const deltaPct = c.baselineResponse ? ((projected - c.baselineResponse) / c.baselineResponse) * 100 : 0;
+            const deltaClass = deltaPct > 0.5 ? 'up' : deltaPct < -0.5 ? 'down' : 'flat';
+            return `<div class="sim-row">
+                <div class="sim-channel">${escHtmlAn(c.name)}</div>
+                <input type="range" min="0" max="${max}" step="${Math.max(1, Math.round(max / 200))}" value="${c.currentBudget}" oninput="updateSimChannel(${i}, this.value)">
+                <div class="sim-value">${fmtMoney(c.currentBudget)}</div>
+                <div class="sim-delta ${deltaClass}">${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%</div>
+            </div>`;
+        }).join('');
+
+        const totalBaselineBudget = simState.channels.reduce((s, c) => s + c.baselineBudget, 0);
+        const totalCurrentBudget = simState.channels.reduce((s, c) => s + c.currentBudget, 0);
+        const totalBaselineResponse = simState.channels.reduce((s, c) => s + c.baselineResponse, 0);
+        const totalProjectedResponse = simState.channels.reduce((s, c) => s + simResponse(c, c.currentBudget, simState.curveP), 0);
+        const respDelta = totalBaselineResponse ? ((totalProjectedResponse - totalBaselineResponse) / totalBaselineResponse) * 100 : 0;
+        const budgetDelta = totalCurrentBudget - totalBaselineBudget;
+
+        document.getElementById('mmm-sim-summary').innerHTML = `
+            <div><div class="sim-stat-label">Total Budget</div><div class="sim-stat-value">${fmtMoney(totalCurrentBudget)}</div><div class="sim-value">${budgetDelta === 0 ? 'same as current' : (budgetDelta > 0 ? '+' : '') + fmtMoney(budgetDelta) + ' vs current'}</div></div>
+            <div><div class="sim-stat-label">Projected Combined Response*</div><div class="sim-stat-value ${respDelta > 0.5 ? 'up' : respDelta < -0.5 ? 'down' : ''}">${fmtNum(totalProjectedResponse)}</div><div class="sim-value">${respDelta >= 0 ? '+' : ''}${respDelta.toFixed(1)}% vs current</div></div>
+            <div><div class="sim-stat-label">Response Efficiency</div><div class="sim-stat-value">${totalCurrentBudget > 0 ? (totalProjectedResponse / totalCurrentBudget).toFixed(3) : '—'}</div><div class="sim-value">per $ spent</div></div>
+        `;
+        // Note: "Combined Response" sums conversions and revenue-derived
+        // figures together when channels use different units — a real
+        // limitation of blending heterogeneous metrics, not hidden from
+        // the user; the per-channel deltas above are the trustworthy number.
+    }
+
+    function escHtmlAn(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MULTI-TOUCH ATTRIBUTION CALCULATOR — real math over actual per-
+    // conversion touchpoint sequences (first/last touch, linear, time-decay,
+    // position-based U-shaped are all standard, well-defined formulas — no
+    // AI, no estimate). "Data-driven" attribution genuinely requires machine
+    // learning over a large volume of real conversion data this app doesn't
+    // have, so it's intentionally not offered as a real-math option here —
+    // only in the AI-narrative dropdown above, honestly labeled as such.
+    // ═══════════════════════════════════════════════════════════════════════
+    function parseTouchpointPaths(text) {
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const paths = [];
+        for (const line of lines) {
+            let revenue = 0;
+            let clean = line;
+            const revMatch = line.match(/\(\s*\$?\s*([\d,]+(?:\.\d+)?)\s*\)\s*$/);
+            if (revMatch) {
+                revenue = parseFloat(revMatch[1].replace(/,/g, ''));
+                clean = line.slice(0, revMatch.index).trim();
+            }
+            const touchpoints = clean.split(',').map(t => t.trim()).filter(Boolean);
+            if (!touchpoints.length) continue;
+            paths.push({ touchpoints, revenue });
+        }
+        return paths;
+    }
+
+    function pathWeights(touchpoints, model) {
+        const n = touchpoints.length;
+        if (n === 1) return [1];
+        switch (model) {
+            case 'first-touch': return touchpoints.map((_, i) => i === 0 ? 1 : 0);
+            case 'last-touch': return touchpoints.map((_, i) => i === n - 1 ? 1 : 0);
+            case 'time-decay': {
+                // No real timestamps are given, so recency is approximated by
+                // position: each step back from the converting touch halves
+                // its weight (a standard 1-week-ish half-life shape scaled to
+                // path length instead of real elapsed time).
+                const raw = touchpoints.map((_, i) => Math.pow(2, (i - (n - 1)) / 2));
+                const sum = raw.reduce((a, b) => a + b, 0);
+                return raw.map(w => w / sum);
+            }
+            case 'position-based': {
+                if (n === 2) return [0.5, 0.5];
+                return touchpoints.map((_, i) => (i === 0 || i === n - 1) ? 0.4 : 0.2 / (n - 2));
+            }
+            case 'linear':
+            default:
+                return touchpoints.map(() => 1 / n);
+        }
+    }
+
+    function computeRealAttribution(paths, model) {
+        const credit = {};
+        for (const path of paths) {
+            const weights = pathWeights(path.touchpoints, model);
+            path.touchpoints.forEach((ch, i) => {
+                if (!credit[ch]) credit[ch] = { weight: 0, revenue: 0 };
+                credit[ch].weight += weights[i];
+                credit[ch].revenue += (path.revenue || 0) * weights[i];
+            });
+        }
+        return credit;
+    }
+
+    function calcRealAttribution() {
+        const text = document.getElementById('attr-paths').value.trim();
+        const model = document.getElementById('attr-real-model').value;
+        const outEl = document.getElementById('attr-real-output');
+        if (!text) { alert('Paste at least a couple of touchpoint sequences first — one conversion per line.'); return; }
+
+        const paths = parseTouchpointPaths(text);
+        if (!paths.length) {
+            outEl.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">Couldn't parse any touchpoint sequences — each line should be comma-separated channel names, e.g. "Organic Search, Email, Google Ads ($4500)".</p>`;
+            return;
+        }
+
+        const credit = computeRealAttribution(paths, model);
+        const totalWeight = Object.values(credit).reduce((s, c) => s + c.weight, 0);
+        const totalRevenue = Object.values(credit).reduce((s, c) => s + c.revenue, 0);
+        const rows = Object.entries(credit).sort((a, b) => b[1].weight - a[1].weight);
+
+        lastRealAttribution = { model, paths, credit, totalWeight, totalRevenue };
+
+        outEl.innerHTML = `
+            <table class="real-table">
+                <thead><tr><th>Channel</th><th class="num">Attributed Credit</th><th class="num">Attributed Revenue</th></tr></thead>
+                <tbody>
+                    ${rows.map(([ch, c]) => `<tr><td>${escHtmlAn(ch)}</td><td class="num">${totalWeight ? ((c.weight / totalWeight) * 100).toFixed(1) : '0'}%</td><td class="num">${totalRevenue ? fmtMoney(c.revenue) : '—'}</td></tr>`).join('')}
+                </tbody>
+            </table>
+            <p style="font-size:11.5px;color:var(--text3);margin-top:10px;line-height:1.6;">Computed from ${paths.length} conversion path${paths.length === 1 ? '' : 's'} using the ${model.replace('-', ' ')} model — real math, not an AI estimate.</p>
+            <div class="btn-row"><button class="btn-secondary" onclick="runWorkspace('attribution', true)">Get AI narrative on this real result</button></div>
+        `;
+    }
+
     const ESTIMATE_DISCLAIMER = "\nLabel all benchmark figures and attribution percentages as estimates ('est.') — you have no live data source; recommend validating against the user's analytics platform.";
 
     // Workspace prompts per tab
     const workspacePrompts = {
-        attribution: () => {
+        attribution: (opts = {}) => {
             const data = document.getElementById('attr-data').value.trim();
             const model = document.getElementById('attr-model').value;
             const goal = document.getElementById('attr-goal').value;
-            if (!data) return null;
+            const hasRealResult = opts.useSimScenario && lastRealAttribution;
+            if (!data && !hasRealResult) return null;
 
             let prompt = `You are an expert marketing analytics consultant specializing in attribution modeling.
 
 Analyze this campaign data and provide a comprehensive attribution analysis:
 
 CAMPAIGN DATA:
-${data}
+${data || '(none pasted — see the real computed attribution result below instead)'}
 
 ATTRIBUTION MODEL REQUESTED: ${model}
 GOAL / KPI FOCUS: ${goal}`;
+
+            // If the user actually ran the real multi-touch attribution
+            // calculator (see calcRealAttribution() — deterministic math over
+            // real touchpoint sequences, not an AI estimate), ground the
+            // narrative in those computed numbers instead of having the model
+            // invent its own channel credit split.
+            if (hasRealResult) {
+                const { model: realModel, paths, credit, totalWeight, totalRevenue } = lastRealAttribution;
+                const table = Object.entries(credit).sort((a, b) => b[1].weight - a[1].weight)
+                    .map(([ch, c]) => `- ${ch}: ${totalWeight ? ((c.weight / totalWeight) * 100).toFixed(1) : '0'}% credit${totalRevenue ? `, ${fmtMoney(c.revenue)} attributed revenue` : ''}`)
+                    .join('\n');
+                prompt += `\n\nTHE USER HAS ALREADY COMPUTED REAL MULTI-TOUCH ATTRIBUTION using this app's calculator — actual math over ${paths.length} real conversion path${paths.length === 1 ? '' : 's'} the user entered, ${realModel.replace('-', ' ')} model (NOT an AI estimate):\n${table}\n\nYour job: interpret THIS specific real result — what does this credit distribution actually tell us, which channels are being undervalued by simpler models, and what should change. Ground every recommendation in these exact numbers rather than inventing a different split.`;
+            }
 
             // ADD INTELLIGENCE LAYER CONTEXT
             prompt += buildICPAttributionContext();
@@ -931,7 +1269,7 @@ Format clearly with sections and be specific with numbers.`;
 
             return prompt;
         },
-        mmm: () => {
+        mmm: (opts = {}) => {
             const data = document.getElementById('mmm-data').value.trim();
             const budget = document.getElementById('mmm-budget').value.trim();
             const goal = document.getElementById('mmm-goal').value;
@@ -946,6 +1284,19 @@ ${data}
 
 TOTAL MONTHLY BUDGET: ${budget || 'Not specified'}
 BUSINESS GOAL: ${goal}`;
+
+            // If the user actually ran the real budget simulator (deterministic
+            // math, not an AI guess — see buildSimulator()/renderSimulator()),
+            // ground the narrative in that specific scenario instead of having
+            // the model invent its own reallocation from scratch.
+            if (opts.useSimScenario && simState) {
+                const scenario = simState.channels.map(c => {
+                    const projected = simResponse(c, c.currentBudget, simState.curveP);
+                    const deltaPct = c.baselineResponse ? (((projected - c.baselineResponse) / c.baselineResponse) * 100).toFixed(1) : '0';
+                    return `- ${c.name}: budget moved from ${fmtMoney(c.baselineBudget)} to ${fmtMoney(c.currentBudget)}, projected ${c.responseLabel} ${fmtNum(c.baselineResponse)} → ${fmtNum(projected)} (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
+                }).join('\n');
+                prompt += `\n\nTHE USER HAS ALREADY BUILT A SPECIFIC REALLOCATION SCENARIO using this app's real budget simulator (a deterministic response-curve calculation, elasticity p=${simState.curveP}, NOT an AI estimate):\n${scenario}\n\nYour job: evaluate THIS specific scenario — is it a sound move, what risk does it carry (e.g. a channel being pushed past a realistic saturation point), what would you adjust, and why. Don't propose a completely different allocation from scratch unless this one is clearly wrong.`;
+            }
 
             prompt += buildICPAttributionContext();
             prompt += buildCompetitiveBenchmarkContext();
@@ -1126,7 +1477,7 @@ Format with clear sections, use the data provided, and write in a confident narr
         }
     };
 
-    async function runWorkspace(tabId) {
+    async function runWorkspace(tabId, useSimScenario) {
         // Strategic Validation: Google Analytics Configuration
         if (typeof window.ApiConnector !== 'undefined' && window.ApiConnector.GoogleAnalytics) {
             if (!window.ApiConnector.GoogleAnalytics.isAvailable()) {
@@ -1157,7 +1508,7 @@ Format with clear sections, use the data provided, and write in a confident narr
             return;
         }
 
-        const prompt = workspacePrompts[tabId]();
+        const prompt = workspacePrompts[tabId]({ useSimScenario });
         if (!prompt) {
             alert('Please fill in the required fields before generating.');
             return;
