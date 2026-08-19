@@ -379,6 +379,12 @@
                         const pagespeed = await window.ProductionAPI.PageSpeed.analyze(url, 'mobile');
                         state.data.coreWebVitals = pagespeed.coreWebVitals;
                         state.data.performanceScore = pagespeed.scores.performance;
+                        // PageSpeed.analyze() already computes accessibility/seo/
+                        // bestPractices scores alongside performance — used to be
+                        // discarded here, forcing anything downstream (e.g. the
+                        // Health Score page) to either fabricate those numbers or
+                        // show nothing despite the real data already existing.
+                        state.data.pageSpeedScores = pagespeed.scores;
 
                         // Add performance issues
                         if (pagespeed.scores.performance < 50) {
@@ -906,6 +912,7 @@
                 keywords: state.data.keywords,
                 backlinks: state.data.backlinks,
                 coreWebVitals: state.data.coreWebVitals,
+                pageSpeedScores: state.data.pageSpeedScores,
                 summary: state.data.summary,
                 analyzedAt: new Date().toISOString(),
                 isRealData: true // Always real data - no mock mode
