@@ -168,6 +168,7 @@ window.SocialPostsStore = (function () {
   }
 
   return {
+    getUserId,
     getScope,
     createBatch,
     listPosts,

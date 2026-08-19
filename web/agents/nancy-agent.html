@@ -1134,6 +1134,17 @@ document.getElementById('send-to-calendar-btn').addEventListener('click', async 
   if (!platforms.length) { statusEl.textContent = 'Pick at least one platform first.'; return; }
   if (!window.SocialPostsStore) { statusEl.textContent = 'Content Calendar isn\'t available right now.'; return; }
 
+  // Nancy's own generation flow works fine signed out (persistWeek() just
+  // no-ops if there's no user), but the Content Calendar requires a real
+  // account to save to — check first and say so plainly instead of
+  // surfacing SocialPostsStore's raw "Sign in to save generated posts."
+  // error, since this page has no sign-in UI of its own to point to.
+  const signedInUserId = await window.SocialPostsStore.getUserId();
+  if (!signedInUserId) {
+    statusEl.innerHTML = 'You need to be signed in to send posts to the Content Calendar — your generated week is safe, it just isn\'t saved to an account yet. <a href="/hub.html" style="color:var(--purple);font-weight:600;">Sign in from the Hub →</a> then come back to this tab and try again.';
+    return;
+  }
+
   const btn = document.getElementById('send-to-calendar-btn');
   btn.disabled = true;
   statusEl.textContent = 'Sending…';
