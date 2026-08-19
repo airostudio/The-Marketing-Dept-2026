@@ -62,7 +62,7 @@ window.SocialPostsStore = (function () {
 
   /**
    * Insert a batch of generated posts/concepts as pending_review rows.
-   * @param {Array<Object>} posts - each: {source, platform, angleType?, hook?, headline, body, cta?, hashtags?, proofPoint?, urgencyLine?, visualDirection?, metadata?}
+   * @param {Array<Object>} posts - each: {source, platform, angleType?, hook?, headline, body, cta?, hashtags?, proofPoint?, urgencyLine?, visualDirection?, imageUrl?, metadata?}
    * @returns {Promise<{batchId: string, posts: Array}>}
    */
   async function createBatch(posts) {
@@ -90,6 +90,7 @@ window.SocialPostsStore = (function () {
       proof_point: p.proofPoint || null,
       urgency_line: p.urgencyLine || null,
       visual_direction: p.visualDirection || null,
+      image_url: p.imageUrl || null,
       metadata: p.metadata || {},
     }));
 

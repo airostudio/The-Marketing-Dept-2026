@@ -14,6 +14,7 @@
 <script src="/js/site-switcher.js"></script>
 <script src="/js/scotty-intake.js"></script>
 <script src="/js/nancy-store.js"></script>
+<script src="/js/social-posts-store.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -316,6 +317,23 @@
 
     <div class="tab-pane active" id="tab-grid">
       <div class="post-grid" id="post-grid"></div>
+
+      <div class="calendar-send-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:20px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);">
+        <div style="flex:1;min-width:220px;">
+          <div style="font-weight:700;font-size:14px;">Post this week for real</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-top:2px;">Send all 7 to the Content Calendar to schedule them, or publish through any connected platform — Instagram, Facebook, LinkedIn, X, TikTok.</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;" id="calendar-platform-picker">
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Instagram" checked> Instagram</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Facebook"> Facebook</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="LinkedIn"> LinkedIn</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="Twitter/X"> X</label>
+          <label style="font-size:12.5px;color:var(--text2);"><input type="checkbox" value="TikTok"> TikTok</label>
+        </div>
+        <button class="btn btn-primary btn-sm" id="send-to-calendar-btn">📅 Send to Content Calendar</button>
+      </div>
+      <div id="calendar-send-status" style="font-size:12.5px;color:var(--text2);margin-top:8px;"></div>
+
       <div class="downloads-bar">
         <button class="btn btn-ghost btn-sm" id="download-all-zip-btn">⬇ Download all 7 graphics (ZIP)</button>
         <button class="btn btn-ghost btn-sm" id="copy-all-captions-btn">📋 Copy all captions</button>
@@ -964,6 +982,52 @@ document.getElementById('another-week-btn').addEventListener('click', async () =
   State.previousTopics = [...State.previousTopics, ...State.posts.map(p => p.content_pillar)];
   State.weekNumber += 1;
   await startGeneration();
+});
+
+// ── Send to Content Calendar — plugs Nancy into the same social_posts
+// pipeline Social Studio and the LinkedIn agent already use, rather than
+// building a second scheduler/publisher. Once here, Beeker's Content
+// Calendar tab schedules the time and api/cron-auto-publish.js (via
+// api/publish-social-post.js's real Facebook/Instagram/LinkedIn/X/TikTok
+// adapters) publishes it for real once real platform credentials exist in
+// Vercel — no code changes needed on either side to go from "queued" to
+// "actually posted".
+document.getElementById('send-to-calendar-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('calendar-send-status');
+  const platforms = [...document.querySelectorAll('#calendar-platform-picker input:checked')].map(el => el.value);
+  if (!platforms.length) { statusEl.textContent = 'Pick at least one platform first.'; return; }
+  if (!window.SocialPostsStore) { statusEl.textContent = 'Content Calendar isn\'t available right now.'; return; }
+
+  const btn = document.getElementById('send-to-calendar-btn');
+  btn.disabled = true;
+  statusEl.textContent = 'Sending…';
+  try {
+    let hasDataUriOnly = false;
+    const rows = [];
+    for (const p of State.posts) {
+      const imageUrl = p.asset?.hostedUrl || p.asset?.dataUri || '';
+      if (imageUrl.startsWith('data:')) hasDataUriOnly = true;
+      for (const platform of platforms) {
+        rows.push({
+          source: 'nancy', platform,
+          headline: p.slide_headline, body: p.caption, cta: p.cta, hashtags: p.hashtags || [],
+          visualDirection: p.visual_direction, imageUrl,
+          metadata: { day: p.day, objective: p.objective, content_pillar: p.content_pillar, cta_url: ctaUrl(p), nancy_content_week_id: State.contentWeekId || null },
+        });
+      }
+    }
+
+    const { posts: saved } = await window.SocialPostsStore.createBatch(rows);
+    const ids = saved.map(r => r.id).join(',');
+    const warn = hasDataUriOnly && platforms.some(p => p === 'Instagram' || p === 'TikTok')
+      ? ' Note: Instagram/TikTok need a real hosted image (configure R2 in Vercel) — these are currently only in-browser images, so those two platforms will show "failed" until R2 is set up.'
+      : '';
+    statusEl.innerHTML = `Sent ${State.posts.length} posts × ${platforms.length} platform${platforms.length > 1 ? 's' : ''} to the Content Calendar.${warn} <a href="/agents/audience-agent.html?tab=calendar&schedulePosts=${ids}">Open the Content Calendar to schedule them →</a>`;
+  } catch (err) {
+    statusEl.textContent = 'Could not send to Content Calendar: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // ── Minimal ZIP (STORE method, no compression) — zero dependencies ─────────
