@@ -10,6 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<!-- Already vendored in this repo — used to turn the article's Markdown into
+     the HTML that gets copied/downloaded for publishing, and to render the
+     on-page preview properly instead of showing raw Markdown. -->
+<script src="/js/marked.min.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
 <script src="/js/seo-pipeline-store.js"></script>
@@ -103,7 +107,22 @@
   .article-viewer h1 { font-size: 22px; margin-bottom: 6px; }
   .article-meta-box { background: var(--panel2); border-radius: 10px; padding: 14px 16px; margin: 14px 0 20px; font-size: 12.5px; color: var(--text2); }
   .article-meta-box div { margin-bottom: 4px; }
-  .article-body { font-size: 14.5px; line-height: 1.75; white-space: pre-wrap; color: var(--text); }
+  /* white-space:pre-wrap was for raw Markdown; the body is now real HTML. */
+  .article-body { font-size: 14.5px; line-height: 1.75; color: var(--text); }
+  .article-body h1 { font-size: 20px; margin: 22px 0 10px; }
+  .article-body h2 { font-size: 17px; margin: 24px 0 8px; }
+  .article-body h3 { font-size: 15px; margin: 18px 0 6px; }
+  .article-body p { margin-bottom: 12px; }
+  .article-body ul, .article-body ol { padding-left: 22px; margin-bottom: 12px; }
+  .article-body li { margin-bottom: 6px; }
+  .article-body a { color: var(--accent, #22d3ee); }
+  .article-body .faq { margin-top: 26px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .article-body .faq-item { margin-bottom: 14px; }
+
+  .publish-box { margin-top: 26px; background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .publish-box-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); margin-bottom: 8px; }
+  .publish-box-note { font-size: 12.5px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .publish-box-note code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
   .field-textarea, .field-input { width: 100%; padding: 10px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13.5px; font-family: inherit; }
   .field-textarea { min-height: 100px; resize: vertical; margin-top: 6px; }
@@ -542,13 +561,32 @@ function openArticle(localId) {
         <div><b>Target keyword:</b> ${escHtml(a.target_keyword || '')}</div>
         <div><b>Word count:</b> ${a.word_count || '?'}</div>
       </div>
-      <div class="article-body">${escHtml(a.body_markdown)}</div>
-      ${arr(a.faqs).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">FAQs</h3>` + arr(a.faqs).map(f => `<p style="margin-bottom:10px;"><b>${escHtml(f.question)}</b><br>${escHtml(f.answer)}</p>`).join('') : ''}
+      <div class="article-body">${articleBodyHtml(a)}</div>
       ${arr(a.internal_link_suggestions).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">Suggested internal links</h3><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${arr(a.internal_link_suggestions).map(s => `<li>${escHtml(s)}</li>`).join('')}</ul>` : ''}
-      <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="downloadArticle('${a._localId}')">⬇ Download Markdown</button>
+
+      <div class="publish-box">
+        <div class="publish-box-title">Publish to your site</div>
+        <p class="publish-box-note">
+          ${State.websiteUrl ? escHtml(State.websiteUrl.replace(/^https?:\/\//, '')) : 'Your site'} is a static HTML site, so there's no API to post to —
+          take the HTML and upload it (Cloudflare R2, S3, or straight into your repo).
+          The page below already contains the title, meta description, canonical URL and JSON-LD schema.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="downloadArticleHtml('${a._localId}')">⬇ Download HTML page</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyArticleHtml('${a._localId}')">📋 Copy HTML (body only)</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyAiPrompt('${a._localId}')">🤖 Copy AI prompt</button>
+        </div>
+        <p class="publish-box-note" style="margin-top:10px;margin-bottom:0;">
+          <b>Download HTML page</b> — complete file, upload as <code>${escHtml(a.slug || 'article')}.html</code>.
+          <b>Copy HTML</b> — just the article markup, to paste into your own template.
+          <b>AI prompt</b> — paste into ChatGPT, Claude or Gemini along with one of your existing pages, and it will rebuild this article in your site's exact style.
+        </p>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="downloadArticle('${a._localId}')">⬇ Markdown</button>
         <button class="btn btn-ghost btn-sm" onclick="copyArticle('${a._localId}')">📋 Copy Markdown</button>
-        <button class="btn btn-ghost btn-sm" onclick="downloadSchema('${a._localId}')">⬇ Download Schema Markup (JSON-LD)</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadSchema('${a._localId}')">⬇ Schema (JSON-LD)</button>
         <button class="btn btn-ghost btn-sm" onclick="markArticlePublished('${a._localId}')">${a.status === 'published_elsewhere' ? '✓ Marked published' : 'Mark as published'}</button>
       </div>
     </div>
@@ -558,6 +596,173 @@ function openArticle(localId) {
 function articleMarkdown(a) {
   return `# ${a.title}\n\n*Meta description: ${a.meta_description}*\n*Slug: /${a.slug}*\n\n${a.body_markdown}` +
     (arr(a.faqs).length ? `\n\n## FAQs\n\n` + arr(a.faqs).map(f => `**${f.question}**\n${f.answer}`).join('\n\n') : '');
+}
+
+// ── HTML export (for static sites — R2, S3, plain hosting) ────────────────
+// The article is generated as Markdown, which nothing on a static HTML site
+// can serve directly. These build real HTML: a body fragment to paste into an
+// existing template, or a complete standalone page to upload as-is.
+
+/** Render the Markdown body (+ FAQs) to an HTML fragment. */
+function articleBodyHtml(a) {
+  const md = window.marked
+    ? window.marked.parse(a.body_markdown || '')
+    // Fallback if marked failed to load: keep the text readable and safe
+    // rather than emitting raw Markdown into a page.
+    : `<pre style="white-space:pre-wrap;">${escHtml(a.body_markdown || '')}</pre>`;
+
+  const faqs = arr(a.faqs).length
+    ? `\n<section class="faq">\n  <h2>Frequently asked questions</h2>\n`
+      + arr(a.faqs).map(f =>
+          `  <div class="faq-item">\n    <h3>${escHtml(f.question)}</h3>\n    <p>${escHtml(f.answer)}</p>\n  </div>\n`
+        ).join('')
+      + `</section>\n`
+    : '';
+
+  return md + faqs;
+}
+
+/** Canonical URL for the article, derived from the analysed site. */
+function articleCanonical(a) {
+  const base = String(State.websiteUrl || '').replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/${String(a.slug || '').replace(/^\/+/, '')}`;
+}
+
+/** A complete, uploadable HTML document. */
+function articleStandaloneHtml(a) {
+  const canonical = articleCanonical(a);
+  const schema = a.schema_markup
+    ? `\n<script type="application/ld+json">\n${JSON.stringify(a.schema_markup, null, 2)}\n<\/script>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(a.title || '')}</title>
+<meta name="description" content="${escHtml(a.meta_description || '')}">
+${canonical ? `<link rel="canonical" href="${escHtml(canonical)}">` : ''}
+<meta property="og:type" content="article">
+<meta property="og:title" content="${escHtml(a.title || '')}">
+<meta property="og:description" content="${escHtml(a.meta_description || '')}">
+${canonical ? `<meta property="og:url" content="${escHtml(canonical)}">` : ''}
+<meta name="twitter:card" content="summary_large_image">${schema}
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    line-height: 1.7; max-width: 720px; margin: 0 auto; padding: 48px 20px;
+    color: #1a1a1a; background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #111; }
+    a { color: #7cc4ff; }
+  }
+  h1 { font-size: 2rem; line-height: 1.25; margin: 0 0 1rem; }
+  h2 { font-size: 1.4rem; margin: 2.5rem 0 .75rem; }
+  h3 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; }
+  p, li { margin: 0 0 1rem; }
+  ul, ol { padding-left: 1.4rem; }
+  img { max-width: 100%; height: auto; }
+  .faq { margin-top: 3rem; border-top: 1px solid rgba(128,128,128,.3); padding-top: 1.5rem; }
+  .faq-item { margin-bottom: 1.25rem; }
+  .faq-item h3 { margin-bottom: .25rem; }
+</style>
+</head>
+<body>
+<article>
+${articleBodyHtml(a)}
+</article>
+</body>
+</html>
+`;
+}
+
+function downloadArticleHtml(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  downloadBlob(articleStandaloneHtml(a), 'text/html', `${a.slug || 'article'}.html`);
+  flashBtn(event, 'Downloaded');
+}
+
+function copyArticleHtml(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  copyText(articleBodyHtml(a), event);
+}
+
+/**
+ * A prompt the user can paste into ChatGPT/Claude/Gemini to have it slot this
+ * article into their own site's existing template. Carries the real metadata
+ * and schema so the model doesn't invent any of it.
+ */
+function articleAiPrompt(a) {
+  const canonical = articleCanonical(a);
+  return `I need to publish the article below on my website${State.websiteUrl ? ` (${State.websiteUrl})` : ''}, which is a static HTML site.
+
+Please output a single complete, ready-to-upload HTML file that:
+1. Matches the structure and styling of my existing site pages — I'll paste one of my current pages next so you can copy its header, footer, nav and CSS classes. Ask me for it if I haven't included it.
+2. Keeps ALL of the SEO metadata below exactly as given — do not reword the title, meta description, or slug, and do not invent new ones.
+3. Includes the JSON-LD structured data verbatim in the <head>.
+4. Does not change the article's wording, headings, or factual claims.
+
+--- TITLE (use as <title> and the H1) ---
+${a.title || ''}
+
+--- META DESCRIPTION ---
+${a.meta_description || ''}
+
+--- SLUG (the file should be published at this path) ---
+/${a.slug || ''}
+${canonical ? `\n--- CANONICAL URL ---\n${canonical}\n` : ''}
+--- TARGET KEYWORD (already worked into the copy — don't add more) ---
+${a.target_keyword || ''}
+
+--- JSON-LD STRUCTURED DATA (include verbatim) ---
+${a.schema_markup ? JSON.stringify(a.schema_markup, null, 2) : '(none)'}
+
+--- ARTICLE BODY (Markdown — convert to HTML, keep wording identical) ---
+${a.body_markdown || ''}
+${arr(a.faqs).length ? `\n--- FAQ SECTION (render as an FAQ block) ---\n` + arr(a.faqs).map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') : ''}
+${arr(a.internal_link_suggestions).length ? `\n--- INTERNAL LINKS TO ADD ---\nAdd links for these where they fit naturally. I'll supply the real URLs:\n` + arr(a.internal_link_suggestions).map(s => `- ${s}`).join('\n') : ''}`;
+}
+
+function copyAiPrompt(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  copyText(articleAiPrompt(a), event);
+}
+
+// ── Small shared helpers ──────────────────────────────────────────────────
+function downloadBlob(content, mime, filename) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function flashBtn(ev, label) {
+  const btn = ev?.target;
+  if (!btn || !btn.tagName || btn.tagName !== 'BUTTON') return;
+  const original = btn.textContent;
+  btn.textContent = `✓ ${label}`;
+  setTimeout(() => { btn.textContent = original; }, 1600);
+}
+
+// Clipboard writes fail on insecure origins and when permission is denied —
+// tell the user instead of appearing to succeed.
+function copyText(text, ev) {
+  if (!navigator.clipboard?.writeText) {
+    alert('Your browser blocked clipboard access. Use the download button instead.');
+    return;
+  }
+  navigator.clipboard.writeText(text)
+    .then(() => flashBtn(ev, 'Copied'))
+    .catch(() => alert('Could not copy to clipboard. Use the download button instead.'));
 }
 function downloadArticle(localId) {
   const a = State.articles.find(x => x._localId === localId);
@@ -570,7 +775,8 @@ function downloadArticle(localId) {
 }
 function copyArticle(localId) {
   const a = State.articles.find(x => x._localId === localId);
-  navigator.clipboard?.writeText(articleMarkdown(a));
+  if (!a) return;
+  copyText(articleMarkdown(a), event);
 }
 function downloadSchema(localId) {
   const a = State.articles.find(x => x._localId === localId);
