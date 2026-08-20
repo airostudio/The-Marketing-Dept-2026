@@ -234,7 +234,13 @@
 <div id="outreach-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
     <h3 style="font-size:17px;margin-bottom:4px;">Outreach draft</h3>
-    <p style="font-size:12.5px;color:var(--text2);margin-bottom:18px;" id="outreach-modal-to"></p>
+    <p style="font-size:12.5px;color:var(--text2);margin-bottom:14px;" id="outreach-modal-to"></p>
+    <label class="field-label">To</label>
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input class="field-input" id="outreach-to" placeholder="contact@example.com" style="flex:1;">
+      <button class="btn btn-ghost btn-sm" id="outreach-find-email-btn" onclick="findEmailForModal()" style="white-space:nowrap;">🔎 Find email</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;" id="outreach-email-status"></p>
     <label class="field-label">Subject</label>
     <input class="field-input" id="outreach-subject" style="margin-bottom:14px;">
     <label class="field-label">Body</label>
@@ -855,7 +861,10 @@ function renderProspects() {
       <div class="topic-info">
         <div class="topic-title">${escHtml(p.domain)} ${p.data_source === 'real' ? '<span class="real-badge">✓ Real backlink gap</span>' : '<span class="est-badge">Found via search</span>'}</div>
         <div class="topic-rationale">${escHtml(p.relevance_reason || '')}</div>
-        ${p.status && p.status !== 'found' ? `<div class="topic-meta"><span class="est-badge">${escHtml(p.status)}</span></div>` : ''}
+        <div class="topic-meta">
+          ${p.status && p.status !== 'found' ? `<span class="est-badge">${escHtml(p.status)}</span>` : ''}
+          ${p.contact_email ? `<span class="est-badge" title="${escHtml(p.contact_email)}">✉ ${escHtml(p.contact_email)}</span>` : `<span class="est-badge" style="opacity:0.6;">No contact email yet</span>`}
+        </div>
       </div>
       <button class="btn btn-primary btn-sm" onclick="draftOutreach('${p._localId}')">${p.status === 'drafted' || p.status === 'queued' ? 'Edit Draft' : 'Draft Outreach'}</button>
     </div>
@@ -893,18 +902,75 @@ async function draftOutreach(localId) {
     }
   }
 
-  document.getElementById('outreach-modal-to').textContent = `To: ${p.domain}${p.page_url ? ' (' + p.page_url + ')' : ''} — review and edit before sending. Nothing sends automatically.`;
+  document.getElementById('outreach-modal-to').textContent = `${p.domain}${p.page_url ? ' — ' + p.page_url : ''} — review and edit before sending. Nothing sends automatically.`;
+  document.getElementById('outreach-to').value = p.contact_email || '';
   document.getElementById('outreach-subject').value = p.outreach_subject || '';
   document.getElementById('outreach-body').value = p.outreach_body || '';
+  document.getElementById('outreach-email-status').textContent = '';
   document.getElementById('outreach-modal').style.display = 'flex';
+
+  // The backlink search finds real, named sites — never a contact address.
+  // Look one up automatically the first time this prospect's draft is
+  // opened, so the user isn't stuck typing every address in by hand.
+  if (!p.contact_email) findEmailForModal(/* auto */ true);
 }
-function closeOutreachModal() {
+
+/** Reads the modal's current field values back into the prospect + persists. */
+function syncOutreachModalToProspect() {
   const p = State.prospects.find(x => x._localId === State.currentProspectId);
-  if (p) {
-    p.outreach_subject = document.getElementById('outreach-subject').value;
-    p.outreach_body = document.getElementById('outreach-body').value;
-    if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { outreach_subject: p.outreach_subject, outreach_body: p.outreach_body }).catch(() => {});
+  if (!p) return null;
+  p.contact_email = document.getElementById('outreach-to').value.trim();
+  p.outreach_subject = document.getElementById('outreach-subject').value;
+  p.outreach_body = document.getElementById('outreach-body').value;
+  if (p.id && window.SEOPipelineStore) {
+    SEOPipelineStore.updateProspect(p.id, {
+      contact_email: p.contact_email || null,
+      outreach_subject: p.outreach_subject, outreach_body: p.outreach_body,
+    }).catch(() => {});
   }
+  return p;
+}
+
+async function findEmailForModal(auto) {
+  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  if (!p) return;
+  const statusEl = document.getElementById('outreach-email-status');
+  const btn = document.getElementById('outreach-find-email-btn');
+  const toInput = document.getElementById('outreach-to');
+
+  statusEl.textContent = 'Looking for a contact email on their site…';
+  statusEl.style.color = 'var(--text3)';
+  if (btn) { btn.disabled = true; btn.textContent = '🔎 Finding…'; }
+
+  try {
+    const result = await postJSON('/api/seo-backlink-find-email', { domain: p.domain });
+    if (result.email) {
+      // Don't clobber something the user already typed in manually.
+      if (!toInput.value.trim() || (auto && toInput.value.trim() === (p.contact_email || ''))) {
+        toInput.value = result.email;
+      }
+      p.contact_email = toInput.value.trim();
+      if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { contact_email: p.contact_email }).catch(() => {});
+      statusEl.textContent = result.data_source === 'real'
+        ? `✓ Found on their site: ${result.email}`
+        : `Found via search (not confirmed on-site): ${result.email} — double-check before sending.`;
+      statusEl.style.color = result.data_source === 'real' ? 'var(--green, #10b981)' : 'var(--text2)';
+    } else {
+      statusEl.textContent = auto
+        ? 'Could not find a contact email automatically — enter one manually.'
+        : 'Still no email found — try their contact page manually, or enter one yourself.';
+      statusEl.style.color = 'var(--text3)';
+    }
+  } catch (err) {
+    statusEl.textContent = `Email lookup failed: ${err.message}`;
+    statusEl.style.color = '#f87171';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔎 Find email'; }
+  }
+}
+
+function closeOutreachModal() {
+  syncOutreachModalToProspect();
   document.getElementById('outreach-modal').style.display = 'none';
   renderProspects();
 }
@@ -921,22 +987,20 @@ function copyOutreach() {
  * compliance/tone review path instead of a second bespoke send path.
  */
 function approveAndSendToPat() {
-  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  const p = syncOutreachModalToProspect();
   if (!p) return;
 
-  const subject = document.getElementById('outreach-subject').value.trim();
-  const body = document.getElementById('outreach-body').value.trim();
+  const subject = p.outreach_subject.trim();
+  const body = p.outreach_body.trim();
   if (!subject || !body) { alert('Subject and body are required.'); return; }
-  if (!p.contact_email) {
-    alert('No contact email on file for this prospect — this backlink search found the site but not a real contact address. Find one and add it before sending to Pat.');
+  if (!p.contact_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact_email)) {
+    alert('Enter a valid contact email in the "To" field before sending to Pat — use "Find email" to search for one automatically, or type it in yourself.');
     return;
   }
 
-  p.outreach_subject = subject;
-  p.outreach_body = body;
   p.status = 'queued';
   if (p.id && window.SEOPipelineStore) {
-    SEOPipelineStore.updateProspect(p.id, { outreach_subject: subject, outreach_body: body, status: 'queued' }).catch(() => {});
+    SEOPipelineStore.updateProspect(p.id, { status: 'queued' }).catch(() => {});
   }
 
   let queue = [];
@@ -968,9 +1032,9 @@ function sendOutreachViaEmailClient() {
   // mailto: opens the user's own email client with the draft pre-filled —
   // the user reviews, can edit further, and clicks send themselves. This
   // is deliberately NOT routed through any API that could send on its own.
-  const p = State.prospects.find(x => x._localId === State.currentProspectId);
-  const subject = encodeURIComponent(document.getElementById('outreach-subject').value);
-  const body = encodeURIComponent(document.getElementById('outreach-body').value);
+  const p = syncOutreachModalToProspect();
+  const subject = encodeURIComponent(p?.outreach_subject || '');
+  const body = encodeURIComponent(p?.outreach_body || '');
   const to = p?.contact_email || '';
   window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   if (p) {
