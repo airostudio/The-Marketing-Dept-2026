@@ -1,19 +1,18 @@
 /**
- * api/seo-keyword-research.js — SEO Pipeline Stage 3: Topic & Keyword Research
+ * api/seo-keyword-research.js — SEO Pipeline Stage 3a: Topic Proposal
  *
  * POST { profile, competitors, cross_competitor_gaps }
- * Returns: { success, topics: [{ topic, target_keyword, search_volume,
- *   difficulty, data_source: 'real'|'estimate', rationale, content_pillar }] }
+ * Returns: { success, topics: [{ topic, target_keyword, est_search_volume,
+ *   est_difficulty, data_source: 'estimate', rationale, content_pillar }] }
  *
- * Two-stage, honest-by-construction:
- *  1. Claude proposes topic/keyword candidates grounded in the real business
- *     profile + real competitor content gaps (never invents products/topics
- *     unrelated to what was actually found).
- *  2. If DATAFORSEO_LOGIN/PASSWORD are configured, each candidate keyword is
- *     looked up against DataForSEO's real Google Ads search-volume data and
- *     upgraded to data_source:'real' with real numbers. Any keyword that
- *     can't be verified (API not configured, or this specific term has no
- *     data) STAYS labeled 'estimate' — never silently presented as real.
+ * Does exactly ONE slow external call — Claude proposing topic candidates
+ * grounded in the real business profile + real competitor content gaps.
+ * The real-data upgrade pass (DataForSEO search volume) used to run in this
+ * same function right after this call — chaining Claude's (up to 45s) call
+ * with DataForSEO's (up to 15s) in one function shares Vercel's 60s ceiling
+ * and can time out, exactly the class of bug already fixed repeatedly in
+ * Nancy's pipeline. Split into its own function (seo-keyword-volumes.js)
+ * for the same reason as every other two-slow-call split in this app.
  */
 
 'use strict';
@@ -65,38 +64,6 @@ const TOPICS_TOOL = {
   },
 };
 
-async function lookupRealVolumes(keywords) {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const pass = process.env.DATAFORSEO_PASSWORD;
-  if (!login || !pass || !keywords.length) return {};
-
-  try {
-    const auth = Buffer.from(`${login}:${pass}`).toString('base64');
-    const res = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Basic ${auth}` },
-      body: JSON.stringify([{ keywords: keywords.slice(0, 20), location_code: 2840, language_code: 'en' }]),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return {};
-    const data = await res.json();
-    const items = data.tasks?.[0]?.result || [];
-    const byKeyword = {};
-    for (const item of items) {
-      if (item.keyword && typeof item.search_volume === 'number') {
-        byKeyword[item.keyword.toLowerCase()] = {
-          search_volume: item.search_volume,
-          difficulty: typeof item.competition_index === 'number' ? Math.round(item.competition_index) : null,
-        };
-      }
-    }
-    return byKeyword;
-  } catch (err) {
-    console.warn('[seo-keyword-research] DataForSEO lookup failed, staying with estimates:', err.message);
-    return {};
-  }
-}
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -114,32 +81,15 @@ module.exports = async function handler(req, res) {
 
   const user = `BUSINESS PROFILE:\n${JSON.stringify(profile, null, 2)}\n\nCOMPETITOR CONTENT (${competitors.length} competitors researched):\n${JSON.stringify(competitors, null, 2)}\n\nCROSS-COMPETITOR CONTENT GAPS:\n${JSON.stringify(cross_competitor_gaps, null, 2)}\n\nPropose 8-20 SEO article topics that would genuinely help this specific business, prioritizing real content gaps and real product/service coverage over generic industry topics.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: TOPICS_TOOL, maxTokens: 4000, timeoutMs: 45000 });
+  const result = await callClaudeForJSON({ system, user, tool: TOPICS_TOOL, maxTokens: 4000, timeoutMs: 50000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
-  const candidateTopics = result.data.topics || [];
-  const realVolumes = await lookupRealVolumes(candidateTopics.map(t => t.target_keyword));
+  const topics = (result.data.topics || []).map(t => ({
+    topic: t.topic, target_keyword: t.target_keyword,
+    search_volume: null, difficulty: null,
+    est_search_volume: t.est_search_volume, est_difficulty: t.est_difficulty,
+    data_source: 'estimate', rationale: t.rationale, content_pillar: t.content_pillar,
+  }));
 
-  const topics = candidateTopics.map(t => {
-    const real = realVolumes[(t.target_keyword || '').toLowerCase()];
-    if (real) {
-      return {
-        topic: t.topic, target_keyword: t.target_keyword,
-        search_volume: real.search_volume, difficulty: real.difficulty,
-        data_source: 'real', rationale: t.rationale, content_pillar: t.content_pillar,
-      };
-    }
-    return {
-      topic: t.topic, target_keyword: t.target_keyword,
-      search_volume: null, difficulty: null,
-      est_search_volume: t.est_search_volume, est_difficulty: t.est_difficulty,
-      data_source: 'estimate', rationale: t.rationale, content_pillar: t.content_pillar,
-    };
-  });
-
-  return res.json({
-    success: true,
-    topics,
-    realDataAvailable: Object.keys(realVolumes).length > 0,
-  });
+  return res.json({ success: true, topics });
 };

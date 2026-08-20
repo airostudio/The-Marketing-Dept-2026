@@ -300,6 +300,20 @@ document.getElementById('url-form').addEventListener('submit', async (e) => {
     setStage('keywords', 'active');
     const kwResult = await postJSON('/api/seo-keyword-research', { profile: State.profile, competitors: State.competitors, cross_competitor_gaps: State.crossCompetitorGaps });
     State.topics = kwResult.topics || [];
+    // Separate call, not chained server-side — the Claude topic proposal
+    // above and this real DataForSEO lookup used to run in one function,
+    // which could exceed Vercel's 60s ceiling. Upgrades data_source to
+    // 'real' for any keyword DataForSEO actually confirms; everything else
+    // stays labeled 'estimate'.
+    try {
+      const volResult = await postJSON('/api/seo-keyword-volumes', { keywords: State.topics.map(t => t.target_keyword) });
+      State.topics = State.topics.map(t => {
+        const real = volResult.volumes?.[(t.target_keyword || '').toLowerCase()];
+        return real ? { ...t, search_volume: real.search_volume, difficulty: real.difficulty, data_source: 'real' } : t;
+      });
+    } catch (err) {
+      console.warn('Real keyword volume lookup failed, staying with estimates:', err.message);
+    }
     setStage('keywords', 'done');
 
     // Persist the run if signed in — degrades honestly (banner) if not, never throws
@@ -557,18 +571,35 @@ async function findBacklinkProspects() {
   const btn = document.getElementById('find-prospects-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
+    // Real path first (competitors' actual referring domains via
+    // DataForSEO) — fast, all lookups run in parallel server-side.
     const result = await postJSON('/api/seo-backlink-prospects', {
-      domain: State.websiteUrl, competitors: State.competitors, profile: State.profile,
+      domain: State.websiteUrl, competitors: State.competitors,
     });
-    State.prospects = (result.prospects || []).map((p, i) => ({ ...p, _localId: 'pros_' + i, status: 'found' }));
+    let prospects = result.prospects || [];
+
+    // Fallback only if the real path found nothing — two separate calls
+    // (search, then structure), never chained server-side, for the same
+    // 60s-ceiling reason as everywhere else in this pipeline.
+    if (result.needsSearch) {
+      const search = await postJSON('/api/seo-backlink-search', { domain: State.websiteUrl, profile: State.profile });
+      if (search.available) {
+        const structured = await postJSON('/api/seo-backlink-structure', { searchText: search.text, citations: search.citations });
+        prospects = structured.prospects || [];
+      } else if (!prospects.length) {
+        alert(`No prospects found: ${search.reason}`);
+      }
+    }
+
+    State.prospects = prospects.map((p, i) => ({ ...p, _localId: 'pros_' + i, status: 'found' }));
     if (State.runId && State.prospects.length && window.SEOPipelineStore) {
       try {
         const saved = await SEOPipelineStore.saveProspects(State.runId, State.prospects);
         saved.forEach((s, i) => { if (State.prospects[i]) State.prospects[i].id = s.id; });
       } catch (err) { console.warn('Could not save prospects to cloud:', err.message); }
     }
-    if (!State.prospects.length) {
-      alert(result.reason ? `No prospects found: ${result.reason}` : 'No prospects found this time — try again once you have more competitors researched.');
+    if (!State.prospects.length && !result.needsSearch) {
+      alert('No prospects found this time — try again once you have more competitors researched.');
     }
     State.dailyTasks = buildDailyPlan(State.topics, State.prospects.length > 0);
     renderPlan();
