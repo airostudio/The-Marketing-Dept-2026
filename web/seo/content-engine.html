@@ -14,6 +14,9 @@
      the HTML that gets copied/downloaded for publishing, and to render the
      on-page preview properly instead of showing raw Markdown. -->
 <script src="/js/marked.min.js"></script>
+<!-- Business Brain's brand voice + sender identity, folded into outreach
+     drafts so backlink emails sound like this business, not a generic AI. -->
+<script src="/js/intelligence-engine.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
 <script src="/js/seo-pipeline-store.js"></script>
@@ -237,10 +240,14 @@
     <label class="field-label">Body</label>
     <textarea class="field-textarea" id="outreach-body" style="min-height:180px;"></textarea>
     <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
-      <button class="btn btn-primary btn-sm" onclick="sendOutreachViaEmailClient()">✉️ Open in my email client</button>
+      <button class="btn btn-primary btn-sm" onclick="approveAndSendToPat()" id="outreach-approve-btn">✅ Approve &amp; Send to Pat</button>
+      <button class="btn btn-ghost btn-sm" onclick="sendOutreachViaEmailClient()">✉️ Open in my email client</button>
       <button class="btn btn-ghost btn-sm" onclick="copyOutreach()">📋 Copy</button>
       <button class="btn btn-ghost btn-sm" onclick="closeOutreachModal()">Close</button>
     </div>
+    <p style="font-size:11.5px;color:var(--text3);margin-top:10px;">
+      "Approve &amp; Send to Pat" queues this email for Pat, our email agent, to review and send with your business's tone and sender details — nothing sends until you act again in Pat.
+    </p>
   </div>
 </div>
 
@@ -865,7 +872,15 @@ async function draftOutreach(localId) {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
       const publishedArticle = State.articles.find(a => a.status === 'published_elsewhere') || State.articles[0];
-      const result = await postJSON('/api/seo-outreach-draft', { prospect: p, profile: State.profile, article: publishedArticle || null });
+      // Bakes the account's actual brand voice + sign-off into the draft at
+      // generation time, rather than leaving tone consistency to whoever
+      // reviews it downstream in Pat.
+      const brandVoice = window.IntelligenceEngine?.extractBrandVoice?.() || null;
+      const senderContext = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
+      const result = await postJSON('/api/seo-outreach-draft', {
+        prospect: p, profile: State.profile, article: publishedArticle || null,
+        brandVoice, senderContext,
+      });
       p.outreach_subject = result.subject;
       p.outreach_body = result.body;
       p.status = 'drafted';
@@ -897,6 +912,58 @@ function copyOutreach() {
   const text = `Subject: ${document.getElementById('outreach-subject').value}\n\n${document.getElementById('outreach-body').value}`;
   navigator.clipboard?.writeText(text);
 }
+/**
+ * Hands this outreach draft off to Pat (email-delivery-agent.html) to
+ * actually send. Queues into a shared localStorage handoff array rather
+ * than sending directly — the SEO agent drafts and the user reviews here,
+ * but Pat is the single place in this app that talks to Resend, so every
+ * send (bulk campaign or one-off outreach) goes through the same
+ * compliance/tone review path instead of a second bespoke send path.
+ */
+function approveAndSendToPat() {
+  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  if (!p) return;
+
+  const subject = document.getElementById('outreach-subject').value.trim();
+  const body = document.getElementById('outreach-body').value.trim();
+  if (!subject || !body) { alert('Subject and body are required.'); return; }
+  if (!p.contact_email) {
+    alert('No contact email on file for this prospect — this backlink search found the site but not a real contact address. Find one and add it before sending to Pat.');
+    return;
+  }
+
+  p.outreach_subject = subject;
+  p.outreach_body = body;
+  p.status = 'queued';
+  if (p.id && window.SEOPipelineStore) {
+    SEOPipelineStore.updateProspect(p.id, { outreach_subject: subject, outreach_body: body, status: 'queued' }).catch(() => {});
+  }
+
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem('pat_incoming_outreach') || '[]'); } catch { queue = []; }
+  if (!Array.isArray(queue)) queue = [];
+  // Replace any existing queued item for this same prospect rather than
+  // duplicating it, so re-approving an edit doesn't leave Pat with two.
+  queue = queue.filter(item => !(p.id && item.prospectId === p.id));
+  queue.push({
+    timestamp: Date.now(),
+    prospectId: p.id || null,
+    runId: State.runId || null,
+    domain: p.domain,
+    to: p.contact_email,
+    subject, body,
+    website: State.websiteUrl || '',
+  });
+  localStorage.setItem('pat_incoming_outreach', JSON.stringify(queue));
+
+  closeOutreachModal();
+  renderProspects();
+
+  if (confirm(`Queued for Pat (${queue.length} email${queue.length === 1 ? '' : 's'} waiting there now). Open Pat's Backlink Outreach tab now?`)) {
+    window.location.href = '/agents/email-delivery-agent.html#backlinks';
+  }
+}
+
 function sendOutreachViaEmailClient() {
   // mailto: opens the user's own email client with the draft pre-filled —
   // the user reviews, can edit further, and clicks send themselves. This
