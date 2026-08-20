@@ -65,16 +65,7 @@
      * Check if user is authenticated with Supabase
      */
     async function isAuthenticated() {
-        const client = await getSupabase();
-        if (!client) return false;
-
-        try {
-            const { data: { user } } = await client.auth.getUser();
-            return !!user;
-        } catch (e) {
-            console.warn('[ProjectService] Auth check failed:', e);
-            return false;
-        }
+        return !!(await getCurrentUserId());
     }
 
     /**
@@ -84,9 +75,22 @@
         const client = await getSupabase();
         if (!client) return null;
 
+        // Same getUser()-with-getSession()-fallback used by every store:
+        // auth.getUser() re-verifies against the auth server and can fail
+        // transiently even with a valid session. A false negative here means
+        // _initWithAuth() never runs, so syncLocalProjectsToSupabase() never
+        // upgrades a 'local_' project to a real row — leaving every scoped
+        // write poisoned with a non-UUID id.
         try {
-            const { data: { user } } = await client.auth.getUser();
-            return user?.id || null;
+            const { data: { user }, error } = await client.auth.getUser();
+            if (user) return user.id;
+            if (error) throw error;
+        } catch (e) {
+            console.warn('[ProjectService] auth.getUser() failed, falling back to cached session:', e.message);
+        }
+        try {
+            const { data: { session } } = await client.auth.getSession();
+            return session?.user?.id || null;
         } catch (e) {
             return null;
         }

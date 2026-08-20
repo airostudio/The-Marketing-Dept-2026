@@ -47,12 +47,19 @@ window.BusinessBrainCloud = (function () {
     } catch { return null; }
   }
 
+  // A project created while offline/signed-out gets a locally generated id
+  // ('local_<ts>_<rand>' — see project-service.js). It is not a database row,
+  // so using it as a scope sends a non-UUID into a uuid foreign-key column
+  // and the write fails with 'invalid input syntax for type uuid'. Treat it
+  // as no scope at all rather than poisoning every insert with it.
+  function isCloudId(id) { return !!id && !String(id).startsWith('local_'); }
+
   /** Active scope: intelligence profile first, legacy project fallback. */
   function getScope() {
     const profileId = localStorage.getItem('intel_active_profile');
-    if (profileId) return { profileId };
+    if (isCloudId(profileId)) return { profileId };
     const projectId = localStorage.getItem('seo-current-project');
-    if (projectId) return { projectId };
+    if (isCloudId(projectId)) return { projectId };
     return null;
   }
 
