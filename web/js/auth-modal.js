@@ -176,8 +176,36 @@
     try { localStorage.setItem(LAST_UID_KEY, userId); } catch (e) { /* ignore */ }
   }
 
+  // ── Bridge into the Supabase SDK client ───────────────────────────────────
+  // This modal logs in via raw fetch() against Supabase's Auth REST API, not
+  // the supabase-js SDK — so without this, the SDK client that every Store
+  // module (Nancy, SEO pipeline, Analytics, Contacts, ...) reads auth state
+  // from never learns a login happened here. It keeps its own persisted
+  // session (or none at all) under its own localStorage key, completely out
+  // of sync with what this modal thinks is true. That mismatch — not a
+  // session actually expiring — is what made pages built on those Store
+  // modules intermittently claim "not logged in" right after a real,
+  // successful login. auth.setSession() hands the SDK the real tokens so it
+  // persists and auto-refreshes them like any session it created itself.
+  async function _syncSdkSession(sbData) {
+    if (!window.Supabase || !sbData || !sbData.access_token || !sbData.refresh_token) return;
+    try {
+      if (window.Supabase.ready) await window.Supabase.ready();
+      var client = window.Supabase.getClient && window.Supabase.getClient();
+      if (!client && _sbConfig && _sbConfig.configured && window.Supabase.init) {
+        await window.Supabase.init(_sbConfig.supabaseUrl, _sbConfig.supabaseKey);
+        client = window.Supabase.getClient && window.Supabase.getClient();
+      }
+      if (client) {
+        await client.auth.setSession({ access_token: sbData.access_token, refresh_token: sbData.refresh_token });
+      }
+    } catch (e) {
+      console.warn('[auth-modal] Failed to sync session into Supabase SDK client:', e && e.message);
+    }
+  }
+
   // ── Session helpers ───────────────────────────────────────────────────────
-  function _createSessionFromSupabase(sbData) {
+  async function _createSessionFromSupabase(sbData) {
     var sbUser = sbData.user || {};
     var meta   = sbUser.user_metadata || {};
     var pub = {
@@ -194,6 +222,10 @@
     if (pub.org && pub.id && _sbConfig) {
       _syncProfileCompany(_sbConfig, accessToken, pub.id, pub.org);
     }
+
+    // Must happen before returning — every Store module's auth check reads
+    // through the SDK client, not this modal's own localStorage keys below.
+    await _syncSdkSession(sbData);
 
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       userId:  pub.id, email: pub.email,
@@ -692,6 +724,14 @@
   /* ─── Boot ────────────────────────────────────────────────────────────── */
 
   function authLogout() {
+    // Best-effort, fire-and-forget — sign the SDK client out too, or the
+    // session _syncSdkSession() planted survives this "logout" and every
+    // Store-module page still thinks the previous account is signed in.
+    try {
+      var c = window.Supabase && window.Supabase.getClient && window.Supabase.getClient();
+      if (c) c.auth.signOut().catch(function () {});
+    } catch (e) { /* ignore */ }
+
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
@@ -706,6 +746,29 @@
     try { localStorage.removeItem(LAST_UID_KEY); } catch (e) { /* ignore */ }
   }
 
+  // One-time migration for sessions created before the SDK-sync fix above
+  // existed: this modal's own bookkeeping (aduma_session/access_token/
+  // refresh_token) says signed in, but since _syncSdkSession() didn't exist
+  // yet when that login happened, the SDK client never got the tokens and
+  // every Store-module page still shows "not logged in". Re-plant them into
+  // the SDK client once, using the tokens this modal already has — no
+  // re-login required. Safe to run every page load: setSession() is a no-op
+  // once the SDK already has this same session persisted.
+  async function _migrateExistingSessionToSdk() {
+    if (!isLoggedIn()) return;
+    var accessToken  = localStorage.getItem('access_token');
+    var refreshToken = localStorage.getItem('refresh_token');
+    if (!accessToken || !refreshToken || accessToken.indexOf('local_') === 0) return; // local-only session, nothing to bridge
+    try {
+      if (window.Supabase && window.Supabase.ready) await window.Supabase.ready();
+      var client = window.Supabase && window.Supabase.getClient && window.Supabase.getClient();
+      if (!client) return; // not configured — nothing to sync into
+      var existing = await client.auth.getSession();
+      if (existing && existing.data && existing.data.session) return; // SDK already has a session
+      await _syncSdkSession({ access_token: accessToken, refresh_token: refreshToken });
+    } catch (e) { /* best-effort only */ }
+  }
+
   // Wire up the already-exposed AuthModal
   _open  = openModal;
   _close = closeModal;
@@ -713,10 +776,11 @@
   window.AuthModal.logout     = authLogout;
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); });
+    document.addEventListener('DOMContentLoaded', function () { inject(); checkUrlParam(); _migrateExistingSessionToSdk(); });
   } else {
     inject();
     checkUrlParam();
+    _migrateExistingSessionToSdk();
   }
 
 })();

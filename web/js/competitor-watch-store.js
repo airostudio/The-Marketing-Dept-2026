@@ -11,12 +11,13 @@
 window.CompetitorWatchStore = (function () {
   'use strict';
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     return window.Supabase?.getClient?.() || null;
   }
 
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user } } = await client.auth.getUser();
@@ -25,7 +26,7 @@ window.CompetitorWatchStore = (function () {
   }
 
   async function addWatch({ name, url }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to monitor a competitor.');
     if (!url) throw new Error('A URL is required.');
@@ -42,7 +43,7 @@ window.CompetitorWatchStore = (function () {
   }
 
   async function listWatches() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client
@@ -54,14 +55,14 @@ window.CompetitorWatchStore = (function () {
   }
 
   async function removeWatch(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
     const { error } = await client.from('competitor_watches').delete().eq('id', id);
     if (error) throw new Error(error.message);
   }
 
   async function setActive(id, active) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
     const { error } = await client.from('competitor_watches').update({ active }).eq('id', id);
     if (error) throw new Error(error.message);
@@ -69,7 +70,7 @@ window.CompetitorWatchStore = (function () {
 
   /** Latest snapshot per watch, keyed by watch_id. */
   async function getLatestSnapshots(watchIds) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !watchIds || !watchIds.length) return {};
     const { data, error } = await client
       .from('competitor_snapshots')
@@ -84,7 +85,7 @@ window.CompetitorWatchStore = (function () {
 
   /** Recent detected changes across all of this user's watches, newest first. */
   async function getRecentChanges(limit = 20) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client

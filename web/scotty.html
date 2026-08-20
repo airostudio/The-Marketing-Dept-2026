@@ -4330,8 +4330,9 @@ const QuickStart = (() => {
 const AgentAudit = (() => {
     const DISMISS_KEY_PREFIX = 'audema_audit_seen_';
 
-    function client() {
+    async function client() {
         if (!window.Supabase || !window.Supabase.isConfigured || !window.Supabase.isConfigured()) return null;
+        if (window.Supabase.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
         try { return window.Supabase.getClient(); } catch (e) { return null; }
     }
 
@@ -4351,7 +4352,7 @@ const AgentAudit = (() => {
     }
 
     async function loadReport(runId) {
-        const sb = client();
+        const sb = await client();
         const body = document.getElementById('auditModalBody');
         if (!sb || !body) return;
         body.innerHTML = '<div style="color:var(--text3);font-size:12px;">Loading…</div>';
@@ -4408,7 +4409,7 @@ const AgentAudit = (() => {
     }
 
     async function init() {
-        const sb = client();
+        const sb = await client();
         const card = document.getElementById('auditCard');
         if (!sb || !card) return;
 

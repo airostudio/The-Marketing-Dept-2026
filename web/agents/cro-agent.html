@@ -855,6 +855,7 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     }
 
     async function refreshExperiments() {
+        if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
         const client = window.Supabase?.getClient?.();
         const signedIn = client ? !!(await client.auth.getUser()).data.user : false;
         document.getElementById('expSignInNote').style.display = signedIn ? 'none' : 'block';

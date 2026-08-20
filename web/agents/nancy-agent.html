@@ -325,6 +325,10 @@
       <p class="sub" style="margin-bottom:0;">Built from your brand, your market and what your customers care about.</p>
     </div>
 
+    <div id="not-signed-in-banner" style="display:none;margin-bottom:20px;padding:14px 18px;border-radius:12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:13px;text-align:center;">
+      ⚠️ This week isn't saved to your account yet — a backup is kept in this browser only, and it can be lost if you clear browser data or switch devices. <a href="/hub.html" style="color:#fbbf24;font-weight:700;text-decoration:underline;">Sign in now →</a>
+    </div>
+
     <div class="tabs">
       <button class="tab-btn active" data-tab="grid">This Week</button>
       <button class="tab-btn" data-tab="strategy">Why We Created This</button>
@@ -876,11 +880,113 @@ async function startGeneration() {
   }
 }
 
+// ── Local draft safety net ───────────────────────────────────────────────
+// persistWeek() below only saves when signed in — Nancy deliberately lets
+// you generate a week before creating an account. That used to mean a
+// generated week had ZERO backup anywhere if you weren't signed in: close
+// the tab or refresh, and it's gone with no way to recover it, even after
+// signing in afterward. This mirrors it into localStorage as a safety net
+// regardless of sign-in state, so a refresh/closed-tab/browser-crash never
+// destroys real generated work again. Image data URIs are deliberately
+// excluded (can be several MB each × 7 posts — real risk of blowing
+// localStorage's quota) — SVG-fallback posts reconstruct their image from
+// the stored SVG text, AI-generated posts get re-rendered on restore.
+const DRAFT_KEY = 'nancy-draft-week';
+
+function saveDraftToLocalStorage() {
+  if (!State.posts.length) return;
+  try {
+    const draft = {
+      savedAt: new Date().toISOString(),
+      websiteUrl: State.websiteUrl, businessProfile: State.businessProfile, brand: State.brand,
+      strategy: State.strategy, competitors: State.competitors, citations: State.citations,
+      weekRationale: State.weekRationale, weekNumber: State.weekNumber, previousTopics: State.previousTopics,
+      brandId: State.brandId, contentWeekId: State.contentWeekId,
+      posts: State.posts.map(p => ({
+        ...p,
+        asset: p.asset ? { format: p.asset.format, svg: p.asset.svg, width: p.asset.width, height: p.asset.height, mimeType: p.asset.mimeType } : null,
+      })),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch (err) {
+    console.warn('[Nancy] Could not save local draft (localStorage full or unavailable):', err.message);
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+}
+
+async function checkForDraftOnLoad() {
+  let draft;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    draft = JSON.parse(raw);
+  } catch { return; }
+  if (!draft || !draft.posts || !draft.posts.length) { clearDraft(); return; }
+
+  const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'earlier';
+  const restore = confirm(`You have an unsaved content week from ${when} (${draft.posts.length} posts) that wasn't saved to your account. Restore it now?`);
+  if (!restore) return; // leave the draft in place — don't discard on a "not right now"
+
+  await restoreDraft(draft);
+}
+
+async function restoreDraft(draft) {
+  State.websiteUrl = draft.websiteUrl || '';
+  State.businessProfile = draft.businessProfile || {};
+  State.brand = draft.brand || {};
+  State.strategy = draft.strategy || {};
+  State.competitors = draft.competitors || [];
+  State.citations = draft.citations || [];
+  State.weekRationale = draft.weekRationale || '';
+  State.weekNumber = draft.weekNumber || 1;
+  State.previousTopics = draft.previousTopics || [];
+  State.brandId = draft.brandId || null;
+  State.contentWeekId = draft.contentWeekId || null;
+
+  // Posts whose image asset was an AI-generated PNG have no dataUri saved
+  // (deliberately excluded to protect localStorage's quota) — re-render
+  // those specific posts now rather than showing a broken image.
+  const needsRerender = draft.posts.filter(p => !(p.asset && p.asset.format === 'svg' && p.asset.svg));
+  State.posts = draft.posts.map(p => {
+    if (p.asset && p.asset.format === 'svg' && p.asset.svg) {
+      const dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(p.asset.svg)))}`;
+      return { ...p, asset: { ...p.asset, dataUri, hostedUrl: null } };
+    }
+    return { ...p, asset: null }; // filled in by the re-render pass below
+  });
+
+  showStep('step-results');
+  renderResults();
+
+  if (needsRerender.length) {
+    for (const p of needsRerender) {
+      try {
+        const renderResult = await postJSON('/api/nancy-render-week', {
+          post: p, brand: State.brand, businessName: State.businessProfile?.business_name, businessProfile: State.businessProfile,
+          userPhotos: State.photos.map(ph => ({ dataUri: ph.dataUri })),
+        });
+        const finalAsset = await compositeLogo(renderResult.asset);
+        const target = State.posts.find(sp => sp.day === p.day);
+        if (target) target.asset = finalAsset;
+      } catch (err) {
+        console.warn(`[Nancy] Could not re-render day ${p.day} on draft restore:`, err.message);
+      }
+    }
+    renderResults();
+  }
+
+  await persistWeek(); // saves + clears the draft if signed in; otherwise re-saves the draft below
+  saveDraftToLocalStorage();
+}
+
 async function persistWeek() {
   if (!window.NancyStore) return;
   try {
     const userId = await NancyStore.getUserId();
-    if (!userId) return; // not signed in — content still works this session, just not saved
+    if (!userId) { saveDraftToLocalStorage(); return; } // not signed in — back it up locally instead of losing it
     if (!State.brandId) {
       const brand = await NancyStore.createBrand({
         website_url: State.websiteUrl, business_name: State.businessProfile.business_name,
@@ -910,8 +1016,10 @@ async function persistWeek() {
     State.contentWeekId = week.id;
     await NancyStore.savePosts(week.id, State.posts.map(p => ({ ...p, ...assetForSave(p) })));
     await NancyStore.setWeekStatus(week.id, 'ready');
+    clearDraft(); // safely in the cloud now — the local backup copy is redundant
   } catch (err) {
     console.warn('[Nancy] persistWeek failed (content still works this session):', err.message);
+    saveDraftToLocalStorage(); // cloud save failed even though signed in — keep the local backup either way
   }
 }
 
@@ -927,6 +1035,14 @@ function ctaUrl(p) { return p.cta_url || State.websiteUrl || ''; }
 function arr(x) { return Array.isArray(x) ? x : []; }
 
 function renderResults() {
+  // Fire-and-forget — doesn't block the rest of this synchronous render.
+  (async () => {
+    const banner = document.getElementById('not-signed-in-banner');
+    if (!banner) return;
+    const signedIn = window.NancyStore ? await NancyStore.getUserId() : null;
+    banner.style.display = (signedIn || State.contentWeekId) ? 'none' : 'block';
+  })();
+
   document.getElementById('post-grid').innerHTML = arr(State.posts).map(p => `
     <div class="post-card" data-day="${p.day}">
       <img src="${p.asset.dataUri}">
@@ -1029,6 +1145,8 @@ async function reRenderPost(post) {
   post.asset = await compositeLogo(renderResult.asset);
   if (window.NancyStore && State.contentWeekId) {
     try { await NancyStore.savePosts(State.contentWeekId, [post].map(p => ({ ...p, ...assetForSave(p) }))); } catch {}
+  } else {
+    saveDraftToLocalStorage(); // not saved to the cloud (not signed in, or not persisted yet) — keep the local backup current
   }
 }
 
@@ -1110,7 +1228,8 @@ document.getElementById('print-calendar-btn').addEventListener('click', () => {
       <p><b>Posting notes:</b> ${escapeHtml(p.visual_direction || '')}</p>
       <div style="clear:both;"></div>
     </div>`).join('');
-  w.document.write(`<html><head><title>Content Calendar</title></head><body style="font-family:sans-serif;">${rows}<script>window.print()<\/script></body></html>`);
+  w.document.write(`<html><head><title>Content Calendar</title></head><body style="font-family:sans-serif;">${rows}<script>window.print()<\/script>
+</body></html>`);
   w.document.close();
 });
 
@@ -1133,6 +1252,17 @@ document.getElementById('send-to-calendar-btn').addEventListener('click', async 
   const platforms = [...document.querySelectorAll('#calendar-platform-picker input:checked')].map(el => el.value);
   if (!platforms.length) { statusEl.textContent = 'Pick at least one platform first.'; return; }
   if (!window.SocialPostsStore) { statusEl.textContent = 'Content Calendar isn\'t available right now.'; return; }
+
+  // Nancy's own generation flow works fine signed out (persistWeek() just
+  // no-ops if there's no user), but the Content Calendar requires a real
+  // account to save to — check first and say so plainly instead of
+  // surfacing SocialPostsStore's raw "Sign in to save generated posts."
+  // error, since this page has no sign-in UI of its own to point to.
+  const signedInUserId = await window.SocialPostsStore.getUserId();
+  if (!signedInUserId) {
+    statusEl.innerHTML = 'You need to be signed in to send posts to the Content Calendar — your generated week is safe, it just isn\'t saved to an account yet. <a href="/hub.html" style="color:var(--purple);font-weight:600;">Sign in from the Hub →</a> then come back to this tab and try again.';
+    return;
+  }
 
   const btn = document.getElementById('send-to-calendar-btn');
   btn.disabled = true;
@@ -1233,6 +1363,9 @@ async function buildAndDownloadZip() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+document.addEventListener('DOMContentLoaded', () => { checkForDraftOnLoad(); });
 </script>
+    <script src="/js/url-utils.js"></script>
 </body>
 </html>

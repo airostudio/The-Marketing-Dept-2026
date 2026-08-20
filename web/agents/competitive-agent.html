@@ -836,6 +836,7 @@ For each competitor, sales-ready format:
     }
 
     async function refreshWatchList() {
+        if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
         const client = window.Supabase?.getClient?.();
         const signedIn = client ? !!(await client.auth.getUser()).data.user : false;
         document.getElementById('watchSignInNote').style.display = signedIn ? 'none' : 'block';
@@ -900,5 +901,6 @@ For each competitor, sales-ready format:
 
     refreshWatchList();
 </script>
+    <script src="/js/url-utils.js"></script>
 </body>
 </html>

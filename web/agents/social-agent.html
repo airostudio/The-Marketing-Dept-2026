@@ -691,6 +691,7 @@ async function persistReviewBatch(posts) {
             metadata: p.metadata,
         })));
         _reviewCloudBacked = true;
+        clearReviewDraft(); // safely in the cloud now — the local backup copy is redundant
         // Re-attach real DB ids/status to the normalized posts, preserving order
         return posts.map((p, i) => ({ ...p, id: saved[i]?.id || p.id, status: saved[i]?.status || p.status }));
     } catch (err) {
@@ -703,7 +704,55 @@ function escHtmlCard(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+// ── Local draft safety net (same fix applied to Nancy after a user lost a
+// full generated week) — persistReviewBatch() above is best-effort and
+// signed-out use is allowed by design, but until now a closed/refreshed tab
+// before signing in lost the whole batch with no way back, even though the
+// sign-in banner told the user it wasn't saved. imageUrl (a data: URI, can
+// be several MB per AI-generated image) is deliberately excluded from the
+// mirror to avoid blowing localStorage's quota — restoring a draft flags
+// posts that need their image regenerated rather than storing the bytes.
+const REVIEW_DRAFT_KEY = 'social-studio-draft-queue';
+
+function saveReviewDraftToLocalStorage() {
+    if (_reviewCloudBacked || !_reviewPosts.length) return;
+    try {
+        localStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({
+            savedAt: new Date().toISOString(),
+            studioMode, planNote: _reviewPlanNote,
+            posts: _reviewPosts.map(p => ({ ...p, imageUrl: null, imageIsAI: false, _imageNeedsRegen: !!p.imageUrl })),
+        }));
+    } catch (err) {
+        console.warn('[SocialStudio] Could not save local draft:', err.message);
+    }
+}
+
+function clearReviewDraft() {
+    try { localStorage.removeItem(REVIEW_DRAFT_KEY); } catch (_) {}
+}
+
+function checkForReviewDraftOnLoad() {
+    let draft;
+    try {
+        const raw = localStorage.getItem(REVIEW_DRAFT_KEY);
+        if (!raw) return;
+        draft = JSON.parse(raw);
+    } catch { return; }
+    if (!draft || !draft.posts || !draft.posts.length) { clearReviewDraft(); return; }
+
+    const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'earlier';
+    const restore = confirm(`You have an unsaved content batch from ${when} (${draft.posts.length} posts) that wasn't saved to your account. Restore it now?`);
+    if (!restore) return; // leave it in place — don't discard on a "not right now"
+
+    studioMode = draft.studioMode || studioMode;
+    _reviewPlanNote = draft.planNote || '';
+    _reviewPosts = draft.posts;
+    renderReviewQueue();
+}
+
 function renderReviewQueue() {
+    saveReviewDraftToLocalStorage();
+
     const outputEl = document.getElementById('output');
     if (!_reviewPosts.length) {
         outputEl.innerHTML = `<div class="output-empty">${studioMode === 'ads'
@@ -1542,6 +1591,9 @@ function exportCalendarCSV() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `social-calendar-${Date.now()}.csv`; a.click();
 }
+
+document.addEventListener('DOMContentLoaded', () => { checkForReviewDraftOnLoad(); });
 </script>
+    <script src="/js/url-utils.js"></script>
 </body>
 </html>
