@@ -330,7 +330,13 @@ document.getElementById('url-form').addEventListener('submit', async (e) => {
           if (State.topics.length) await SEOPipelineStore.saveTopics(State.runId, State.topics);
         }
       } catch (err) {
+        // Never swallow this. A signed-in user whose save fails (most often
+        // because supabase-seo-pipeline.sql hasn't been run against their
+        // Supabase project) previously got only a console warning, while the
+        // banner stayed hidden because they ARE signed in — so the run
+        // looked saved and the work silently vanished on reload.
         console.warn('[SEO Content Engine] Could not save run to cloud:', err.message);
+        State.cloudError = err.message;
       }
     }
 
@@ -401,7 +407,24 @@ function renderResults() {
   (async () => {
     const banner = document.getElementById('not-signed-in-banner');
     const signedIn = window.SEOPipelineStore ? await SEOPipelineStore.getUserId() : null;
-    banner.style.display = (signedIn || State.runId) ? 'none' : 'block';
+
+    // Three distinct states, previously collapsed into two — a signed-in
+    // user whose cloud save failed got the same silent "all good" as one
+    // whose save succeeded.
+    if (State.runId) { banner.style.display = 'none'; return; }
+
+    if (signedIn && State.cloudError) {
+      banner.innerHTML = '⚠️ You are signed in, but this run could <strong>not</strong> be saved to your account, so it will be lost when you leave this page. Reason: '
+        + escHtml(State.cloudError)
+        + '<br><span style="font-size:12px;opacity:0.85;">If that mentions a missing table or relation, run <code>supabase-seo-pipeline.sql</code> against your Supabase project.</span>';
+      banner.style.display = 'block';
+      return;
+    }
+
+    if (signedIn) { banner.style.display = 'none'; return; }
+
+    banner.innerHTML = '⚠️ This run isn\'t saved to your account — sign in to keep your topics, articles and backlink prospects. <a href="/hub.html">Sign in now →</a>';
+    banner.style.display = 'block';
   })();
 
   document.getElementById('results-business-name').textContent = State.profile?.business_summary ? `SEO Plan for ${State.websiteUrl.replace(/^https?:\/\//, '')}` : 'Your SEO Plan';
