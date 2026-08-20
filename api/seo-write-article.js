@@ -5,11 +5,12 @@
  * Returns: { success, article: { title, meta_description, slug, body_markdown,
  *   schema_markup, word_count } }
  *
- * One article per call — a full 1000-1800 word SEO article plus metadata is
- * a lot of output tokens; batching multiple articles into one call is
- * exactly the shape that caused truncation in Nancy's content planner
- * before it was split to one-post-per-call. Same fix applied here from the
- * start rather than rediscovering it.
+ * One article per call — even a single ~650-1000 word SEO article plus
+ * metadata/FAQs/links is enough output that it was timing out against
+ * Vercel's 60s function ceiling at the original 900-1600 word target;
+ * trimmed the requested length/FAQ count down (see ARTICLE_TOOL below)
+ * rather than just raising the timeout, since Vercel's ceiling is the
+ * platform's, not something raising timeoutMs alone can get past.
  */
 
 'use strict';
@@ -42,13 +43,13 @@ const ARTICLE_TOOL = {
       title: { type: 'string', description: 'SEO title tag, under 60 characters, includes the target keyword naturally' },
       meta_description: { type: 'string', description: 'Meta description, 140-160 characters, includes the target keyword, written to earn the click' },
       slug: { type: 'string', description: 'URL slug: lowercase, hyphenated, short' },
-      body_markdown: { type: 'string', description: 'The full article in Markdown: an H1, then H2/H3 structure, 900-1600 words, genuinely useful content (not keyword-stuffed filler), includes the target keyword naturally in the first 100 words and at least one H2' },
+      body_markdown: { type: 'string', description: 'The full article in Markdown: an H1, then H2/H3 structure, 650-1000 words, genuinely useful content (not keyword-stuffed filler), includes the target keyword naturally in the first 100 words and at least one H2. Keep each section tight — a shorter genuinely useful article beats a padded long one.' },
       faqs: {
-        type: 'array', maxItems: 5,
-        items: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string' } }, required: ['question', 'answer'] },
-        description: 'Optional FAQ section content, real questions a searcher would actually have',
+        type: 'array', maxItems: 3,
+        items: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string', description: '1-2 sentences' } }, required: ['question', 'answer'] },
+        description: 'Optional FAQ section content, real questions a searcher would actually have — keep answers short',
       },
-      internal_link_suggestions: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Suggested anchor text + what existing page on the site it should link to (based on products_services/existing_topics given) — the user fills in the real URL' },
+      internal_link_suggestions: { type: 'array', items: { type: 'string' }, maxItems: 3, description: 'Suggested anchor text + what existing page on the site it should link to (based on products_services/existing_topics given) — the user fills in the real URL. One short phrase each.' },
     },
     required: ['title', 'meta_description', 'slug', 'body_markdown'],
   },
@@ -104,7 +105,13 @@ ${brandVoice ? `\nBRAND VOICE: ${brandVoice}` : ''}
 
 Write the complete article now.`;
 
-  const result = await callClaudeForJSON({ system, user, tool: ARTICLE_TOOL, maxTokens: 6000, timeoutMs: 55000 });
+  // maxTokens/timeoutMs both cut down from their original values (6000/55s
+  // was still timing out against Vercel's own 60s maxDuration ceiling for
+  // this function — see the reduced word/FAQ/link counts above, which is
+  // the change that actually reduces real generation time, not just this
+  // number) — same "shrink the batch" fix already proven for
+  // seo-keyword-research.js and Nancy's content planner before it.
+  const result = await callClaudeForJSON({ system, user, tool: ARTICLE_TOOL, maxTokens: 4500, timeoutMs: 55000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   const data = result.data;
