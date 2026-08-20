@@ -2054,6 +2054,18 @@
       badge.textContent = noScope ? 'Saved locally only — no profile selected' : 'Saved locally — cloud sync failed';
       badge.className = 'autosave-badge';
     }
+    // Report the real reason rather than assuming "no profile selected" —
+    // a missing database migration produces the same symptom and the old
+    // wording sent users looking for a profile picker that can't work.
+    if (noScope && window.BusinessBrainCloud?.diagnose) {
+      window.BusinessBrainCloud.diagnose().then(diag => {
+        showSaveStatus('error', 'Saved on this device only — ' + diag.message);
+      }).catch(() => {
+        showSaveStatus('error', 'This is only saved on this device/browser — select or create an intelligence profile above so it syncs to your account.');
+      });
+      return;
+    }
+
     showSaveStatus('error', noScope
       ? 'This is only saved on this device/browser — select or create an intelligence profile above so it syncs to your account.'
       : 'Saved on this device, but the cloud sync failed — it will NOT be visible on other devices or survive clearing browser data. Check the browser console for the specific error, or contact support if this keeps happening.');
@@ -2342,11 +2354,34 @@
 
   async function loadHistoryPanel() {
     const body = document.getElementById('historyPanelBody');
-    const scope = window.BusinessBrainCloud?.getScope();
 
-    if (!window.BusinessBrainCloud || !scope) {
-      body.innerHTML = '<div class="history-empty">History requires cloud sync with an active intelligence profile (or a saved project). Sign in and select a profile, then come back here.</div>';
+    if (!window.BusinessBrainCloud) {
+      body.innerHTML = '<div class="history-empty">Cloud sync module failed to load — reload the page.</div>';
       return;
+    }
+
+    let scope = window.BusinessBrainCloud.getScope();
+
+    if (!scope) {
+      // Don't guess. The old message here told signed-in users to "sign in
+      // and select a profile" even when the reason was a missing database
+      // migration they had no way to discover. Report the real cause, and
+      // try once to self-heal the common "profiles exist but none active"
+      // case before giving up.
+      body.innerHTML = '<div class="brain-modal-loading">Checking cloud sync…</div>';
+
+      try {
+        if (window.IntelligenceProfiles?.ensureActiveProfile) {
+          const ensured = await window.IntelligenceProfiles.ensureActiveProfile();
+          if (ensured) scope = window.BusinessBrainCloud.getScope();
+        }
+      } catch (_) { /* fall through to diagnose() */ }
+
+      if (!scope) {
+        const diag = await window.BusinessBrainCloud.diagnose();
+        body.innerHTML = `<div class="history-empty">${escHtml(diag.message)}</div>`;
+        return;
+      }
     }
 
     body.innerHTML = '<div class="brain-modal-loading">Loading snapshots…</div>';
