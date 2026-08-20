@@ -14,12 +14,13 @@
 window.SocialPostsStore = (function () {
   'use strict';
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     return window.Supabase?.getClient?.() || null;
   }
 
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
 
     // auth.getUser() re-verifies the JWT against Supabase's auth server on
@@ -66,7 +67,7 @@ window.SocialPostsStore = (function () {
    * @returns {Promise<{batchId: string, posts: Array}>}
    */
   async function createBatch(posts) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save generated posts.');
     if (!posts || !posts.length) throw new Error('No posts to save.');
@@ -101,7 +102,7 @@ window.SocialPostsStore = (function () {
 
   /** List posts for the active scope, optionally filtered by status/source/batch. */
   async function listPosts({ status, source, batchId, limit = 100 } = {}) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const scope = getScope();
     if (!client || !scope) return [];
 
@@ -119,7 +120,7 @@ window.SocialPostsStore = (function () {
 
   /** Posts scheduled within a date range, for calendar rendering. */
   async function listCalendar(startIso, endIso) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const scope = getScope();
     if (!client || !scope) return [];
 
@@ -133,7 +134,7 @@ window.SocialPostsStore = (function () {
   }
 
   async function updateStatus(postId, status, reviewNote) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const patch = { status };
     if (reviewNote !== undefined) patch.review_note = reviewNote;
@@ -143,7 +144,7 @@ window.SocialPostsStore = (function () {
   }
 
   async function schedulePost(postId, scheduledAtIso) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('social_posts')
       .update({ status: 'scheduled', scheduled_at: scheduledAtIso, publish_status: 'queued' })
@@ -153,7 +154,7 @@ window.SocialPostsStore = (function () {
   }
 
   async function updatePost(postId, fields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('social_posts').update(fields).eq('id', postId).select().single();
     if (error) throw new Error(error.message);
@@ -161,7 +162,7 @@ window.SocialPostsStore = (function () {
   }
 
   async function deletePost(postId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('social_posts').delete().eq('id', postId);
     if (error) throw new Error(error.message);

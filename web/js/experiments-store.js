@@ -15,12 +15,13 @@
 window.ExperimentsStore = (function () {
   'use strict';
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     return window.Supabase?.getClient?.() || null;
   }
 
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user } } = await client.auth.getUser();
@@ -38,7 +39,7 @@ window.ExperimentsStore = (function () {
    * @returns {Promise<{id, name, variants, goal}>}
    */
   async function createExperiment({ name, description, variants, goal }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to create an experiment.');
     if (!name) throw new Error('Experiment name is required.');
@@ -84,7 +85,7 @@ window.ExperimentsStore = (function () {
   }
 
   async function listExperiments() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client
@@ -96,7 +97,7 @@ window.ExperimentsStore = (function () {
   }
 
   async function setStatus(experimentId, status) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
     const patch = { status };
     if (status === 'active') patch.start_date = new Date().toISOString();
@@ -106,7 +107,7 @@ window.ExperimentsStore = (function () {
   }
 
   async function declareWinner(experimentId, variantId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
     const { error } = await client
       .from('experiments')
@@ -116,7 +117,7 @@ window.ExperimentsStore = (function () {
   }
 
   async function deleteExperiment(experimentId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
     const { error } = await client.from('experiments').delete().eq('id', experimentId);
     if (error) throw new Error(error.message);
@@ -129,7 +130,7 @@ window.ExperimentsStore = (function () {
   ───────────────────────────────────────────────────────────────────────── */
 
   async function getResults(experimentId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Not connected.');
 
     const [{ data: variants, error: vErr }, { data: visitors, error: visErr }, { data: conversions, error: convErr }] = await Promise.all([

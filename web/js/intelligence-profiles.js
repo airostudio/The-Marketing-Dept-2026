@@ -21,7 +21,8 @@ window.IntelligenceProfiles = (function () {
   const ACTIVE_KEY = 'intel_active_profile';
   const PLAN_LIMITS = { free: 1, basic: 1, pro: 3, professional: 3, agency: 8 };
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     return window.Supabase?.getClient?.() || null;
   }
 
@@ -35,7 +36,7 @@ window.IntelligenceProfiles = (function () {
   // though the data was never touched. Same fix already applied to
   // NancyStore/SocialPostsStore after finding this bug there.
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user }, error } = await client.auth.getUser();
@@ -52,7 +53,7 @@ window.IntelligenceProfiles = (function () {
 
   /** { plan, limit, used } for the signed-in account. */
   async function getPlanInfo() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return { plan: 'basic', limit: 1, used: 0, offline: true };
 
@@ -79,7 +80,7 @@ window.IntelligenceProfiles = (function () {
 
   /** All profiles the user owns or is a member of, newest first. */
   async function list() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     try {
       const { data, error } = await client.from('intelligence_profiles')
@@ -91,7 +92,7 @@ window.IntelligenceProfiles = (function () {
   }
 
   async function create(name, businessName) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to create intelligence profiles.');
     if (!name || !name.trim()) throw new Error('Profile name is required.');
@@ -109,7 +110,7 @@ window.IntelligenceProfiles = (function () {
   }
 
   async function rename(profileId, name) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('intelligence_profiles')
       .update({ name: name.trim() }).eq('id', profileId);
@@ -117,7 +118,7 @@ window.IntelligenceProfiles = (function () {
   }
 
   async function remove(profileId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('intelligence_profiles').delete().eq('id', profileId);
     if (error) throw new Error(error.message);

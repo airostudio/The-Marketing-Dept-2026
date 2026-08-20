@@ -20,7 +20,10 @@
     // SUPABASE HELPERS
     // ─────────────────────────────────────────────────────────────────────────
 
-    function _client() {
+    async function _client() {
+        if (window.Supabase && window.Supabase.ready) {
+            try { await window.Supabase.ready(); } catch (e) { /* fall through */ }
+        }
         if (window.Supabase && window.Supabase.getClient) {
             return window.Supabase.getClient();
         }
@@ -28,7 +31,7 @@
     }
 
     async function _userId() {
-        var client = _client();
+        var client = await _client();
         if (!client) return null;
         try {
             var result = await client.auth.getUser();
@@ -86,7 +89,7 @@
     async function get(service, key, defaultValue) {
         if (defaultValue === undefined) defaultValue = null;
 
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid) {
@@ -132,7 +135,7 @@
         // Always cache locally for speed
         _lsSet(service, key, data);
 
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid) {
@@ -172,7 +175,7 @@
     async function remove(service, key) {
         _lsRemove(service, key);
 
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid) {
@@ -202,7 +205,7 @@
     async function getAll(service) {
         var result = {};
 
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid) {
@@ -253,7 +256,7 @@
      * Call this after user signs in.
      */
     async function syncToSupabase() {
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (!client || !uid) {
@@ -310,7 +313,7 @@
      * Create a marketing campaign.
      */
     async function createCampaign(campaignData) {
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         var campaign = Object.assign({}, campaignData, {
@@ -351,7 +354,7 @@
      * Get all campaigns.
      */
     async function getCampaigns(filters) {
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid) {
@@ -391,7 +394,7 @@
      * Update a campaign.
      */
     async function updateCampaign(campaignId, updates) {
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid && !String(campaignId).startsWith('local_')) {
@@ -426,7 +429,7 @@
      * Delete a campaign.
      */
     async function deleteCampaign(campaignId) {
-        var client = _client();
+        var client = await _client();
         var uid = await _userId();
 
         if (client && uid && !String(campaignId).startsWith('local_')) {

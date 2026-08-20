@@ -10,12 +10,13 @@
 window.ContactsStore = (function () {
   'use strict';
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     return window.Supabase?.getClient?.() || null;
   }
 
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user } } = await client.auth.getUser();
@@ -51,7 +52,7 @@ window.ContactsStore = (function () {
    * @returns {Promise<{imported:number, updated:number, skipped:Array}>}
    */
   async function upsertContacts(rows, opts = {}) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save contacts.');
     if (!rows || !rows.length) throw new Error('No contacts to import.');
@@ -134,7 +135,7 @@ window.ContactsStore = (function () {
    * @param {number} [opts.offset]
    */
   async function listContacts(opts = {}) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
 
@@ -154,7 +155,7 @@ window.ContactsStore = (function () {
   }
 
   async function updateContact(id, patch) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const { data, error } = await client.from('contacts').update(patch).eq('id', id).eq('user_id', userId).select().single();
@@ -167,7 +168,7 @@ window.ContactsStore = (function () {
   }
 
   async function deleteContact(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const { error } = await client.from('contacts').delete().eq('id', id).eq('user_id', userId);
@@ -187,7 +188,7 @@ window.ContactsStore = (function () {
    * @param {Object} [opts.filterRules] - { tagsAny?: string[], tagsAll?: string[], status?: string }
    */
   async function createSegment({ name, description, memberMode, filterRules }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to create segments.');
     if (!name) throw new Error('Segment name is required.');
@@ -207,7 +208,7 @@ window.ContactsStore = (function () {
   }
 
   async function listSegments() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client.from('segments').select('*').eq('user_id', userId).order('created_at', { ascending: false });
@@ -216,7 +217,7 @@ window.ContactsStore = (function () {
   }
 
   async function deleteSegment(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const { error } = await client.from('segments').delete().eq('id', id).eq('user_id', userId);
@@ -225,7 +226,7 @@ window.ContactsStore = (function () {
   }
 
   async function addStaticMembers(segmentId, contactIds) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Sign in required.');
     const rows = contactIds.map(contact_id => ({ segment_id: segmentId, contact_id }));
     const { error } = await client.from('segment_members').upsert(rows, { onConflict: 'segment_id,contact_id' });
@@ -234,7 +235,7 @@ window.ContactsStore = (function () {
   }
 
   async function removeStaticMembers(segmentId, contactIds) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Sign in required.');
     const { error } = await client.from('segment_members').delete().eq('segment_id', segmentId).in('contact_id', contactIds);
     if (error) throw new Error(error.message);
@@ -249,7 +250,7 @@ window.ContactsStore = (function () {
    * @returns {Promise<Array>} contact rows
    */
   async function resolveSegmentContacts(segmentId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
 
@@ -308,7 +309,7 @@ window.ContactsStore = (function () {
    * @param {Array<{to, success, id?, error?, _contactId?}>} opts.results — mixed sent/failed/rejected rows
    */
   async function logCampaignSend({ campaignId, campaignName, subject, segmentId, results }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId || !results || !results.length) return;
 

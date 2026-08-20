@@ -24,7 +24,13 @@
      * Prefers the centralized client from supabase-client.js (window.Supabase)
      * so the auth session is shared across the entire app.
      */
-    function getSupabase() {
+    async function getSupabase() {
+        // Wait for the centralized client's initial session check to finish
+        // before deciding anything — otherwise a page that queries auth state
+        // right on load can catch it mid-init and wrongly conclude "signed out"
+        // even though a valid session is sitting in localStorage.
+        if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
+
         // 1) Use centralized client from supabase-client.js if available
         if (window.Supabase?.getClient) {
             const centralClient = window.Supabase.getClient();
@@ -59,7 +65,7 @@
      * Check if user is authenticated with Supabase
      */
     async function isAuthenticated() {
-        const client = getSupabase();
+        const client = await getSupabase();
         if (!client) return false;
 
         try {
@@ -75,7 +81,7 @@
      * Get current user ID
      */
     async function getCurrentUserId() {
-        const client = getSupabase();
+        const client = await getSupabase();
         if (!client) return null;
 
         try {
@@ -96,7 +102,7 @@
      * Get all projects for the current user
      */
     async function getProjects() {
-        const client = getSupabase();
+        const client = await getSupabase();
         const isAuth = await isAuthenticated();
 
         if (client && isAuth) {
@@ -141,7 +147,7 @@
      * Get a single project by ID
      */
     async function getProject(projectId) {
-        const client = getSupabase();
+        const client = await getSupabase();
         const isAuth = await isAuthenticated();
 
         if (client && isAuth) {
@@ -173,7 +179,7 @@
      *   3. localStorage (offline / demo fallback)
      */
     async function createProject(projectData) {
-        const client = getSupabase();
+        const client = await getSupabase();
         const userId = await getCurrentUserId();
 
         // 1. Try the Express backend first — that's where the schema lives now.
@@ -261,7 +267,7 @@
      * Update an existing project
      */
     async function updateProject(projectId, updates) {
-        const client = getSupabase();
+        const client = await getSupabase();
         const isAuth = await isAuthenticated();
 
         if (client && isAuth && !projectId.startsWith('local_')) {
@@ -322,7 +328,7 @@
      * Delete a project
      */
     async function deleteProject(projectId) {
-        const client = getSupabase();
+        const client = await getSupabase();
         const isAuth = await isAuthenticated();
 
         if (client && isAuth && !projectId.startsWith('local_')) {
@@ -394,7 +400,7 @@
         localStorage.setItem(STORAGE_KEYS.CURRENT_PROJECT, projectId);
 
         // Also save to user settings in Supabase
-        const client = getSupabase();
+        const client = await getSupabase();
         const userId = await getCurrentUserId();
 
         if (client && userId) {
@@ -432,7 +438,7 @@
      * Sync local projects to Supabase (for migrating existing data)
      */
     async function syncLocalProjectsToSupabase() {
-        const client = getSupabase();
+        const client = await getSupabase();
         const userId = await getCurrentUserId();
 
         if (!client || !userId) {
@@ -501,7 +507,7 @@
      * Load user's current project from Supabase settings
      */
     async function loadUserSettings() {
-        const client = getSupabase();
+        const client = await getSupabase();
         const userId = await getCurrentUserId();
 
         if (!client || !userId) return;
@@ -588,7 +594,7 @@
         }
 
         // Listen for auth state changes from the centralized Supabase client
-        const client = getSupabase();
+        const client = await getSupabase();
         if (client) {
             client.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {

@@ -580,6 +580,7 @@
         }
 
         async function init() {
+            if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
             const client = window.Supabase?.getClient?.();
             let signedIn = false;
             if (client) {

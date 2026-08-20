@@ -11,13 +11,16 @@
 window.AnalyticsStore = (function () {
   'use strict';
 
-  function getSupabase() { return window.Supabase?.getClient?.() || null; }
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
+    return window.Supabase?.getClient?.() || null;
+  }
 
   // Same getUser()-with-getSession()-fallback pattern applied to every other
   // store this session after finding auth.getUser() can transiently fail
   // right after a fresh login even with a valid session.
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user }, error } = await client.auth.getUser();
@@ -50,7 +53,7 @@ window.AnalyticsStore = (function () {
    * @param {string} opts.content
    */
   async function createReport({ reportType, audience, title, focus, sourceData, content }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save reports.');
     if (!content || !content.trim()) throw new Error('No report content to save.');
@@ -73,7 +76,7 @@ window.AnalyticsStore = (function () {
 
   /** Reports for the active scope, newest first. */
   async function listReports(limit = 50) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const scope = getScope();
     if (!client || !scope) return [];
 
@@ -85,7 +88,7 @@ window.AnalyticsStore = (function () {
   }
 
   async function getReport(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     const { data, error } = await client.from('analytics_reports').select('*').eq('id', id).single();
     if (error) { console.warn('[AnalyticsStore] getReport failed:', error.message); return null; }
@@ -93,7 +96,7 @@ window.AnalyticsStore = (function () {
   }
 
   async function deleteReport(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const { error } = await client.from('analytics_reports').delete().eq('id', id).eq('user_id', userId);

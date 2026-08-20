@@ -34,6 +34,24 @@
     let authStateListener = null;
     let lastConnectionCheck = null;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // READINESS PROMISE
+    // ═══════════════════════════════════════════════════════════════════════════
+    // getClient() is synchronous but client creation + the first getSession()
+    // round-trip are not — on a fresh page load, anything that calls
+    // getClient()/Auth.getUser() before that finishes gets `null`/"signed out"
+    // even though persistSession already has a valid session in localStorage.
+    // That race, not a real persistence bug, was the "keeps forgetting I'm
+    // logged in" symptom across the app. `ready()` lets every caller wait for
+    // the first init attempt (success or failure) instead of racing it.
+    let initInFlight = null;
+
+    function ready() {
+        if (supabaseClient) return Promise.resolve(supabaseClient);
+        if (initInFlight) return initInFlight.then(() => supabaseClient).catch(() => supabaseClient);
+        return Promise.resolve(supabaseClient);
+    }
+
     const MAX_RETRY_ATTEMPTS = 3;
     const RETRY_DELAY_BASE = 1000; // 1 second
     const CONNECTION_CHECK_INTERVAL = 30000; // 30 seconds
@@ -61,7 +79,7 @@
             if (oldUrl !== supabaseConfig.url || oldKey !== supabaseConfig.anonKey) {
                 console.log('Supabase config changed in another tab, reinitializing...');
                 supabaseClient = null;
-                initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+                initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
             }
         }
     });
@@ -289,7 +307,8 @@
         console.log('Supabase: Attempting to reconnect...');
         loadConfig(); // Reload config in case it changed
         connectionRetryCount = 0;
-        return initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+        initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+        return initInFlight;
     }
 
     /**
@@ -297,7 +316,7 @@
      */
     function getClient() {
         if (!supabaseClient && supabaseConfig.url && supabaseConfig.anonKey) {
-            initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+            initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
         }
         return supabaseClient;
     }
@@ -330,7 +349,8 @@
         // Reinitialize client with new config
         supabaseClient = null;
         connectionRetryCount = 0;
-        return initSupabase(url, anonKey);
+        initInFlight = initSupabase(url, anonKey);
+        return initInFlight;
     }
 
     /**
@@ -429,6 +449,7 @@
          * Get the current user
          */
         async getUser() {
+            await ready();
             const client = getClient();
             if (!client) return null;
 
@@ -440,6 +461,7 @@
          * Get the current session
          */
         async getSession() {
+            await ready();
             const client = getClient();
             if (!client) return null;
 
@@ -1082,6 +1104,7 @@
         // Core functions
         init: initSupabase,
         getClient,
+        ready,
         isConfigured,
         setConfig,
         disconnect,
@@ -1105,21 +1128,27 @@
         if (supabaseConfig.url && supabaseConfig.anonKey) {
             // Check if Supabase library is available
             if (typeof supabase !== 'undefined') {
-                initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
+                initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
             } else {
-                // Wait for library to load
+                // Wait for library to load. ready() needs a promise to await
+                // here too, or every caller on a slow-loading page races this
+                // polling loop the same way they used to race initSupabase()
+                // itself.
                 console.log('Supabase: Waiting for library to load...');
                 let attempts = 0;
-                const checkLibrary = setInterval(() => {
-                    attempts++;
-                    if (typeof supabase !== 'undefined') {
-                        clearInterval(checkLibrary);
-                        initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
-                    } else if (attempts > 50) { // 5 seconds max
-                        clearInterval(checkLibrary);
-                        console.error('Supabase: Library failed to load after 5 seconds');
-                    }
-                }, 100);
+                initInFlight = new Promise((resolve) => {
+                    const checkLibrary = setInterval(() => {
+                        attempts++;
+                        if (typeof supabase !== 'undefined') {
+                            clearInterval(checkLibrary);
+                            initSupabase(supabaseConfig.url, supabaseConfig.anonKey).then(resolve);
+                        } else if (attempts > 50) { // 5 seconds max
+                            clearInterval(checkLibrary);
+                            console.error('Supabase: Library failed to load after 5 seconds');
+                            resolve(null);
+                        }
+                    }, 100);
+                });
             }
         }
     }

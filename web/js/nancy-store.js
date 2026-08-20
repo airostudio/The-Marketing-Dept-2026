@@ -6,7 +6,10 @@
 window.NancyStore = (function () {
   'use strict';
 
-  function getSupabase() { return window.Supabase?.getClient?.() || null; }
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
+    return window.Supabase?.getClient?.() || null;
+  }
 
   // Same getUser()-with-getSession()-fallback pattern fixed in
   // SocialPostsStore after the "shows logged in but this feature disagrees"
@@ -15,7 +18,7 @@ window.NancyStore = (function () {
   // session's user avoids a false negative without weakening security (RLS
   // still checks the real JWT server-side regardless of the id used here).
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user }, error } = await client.auth.getUser();
@@ -31,7 +34,7 @@ window.NancyStore = (function () {
   }
 
   async function createBrand(brandFields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save your brand.');
     const { data, error } = await client.from('nancy_brands').insert({ user_id: userId, ...brandFields }).select().single();
@@ -40,7 +43,7 @@ window.NancyStore = (function () {
   }
 
   async function updateBrand(brandId, fields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('nancy_brands').update(fields).eq('id', brandId).select().single();
     if (error) throw new Error(error.message);
@@ -48,7 +51,7 @@ window.NancyStore = (function () {
   }
 
   async function listBrands() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client.from('nancy_brands').select('*').eq('user_id', userId).order('created_at', { ascending: false });
@@ -57,7 +60,7 @@ window.NancyStore = (function () {
   }
 
   async function createResearchRun(brandId, fields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('nancy_research_runs').insert({ brand_id: brandId, ...fields }).select().single();
     if (error) throw new Error(error.message);
@@ -65,7 +68,7 @@ window.NancyStore = (function () {
   }
 
   async function saveCompetitors(researchRunId, competitors) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !competitors?.length) return [];
     const rows = competitors.map(c => ({
       research_run_id: researchRunId, business_name: c.business_name, website: c.website,
@@ -79,7 +82,7 @@ window.NancyStore = (function () {
   }
 
   async function saveSourceDocuments(researchRunId, citations) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !citations?.length) return;
     const rows = citations.map(c => ({ research_run_id: researchRunId, url: c.url || c, title: c.title || null }));
     const { error } = await client.from('nancy_source_documents').insert(rows);
@@ -87,7 +90,7 @@ window.NancyStore = (function () {
   }
 
   async function createContentWeek(brandId, researchRunId, weekNumber, strategy) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('nancy_content_weeks')
       .insert({ brand_id: brandId, research_run_id: researchRunId, week_number: weekNumber, strategy, status: 'generating' })
@@ -97,7 +100,7 @@ window.NancyStore = (function () {
   }
 
   async function savePosts(contentWeekId, posts) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const rows = posts.map(p => ({
       content_week_id: contentWeekId, day: p.day, objective: p.objective, content_pillar: p.content_pillar,
@@ -112,7 +115,7 @@ window.NancyStore = (function () {
   }
 
   async function updatePost(postId, fields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('nancy_posts').update(fields).eq('id', postId).select().single();
     if (error) throw new Error(error.message);
@@ -120,13 +123,13 @@ window.NancyStore = (function () {
   }
 
   async function setWeekStatus(contentWeekId, status, error) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return;
     await client.from('nancy_content_weeks').update({ status, error: error || null }).eq('id', contentWeekId);
   }
 
   async function listContentWeeks(brandId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     const { data, error } = await client.from('nancy_content_weeks').select('*, nancy_posts(*)').eq('brand_id', brandId).order('week_number', { ascending: false });
     if (error) { console.warn('[NancyStore] listContentWeeks failed:', error.message); return []; }
@@ -139,7 +142,7 @@ window.NancyStore = (function () {
    * trip via PostgREST's nested embedding, rather than N+1 queries.
    */
   async function listAllWeeksForUser() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) return [];
     const { data, error } = await client.from('nancy_brands')
@@ -157,7 +160,7 @@ window.NancyStore = (function () {
    * having generated it.
    */
   async function getWeekDetail(weekId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     const { data, error } = await client.from('nancy_content_weeks')
       .select('*, nancy_posts(*), nancy_brands(*), nancy_research_runs(*, nancy_competitors(*), nancy_source_documents(*))')
@@ -167,7 +170,7 @@ window.NancyStore = (function () {
   }
 
   async function savePhotoRecord(userId, brandId, storageUrl, metadata) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     const { data, error } = await client.from('nancy_user_photos').insert({ user_id: userId, brand_id: brandId, storage_url: storageUrl, metadata }).select().single();
     if (error) { console.warn('[NancyStore] savePhotoRecord failed:', error.message); return null; }

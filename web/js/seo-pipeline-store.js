@@ -9,10 +9,13 @@
 window.SEOPipelineStore = (function () {
   'use strict';
 
-  function getSupabase() { return window.Supabase?.getClient?.() || null; }
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
+    return window.Supabase?.getClient?.() || null;
+  }
 
   async function getUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user }, error } = await client.auth.getUser();
@@ -36,7 +39,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function createRun({ websiteUrl, businessSummary, productsServices, targetCustomer, existingTopics, competitors }) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save this SEO run.');
     const scope = getScope() || {};
@@ -51,7 +54,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function listRuns() {
-    const client = getSupabase();
+    const client = await getSupabase();
     const scope = getScope();
     if (!client || !scope) return [];
     let q = client.from('seo_runs').select('*');
@@ -62,7 +65,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function saveTopics(runId, topics) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const rows = topics.map(t => ({
@@ -76,7 +79,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function listTopics(runId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     const { data, error } = await client.from('seo_topics').select('*').eq('run_id', runId).order('created_at', { ascending: true });
     if (error) { console.warn('[SEOPipelineStore] listTopics failed:', error.message); return []; }
@@ -84,14 +87,14 @@ window.SEOPipelineStore = (function () {
   }
 
   async function updateTopicStatus(topicId, status) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('seo_topics').update({ status }).eq('id', topicId);
     if (error) throw new Error(error.message);
   }
 
   async function saveDailyTasks(runId, tasks) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const rows = tasks.map(t => ({
@@ -104,7 +107,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function listDailyTasks(runId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     const { data, error } = await client.from('seo_daily_tasks').select('*').eq('run_id', runId).order('day_number', { ascending: true });
     if (error) { console.warn('[SEOPipelineStore] listDailyTasks failed:', error.message); return []; }
@@ -112,14 +115,14 @@ window.SEOPipelineStore = (function () {
   }
 
   async function updateTaskStatus(taskId, status) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('seo_daily_tasks').update({ status }).eq('id', taskId);
     if (error) throw new Error(error.message);
   }
 
   async function saveArticle(runId, topicId, article) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in to save this article.');
     const { data, error } = await client.from('seo_articles').insert({
@@ -133,7 +136,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function listArticles(runId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     const { data, error } = await client.from('seo_articles').select('id, title, slug, target_keyword, word_count, status, created_at').eq('run_id', runId).order('created_at', { ascending: false });
     if (error) { console.warn('[SEOPipelineStore] listArticles failed:', error.message); return []; }
@@ -141,7 +144,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function getArticle(id) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     const { data, error } = await client.from('seo_articles').select('*').eq('id', id).single();
     if (error) { console.warn('[SEOPipelineStore] getArticle failed:', error.message); return null; }
@@ -149,14 +152,14 @@ window.SEOPipelineStore = (function () {
   }
 
   async function updateArticleStatus(id, status) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { error } = await client.from('seo_articles').update({ status }).eq('id', id);
     if (error) throw new Error(error.message);
   }
 
   async function saveProspects(runId, prospects) {
-    const client = getSupabase();
+    const client = await getSupabase();
     const userId = await getUserId();
     if (!client || !userId) throw new Error('Sign in required.');
     const rows = prospects.map(p => ({
@@ -169,7 +172,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function listProspects(runId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return [];
     const { data, error } = await client.from('seo_backlink_prospects').select('*').eq('run_id', runId).order('created_at', { ascending: false });
     if (error) { console.warn('[SEOPipelineStore] listProspects failed:', error.message); return []; }
@@ -177,7 +180,7 @@ window.SEOPipelineStore = (function () {
   }
 
   async function updateProspect(id, fields) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) throw new Error('Cloud unavailable');
     const { data, error } = await client.from('seo_backlink_prospects').update(fields).eq('id', id).select().single();
     if (error) throw new Error(error.message);

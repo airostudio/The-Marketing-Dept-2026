@@ -20,7 +20,8 @@ window.BusinessBrainCloud = (function () {
   const MAX_HISTORY = 20;
   const LEGACY_KEY  = 'intel_business_brain'; // pre-migration global key
 
-  function getSupabase() {
+  async function getSupabase() {
+    if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
     if (window.Supabase?.getClient) return window.Supabase.getClient();
     return null;
   }
@@ -31,7 +32,7 @@ window.BusinessBrainCloud = (function () {
   // and this function has no fallback, so a caller like getScope()'s
   // callers can read "signed out" when the user genuinely isn't.
   async function getCurrentUserId() {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client) return null;
     try {
       const { data: { user }, error } = await client.auth.getUser();
@@ -74,7 +75,7 @@ window.BusinessBrainCloud = (function () {
 
   /** Pull the latest cloud brain for a scope. Null if none / offline. */
   async function pullLatest(scope) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !scope) return null;
 
     try {
@@ -94,7 +95,7 @@ window.BusinessBrainCloud = (function () {
    * Fire-and-forget safe — never throws, resolves false on failure.
    */
   async function pushSnapshot(scope, data, confidenceScore, label) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !scope) return false;
 
     const userId = await getCurrentUserId();
@@ -146,7 +147,7 @@ window.BusinessBrainCloud = (function () {
 
   /** List up to MAX_HISTORY snapshots for a scope, newest first. */
   async function listHistory(scope) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !scope) return [];
 
     try {
@@ -164,7 +165,7 @@ window.BusinessBrainCloud = (function () {
 
   /** Restore a snapshot as current state (records the restore in history). */
   async function restoreSnapshot(scope, snapshotId) {
-    const client = getSupabase();
+    const client = await getSupabase();
     if (!client || !scope) throw new Error('Cloud sync not available');
 
     const { data: snapshot, error } = await client
