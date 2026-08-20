@@ -1022,27 +1022,55 @@ function approveAndSendToPat() {
 
   closeOutreachModal();
   renderProspects();
-
-  if (confirm(`Queued for Pat (${queue.length} email${queue.length === 1 ? '' : 's'} waiting there now). Open Pat's Backlink Outreach tab now?`)) {
-    openPatOutreachTab();
-  }
+  openPatOutreachTab(queue.length);
 }
 
 // Named window target: window.open() reuses an existing tab/window opened
 // with this same name instead of stacking up a new one every time the user
 // approves another prospect. Navigating this tab away would lose the whole
-// SEO Content Engine run (State isn't persisted mid-edit), so this always
-// opens Pat in a separate tab rather than window.location.href.
+// SEO Content Engine run (State isn't persisted mid-edit — every topic,
+// article and prospect generated so far), so this always opens Pat in a
+// separate window rather than window.location.href.
 const PAT_TAB_NAME = 'audema_pat_tab';
 
-function openPatOutreachTab() {
+function openPatOutreachTab(queueLength) {
   // A bare hash change doesn't reload an already-open tab at the same path,
   // so a Pat tab left open from an earlier approval wouldn't notice the
   // freshly-queued items — a cache-busting query param forces it to reload
   // and pick up pat_incoming_outreach from localStorage again.
   const url = `/agents/email-delivery-agent.html?t=${Date.now()}#backlinks`;
-  const win = window.open(url, PAT_TAB_NAME);
-  if (win) win.focus();
+
+  // window.open() must run synchronously inside the click handler — most
+  // browsers (Safari especially) drop the "trusted user gesture" a popup
+  // needs to open without being blocked the moment a blocking dialog like
+  // confirm()/alert() runs first, even one shown a line earlier in the same
+  // function. So this never gates the call behind a confirm() — it opens
+  // immediately, and only falls back to a clickable link if a popup
+  // blocker caught it anyway (window.open returns null/undefined in that case).
+  const win = window.open(url, PAT_TAB_NAME, 'noopener');
+
+  if (win) {
+    win.focus();
+    showOutreachToast(`Queued for Pat (${queueLength} email${queueLength === 1 ? '' : 's'} waiting there) — opened in a separate window.`);
+  } else {
+    showOutreachToast(`Queued for Pat (${queueLength} email${queueLength === 1 ? '' : 's'} waiting there). Your browser blocked the popup — <a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">click here to open Pat</a> in a new tab yourself.`);
+  }
+}
+
+/** Small non-blocking status banner — never use confirm()/alert() for this;
+ *  see the note in openPatOutreachTab() about why that breaks the popup. */
+function showOutreachToast(html) {
+  let el = document.getElementById('outreach-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'outreach-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;max-width:380px;background:var(--panel,#1a1a2e);border:1px solid var(--border,rgba(255,255,255,0.12));border-radius:12px;padding:14px 18px;font-size:13px;color:var(--text,#fff);box-shadow:0 8px 30px rgba(0,0,0,0.4);z-index:300;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 8000);
 }
 
 function sendOutreachViaEmailClient() {
