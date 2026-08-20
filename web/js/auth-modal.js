@@ -154,9 +154,15 @@
   // login paths cooperate on one browser-wide account-switch signal.
   var LAST_UID_KEY = 'audema_last_uid';
 
-  function _clearLocalIntelligenceState() {
+  // ownerUserId lets clearAll() back the Business Brain up before wiping it,
+  // namespaced to that user — without it a sign-out permanently destroys any
+  // brain data that never reached the cloud. Falls back to the last known
+  // uid (still set at every call site below), which owns the data being cleared.
+  function _clearLocalIntelligenceState(ownerUserId) {
+    var uid = ownerUserId;
+    if (!uid) { try { uid = localStorage.getItem(LAST_UID_KEY); } catch (e) { uid = null; } }
     try {
-      if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true);
+      if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true, uid);
     } catch (e) { console.error('[auth-modal] IntelligenceEngine.clearAll failed:', e); }
     try {
       localStorage.removeItem('intel_active_profile');
@@ -171,9 +177,19 @@
 
     if (lastUid && lastUid !== userId) {
       console.warn('[auth-modal] Different account detected on this browser — clearing local intelligence/profile cache to prevent cross-account data bleed.');
-      _clearLocalIntelligenceState();
+      // Data being cleared belongs to lastUid — back it up under THAT id.
+      _clearLocalIntelligenceState(lastUid);
     }
     try { localStorage.setItem(LAST_UID_KEY, userId); } catch (e) { /* ignore */ }
+
+    // This user is signing back in — re-hydrate anything their own sign-out
+    // backed up. Non-destructive: never overwrites a bucket that already has
+    // live data, so a cloud pull or fresh edit always wins.
+    try {
+      if (window.IntelligenceEngine?.restoreBrainBackup) {
+        window.IntelligenceEngine.restoreBrainBackup(userId);
+      }
+    } catch (e) { console.warn('[auth-modal] Business Brain backup restore failed:', e && e.message); }
   }
 
   // ── Bridge into the Supabase SDK client ───────────────────────────────────

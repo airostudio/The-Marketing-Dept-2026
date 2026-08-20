@@ -2398,8 +2398,28 @@
 
   async function initIntelProfiles() {
     if (!window.IntelligenceProfiles) return;
+
+    // Recover anything a previous sign-out backed up for THIS user before
+    // doing anything else. Business Brain only reaches the cloud when a scope
+    // exists and the push succeeds; when it doesn't, sign-out's cache clear
+    // used to be the point of permanent loss. Non-destructive — it never
+    // overwrites a bucket that already has live data.
+    let restored = false;
+    try {
+      const uid = await window.BusinessBrainCloud?.getCurrentUserId?.();
+      if (uid && window.IntelligenceEngine?.restoreBrainBackup) {
+        restored = window.IntelligenceEngine.restoreBrainBackup(uid);
+      }
+    } catch (_) { /* best-effort */ }
+
     const result = await window.IntelligenceProfiles.ensureActiveProfile();
-    if (!result) return; // signed out / offline — engine falls back to project scope
+    if (!result) {
+      // Signed out, offline, or the intelligence_profiles table isn't set up
+      // yet — the engine falls back to project/default scope. Still repaint
+      // from any restored backup so recovered work is visible immediately.
+      if (restored) reloadBrainForScope();
+      return;
+    }
 
     renderProfileSelect(result.profiles, result.active?.id);
     document.getElementById('profileManageBtn').style.display = '';

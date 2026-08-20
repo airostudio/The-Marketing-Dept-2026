@@ -23,6 +23,11 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 /** @enum {string} localStorage keys for each intelligence store */
+// Sign-out backup of Business Brain buckets, namespaced by the owning user's
+// id so a different account on the same browser can never read it. Written by
+// clearAll(), consumed by restoreBrainBackup(). See those for why this exists.
+const BRAIN_BACKUP_PREFIX = 'intel_brain_backup__';
+
 const STORAGE_KEYS = {
   BUSINESS_BRAIN:     'intel_business_brain',
   COMPETITIVE_RADAR:  'intel_competitive_radar',
@@ -1554,11 +1559,42 @@ class IntelligenceEngine {
    * Wipe all four intelligence stores. Use with caution.
    * @param {boolean} [confirm=false] - must pass true to actually clear
    */
-  clearAll(confirm = false) {
+  clearAll(confirm = false, ownerUserId = null) {
     if (!confirm) {
       console.warn('[IntelligenceEngine.clearAll] Pass true to confirm clearing all intelligence data.');
       return;
     }
+
+    // Back the Business Brain up BEFORE wiping it. This clear runs on every
+    // sign-out (for cross-account isolation), but it used to be an
+    // unconditional destroy — and Business Brain only reaches the cloud when
+    // a scope exists (an active intelligence profile, or a saved project).
+    // With no scope — or with the cloud push failing, e.g. because
+    // supabase-intelligence-profiles.sql hasn't been run against the
+    // account's Supabase project — the ONLY copy of the user's work was the
+    // localStorage bucket this function then deleted. That is the exact
+    // "I filled in the Business Brain, saved, logged out and back in, and it
+    // was gone" data loss. Backing it up under a key namespaced by the
+    // owning user's id keeps cross-account isolation intact (a different
+    // account never reads another's backup) while making the loss
+    // recoverable — restoreBrainBackup() re-hydrates it on next sign-in.
+    if (ownerUserId) {
+      try {
+        const buckets = {};
+        Object.keys(localStorage)
+          .filter(k => k === STORAGE_KEYS.BUSINESS_BRAIN || k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`))
+          .forEach(k => { buckets[k] = localStorage.getItem(k); });
+        if (Object.keys(buckets).length) {
+          localStorage.setItem(BRAIN_BACKUP_PREFIX + ownerUserId, JSON.stringify({
+            savedAt: new Date().toISOString(),
+            buckets,
+          }));
+        }
+      } catch (e) {
+        console.warn('[IntelligenceEngine] Business Brain backup before clear failed:', e.message);
+      }
+    }
+
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     // Business Brain is stored per-project (STORAGE_KEYS.BUSINESS_BRAIN + '__' + projectId) —
     // remove every project-scoped bucket too, not just the legacy global key.
@@ -1566,6 +1602,39 @@ class IntelligenceEngine {
       .filter(k => k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`))
       .forEach(k => localStorage.removeItem(k));
     console.info('[IntelligenceEngine] All intelligence stores cleared.');
+  }
+
+  /**
+   * Re-hydrate Business Brain buckets backed up by clearAll() at sign-out,
+   * for this same user only. Non-destructive: never overwrites a bucket that
+   * already has data (a cloud pull or fresh edit always wins over a backup).
+   * @param {string} userId - the signed-in user's id
+   * @returns {boolean} true if anything was restored
+   */
+  restoreBrainBackup(userId) {
+    if (!userId) return false;
+    let payload;
+    try {
+      const raw = localStorage.getItem(BRAIN_BACKUP_PREFIX + userId);
+      if (!raw) return false;
+      payload = JSON.parse(raw);
+    } catch { return false; }
+
+    const buckets = payload?.buckets || {};
+    let restored = false;
+    Object.keys(buckets).forEach(k => {
+      try {
+        if (localStorage.getItem(k)) return; // already has live data — leave it
+        if (buckets[k] == null) return;
+        localStorage.setItem(k, buckets[k]);
+        restored = true;
+      } catch (e) { /* quota or serialization issue — skip this bucket */ }
+    });
+
+    if (restored) {
+      console.info('[IntelligenceEngine] Restored Business Brain from pre-sign-out backup.');
+    }
+    return restored;
   }
 }
 
