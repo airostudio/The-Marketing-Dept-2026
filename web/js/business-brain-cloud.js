@@ -181,6 +181,78 @@ window.BusinessBrainCloud = (function () {
     return snapshot.data;
   }
 
+  /**
+   * Work out WHY cloud sync is unavailable, precisely.
+   *
+   * getScope() returning null has several very different causes that all
+   * used to surface as the same "Sign in and select a profile" message —
+   * which is actively misleading for a signed-in user who has no way to
+   * select a profile because the table backing profiles doesn't exist yet.
+   * This probes each layer and reports the real one.
+   *
+   * @returns {Promise<{ok: boolean, reason: string, message: string}>}
+   */
+  async function diagnose() {
+    const client = await getSupabase();
+    if (!client) {
+      return {
+        ok: false,
+        reason: 'not-configured',
+        message: 'Cloud sync is not configured for this deployment (no Supabase URL/key). Contact support — nothing you do on this page will sync until that is set.',
+      };
+    }
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return {
+        ok: false,
+        reason: 'signed-out',
+        message: 'You are not signed in to the cloud on this page. Sign in and reload.',
+      };
+    }
+
+    const scope = getScope();
+    if (scope) {
+      return { ok: true, reason: 'ok', message: 'Cloud sync is active.' };
+    }
+
+    // Signed in but no scope — find out whether the profiles table is even
+    // reachable. A missing table (migration never run) is by far the most
+    // common cause and is invisible from the UI otherwise.
+    try {
+      const { error } = await client.from('intelligence_profiles').select('id').limit(1);
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('does not exist') || msg.includes('schema cache') || error.code === '42P01') {
+          return {
+            ok: false,
+            reason: 'missing-migration',
+            message: 'Your database is missing the intelligence-profiles tables, so no profile can be created and nothing can sync. Run supabase-intelligence-profiles.sql against this Supabase project, then reload.',
+          };
+        }
+        return {
+          ok: false,
+          reason: 'profiles-error',
+          message: 'Could not read intelligence profiles: ' + error.message,
+        };
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        reason: 'profiles-error',
+        message: 'Could not read intelligence profiles: ' + e.message,
+      };
+    }
+
+    // Table exists and is readable, but no profile is active — this is the
+    // only case where the original "select a profile" advice is correct.
+    return {
+      ok: false,
+      reason: 'no-active-profile',
+      message: 'No intelligence profile is selected yet. Create or select one above, then come back here.',
+    };
+  }
+
   /** Check for pre-migration global (unscoped) brain data. */
   function checkLegacyData() {
     try {
@@ -197,6 +269,7 @@ window.BusinessBrainCloud = (function () {
     getCurrentUserId,
     getCurrentProjectId,
     getScope,
+    diagnose,
     pullLatest,
     pushSnapshot,
     listHistory,

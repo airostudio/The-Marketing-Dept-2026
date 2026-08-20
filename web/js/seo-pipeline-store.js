@@ -55,13 +55,35 @@ window.SEOPipelineStore = (function () {
 
   async function listRuns() {
     const client = await getSupabase();
-    const scope = getScope();
-    if (!client || !scope) return [];
-    let q = client.from('seo_runs').select('*');
-    q = scope.intel_profile_id ? q.eq('intel_profile_id', scope.intel_profile_id) : q.eq('project_id', scope.project_id);
+    const userId = await getUserId();
+    if (!client || !userId) return [];
+
+    // createRun() happily saves with a null scope (`getScope() || {}`), but
+    // this used to return [] outright whenever getScope() was null — so a
+    // run saved without an active intelligence profile was written to the
+    // database and then became permanently unreachable, taking its topics,
+    // articles and backlink prospects with it (they're all found via
+    // run_id, which only this function surfaces). Filter by user_id
+    // instead, which RLS already enforces, so nothing is ever orphaned.
+    let q = client.from('seo_runs').select('*').eq('user_id', userId);
+
+    // With a scope active, still scope the list — but keep unscoped runs
+    // visible so work saved before a profile existed doesn't disappear the
+    // moment one is created.
+    const orFilter = scopeOr(getScope());
+    if (orFilter) q = q.or(orFilter);
+
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) { console.warn('[SEOPipelineStore] listRuns failed:', error.message); return []; }
     return data || [];
+  }
+
+  /** PostgREST `or` filter for a scope, or null when unscoped. */
+  function scopeOr(scope) {
+    const unscoped = 'and(intel_profile_id.is.null,project_id.is.null)';
+    if (scope?.intel_profile_id) return `intel_profile_id.eq.${scope.intel_profile_id},${unscoped}`;
+    if (scope?.project_id) return `project_id.eq.${scope.project_id},${unscoped}`;
+    return null;
   }
 
   async function saveTopics(runId, topics) {
