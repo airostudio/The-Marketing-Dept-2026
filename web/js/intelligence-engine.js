@@ -224,7 +224,11 @@ class BusinessBrain {
         name: '',
         title: '',
         email: '',
-        phone: ''
+        phone: '',
+        // Physical postal address — CAN-SPAM/GDPR/CASL require a real
+        // mailing address on any commercial email that isn't a genuine
+        // one-off 1:1 message. See buildComplianceFooter() below.
+        mailingAddress: ''
       },
       intelligence: {
         lastUpdated: null,
@@ -428,7 +432,7 @@ class BusinessBrain {
    */
   getSenderIdentity() {
     const d = this.load();
-    return d.sender || { name: '', title: '', email: '', phone: '' };
+    return d.sender || { name: '', title: '', email: '', phone: '', mailingAddress: '' };
   }
 
   /**

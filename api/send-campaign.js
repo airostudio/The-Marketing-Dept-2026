@@ -34,6 +34,7 @@
 'use strict';
 
 const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscribe-token.js');
+const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
 
 const DAILY_SEND_LIMIT   = 50;
 const MAX_BATCH_SIZE     = 25;
@@ -105,7 +106,7 @@ module.exports = async function handler(req, res) {
   if (!apiKey)    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
   if (!fromEmail) return res.status(500).json({ error: 'RESEND_FROM_EMAIL not configured' });
 
-  const { subject, html, text, replyTo, campaignId, recipients } = req.body || {};
+  const { subject, html, text, replyTo, campaignId, recipients, companyName, mailingAddress } = req.body || {};
 
   if (!subject || !html)
     return res.status(400).json({ error: 'subject and html are required' });
@@ -138,6 +139,7 @@ module.exports = async function handler(req, res) {
   const skippedBudget = validRecipients.slice(remainingBudget).map(r => ({ to: r.to, error: 'Daily send limit reached' }));
 
   const results = [];
+  let missingMailingAddress = false;
 
   for (const recipient of toSend) {
     const { to, toName, mergeFields, _contactId } = recipient;
@@ -159,18 +161,31 @@ module.exports = async function handler(req, res) {
     const personalizedHtml    = applyMergeFields(html, mergeFieldsWithUnsub);
     const personalizedText    = text ? applyMergeFields(text, mergeFieldsWithUnsub) : undefined;
 
+    // Same hard requirement as api/send-email.js — visible opt-out language
+    // + a physical mailing address on every send, not just the invisible
+    // List-Unsubscribe header above (mail clients don't all surface that to
+    // the reader, and it doesn't satisfy the "physical address" requirement
+    // at all). Uses the real per-recipient one-click link when available
+    // rather than a generic "reply to opt out" fallback.
+    const footer = ensureComplianceFooter({
+      html: personalizedHtml, text: personalizedText,
+      companyName, mailingAddress, replyTo, unsubscribeUrl: unsubUrl || undefined,
+    });
+    const resolvedReplyTo = replyTo || process.env.COMPLIANCE_REPLY_TO || fromEmail;
+    if (footer.appended && !footer.hasMailingAddress) missingMailingAddress = true;
+
     const tags = [
       ...(campaignId  ? [{ name: 'campaign_id', value: sanitizeTagValue(campaignId) }] : []),
       ...(_contactId  ? [{ name: 'contact_id',  value: sanitizeTagValue(_contactId) }] : []),
     ];
 
     const payload = {
-      from:    `${fromName} <${fromEmail}>`,
-      to:      toName ? [`${toName} <${to}>`] : [to],
-      subject: personalizedSubject,
-      html:    personalizedHtml,
-      ...(personalizedText ? { text: personalizedText } : {}),
-      ...(replyTo ? { reply_to: replyTo } : {}),
+      from:     `${fromName} <${fromEmail}>`,
+      to:       toName ? [`${toName} <${to}>`] : [to],
+      subject:  personalizedSubject,
+      html:     footer.html,
+      ...(footer.text ? { text: footer.text } : {}),
+      reply_to: resolvedReplyTo,
       ...(tags.length ? { tags } : {}),
       ...(unsubUrl ? {
         headers: {
@@ -207,6 +222,14 @@ module.exports = async function handler(req, res) {
 
   const sentCount = results.filter(r => r.success).length;
 
+  const warnings = [];
+  if (!unsubscribeConfigured()) {
+    warnings.push('UNSUBSCRIBE_SECRET / SUPABASE_SERVICE_ROLE_KEY not configured — sends went out without List-Unsubscribe headers, which Gmail/Yahoo/Apple require for bulk senders.');
+  }
+  if (missingMailingAddress) {
+    warnings.push('No physical mailing address configured — set one in Business Brain > Sender Identity, or COMPLIANCE_MAILING_ADDRESS, to stay compliant with CAN-SPAM/GDPR/CASL.');
+  }
+
   return res.json({
     success:    true,
     campaignId: campaignId || null,
@@ -216,8 +239,6 @@ module.exports = async function handler(req, res) {
     results,
     dailySent:  dailySendCount,
     dailyLimit: DAILY_SEND_LIMIT,
-    ...(unsubscribeConfigured() ? {} : {
-      warnings: ['UNSUBSCRIBE_SECRET / SUPABASE_SERVICE_ROLE_KEY not configured — sends went out without List-Unsubscribe headers, which Gmail/Yahoo/Apple require for bulk senders.'],
-    }),
+    ...(warnings.length ? { warnings } : {}),
   });
 };

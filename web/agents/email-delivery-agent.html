@@ -394,8 +394,16 @@
             if (!html) return alert('Email body is required.');
             if (recipients.length === 0) return alert('Add at least one recipient.');
 
+            // The server appends a compliance footer (opt-out language +
+            // physical address) to every send regardless — this just makes
+            // sure it uses this business's real details from Business Brain
+            // instead of falling back to whatever's set in env vars.
+            const sender = window.IntelligenceEngine?.brain?.getSenderIdentity?.() || {};
+            const companyName = window.IntelligenceEngine?.brain?.load?.()?.company?.name || '';
+
             campaign = window.EmailDeliveryService.collateCampaign({
                 campaignName: name, subject, html, text, replyTo, recipients,
+                companyName, mailingAddress: sender.mailingAddress || '',
             });
             campaign.segmentId = segmentRecipients ? segmentRecipients.segmentId : null;
 
@@ -880,7 +888,7 @@
         const btn = document.getElementById(`bl-send-${i}`);
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sending…'; }
 
-        const senderEmail = window.IntelligenceEngine?.brain?.getSenderIdentity?.()?.email || '';
+        const sender = window.IntelligenceEngine?.brain?.getSenderIdentity?.() || {};
 
         try {
             const res = await fetch('/api/send-email', {
@@ -889,7 +897,13 @@
                 body: JSON.stringify({
                     to: item.to, subject: item.subject,
                     html: plainTextToHtml(item.body), text: item.body,
-                    replyTo: senderEmail || undefined,
+                    replyTo: sender.email || undefined,
+                    // Server enforces a compliance footer (opt-out language
+                    // + physical address) on every send regardless — this
+                    // just makes sure it's THIS business's real details
+                    // rather than falling back to whatever's in env vars.
+                    companyName: window.IntelligenceEngine?.brain?.load?.()?.company?.name || undefined,
+                    mailingAddress: sender.mailingAddress || undefined,
                     prospectId: item.prospectId || undefined,
                 }),
             });

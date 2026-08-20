@@ -1024,8 +1024,25 @@ function approveAndSendToPat() {
   renderProspects();
 
   if (confirm(`Queued for Pat (${queue.length} email${queue.length === 1 ? '' : 's'} waiting there now). Open Pat's Backlink Outreach tab now?`)) {
-    window.location.href = '/agents/email-delivery-agent.html#backlinks';
+    openPatOutreachTab();
   }
+}
+
+// Named window target: window.open() reuses an existing tab/window opened
+// with this same name instead of stacking up a new one every time the user
+// approves another prospect. Navigating this tab away would lose the whole
+// SEO Content Engine run (State isn't persisted mid-edit), so this always
+// opens Pat in a separate tab rather than window.location.href.
+const PAT_TAB_NAME = 'audema_pat_tab';
+
+function openPatOutreachTab() {
+  // A bare hash change doesn't reload an already-open tab at the same path,
+  // so a Pat tab left open from an earlier approval wouldn't notice the
+  // freshly-queued items — a cache-busting query param forces it to reload
+  // and pick up pat_incoming_outreach from localStorage again.
+  const url = `/agents/email-delivery-agent.html?t=${Date.now()}#backlinks`;
+  const win = window.open(url, PAT_TAB_NAME);
+  if (win) win.focus();
 }
 
 function sendOutreachViaEmailClient() {

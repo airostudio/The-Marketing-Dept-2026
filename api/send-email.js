@@ -24,6 +24,8 @@
 
 'use strict';
 
+const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+
 const DAILY_SEND_LIMIT   = 50;
 const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX     = 10;
@@ -80,13 +82,24 @@ module.exports = async function handler(req, res) {
   if (!apiKey)    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
   if (!fromEmail) return res.status(500).json({ error: 'RESEND_FROM_EMAIL not configured' });
 
-  const { to, toName, subject, html, text, replyTo, prospectId, sequenceId, stepIndex } = req.body || {};
+  const {
+    to, toName, subject, html, text, replyTo, prospectId, sequenceId, stepIndex,
+    companyName, mailingAddress,
+  } = req.body || {};
 
   if (!to || !subject || !html)
     return res.status(400).json({ error: 'to, subject, and html are required' });
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))
     return res.status(400).json({ error: 'Invalid recipient email address' });
+
+  // Every email this endpoint sends gets a compliance footer (unsubscribe/
+  // opt-out language + physical mailing address) unless the body already has
+  // one, and a Reply-To — this is a hard requirement for the account, not
+  // left to whatever copy was drafted. See _lib/compliance-footer.js for the
+  // company/address/reply-to resolution order.
+  const footer = ensureComplianceFooter({ html, text, companyName, mailingAddress, replyTo });
+  const resolvedReplyTo = replyTo || process.env.COMPLIANCE_REPLY_TO || fromEmail;
 
   // Resend tags for filtering / webhooks
   // Tag values must be [a-zA-Z0-9_-] — sanitize anything that isn't
@@ -102,12 +115,12 @@ module.exports = async function handler(req, res) {
 
   // Resend payload — https://resend.com/docs/api-reference/emails/send-email
   const payload = {
-    from:    `${fromName} <${fromEmail}>`,
-    to:      toName ? [`${toName} <${to}>`] : [to],
+    from:     `${fromName} <${fromEmail}>`,
+    to:       toName ? [`${toName} <${to}>`] : [to],
     subject,
-    html,
-    ...(text    ? { text }                       : {}),
-    ...(replyTo ? { reply_to: replyTo }          : {}),
+    html:     footer.html,
+    ...(footer.text    ? { text: footer.text }   : {}),
+    reply_to: resolvedReplyTo,
     ...(tags.length ? { tags }                   : {}),
   };
 
@@ -125,6 +138,10 @@ module.exports = async function handler(req, res) {
     const data = await upstream.json().catch(() => ({}));
 
     if (upstream.ok) {
+      const warnings = [];
+      if (footer.appended && !footer.hasMailingAddress) {
+        warnings.push('No physical mailing address configured — set one in Business Brain > Sender Identity, or COMPLIANCE_MAILING_ADDRESS, to stay compliant with CAN-SPAM/GDPR/CASL.');
+      }
       return res.json({
         success:    true,
         id:         data.id,      // Resend email ID for tracking
@@ -132,6 +149,7 @@ module.exports = async function handler(req, res) {
         subject,
         dailySent:  dailySendCount,
         dailyLimit: DAILY_SEND_LIMIT,
+        ...(warnings.length ? { warnings } : {}),
       });
     }
 
