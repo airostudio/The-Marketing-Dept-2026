@@ -200,9 +200,16 @@
     //      signed out (tab closed, session simply replaced by a new login).
     const LAST_UID_KEY = 'audema_last_uid';
 
-    function clearLocalIntelligenceState() {
+    // ownerUserId lets clearAll() back the Business Brain up before wiping it,
+    // namespaced to that user — without it, a sign-out permanently destroys
+    // any brain data that never made it to the cloud (no active profile, or a
+    // failing cloud push). Falls back to the last known uid, which is exactly
+    // who the data being cleared belongs to.
+    function clearLocalIntelligenceState(ownerUserId) {
+        let uid = ownerUserId;
+        if (!uid) { try { uid = localStorage.getItem(LAST_UID_KEY); } catch { uid = null; } }
         try {
-            if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true);
+            if (window.IntelligenceEngine?.clearAll) window.IntelligenceEngine.clearAll(true, uid);
         } catch (e) { console.error('[supabase-client] IntelligenceEngine.clearAll failed:', e); }
         try {
             // Not covered by IntelligenceEngine.clearAll() — these are the
@@ -220,10 +227,20 @@
 
         if (lastUid && lastUid !== userId) {
             console.warn('[supabase-client] Different account detected on this browser — clearing local intelligence/profile cache to prevent cross-account data bleed.');
-            clearLocalIntelligenceState();
+            // Data being cleared belongs to lastUid — back it up under THAT id.
+            clearLocalIntelligenceState(lastUid);
         }
 
         try { localStorage.setItem(LAST_UID_KEY, userId); } catch { /* ignore */ }
+
+        // This user is signing back in — re-hydrate anything their own
+        // sign-out backed up. Non-destructive: never overwrites a bucket that
+        // already has live data, so a cloud pull or fresh edit always wins.
+        try {
+            if (window.IntelligenceEngine?.restoreBrainBackup) {
+                window.IntelligenceEngine.restoreBrainBackup(userId);
+            }
+        } catch (e) { console.warn('[supabase-client] Business Brain backup restore failed:', e.message); }
     }
 
     /**
