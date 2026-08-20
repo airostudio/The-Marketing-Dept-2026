@@ -145,10 +145,17 @@
             });
 
             // Verify connection by getting session
-            const { error } = await supabaseClient.auth.getSession();
+            const { data: sessionData, error } = await supabaseClient.auth.getSession();
 
             if (error) {
                 throw error;
+            }
+
+            // If the SDK has no session of its own, adopt one that AuthModal
+            // established. See adoptExternalSession() for why this has to
+            // live here rather than in auth-modal.js.
+            if (!sessionData?.session) {
+                await adoptExternalSession();
             }
 
             // Setup auth state listener
@@ -182,6 +189,60 @@
 
             setConnectionState(ConnectionState.ERROR, error.message);
             return null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADOPT AN AUTHMODAL SESSION
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AuthModal (js/auth-modal.js) signs users in over Supabase's Auth REST
+    // API rather than through this SDK client, and stores the resulting
+    // tokens in localStorage under its own keys. It tries to hand them to
+    // this client on login — but index.html, the main login page, loads ONLY
+    // auth-modal.js: no supabase.min.js, no supabase-client.js. So at the
+    // moment of login `window.Supabase` doesn't exist and that handoff
+    // silently no-ops. The user is genuinely signed in, every AuthModal
+    // check agrees, and yet this client — which every Store module and
+    // feature page reads auth state from — has no session at all.
+    //
+    // Doing the adoption here instead means it happens on EVERY page that
+    // loads this file (i.e. every feature page), regardless of whether
+    // auth-modal.js is present, and regardless of which page login happened
+    // on. setSession() persists and auto-refreshes the tokens exactly like a
+    // session this client created itself.
+    async function adoptExternalSession() {
+        let accessToken, refreshToken;
+        try {
+            accessToken  = localStorage.getItem('access_token');
+            refreshToken = localStorage.getItem('refresh_token');
+        } catch { return false; }
+
+        // 'local_'-prefixed tokens come from AuthModal's offline/localStorage-only
+        // fallback auth — there's no real Supabase session behind them.
+        if (!accessToken || !refreshToken || accessToken.indexOf('local_') === 0) return false;
+
+        try {
+            const { error } = await supabaseClient.auth.setSession({
+                access_token:  accessToken,
+                refresh_token: refreshToken,
+            });
+            if (error) {
+                // Expired/invalid tokens: clear them so the app shows a clean
+                // signed-out state instead of retrying a dead session forever.
+                console.warn('[supabase-client] Could not adopt existing session:', error.message);
+                if (/expired|invalid|jwt/i.test(error.message || '')) {
+                    try {
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('refresh_token');
+                    } catch { /* ignore */ }
+                }
+                return false;
+            }
+            console.info('[supabase-client] Adopted existing AuthModal session into the SDK client.');
+            return true;
+        } catch (e) {
+            console.warn('[supabase-client] Session adoption failed:', e.message);
+            return false;
         }
     }
 

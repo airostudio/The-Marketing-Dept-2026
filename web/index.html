@@ -913,6 +913,13 @@
 
   <!-- API Client (Backend Integration) -->
   <script src="js/api-client.js"></script>
+  <!-- Supabase SDK must load BEFORE auth-modal.js. AuthModal signs in over
+       the Auth REST API and then hands the tokens to the SDK client so the
+       rest of the app sees the session; without these two files present at
+       login time that handoff silently no-ops and every feature page thinks
+       the user is signed out. -->
+  <script src="js/supabase.min.js"></script>
+  <script src="js/supabase-client.js"></script>
   <script src="js/auth-modal.js"></script>
 
   <script>
