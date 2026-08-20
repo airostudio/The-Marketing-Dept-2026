@@ -103,6 +103,36 @@ CREATE TRIGGER trg_intel_profile_touch
 ALTER TABLE intelligence_profiles        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intelligence_profile_members ENABLE ROW LEVEL SECURITY;
 
+-- Cross-table lookups inside these policies MUST go through SECURITY DEFINER
+-- functions. Referencing intelligence_profile_members directly from an
+-- intelligence_profiles policy (and vice-versa) makes each policy trigger the
+-- other's evaluation, which Postgres aborts with "infinite recursion detected
+-- in policy for relation intelligence_profiles" — blocking every profile read,
+-- so no profile can be created or activated and nothing can sync to the cloud.
+-- SECURITY DEFINER functions bypass RLS on the tables they read, breaking the
+-- cycle. search_path is pinned to stop search_path hijacking.
+
+CREATE OR REPLACE FUNCTION is_intel_profile_owner(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profiles WHERE id = pid AND owner_id = uid);
+$$;
+
+CREATE OR REPLACE FUNCTION is_intel_profile_member(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profile_members WHERE profile_id = pid AND user_id = uid);
+$$;
+
+CREATE OR REPLACE FUNCTION can_edit_intel_profile(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profiles WHERE id = pid AND owner_id = uid)
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members
+                 WHERE profile_id = pid AND user_id = uid AND role IN ('owner','editor'));
+$$;
+
+GRANT EXECUTE ON FUNCTION is_intel_profile_owner(UUID, UUID)  TO authenticated;
+GRANT EXECUTE ON FUNCTION is_intel_profile_member(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION can_edit_intel_profile(UUID, UUID)  TO authenticated;
+
 -- Owner: full control. Members: read the profile record.
 DROP POLICY IF EXISTS "ip_owner_all"    ON intelligence_profiles;
 CREATE POLICY "ip_owner_all" ON intelligence_profiles
@@ -110,21 +140,13 @@ CREATE POLICY "ip_owner_all" ON intelligence_profiles
 
 DROP POLICY IF EXISTS "ip_member_read" ON intelligence_profiles;
 CREATE POLICY "ip_member_read" ON intelligence_profiles
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM intelligence_profile_members m
-            WHERE m.profile_id = id AND m.user_id = auth.uid())
-  );
+  FOR SELECT USING (is_intel_profile_member(id, auth.uid()));
 
 -- Membership rows: profile owner manages; users see their own memberships.
 DROP POLICY IF EXISTS "ipm_owner_manage" ON intelligence_profile_members;
 CREATE POLICY "ipm_owner_manage" ON intelligence_profile_members
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM intelligence_profiles p
-            WHERE p.id = profile_id AND p.owner_id = auth.uid())
-  ) WITH CHECK (
-    EXISTS (SELECT 1 FROM intelligence_profiles p
-            WHERE p.id = profile_id AND p.owner_id = auth.uid())
-  );
+  FOR ALL USING (is_intel_profile_owner(profile_id, auth.uid()))
+  WITH CHECK (is_intel_profile_owner(profile_id, auth.uid()));
 
 DROP POLICY IF EXISTS "ipm_self_read" ON intelligence_profile_members;
 CREATE POLICY "ipm_self_read" ON intelligence_profile_members
@@ -136,23 +158,15 @@ CREATE POLICY "ipm_self_read" ON intelligence_profile_members
 DROP POLICY IF EXISTS "brain_profile_access" ON business_brain;
 CREATE POLICY "brain_profile_access" ON business_brain
   FOR ALL USING (
-    intel_profile_id IS NOT NULL AND (
-      EXISTS (SELECT 1 FROM intelligence_profiles p
-              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
-      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
-                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
-                   AND m.role IN ('owner','editor'))
-    )
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
   );
 
 DROP POLICY IF EXISTS "brain_history_profile_access" ON business_brain_history;
 CREATE POLICY "brain_history_profile_access" ON business_brain_history
   FOR ALL USING (
-    intel_profile_id IS NOT NULL AND (
-      EXISTS (SELECT 1 FROM intelligence_profiles p
-              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
-      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
-                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
-                   AND m.role IN ('owner','editor'))
-    )
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
   );
