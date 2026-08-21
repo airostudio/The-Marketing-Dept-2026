@@ -1275,10 +1275,16 @@ document.getElementById('send-to-calendar-btn').addEventListener('click', async 
       if (imageUrl.startsWith('data:')) hasDataUriOnly = true;
       for (const platform of platforms) {
         rows.push({
-          source: 'nancy', platform,
+          // social_posts.source is a genuine organic-vs-ad classifier
+          // (CHECK source IN ('organic','ad')) — every post Nancy generates
+          // is organic, never a paid ad concept, so it belongs here, not a
+          // custom 'nancy' value the DB constraint rejects outright. Which
+          // agent created the row is provenance, not the post's ad/organic
+          // classification — that goes in metadata.origin_agent instead.
+          source: 'organic', platform,
           headline: p.slide_headline, body: p.caption, cta: p.cta, hashtags: p.hashtags || [],
           visualDirection: p.visual_direction, imageUrl,
-          metadata: { day: p.day, objective: p.objective, content_pillar: p.content_pillar, cta_url: ctaUrl(p), nancy_content_week_id: State.contentWeekId || null },
+          metadata: { origin_agent: 'nancy', day: p.day, objective: p.objective, content_pillar: p.content_pillar, cta_url: ctaUrl(p), nancy_content_week_id: State.contentWeekId || null },
         });
       }
     }
