@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Visibility Finder | Audema - Your AI Marketing Department</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/intelligence-profiles.js"></script>
+<script src="/js/site-switcher.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #a855f7; --accent2: #7c3aed;
+    --bg: #0a0a10; --panel: #111117; --panel2: #16161f; --border: rgba(255,255,255,0.09);
+    --text: #f5f5f7; --text2: rgba(245,245,247,0.62); --text3: rgba(245,245,247,0.4);
+    --green: #34d399; --amber: #fbbf24; --red: #f87171;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-sep { color: var(--border); font-size: 18px; }
+  .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 56px 24px 120px; }
+  .center { max-width: 640px; margin: 0 auto; text-align: center; }
+
+  .step { display: none; }
+  .step.active { display: block; animation: fadein .35s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  .headline { font-size: 36px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .sub { font-size: 15.5px; color: var(--text2); line-height: 1.6; margin-bottom: 32px; }
+
+  .btn { padding: 14px 22px; border-radius: 10px; border: none; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-sm { padding: 8px 14px; font-size: 12.5px; border-radius: 8px; }
+  .err-note { margin-top: 14px; padding: 12px 14px; border-radius: 9px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 13.5px; display: none; text-align: left; }
+  .err-note.show { display: block; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; text-align: left; }
+  .field-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; display: block; margin-bottom: 5px; }
+  .field-input, .field-textarea { width: 100%; padding: 11px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13.5px; font-family: inherit; }
+  .field-textarea { min-height: 80px; resize: vertical; }
+  .field-group { margin-bottom: 14px; }
+
+  .profile-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; text-align: left; }
+  .profile-banner-text { font-size: 13px; color: var(--text2); }
+  .profile-banner-text b { color: var(--text); }
+
+  .real-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
+  .est-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 999px; background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
+  .cat-badge { font-size: 10px; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px; }
+  .cat-category   { background: rgba(6,182,212,0.14); color: #22d3ee; }
+  .cat-comparison { background: rgba(168,85,247,0.14); color: #c084fc; }
+  .cat-problem    { background: rgba(245,158,11,0.14); color: #fbbf24; }
+  .cat-brand      { background: rgba(52,211,153,0.14); color: #34d399; }
+
+  .question-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .question-row:last-child { border-bottom: none; }
+  .question-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--accent); }
+  .question-text { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .question-why { font-size: 12px; color: var(--text3); }
+  .question-status { font-size: 11px; margin-top: 6px; }
+
+  .progress-bar-track { height: 8px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin: 16px 0; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+
+  .result-row { padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+  .result-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .result-question { font-size: 13.5px; font-weight: 600; flex: 1; }
+  .cited-yes { font-size: 11px; color: var(--green); font-weight: 700; white-space: nowrap; }
+  .cited-no { font-size: 11px; color: var(--amber); font-weight: 700; white-space: nowrap; }
+  .result-domains { font-size: 12px; color: var(--text2); }
+  .domain-chip { display: inline-block; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; margin: 2px 4px 2px 0; font-size: 11.5px; }
+  .domain-chip.mine { border-color: var(--green); color: var(--green); }
+
+  .score-hero { text-align: center; padding: 28px 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 20px; }
+  .score-num { font-size: 52px; font-weight: 800; line-height: 1; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .score-sub { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+  .rec-list { padding-left: 20px; }
+  .rec-list li { font-size: 13.5px; color: var(--text2); margin-bottom: 10px; line-height: 1.55; }
+
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text2); }
+  .history-item:last-child { border-bottom: none; }
+
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13.5px; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">👁️</span> Audema</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">AI Visibility Finder</span>
+  </div>
+  <div class="nav-right">
+    <a href="/agents/seo-agent.html" class="nav-link">REX Chat →</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- STEP 1: Setup -->
+  <div class="step active" id="step-setup">
+    <div class="center">
+      <h1 class="headline">AI visibility shouldn't be a black box.</h1>
+      <p class="sub">ChatGPT, Perplexity, and AI Overviews are answering your buyers' questions right now — with or without you. This asks the questions that actually matter for your business, checks whether you show up, and shows you exactly who's winning instead and why.</p>
+    </div>
+
+    <div id="profile-banner-slot"></div>
+
+    <div class="card">
+      <div class="section-title">Your business</div>
+      <div class="field-group">
+        <label class="field-label">What you do (used to generate realistic questions)</label>
+        <textarea class="field-textarea" id="in-summary" placeholder="e.g. We make project management software for small creative agencies, built around client approvals and time tracking."></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Products / services <span style="text-transform:none;font-weight:400;">(comma separated)</span></label>
+        <input class="field-input" id="in-products" placeholder="Project tracking, client portals, time billing">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Target customer</label>
+        <input class="field-input" id="in-customer" placeholder="Creative agency owners, 5-30 people">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Industry</label>
+        <input class="field-input" id="in-industry" placeholder="Project management / creative agency software">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Known competitors <span style="text-transform:none;font-weight:400;">(optional, comma separated — sharpens comparison questions)</span></label>
+        <input class="field-input" id="in-competitors" placeholder="Asana, Monday.com, Basecamp">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Your domain <span style="text-transform:none;font-weight:400;">(so we can tell when you're actually cited)</span></label>
+        <input class="field-input" id="in-domain" placeholder="yourbusiness.com">
+      </div>
+      <button class="btn btn-primary" id="btn-find-questions" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;" onclick="findQuestions()">Find the questions that matter →</button>
+      <div class="err-note" id="setup-err"></div>
+    </div>
+
+    <div id="history-slot"></div>
+  </div>
+
+  <!-- STEP 2: Questions -->
+  <div class="step" id="step-questions">
+    <h2 style="font-size:24px;margin-bottom:6px;">Here's what your buyers are actually asking AI</h2>
+    <p class="sub" style="margin-bottom:20px;text-align:left;">Grounded in your real business details — uncheck anything that's off, edit the wording, or add your own. Each one runs as a real, live search.</p>
+    <div class="card" id="questions-card"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addCustomQuestion()" style="margin-bottom:16px;">+ Add your own question</button>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" onclick="showStep('step-setup')">← Back</button>
+      <button class="btn btn-primary" id="btn-check-visibility" style="flex:1;" onclick="checkVisibility()">Check my AI visibility →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Checking (live progress) -->
+  <div class="step" id="step-checking">
+    <div class="center">
+      <h2 style="font-size:24px;margin-bottom:20px;">Running real searches…</h2>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="check-progress-fill" style="width:0%;"></div></div>
+      <p class="sub" id="check-progress-text">Starting…</p>
+    </div>
+    <div id="live-results"></div>
+  </div>
+
+  <!-- STEP 4: Results -->
+  <div class="step" id="step-results">
+    <div class="score-hero">
+      <div class="score-num" id="score-pct">0%</div>
+      <div class="score-sub" id="score-sub">Cited in 0 of 0 questions checked</div>
+    </div>
+
+    <div class="card" id="why-card">
+      <div class="section-title">Why <span id="why-domain-label"></span></div>
+      <div id="why-content"><div class="empty-state"><span class="spinner"></span> Analyzing your real results…</div></div>
+    </div>
+
+    <div style="margin-top: 24px;">
+      <div class="section-title">Every question, in full</div>
+      <div id="full-results"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-ghost" onclick="showStep('step-questions')">← Adjust questions</button>
+      <button class="btn btn-primary" onclick="showStep('step-setup')">Run again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+const State = {
+  profile: null,      // { businessSummary, productsServices, targetCustomer, industry, competitors, domain }
+  questions: [],       // [{ _id, question, category, why, included }]
+  results: [],          // [{ question, category, cited, domains, error }]
+};
+
+const HISTORY_KEY = 'seo_ai_visibility_history';
+
+function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function arr(x) { return Array.isArray(x) ? x : []; }
+
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
+  return data;
+}
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Prefill from Business Brain, if a completed profile exists ────────────
+function tryPrefillFromBusinessBrain() {
+  if (!window.IntelligenceEngine?.brain) return;
+  const brain = window.IntelligenceEngine.brain.load();
+  const name = brain?.company?.name;
+  if (!name) return; // nothing meaningful to offer
+
+  const slot = document.getElementById('profile-banner-slot');
+  slot.innerHTML = `
+    <div class="profile-banner">
+      <div class="profile-banner-text">Found your Business Brain profile — <b>${escHtml(name)}</b>. Use it to skip filling this in by hand?</div>
+      <button class="btn btn-ghost btn-sm" onclick="useBusinessBrainProfile()" style="white-space:nowrap;">Use it →</button>
+    </div>`;
+}
+
+function useBusinessBrainProfile() {
+  const brain = window.IntelligenceEngine.brain.load();
+  // Business Brain has no dedicated "products/services" field — company.description
+  // is the closest real thing to a business summary and is what's actually filled
+  // in there, so that's what feeds the question generator, not an invented field.
+  const summary = [brain?.company?.tagline, brain?.company?.description]
+    .filter(Boolean).join(' — ') || brain?.positioning?.uniqueValue || '';
+  if (summary) document.getElementById('in-summary').value = summary;
+  if (brain?.icp?.primaryBuyer?.role) document.getElementById('in-customer').value = brain.icp.primaryBuyer.role;
+  if (brain?.company?.industry) document.getElementById('in-industry').value = brain.company.industry;
+  const compNames = arr(brain?.competitors).map(c => c.name).filter(Boolean).join(', ');
+  if (compNames) document.getElementById('in-competitors').value = compNames;
+  const website = (brain?.company?.website || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  if (website) document.getElementById('in-domain').value = website;
+  document.getElementById('profile-banner-slot').innerHTML = '';
+}
+
+// ── Step 1 -> 2: generate questions ────────────────────────────────────────
+async function findQuestions() {
+  const errEl = document.getElementById('setup-err');
+  errEl.classList.remove('show');
+
+  const businessSummary = document.getElementById('in-summary').value.trim();
+  const productsServices = document.getElementById('in-products').value.split(',').map(s => s.trim()).filter(Boolean);
+  const targetCustomer = document.getElementById('in-customer').value.trim();
+  const industry = document.getElementById('in-industry').value.trim();
+  const competitors = document.getElementById('in-competitors').value.split(',').map(s => s.trim()).filter(Boolean);
+  const domain = document.getElementById('in-domain').value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+
+  if (!businessSummary) { errEl.textContent = 'Describe what your business does — this is what grounds every question.'; errEl.classList.add('show'); return; }
+  if (!domain) { errEl.textContent = 'Enter your domain — without it we can\'t tell when you\'re actually the one being cited.'; errEl.classList.add('show'); return; }
+
+  State.profile = { businessSummary, productsServices, targetCustomer, industry, competitors, domain };
+
+  const btn = document.getElementById('btn-find-questions');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Finding the questions that matter…';
+
+  try {
+    const result = await postJSON('/api/ai-visibility-questions', {
+      businessSummary, productsServices, targetCustomer, industry, competitors,
+    });
+    State.questions = (result.questions || []).map((q, i) => ({ _id: 'q' + i, ...q, included: true }));
+    renderQuestions();
+    showStep('step-questions');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Find the questions that matter →';
+  }
+}
+
+function renderQuestions() {
+  const el = document.getElementById('questions-card');
+  if (!State.questions.length) { el.innerHTML = '<div class="empty-state">No questions yet.</div>'; return; }
+  el.innerHTML = State.questions.map(q => `
+    <div class="question-row">
+      <input type="checkbox" ${q.included ? 'checked' : ''} onchange="toggleQuestion('${q._id}', this.checked)">
+      <div style="flex:1;">
+        <div class="question-text" contenteditable="true" oninput="editQuestion('${q._id}', this.textContent)">${escHtml(q.question)}</div>
+        <div class="question-why"><span class="cat-badge cat-${escHtml(q.category)}">${escHtml(q.category)}</span> ${escHtml(q.why || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleQuestion(id, checked) {
+  const q = State.questions.find(x => x._id === id);
+  if (q) q.included = checked;
+}
+function editQuestion(id, text) {
+  const q = State.questions.find(x => x._id === id);
+  if (q) q.question = text.trim();
+}
+function addCustomQuestion() {
+  const text = prompt('Type the question exactly as a buyer would ask an AI assistant:');
+  if (!text || !text.trim()) return;
+  State.questions.push({ _id: 'q' + Date.now(), question: text.trim(), category: 'category', why: 'Added manually', included: true });
+  renderQuestions();
+}
+
+// ── Step 2 -> 3: run real checks, one live search per question ────────────
+// Throttled to a few concurrent requests — a courteous rate against
+// Perplexity's real API, not because /api/perplexity itself limits it.
+const CONCURRENCY = 3;
+
+async function checkVisibility() {
+  const selected = State.questions.filter(q => q.included && q.question.trim());
+  if (!selected.length) { alert('Select at least one question to check.'); return; }
+
+  showStep('step-checking');
+  State.results = [];
+  const total = selected.length;
+  updateCheckProgress(0, total);
+
+  let cursor = 0;
+  async function worker() {
+    while (cursor < selected.length) {
+      const q = selected[cursor++];
+      const result = await runOneCheck(q);
+      State.results.push(result);
+      updateCheckProgress(State.results.length, total);
+      renderLiveResults();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, selected.length) }, worker));
+
+  showResults();
+}
+
+async function runOneCheck(q) {
+  try {
+    const res = await fetch('/api/perplexity', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: q.question }],
+        systemPrompt: "Answer the user's question directly and concisely, citing your real sources.",
+        stream: false,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Search failed (${res.status})`);
+
+    const domains = (data.citations || []).map(c => { try { return new URL(c).hostname.replace(/^www\./, ''); } catch { return c; } });
+    const cited = domains.some(d => d.includes(State.profile.domain));
+    return { question: q.question, category: q.category, cited, domains: [...new Set(domains)].slice(0, 8) };
+  } catch (err) {
+    return { question: q.question, category: q.category, cited: false, domains: [], error: err.message };
+  }
+}
+
+function updateCheckProgress(done, total) {
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('check-progress-fill').style.width = pct + '%';
+  document.getElementById('check-progress-text').textContent = `${done} of ${total} questions checked…`;
+}
+
+function renderLiveResults() {
+  document.getElementById('live-results').innerHTML = State.results.slice().reverse().map(renderResultRow).join('');
+}
+
+function renderResultRow(r) {
+  return `
+    <div class="result-row">
+      <div class="result-top">
+        <span class="cat-badge cat-${escHtml(r.category)}">${escHtml(r.category)}</span>
+        <span class="result-question">${escHtml(r.question)}</span>
+        ${r.error ? `<span class="cited-no">Error</span>` : r.cited ? `<span class="cited-yes">✅ Cited</span>` : `<span class="cited-no">Not cited</span>`}
+      </div>
+      <div class="result-domains">
+        ${r.error ? escHtml(r.error) : (r.domains.length
+          ? r.domains.map(d => `<span class="domain-chip${d.includes(State.profile.domain) ? ' mine' : ''}">${escHtml(d)}</span>`).join('')
+          : 'No sources cited for this one.')}
+      </div>
+    </div>`;
+}
+
+// ── Step 4: results + AI-grounded "why" ─────────────────────────────────
+async function showResults() {
+  showStep('step-results');
+
+  const citedCount = State.results.filter(r => r.cited).length;
+  const total = State.results.length;
+  const pct = total ? Math.round((citedCount / total) * 100) : 0;
+  document.getElementById('score-pct').textContent = pct + '%';
+  document.getElementById('score-sub').textContent = `Cited in ${citedCount} of ${total} questions checked`;
+  document.getElementById('why-domain-label').textContent = `you${State.profile.domain ? ` (${State.profile.domain})` : ''} show up the way you do`;
+  document.getElementById('full-results').innerHTML = State.results.map(renderResultRow).join('');
+
+  saveToHistory(pct, citedCount, total);
+
+  const whyEl = document.getElementById('why-content');
+  try {
+    const result = await postJSON('/api/ai-visibility-explain', {
+      businessName: State.profile.businessSummary.split(' ').slice(0, 6).join(' '),
+      domain: State.profile.domain,
+      results: State.results,
+    });
+    whyEl.innerHTML = `
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:16px;">${escHtml(result.summary)}</p>
+      ${result.topDomains?.length ? `
+        <div class="field-label" style="margin-bottom:8px;">Who keeps winning instead</div>
+        <div style="margin-bottom:16px;">${result.topDomains.map(d => `<span class="domain-chip">${escHtml(d.domain)} (${d.count}×)</span>`).join('')}</div>
+      ` : ''}
+      <div class="field-label" style="margin-bottom:8px;">What to actually do about it</div>
+      <ul class="rec-list">${(result.recommendations || []).map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>
+    `;
+  } catch (err) {
+    whyEl.innerHTML = `<div class="empty-state">Could not generate the analysis: ${escHtml(err.message)} — the per-question results above are still real and accurate.</div>`;
+  }
+}
+
+function saveToHistory(pct, citedCount, total) {
+  try {
+    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    history.unshift({ at: new Date().toISOString(), domain: State.profile.domain, pct, citedCount, total });
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+  } catch (e) { /* non-critical */ }
+}
+
+function renderHistory() {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { history = []; }
+  if (!history.length) return;
+  const slot = document.getElementById('history-slot');
+  slot.innerHTML = `
+    <div class="card">
+      <div class="section-title">Previous checks</div>
+      ${history.slice(0, 5).map(h => `
+        <div class="history-item">
+          <span>${escHtml(h.domain || '')} — ${new Date(h.at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+          <span><b style="color:var(--text);">${h.pct}%</b> (${h.citedCount}/${h.total})</span>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.SiteSwitcher) SiteSwitcher.mount();
+  tryPrefillFromBusinessBrain();
+  renderHistory();
+});
+</script>
+<script src="/js/url-utils.js"></script>
+</body>
+</html>
