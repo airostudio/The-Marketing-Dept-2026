@@ -810,12 +810,13 @@ Agent capabilities:
 - compliance-automation: SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration
 
 Rules:
-- Select the 4–7 agents that best match the goal — do NOT always default to seo+competitive
+- Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - For campaign goals: prioritise content → ads → email → social
-- userPrompt must be a complete, self-contained instruction (3–5 sentences) that the agent can execute without any additional input
+- userPrompt must be a complete, self-contained instruction (2–4 sentences) that the agent can execute without any additional input
 - Make userPrompts specific to the goal context, not generic marketing boilerplate
 - Each task should produce a distinct, usable deliverable
+- Keep every field tight — this whole plan needs to finish generating quickly, so favor a shorter, sharp plan over a longer, padded one
 
 Respond ONLY with valid JSON — no markdown fences, no commentary:
 {
@@ -826,15 +827,26 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       "agentKey": "sales",
       "taskName": "Victorian Tradie Prospect Strategy",
       "objective": "one sentence",
-      "userPrompt": "3-5 sentences of specific, self-contained instruction"
+      "userPrompt": "2-4 sentences of specific, self-contained instruction"
     }
   ]
 }`;
 
-    const result = await window.ClaudeService.callAgent({
+    // Was a non-streaming callAgent() with model claude-opus-4-7 — a
+    // non-streamed call makes api/claude.js await the ENTIRE Anthropic
+    // completion (await upstream.json()) before it can send anything back,
+    // so the whole request lives or dies against Vercel's 60s function
+    // ceiling with zero partial credit. Opus planning out up to 7 detailed
+    // task prompts routinely ran past that, killing the function and
+    // surfacing as a bare "API error 504" with no indication why. Streaming
+    // via the app's default (faster) Sonnet model both starts returning
+    // content immediately instead of waiting in the dark for up to 60s, and
+    // — combined with the trimmed task/sentence counts above — meaningfully
+    // cuts real generation time rather than just hoping the same-sized
+    // request finishes faster this time.
+    const result = await window.ClaudeService.streamResponse({
       systemPrompt,
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
-      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -909,13 +921,14 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   ]
 }`;
 
-    const result = await window.ClaudeService.callAgent({
+    // Same non-streaming-Opus-vs-Vercel's-60s-ceiling fix as
+    // generateMissionPlan() above — see the comment there.
+    const result = await window.ClaudeService.streamResponse({
       systemPrompt,
       messages: [{
         role: 'user',
         content: `Mission: ${plan.missionTitle || 'Marketing Campaign'}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work:\n${resultsSummary}`,
       }],
-      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -974,13 +987,14 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-    const result = await window.ClaudeService.callAgent({
+    // Same non-streaming-Opus-vs-Vercel's-60s-ceiling fix as
+    // generateMissionPlan() above — see the comment there.
+    const result = await window.ClaudeService.streamResponse({
       systemPrompt,
       messages: [{
         role: 'user',
         content: `Completed agent: ${agentKey} — ${taskName}\n\nContext: ${ctxSnippet}\n\nCompleted work:\n${resultText.slice(0, 1200)}`,
       }],
-      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);

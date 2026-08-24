@@ -147,10 +147,15 @@ ${campaign.html}
 
 ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
 
-    const result = await window.ClaudeService.callAgent({
+    // callAgent() is non-streaming: api/claude.js awaits the entire Anthropic
+    // completion before it can respond, so a slow Opus generation lives or
+    // dies against Vercel's 60s function ceiling with zero partial credit —
+    // this surfaced elsewhere in Scotty as a bare "API error 504" with no
+    // indication why. Streaming via the app's faster default model starts
+    // returning content immediately instead of waiting in the dark.
+    const result = await window.ClaudeService.streamResponse({
       systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
-      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
