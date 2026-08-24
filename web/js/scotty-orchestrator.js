@@ -809,8 +809,9 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
    * one large request against it. More round trips, but each one is a
    * fresh, cheap request instead of a single one that has to do it all.
    */
-  async function generateMissionPlan(goal, contextBundle) {
+  async function generateMissionPlan(goal, contextBundle, onProgress) {
     if (!window.ClaudeService) throw new Error('Claude API not configured. Add your API key in Settings.');
+    const report = (detail) => { if (onProgress) onProgress(detail); };
 
     const ctxSummary = (contextBundle && contextBundle.isReady)
       ? `Company context: ${(contextBundle.businessContext || '').slice(0, 500)}
@@ -839,6 +840,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "agentKeys": ["sales", "email"]
 }`;
 
+    report({ stage: 'selecting' });
     const selectResult = await window.ClaudeService.streamResponse({
       systemPrompt: selectSystemPrompt,
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
@@ -850,10 +852,14 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
 
     const agentKeys = Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : [];
     if (!agentKeys.length) throw new Error('Mission plan parsing failed — no valid agents were selected');
+    report({ stage: 'selected', agentKeys, missionTitle: selection.missionTitle });
 
     // ── Stage 2: write each selected agent's task, one at a time ─────────
     const tasks = [];
-    for (const agentKey of agentKeys) {
+    for (let i = 0; i < agentKeys.length; i++) {
+      const agentKey = agentKeys[i];
+      report({ stage: 'writing_task', agentKey, index: i, total: agentKeys.length });
+
       const taskSystemPrompt = `You are a senior marketing operations director writing ONE task as part of a larger autonomous marketing mission. The task will execute automatically without human intervention — make it self-contained and immediately executable.
 
 This task is for the "${agentKey}" agent: ${MISSION_AGENT_CAPABILITIES[agentKey]}
@@ -882,6 +888,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       if (!taskMatch) throw new Error(`Mission plan parsing failed for the ${agentKey} task — Claude returned unexpected format`);
       const taskData = JSON.parse(taskMatch[0]);
       tasks.push({ agentKey, ...taskData });
+      report({ stage: 'task_done', agentKey, index: i, total: agentKeys.length, taskName: taskData.taskName });
     }
 
     return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks };
@@ -915,8 +922,9 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
    * Scotty reviews all completed agent results and plans automation actions.
    * Returns { assessment: string, automations: Array } or throws.
    */
-  async function assessAndPlanAutomation(plan, results, contextBundle) {
+  async function assessAndPlanAutomation(plan, results, contextBundle, onProgress) {
     if (!window.ClaudeService) throw new Error('Claude API not configured. Add your API key in Settings.');
+    const report = (detail) => { if (onProgress) onProgress(detail); };
 
     const resultsSummary = (results || [])
       .filter(r => r && r.text)
@@ -958,6 +966,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   ]
 }`;
 
+    report({ stage: 'assessing' });
     const ideaResult = await window.ClaudeService.streamResponse({
       systemPrompt: ideaSystemPrompt,
       messages: [{
@@ -969,12 +978,14 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     const ideaMatch = ideaResult.match(/\{[\s\S]*\}/);
     if (!ideaMatch) throw new Error('Automation assessment returned unexpected format');
     const ideaData = JSON.parse(ideaMatch[0]);
-    const ideas = Array.isArray(ideaData.automations) ? ideaData.automations : [];
+    const ideas = (Array.isArray(ideaData.automations) ? ideaData.automations : []).filter(idea => idea && idea.agentKey);
+    report({ stage: 'assessed', count: ideas.length });
 
     // ── Stage 2: write each automation's actual prompt, one at a time ────
     const automations = [];
-    for (const idea of ideas) {
-      if (!idea || !idea.agentKey) continue;
+    for (let i = 0; i < ideas.length; i++) {
+      const idea = ideas[i];
+      report({ stage: 'writing_automation', agentKey: idea.agentKey, title: idea.title, index: i, total: ideas.length });
 
       const promptSystemPrompt = `You are Scotty, the AI CMO, writing the exact instruction for ONE automation the "${idea.agentKey}" agent will execute to CREATE a deployable asset (not analyse — CREATE). 2-3 sentences, specific enough to run with zero additional input.`;
       const promptResult = await window.ClaudeService.streamResponse({
@@ -986,6 +997,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       });
 
       automations.push({ ...idea, prompt: promptResult.trim() });
+      report({ stage: 'automation_done', agentKey: idea.agentKey, index: i, total: ideas.length });
     }
 
     return { assessment: ideaData.assessment, automations };

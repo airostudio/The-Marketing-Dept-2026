@@ -1577,6 +1577,24 @@
             font-size: 12px;
             margin: 8px 0 4px;
         }
+        /* ── Live progress lines while a mission/automation plan is being
+               generated (see generateMissionPlan()/assessAndPlanAutomation()'s
+               onProgress callbacks in scotty-orchestrator.js) ─── */
+        .mission-plan-progress {
+            margin-top: 10px;
+            font-size: 12.5px;
+            color: rgba(255,255,255,0.65);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .mission-plan-progress-line {
+            animation: fadein-progress-line .25s ease;
+        }
+        @keyframes fadein-progress-line {
+            from { opacity: 0; transform: translateY(3px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
         /* ── Autonomous status bar (replaces the old run button) ─── */
         .mission-auto-bar {
             display: flex;
@@ -2970,15 +2988,37 @@ class ScottyChat {
         const contextBundle = this._getContextBundle();
         const orch = window.ScottyOrchestrator;
 
-        // Show planning bubble
+        // Show planning bubble — updated live as generateMissionPlan() works
+        // through its stages, so a plan that takes a few sequential calls to
+        // put together (see scotty-orchestrator.js) doesn't just sit on a
+        // single static "Building…" line the whole time.
         const { bubble: planningBubble } = this._createScottyBubble();
-        planningBubble.innerHTML = '⚡ <strong>Building your mission plan…</strong>';
+        const planEmojis = AGENT_META.emojis || {};
+        const renderPlanningProgress = (lines) => {
+            planningBubble.innerHTML = `⚡ <strong>Building your mission plan…</strong><div class="mission-plan-progress">${lines.map(l => `<div class="mission-plan-progress-line">${l}</div>`).join('')}</div>`;
+            this._scrollToBottom();
+        };
+        const planningLines = [];
+        renderPlanningProgress(planningLines);
         InfoPanel.logActivity('🧠', 'Generating autonomous mission plan…');
         this._scrollToBottom();
 
         let plan;
         try {
-            plan = await orch.generateMissionPlan(userGoal, contextBundle);
+            plan = await orch.generateMissionPlan(userGoal, contextBundle, (detail) => {
+                const emoji = planEmojis[detail.agentKey] || '🤖';
+                if (detail.stage === 'selecting') {
+                    planningLines.push('🧭 Selecting which agents this mission needs…');
+                } else if (detail.stage === 'selected') {
+                    planningLines[planningLines.length - 1] = `✅ Selected ${detail.agentKeys.length} agent${detail.agentKeys.length === 1 ? '' : 's'} for "${this._escapeHtml(detail.missionTitle || '')}"`;
+                    InfoPanel.logActivity('🧭', `Mission agents selected: ${detail.agentKeys.join(', ')}`);
+                } else if (detail.stage === 'writing_task') {
+                    planningLines.push(`${emoji} Writing the ${detail.agentKey} task (${detail.index + 1}/${detail.total})…`);
+                } else if (detail.stage === 'task_done') {
+                    planningLines[planningLines.length - 1] = `✅ ${emoji} ${this._escapeHtml(detail.taskName || detail.agentKey)}`;
+                }
+                renderPlanningProgress(planningLines);
+            });
         } catch (err) {
             planningBubble.innerHTML = `❌ <strong>Mission plan failed:</strong> ${this._escapeHtml(err.message)}`;
             this.isWaiting = false;
@@ -3336,21 +3376,40 @@ class ScottyChat {
 
         const assessEl = document.createElement('div');
         assessEl.className = 'automation-assessment-panel';
-        assessEl.innerHTML = `
-            <div class="assessment-loading">
-                <div class="typing-dots">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+        const assessEmojis = AGENT_META.emojis || {};
+        const assessLines = [];
+        const renderAssessProgress = () => {
+            assessEl.innerHTML = `
+                <div class="assessment-loading">
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                    <span>Scotty is reviewing your results and planning next steps…</span>
                 </div>
-                <span>Scotty is reviewing your results and planning next steps…</span>
-            </div>`;
+                <div class="mission-plan-progress">${assessLines.map(l => `<div class="mission-plan-progress-line">${l}</div>`).join('')}</div>`;
+            this._scrollToBottom();
+        };
+        renderAssessProgress();
         missionEl.appendChild(assessEl);
         this._scrollToBottom();
 
         let automationPlan;
         try {
-            automationPlan = await orch.assessAndPlanAutomation(plan, results, contextBundle);
+            automationPlan = await orch.assessAndPlanAutomation(plan, results, contextBundle, (detail) => {
+                const emoji = assessEmojis[detail.agentKey] || '🤖';
+                if (detail.stage === 'assessing') {
+                    assessLines.push('🔎 Identifying the highest-impact automations…');
+                } else if (detail.stage === 'assessed') {
+                    assessLines[assessLines.length - 1] = `✅ Found ${detail.count} automation${detail.count === 1 ? '' : 's'} worth running`;
+                } else if (detail.stage === 'writing_automation') {
+                    assessLines.push(`${emoji} Writing "${this._escapeHtml(detail.title || detail.agentKey)}" (${detail.index + 1}/${detail.total})…`);
+                } else if (detail.stage === 'automation_done') {
+                    assessLines[assessLines.length - 1] = assessLines[assessLines.length - 1].replace('…', ' ✅');
+                }
+                renderAssessProgress();
+            });
         } catch (err) {
             assessEl.innerHTML = `<div style="color:#ef4444;font-size:13px;">⚠️ Could not generate automation plan: ${this._escapeHtml(err.message)}</div>`;
             return;
