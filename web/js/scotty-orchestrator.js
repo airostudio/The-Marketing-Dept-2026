@@ -775,9 +775,39 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     });
   }
 
+  const MISSION_AGENT_CAPABILITIES = {
+    sales: 'ICP research, prospect lists, outreach strategies, lead qualification',
+    email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
+    content: 'Blog posts, landing page copy, case studies, thought leadership',
+    seo: 'Keywords, technical audit, meta tags, rankings strategy',
+    competitive: 'Competitor analysis, positioning gaps, battlecards',
+    ads: 'Google/Meta/LinkedIn ad copy and creative variants',
+    social: 'Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that\'s nancy)',
+    nancy: 'Instagram content specifically — a researched, on-brand week of Instagram posts. Prefer this over "social" whenever the goal is Instagram.',
+    linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
+    analytics: 'KPIs, attribution, reporting frameworks',
+    cro: 'Conversion optimisation, A/B test designs, landing page audits',
+    deck: 'Pitch decks, sales presentations, one-pagers',
+    video: 'Video scripts, thumbnails, YouTube strategy',
+    compliance: 'Brand safety, legal review, GDPR, FTC checks',
+    'compliance-automation': 'SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration',
+  };
+
   /**
-   * Generate a multi-agent mission plan via Claude.
+   * Generate a multi-agent mission plan.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
+   *
+   * Deliberately two stages instead of one big call: a non-streamed Opus
+   * call planning out up to 7 detailed task prompts in one shot used to run
+   * past Vercel's 60s function ceiling and die as a bare "API error 504"
+   * (fixed once already by switching to streaming + trimming the request —
+   * but one large call can still legitimately take a while to fully
+   * generate). This goes further: pick the agents first with one small,
+   * fast call, then generate EACH agent's task with its own small, fast
+   * call, one at a time — sequentially, not in parallel, exactly to keep
+   * every single request comfortably inside the ceiling rather than racing
+   * one large request against it. More round trips, but each one is a
+   * fresh, cheap request instead of a single one that has to do it all.
    */
   async function generateMissionPlan(goal, contextBundle) {
     if (!window.ClaudeService) throw new Error('Claude API not configured. Add your API key in Settings.');
@@ -788,70 +818,73 @@ Competitive: ${(contextBundle.competitiveLandscape || '').slice(0, 250)}
 Market signals: ${(contextBundle.marketSignals || '').slice(0, 200)}`
       : 'No Intelligence Layer configured. Plan for a generic B2B SaaS company.';
 
-    const systemPrompt = `You are a senior marketing operations director planning an autonomous, end-to-end marketing mission. Every task will execute automatically without human intervention — so make each task self-contained and immediately executable.
+    // ── Stage 1: pick the agents (one small, fast call) ──────────────────
+    const capabilityList = Object.entries(MISSION_AGENT_CAPABILITIES)
+      .map(([key, desc]) => `- ${key}: ${desc}`).join('\n');
 
-Available agents: seo, competitive, content, email, ads, social, nancy, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
+    const selectSystemPrompt = `You are a senior marketing operations director selecting which specialist agents should handle a marketing goal. Do not write any task instructions yet — only pick agents and a mission title/summary.
 
-Agent capabilities:
-- sales: ICP research, prospect lists, outreach strategies, lead qualification
-- email: Full email copy (subject lines, body, CTAs), sequences, campaigns
-- content: Blog posts, landing page copy, case studies, thought leadership
-- seo: Keywords, technical audit, meta tags, rankings strategy
-- competitive: Competitor analysis, positioning gaps, battlecards
-- ads: Google/Meta/LinkedIn ad copy and creative variants
-- social: Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that's nancy)
-- nancy: Instagram content specifically — a researched, on-brand week of Instagram posts. Prefer this over "social" whenever the goal is Instagram.
-- linkedin: LinkedIn outreach sequences, connection requests, InMail
-- analytics: KPIs, attribution, reporting frameworks
-- cro: Conversion optimisation, A/B test designs, landing page audits
-- deck: Pitch decks, sales presentations, one-pagers
-- video: Video scripts, thumbnails, YouTube strategy
-- compliance: Brand safety, legal review, GDPR, FTC checks
-- compliance-automation: SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration
+Available agents:
+${capabilityList}
 
 Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - For campaign goals: prioritise content → ads → email → social
-- userPrompt must be a complete, self-contained instruction (2–4 sentences) that the agent can execute without any additional input
-- Make userPrompts specific to the goal context, not generic marketing boilerplate
-- Each task should produce a distinct, usable deliverable
-- Keep every field tight — this whole plan needs to finish generating quickly, so favor a shorter, sharp plan over a longer, padded one
 
 Respond ONLY with valid JSON — no markdown fences, no commentary:
 {
   "missionTitle": "15 words max",
   "missionSummary": "2 sentences: what will be produced and the business impact",
-  "tasks": [
-    {
-      "agentKey": "sales",
-      "taskName": "Victorian Tradie Prospect Strategy",
-      "objective": "one sentence",
-      "userPrompt": "2-4 sentences of specific, self-contained instruction"
-    }
-  ]
+  "agentKeys": ["sales", "email"]
 }`;
 
-    // Was a non-streaming callAgent() with model claude-opus-4-7 — a
-    // non-streamed call makes api/claude.js await the ENTIRE Anthropic
-    // completion (await upstream.json()) before it can send anything back,
-    // so the whole request lives or dies against Vercel's 60s function
-    // ceiling with zero partial credit. Opus planning out up to 7 detailed
-    // task prompts routinely ran past that, killing the function and
-    // surfacing as a bare "API error 504" with no indication why. Streaming
-    // via the app's default (faster) Sonnet model both starts returning
-    // content immediately instead of waiting in the dark for up to 60s, and
-    // — combined with the trimmed task/sentence counts above — meaningfully
-    // cuts real generation time rather than just hoping the same-sized
-    // request finishes faster this time.
-    const result = await window.ClaudeService.streamResponse({
-      systemPrompt,
+    const selectResult = await window.ClaudeService.streamResponse({
+      systemPrompt: selectSystemPrompt,
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
     });
 
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Mission plan parsing failed — Claude returned unexpected format');
-    return JSON.parse(jsonMatch[0]);
+    const selectMatch = selectResult.match(/\{[\s\S]*\}/);
+    if (!selectMatch) throw new Error('Mission plan parsing failed — Claude returned unexpected format');
+    const selection = JSON.parse(selectMatch[0]);
+
+    const agentKeys = Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : [];
+    if (!agentKeys.length) throw new Error('Mission plan parsing failed — no valid agents were selected');
+
+    // ── Stage 2: write each selected agent's task, one at a time ─────────
+    const tasks = [];
+    for (const agentKey of agentKeys) {
+      const taskSystemPrompt = `You are a senior marketing operations director writing ONE task as part of a larger autonomous marketing mission. The task will execute automatically without human intervention — make it self-contained and immediately executable.
+
+This task is for the "${agentKey}" agent: ${MISSION_AGENT_CAPABILITIES[agentKey]}
+
+Rules:
+- userPrompt must be a complete, self-contained instruction (2–4 sentences) the agent can execute with no additional input
+- Make it specific to the goal and mission context, not generic marketing boilerplate
+- The task should produce a distinct, usable deliverable
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence",
+  "userPrompt": "2-4 sentences of specific, self-contained instruction"
+}`;
+
+      const taskResult = await window.ClaudeService.streamResponse({
+        systemPrompt: taskSystemPrompt,
+        messages: [{
+          role: 'user',
+          content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
+        }],
+      });
+
+      const taskMatch = taskResult.match(/\{[\s\S]*\}/);
+      if (!taskMatch) throw new Error(`Mission plan parsing failed for the ${agentKey} task — Claude returned unexpected format`);
+      const taskData = JSON.parse(taskMatch[0]);
+      tasks.push({ agentKey, ...taskData });
+    }
+
+    return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks };
   }
 
   /**
@@ -895,13 +928,18 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       ? (contextBundle.businessContext || '').slice(0, 400)
       : 'No business context configured.';
 
-    const systemPrompt = `You are Scotty, the AI CMO. You have just reviewed completed marketing analysis and must identify the highest-impact automation actions the platform can execute right now.
+    // ── Stage 1: assessment + automation ideas, no full prompts yet ──────
+    // Same reasoning as generateMissionPlan() above: identifying 4-6 ideas
+    // AND writing each one's full deployable-asset prompt in a single call
+    // is exactly the shape of request that ran past Vercel's 60s ceiling
+    // before. Splitting "what should we automate" from "write the actual
+    // instruction for each one" keeps every individual call small.
+    const ideaSystemPrompt = `You are Scotty, the AI CMO. You have just reviewed completed marketing analysis and must identify the highest-impact automation actions the platform can execute right now. Do not write the full instruction prompt yet — just the ideas.
 
 Rules:
 - Identify 4-6 specific automation actions, each producing a tangible deliverable
 - Each automation runs inline via Claude — no external API or tool access required
 - agentKey must be one of: seo, competitive, content, email, ads, social, nancy, cro, analytics, sales, linkedin, video, compliance, compliance-automation, deck
-- prompt must be a specific 2-3 sentence instruction telling the agent exactly what to CREATE as a deployable asset (not analyse — CREATE)
 - Prioritise by impact: the user should feel they got a week's work done in 5 minutes
 
 Respond ONLY with valid JSON — no markdown fences, no commentary:
@@ -915,25 +953,42 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       "description": "Ready-to-deploy email copy based on the ICP and competitive analysis just completed",
       "impact": "High",
       "timeEstimate": "~2 min",
-      "deliverable": "5 complete email templates",
-      "prompt": "Write a complete 5-email lead nurture sequence for [specific ICP from context]. Email 1: pain-hook. Email 2: reframe. Email 3: proof. Email 4: objection. Email 5: direct ask. Each email: subject A+B, preview text, full body (150-200 words), CTA. Use brand voice — direct, no fluff."
+      "deliverable": "5 complete email templates"
     }
   ]
 }`;
 
-    // Same non-streaming-Opus-vs-Vercel's-60s-ceiling fix as
-    // generateMissionPlan() above — see the comment there.
-    const result = await window.ClaudeService.streamResponse({
-      systemPrompt,
+    const ideaResult = await window.ClaudeService.streamResponse({
+      systemPrompt: ideaSystemPrompt,
       messages: [{
         role: 'user',
         content: `Mission: ${plan.missionTitle || 'Marketing Campaign'}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work:\n${resultsSummary}`,
       }],
     });
 
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Automation assessment returned unexpected format');
-    return JSON.parse(jsonMatch[0]);
+    const ideaMatch = ideaResult.match(/\{[\s\S]*\}/);
+    if (!ideaMatch) throw new Error('Automation assessment returned unexpected format');
+    const ideaData = JSON.parse(ideaMatch[0]);
+    const ideas = Array.isArray(ideaData.automations) ? ideaData.automations : [];
+
+    // ── Stage 2: write each automation's actual prompt, one at a time ────
+    const automations = [];
+    for (const idea of ideas) {
+      if (!idea || !idea.agentKey) continue;
+
+      const promptSystemPrompt = `You are Scotty, the AI CMO, writing the exact instruction for ONE automation the "${idea.agentKey}" agent will execute to CREATE a deployable asset (not analyse — CREATE). 2-3 sentences, specific enough to run with zero additional input.`;
+      const promptResult = await window.ClaudeService.streamResponse({
+        systemPrompt: promptSystemPrompt,
+        messages: [{
+          role: 'user',
+          content: `Automation: ${idea.title}\nDeliverable: ${idea.deliverable || idea.description || ''}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work this automation builds on:\n${resultsSummary}\n\nWrite ONLY the instruction text itself — no preamble, no JSON, no quotes around it.`,
+        }],
+      });
+
+      automations.push({ ...idea, prompt: promptResult.trim() });
+    }
+
+    return { assessment: ideaData.assessment, automations };
   }
 
   /**
