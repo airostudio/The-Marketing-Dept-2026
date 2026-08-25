@@ -1100,6 +1100,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
+
+// Continuation from Scotty: after the SEO agent's mission task produces an
+// analysis, Scotty hands off here — the page that actually DOES the SEO
+// work (real competitor research, keyword discovery, a daily task plan,
+// full articles, real backlink prospecting) rather than stopping at a
+// one-off text summary. ?url= prefills the site to analyze; &auto=1 starts
+// the run immediately instead of waiting for another click.
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const url = params.get('url');
+  if (!url) return;
+
+  document.getElementById('url-input').value = url;
+  if (params.get('auto') === '1') {
+    document.getElementById('url-form').requestSubmit();
+  }
+});
 </script>
     <script src="/js/url-utils.js"></script>
 </body>
