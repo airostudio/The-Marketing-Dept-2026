@@ -92,6 +92,23 @@
   }
 
   // ── Supabase Auth REST (no SDK needed) ───────────────────────────────────
+
+  // Supabase's Auth (GoTrue) API is inconsistent about which field the
+  // actual error text is on depending on the error and server version —
+  // `msg` for most classic errors ("User already registered", "Signups not
+  // allowed for this instance", password-policy rejections, rate limits),
+  // `error_description` for OAuth-style errors, occasionally a plain
+  // `error` string. Checking only error_description/message (as this used
+  // to) missed `msg` — the single most common field — so the real reason
+  // Supabase rejected the request was silently discarded and replaced with
+  // a useless generic "Sign up failed." on every one of those cases. This
+  // is the actual fix for that: surface whatever real text the API sent
+  // before falling back to the generic message.
+  function _supabaseErrorText(d, fallback) {
+    if (!d) return fallback;
+    return d.error_description || d.msg || d.message || (typeof d.error === 'string' ? d.error : d.error?.message) || fallback;
+  }
+
   async function _sbLogin(email, password, cfg) {
     var r = await fetch(`${cfg.supabaseUrl}/auth/v1/token?grant_type=password`, {
       method:  'POST',
@@ -99,8 +116,8 @@
       body:    JSON.stringify({ email, password }),
       signal:  AbortSignal.timeout(10000),
     });
-    var d = await r.json();
-    if (!r.ok) throw new Error(d.error_description || d.message || 'Login failed.');
+    var d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(_supabaseErrorText(d, `Login failed (HTTP ${r.status}).`));
     return d; // { access_token, refresh_token, user: { id, email, user_metadata } }
   }
 
@@ -111,10 +128,15 @@
       body:    JSON.stringify({ email, password, data: { firstname, lastname, org } }),
       signal:  AbortSignal.timeout(10000),
     });
-    var d = await r.json();
-    if (!r.ok) throw new Error(d.error_description || d.message || 'Sign up failed.');
+    // A non-JSON body (an HTML error page from a proxy/WAF/5xx, a blocked
+    // request) used to throw an opaque SyntaxError out of r.json() that
+    // never reached the caller's own error handling — .catch(() => ({}))
+    // here means that case now falls through to the HTTP-status fallback
+    // message below instead of a raw parse error.
+    var d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(_supabaseErrorText(d, `Sign up failed (HTTP ${r.status}).`));
     // Some Supabase configs require email confirmation — if no access_token yet, still succeed
-    if (!d.access_token && !d.user) throw new Error(d.error_description || 'Sign up failed.');
+    if (!d.access_token && !d.user) throw new Error(_supabaseErrorText(d, 'Sign up failed — the server returned an unexpected response.'));
     return d;
   }
 
