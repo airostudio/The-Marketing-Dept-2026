@@ -135,8 +135,18 @@
     // message below instead of a raw parse error.
     var d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(_supabaseErrorText(d, `Sign up failed (HTTP ${r.status}).`));
-    // Some Supabase configs require email confirmation — if no access_token yet, still succeed
-    if (!d.access_token && !d.user) throw new Error(_supabaseErrorText(d, 'Sign up failed — the server returned an unexpected response.'));
+    // Some Supabase configs require email confirmation — if no access_token yet, still succeed.
+    // This is the actual bug that was hiding behind "Sign up failed — the
+    // server returned an unexpected response": when email confirmation IS
+    // required, GoTrue's signup response is the raw user object AT THE TOP
+    // LEVEL — {id, email, confirmation_sent_at, ...} — not nested under
+    // d.user. A signup that genuinely succeeded (account created,
+    // confirmation email sent) was being treated as a failure purely
+    // because this only ever checked d.user, never a bare d.id. authSignup()
+    // already handles "no access_token" correctly by showing a
+    // check-your-email message — it just needs this to actually return
+    // instead of throwing first.
+    if (!d.access_token && !d.user && !d.id) throw new Error(_supabaseErrorText(d, 'Sign up failed — the server returned an unexpected response.'));
     return d;
   }
 
@@ -359,31 +369,36 @@
     }
   }
 
+  // Returns the public user object on a full session, or
+  // { needsEmailConfirmation: true } when the account was created but
+  // needs email confirmation before it can sign in — that is a SUCCESS
+  // outcome and must never be thrown as an Error: handleSignup()'s catch
+  // block renders any thrown error in the red failure box, which would
+  // tell a user whose signup just genuinely succeeded that it failed.
   async function authSignup(email, password, firstname, lastname, org) {
     var cfg = await _getSupabaseConfig();
     if (cfg && cfg.configured) {
+      var data;
       try {
-        var data = await _sbSignup(email, password, firstname, lastname, org, cfg);
-        if (data.access_token) return _createSessionFromSupabase(data);
-        // Email confirmation required — account created but not yet active
-        throw new Error('Check your email to confirm your account, then sign in.');
+        data = await _sbSignup(email, password, firstname, lastname, org, cfg);
       } catch (err) {
         if (_isNetworkFailure(err)) {
           var fresh = await _getSupabaseConfig(true);
           if (fresh && fresh.configured && (fresh.supabaseUrl !== cfg.supabaseUrl || fresh.supabaseKey !== cfg.supabaseKey)) {
-            var data2 = await _sbSignup(email, password, firstname, lastname, org, fresh);
-            if (data2.access_token) return _createSessionFromSupabase(data2);
-            throw new Error('Check your email to confirm your account, then sign in.');
-          }
-          if (!fresh || !fresh.configured) {
+            data = await _sbSignup(email, password, firstname, lastname, org, fresh);
+          } else if (!fresh || !fresh.configured) {
             _clearStaleSupabaseConfigCache();
-            cfg = fresh;
+            cfg = fresh; // falsy — falls through to the local fallback below
           } else {
             throw err;
           }
         } else {
           throw err;
         }
+      }
+      if (data) {
+        if (data.access_token) return _createSessionFromSupabase(data);
+        return { needsEmailConfirmation: true };
       }
     }
     // Fallback: localStorage-only
@@ -649,7 +664,12 @@
     setLoading(btn, 'Creating account…');
 
     try {
-      await authSignup(email, pwd, first, last, org);
+      var result = await authSignup(email, pwd, first, last, org);
+      if (result && result.needsEmailConfirmation) {
+        showSuccess('Account created — check your email to confirm it, then sign in.');
+        resetBtn(btn, 'Create Account');
+        return;
+      }
       showSuccess('Account created! Taking you in…');
       setTimeout(onSuccess, 900);
     } catch (err) {
