@@ -10,6 +10,39 @@
     'use strict';
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // KNOWN-BENIGN SUPABASE-JS LOCK CONTENTION
+    // ═══════════════════════════════════════════════════════════════════════════
+    // "Acquiring an exclusive Navigator LockManager lock ... immediately
+    // failed" (and its sibling "... timed out") is supabase-js's own
+    // GoTrueClient coordinating session refresh across multiple browser
+    // tabs of this same site via the Web Locks API — normal, expected
+    // contention now that several features in this app deliberately open a
+    // second tab (Send to Pat, Continue SEO Content Engine, etc.). The tab
+    // that loses the race just skips that refresh tick; the session is
+    // unaffected either way.
+    //
+    // It still surfaces as "Uncaught (in promise)" because of how
+    // supabase-js registers onAuthStateChange internally: it fires
+    // _emitInitialSession() as a bare, un-awaited async IIFE with no
+    // try/catch around it, so a lock-contention rejection from THAT one
+    // specific path has nothing to catch it — every other internal call
+    // site in the SDK (notably the auto-refresh timer tick) already catches
+    // this same error class itself and logs it quietly.
+    //
+    // Filtering on error.isAcquireTimeout (set by the SDK's own base error
+    // class for both the "immediately failed" and "timed out" variants)
+    // rather than matching message text, so this keeps working across a
+    // vendored SDK update rather than silently stopping. Never swallows
+    // anything else — a genuine unrelated unhandled rejection still
+    // reaches the console exactly as before.
+    window.addEventListener('unhandledrejection', (event) => {
+        if (event?.reason?.isAcquireTimeout) {
+            console.debug('[supabase-client] Benign cross-tab session-lock contention (another tab already refreshing):', event.reason.message);
+            event.preventDefault();
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CONNECTION STATE MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
