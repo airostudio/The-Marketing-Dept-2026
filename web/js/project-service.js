@@ -31,7 +31,21 @@
         // even though a valid session is sitting in localStorage.
         if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through */ } }
 
-        // 1) Use centralized client from supabase-client.js if available
+        // Use the centralized client from supabase-client.js — and ONLY that
+        // client. This used to fall back to creating its own
+        // supabase.createClient() when the central one wasn't immediately
+        // available, but that creates a SECOND independent GoTrueClient in
+        // the same tab, both configured with persistSession/autoRefreshToken
+        // against the identical storage key (sb-<project-ref>-auth-token).
+        // Two client instances racing to manage the same session via the
+        // browser's Web Locks API is exactly what throws "Acquiring an
+        // exclusive Navigator LockManager lock ... immediately failed" —
+        // not a one-off race that resolves itself, but a standing conflict
+        // for as long as both instances exist. The central client is now
+        // robust (ready() gating, session adoption, retries — see
+        // supabase-client.js), so there's no longer a good reason for any
+        // other file to create its own; every other Store in this app
+        // already defers to it exclusively, this was the one holdout.
         if (window.Supabase?.getClient) {
             const centralClient = window.Supabase.getClient();
             if (centralClient) {
@@ -40,25 +54,7 @@
             }
         }
 
-        // 2) Reuse previously created client
-        if (supabaseClient) return supabaseClient;
-
-        // 3) Create own client as last resort (with proper auth options)
-        const url = window.APP_CONFIG?.SUPABASE_URL;
-        const key = window.APP_CONFIG?.SUPABASE_ANON_KEY;
-
-        if (url && key && typeof supabase !== 'undefined') {
-            supabaseClient = supabase.createClient(url, key, {
-                auth: {
-                    persistSession: true,
-                    autoRefreshToken: true,
-                    detectSessionInUrl: true
-                }
-            });
-            return supabaseClient;
-        }
-
-        return null;
+        return supabaseClient || null;
     }
 
     /**

@@ -188,6 +188,11 @@
             }
 
             setConnectionState(ConnectionState.ERROR, error.message);
+            // Retries exhausted — clear so a LATER getClient()/ready() call
+            // (e.g. the user retries an action, or a health check kicks in)
+            // can attempt a fresh init instead of being stuck forever
+            // behind a stale settled promise from this failed attempt.
+            initInFlight = null;
             return null;
         }
     }
@@ -393,7 +398,19 @@
      * Get the Supabase client instance
      */
     function getClient() {
-        if (!supabaseClient && supabaseConfig.url && supabaseConfig.anonKey) {
+        // The !initInFlight check matters: without it, two callers invoking
+        // getClient() directly (not through ready(), which already
+        // correctly awaits a shared in-flight promise) in the same tick —
+        // before the first initSupabase() has resolved and set
+        // supabaseClient — would each see supabaseClient still null and
+        // each kick off their OWN initSupabase(), creating two independent
+        // GoTrueClient instances. Both configured with persistSession/
+        // autoRefreshToken against the identical storage key, both racing
+        // the browser's Web Locks API for it — that's what throws
+        // "Acquiring an exclusive Navigator LockManager lock ... immediately
+        // failed", as a standing conflict for as long as both instances
+        // exist, not a one-off race that resolves itself.
+        if (!supabaseClient && !initInFlight && supabaseConfig.url && supabaseConfig.anonKey) {
             initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
         }
         return supabaseClient;
