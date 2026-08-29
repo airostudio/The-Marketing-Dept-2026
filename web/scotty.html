@@ -518,6 +518,22 @@
             transform: translateY(0);
         }
 
+        .mission-fallback-link {
+            display: block;
+            margin-top: 10px;
+            background: none;
+            border: none;
+            padding: 0;
+            color: rgba(167,139,250,0.7);
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .mission-fallback-link:hover { color: #a78bfa; }
+
         /* Typing indicator */
         .typing-indicator {
             display: flex;
@@ -2940,7 +2956,7 @@ class ScottyChat {
                 onStart:  () => { bubble.textContent = ''; },
                 onChunk:  () => { scrollAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' }); },
                 onDone:   (fullText) => {
-                    this._processScottyResponse(fullText, bubble);
+                    this._processScottyResponse(fullText, bubble, text);
                     this._finaliseResponse(text, fullText);
                 },
                 onError:  (err) => {
@@ -2958,7 +2974,7 @@ class ScottyChat {
                 const mockResponse = this._generateMockResponse(text);
                 const { bubble, scrollAnchor } = this._createScottyBubble();
                 this._typeResponse(mockResponse, bubble, scrollAnchor, () => {
-                    this._processScottyResponse(mockResponse, bubble);
+                    this._processScottyResponse(mockResponse, bubble, text);
                     this._finaliseResponse(text, mockResponse);
                 });
             }, 1400 + Math.random() * 600);
@@ -3120,6 +3136,7 @@ class ScottyChat {
             if (startBtn) startBtn.style.display = 'none';
             this.isWaiting = false;
             this.btnSend.disabled = false;
+            if (!started && window.MissionStore) window.MissionStore.clearActive();
             resolveStart();
         }, { once: true });
 
@@ -3131,6 +3148,16 @@ class ScottyChat {
             autoBarEl.classList.remove('pending-start');
             autoBarEl.insertAdjacentHTML('afterbegin', '<div class="mission-auto-pulse"></div>');
             InfoPanel.logActivity('🚀', `Mission approved — launching ${total} agents`);
+            // So every agent page a novice lands on next can show "here's
+            // where you are in this mission" via the mission bar, and so a
+            // page refresh doesn't lose the whole plan (previously this
+            // lived only as an in-memory closure variable in this function).
+            if (window.MissionStore) {
+                this._activeMission = window.MissionStore.create(
+                    userGoal,
+                    (plan.tasks || []).map(t => ({ agentKey: t.agentKey, taskName: t.taskName, objective: t.objective }))
+                );
+            }
             resolveStart();
         }, { once: true });
 
@@ -3157,6 +3184,9 @@ class ScottyChat {
             label.className = 'task-status-label running';
             resultEl.classList.add('visible');
             resultEl.innerHTML = '';
+            if (this._activeMission && window.MissionStore) {
+                window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { status: 'in_progress' });
+            }
             const svcName = serviceNames[task.agentKey] || 'Claude Sonnet';
             if (liveStatus) liveStatus.textContent = `⚡ Calling ${svcName}…`;
             if (autoText) autoText.textContent = `${agentEmojis[task.agentKey] || '🤖'} ${task.taskName} (${i + 1}/${total})`;
@@ -3241,12 +3271,18 @@ class ScottyChat {
                 }
                 InfoPanel.markWired(task.agentKey);
                 InfoPanel.logActivity('✅', `${task.taskName} complete`);
+                if (this._activeMission && window.MissionStore) {
+                    window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { status: 'done', resultSummary: fullText.slice(0, 200) });
+                }
             } else {
                 dot.className  = 'task-status-dot error';
                 label.textContent = '⚠️ Failed';
                 label.className = 'task-status-label error';
                 if (liveStatus) liveStatus.textContent = '';
                 InfoPanel.logActivity('⚠️', `${task.taskName} failed — continuing`);
+                if (this._activeMission && window.MissionStore) {
+                    window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { status: 'skipped', resultSummary: 'Failed after retry.' });
+                }
             }
 
             const pct = Math.round(((i + 1) / total) * 100);
@@ -3257,6 +3293,7 @@ class ScottyChat {
         if (aborted) return;
 
         // All agents done
+        if (this._activeMission && window.MissionStore) window.MissionStore.complete(this._activeMission.id);
         missionEl.querySelector('#missionAutoBar').classList.add('complete');
         if (autoText) autoText.textContent = `All ${total} agents complete ✓`;
         missionEl.querySelector('#missionReport').classList.add('visible');
@@ -3390,10 +3427,13 @@ class ScottyChat {
             subject: guessedSubject || taskLabel || 'Email Campaign',
             html: typeof marked !== 'undefined' ? marked.parse(fullText) : `<pre>${this._escapeHtml(fullText)}</pre>`,
             text: fullText,
-            timestamp: Date.now(),
         };
-        localStorage.setItem('pat_incoming_draft', JSON.stringify(payload));
-        window.open('/agents/email-delivery-agent.html', '_blank');
+        if (window.PatHandoff) window.PatHandoff.sendDraft(payload);
+        else { localStorage.setItem('pat_incoming_draft', JSON.stringify({ ...payload, timestamp: Date.now() })); window.open('/agents/email-delivery-agent.html', '_blank'); }
+
+        if (this._activeMission && window.MissionStore) {
+            window.MissionStore.setFinalDelivery(this._activeMission.id, 'email', { campaignName: payload.campaignName });
+        }
     }
 
     /* ── AUTOMATION ASSESSMENT ──────────────────────────────────────────────── */
@@ -3906,9 +3946,24 @@ class ScottyChat {
             .replace(/\n/g, '<br>');
     }
 
-    _processScottyResponse(text, bubble) {
+    _processScottyResponse(text, bubble, userText) {
         // Render markdown — replace raw text with formatted HTML
         bubble.innerHTML = this._renderMarkdown(text);
+
+        // Orchestration mode only triggers on a keyword match
+        // (isOrchestrationIntent) — a novice phrasing a reasonable goal in
+        // plain English can easily miss that list and land here instead
+        // with an ordinary chat reply and no mission at all. This is
+        // always available as a fallback, whatever the reply was.
+        if (userText && window.ScottyOrchestrator && typeof window.ScottyOrchestrator.generateMissionPlan === 'function') {
+            const missionLink = document.createElement('button');
+            missionLink.type = 'button';
+            missionLink.className = 'mission-fallback-link';
+            missionLink.textContent = '🚀 Turn this into a full Mission instead →';
+            missionLink.title = 'Have Scotty plan and run this across multiple agents, ending with Pat ready to send';
+            missionLink.addEventListener('click', () => { this._runOrchestration(userText); }, { once: true });
+            bubble.appendChild(missionLink);
+        }
 
         // Surface any question into the info panel
         InfoPanel.detectAndSurfaceQuestion(text);
@@ -4539,8 +4594,22 @@ window.addEventListener('DOMContentLoaded', () => {
     InfoPanel.init();
     QuickStart.init();
     AgentAudit.init();
+
+    // A goal handed off from another agent page (e.g. Lift's "Turn into a
+    // Mission" on a CRO test idea) — prefilled, not auto-sent, so the user
+    // still explicitly reviews/starts it themselves.
+    const goal = new URLSearchParams(window.location.search).get('goal');
+    if (goal && window.scottyChat.inputEl) {
+        window.scottyChat.inputEl.value = goal;
+        window.scottyChat.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        window.scottyChat.inputEl.focus();
+        window.history.replaceState({}, '', '/scotty.html');
+    }
 });
 </script>
 
+<script src="/js/pat-handoff.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

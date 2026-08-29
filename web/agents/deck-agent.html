@@ -2573,6 +2573,17 @@ No headers, no commentary, no other text.`;
             // Success feedback
             btn.innerHTML = '✓ Downloaded!';
 
+            // A slide deck legitimately has no email/social destination —
+            // left as download-only on purpose — but if this ran as part of
+            // a Scotty mission, mark it done so the mission bar doesn't show
+            // it as permanently stuck.
+            if (window.MissionStore) {
+                const mission = window.MissionStore.getActive();
+                if (mission && mission.steps.some(s => s.agentKey === 'deck')) {
+                    window.MissionStore.updateStep(mission.id, 'deck', { status: 'done', resultSummary: 'Deck downloaded as PowerPoint.' });
+                }
+            }
+
             // Show image prompt instructions — only claim AI prompts when the batch call succeeded
             if (aiGenerated && imagePrompts.length > 0) {
                 setTimeout(() => {
@@ -2606,5 +2617,7 @@ No headers, no commentary, no other text.`;
         } catch (e) { /* prefill is best-effort */ }
     });
 </script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

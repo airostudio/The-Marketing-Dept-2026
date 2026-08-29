@@ -214,6 +214,7 @@
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title">Compliance Review</span>
+            <button class="btn-copy" id="attachBtn" onclick="attachToCampaign()" style="margin-right:8px;">📎 Copy for Pat</button>
             <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
         </div>
         <div class="not-legal-advice-banner">⚠️ AI-assisted screen, not legal advice. An "APPROVED" verdict means this review found no issues — not that a lawyer has signed off. Get qualified counsel for anything with real legal exposure.</div>
@@ -547,6 +548,19 @@ Critical issues: N | Warnings: N | Suggestions: N
                     onDone: (text) => {
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'compliance', taskType: reviewType || 'Compliance Review', content: text, topic: (content || '').slice(0, 80) });
+                        // Previously a dead end for a mission — a compliance
+                        // check that ran as part of a Scotty mission never
+                        // reported back, so the mission bar showed it as
+                        // stuck. Close that loop automatically.
+                        if (window.MissionStore) {
+                            const mission = window.MissionStore.getActive();
+                            if (mission && mission.steps.some(s => s.agentKey === 'compliance')) {
+                                window.MissionStore.updateStep(mission.id, 'compliance', {
+                                    status: 'done',
+                                    resultSummary: (text || '').slice(0, 200),
+                                });
+                            }
+                        }
                     },
                     onError: (err) => {
                         outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
@@ -564,6 +578,24 @@ Critical issues: N | Warnings: N | Suggestions: N
         }
     }
 
+    // Previously a dead end otherwise — a compliance checklist result had no
+    // way to travel with the campaign it was reviewing. This doesn't send
+    // anything on its own (Shield never should — it's a gate, not a
+    // sender); it puts the verdict on the clipboard formatted to paste
+    // straight into Pat's campaign notes before send.
+    function attachToCampaign() {
+        const body = document.getElementById('outputBody');
+        if (!body) return;
+        const text = (body.innerText || body.textContent || '').trim();
+        if (!text) { alert('Run a compliance review first.'); return; }
+        const formatted = `⚠️ COMPLIANCE REVIEW (Shield)\n${'-'.repeat(40)}\n${text}`;
+        navigator.clipboard.writeText(formatted).then(() => {
+            const btn = document.getElementById('attachBtn');
+            btn.textContent = '✓ Copied — paste into Pat';
+            setTimeout(() => { btn.textContent = '📎 Copy for Pat'; }, 2500);
+        });
+    }
+
     function copyOutput() {
         const body = document.getElementById('outputBody');
         if (!body) return;
@@ -575,5 +607,7 @@ Critical issues: N | Warnings: N | Suggestions: N
         });
     }
 </script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

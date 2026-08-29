@@ -278,6 +278,7 @@
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title">Intelligence Report</span>
+            <button class="btn-copy" id="saveToBrainBtn" onclick="saveToBusinessBrain()" style="margin-right:8px;">💾 Save to Business Brain</button>
             <button class="btn-copy" id="copyBtn" onclick="copyOutput()">Copy</button>
         </div>
         <div id="outputArea">
@@ -819,6 +820,46 @@ For each competitor, sales-ready format:
         });
     }
 
+    // Scout's analysis was previously a dead end — the report only ever
+    // lived in this page's AgentHistory (agent-scoped, invisible to other
+    // agents' prompts). IntelligenceEngine.radar (CompetitiveRadar) is the
+    // one structure that actually feeds `competitiveLandscape` into every
+    // downstream agent's context bundle (see IntelligenceEngine.getContext
+    // callers), so saving here is what makes a competitive finding actually
+    // change future output instead of evaporating.
+    function saveToBusinessBrain() {
+        const body = document.getElementById('outputBody');
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { alert('Run an analysis first.'); return; }
+        if (!window.IntelligenceEngine || !window.IntelligenceEngine.radar) {
+            alert('Business Brain is unavailable right now — try reloading the page.');
+            return;
+        }
+
+        const namesRaw = document.getElementById('competitors').value.trim();
+        const names = namesRaw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+        if (!names.length) { alert('Enter at least one competitor name before saving.'); return; }
+
+        const radar = window.IntelligenceEngine.radar;
+        const existing = radar.getAll();
+        let saved = 0;
+        names.forEach(name => {
+            let comp = existing.find(c => c.name.toLowerCase() === name.toLowerCase());
+            if (!comp) comp = radar.addCompetitor(name);
+            radar.addGap(comp.id, {
+                gap: text.length > 2000 ? text.slice(0, 2000) + '…' : text,
+                opportunity: '',
+                priority: 'medium',
+            });
+            saved++;
+        });
+
+        const btn = document.getElementById('saveToBrainBtn');
+        const orig = btn.textContent;
+        btn.textContent = `✓ Saved to ${saved} competitor${saved === 1 ? '' : 's'}`;
+        setTimeout(() => { btn.textContent = orig; }, 2500);
+    }
+
     // ── MONITORED COMPETITORS ────────────────────────────────────────────
     function escHtmlWatch(s) {
         const d = document.createElement('div');
@@ -902,5 +943,7 @@ For each competitor, sales-ready format:
     refreshWatchList();
 </script>
     <script src="/js/url-utils.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>
