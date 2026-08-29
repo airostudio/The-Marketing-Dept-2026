@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blade — Google Maps Scraper | Audema - Your AI Marketing Department</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/site-switcher.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #f43f5e; --accent2: #e11d48;
+    --bg: #0a0a10; --panel: #111117; --panel2: #16161f; --border: rgba(255,255,255,0.09);
+    --text: #f5f5f7; --text2: rgba(245,245,247,0.62); --text3: rgba(245,245,247,0.4);
+    --green: #34d399; --amber: #fbbf24; --red: #f87171;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-sep { color: var(--border); font-size: 18px; }
+  .nav-breadcrumb { font-size: 14px; color: var(--text2); }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 24px 120px; }
+  .center { max-width: 640px; margin: 0 auto; text-align: center; }
+
+  .step { display: none; }
+  .step.active { display: block; animation: fadein .35s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  .headline { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 14px; }
+  .sub { font-size: 15px; color: var(--text2); line-height: 1.6; margin-bottom: 32px; }
+
+  .btn { padding: 13px 20px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-sm { padding: 8px 14px; font-size: 12.5px; border-radius: 8px; }
+  .err-note { margin-top: 14px; padding: 12px 14px; border-radius: 9px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 13.5px; display: none; text-align: left; }
+  .err-note.show { display: block; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; text-align: left; }
+  .field-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; display: block; margin-bottom: 5px; }
+  .field-input { width: 100%; padding: 11px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13.5px; font-family: inherit; }
+  .field-group { margin-bottom: 14px; position: relative; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 14px; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chip { padding: 6px 12px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); font-size: 12.5px; cursor: pointer; color: var(--text2); }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+
+  .typeahead-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; max-height: 220px; overflow-y: auto; z-index: 20; display: none; }
+  .typeahead-list.show { display: block; }
+  .typeahead-item { padding: 9px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .typeahead-item:last-child { border-bottom: none; }
+  .typeahead-item:hover { background: rgba(244,63,94,0.1); }
+
+  .picked-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; margin-top: 8px; }
+  .picked-pill button { background: none; border: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0; }
+
+  .breadcrumb-trail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; font-size: 12.5px; color: var(--text3); }
+  .breadcrumb-trail b { color: var(--text); }
+
+  table.results-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.results-table th { text-align: left; padding: 10px 10px; color: var(--text3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.results-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.results-table tr:last-child td { border-bottom: none; }
+  .results-scroll { overflow-x: auto; }
+  .cell-name { font-weight: 700; }
+  .cell-sub { color: var(--text3); font-size: 11.5px; margin-top: 2px; }
+  a.cell-link { color: #fb7185; text-decoration: none; }
+  a.cell-link:hover { text-decoration: underline; }
+
+  .email-real { color: var(--green); font-weight: 700; }
+  .email-estimate { color: var(--amber); font-weight: 700; }
+  .email-pending { color: var(--text3); }
+  .email-none { color: var(--text3); font-style: italic; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .count-pill { font-size: 12px; color: var(--text2); background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; }
+
+  .progress-bar-track { height: 8px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin: 14px 0; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">🗡️</span> Audema</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">Blade · Google Maps Scraper</span>
+  </div>
+  <div class="nav-right">
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- STEP 1: Country -->
+  <div class="step active" id="step-country">
+    <div class="center">
+      <h1 class="headline">Where do you want to focus?</h1>
+      <p class="sub">Blade pulls real business listings — name, address, phone, website, rating and a discovered contact email — straight out of Google Maps and turns them into a spreadsheet. Start by picking a country.</p>
+    </div>
+    <div class="card">
+      <div class="section-title">Country</div>
+      <div class="field-group">
+        <input class="field-input" id="in-country-search" placeholder="Search countries…" autocomplete="off">
+        <div class="typeahead-list" id="country-list"></div>
+      </div>
+      <div id="country-picked"></div>
+    </div>
+    <div style="text-align:right;">
+      <button class="btn btn-primary" id="btn-country-next" disabled>Next: Choose a city or town →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: City -->
+  <div class="step" id="step-city">
+    <div class="center">
+      <h1 class="headline">Now drill down to a city or town.</h1>
+      <p class="sub">Blade will search Google Maps inside this local area.</p>
+    </div>
+    <div class="card">
+      <div class="section-title">City / Town</div>
+      <div class="field-group">
+        <input class="field-input" id="in-city-search" placeholder="Start typing a city or town…" autocomplete="off">
+        <div class="typeahead-list" id="city-list"></div>
+      </div>
+      <div id="city-picked"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between;">
+      <button class="btn btn-ghost" id="btn-city-back">← Back</button>
+      <button class="btn btn-primary" id="btn-city-next" disabled>Next: Choose a business sector →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Sector -->
+  <div class="step" id="step-sector">
+    <div class="center">
+      <h1 class="headline">What business sector?</h1>
+      <p class="sub">e.g. "coffee shops", "plumbers", "dentists", "law firms" — anything you'd type into Google Maps search.</p>
+    </div>
+    <div class="card">
+      <div class="section-title">Business sector</div>
+      <div class="field-group">
+        <input class="field-input" id="in-sector" placeholder="e.g. independent coffee shops">
+      </div>
+      <div class="chip-row" id="sector-chips"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between;">
+      <button class="btn btn-ghost" id="btn-sector-back">← Back</button>
+      <button class="btn btn-primary" id="btn-sector-run" disabled>🗡️ Run Blade →</button>
+    </div>
+    <div class="err-note" id="sector-err"></div>
+  </div>
+
+  <!-- STEP 4: Results -->
+  <div class="step" id="step-results">
+    <div class="breadcrumb-trail" id="results-trail"></div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="count-pill" id="results-count">0 businesses</span>
+        <button class="btn btn-ghost btn-sm" id="btn-restart">Start a new search</button>
+      </div>
+      <div class="toolbar-left">
+        <button class="btn btn-ghost btn-sm" id="btn-load-more" style="display:none;">Load more results</button>
+        <button class="btn btn-ghost btn-sm" id="btn-enrich">Find contact emails</button>
+        <button class="btn btn-primary btn-sm" id="btn-export">⬇ Export spreadsheet (CSV)</button>
+      </div>
+    </div>
+
+    <div id="enrich-progress-wrap" style="display:none;">
+      <div style="font-size:12.5px; color:var(--text2);"><span class="spinner"></span> <span id="enrich-progress-label">Finding contact emails…</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="enrich-progress-fill" style="width:0%;"></div></div>
+    </div>
+
+    <div class="card" style="padding:0;">
+      <div class="results-scroll">
+        <table class="results-table" id="results-table">
+          <thead>
+            <tr>
+              <th>Business</th>
+              <th>Address</th>
+              <th>Phone</th>
+              <th>Website</th>
+              <th>Email</th>
+              <th>Rating</th>
+              <th>Maps</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="results-empty" style="display:none;">No results found for that sector in this area. Try a broader search term.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var COUNTRIES = [
+    ['United States','US'],['United Kingdom','GB'],['Canada','CA'],['Australia','AU'],['Ireland','IE'],
+    ['New Zealand','NZ'],['Germany','DE'],['France','FR'],['Spain','ES'],['Italy','IT'],['Netherlands','NL'],
+    ['Belgium','BE'],['Switzerland','CH'],['Austria','AT'],['Portugal','PT'],['Sweden','SE'],['Norway','NO'],
+    ['Denmark','DK'],['Finland','FI'],['Poland','PL'],['Czechia','CZ'],['Greece','GR'],['Iceland','IS'],
+    ['Luxembourg','LU'],['United Arab Emirates','AE'],['Saudi Arabia','SA'],['Qatar','QA'],['Israel','IL'],
+    ['South Africa','ZA'],['Nigeria','NG'],['Kenya','KE'],['Egypt','EG'],['India','IN'],['Pakistan','PK'],
+    ['Bangladesh','BD'],['Singapore','SG'],['Malaysia','MY'],['Indonesia','ID'],['Philippines','PH'],
+    ['Thailand','TH'],['Vietnam','VN'],['Japan','JP'],['South Korea','KR'],['China','CN'],['Hong Kong','HK'],
+    ['Taiwan','TW'],['Mexico','MX'],['Brazil','BR'],['Argentina','AR'],['Chile','CL'],['Colombia','CO'],
+    ['Peru','PE'],['Turkey','TR'],['Romania','RO'],['Hungary','HU'],['Ukraine','UA'],['Croatia','HR'],
+    ['Bulgaria','BG'],['Slovakia','SK'],['Slovenia','SI'],['Estonia','EE'],['Latvia','LV'],['Lithuania','LT'],
+    ['Malta','MT'],['Cyprus','CY']
+  ].sort(function (a, b) { return a[0].localeCompare(b[0]); });
+
+  var SECTOR_SUGGESTIONS = ['Coffee shops','Restaurants','Plumbers','Electricians','Dentists','Law firms','Real estate agents','Hair salons','Gyms & fitness studios','Accountants','Marketing agencies','Auto repair shops','Hotels','Estate agents','Physiotherapists'];
+
+  var state = {
+    country: null,      // { name, code }
+    city: null,         // { description, placeId }
+    sector: '',
+    results: [],
+    nextPageToken: null,
+    enriching: false,
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  function goStep(id) {
+    document.querySelectorAll('.step').forEach(function (s) { s.classList.toggle('active', s.id === id); });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ─── Step 1: Country ─────────────────────────────────────────────── */
+
+  var countrySearch = $('in-country-search');
+  var countryListEl = $('country-list');
+
+  function renderCountryList(filter) {
+    var q = (filter || '').trim().toLowerCase();
+    var matches = COUNTRIES.filter(function (c) { return !q || c[0].toLowerCase().indexOf(q) !== -1; }).slice(0, 30);
+    countryListEl.innerHTML = matches.map(function (c) {
+      return '<div class="typeahead-item" data-name="' + c[0] + '" data-code="' + c[1] + '">' + c[0] + '</div>';
+    }).join('');
+    countryListEl.classList.toggle('show', matches.length > 0);
+  }
+
+  countrySearch.addEventListener('focus', function () { renderCountryList(countrySearch.value); });
+  countrySearch.addEventListener('input', function () { renderCountryList(countrySearch.value); });
+  countryListEl.addEventListener('click', function (e) {
+    var item = e.target.closest('.typeahead-item');
+    if (!item) return;
+    state.country = { name: item.dataset.name, code: item.dataset.code };
+    countrySearch.value = item.dataset.name;
+    countryListEl.classList.remove('show');
+    $('country-picked').innerHTML = '<div class="picked-pill">🌍 ' + item.dataset.name + ' <button type="button" id="clear-country">✕</button></div>';
+    $('clear-country').addEventListener('click', function () {
+      state.country = null; countrySearch.value = ''; $('country-picked').innerHTML = '';
+      $('btn-country-next').disabled = true;
+    });
+    $('btn-country-next').disabled = false;
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#in-country-search') && !e.target.closest('#country-list')) countryListEl.classList.remove('show');
+    if (!e.target.closest('#in-city-search') && !e.target.closest('#city-list')) cityListEl.classList.remove('show');
+  });
+
+  $('btn-country-next').addEventListener('click', function () { goStep('step-city'); });
+
+  /* ─── Step 2: City ────────────────────────────────────────────────── */
+
+  var citySearch = $('in-city-search');
+  var cityListEl = $('city-list');
+  var cityDebounce = null;
+
+  citySearch.addEventListener('input', function () {
+    var val = citySearch.value;
+    clearTimeout(cityDebounce);
+    if (!val.trim()) { cityListEl.classList.remove('show'); return; }
+    cityDebounce = setTimeout(function () { fetchCities(val); }, 280);
+  });
+
+  async function fetchCities(input) {
+    try {
+      var res = await fetch('/api/blade-cities-autocomplete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: input, countryCode: state.country ? state.country.code : null }),
+      });
+      var data = await res.json();
+      var cities = (data && data.cities) || [];
+      cityListEl.innerHTML = cities.map(function (c) {
+        return '<div class="typeahead-item" data-desc="' + c.description.replace(/"/g, '&quot;') + '">' + c.description + '</div>';
+      }).join('');
+      cityListEl.classList.toggle('show', cities.length > 0);
+    } catch (e) {
+      cityListEl.classList.remove('show');
+    }
+  }
+
+  cityListEl.addEventListener('click', function (e) {
+    var item = e.target.closest('.typeahead-item');
+    if (!item) return;
+    state.city = { description: item.dataset.desc };
+    citySearch.value = item.dataset.desc;
+    cityListEl.classList.remove('show');
+    $('city-picked').innerHTML = '<div class="picked-pill">📍 ' + item.dataset.desc + ' <button type="button" id="clear-city">✕</button></div>';
+    $('clear-city').addEventListener('click', function () {
+      state.city = null; citySearch.value = ''; $('city-picked').innerHTML = '';
+      $('btn-city-next').disabled = true;
+    });
+    $('btn-city-next').disabled = false;
+  });
+
+  $('btn-city-back').addEventListener('click', function () { goStep('step-country'); });
+  $('btn-city-next').addEventListener('click', function () { goStep('step-sector'); });
+
+  /* ─── Step 3: Sector ──────────────────────────────────────────────── */
+
+  $('sector-chips').innerHTML = SECTOR_SUGGESTIONS.map(function (s) {
+    return '<div class="chip" data-sector="' + s + '">' + s + '</div>';
+  }).join('');
+  $('sector-chips').addEventListener('click', function (e) {
+    var chip = e.target.closest('.chip');
+    if (!chip) return;
+    $('in-sector').value = chip.dataset.sector;
+    $('btn-sector-run').disabled = false;
+  });
+  $('in-sector').addEventListener('input', function () {
+    $('btn-sector-run').disabled = !$('in-sector').value.trim();
+  });
+  $('btn-sector-back').addEventListener('click', function () { goStep('step-city'); });
+
+  $('btn-sector-run').addEventListener('click', function () { runSearch(false); });
+
+  /* ─── Step 4: Results ─────────────────────────────────────────────── */
+
+  async function runSearch(loadMore) {
+    var errEl = $('sector-err');
+    errEl.classList.remove('show');
+    if (!loadMore) {
+      state.sector = $('in-sector').value.trim();
+      state.results = [];
+      state.nextPageToken = null;
+    }
+    var btn = loadMore ? $('btn-load-more') : $('btn-sector-run');
+    var origLabel = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Searching Google Maps…';
+
+    try {
+      var res = await fetch('/api/blade-places-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sector: state.sector,
+          city: state.city ? state.city.description : '',
+          country: state.country ? state.country.name : '',
+          pageToken: loadMore ? state.nextPageToken : undefined,
+        }),
+      });
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Search failed');
+
+      var existing = new Set(state.results.map(function (r) { return r.placeId; }));
+      (data.results || []).forEach(function (r) { if (!existing.has(r.placeId)) state.results.push(r); });
+      state.nextPageToken = data.nextPageToken || null;
+
+      renderTrail();
+      renderResults();
+      goStep('step-results');
+    } catch (e) {
+      if (!loadMore) {
+        errEl.textContent = e.message || 'Something went wrong running that search.';
+        errEl.classList.add('show');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  }
+
+  function renderTrail() {
+    $('results-trail').innerHTML =
+      '<span>🌍 <b>' + (state.country ? state.country.name : '') + '</b></span> ›' +
+      '<span>📍 <b>' + (state.city ? state.city.description : '') + '</b></span> ›' +
+      '<span>🏷️ <b>' + state.sector + '</b></span>';
+  }
+
+  function ratingLabel(r) {
+    if (r.rating == null) return '—';
+    return '⭐ ' + r.rating + (r.reviewCount != null ? ' (' + r.reviewCount + ')' : '');
+  }
+
+  function emailCell(r) {
+    if (r._emailLoading) return '<span class="email-pending"><span class="spinner"></span></span>';
+    if (r.email && r.emailSource === 'real') return '<span class="email-real">' + r.email + '</span>';
+    if (r.email && r.emailSource === 'estimate') return '<span class="email-estimate">' + r.email + ' <span title="Inferred via search, not confirmed on-site">≈</span></span>';
+    if (r._emailChecked) return '<span class="email-none">not found</span>';
+    return '<span class="email-pending">—</span>';
+  }
+
+  function renderResults() {
+    $('results-count').textContent = state.results.length + ' business' + (state.results.length === 1 ? '' : 'es');
+    $('btn-load-more').style.display = state.nextPageToken ? 'inline-block' : 'none';
+    $('results-empty').style.display = state.results.length ? 'none' : 'block';
+
+    $('results-body').innerHTML = state.results.map(function (r, i) {
+      return '<tr data-idx="' + i + '">' +
+        '<td><div class="cell-name">' + escapeHtml(r.name) + '</div><div class="cell-sub">' + escapeHtml((r.types || []).slice(0, 2).join(', ')) + '</div></td>' +
+        '<td>' + escapeHtml(r.address) + '</td>' +
+        '<td>' + escapeHtml(r.phone || '—') + '</td>' +
+        '<td>' + (r.website ? '<a class="cell-link" href="' + escapeAttr(r.website) + '" target="_blank" rel="noopener">' + escapeHtml(hostOf(r.website)) + '</a>' : '—') + '</td>' +
+        '<td class="cell-email">' + emailCell(r) + '</td>' +
+        '<td>' + ratingLabel(r) + '</td>' +
+        '<td>' + (r.mapsUrl ? '<a class="cell-link" href="' + escapeAttr(r.mapsUrl) + '" target="_blank" rel="noopener">Map ↗</a>' : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; }
+  }
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  $('btn-load-more').addEventListener('click', function () { runSearch(true); });
+  $('btn-restart').addEventListener('click', function () {
+    state = { country: state.country, city: null, sector: '', results: [], nextPageToken: null, enriching: false };
+    $('city-picked').innerHTML = ''; citySearch.value = ''; $('btn-city-next').disabled = true;
+    $('in-sector').value = ''; $('btn-sector-run').disabled = true;
+    goStep('step-city');
+  });
+
+  /* ─── Contact-email enrichment ────────────────────────────────────── */
+
+  var ENRICH_CONCURRENCY = 3;
+
+  $('btn-enrich').addEventListener('click', function () { enrichEmails(); });
+
+  async function enrichEmails() {
+    if (state.enriching) return;
+    var targets = state.results.filter(function (r) { return r.website && !r._emailChecked && !r._emailLoading; });
+    if (!targets.length) return;
+    state.enriching = true;
+    $('btn-enrich').disabled = true;
+    $('enrich-progress-wrap').style.display = 'block';
+
+    var done = 0;
+    var total = targets.length;
+    updateEnrichProgress(done, total);
+
+    var queue = targets.slice();
+    async function worker() {
+      while (queue.length) {
+        var r = queue.shift();
+        r._emailLoading = true;
+        renderResults();
+        try {
+          var res = await fetch('/api/seo-backlink-find-email', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: r.website }),
+          });
+          var data = await res.json();
+          r.email = (data && data.email) || null;
+          r.emailSource = data && data.data_source;
+        } catch (e) {
+          r.email = null;
+        }
+        r._emailLoading = false;
+        r._emailChecked = true;
+        done++;
+        updateEnrichProgress(done, total);
+        renderResults();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(ENRICH_CONCURRENCY, targets.length) }, worker));
+
+    state.enriching = false;
+    $('btn-enrich').disabled = false;
+    $('enrich-progress-wrap').style.display = 'none';
+  }
+
+  function updateEnrichProgress(done, total) {
+    $('enrich-progress-label').textContent = 'Finding contact emails… ' + done + ' / ' + total;
+    $('enrich-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+  }
+
+  /* ─── Export ──────────────────────────────────────────────────────── */
+
+  $('btn-export').addEventListener('click', function () { exportCsv(); });
+
+  function csvField(v) {
+    var s = v == null ? '' : String(v);
+    if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportCsv() {
+    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'City', 'Country', 'Google Maps URL'];
+    var rows = state.results.map(function (r) {
+      return [
+        r.name, r.address, r.phone, r.website, r.email || '', r.emailSource || '',
+        r.rating != null ? r.rating : '', r.reviewCount != null ? r.reviewCount : '',
+        r.businessStatus || '', state.sector, state.city ? state.city.description : '',
+        state.country ? state.country.name : '', r.mapsUrl || '',
+      ].map(csvField).join(',');
+    });
+    var csv = headers.map(csvField).join(',') + '\n' + rows.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var slug = (state.sector + '-' + (state.city ? state.city.description : '')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    a.href = url;
+    a.download = 'blade-' + (slug || 'leads') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+})();
+</script>
+</body>
+</html>

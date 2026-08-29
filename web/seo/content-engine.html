@@ -10,6 +10,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<!-- Already vendored in this repo — used to turn the article's Markdown into
+     the HTML that gets copied/downloaded for publishing, and to render the
+     on-page preview properly instead of showing raw Markdown. -->
+<script src="/js/marked.min.js"></script>
+<!-- Business Brain's brand voice + sender identity, folded into outreach
+     drafts so backlink emails sound like this business, not a generic AI. -->
+<script src="/js/intelligence-engine.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
 <script src="/js/seo-pipeline-store.js"></script>
@@ -103,7 +110,22 @@
   .article-viewer h1 { font-size: 22px; margin-bottom: 6px; }
   .article-meta-box { background: var(--panel2); border-radius: 10px; padding: 14px 16px; margin: 14px 0 20px; font-size: 12.5px; color: var(--text2); }
   .article-meta-box div { margin-bottom: 4px; }
-  .article-body { font-size: 14.5px; line-height: 1.75; white-space: pre-wrap; color: var(--text); }
+  /* white-space:pre-wrap was for raw Markdown; the body is now real HTML. */
+  .article-body { font-size: 14.5px; line-height: 1.75; color: var(--text); }
+  .article-body h1 { font-size: 20px; margin: 22px 0 10px; }
+  .article-body h2 { font-size: 17px; margin: 24px 0 8px; }
+  .article-body h3 { font-size: 15px; margin: 18px 0 6px; }
+  .article-body p { margin-bottom: 12px; }
+  .article-body ul, .article-body ol { padding-left: 22px; margin-bottom: 12px; }
+  .article-body li { margin-bottom: 6px; }
+  .article-body a { color: var(--accent, #22d3ee); }
+  .article-body .faq { margin-top: 26px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .article-body .faq-item { margin-bottom: 14px; }
+
+  .publish-box { margin-top: 26px; background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .publish-box-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); margin-bottom: 8px; }
+  .publish-box-note { font-size: 12.5px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .publish-box-note code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
   .field-textarea, .field-input { width: 100%; padding: 10px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13.5px; font-family: inherit; }
   .field-textarea { min-height: 100px; resize: vertical; margin-top: 6px; }
@@ -212,16 +234,26 @@
 <div id="outreach-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
     <h3 style="font-size:17px;margin-bottom:4px;">Outreach draft</h3>
-    <p style="font-size:12.5px;color:var(--text2);margin-bottom:18px;" id="outreach-modal-to"></p>
+    <p style="font-size:12.5px;color:var(--text2);margin-bottom:14px;" id="outreach-modal-to"></p>
+    <label class="field-label">To</label>
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input class="field-input" id="outreach-to" placeholder="contact@example.com" style="flex:1;">
+      <button class="btn btn-ghost btn-sm" id="outreach-find-email-btn" onclick="findEmailForModal()" style="white-space:nowrap;">🔎 Find email</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;" id="outreach-email-status"></p>
     <label class="field-label">Subject</label>
     <input class="field-input" id="outreach-subject" style="margin-bottom:14px;">
     <label class="field-label">Body</label>
     <textarea class="field-textarea" id="outreach-body" style="min-height:180px;"></textarea>
     <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
-      <button class="btn btn-primary btn-sm" onclick="sendOutreachViaEmailClient()">✉️ Open in my email client</button>
+      <button class="btn btn-primary btn-sm" onclick="approveAndSendToPat()" id="outreach-approve-btn">✅ Approve &amp; Send to Pat</button>
+      <button class="btn btn-ghost btn-sm" onclick="sendOutreachViaEmailClient()">✉️ Open in my email client</button>
       <button class="btn btn-ghost btn-sm" onclick="copyOutreach()">📋 Copy</button>
       <button class="btn btn-ghost btn-sm" onclick="closeOutreachModal()">Close</button>
     </div>
+    <p style="font-size:11.5px;color:var(--text3);margin-top:10px;">
+      "Approve &amp; Send to Pat" queues this email for Pat, our email agent, to review and send with your business's tone and sender details — nothing sends until you act again in Pat.
+    </p>
   </div>
 </div>
 
@@ -542,13 +574,32 @@ function openArticle(localId) {
         <div><b>Target keyword:</b> ${escHtml(a.target_keyword || '')}</div>
         <div><b>Word count:</b> ${a.word_count || '?'}</div>
       </div>
-      <div class="article-body">${escHtml(a.body_markdown)}</div>
-      ${arr(a.faqs).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">FAQs</h3>` + arr(a.faqs).map(f => `<p style="margin-bottom:10px;"><b>${escHtml(f.question)}</b><br>${escHtml(f.answer)}</p>`).join('') : ''}
+      <div class="article-body">${articleBodyHtml(a)}</div>
       ${arr(a.internal_link_suggestions).length ? `<h3 style="margin-top:24px;margin-bottom:10px;font-size:16px;">Suggested internal links</h3><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${arr(a.internal_link_suggestions).map(s => `<li>${escHtml(s)}</li>`).join('')}</ul>` : ''}
-      <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="downloadArticle('${a._localId}')">⬇ Download Markdown</button>
+
+      <div class="publish-box">
+        <div class="publish-box-title">Publish to your site</div>
+        <p class="publish-box-note">
+          ${State.websiteUrl ? escHtml(State.websiteUrl.replace(/^https?:\/\//, '')) : 'Your site'} is a static HTML site, so there's no API to post to —
+          take the HTML and upload it (Cloudflare R2, S3, or straight into your repo).
+          The page below already contains the title, meta description, canonical URL and JSON-LD schema.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="downloadArticleHtml('${a._localId}')">⬇ Download HTML page</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyArticleHtml('${a._localId}')">📋 Copy HTML (body only)</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyAiPrompt('${a._localId}')">🤖 Copy AI prompt</button>
+        </div>
+        <p class="publish-box-note" style="margin-top:10px;margin-bottom:0;">
+          <b>Download HTML page</b> — complete file, upload as <code>${escHtml(a.slug || 'article')}.html</code>.
+          <b>Copy HTML</b> — just the article markup, to paste into your own template.
+          <b>AI prompt</b> — paste into ChatGPT, Claude or Gemini along with one of your existing pages, and it will rebuild this article in your site's exact style.
+        </p>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="downloadArticle('${a._localId}')">⬇ Markdown</button>
         <button class="btn btn-ghost btn-sm" onclick="copyArticle('${a._localId}')">📋 Copy Markdown</button>
-        <button class="btn btn-ghost btn-sm" onclick="downloadSchema('${a._localId}')">⬇ Download Schema Markup (JSON-LD)</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadSchema('${a._localId}')">⬇ Schema (JSON-LD)</button>
         <button class="btn btn-ghost btn-sm" onclick="markArticlePublished('${a._localId}')">${a.status === 'published_elsewhere' ? '✓ Marked published' : 'Mark as published'}</button>
       </div>
     </div>
@@ -558,6 +609,173 @@ function openArticle(localId) {
 function articleMarkdown(a) {
   return `# ${a.title}\n\n*Meta description: ${a.meta_description}*\n*Slug: /${a.slug}*\n\n${a.body_markdown}` +
     (arr(a.faqs).length ? `\n\n## FAQs\n\n` + arr(a.faqs).map(f => `**${f.question}**\n${f.answer}`).join('\n\n') : '');
+}
+
+// ── HTML export (for static sites — R2, S3, plain hosting) ────────────────
+// The article is generated as Markdown, which nothing on a static HTML site
+// can serve directly. These build real HTML: a body fragment to paste into an
+// existing template, or a complete standalone page to upload as-is.
+
+/** Render the Markdown body (+ FAQs) to an HTML fragment. */
+function articleBodyHtml(a) {
+  const md = window.marked
+    ? window.marked.parse(a.body_markdown || '')
+    // Fallback if marked failed to load: keep the text readable and safe
+    // rather than emitting raw Markdown into a page.
+    : `<pre style="white-space:pre-wrap;">${escHtml(a.body_markdown || '')}</pre>`;
+
+  const faqs = arr(a.faqs).length
+    ? `\n<section class="faq">\n  <h2>Frequently asked questions</h2>\n`
+      + arr(a.faqs).map(f =>
+          `  <div class="faq-item">\n    <h3>${escHtml(f.question)}</h3>\n    <p>${escHtml(f.answer)}</p>\n  </div>\n`
+        ).join('')
+      + `</section>\n`
+    : '';
+
+  return md + faqs;
+}
+
+/** Canonical URL for the article, derived from the analysed site. */
+function articleCanonical(a) {
+  const base = String(State.websiteUrl || '').replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/${String(a.slug || '').replace(/^\/+/, '')}`;
+}
+
+/** A complete, uploadable HTML document. */
+function articleStandaloneHtml(a) {
+  const canonical = articleCanonical(a);
+  const schema = a.schema_markup
+    ? `\n<script type="application/ld+json">\n${JSON.stringify(a.schema_markup, null, 2)}\n<\/script>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(a.title || '')}</title>
+<meta name="description" content="${escHtml(a.meta_description || '')}">
+${canonical ? `<link rel="canonical" href="${escHtml(canonical)}">` : ''}
+<meta property="og:type" content="article">
+<meta property="og:title" content="${escHtml(a.title || '')}">
+<meta property="og:description" content="${escHtml(a.meta_description || '')}">
+${canonical ? `<meta property="og:url" content="${escHtml(canonical)}">` : ''}
+<meta name="twitter:card" content="summary_large_image">${schema}
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    line-height: 1.7; max-width: 720px; margin: 0 auto; padding: 48px 20px;
+    color: #1a1a1a; background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #111; }
+    a { color: #7cc4ff; }
+  }
+  h1 { font-size: 2rem; line-height: 1.25; margin: 0 0 1rem; }
+  h2 { font-size: 1.4rem; margin: 2.5rem 0 .75rem; }
+  h3 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; }
+  p, li { margin: 0 0 1rem; }
+  ul, ol { padding-left: 1.4rem; }
+  img { max-width: 100%; height: auto; }
+  .faq { margin-top: 3rem; border-top: 1px solid rgba(128,128,128,.3); padding-top: 1.5rem; }
+  .faq-item { margin-bottom: 1.25rem; }
+  .faq-item h3 { margin-bottom: .25rem; }
+</style>
+</head>
+<body>
+<article>
+${articleBodyHtml(a)}
+</article>
+</body>
+</html>
+`;
+}
+
+function downloadArticleHtml(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  downloadBlob(articleStandaloneHtml(a), 'text/html', `${a.slug || 'article'}.html`);
+  flashBtn(event, 'Downloaded');
+}
+
+function copyArticleHtml(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  copyText(articleBodyHtml(a), event);
+}
+
+/**
+ * A prompt the user can paste into ChatGPT/Claude/Gemini to have it slot this
+ * article into their own site's existing template. Carries the real metadata
+ * and schema so the model doesn't invent any of it.
+ */
+function articleAiPrompt(a) {
+  const canonical = articleCanonical(a);
+  return `I need to publish the article below on my website${State.websiteUrl ? ` (${State.websiteUrl})` : ''}, which is a static HTML site.
+
+Please output a single complete, ready-to-upload HTML file that:
+1. Matches the structure and styling of my existing site pages — I'll paste one of my current pages next so you can copy its header, footer, nav and CSS classes. Ask me for it if I haven't included it.
+2. Keeps ALL of the SEO metadata below exactly as given — do not reword the title, meta description, or slug, and do not invent new ones.
+3. Includes the JSON-LD structured data verbatim in the <head>.
+4. Does not change the article's wording, headings, or factual claims.
+
+--- TITLE (use as <title> and the H1) ---
+${a.title || ''}
+
+--- META DESCRIPTION ---
+${a.meta_description || ''}
+
+--- SLUG (the file should be published at this path) ---
+/${a.slug || ''}
+${canonical ? `\n--- CANONICAL URL ---\n${canonical}\n` : ''}
+--- TARGET KEYWORD (already worked into the copy — don't add more) ---
+${a.target_keyword || ''}
+
+--- JSON-LD STRUCTURED DATA (include verbatim) ---
+${a.schema_markup ? JSON.stringify(a.schema_markup, null, 2) : '(none)'}
+
+--- ARTICLE BODY (Markdown — convert to HTML, keep wording identical) ---
+${a.body_markdown || ''}
+${arr(a.faqs).length ? `\n--- FAQ SECTION (render as an FAQ block) ---\n` + arr(a.faqs).map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') : ''}
+${arr(a.internal_link_suggestions).length ? `\n--- INTERNAL LINKS TO ADD ---\nAdd links for these where they fit naturally. I'll supply the real URLs:\n` + arr(a.internal_link_suggestions).map(s => `- ${s}`).join('\n') : ''}`;
+}
+
+function copyAiPrompt(localId) {
+  const a = State.articles.find(x => x._localId === localId);
+  if (!a) return;
+  copyText(articleAiPrompt(a), event);
+}
+
+// ── Small shared helpers ──────────────────────────────────────────────────
+function downloadBlob(content, mime, filename) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function flashBtn(ev, label) {
+  const btn = ev?.target;
+  if (!btn || !btn.tagName || btn.tagName !== 'BUTTON') return;
+  const original = btn.textContent;
+  btn.textContent = `✓ ${label}`;
+  setTimeout(() => { btn.textContent = original; }, 1600);
+}
+
+// Clipboard writes fail on insecure origins and when permission is denied —
+// tell the user instead of appearing to succeed.
+function copyText(text, ev) {
+  if (!navigator.clipboard?.writeText) {
+    alert('Your browser blocked clipboard access. Use the download button instead.');
+    return;
+  }
+  navigator.clipboard.writeText(text)
+    .then(() => flashBtn(ev, 'Copied'))
+    .catch(() => alert('Could not copy to clipboard. Use the download button instead.'));
 }
 function downloadArticle(localId) {
   const a = State.articles.find(x => x._localId === localId);
@@ -570,7 +788,8 @@ function downloadArticle(localId) {
 }
 function copyArticle(localId) {
   const a = State.articles.find(x => x._localId === localId);
-  navigator.clipboard?.writeText(articleMarkdown(a));
+  if (!a) return;
+  copyText(articleMarkdown(a), event);
 }
 function downloadSchema(localId) {
   const a = State.articles.find(x => x._localId === localId);
@@ -642,7 +861,10 @@ function renderProspects() {
       <div class="topic-info">
         <div class="topic-title">${escHtml(p.domain)} ${p.data_source === 'real' ? '<span class="real-badge">✓ Real backlink gap</span>' : '<span class="est-badge">Found via search</span>'}</div>
         <div class="topic-rationale">${escHtml(p.relevance_reason || '')}</div>
-        ${p.status && p.status !== 'found' ? `<div class="topic-meta"><span class="est-badge">${escHtml(p.status)}</span></div>` : ''}
+        <div class="topic-meta">
+          ${p.status && p.status !== 'found' ? `<span class="est-badge">${escHtml(p.status)}</span>` : ''}
+          ${p.contact_email ? `<span class="est-badge" title="${escHtml(p.contact_email)}">✉ ${escHtml(p.contact_email)}</span>` : `<span class="est-badge" style="opacity:0.6;">No contact email yet</span>`}
+        </div>
       </div>
       <button class="btn btn-primary btn-sm" onclick="draftOutreach('${p._localId}')">${p.status === 'drafted' || p.status === 'queued' ? 'Edit Draft' : 'Draft Outreach'}</button>
     </div>
@@ -659,7 +881,15 @@ async function draftOutreach(localId) {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
       const publishedArticle = State.articles.find(a => a.status === 'published_elsewhere') || State.articles[0];
-      const result = await postJSON('/api/seo-outreach-draft', { prospect: p, profile: State.profile, article: publishedArticle || null });
+      // Bakes the account's actual brand voice + sign-off into the draft at
+      // generation time, rather than leaving tone consistency to whoever
+      // reviews it downstream in Pat.
+      const brandVoice = window.IntelligenceEngine?.extractBrandVoice?.() || null;
+      const senderContext = window.IntelligenceEngine?.brain?.buildSenderContext?.() || '';
+      const result = await postJSON('/api/seo-outreach-draft', {
+        prospect: p, profile: State.profile, article: publishedArticle || null,
+        brandVoice, senderContext,
+      });
       p.outreach_subject = result.subject;
       p.outreach_body = result.body;
       p.status = 'drafted';
@@ -672,18 +902,75 @@ async function draftOutreach(localId) {
     }
   }
 
-  document.getElementById('outreach-modal-to').textContent = `To: ${p.domain}${p.page_url ? ' (' + p.page_url + ')' : ''} — review and edit before sending. Nothing sends automatically.`;
+  document.getElementById('outreach-modal-to').textContent = `${p.domain}${p.page_url ? ' — ' + p.page_url : ''} — review and edit before sending. Nothing sends automatically.`;
+  document.getElementById('outreach-to').value = p.contact_email || '';
   document.getElementById('outreach-subject').value = p.outreach_subject || '';
   document.getElementById('outreach-body').value = p.outreach_body || '';
+  document.getElementById('outreach-email-status').textContent = '';
   document.getElementById('outreach-modal').style.display = 'flex';
+
+  // The backlink search finds real, named sites — never a contact address.
+  // Look one up automatically the first time this prospect's draft is
+  // opened, so the user isn't stuck typing every address in by hand.
+  if (!p.contact_email) findEmailForModal(/* auto */ true);
 }
-function closeOutreachModal() {
+
+/** Reads the modal's current field values back into the prospect + persists. */
+function syncOutreachModalToProspect() {
   const p = State.prospects.find(x => x._localId === State.currentProspectId);
-  if (p) {
-    p.outreach_subject = document.getElementById('outreach-subject').value;
-    p.outreach_body = document.getElementById('outreach-body').value;
-    if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { outreach_subject: p.outreach_subject, outreach_body: p.outreach_body }).catch(() => {});
+  if (!p) return null;
+  p.contact_email = document.getElementById('outreach-to').value.trim();
+  p.outreach_subject = document.getElementById('outreach-subject').value;
+  p.outreach_body = document.getElementById('outreach-body').value;
+  if (p.id && window.SEOPipelineStore) {
+    SEOPipelineStore.updateProspect(p.id, {
+      contact_email: p.contact_email || null,
+      outreach_subject: p.outreach_subject, outreach_body: p.outreach_body,
+    }).catch(() => {});
   }
+  return p;
+}
+
+async function findEmailForModal(auto) {
+  const p = State.prospects.find(x => x._localId === State.currentProspectId);
+  if (!p) return;
+  const statusEl = document.getElementById('outreach-email-status');
+  const btn = document.getElementById('outreach-find-email-btn');
+  const toInput = document.getElementById('outreach-to');
+
+  statusEl.textContent = 'Looking for a contact email on their site…';
+  statusEl.style.color = 'var(--text3)';
+  if (btn) { btn.disabled = true; btn.textContent = '🔎 Finding…'; }
+
+  try {
+    const result = await postJSON('/api/seo-backlink-find-email', { domain: p.domain });
+    if (result.email) {
+      // Don't clobber something the user already typed in manually.
+      if (!toInput.value.trim() || (auto && toInput.value.trim() === (p.contact_email || ''))) {
+        toInput.value = result.email;
+      }
+      p.contact_email = toInput.value.trim();
+      if (p.id && window.SEOPipelineStore) SEOPipelineStore.updateProspect(p.id, { contact_email: p.contact_email }).catch(() => {});
+      statusEl.textContent = result.data_source === 'real'
+        ? `✓ Found on their site: ${result.email}`
+        : `Found via search (not confirmed on-site): ${result.email} — double-check before sending.`;
+      statusEl.style.color = result.data_source === 'real' ? 'var(--green, #10b981)' : 'var(--text2)';
+    } else {
+      statusEl.textContent = auto
+        ? 'Could not find a contact email automatically — enter one manually.'
+        : 'Still no email found — try their contact page manually, or enter one yourself.';
+      statusEl.style.color = 'var(--text3)';
+    }
+  } catch (err) {
+    statusEl.textContent = `Email lookup failed: ${err.message}`;
+    statusEl.style.color = '#f87171';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔎 Find email'; }
+  }
+}
+
+function closeOutreachModal() {
+  syncOutreachModalToProspect();
   document.getElementById('outreach-modal').style.display = 'none';
   renderProspects();
 }
@@ -691,13 +978,108 @@ function copyOutreach() {
   const text = `Subject: ${document.getElementById('outreach-subject').value}\n\n${document.getElementById('outreach-body').value}`;
   navigator.clipboard?.writeText(text);
 }
+/**
+ * Hands this outreach draft off to Pat (email-delivery-agent.html) to
+ * actually send. Queues into a shared localStorage handoff array rather
+ * than sending directly — the SEO agent drafts and the user reviews here,
+ * but Pat is the single place in this app that talks to Resend, so every
+ * send (bulk campaign or one-off outreach) goes through the same
+ * compliance/tone review path instead of a second bespoke send path.
+ */
+function approveAndSendToPat() {
+  const p = syncOutreachModalToProspect();
+  if (!p) return;
+
+  const subject = p.outreach_subject.trim();
+  const body = p.outreach_body.trim();
+  if (!subject || !body) { alert('Subject and body are required.'); return; }
+  if (!p.contact_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact_email)) {
+    alert('Enter a valid contact email in the "To" field before sending to Pat — use "Find email" to search for one automatically, or type it in yourself.');
+    return;
+  }
+
+  p.status = 'queued';
+  if (p.id && window.SEOPipelineStore) {
+    SEOPipelineStore.updateProspect(p.id, { status: 'queued' }).catch(() => {});
+  }
+
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem('pat_incoming_outreach') || '[]'); } catch { queue = []; }
+  if (!Array.isArray(queue)) queue = [];
+  // Replace any existing queued item for this same prospect rather than
+  // duplicating it, so re-approving an edit doesn't leave Pat with two.
+  queue = queue.filter(item => !(p.id && item.prospectId === p.id));
+  queue.push({
+    timestamp: Date.now(),
+    prospectId: p.id || null,
+    runId: State.runId || null,
+    domain: p.domain,
+    to: p.contact_email,
+    subject, body,
+    website: State.websiteUrl || '',
+  });
+  localStorage.setItem('pat_incoming_outreach', JSON.stringify(queue));
+
+  closeOutreachModal();
+  renderProspects();
+  openPatOutreachTab(queue.length);
+}
+
+// Named window target: window.open() reuses an existing tab/window opened
+// with this same name instead of stacking up a new one every time the user
+// approves another prospect. Navigating this tab away would lose the whole
+// SEO Content Engine run (State isn't persisted mid-edit — every topic,
+// article and prospect generated so far), so this always opens Pat in a
+// separate window rather than window.location.href.
+const PAT_TAB_NAME = 'audema_pat_tab';
+
+function openPatOutreachTab(queueLength) {
+  // A bare hash change doesn't reload an already-open tab at the same path,
+  // so a Pat tab left open from an earlier approval wouldn't notice the
+  // freshly-queued items — a cache-busting query param forces it to reload
+  // and pick up pat_incoming_outreach from localStorage again.
+  const url = `/agents/email-delivery-agent.html?t=${Date.now()}#backlinks`;
+
+  // window.open() must run synchronously inside the click handler — most
+  // browsers (Safari especially) drop the "trusted user gesture" a popup
+  // needs to open without being blocked the moment a blocking dialog like
+  // confirm()/alert() runs first, even one shown a line earlier in the same
+  // function. So this never gates the call behind a confirm() — it opens
+  // immediately, and only falls back to a clickable link if a popup
+  // blocker caught it anyway (window.open returns null/undefined in that case).
+  const win = window.open(url, PAT_TAB_NAME, 'noopener');
+
+  if (win) {
+    win.focus();
+    showOutreachToast(`Queued for Pat (${queueLength} email${queueLength === 1 ? '' : 's'} waiting there) — opened in a separate window.`);
+  } else {
+    showOutreachToast(`Queued for Pat (${queueLength} email${queueLength === 1 ? '' : 's'} waiting there). Your browser blocked the popup — <a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">click here to open Pat</a> in a new tab yourself.`);
+  }
+}
+
+/** Small non-blocking status banner — never use confirm()/alert() for this;
+ *  see the note in openPatOutreachTab() about why that breaks the popup. */
+function showOutreachToast(html) {
+  let el = document.getElementById('outreach-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'outreach-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;max-width:380px;background:var(--panel,#1a1a2e);border:1px solid var(--border,rgba(255,255,255,0.12));border-radius:12px;padding:14px 18px;font-size:13px;color:var(--text,#fff);box-shadow:0 8px 30px rgba(0,0,0,0.4);z-index:300;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 8000);
+}
+
 function sendOutreachViaEmailClient() {
   // mailto: opens the user's own email client with the draft pre-filled —
   // the user reviews, can edit further, and clicks send themselves. This
   // is deliberately NOT routed through any API that could send on its own.
-  const p = State.prospects.find(x => x._localId === State.currentProspectId);
-  const subject = encodeURIComponent(document.getElementById('outreach-subject').value);
-  const body = encodeURIComponent(document.getElementById('outreach-body').value);
+  const p = syncOutreachModalToProspect();
+  const subject = encodeURIComponent(p?.outreach_subject || '');
+  const body = encodeURIComponent(p?.outreach_body || '');
   const to = p?.contact_email || '';
   window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   if (p) {
@@ -718,6 +1100,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
+
+// Continuation from Scotty: after the SEO agent's mission task produces an
+// analysis, Scotty hands off here — the page that actually DOES the SEO
+// work (real competitor research, keyword discovery, a daily task plan,
+// full articles, real backlink prospecting) rather than stopping at a
+// one-off text summary. ?url= prefills the site to analyze; &auto=1 starts
+// the run immediately instead of waiting for another click.
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const url = params.get('url');
+  if (!url) return;
+
+  document.getElementById('url-input').value = url;
+  if (params.get('auto') === '1') {
+    document.getElementById('url-form').requestSubmit();
+  }
+});
 </script>
     <script src="/js/url-utils.js"></script>
 </body>

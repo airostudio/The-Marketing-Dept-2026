@@ -56,17 +56,23 @@ module.exports = async function handler(req, res) {
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
 
-  const { prospect, profile, article } = req.body || {};
+  const { prospect, profile, article, brandVoice, senderContext } = req.body || {};
   if (!prospect || !prospect.domain) return res.status(400).json({ error: 'prospect is required' });
   if (!profile) return res.status(400).json({ error: 'profile is required' });
 
-  const system = `You write short, genuinely personalized backlink-outreach emails — never generic spam templates. Reference the real, specific reason this prospect was identified. If a specific real article/resource is provided, offer it as the concrete value being shared — never invent a resource that doesn't exist. Never use manipulative or spammy language ("boost your rankings", "link exchange", "SEO opportunity"). This must read like a real person wrote it to a real person.`;
+  const voiceLines = [];
+  if (brandVoice?.tone?.length) voiceLines.push(`Voice/tone to write in: ${brandVoice.tone.join(', ')}`);
+  if (brandVoice?.avoid) voiceLines.push(`Never say: ${brandVoice.avoid}`);
+  if (brandVoice?.notLikeCompetitors) voiceLines.push(`Don't sound like: ${brandVoice.notLikeCompetitors}`);
+
+  const system = `You write short, genuinely personalized backlink-outreach emails — never generic spam templates. Reference the real, specific reason this prospect was identified. If a specific real article/resource is provided, offer it as the concrete value being shared — never invent a resource that doesn't exist. Never use manipulative or spammy language ("boost your rankings", "link exchange", "SEO opportunity"). This must read like a real person wrote it to a real person.${voiceLines.length ? `\n\nMatch this business's brand voice:\n${voiceLines.join('\n')}` : ''}`;
 
   const user = `PROSPECT: ${prospect.domain}${prospect.page_url ? ` (specifically: ${prospect.page_url})` : ''}
 WHY THIS PROSPECT: ${prospect.relevance_reason}
 
 MY BUSINESS: ${profile.business_summary}
 ${article ? `\nTHE SPECIFIC RESOURCE I'M OFFERING TO SHARE:\nTitle: ${article.title}\nWhat it covers: ${article.meta_description}` : '\n(No specific article to reference yet — write a lighter-touch email simply introducing genuine interest in their content/site, not asking for anything yet.)'}
+${senderContext ? `\n${senderContext}\nSign the email off using this identity.` : ''}
 
 Draft the outreach email.`;
 

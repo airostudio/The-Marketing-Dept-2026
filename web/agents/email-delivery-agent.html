@@ -144,6 +144,7 @@
 <div class="agent-tabs">
     <button class="agent-tab-btn active" id="tabbtn-email" onclick="switchPatTab('email')">✉️ Email Campaign</button>
     <button class="agent-tab-btn" id="tabbtn-social" onclick="switchPatTab('social')">📱 Social Posting</button>
+    <button class="agent-tab-btn" id="tabbtn-backlinks" onclick="switchPatTab('backlinks')">🔗 Backlink Outreach</button>
 </div>
 
 <div id="pat-tab-email" class="agent-tab-panel active">
@@ -253,16 +254,39 @@
 </div>
 </div>
 
+<div id="pat-tab-backlinks" class="agent-tab-panel">
+<div class="main-content">
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Backlink Outreach Queue</span>
+            <a class="btn-secondary" style="text-decoration:none;display:inline-block;" href="/seo/content-engine.html">← Back to SEO Content Engine</a>
+        </div>
+        <div class="panel-body">
+            <div class="field-hint" style="margin-bottom:16px;font-size:12px;color:var(--text3);">
+                One-off, individually personalized emails approved in the SEO Content Engine's backlink prospecting — each is reviewed by Scotty and sent on its own via Resend, the same as every other send in this app. Nothing here sends automatically.
+            </div>
+            <div id="backlink-queue-list">
+                <div class="empty-state">Nothing queued yet. Approve a backlink outreach draft in the SEO Content Engine, then come back here.</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
 <script src="../js/marked.min.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
 <script src="../js/social-posts-store.js"></script>
+<script src="../js/seo-pipeline-store.js"></script>
 <script src="../js/email-delivery-service.js"></script>
 <script>
     const EDA = (() => {
@@ -371,8 +395,16 @@
             if (!html) return alert('Email body is required.');
             if (recipients.length === 0) return alert('Add at least one recipient.');
 
+            // The server appends a compliance footer (opt-out language +
+            // physical address) to every send regardless — this just makes
+            // sure it uses this business's real details from Business Brain
+            // instead of falling back to whatever's set in env vars.
+            const sender = window.IntelligenceEngine?.brain?.getSenderIdentity?.() || {};
+            const companyName = window.IntelligenceEngine?.brain?.load?.()?.company?.name || '';
+
             campaign = window.EmailDeliveryService.collateCampaign({
                 campaignName: name, subject, html, text, replyTo, recipients,
+                companyName, mailingAddress: sender.mailingAddress || '',
             });
             campaign.segmentId = segmentRecipients ? segmentRecipients.segmentId : null;
 
@@ -588,6 +620,7 @@
         document.getElementById('pat-tab-' + name).classList.add('active');
         document.getElementById('tabbtn-' + name).classList.add('active');
         if (name === 'social') { loadConnectionStatus(); loadSocialPosts(); }
+        if (name === 'backlinks') { renderBacklinkQueue(); }
     }
 
     let selectedSocialPostIds = new Set();
@@ -708,12 +741,206 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // BACKLINK OUTREACH TAB — one-off personalized emails handed off from the
+    // SEO Content Engine's backlink prospecting, once the user approves each
+    // draft there. These are NOT a bulk campaign (each has its own single
+    // recipient and unique copy), so they go through /api/send-email.js
+    // (one send per email) rather than /api/send-campaign.js (batched sends
+    // to a shared template) — same Resend credentials, same daily budget,
+    // just the right shape of call for "email #7 of 7 different emails"
+    // instead of "email #7 of the same email to 7 people".
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let backlinkQueue = []; // [{ prospectId, runId, domain, to, subject, body, website, review, sent }]
+
+    /**
+     * Picks up outreach drafts approved in the SEO Content Engine (via its
+     * "Approve & Send to Pat" button) — same pattern as loadIncomingDraft()
+     * above, but an array since a backlink run can produce many separate
+     * approved emails at once, not one draft.
+     */
+    function loadIncomingOutreach() {
+        const raw = localStorage.getItem('pat_incoming_outreach');
+        if (!raw) return;
+        localStorage.removeItem('pat_incoming_outreach');
+
+        let items;
+        try { items = JSON.parse(raw); } catch (e) { return; }
+        if (!Array.isArray(items) || !items.length) return;
+
+        // An hour is generous on purpose — unlike the single-campaign draft
+        // handoff, a backlink list is often approved item-by-item over
+        // several minutes before the user comes to Pat to send them all.
+        const fresh = items.filter(it => Date.now() - (it.timestamp || 0) < 60 * 60 * 1000);
+        backlinkQueue = fresh.map(it => ({ ...it, review: null, sent: false }));
+    }
+
+    function escHtmlBacklink(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /** Plain text -> minimal HTML, since outreach bodies are drafted as plain text. */
+    function plainTextToHtml(text) {
+        return String(text || '')
+            .split(/\n{2,}/)
+            .map(para => `<p>${escHtmlBacklink(para).replace(/\n/g, '<br>')}</p>`)
+            .join('\n');
+    }
+
+    function renderBacklinkQueue() {
+        const el = document.getElementById('backlink-queue-list');
+        if (!backlinkQueue.length) {
+            el.innerHTML = '<div class="empty-state">Nothing queued yet. Approve a backlink outreach draft in the SEO Content Engine, then come back here.</div>';
+            return;
+        }
+
+        el.innerHTML = backlinkQueue.map((item, i) => `
+            <div class="panel" style="margin-bottom:14px;${item.sent ? 'opacity:0.6;' : ''}">
+                <div class="panel-header">
+                    <span class="panel-title">${escHtmlBacklink(item.domain)}${item.website ? ` <span style="font-weight:400;color:var(--text3);">— for ${escHtmlBacklink(item.website.replace(/^https?:\/\//, ''))}</span>` : ''}</span>
+                    ${item.sent ? '<span style="color:var(--green);font-size:12px;font-weight:600;">✓ Sent</span>' : ''}
+                </div>
+                <div class="panel-body">
+                    <div class="field-group">
+                        <label class="field-label">To</label>
+                        <input class="field-input" id="bl-to-${i}" value="${escHtmlBacklink(item.to)}" ${item.sent ? 'disabled' : ''} oninput="backlinkQueue[${i}].to = this.value">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Subject</label>
+                        <input class="field-input" id="bl-subject-${i}" value="${escHtmlBacklink(item.subject)}" ${item.sent ? 'disabled' : ''} oninput="backlinkQueue[${i}].subject = this.value">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Body</label>
+                        <textarea class="field-textarea" id="bl-body-${i}" style="min-height:140px;" ${item.sent ? 'disabled' : ''} oninput="backlinkQueue[${i}].body = this.value">${escHtmlBacklink(item.body)}</textarea>
+                    </div>
+                    <div id="bl-review-${i}"></div>
+                    ${!item.sent ? `
+                    <div class="btn-row">
+                        <button class="btn-secondary" onclick="reviewBacklinkItem(${i})">Review with Scotty</button>
+                        <button class="btn-run" id="bl-send-${i}" onclick="sendBacklinkItem(${i})">🚀 Send</button>
+                    </div>` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        // Auto-review every unsent item on render so a compliance check is
+        // visible before the user reaches for Send, without making it a
+        // hard blocker — this is a one-off personal email, not a bulk send.
+        backlinkQueue.forEach((item, i) => { if (!item.sent && !item.review) reviewBacklinkItem(i, true); });
+    }
+
+    async function reviewBacklinkItem(i, silent) {
+        const item = backlinkQueue[i];
+        if (!item) return;
+        const reviewEl = document.getElementById(`bl-review-${i}`);
+        if (!silent && reviewEl) reviewEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12.5px;padding:8px 0;"><span class="spinner"></span> Scotty is reviewing…</div>';
+
+        try {
+            const campaign = window.EmailDeliveryService.collateCampaign({
+                campaignName: item.domain, subject: item.subject, html: plainTextToHtml(item.body),
+                text: item.body, replyTo: '', recipients: [{ to: item.to }],
+            });
+            const review = await window.EmailDeliveryService.reviewWithScotty(campaign);
+            item.review = review;
+        } catch (e) {
+            item.review = { approved: true, blockers: [], warnings: [`Review failed (${e.message}) — proceed with care.`], summary: '' };
+        }
+        renderBacklinkReview(i);
+    }
+
+    function renderBacklinkReview(i) {
+        const item = backlinkQueue[i];
+        const el = document.getElementById(`bl-review-${i}`);
+        if (!el || !item.review) return;
+        const r = item.review;
+        const cls = r.approved ? 'approved' : 'blocked';
+        const icon = r.approved ? '✅' : '⚠️';
+        let html = `<div class="verdict-box ${cls}" style="margin:10px 0;">
+            <div class="verdict-title ${cls}">${icon} ${r.approved ? 'Scotty: looks good to send' : 'Scotty flagged issues'}</div>`;
+        if (r.summary) html += `<div class="verdict-summary">${escHtmlBacklink(r.summary)}</div>`;
+        if (r.blockers?.length) html += `<ul class="issue-list blockers">${r.blockers.map(b => `<li>🛑 ${escHtmlBacklink(b)}</li>`).join('')}</ul>`;
+        if (r.warnings?.length) html += `<ul class="issue-list warnings">${r.warnings.map(w => `<li>⚠️ ${escHtmlBacklink(w)}</li>`).join('')}</ul>`;
+        html += `</div>`;
+        el.innerHTML = html;
+    }
+
+    async function sendBacklinkItem(i) {
+        const item = backlinkQueue[i];
+        if (!item || item.sent) return;
+
+        if (!item.to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.to)) {
+            alert('Enter a valid recipient email address first.');
+            return;
+        }
+        if (!item.subject.trim() || !item.body.trim()) {
+            alert('Subject and body are required.');
+            return;
+        }
+        if (item.review && !item.review.approved) {
+            const proceed = confirm(
+                'Scotty flagged this email:\n\n' +
+                (item.review.blockers || []).join('\n') +
+                '\n\nSend anyway?'
+            );
+            if (!proceed) return;
+        }
+
+        const btn = document.getElementById(`bl-send-${i}`);
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sending…'; }
+
+        const sender = window.IntelligenceEngine?.brain?.getSenderIdentity?.() || {};
+
+        try {
+            const res = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: item.to, subject: item.subject,
+                    html: plainTextToHtml(item.body), text: item.body,
+                    replyTo: sender.email || undefined,
+                    // Server enforces a compliance footer (opt-out language
+                    // + physical address) on every send regardless — this
+                    // just makes sure it's THIS business's real details
+                    // rather than falling back to whatever's in env vars.
+                    companyName: window.IntelligenceEngine?.brain?.load?.()?.company?.name || undefined,
+                    mailingAddress: sender.mailingAddress || undefined,
+                    prospectId: item.prospectId || undefined,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.error || `Request failed (${res.status})`);
+
+            item.sent = true;
+            if (item.prospectId && window.SEOPipelineStore) {
+                window.SEOPipelineStore.updateProspect(item.prospectId, {
+                    status: 'sent', sent_at: new Date().toISOString(),
+                    outreach_subject: item.subject, outreach_body: item.body,
+                }).catch(e => console.warn('[Pat] Could not update prospect status back in the SEO pipeline:', e.message));
+            }
+            if (window.AgentHistory) {
+                window.AgentHistory.save({
+                    agentKey: 'email-delivery', taskType: 'Backlink Outreach Send',
+                    content: `Sent backlink outreach to ${item.domain} (${item.to}).`,
+                    topic: item.domain,
+                });
+            }
+            renderBacklinkQueue();
+        } catch (e) {
+            alert('Could not send: ' + e.message);
+            if (btn) { btn.disabled = false; btn.innerHTML = '🚀 Send'; }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => { if (window.SiteSwitcher) SiteSwitcher.mount(); });
 
     // Land straight on the Social Posting tab when arriving from Social
-    // Studio's "Push approved to Pat" link.
+    // Studio's "Push approved to Pat" link, or Backlink Outreach when
+    // arriving from the SEO Content Engine's "Approve & Send to Pat" link.
     document.addEventListener('DOMContentLoaded', () => {
+        loadIncomingOutreach();
         if (location.hash === '#social') switchPatTab('social');
+        if (location.hash === '#backlinks') switchPatTab('backlinks');
     });
 </script>
 </body>

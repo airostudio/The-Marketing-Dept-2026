@@ -10,6 +10,39 @@
     'use strict';
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // KNOWN-BENIGN SUPABASE-JS LOCK CONTENTION
+    // ═══════════════════════════════════════════════════════════════════════════
+    // "Acquiring an exclusive Navigator LockManager lock ... immediately
+    // failed" (and its sibling "... timed out") is supabase-js's own
+    // GoTrueClient coordinating session refresh across multiple browser
+    // tabs of this same site via the Web Locks API — normal, expected
+    // contention now that several features in this app deliberately open a
+    // second tab (Send to Pat, Continue SEO Content Engine, etc.). The tab
+    // that loses the race just skips that refresh tick; the session is
+    // unaffected either way.
+    //
+    // It still surfaces as "Uncaught (in promise)" because of how
+    // supabase-js registers onAuthStateChange internally: it fires
+    // _emitInitialSession() as a bare, un-awaited async IIFE with no
+    // try/catch around it, so a lock-contention rejection from THAT one
+    // specific path has nothing to catch it — every other internal call
+    // site in the SDK (notably the auto-refresh timer tick) already catches
+    // this same error class itself and logs it quietly.
+    //
+    // Filtering on error.isAcquireTimeout (set by the SDK's own base error
+    // class for both the "immediately failed" and "timed out" variants)
+    // rather than matching message text, so this keeps working across a
+    // vendored SDK update rather than silently stopping. Never swallows
+    // anything else — a genuine unrelated unhandled rejection still
+    // reaches the console exactly as before.
+    window.addEventListener('unhandledrejection', (event) => {
+        if (event?.reason?.isAcquireTimeout) {
+            console.debug('[supabase-client] Benign cross-tab session-lock contention (another tab already refreshing):', event.reason.message);
+            event.preventDefault();
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CONNECTION STATE MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -145,10 +178,17 @@
             });
 
             // Verify connection by getting session
-            const { error } = await supabaseClient.auth.getSession();
+            const { data: sessionData, error } = await supabaseClient.auth.getSession();
 
             if (error) {
                 throw error;
+            }
+
+            // If the SDK has no session of its own, adopt one that AuthModal
+            // established. See adoptExternalSession() for why this has to
+            // live here rather than in auth-modal.js.
+            if (!sessionData?.session) {
+                await adoptExternalSession();
             }
 
             // Setup auth state listener
@@ -181,7 +221,66 @@
             }
 
             setConnectionState(ConnectionState.ERROR, error.message);
+            // Retries exhausted — clear so a LATER getClient()/ready() call
+            // (e.g. the user retries an action, or a health check kicks in)
+            // can attempt a fresh init instead of being stuck forever
+            // behind a stale settled promise from this failed attempt.
+            initInFlight = null;
             return null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADOPT AN AUTHMODAL SESSION
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AuthModal (js/auth-modal.js) signs users in over Supabase's Auth REST
+    // API rather than through this SDK client, and stores the resulting
+    // tokens in localStorage under its own keys. It tries to hand them to
+    // this client on login — but index.html, the main login page, loads ONLY
+    // auth-modal.js: no supabase.min.js, no supabase-client.js. So at the
+    // moment of login `window.Supabase` doesn't exist and that handoff
+    // silently no-ops. The user is genuinely signed in, every AuthModal
+    // check agrees, and yet this client — which every Store module and
+    // feature page reads auth state from — has no session at all.
+    //
+    // Doing the adoption here instead means it happens on EVERY page that
+    // loads this file (i.e. every feature page), regardless of whether
+    // auth-modal.js is present, and regardless of which page login happened
+    // on. setSession() persists and auto-refreshes the tokens exactly like a
+    // session this client created itself.
+    async function adoptExternalSession() {
+        let accessToken, refreshToken;
+        try {
+            accessToken  = localStorage.getItem('access_token');
+            refreshToken = localStorage.getItem('refresh_token');
+        } catch { return false; }
+
+        // 'local_'-prefixed tokens come from AuthModal's offline/localStorage-only
+        // fallback auth — there's no real Supabase session behind them.
+        if (!accessToken || !refreshToken || accessToken.indexOf('local_') === 0) return false;
+
+        try {
+            const { error } = await supabaseClient.auth.setSession({
+                access_token:  accessToken,
+                refresh_token: refreshToken,
+            });
+            if (error) {
+                // Expired/invalid tokens: clear them so the app shows a clean
+                // signed-out state instead of retrying a dead session forever.
+                console.warn('[supabase-client] Could not adopt existing session:', error.message);
+                if (/expired|invalid|jwt/i.test(error.message || '')) {
+                    try {
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('refresh_token');
+                    } catch { /* ignore */ }
+                }
+                return false;
+            }
+            console.info('[supabase-client] Adopted existing AuthModal session into the SDK client.');
+            return true;
+        } catch (e) {
+            console.warn('[supabase-client] Session adoption failed:', e.message);
+            return false;
         }
     }
 
@@ -332,7 +431,19 @@
      * Get the Supabase client instance
      */
     function getClient() {
-        if (!supabaseClient && supabaseConfig.url && supabaseConfig.anonKey) {
+        // The !initInFlight check matters: without it, two callers invoking
+        // getClient() directly (not through ready(), which already
+        // correctly awaits a shared in-flight promise) in the same tick —
+        // before the first initSupabase() has resolved and set
+        // supabaseClient — would each see supabaseClient still null and
+        // each kick off their OWN initSupabase(), creating two independent
+        // GoTrueClient instances. Both configured with persistSession/
+        // autoRefreshToken against the identical storage key, both racing
+        // the browser's Web Locks API for it — that's what throws
+        // "Acquiring an exclusive Navigator LockManager lock ... immediately
+        // failed", as a standing conflict for as long as both instances
+        // exist, not a one-off race that resolves itself.
+        if (!supabaseClient && !initInFlight && supabaseConfig.url && supabaseConfig.anonKey) {
             initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
         }
         return supabaseClient;

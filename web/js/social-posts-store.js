@@ -49,11 +49,18 @@ window.SocialPostsStore = (function () {
   }
 
   /** Same scope resolution as BusinessBrainCloud.getScope(). */
+  // A project created while offline/signed-out gets a locally generated id
+  // ('local_<ts>_<rand>' — see project-service.js). It is not a database row,
+  // so using it as a scope sends a non-UUID into a uuid foreign-key column
+  // and the write fails with 'invalid input syntax for type uuid'. Treat it
+  // as no scope at all rather than poisoning every insert with it.
+  function isCloudId(id) { return !!id && !String(id).startsWith('local_'); }
+
   function getScope() {
     const profileId = localStorage.getItem('intel_active_profile');
-    if (profileId) return { intel_profile_id: profileId };
+    if (isCloudId(profileId)) return { intel_profile_id: profileId };
     const projectId = localStorage.getItem('seo-current-project');
-    if (projectId) return { project_id: projectId };
+    if (isCloudId(projectId)) return { project_id: projectId };
     return null;
   }
 
@@ -75,25 +82,42 @@ window.SocialPostsStore = (function () {
     const scope = getScope() || {};
     const batchId = genBatchId();
 
-    const rows = posts.map((p) => ({
-      user_id: userId,
-      project_id: scope.project_id || null,
-      intel_profile_id: scope.intel_profile_id || null,
-      batch_id: batchId,
-      source: p.source || 'organic',
-      platform: p.platform,
-      angle_type: p.angleType || null,
-      hook: p.hook || null,
-      headline: p.headline,
-      body: p.body || '',
-      cta: p.cta || null,
-      hashtags: p.hashtags || [],
-      proof_point: p.proofPoint || null,
-      urgency_line: p.urgencyLine || null,
-      visual_direction: p.visualDirection || null,
-      image_url: p.imageUrl || null,
-      metadata: p.metadata || {},
-    }));
+    // social_posts.source is DB-constrained to exactly 'organic' | 'ad'
+    // (an organic-vs-paid-ad classifier, not "which agent generated this").
+    // A caller passing anything else — an agent name, say — would otherwise
+    // fail the whole batch with a raw Postgres constraint-violation message
+    // ('new row for relation "social_posts" violates check constraint
+    // "social_posts_source_check"'). Normalize here so that's a stored fact
+    // in metadata instead of a hard failure, regardless of what any past or
+    // future caller passes.
+    const VALID_SOURCES = new Set(['organic', 'ad']);
+
+    const rows = posts.map((p) => {
+      const rawSource = p.source || 'organic';
+      const source = VALID_SOURCES.has(rawSource) ? rawSource : 'organic';
+      const metadata = { ...(p.metadata || {}) };
+      if (!VALID_SOURCES.has(rawSource) && !metadata.origin_agent) metadata.origin_agent = rawSource;
+
+      return {
+        user_id: userId,
+        project_id: scope.project_id || null,
+        intel_profile_id: scope.intel_profile_id || null,
+        batch_id: batchId,
+        source,
+        platform: p.platform,
+        angle_type: p.angleType || null,
+        hook: p.hook || null,
+        headline: p.headline,
+        body: p.body || '',
+        cta: p.cta || null,
+        hashtags: p.hashtags || [],
+        proof_point: p.proofPoint || null,
+        urgency_line: p.urgencyLine || null,
+        visual_direction: p.visualDirection || null,
+        image_url: p.imageUrl || null,
+        metadata,
+      };
+    });
 
     const { data, error } = await client.from('social_posts').insert(rows).select();
     if (error) throw new Error(error.message);

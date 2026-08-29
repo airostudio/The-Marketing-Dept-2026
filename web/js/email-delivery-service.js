@@ -38,7 +38,7 @@ const EmailDeliveryService = (() => {
    * @param {Array<{to:string, toName?:string, mergeFields?:Object}>} opts.recipients
    * @returns {Object} campaign
    */
-  function collateCampaign({ subject, html, text, replyTo, campaignName, recipients }) {
+  function collateCampaign({ subject, html, text, replyTo, campaignName, recipients, companyName, mailingAddress }) {
     const cleanSubject = (subject || '').trim();
     const cleanHtml     = (html || '').trim();
     const cleanRecipients = (recipients || [])
@@ -46,15 +46,21 @@ const EmailDeliveryService = (() => {
       .filter(r => r.to);
 
     return {
-      id:           'campaign_' + Math.random().toString(36).slice(2, 10),
-      campaignName: campaignName || cleanSubject || 'Untitled Campaign',
-      subject:      cleanSubject,
-      html:         cleanHtml,
-      text:         (text || '').trim(),
-      replyTo:      replyTo || '',
-      recipients:   cleanRecipients,
-      createdAt:    Date.now(),
-      status:       'draft', // draft -> reviewed -> approved | rejected -> sending -> sent
+      id:             'campaign_' + Math.random().toString(36).slice(2, 10),
+      campaignName:   campaignName || cleanSubject || 'Untitled Campaign',
+      subject:        cleanSubject,
+      html:           cleanHtml,
+      text:           (text || '').trim(),
+      replyTo:        replyTo || '',
+      // Passed through to /api/send-campaign.js, which appends a compliance
+      // footer (opt-out language + physical address) to every send that
+      // doesn't already have one — this is what makes it use this
+      // business's real details instead of falling back to env vars.
+      companyName:    companyName || '',
+      mailingAddress: mailingAddress || '',
+      recipients:     cleanRecipients,
+      createdAt:      Date.now(),
+      status:         'draft', // draft -> reviewed -> approved | rejected -> sending -> sent
     };
   }
 
@@ -141,10 +147,15 @@ ${campaign.html}
 
 ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
 
-    const result = await window.ClaudeService.callAgent({
+    // callAgent() is non-streaming: api/claude.js awaits the entire Anthropic
+    // completion before it can respond, so a slow Opus generation lives or
+    // dies against Vercel's 60s function ceiling with zero partial credit —
+    // this surfaced elsewhere in Scotty as a bare "API error 504" with no
+    // indication why. Streaming via the app's faster default model starts
+    // returning content immediately instead of waiting in the dark.
+    const result = await window.ClaudeService.streamResponse({
       systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
-      model: 'claude-opus-4-7',
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -186,12 +197,14 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subject:    campaign.subject,
-          html:       campaign.html,
-          text:       campaign.text || undefined,
-          replyTo:    campaign.replyTo || undefined,
-          campaignId: campaign.id,
-          recipients: batch,
+          subject:        campaign.subject,
+          html:           campaign.html,
+          text:           campaign.text || undefined,
+          replyTo:        campaign.replyTo || undefined,
+          companyName:    campaign.companyName || undefined,
+          mailingAddress: campaign.mailingAddress || undefined,
+          campaignId:     campaign.id,
+          recipients:     batch,
         }),
       });
 

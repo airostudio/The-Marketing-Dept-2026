@@ -41,12 +41,21 @@
         }
     }
 
+    // A project created while offline/signed-out gets a locally generated id
+    // ('local_<ts>_<rand>' — see project-service.js). It is not a database
+    // row, so passing it on as a scope sends a non-UUID into a uuid column
+    // and the write fails with 'invalid input syntax for type uuid'.
+    function _isCloudId(id) { return !!id && String(id).indexOf('local_') !== 0; }
+
     function _projectId() {
+        var id = null;
         if (window.ProjectService && window.ProjectService.getCurrentProjectSync) {
             var p = window.ProjectService.getCurrentProjectSync();
-            return p ? p.id : null;
+            id = p ? p.id : null;
+        } else {
+            id = localStorage.getItem('seo-current-project') || null;
         }
-        return localStorage.getItem('seo-current-project') || null;
+        return _isCloudId(id) ? id : null;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
