@@ -95,6 +95,23 @@
   .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: -2px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13.5px; }
+
+  .filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-right: 2px; }
+  .filter-chip { padding: 6px 12px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text2); display: inline-flex; align-items: center; gap: 6px; }
+  .filter-chip .fc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+  .filter-chip.active { color: var(--text); border-color: var(--accent); background: rgba(244,63,94,0.1); }
+  .filter-chip.active .fc-dot { background: var(--accent); }
+  .filter-newbiz-input { width: 46px; padding: 4px 6px; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; font-family: inherit; text-align: center; }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge-nosite { background: rgba(244,63,94,0.12); border: 1px solid rgba(244,63,94,0.35); color: #fb7185; }
+  .badge-outdated { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); color: #fbbf24; }
+  .badge-modern { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: #34d399; }
+  .badge-unreachable { background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
+  .badge-checking { background: rgba(148,163,184,0.1); border: 1px solid var(--border); color: var(--text3); }
+  .badge-newbiz { background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; margin-left: 4px; }
+  .status-reasons { font-size: 11px; color: var(--text3); margin-top: 3px; max-width: 220px; }
 </style>
 </head>
 <body>
@@ -182,14 +199,30 @@
       </div>
       <div class="toolbar-left">
         <button class="btn btn-ghost btn-sm" id="btn-load-more" style="display:none;">Load more results</button>
+        <button class="btn btn-ghost btn-sm" id="btn-check-sites">Check website health</button>
         <button class="btn btn-ghost btn-sm" id="btn-enrich">Find contact emails</button>
         <button class="btn btn-primary btn-sm" id="btn-export">⬇ Export spreadsheet (CSV)</button>
       </div>
     </div>
 
+    <div class="filter-bar">
+      <span class="filter-label">Target:</span>
+      <div class="filter-chip" data-filter="no_website"><span class="fc-dot"></span> No website</div>
+      <div class="filter-chip" data-filter="outdated"><span class="fc-dot"></span> Outdated website</div>
+      <div class="filter-chip" data-filter="unreachable"><span class="fc-dot"></span> Broken / unreachable</div>
+      <div class="filter-chip" data-filter="modern"><span class="fc-dot"></span> Modern website</div>
+      <div class="filter-chip" data-filter="new_business"><span class="fc-dot"></span> New business (≤ <span id="newbiz-threshold-label">5</span> reviews)</div>
+      <input type="number" class="filter-newbiz-input" id="in-newbiz-threshold" value="5" min="0" max="50" title="Review count cutoff for 'new business'">
+    </div>
+
     <div id="enrich-progress-wrap" style="display:none;">
       <div style="font-size:12.5px; color:var(--text2);"><span class="spinner"></span> <span id="enrich-progress-label">Finding contact emails…</span></div>
       <div class="progress-bar-track"><div class="progress-bar-fill" id="enrich-progress-fill" style="width:0%;"></div></div>
+    </div>
+
+    <div id="site-progress-wrap" style="display:none;">
+      <div style="font-size:12.5px; color:var(--text2);"><span class="spinner"></span> <span id="site-progress-label">Checking websites…</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="site-progress-fill" style="width:0%;"></div></div>
     </div>
 
     <div class="card" style="padding:0;">
@@ -201,6 +234,7 @@
               <th>Address</th>
               <th>Phone</th>
               <th>Website</th>
+              <th>Status</th>
               <th>Email</th>
               <th>Rating</th>
               <th>Maps</th>
@@ -243,6 +277,9 @@
     results: [],
     nextPageToken: null,
     enriching: false,
+    checkingSites: false,
+    activeFilters: new Set(),
+    newBizThreshold: 5,
   };
 
   function $(id) { return document.getElementById(id); }
@@ -382,7 +419,12 @@
       if (!res.ok || !data.success) throw new Error((data && data.error) || 'Search failed');
 
       var existing = new Set(state.results.map(function (r) { return r.placeId; }));
-      (data.results || []).forEach(function (r) { if (!existing.has(r.placeId)) state.results.push(r); });
+      (data.results || []).forEach(function (r) {
+        if (existing.has(r.placeId)) return;
+        r.siteStatus = r.website ? null : 'no_website'; // null = not checked yet
+        r.siteReasons = [];
+        state.results.push(r);
+      });
       state.nextPageToken = data.nextPageToken || null;
 
       renderTrail();
@@ -419,17 +461,52 @@
     return '<span class="email-pending">—</span>';
   }
 
-  function renderResults() {
-    $('results-count').textContent = state.results.length + ' business' + (state.results.length === 1 ? '' : 'es');
-    $('btn-load-more').style.display = state.nextPageToken ? 'inline-block' : 'none';
-    $('results-empty').style.display = state.results.length ? 'none' : 'block';
+  function isNewBusiness(r) {
+    return r.reviewCount != null && r.reviewCount <= state.newBizThreshold;
+  }
 
-    $('results-body').innerHTML = state.results.map(function (r, i) {
-      return '<tr data-idx="' + i + '">' +
+  function matchesFilters(r) {
+    if (!state.activeFilters.size) return true;
+    var hits = [];
+    if (state.activeFilters.has('no_website') && r.siteStatus === 'no_website') hits.push(true);
+    if (state.activeFilters.has('outdated') && r.siteStatus === 'outdated') hits.push(true);
+    if (state.activeFilters.has('unreachable') && r.siteStatus === 'unreachable') hits.push(true);
+    if (state.activeFilters.has('modern') && r.siteStatus === 'modern') hits.push(true);
+    if (state.activeFilters.has('new_business') && isNewBusiness(r)) hits.push(true);
+    return hits.length > 0;
+  }
+
+  function siteStatusCell(r) {
+    var badge = '';
+    if (r._siteLoading) badge = '<span class="badge badge-checking"><span class="spinner"></span> checking</span>';
+    else if (r.siteStatus === 'no_website') badge = '<span class="badge badge-nosite">No website</span>';
+    else if (r.siteStatus === 'outdated') badge = '<span class="badge badge-outdated">Outdated</span>';
+    else if (r.siteStatus === 'unreachable') badge = '<span class="badge badge-unreachable">Unreachable</span>';
+    else if (r.siteStatus === 'modern') badge = '<span class="badge badge-modern">Modern</span>';
+    else badge = '<span class="badge badge-checking">Not checked</span>';
+
+    var newBiz = isNewBusiness(r) ? '<span class="badge badge-newbiz">New biz</span>' : '';
+    var reasons = (r.siteReasons && r.siteReasons.length) ? '<div class="status-reasons">' + escapeHtml(r.siteReasons.join(' · ')) + '</div>' : '';
+    return badge + newBiz + reasons;
+  }
+
+  function renderResults() {
+    var visible = state.results.filter(matchesFilters);
+    var filtered = state.activeFilters.size > 0;
+    $('results-count').textContent = visible.length + (filtered ? ' of ' + state.results.length : '') + ' business' + (visible.length === 1 && !filtered ? '' : 'es');
+    $('btn-load-more').style.display = (!filtered && state.nextPageToken) ? 'inline-block' : 'none';
+    $('results-empty').style.display = visible.length ? 'none' : 'block';
+    $('results-empty').textContent = state.results.length && filtered
+      ? 'No businesses match the selected filters.'
+      : 'No results found for that sector in this area. Try a broader search term.';
+
+    $('results-body').innerHTML = visible.map(function (r) {
+      return '<tr>' +
         '<td><div class="cell-name">' + escapeHtml(r.name) + '</div><div class="cell-sub">' + escapeHtml((r.types || []).slice(0, 2).join(', ')) + '</div></td>' +
         '<td>' + escapeHtml(r.address) + '</td>' +
         '<td>' + escapeHtml(r.phone || '—') + '</td>' +
         '<td>' + (r.website ? '<a class="cell-link" href="' + escapeAttr(r.website) + '" target="_blank" rel="noopener">' + escapeHtml(hostOf(r.website)) + '</a>' : '—') + '</td>' +
+        '<td>' + siteStatusCell(r) + '</td>' +
         '<td class="cell-email">' + emailCell(r) + '</td>' +
         '<td>' + ratingLabel(r) + '</td>' +
         '<td>' + (r.mapsUrl ? '<a class="cell-link" href="' + escapeAttr(r.mapsUrl) + '" target="_blank" rel="noopener">Map ↗</a>' : '—') + '</td>' +
@@ -445,7 +522,11 @@
 
   $('btn-load-more').addEventListener('click', function () { runSearch(true); });
   $('btn-restart').addEventListener('click', function () {
-    state = { country: state.country, city: null, sector: '', results: [], nextPageToken: null, enriching: false };
+    state = {
+      country: state.country, city: null, sector: '', results: [], nextPageToken: null,
+      enriching: false, checkingSites: false, activeFilters: new Set(), newBizThreshold: state.newBizThreshold,
+    };
+    document.querySelectorAll('.filter-chip.active').forEach(function (c) { c.classList.remove('active'); });
     $('city-picked').innerHTML = ''; citySearch.value = ''; $('btn-city-next').disabled = true;
     $('in-sector').value = ''; $('btn-sector-run').disabled = true;
     goStep('step-city');
@@ -505,6 +586,79 @@
     $('enrich-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
   }
 
+  /* ─── Website-health check ────────────────────────────────────────── */
+
+  var SITE_CHECK_CONCURRENCY = 4;
+
+  $('btn-check-sites').addEventListener('click', function () { checkWebsites(); });
+
+  async function checkWebsites() {
+    if (state.checkingSites) return;
+    var targets = state.results.filter(function (r) { return r.website && r.siteStatus == null && !r._siteLoading; });
+    if (!targets.length) return;
+    state.checkingSites = true;
+    $('btn-check-sites').disabled = true;
+    $('site-progress-wrap').style.display = 'block';
+
+    var done = 0;
+    var total = targets.length;
+    updateSiteProgress(done, total);
+
+    var queue = targets.slice();
+    async function worker() {
+      while (queue.length) {
+        var r = queue.shift();
+        r._siteLoading = true;
+        renderResults();
+        try {
+          var res = await fetch('/api/blade-website-check', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website: r.website }),
+          });
+          var data = await res.json();
+          r.siteStatus = (data && data.status) || 'unreachable';
+          r.siteReasons = (data && data.reasons) || [];
+        } catch (e) {
+          r.siteStatus = 'unreachable';
+          r.siteReasons = [];
+        }
+        r._siteLoading = false;
+        done++;
+        updateSiteProgress(done, total);
+        renderResults();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(SITE_CHECK_CONCURRENCY, targets.length) }, worker));
+
+    state.checkingSites = false;
+    $('btn-check-sites').disabled = false;
+    $('site-progress-wrap').style.display = 'none';
+  }
+
+  function updateSiteProgress(done, total) {
+    $('site-progress-label').textContent = 'Checking websites… ' + done + ' / ' + total;
+    $('site-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+  }
+
+  /* ─── Filters ─────────────────────────────────────────────────────── */
+
+  document.querySelectorAll('.filter-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var key = chip.dataset.filter;
+      if (state.activeFilters.has(key)) state.activeFilters.delete(key);
+      else state.activeFilters.add(key);
+      chip.classList.toggle('active', state.activeFilters.has(key));
+      renderResults();
+    });
+  });
+
+  $('in-newbiz-threshold').addEventListener('input', function () {
+    var v = parseInt($('in-newbiz-threshold').value, 10);
+    state.newBizThreshold = isNaN(v) ? 0 : v;
+    $('newbiz-threshold-label').textContent = state.newBizThreshold;
+    renderResults();
+  });
+
   /* ─── Export ──────────────────────────────────────────────────────── */
 
   $('btn-export').addEventListener('click', function () { exportCsv(); });
@@ -516,10 +670,13 @@
   }
 
   function exportCsv() {
-    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'City', 'Country', 'Google Maps URL'];
-    var rows = state.results.map(function (r) {
+    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Website Status', 'Website Issues', 'New Business', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'City', 'Country', 'Google Maps URL'];
+    var rows = state.results.filter(matchesFilters).map(function (r) {
       return [
-        r.name, r.address, r.phone, r.website, r.email || '', r.emailSource || '',
+        r.name, r.address, r.phone, r.website,
+        r.siteStatus === 'no_website' ? 'No website' : (r.siteStatus || 'Not checked'),
+        (r.siteReasons || []).join('; '), isNewBusiness(r) ? 'Yes' : 'No',
+        r.email || '', r.emailSource || '',
         r.rating != null ? r.rating : '', r.reviewCount != null ? r.reviewCount : '',
         r.businessStatus || '', state.sector, state.city ? state.city.description : '',
         state.country ? state.country.name : '', r.mapsUrl || '',
