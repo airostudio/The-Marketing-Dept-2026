@@ -11,6 +11,7 @@
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
 <script src="/js/intelligence-engine.js"></script>
+<script src="/js/contacts-store.js"></script>
 <script src="/js/site-switcher.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -201,6 +202,7 @@
         <button class="btn btn-ghost btn-sm" id="btn-load-more" style="display:none;">Load more results</button>
         <button class="btn btn-ghost btn-sm" id="btn-check-sites">Check website health</button>
         <button class="btn btn-ghost btn-sm" id="btn-enrich">Find contact emails</button>
+        <button class="btn btn-ghost btn-sm" id="btn-send-marketing">📬 Send leads to Beeker</button>
         <button class="btn btn-primary btn-sm" id="btn-export">⬇ Export spreadsheet (CSV)</button>
       </div>
     </div>
@@ -659,6 +661,81 @@
     renderResults();
   });
 
+  /* ─── Send leads to Beeker (Audience Manager) → Pat ─────────────────── */
+
+  const BLADE_MARKETING_TAG = 'blade-lead';
+
+  $('btn-send-marketing').addEventListener('click', function () { sendLeadsToMarketing(); });
+
+  async function sendLeadsToMarketing() {
+    if (!window.ContactsStore) {
+      alert('Audience Manager is unavailable right now — try reloading the page.');
+      return;
+    }
+    const visible = state.results.filter(matchesFilters);
+    const withEmail = visible.filter(function (r) { return r.email; });
+    if (!visible.length) return;
+    if (!withEmail.length) {
+      alert('None of the ' + visible.length + ' visible business(es) have a contact email yet. Click "Find contact emails" first, then try again.');
+      return;
+    }
+
+    const searchTag = ((state.sector || '') + '-' + (state.city ? state.city.description : ''))
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const segmentName = 'Blade: ' + state.sector + ' in ' + (state.city ? state.city.description : '');
+
+    const rows = withEmail.map(function (r) {
+      return {
+        email: r.email,
+        company: r.name || undefined,
+        tags: [BLADE_MARKETING_TAG, 'blade-' + searchTag],
+        customFields: {
+          address: r.address || '', phone: r.phone || '', website: r.website || '',
+          rating: r.rating != null ? r.rating : '', mapsUrl: r.mapsUrl || '',
+          websiteStatus: r.siteStatus || '',
+        },
+        source: 'blade-agent',
+      };
+    });
+
+    let result;
+    try {
+      result = await window.ContactsStore.upsertContacts(rows, { consentSource: 'Google Maps business listing — verify opt-in/legitimate-interest basis before marketing email' });
+    } catch (e) {
+      alert('Could not send to Audience Manager: ' + e.message);
+      return;
+    }
+
+    let segmentId = null;
+    try {
+      const segments = await window.ContactsStore.listSegments();
+      const existing = segments.find(function (s) { return s.name === segmentName; });
+      if (existing) {
+        segmentId = existing.id;
+      } else {
+        const created = await window.ContactsStore.createSegment({
+          name: segmentName,
+          description: 'Leads scraped from Google Maps by Blade — auto-tagged, excludes anyone unsubscribed.',
+          memberMode: 'dynamic',
+          filterRules: { tagsAny: ['blade-' + searchTag], status: 'subscribed' },
+        });
+        segmentId = created.id;
+      }
+    } catch (e) {
+      console.warn('[Blade -> Marketing] segment creation failed:', e.message);
+    }
+
+    const skippedNote = (visible.length - withEmail.length) ? ' (' + (visible.length - withEmail.length) + ' skipped — no email found)' : '';
+    const summary = result.imported + ' added, ' + result.updated + ' updated in Audience Manager' + skippedNote + '.';
+
+    if (segmentId && confirm(summary + '\n\n"' + segmentName + '" is ready in Audience Manager. Open Pat now to build and send a campaign to this segment?')) {
+      if (window.PatHandoff) window.PatHandoff.sendSegment(segmentId, { sameTab: true });
+      else window.location.href = '/agents/email-delivery-agent.html?segment=' + segmentId;
+    } else {
+      alert(summary);
+    }
+  }
+
   /* ─── Export ──────────────────────────────────────────────────────── */
 
   $('btn-export').addEventListener('click', function () { exportCsv(); });
@@ -697,5 +774,8 @@
 
 })();
 </script>
+<script src="/js/pat-handoff.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

@@ -291,7 +291,7 @@
             <div class="discover-form">
                 <div>
                     <label>What are you looking for?</label>
-                    <input id="disc-query" type="text" placeholder="e.g. plumbers in London without a website" />
+                    <input id="disc-query" type="text" data-scotty-intake="primary" placeholder="e.g. plumbers in London without a website" />
                 </div>
                 <div>
                     <label>Industry</label>
@@ -1975,27 +1975,12 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-// ── SCOTTY DISPATCH ────────────────────────────────────────────────────────────
-function checkScottyDispatch() {
-    try {
-        const dispatch = JSON.parse(localStorage.getItem('scotty_dispatch') || 'null');
-        if (dispatch?.agent === 'chase') {
-            localStorage.removeItem('scotty_dispatch');
-            if (dispatch.query) document.getElementById('disc-query').value = dispatch.query;
-            if (dispatch.location) document.getElementById('disc-location').value = dispatch.location;
-            if (dispatch.industry) document.getElementById('disc-industry').value = dispatch.industry;
-            setTimeout(runDiscover, 600);
-        }
-    } catch(e) {}
-}
-
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     if (window.SiteSwitcher) SiteSwitcher.mount();
     renderPipe();
     populateProspectSelect();
     prefillOfferFields();
-    checkScottyDispatch();
 
     ['disc-web-filter','disc-score-filter','disc-sort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
@@ -2009,5 +1994,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
     <script src="/js/url-utils.js"></script>
+<script src="/js/scotty-intake.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

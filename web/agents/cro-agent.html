@@ -775,7 +775,10 @@ Deliver a complete CRO analysis following the 7-section framework in your system
                 <td style="text-align:center;padding:4px;"><input type="number" min="1" max="10" value="${t.confidence}" style="width:38px;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#e2e8f0;font-size:12px;padding:3px;" onchange="updateIce(${t.id},'confidence',this.value)"></td>
                 <td style="text-align:center;padding:4px;"><input type="number" min="1" max="10" value="${t.ease}" style="width:38px;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:5px;color:#e2e8f0;font-size:12px;padding:3px;" onchange="updateIce(${t.id},'ease',this.value)"></td>
                 <td style="text-align:center;padding:7px 4px;font-weight:800;color:${scoreColor};font-size:14px;">${score}</td>
-                <td style="padding:4px;"><button onclick="removeIce(${t.id})" style="background:none;border:none;color:rgba(255,255,255,0.25);cursor:pointer;font-size:14px;padding:2px 6px;">×</button></td>
+                <td style="padding:4px;white-space:nowrap;">
+                    <button onclick="turnIceIntoMission(${t.id})" title="Send this test idea to Scotty to plan out and run" style="background:none;border:1px solid rgba(124,58,237,0.35);color:#a78bfa;border-radius:6px;cursor:pointer;font-size:11px;padding:3px 7px;margin-right:4px;">🚀 Mission</button>
+                    <button onclick="removeIce(${t.id})" style="background:none;border:none;color:rgba(255,255,255,0.25);cursor:pointer;font-size:14px;padding:2px 6px;">×</button>
+                </td>
             </tr>`;
         }).join('');
     }
@@ -793,6 +796,16 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     };
     window.removeIce = function(id) {
         iceTests = iceTests.filter(t => t.id !== id); saveIce(); renderIce();
+    };
+    // Previously a dead end — an ICE-scored idea just sat in this page's own
+    // localStorage backlog with no path into an actual campaign. Reuses the
+    // existing Scotty mission pipeline (rather than inventing a second
+    // planner) by handing the idea over as a goal for Scotty to break down.
+    window.turnIceIntoMission = function(id) {
+        const t = iceTests.find(t => t.id === id);
+        if (!t) return;
+        const goal = `Run a CRO test: "${t.name}". Plan and execute what's needed to ship this test and get it in front of the right audience.`;
+        window.location.href = '/scotty.html?goal=' + encodeURIComponent(goal);
     };
 
     // ── REVENUE IMPACT MODELER ───────────────────────────────────────────
@@ -1028,5 +1041,7 @@ Deliver a complete CRO analysis following the 7-section framework in your system
 
     refreshExperiments();
 </script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

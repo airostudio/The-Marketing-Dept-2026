@@ -690,12 +690,14 @@ function sendToPat() {
         subject: guessedSubject || product || emailType,
         html: typeof marked !== 'undefined' ? marked.parse(rawText) : `<pre>${rawText}</pre>`,
         text: rawText,
-        timestamp: Date.now(),
     };
 
-    localStorage.setItem('pat_incoming_draft', JSON.stringify(payload));
-    window.location.href = '/agents/email-delivery-agent.html';
+    if (window.PatHandoff) window.PatHandoff.sendDraft(payload, { sameTab: true });
+    else { localStorage.setItem('pat_incoming_draft', JSON.stringify({ ...payload, timestamp: Date.now() })); window.location.href = '/agents/email-delivery-agent.html'; }
 }
 </script>
+<script src="/js/pat-handoff.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>

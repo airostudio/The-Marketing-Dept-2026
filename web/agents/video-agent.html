@@ -1196,6 +1196,7 @@ Format as a proper production script with clear section headers and timestamps.`
                         <span class="video-status-badge ${item.status}">${item.status}</span>
                         <div class="video-card-actions">
                             ${item.status === 'succeeded' && item.videoUrl ? `<button onclick="window.open('${item.videoUrl}','_blank')">Download</button>` : ''}
+                            ${item.status === 'succeeded' && item.videoUrl ? `<button onclick="addVideoToSocialPost('${item.id}')">📱 Add to social post</button>` : ''}
                             <button onclick="deleteVideoGenRecord('${item.id}')">Delete</button>
                         </div>
                     </div>
@@ -1210,6 +1211,32 @@ Format as a proper production script with clear section headers and timestamps.`
         renderGallery();
     }
 
+    // Previously a dead end — the finished video's only exit was a raw
+    // download link. This feeds it into SocialPostsStore as a pending_review
+    // row (same shape Nancy/Pulse already write), so it flows into Pulse's
+    // review queue and from there into Pat's Social tab like any other post.
+    async function addVideoToSocialPost(id) {
+        const item = window.VideoGenStore.list().find(v => v.id === id);
+        if (!item || !item.videoUrl) return;
+        if (!window.SocialPostsStore) { alert('Social Studio is unavailable right now — try reloading the page.'); return; }
+
+        const platform = prompt('Post this video to which platform? (e.g. instagram, tiktok, linkedin, facebook)', 'instagram');
+        if (!platform) return;
+
+        try {
+            await window.SocialPostsStore.createBatch([{
+                platform: platform.trim().toLowerCase(),
+                headline: (item.prompt || 'AI-generated video').slice(0, 120),
+                body: item.prompt || '',
+                imageUrl: item.videoUrl,
+                metadata: { origin_agent: 'video', videoGenId: item.id, thumbnailUrl: item.thumbnailUrl || null },
+            }]);
+            alert('Added to Pulse\'s review queue — approve it there to send it on to Pat.');
+        } catch (e) {
+            alert('Could not add to Social Studio: ' + e.message);
+        }
+    }
+
     // Resume polling any generations still in-flight from a previous page load
     (function resumeInFlightGenerations() {
         window.VideoGenStore.list()
@@ -1221,5 +1248,10 @@ Format as a proper production script with clear section headers and timestamps.`
     consumeScriptHandoff();
 </script>
     <script src="/js/url-utils.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/social-posts-store.js"></script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
 </body>
 </html>
