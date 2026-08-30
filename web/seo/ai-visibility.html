@@ -169,7 +169,7 @@
     <button class="btn btn-ghost btn-sm" onclick="addCustomQuestion()" style="margin-bottom:16px;">+ Add your own question</button>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-ghost" onclick="showStep('step-setup')">← Back</button>
-      <button class="btn btn-primary" id="btn-check-visibility" style="flex:1;" onclick="checkVisibility()">Check my AI visibility →</button>
+      <button class="btn btn-primary" id="btn-check-visibility" style="flex:1;" onclick="runVisibilityCheck()">Check my AI visibility →</button>
     </div>
   </div>
 
@@ -337,7 +337,13 @@ function addCustomQuestion() {
 // Perplexity's real API, not because /api/perplexity itself limits it.
 const CONCURRENCY = 3;
 
-async function checkVisibility() {
+// Named runVisibilityCheck, not checkVisibility — every DOM Element has a
+// native, built-in Element.prototype.checkVisibility() method (Chrome 105+).
+// An inline onclick="checkVisibility()" attribute is scoped through the
+// clicked element itself, so that bare identifier silently resolved to the
+// button's own inherited native method instead of this function — no error,
+// no console output, the button just visibly "did nothing".
+async function runVisibilityCheck() {
   const selected = State.questions.filter(q => q.included && q.question.trim());
   if (!selected.length) { alert('Select at least one question to check.'); return; }
 

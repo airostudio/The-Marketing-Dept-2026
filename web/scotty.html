@@ -1582,7 +1582,6 @@
             font-size: 12px;
             line-height: 1.7;
             color: #94a3b8;
-            white-space: pre-wrap;
             max-height: 320px;
             overflow-y: auto;
         }
@@ -1593,6 +1592,40 @@
             font-size: 12px;
             margin: 8px 0 4px;
         }
+
+        /* Real markdown structure (marked.parse output) for research/task
+           results — was previously all flattened to <br>-joined plain text,
+           so lists/tables/links had no visible structure at all. Shared by
+           .task-result (mission tasks) and .auto-step-result (automation
+           steps) — both render the same marked.parse() HTML. */
+        .task-result p, .auto-step-result p { margin: 0 0 10px; }
+        .task-result p:last-child, .auto-step-result p:last-child { margin-bottom: 0; }
+        .task-result ul, .task-result ol, .auto-step-result ul, .auto-step-result ol {
+            margin: 0 0 10px; padding-left: 20px;
+        }
+        .task-result li, .auto-step-result li { margin-bottom: 4px; }
+        .task-result li > ul, .task-result li > ol, .auto-step-result li > ul, .auto-step-result li > ol {
+            margin-top: 4px; margin-bottom: 0;
+        }
+        .task-result a, .auto-step-result a { color: #a78bfa; }
+        .task-result code, .auto-step-result code {
+            background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11.5px;
+        }
+        .task-result pre, .auto-step-result pre {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; overflow-x: auto;
+        }
+        .task-result pre code, .auto-step-result pre code { background: none; padding: 0; }
+        .task-result blockquote, .auto-step-result blockquote {
+            border-left: 2px solid rgba(167,139,250,0.4); margin: 0 0 10px; padding-left: 12px; color: #a1a1aa;
+        }
+        .task-result table, .auto-step-result table {
+            width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 11.5px;
+        }
+        .task-result th, .task-result td, .auto-step-result th, .auto-step-result td {
+            border: 1px solid rgba(255,255,255,0.1); padding: 6px 8px; text-align: left;
+        }
+        .task-result th, .auto-step-result th { color: #e2e8f0; background: rgba(255,255,255,0.04); }
         /* ── Live progress lines while a mission/automation plan is being
                generated (see generateMissionPlan()/assessAndPlanAutomation()'s
                onProgress callbacks in scotty-orchestrator.js) ─── */
@@ -3919,7 +3952,20 @@ class ScottyChat {
         return report;
     }
 
+    // Was a hand-rolled regex converter that never handled real markdown
+    // structure — bullet/numbered lists, tables, links all just fell through
+    // to a flat <br>-joined blob of text. That's what every mission task's
+    // "research output" was rendered with (this is called on every streamed
+    // chunk for task/automation results), so a research step that came back
+    // as a bulleted list of findings displayed as one run-on paragraph —
+    // not remotely "ready to use" on any platform. Delegates to the same
+    // marked.parse() the main chat bubble already uses (_renderMarkdown),
+    // so task/automation results get real HTML structure too, with the
+    // regex version kept only as a fallback if marked failed to load.
     _renderMarkdownSimple(text) {
+        if (window.marked) {
+            try { return window.marked.parse(text, { breaks: true, gfm: true }); } catch (e) { /* fall through */ }
+        }
         const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return esc
             .replace(/^#{1,3} (.+)$/gm, '<strong style="color:#c4b5fd">$1</strong>')
