@@ -4642,14 +4642,27 @@ window.addEventListener('DOMContentLoaded', () => {
     AgentAudit.init();
 
     // A goal handed off from another agent page (e.g. Lift's "Turn into a
-    // Mission" on a CRO test idea) — prefilled, not auto-sent, so the user
-    // still explicitly reviews/starts it themselves.
-    const goal = new URLSearchParams(window.location.search).get('goal');
+    // Mission" on a CRO test idea, or AI Visibility Finder's "Fix this with
+    // Scotty"). Default is prefilled-not-sent, so the user still explicitly
+    // reviews/starts it themselves. &mission=1 skips straight to mission
+    // planning instead — used when the goal was built programmatically from
+    // real data (not free-typed), so there's nothing to review-before-typing
+    // and gating it behind isOrchestrationIntent()'s keyword match would
+    // just be an unreliable extra step for a goal string that was never
+    // guaranteed to contain one of those keywords in the first place.
+    const params = new URLSearchParams(window.location.search);
+    const goal = params.get('goal');
+    const autoMission = params.get('mission') === '1';
     if (goal && window.scottyChat.inputEl) {
-        window.scottyChat.inputEl.value = goal;
-        window.scottyChat.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        window.scottyChat.inputEl.focus();
         window.history.replaceState({}, '', '/scotty.html');
+        if (autoMission) {
+            window.scottyChat._appendUserMessage(goal);
+            window.scottyChat._runOrchestration(goal);
+        } else {
+            window.scottyChat.inputEl.value = goal;
+            window.scottyChat.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            window.scottyChat.inputEl.focus();
+        }
     }
 });
 </script>

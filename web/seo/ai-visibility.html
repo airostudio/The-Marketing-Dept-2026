@@ -195,6 +195,12 @@
       <div id="why-content"><div class="empty-state"><span class="spinner"></span> Analyzing your real results…</div></div>
     </div>
 
+    <div class="card" id="fix-card" style="display:none;border-color:rgba(168,85,247,0.4);background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.04));">
+      <div class="section-title">Turn this into action</div>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:14px;">A score isn't the finish line — this hands the real work off to Scotty, who plans out and runs the actual content, SEO, and citation work needed to get you showing up, ending with something ready to ship, not just more advice to read.</p>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;" onclick="fixWithScotty()">🚀 Fix my AI visibility with Scotty →</button>
+    </div>
+
     <div style="margin-top: 24px;">
       <div class="section-title">Every question, in full</div>
       <div id="full-results"></div>
@@ -214,6 +220,7 @@ const State = {
   profile: null,      // { businessSummary, productsServices, targetCustomer, industry, competitors, domain }
   questions: [],       // [{ _id, question, category, why, included }]
   results: [],          // [{ question, category, cited, domains, error }]
+  lastExplain: null,    // { summary, topDomains, recommendations } from /api/ai-visibility-explain, once loaded
 };
 
 const HISTORY_KEY = 'seo_ai_visibility_history';
@@ -428,6 +435,11 @@ async function showResults() {
 
   saveToHistory(pct, citedCount, total);
 
+  // The score/citation data alone is enough to hand off to Scotty even if
+  // the AI-grounded "why" call below fails — don't make the whole next-step
+  // action depend on a second API call succeeding.
+  document.getElementById('fix-card').style.display = 'block';
+
   const whyEl = document.getElementById('why-content');
   try {
     const result = await postJSON('/api/ai-visibility-explain', {
@@ -435,6 +447,7 @@ async function showResults() {
       domain: State.profile.domain,
       results: State.results,
     });
+    State.lastExplain = result;
     whyEl.innerHTML = `
       <p style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:16px;">${escHtml(result.summary)}</p>
       ${result.topDomains?.length ? `
@@ -445,8 +458,33 @@ async function showResults() {
       <ul class="rec-list">${(result.recommendations || []).map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>
     `;
   } catch (err) {
+    State.lastExplain = null;
     whyEl.innerHTML = `<div class="empty-state">Could not generate the analysis: ${escHtml(err.message)} — the per-question results above are still real and accurate.</div>`;
   }
+}
+
+// ── Step 4 -> Scotty: hand the findings off as a mission instead of
+// leaving the user with a page of advice and no way to act on it ─────────
+function buildScottyVisibilityGoal() {
+  const domain = State.profile.domain;
+  const pct = document.getElementById('score-pct').textContent;
+  const citedCount = State.results.filter(r => r.cited).length;
+  const total = State.results.length;
+  const explain = State.lastExplain;
+  const winners = (explain?.topDomains || []).map(d => d.domain).slice(0, 3);
+  const recs = (explain?.recommendations || []).slice(0, 5);
+  const missedQuestions = State.results.filter(r => !r.cited && !r.error).map(r => r.question).slice(0, 5);
+
+  let goal = `Improve AI search visibility for ${domain} — real live searches show it's only cited in ${citedCount} of ${total} (${pct}) of the buyer questions AI assistants get asked about this business.`;
+  if (winners.length) goal += ` Competitors currently winning those citations instead: ${winners.join(', ')}.`;
+  if (missedQuestions.length) goal += ` Specific questions where ${domain} is not being cited: "${missedQuestions.join('"; "')}".`;
+  if (recs.length) goal += ` Recommended fixes from the analysis: ${recs.join('; ')}.`;
+  goal += ` Plan and produce the real content/SEO/citation work needed to close this gap — not more advice, actual deliverables ready to publish or send.`;
+  return goal;
+}
+
+function fixWithScotty() {
+  window.location.href = '/scotty.html?mission=1&goal=' + encodeURIComponent(buildScottyVisibilityGoal());
 }
 
 function saveToHistory(pct, citedCount, total) {
