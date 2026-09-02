@@ -884,6 +884,7 @@ function renderProspects() {
                 ${p.placesRating ? `⭐ ${p.placesRating} (${p.placesReviews||0} reviews) &nbsp;` : ''}
                 ${emailsHtml || '<span class="enrichment-meta">No emails found</span>'}
                 ${socialsHtml ? `<br><span style="color:var(--text2)">Profiles:</span> ${socialsHtml}` : ''}
+                ${p.websiteStatusCorrected ? `<br><span style="color:var(--green);font-weight:600;">✓ Correction: actually has a website</span> <span style="color:var(--text2);font-size:11px;">— found via ${escHtml(p.websiteCorrectionSource||'research')}${p.websiteDataSource==='estimate'?' (unconfirmed, verify before pitching)':''}</span>` : ''}
             </div>`;
         }
 
@@ -959,6 +960,19 @@ function quickOutreach(idx) {
 }
 
 // ── ENRICHMENT CHAIN: Google Places → Website Crawl → Perplexity → Hunter.io → Apollo ──
+// Corrects a wrong "no website"/"Facebook only" claim the moment real
+// research finds an actual site, instead of leaving outreach copy to state
+// something the enrichment pass itself just disproved. websiteStatusCorrected
+// is surfaced in the card UI so the correction is visible, not silent.
+function applyWebsiteCorrection(updates, prospect, website, dataSource, foundVia) {
+    if (prospect.websiteStatus === 'has_website') return; // nothing to correct
+    updates.website = website;
+    updates.websiteStatus = 'has_website';
+    updates.websiteStatusCorrected = true;
+    updates.websiteCorrectionSource = foundVia;
+    updates.websiteDataSource = dataSource; // 'real' (confirmed on Places/their own bio) | 'estimate' (inferred from a search citation)
+}
+
 async function enrichProspect(idx) {
     const p = discoveredProspects[idx];
     if (!p) return;
@@ -986,6 +1000,14 @@ async function enrichProspect(idx) {
                 if (d.formattedAddress) updates.placesAddress = d.formattedAddress;
                 if (d.mapsUrl) updates.mapsUrl = d.mapsUrl;
                 if (d.businessStatus) updates.businessStatus = d.businessStatus;
+                // A "no website" claim from discovery was never actually
+                // verified — it's an LLM guess from a single search pass.
+                // Correct it the moment real research (Google Places here)
+                // proves otherwise, instead of leaving a stale tag that
+                // outreach copy then reads as fact.
+                if (d.website && p.websiteStatus !== 'has_website') {
+                    applyWebsiteCorrection(updates, p, d.website, 'real', 'Google Places');
+                }
             }
         }
     } catch(e) { console.warn('Places lookup failed:', e.message); }
@@ -1033,6 +1055,13 @@ async function enrichProspect(idx) {
                 if (updates.crawlSocials) {
                     updates.crawlSocials = {...d.socials, ...updates.crawlSocials};
                 }
+            }
+            // This is the actual "dig deeper" check: a live search that
+            // reads the business's Facebook/Instagram/LinkedIn bio for a
+            // website link, not just their social handle. Corrects a wrong
+            // "no website" claim from the initial discovery pass.
+            if (d.website && (updates.website || p.website) == null && p.websiteStatus !== 'has_website') {
+                applyWebsiteCorrection(updates, p, d.website, d.websiteSource || 'estimate', 'their social profile');
             }
         }
     } catch(e) { console.warn('Profile search failed:', e.message); }

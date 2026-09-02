@@ -12,7 +12,12 @@ module.exports = async (req, res) => {
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const locationStr = [city, country].filter(Boolean).join(', ');
-    const query = `Find contact information and social media profiles for the business "${name}"${locationStr ? ` in ${locationStr}` : ''}. Include email addresses, LinkedIn company page, Facebook business page, Instagram, Twitter/X, and any other public profiles.`;
+    // Explicitly asks about a website (and to check social bios for one) —
+    // this is what actually catches the "no website" claim being wrong: a
+    // business with only a Facebook page almost always still lists a real
+    // website link in that page's About/bio section, which a generic
+    // "find social profiles" query wouldn't surface or extract.
+    const query = `Find the real business website, contact information, and social media profiles for the business "${name}"${locationStr ? ` in ${locationStr}` : ''}. Specifically: does this business have its own website? If not immediately obvious, check the About/bio section of their Facebook, Instagram, or LinkedIn page for a website link — many small businesses list their real site there even without a prominent standalone web presence. Include email addresses, LinkedIn company page, Facebook business page, Instagram, Twitter/X, and any other public profiles.`;
 
     const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
     const NOISE_DOMAINS = [
@@ -30,6 +35,53 @@ module.exports = async (req, res) => {
         youtube:   /(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:channel|c|@)[a-zA-Z0-9\-_]+/,
     };
     const GENERIC_PREFIXES = ['contact', 'info', 'hello', 'hi', 'sales', 'enquiries', 'enquiry', 'support', 'admin', 'office', 'mail'];
+
+    // Domains that are never the business's own website — social platforms,
+    // review/directory sites, and general reference sites Perplexity often
+    // cites. Anything else surviving this filter is a plausible real site.
+    const NOT_A_WEBSITE_DOMAINS = [
+        'facebook.com', 'fb.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com',
+        'tiktok.com', 'youtube.com', 'pinterest.com',
+        'yelp.com', 'yellowpages.com', 'yell.com', 'tripadvisor.com', 'foursquare.com',
+        'google.com', 'maps.google.com', 'bing.com',
+        'wikipedia.org', 'perplexity.ai', 'crunchbase.com', 'glassdoor.com', 'indeed.com',
+        'bbb.org', 'angi.com', 'thumbtack.com', 'nextdoor.com', 'apple.com',
+    ];
+
+    function hostOf(u) {
+        try { return new URL(u.startsWith('http') ? u : `https://${u}`).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
+    }
+
+    /**
+     * Two passes, most-trustworthy first:
+     *  1. An explicit "website is X" / "site: X" mention in the answer text
+     *     — usually means Perplexity actually read it off a bio/About
+     *     section, which is exactly the Facebook-bio case this exists for.
+     *  2. The first citation URL that isn't a social/directory/reference
+     *     domain — weaker signal (citations are sources for the whole
+     *     answer, not necessarily "this is their site"), so flagged as
+     *     'estimate' rather than 'real'.
+     */
+    function extractWebsite(answerText, citationList) {
+        const mentionRe = /(?:website|site|web address)(?:\s+is|\s*:|\s+at)?\s+(?:https?:\/\/)?(?:www\.)?([a-z0-9][a-z0-9-]*\.[a-z]{2,}(?:\.[a-z]{2,})?(?:\/[^\s,)"']*)?)/i;
+        const mentionMatch = answerText.match(mentionRe);
+        if (mentionMatch) {
+            const candidate = mentionMatch[1];
+            const domain = hostOf(candidate);
+            if (domain && !NOT_A_WEBSITE_DOMAINS.some(d => domain === d || domain.endsWith('.' + d))) {
+                return { website: `https://${candidate.replace(/[.,)]+$/, '')}`, websiteSource: 'real' };
+            }
+        }
+        for (const c of (citationList || [])) {
+            const url = typeof c === 'string' ? c : c.url;
+            if (!url) continue;
+            const domain = hostOf(url);
+            if (domain && !NOT_A_WEBSITE_DOMAINS.some(d => domain === d || domain.endsWith('.' + d))) {
+                return { website: `https://${domain}`, websiteSource: 'estimate' };
+            }
+        }
+        return { website: null, websiteSource: null };
+    }
 
     try {
         const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -89,7 +141,13 @@ module.exports = async (req, res) => {
             }
         }
 
-        return res.json({ emails, socials });
+        // Extract a real business website — separate from the social
+        // profiles above, and the whole point of the query change: a "no
+        // website" claim made elsewhere in this app is only ever as good
+        // as whether anyone actually checked, and this is that check.
+        const { website, websiteSource } = extractWebsite(text, citations);
+
+        return res.json({ emails, socials, website, websiteSource });
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
