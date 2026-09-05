@@ -16,6 +16,7 @@
 <script src="/js/social-posts-store.js"></script>
 <script src="/js/seo-pipeline-store.js"></script>
 <script src="/js/carol-aggregator.js"></script>
+<script src="/js/review-queue.js"></script>
 <script src="/js/site-switcher.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,6 +73,23 @@
   .collapsible-body { display: none; }
   .collapsible-body.open { display: block; }
 
+  /* The actual thing being reviewed, shown here rather than behind a link. */
+  .item-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .preview-toggle { background: none; border: 1px solid var(--border); color: var(--text2); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 4px 9px; border-radius: 7px; white-space: nowrap; }
+  .preview-toggle:hover { color: var(--text); border-color: var(--text3); }
+  .item-preview { display: none; margin-top: 10px; padding: 12px 14px; background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; }
+  .item-preview.open { display: block; }
+  .item-preview pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 12.5px; line-height: 1.6; color: var(--text2); }
+  .item-preview img { max-width: 100%; border-radius: 8px; margin-bottom: 10px; display: block; }
+  .preview-missing { font-size: 12px; color: var(--text3); font-style: italic; }
+
+  .section-footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .send-scotty-btn { background: var(--accent); color: #0b1120; border: none; border-radius: 8px; padding: 8px 15px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .send-scotty-btn:hover { filter: brightness(1.1); }
+  .send-scotty-btn:disabled { opacity: 0.55; cursor: default; filter: none; }
+  .send-scotty-note { font-size: 11.5px; color: var(--text3); }
+  .send-scotty-note a { color: var(--accent); font-weight: 600; }
+
   .empty-state { text-align: center; padding: 48px 20px; color: var(--text3); font-size: 13.5px; }
   .all-caught-up { text-align: center; padding: 60px 20px; }
   .all-caught-up-icon { font-size: 40px; margin-bottom: 12px; }
@@ -89,6 +107,7 @@
     <span class="nav-breadcrumb">Carol · Chief of Staff <span class="nav-reports-badge">↳ Reports to Scotty</span></span>
   </div>
   <div class="nav-right">
+    <a href="/scotty.html?review=1" class="nav-link" id="review-inbox-link" style="display:none;"></a>
     <a href="/scotty.html" class="nav-link">Scotty →</a>
     <a href="/hub.html" class="nav-link">← Hub</a>
   </div>
@@ -121,24 +140,88 @@
     btn.textContent = open ? 'Hide' : 'Show →';
   };
 
+  window.togglePreview = function (id, btn) {
+    const open = document.getElementById(id).classList.toggle('open');
+    btn.textContent = open ? 'Hide' : 'View';
+  };
+
+  // Items are held by id so a section can be handed to Scotty with its real
+  // content attached, rather than re-derived from what's on screen.
+  const ITEMS = {};
+
   function itemCard(it) {
     const meta = window.CarolAggregator.info(it.source);
+    ITEMS[it.id] = it;
+    const pid = 'prev_' + it.id;
+
+    // Show the real content. Where a source genuinely has nothing more than
+    // its one-line summary, say that plainly instead of rendering an empty
+    // box that looks like something failed to load.
+    const previewBody = it.preview
+      ? `${it.imageUrl ? `<img src="${escHtml(it.imageUrl)}" alt="Creative for this post" onerror="this.remove()">` : ''}<pre>${escHtml(it.preview)}</pre>`
+      : `<div class="preview-missing">This item has no stored content beyond the summary above — open ${escHtml(meta.label)} for the full record.</div>`;
+
     return `<div class="item-card">
       <div class="item-icon" style="background:${meta.color}22;color:${meta.color};">${meta.icon}</div>
       <div class="item-body">
         <div class="item-title">${escHtml(it.title)}</div>
         ${it.detail ? `<div class="item-detail">${escHtml(it.detail)}</div>` : ''}
         <div class="item-source" style="color:${meta.color};">${escHtml(meta.label)}</div>
+        <div class="item-preview" id="${pid}">${previewBody}</div>
       </div>
       <span class="item-priority pri-${it.priority}">${it.priority}</span>
-      <a class="item-link" href="${it.link}">Open →</a>
+      <div class="item-actions">
+        <button class="preview-toggle" onclick="togglePreview('${pid}', this)">View</button>
+        <a class="item-link" href="${escHtml(it.link || '#')}">Open →</a>
+      </div>
     </div>`;
   }
+
+  /**
+   * Hand a whole section to Scotty. He is the Head the owner is meant to be
+   * able to trust, so the natural move on a pile of flagged work is "you look
+   * at this" rather than the owner grinding through it item by item.
+   */
+  window.sendSectionToScotty = function (sectionId, label, btn) {
+    if (!window.ReviewQueue) {
+      btn.parentElement.querySelector('.send-scotty-note').textContent =
+        'Review queue unavailable on this page.';
+      return;
+    }
+    const items = (SECTION_ITEMS[sectionId] || []).map(id => ITEMS[id]).filter(Boolean);
+    if (!items.length) return;
+
+    const { added, skipped } = window.ReviewQueue.send(items, { section: label });
+    const note = btn.parentElement.querySelector('.send-scotty-note');
+
+    btn.disabled = true;
+    btn.textContent = added ? `Sent ${added} to Scotty ✓` : 'Already with Scotty';
+    note.innerHTML = (added
+        ? `${added} item${added === 1 ? '' : 's'} queued`
+        : 'Nothing new to send') +
+      (skipped ? ` · ${skipped} already awaiting his review` : '') +
+      ` · <a href="/scotty.html?review=1">Open Scotty's review inbox →</a>`;
+  };
+
+  const SECTION_ITEMS = {};
 
   function section(id, title, items, opts) {
     opts = opts || {};
     if (!items.length) return '';
     const note = opts.note ? `<div class="section-note">${escHtml(opts.note)}</div>` : '';
+    const body = items.map(itemCard).join('');
+
+    // itemCard() has registered each item by now.
+    SECTION_ITEMS[id] = items.map(i => i.id);
+
+    const plainTitle = String(title).replace(/^[^\w]+\s*/, '');
+    const footer = `<div class="section-footer">
+        <span class="send-scotty-note"></span>
+        <button class="send-scotty-btn" onclick="sendSectionToScotty('${id}', ${JSON.stringify(plainTitle).replace(/"/g, '&quot;')}, this)">
+          Send all ${items.length} to Scotty for review →
+        </button>
+      </div>`;
+
     if (opts.collapsedByDefault) {
       return `<div class="section">
         <div class="section-header">
@@ -147,7 +230,7 @@
           <button class="collapsible-toggle" onclick="toggleSection('${id}', this)">Show →</button>
         </div>
         ${note}
-        <div class="collapsible-body" id="${id}">${items.map(itemCard).join('')}</div>
+        <div class="collapsible-body" id="${id}">${body}${footer}</div>
       </div>`;
     }
     return `<div class="section">
@@ -156,7 +239,8 @@
         <span class="section-count">${items.length}</span>
       </div>
       ${note}
-      ${items.map(itemCard).join('')}
+      ${body}
+      ${footer}
     </div>`;
   }
 
@@ -208,8 +292,20 @@
     contentEl.innerHTML = html;
   }
 
+  /** Show what's already sitting with Scotty, so the queue isn't invisible. */
+  function refreshReviewLink() {
+    const link = document.getElementById('review-inbox-link');
+    if (!link || !window.ReviewQueue) return;
+    const n = window.ReviewQueue.pendingCount();
+    if (!n) { link.style.display = 'none'; return; }
+    link.style.display = '';
+    link.textContent = `🧑‍⚖️ ${n} with Scotty`;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     if (window.SiteSwitcher) SiteSwitcher.mount();
+    refreshReviewLink();
+    window.addEventListener('review-queue:changed', refreshReviewLink);
     boot();
   });
 })();

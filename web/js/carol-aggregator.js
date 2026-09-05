@@ -57,6 +57,16 @@ window.CarolAggregator = (function () {
   }
 
   let uidCounter = 0;
+  /**
+   * Every item carries, beyond the one-line summary:
+   *   preview   — the ACTUAL content being flagged (the post body, the
+   *               outreach email, the test hypothesis), so a decision can be
+   *               made here rather than by opening an agent page that has no
+   *               idea which item was meant.
+   *   payload   — the raw record, for anything that wants the structured form.
+   *   sourceRef — { store, id } so a decision can be written back to the
+   *               record it came from.
+   */
   function makeItem(fields) {
     uidCounter++;
     return Object.assign({
@@ -64,19 +74,55 @@ window.CarolAggregator = (function () {
       priority: 'medium',
       timestamp: new Date().toISOString(),
       detail: '',
+      preview: '',
+      payload: null,
+      sourceRef: null,
     }, fields);
+  }
+
+  /** Join labelled sections, dropping any with nothing in them. */
+  function buildPreview(parts) {
+    return parts
+      .filter(p => p && p[1] != null && String(p[1]).trim() !== '')
+      .map(([label, value]) => (label ? `${label}: ${String(value).trim()}` : String(value).trim()))
+      .join('\n');
+  }
+
+  /** Append a query param to an agent route so it can open on the right item. */
+  function deepLink(route, params) {
+    const qs = Object.entries(params || {})
+      .filter(([, v]) => v != null && v !== '')
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join('&');
+    return qs ? `${route}?${qs}` : route;
   }
 
   async function fromSocialPosts() {
     if (!window.SocialPostsStore) return [];
     const posts = await safeAsync(() => window.SocialPostsStore.listPosts({ status: 'pending_review' }), []);
     return posts.map(p => makeItem({
-      source: 'social', type: 'needs_approval',
-      title: `Review social post: ${p.headline || p.hook || '(untitled)'}`,
+      source: p.source === 'ad' ? 'ads' : 'social',
+      type: 'needs_approval',
+      title: `Review ${p.source === 'ad' ? 'ad' : 'social post'}: ${p.headline || p.hook || '(untitled)'}`,
       detail: `${p.platform || ''} · ${(p.body || '').slice(0, 100)}`,
+      // The whole post, as it would go out.
+      preview: buildPreview([
+        ['Platform', p.platform],
+        ['Hook', p.hook],
+        ['Headline', p.headline],
+        ['Body', p.body],
+        ['CTA', p.cta],
+        ['Hashtags', (p.hashtags || []).join(' ')],
+        ['Proof point', p.proof_point],
+        ['Urgency', p.urgency_line],
+        ['Visual direction', p.visual_direction],
+      ]),
+      payload: p,
+      sourceRef: { store: 'social_posts', id: p.id },
       priority: 'high',
       timestamp: p.created_at,
-      link: info('social').route,
+      link: deepLink(info(p.source === 'ad' ? 'ads' : 'social').route, { post: p.id }),
+      imageUrl: p.image_url || null,
     }));
   }
 
@@ -89,23 +135,40 @@ window.CarolAggregator = (function () {
     for (const run of runs.slice(0, 5)) {
       const prospects = await safeAsync(() => window.SEOPipelineStore.listProspects(run.id), []);
       for (const p of prospects) {
+        // The email itself is the thing being approved — an outreach item
+        // reviewed without its subject and body is a decision made blind.
+        const draft = buildPreview([
+          ['To', p.contact_email || p.contact_name || p.domain],
+          ['Target page', p.page_url],
+          ['Subject', p.outreach_subject],
+          ['Body', p.outreach_body],
+          ['Why this target', p.relevance_reason],
+          ['Data source', p.data_source === 'real' ? 'verified backlink data' : 'AI-suggested, not yet verified'],
+        ]);
+
         if (p.status === 'queued') {
           results.push(makeItem({
             source: 'seo', type: 'needs_approval',
             title: `Backlink outreach ready to send: ${p.domain}`,
-            detail: p.relevance_reason || '',
+            detail: p.outreach_subject || p.relevance_reason || '',
+            preview: draft,
+            payload: p,
+            sourceRef: { store: 'seo_backlink_prospects', id: p.id },
             priority: 'high',
             timestamp: p.created_at,
-            link: info('seo').route,
+            link: deepLink(info('seo').route, { prospect: p.id, run: run.id }),
           }));
         } else if (p.status === 'found' || p.status === 'drafted') {
           results.push(makeItem({
             source: 'seo', type: 'backlog',
             title: `Backlink prospect: ${p.domain}`,
             detail: p.relevance_reason || '',
+            preview: draft,
+            payload: p,
+            sourceRef: { store: 'seo_backlink_prospects', id: p.id },
             priority: 'low',
             timestamp: p.created_at,
-            link: info('seo').route,
+            link: deepLink(info('seo').route, { prospect: p.id, run: run.id }),
           }));
         }
       }
@@ -120,6 +183,14 @@ window.CarolAggregator = (function () {
       source: 'competitive', type: 'opportunity',
       title: `Gap vs ${g.competitor}: ${g.gap.gap}`,
       detail: g.gap.opportunity || '',
+      preview: buildPreview([
+        ['Competitor', g.competitor],
+        ['Gap identified', g.gap.gap],
+        ['Opportunity', g.gap.opportunity],
+        ['Priority', g.gap.priority],
+        ['Evidence', g.gap.evidence],
+      ]),
+      payload: g,
       priority: g.gap.priority || 'medium',
       link: info('competitive').route,
     }));
@@ -134,6 +205,16 @@ window.CarolAggregator = (function () {
         source: 'cro', type: 'backlog',
         title: `Test idea: ${t.name}`,
         detail: `ICE score ${Math.round(score)}`,
+        preview: buildPreview([
+          ['Test', t.name],
+          ['Hypothesis', t.hypothesis],
+          ['Page', t.page || t.url],
+          ['Impact', t.impact], ['Confidence', t.confidence], ['Ease', t.ease],
+          ['ICE score', Math.round(score)],
+          ['Notes', t.notes],
+        ]),
+        payload: t,
+        sourceRef: t.id ? { store: 'cro_ice_tests', id: t.id } : null,
         priority: score >= 50 ? 'high' : score >= 25 ? 'medium' : 'low',
         link: info('cro').route,
       });
@@ -150,6 +231,18 @@ window.CarolAggregator = (function () {
         type: (p.status === 'qualified' || p.status === 'proposal') ? 'opportunity' : 'backlog',
         title: `${p.name} — ${p.status}`,
         detail: p.notes || '',
+        preview: buildPreview([
+          ['Prospect', p.name],
+          ['Company', p.company],
+          ['Status', p.status],
+          ['Website', p.website],
+          ['Email', p.email],
+          ['Phone', p.phone],
+          ['Notes', p.notes],
+          ['Next step', p.nextStep],
+        ]),
+        payload: p,
+        sourceRef: p.id ? { store: 'chase_v3', id: p.id } : null,
         priority: p.status === 'proposal' ? 'high' : p.status === 'qualified' ? 'medium' : 'low',
         timestamp: p.addedAt,
         link: info('sales').route,
@@ -163,6 +256,11 @@ window.CarolAggregator = (function () {
       source: h.agentKey, type: 'recent',
       title: `${h.taskType || 'Output'}${h.topic ? ': ' + h.topic : ''}`,
       detail: (h.content || '').slice(0, 140),
+      // The agent's full output, so "recent activity" can actually be read
+      // rather than just acknowledged.
+      preview: h.content || '',
+      payload: h,
+      sourceRef: h.id ? { store: 'agent_history', id: h.id } : null,
       priority: 'low',
       timestamp: h.timestamp,
       link: info(h.agentKey).route,
@@ -176,9 +274,19 @@ window.CarolAggregator = (function () {
       source: a.agentKey, type: 'needs_approval',
       title: `Approve: ${a.title}`,
       detail: a.description || '',
+      preview: buildPreview([
+        ['Action', a.title],
+        ['What it does', a.description],
+        ['Impact', a.impact],
+        ['Time estimate', a.timeEstimate],
+        ['Deliverable', a.deliverable],
+        ['Instruction the agent would run', a.prompt],
+      ]),
+      payload: a,
+      sourceRef: { store: 'pending_approvals', id: a.id },
       priority: 'high',
       timestamp: a.createdAt,
-      link: info(a.agentKey).route,
+      link: '/scotty.html',
     }));
   }
 

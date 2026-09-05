@@ -900,6 +900,53 @@
         }
 
         /* Audit report modal */
+        /* ── Review inbox: work Carol has handed to Scotty ────────────────── */
+        .review-topbar-btn {
+            display: none; align-items: center; gap: 7px;
+            background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
+            color: #c4b5fd; border-radius: 9px; padding: 6px 12px;
+            font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .review-topbar-btn:hover { background: rgba(124,58,237,0.25); }
+        .review-modal { max-width: 780px !important; }
+        .review-item {
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 12px; background: var(--card-bg);
+        }
+        .review-item-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .review-item-title { font-size: 13.5px; font-weight: 700; color: var(--text); flex: 1; }
+        .review-agent-tag {
+            font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+            padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06);
+            color: var(--text2); white-space: nowrap;
+        }
+        .review-snapshot {
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 13px; margin-bottom: 10px; max-height: 260px; overflow-y: auto;
+        }
+        .review-snapshot pre {
+            margin: 0; white-space: pre-wrap; word-break: break-word;
+            font-family: inherit; font-size: 12.5px; line-height: 1.6; color: var(--text2);
+        }
+        .review-verdict { border-radius: 8px; padding: 10px 13px; margin-bottom: 10px; font-size: 12.5px; line-height: 1.6; }
+        .review-verdict.approve { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.3);  color: #86efac; }
+        .review-verdict.revise  { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fcd34d; }
+        .review-verdict.reject  { background: rgba(248,113,113,0.1);border: 1px solid rgba(248,113,113,0.3);color: #fca5a5; }
+        .review-verdict-label { font-weight: 800; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .review-actions { display: flex; gap: 8px; align-items: center; }
+        .review-btn {
+            border-radius: 7px; padding: 6px 13px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit; border: 1px solid var(--border-h);
+            background: transparent; color: var(--text2);
+        }
+        .review-btn:hover { color: var(--text); border-color: var(--text3); }
+        .review-btn.approve { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.4); color: #86efac; }
+        .review-btn.reject  { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.35); color: #fca5a5; }
+        .review-btn:disabled { opacity: 0.5; cursor: default; }
+        .review-decided { font-size: 12px; font-weight: 700; }
+        .review-open-link { font-size: 11.5px; color: var(--cyan); text-decoration: none; margin-left: auto; }
+        .review-empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
         .audit-modal-overlay {
             display: none;
             position: fixed;
@@ -2138,6 +2185,9 @@
                 </div>
             </div>
             <div class="topbar-right">
+                <button class="review-topbar-btn" id="reviewInboxBtn" title="Work Carol has sent you to review">
+                    🧑‍⚖️ <span id="reviewInboxCount">0</span> to review
+                </button>
                 <div class="chip-claude">Powered by Claude</div>
                 <a href="/hub.html" class="topbar-hub-link">
                     🏠 <span>Agent Hub</span>
@@ -2290,6 +2340,24 @@
         </div>
         <div class="audit-modal-body" id="auditModalBody">
             <!-- Populated by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     REVIEW INBOX — work Carol has handed to Scotty
+════════════════════════════════════════ -->
+<div class="audit-modal-overlay" id="reviewModalOverlay">
+    <div class="audit-modal review-modal">
+        <div class="audit-modal-header">
+            <span class="audit-modal-title">🧑‍⚖️ Scotty's review queue</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="review-btn" id="btnReviewAll">Review all</button>
+                <button class="audit-modal-close" id="btnReviewModalClose">✕</button>
+            </div>
+        </div>
+        <div class="audit-modal-body" id="reviewModalBody">
+            <!-- Populated by ReviewInbox -->
         </div>
     </div>
 </div>
@@ -4302,6 +4370,217 @@ class ScottyChat {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   REVIEW INBOX — work Carol has handed to Scotty
+
+   Scotty is the Head the owner is supposed to be able to trust, so this is
+   where a pile of flagged work gets an actual opinion attached to it rather
+   than being passed straight through to the owner. Two rules hold it honest:
+
+   1. Scotty reviews the SNAPSHOT that was queued — the real post body, the
+      real outreach email — not a title. A verdict on a title is theatre.
+   2. Scotty's verdict is a recommendation, never the decision. The owner
+      approves or rejects, and only then is anything written back to the
+      originating record.
+════════════════════════════════════════════════════════════════ */
+
+const ReviewInbox = (() => {
+    let items = [];
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    function refreshBadge() {
+        const btn = document.getElementById('reviewInboxBtn');
+        const count = document.getElementById('reviewInboxCount');
+        if (!btn || !window.ReviewQueue) return;
+        const n = window.ReviewQueue.pendingCount();
+        btn.style.display = n ? 'flex' : 'none';
+        if (count) count.textContent = n;
+    }
+
+    function open() {
+        document.getElementById('reviewModalOverlay')?.classList.add('visible');
+        render();
+    }
+
+    function close() {
+        document.getElementById('reviewModalOverlay')?.classList.remove('visible');
+    }
+
+    function verdictBlock(it) {
+        if (!it.verdict) return '';
+        const label = { approve: 'Scotty says: ship it', revise: 'Scotty says: needs changes', reject: 'Scotty says: do not send' }[it.verdict]
+            || 'Scotty’s view';
+        return `<div class="review-verdict ${esc(it.verdict)}">
+            <span class="review-verdict-label">${esc(label)}</span>
+            ${esc(it.reasoning || '')}
+        </div>`;
+    }
+
+    function actionsBlock(it) {
+        if (it.status === 'approved' || it.status === 'rejected' || it.status === 'dismissed') {
+            const txt = { approved: '✅ Approved', rejected: '🚫 Rejected', dismissed: '— Dismissed' }[it.status];
+            return `<div class="review-actions"><span class="review-decided">${txt}</span>
+                ${it.link ? `<a class="review-open-link" href="${esc(it.link)}">Open in agent →</a>` : ''}</div>`;
+        }
+        return `<div class="review-actions">
+            <button class="review-btn" onclick="ReviewInbox.reviewOne('${esc(it.id)}')" ${it.verdict ? '' : ''}>
+                ${it.verdict ? 'Re-review' : 'Ask Scotty'}
+            </button>
+            <button class="review-btn approve" onclick="ReviewInbox.decide('${esc(it.id)}','approved')">Approve</button>
+            <button class="review-btn reject" onclick="ReviewInbox.decide('${esc(it.id)}','rejected')">Reject</button>
+            ${it.link ? `<a class="review-open-link" href="${esc(it.link)}">Open in agent →</a>` : ''}
+        </div>`;
+    }
+
+    function render() {
+        const body = document.getElementById('reviewModalBody');
+        if (!body || !window.ReviewQueue) return;
+        items = window.ReviewQueue.list();
+
+        const open_ = items.filter(i => i.status === 'pending' || i.status === 'reviewed');
+        const done  = items.filter(i => i.status !== 'pending' && i.status !== 'reviewed');
+
+        if (!items.length) {
+            body.innerHTML = `<div class="review-empty">
+                Nothing waiting on you.<br><br>
+                Carol collects what every agent has flagged — send a section over from
+                <a href="/agents/carol-agent.html" style="color:var(--cyan);">Carol's briefing</a> and it lands here.
+            </div>`;
+            return;
+        }
+
+        const card = (it) => `<div class="review-item" id="rev-${esc(it.id)}">
+            <div class="review-item-head">
+                <div class="review-item-title">${esc(it.title)}</div>
+                <span class="review-agent-tag">${esc(it.agentKey || 'agent')}</span>
+            </div>
+            ${it.snapshot
+                ? `<div class="review-snapshot"><pre>${esc(it.snapshot)}</pre></div>`
+                : `<div class="review-snapshot"><pre>(No content was captured for this item — Scotty can only judge the summary above.)</pre></div>`}
+            ${verdictBlock(it)}
+            ${actionsBlock(it)}
+        </div>`;
+
+        body.innerHTML =
+            (open_.length ? open_.map(card).join('') : '') +
+            (done.length ? `<div style="margin:18px 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);">Decided</div>${done.map(card).join('')}` : '');
+    }
+
+    /** Build the prompt Scotty judges one item against. */
+    function reviewPrompt(it) {
+        return `You are Scotty, the head of this marketing department, reviewing work before it goes out. ` +
+            `The owner trusts your judgement, so be specific and honest — if it is fine, say so plainly and do not invent problems.\n\n` +
+            `ITEM TYPE: ${it.agentKey || 'unknown agent'} / ${it.type || 'task'}\n` +
+            `TITLE: ${it.title}\n\n` +
+            `THE ACTUAL CONTENT:\n${it.snapshot || '(none captured)'}\n\n` +
+            `Reply in exactly this format and nothing else:\n` +
+            `VERDICT: approve | revise | reject\n` +
+            `REASON: two or three sentences. If revise or reject, say precisely what to change.`;
+    }
+
+    function parseVerdict(text) {
+        const v = (text.match(/VERDICT:\s*(approve|revise|reject)/i) || [])[1];
+        const r = (text.match(/REASON:\s*([\s\S]+)/i) || [])[1];
+        return {
+            verdict: v ? v.toLowerCase() : null,
+            reasoning: (r || text || '').trim().slice(0, 600),
+        };
+    }
+
+    async function reviewOne(id) {
+        const it = window.ReviewQueue.get(id);
+        if (!it) return;
+        const el = document.getElementById('rev-' + id);
+        const btn = el?.querySelector('.review-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Reviewing…'; }
+
+        try {
+            if (!window.ClaudeService || typeof window.ClaudeService.callAgent !== 'function') {
+                throw new Error('Scotty’s AI connection is unavailable, so this could not be reviewed.');
+            }
+            const text = await window.ClaudeService.callAgent({
+                systemPrompt: 'You are Scotty, a marketing department head with 30+ years of experience. You are reviewing a specific piece of work before it goes out.',
+                messages: [{ role: 'user', content: reviewPrompt(it) }],
+                maxTokens: 500,
+            });
+            const parsed = parseVerdict(text);
+            if (!parsed.verdict) throw new Error('Could not read a verdict from the response.');
+            window.ReviewQueue.setVerdict(id, parsed);
+            InfoPanel.logActivity('🧑‍⚖️', `Reviewed: ${it.title.slice(0, 40)} — ${parsed.verdict}`);
+        } catch (e) {
+            // Never fabricate a verdict. An unreviewed item stays unreviewed.
+            window.ReviewQueue.setVerdict(id, {
+                verdict: 'revise',
+                reasoning: 'Not reviewed — ' + (e.message || 'the review could not be completed') +
+                    ' This is a system message, not Scotty’s judgement of the work.',
+            });
+        }
+        render();
+        refreshBadge();
+    }
+
+    async function reviewAll() {
+        const btn = document.getElementById('btnReviewAll');
+        const pending = window.ReviewQueue.list().filter(i => i.status === 'pending');
+        if (!pending.length) return;
+        if (btn) { btn.disabled = true; }
+        for (let i = 0; i < pending.length; i++) {
+            if (btn) btn.textContent = `Reviewing ${i + 1}/${pending.length}…`;
+            await reviewOne(pending[i].id);
+        }
+        if (btn) { btn.disabled = false; btn.textContent = 'Review all'; }
+    }
+
+    /**
+     * The owner's decision — and the part that makes it mean something:
+     * write it back to the record it came from.
+     */
+    async function decide(id, decision) {
+        const it = window.ReviewQueue.decide(id, decision);
+        if (!it) return;
+
+        try {
+            if (it.sourceRef?.store === 'social_posts' && window.SocialPostsStore?.updateStatus) {
+                await window.SocialPostsStore.updateStatus(
+                    it.sourceRef.id,
+                    decision === 'approved' ? 'approved' : 'rejected',
+                    it.reasoning ? `Scotty review: ${it.reasoning}` : 'Reviewed via Scotty'
+                );
+            } else if (it.sourceRef?.store === 'pending_approvals' && window.MissionStore?.resolveApproval) {
+                window.MissionStore.resolveApproval(it.sourceRef.id, decision === 'approved' ? 'approved' : 'dismissed');
+            }
+        } catch (e) {
+            console.warn('[ReviewInbox] could not write decision back to source:', e.message);
+        }
+
+        InfoPanel.logActivity(decision === 'approved' ? '✅' : '🚫',
+            `${decision === 'approved' ? 'Approved' : 'Rejected'}: ${it.title.slice(0, 40)}`);
+        render();
+        refreshBadge();
+    }
+
+    function init() {
+        document.getElementById('reviewInboxBtn')?.addEventListener('click', open);
+        document.getElementById('btnReviewModalClose')?.addEventListener('click', close);
+        document.getElementById('btnReviewAll')?.addEventListener('click', reviewAll);
+        document.getElementById('reviewModalOverlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'reviewModalOverlay') close();
+        });
+        window.addEventListener('review-queue:changed', refreshBadge);
+        refreshBadge();
+
+        // Carol links here with ?review=1 after sending a section over.
+        if (new URLSearchParams(location.search).get('review') === '1') open();
+    }
+
+    return { init, open, close, render, reviewOne, reviewAll, decide, refreshBadge };
+})();
+window.ReviewInbox = ReviewInbox;
+
+/* ════════════════════════════════════════════════════════════════
    INFO PANEL — Mission Control
    Manages background activity log, question detection, agent roster.
 ════════════════════════════════════════════════════════════════ */
@@ -4518,8 +4797,14 @@ const QuickStart = (() => {
             });
         }
 
-        // Auto-open on first visit (no quick-start done yet)
-        if (!isDone()) {
+        // Auto-open on first visit (no quick-start done yet) — but never on
+        // top of something the user explicitly came here to do. Arriving from
+        // Carol's "send to Scotty" link (?review=1), or from another agent's
+        // handoff (?goal=/?mission=1), means there is already a task on
+        // screen; opening a modal over it hides the thing they clicked for.
+        const arrivedWithIntent = ['review', 'goal', 'mission']
+            .some(k => new URLSearchParams(location.search).get(k));
+        if (!isDone() && !arrivedWithIntent) {
             setTimeout(open, 800);
         }
 
@@ -4662,6 +4947,7 @@ window.addEventListener('DOMContentLoaded', () => {
     InfoPanel.init();
     QuickStart.init();
     AgentAudit.init();
+    ReviewInbox.init();
 
     // A goal handed off from another agent page (e.g. Lift's "Turn into a
     // Mission" on a CRO test idea, or AI Visibility Finder's "Fix this with
@@ -4691,6 +4977,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <script src="/js/pat-handoff.js"></script>
 <script src="/js/mission-store.js"></script>
+<!-- Review inbox: the queue itself, plus the store an approved social post
+     is written back to (without it, "approved" would stop at the queue). -->
+<script src="/js/review-queue.js"></script>
+<script src="/js/social-posts-store.js"></script>
 <script src="/js/mission-bar.js"></script>
 </body>
 </html>
