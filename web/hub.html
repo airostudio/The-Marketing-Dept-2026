@@ -518,6 +518,25 @@
 
         .scotty-desc { font-size: 14px; color: var(--text2); line-height: 1.65; max-width: 580px; margin-bottom: 14px; }
 
+        /* Carol card — same full-width row treatment as Scotty's (she sits
+           directly under him, not in the narrow 3-column specialist grid),
+           with her own fixed-size cropped photo rather than the grid cards'
+           edge-to-edge portrait banner, which stretches badly at full
+           page width. */
+        .agent-card.carol-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 22px 32px;
+            border-color: rgba(217,70,239,0.25);
+            background: rgba(217,70,239,0.04);
+        }
+        .agent-card.carol-card:hover {
+            box-shadow: 0 16px 48px rgba(217,70,239,0.30), 0 0 0 1px rgba(217,70,239,0.30);
+            border-color: rgba(217,70,239,0.45);
+        }
+        .carol-photo { width: 90px; height: 105px; object-fit: cover; object-position: 50% 12%; border-radius: 12px; display: block; box-shadow: 0 12px 32px rgba(217,70,239,0.35), 0 0 0 1px rgba(217,70,239,0.25); flex-shrink: 0; margin-right: 20px; }
+        .carol-body { flex: 1; }
+
         /* Portrait cards */
         .card-portrait-area {
             border-bottom: 1px solid var(--border);
@@ -887,17 +906,13 @@
 
         <!-- CAROL · Chief of Staff — sits directly under Scotty, not in the specialist grid -->
         <div class="carol-row">
-            <a href="/agents/carol-agent.html" class="agent-card" data-char="carol" style="--card-glow:rgba(217,70,239,0.10);--card-border:rgba(217,70,239,0.4);--card-shadow:rgba(217,70,239,0.18);">
-                <div class="card-portrait-area">
-                    <img class="card-portrait" src="/assets/agents/carol.png" alt="CAROL" loading="lazy" onerror="this.style.display='none'">
-                </div>
-                <div class="card-body">
-                    <div class="card-top-row">
-                        <span class="card-codename" style="color:#d946ef;">CAROL</span>
-                        <span class="card-status-pill">Ready</span>
-                    </div>
-                    <div class="card-name">Chief of Staff</div>
-                    <div class="card-tagline">Chief of Staff. Turns fifteen agents' worth of findings into the one briefing you actually read.</div>
+            <a href="/agents/carol-agent.html" class="agent-card carol-card" data-char="carol">
+                <img class="carol-photo" src="/assets/agents/carol.jpg" alt="Carol" loading="lazy" onerror="this.style.display='none'">
+                <div class="carol-body">
+                    <div class="scotty-badge" style="color:#e879f9;">Chief of Staff</div>
+                    <div class="scotty-name" style="background:linear-gradient(135deg,#f1f5f9,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Carol</div>
+                    <p class="scotty-desc">Turns fifteen agents' worth of findings into the one briefing you actually read.</p>
+                    <span class="card-status-pill">Ready</span>
                     <div class="card-reports-to">↳ Reports to Scotty</div>
                 </div>
                 <span class="card-arrow">→</span>

@@ -10,13 +10,13 @@
  * missing store, a signed-out session, or an agent nobody's used yet
  * contributes nothing rather than breaking the whole digest.
  *
- * Known, accepted gaps (not fixed here):
- *  - Scotty's `requires_approval` mission automations aren't persisted
- *    anywhere — they live in an in-memory array on the Scotty page and
- *    vanish on refresh. Nothing to read, so they can't appear here.
- *  - CompetitiveRadar is a global, unscoped localStorage bucket (unlike
- *    ContactsStore/SocialPosts/SEOPipeline) — a multi-project user will see
- *    Scout's gaps bleed across projects. Inherited, not introduced, here.
+ * Both gaps noted when this file was first built are now fixed upstream:
+ *  - Scotty's `requires_approval` mission automations now persist via
+ *    MissionStore.getPendingApprovals() (see mission-store.js) instead of
+ *    living only in an in-memory array that vanished on refresh.
+ *  - CompetitiveRadar is now scoped per project/profile the same way
+ *    BusinessBrain/ContactsStore/SocialPosts/SEOPipeline already were
+ *    (see intelligence-engine.js), so this reads real per-project data.
  */
 window.CarolAggregator = (function () {
   'use strict';
@@ -169,6 +169,19 @@ window.CarolAggregator = (function () {
     }));
   }
 
+  function fromPendingApprovals() {
+    if (!window.MissionStore || !window.MissionStore.getPendingApprovals) return [];
+    const approvals = safe(() => window.MissionStore.getPendingApprovals(), []);
+    return approvals.map(a => makeItem({
+      source: a.agentKey, type: 'needs_approval',
+      title: `Approve: ${a.title}`,
+      detail: a.description || '',
+      priority: 'high',
+      timestamp: a.createdAt,
+      link: info(a.agentKey).route,
+    }));
+  }
+
   function activeMission() {
     if (!window.MissionStore) return null;
     return safe(() => window.MissionStore.getActive(), null);
@@ -185,9 +198,10 @@ window.CarolAggregator = (function () {
     const competitiveItems = fromCompetitiveRadar();
     const croItems = fromCroBacklog();
     const chaseItems = fromChasePipeline();
+    const approvalItems = fromPendingApprovals();
     const recentItems = fromAgentHistory(15);
 
-    const all = [...socialItems, ...seoItems, ...competitiveItems, ...croItems, ...chaseItems];
+    const all = [...socialItems, ...seoItems, ...competitiveItems, ...croItems, ...chaseItems, ...approvalItems];
 
     const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
     const byRecency = (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0);

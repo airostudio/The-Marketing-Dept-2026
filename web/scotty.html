@@ -3538,6 +3538,15 @@ class ScottyChat {
         const autoRun = sorted.filter(a => !orch || orch.classifyAutomation(a) === 'autonomous');
         const needsApproval = sorted.filter(a => orch && orch.classifyAutomation(a) === 'requires_approval');
 
+        // Previously these lived only in this function's local `needsApproval`
+        // array — refresh the tab (or just navigate away) and an item awaiting
+        // approval vanished with no record anywhere. Persist them the moment
+        // they're identified, independent of whether this came from a full
+        // mission or a single-agent dispatch follow-up.
+        if (needsApproval.length && window.MissionStore) {
+            window.MissionStore.addPendingApprovals(needsApproval, this._activeMission ? this._activeMission.id : null);
+        }
+
         const impactColor = { High: '#10b981', Medium: '#f59e0b', Low: '#94a3b8' };
 
         containerEl.innerHTML = `
@@ -3561,6 +3570,7 @@ class ScottyChat {
                             </div>
                             <div class="auto-approval-desc">${this._escapeHtml(a.description || '')}</div>
                             <button class="mission-report-btn primary" id="autoApprovalRun${i}">▶ Run this</button>
+                            <button class="mission-report-btn" id="autoApprovalDismiss${i}">✕ Not now</button>
                             <div class="auto-step-result" id="autoApprovalResult${i}"></div>
                         </div>`).join('')}
                 </div>
@@ -3585,8 +3595,15 @@ class ScottyChat {
         // runs in isolation, on click only, never as part of the auto-loop.
         needsApproval.forEach((a, i) => {
             const btn = containerEl.querySelector(`#autoApprovalRun${i}`);
-            if (!btn) return;
-            btn.addEventListener('click', () => this._runSingleApprovedAutomation(a, i, contextBundle, containerEl), { once: true });
+            if (btn) btn.addEventListener('click', () => this._runSingleApprovedAutomation(a, i, contextBundle, containerEl), { once: true });
+
+            const dismissBtn = containerEl.querySelector(`#autoApprovalDismiss${i}`);
+            if (dismissBtn) dismissBtn.addEventListener('click', () => {
+                if (a._persistedApprovalId && window.MissionStore) window.MissionStore.resolveApproval(a._persistedApprovalId, 'dismissed');
+                if (btn) btn.disabled = true;
+                dismissBtn.disabled = true;
+                dismissBtn.textContent = '✓ Dismissed';
+            }, { once: true });
         });
 
         if (!autoRun.length) return;
@@ -3625,6 +3642,9 @@ class ScottyChat {
                 onError: (err) => { throw err; },
             });
             if (btn) { btn.textContent = '✓ Done'; }
+            if (auto._persistedApprovalId && window.MissionStore) {
+                window.MissionStore.resolveApproval(auto._persistedApprovalId, 'approved');
+            }
             InfoPanel.logActivity('✅', `Approved action complete: ${auto.title}`);
             if (window.AgentHistory) {
                 window.AgentHistory.save({

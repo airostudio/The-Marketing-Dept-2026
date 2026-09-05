@@ -302,7 +302,7 @@
     lift:   '/assets/agents/lift.png',
     slate:  '/assets/agents/slate.png',
     nancy:  '/assets/agents/nancy.png',
-    carol:  '/assets/agents/carol.png'
+    carol:  '/assets/agents/carol.jpg'
   };
 
   // Per-agent photo adjustments (zoom/position for characters that sit small in frame)
