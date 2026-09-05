@@ -27,7 +27,14 @@ CREATE TABLE IF NOT EXISTS profiles (
     firstname TEXT,
     lastname TEXT,
     avatar_url TEXT,
-    plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
+    -- Canonical plan enum (superseded/re-asserted by supabase-intelligence-profiles.sql
+    -- if that migration has also been run, but kept correct here too so a
+    -- fresh install from this file alone gets the real tier names).
+    plan TEXT DEFAULT 'free' CHECK (plan IN (
+        'free',
+        'start', 'growth', 'scale', 'autonomous', 'enterprise',
+        'agency_starter', 'agency_growth', 'agency_pro', 'agency_enterprise'
+    )),
     company TEXT,
     website TEXT,
     timezone TEXT DEFAULT 'UTC',

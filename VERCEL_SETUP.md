@@ -16,6 +16,46 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Billing — Stripe Checkout, Customer Portal, and webhook sync
+
+Turns the plan tiers on `/index.html#pricing` and `/billing.html` into a real paid product. Card capture happens entirely on Stripe's own hosted pages (Checkout for signing up, Customer Portal for managing an existing subscription) — this app never touches card data. `profiles.plan`/`subscription_status` are only ever written by `api/stripe-webhook.js` once Stripe confirms a payment; a `protect_billing_columns` trigger (`supabase-billing.sql`) blocks every other write path, including a signed-in user hitting the Supabase REST API directly.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `STRIPE_SECRET_KEY` | Your Stripe secret key (`sk_test_...` / `sk_live_...`) | ✅ For billing |
+| `STRIPE_WEBHOOK_SECRET` | The `whsec_...` signing secret Stripe gives you when you add the webhook endpoint | ✅ For billing |
+| `STRIPE_PRICE_START_MONTHLY` / `STRIPE_PRICE_START_YEARLY` | Price IDs for the Start tier | ✅ For Start checkout |
+| `STRIPE_PRICE_GROWTH_MONTHLY` / `STRIPE_PRICE_GROWTH_YEARLY` | Price IDs for the Growth tier | ✅ For Growth checkout |
+| `STRIPE_PRICE_SCALE_MONTHLY` / `STRIPE_PRICE_SCALE_YEARLY` | Price IDs for the Scale tier | ✅ For Scale checkout |
+| `STRIPE_PRICE_AUTONOMOUS_MONTHLY` / `STRIPE_PRICE_AUTONOMOUS_YEARLY` | Price IDs for the Autonomous tier | ✅ For Autonomous checkout |
+| `STRIPE_PRICE_AGENCY_STARTER_MONTHLY` / `..._YEARLY` | Price IDs for Agency Starter | Optional (Agency tiers link to "Contact Sales" by default — set these only if you want self-serve Agency checkout too) |
+| `STRIPE_PRICE_AGENCY_GROWTH_MONTHLY` / `..._YEARLY` | Price IDs for Agency Growth | Optional |
+| `STRIPE_PRICE_AGENCY_PRO_MONTHLY` / `..._YEARLY` | Price IDs for Agency Pro | Optional |
+| `PUBLIC_APP_URL` | Same variable Pat's email links use — Checkout/Portal success/cancel/return URLs fall back to the request's own `Host` header if unset | Optional |
+
+`enterprise` and `agency_enterprise` are intentionally never sold through Checkout — both are custom-priced and sold off-platform (see `api/_lib/plans.js`); their buttons on the pricing pages are `mailto:` links, not checkout calls.
+
+### Setup
+
+1. Run `supabase-billing.sql` in Supabase Dashboard → SQL Editor (after `supabase-intelligence-profiles.sql`, which it depends on for the plan enum). This adds the Stripe columns to `profiles`, the `billing_events` audit table, and the trigger that keeps them server-write-only.
+2. In the Stripe Dashboard: create one Product per tier (Start/Growth/Scale/Autonomous, plus Agency tiers if you want self-serve there too), each with a monthly and a yearly Price. Copy each Price ID into the matching env var above.
+3. In the Stripe Dashboard: **Developers → Webhooks → Add endpoint** → URL `https://<your-domain>/api/stripe-webhook`, events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+4. Test end-to-end in Stripe test mode: sign up → visit `/billing.html` → pick a tier → complete Checkout with Stripe's `4242 4242 4242 4242` test card → confirm the webhook fires (Stripe Dashboard shows delivery attempts) → confirm `profiles.plan` updated → confirm `/billing.html` now shows "Manage Billing" opening the real Customer Portal.
+5. Set a user's plan manually if you ever need to bypass Stripe entirely (comps, manual invoicing): `UPDATE profiles SET plan = 'growth' WHERE email = '<customer>';` — run as the Postgres superuser in the SQL Editor (the `protect_billing_columns` trigger allows this because it isn't a PostgREST request, i.e. `auth.uid()` is null there).
+
+### What changed
+
+- **`supabase-billing.sql`** (new) — Stripe fields on `profiles`, `billing_events` audit table, `protect_billing_columns` trigger.
+- **`api/_lib/stripe-rest.js`** (new) — a small fetch-based Stripe REST client (no `stripe` npm package — this repo has zero npm dependencies, same reasoning as `api/_lib/supabase-rest.js`).
+- **`api/_lib/plans.js`** (new) — the one place mapping each self-serve plan name to its Stripe Price ID env vars.
+- **`api/stripe-checkout.js`** (new) — authenticated; creates/reuses a Stripe Customer, returns a Checkout Session URL for a given plan+interval.
+- **`api/stripe-webhook.js`** (new) — verifies Stripe's signature (same HMAC-SHA256 shape `api/resend-webhook.js` already uses for a different provider), applies `checkout.session.completed`/`customer.subscription.updated`/`customer.subscription.deleted` to `profiles`, logs every event to `billing_events`.
+- **`api/stripe-portal.js`** (new) — authenticated; returns a Stripe Customer Portal session URL.
+- **`web/billing.html`** (new) — current plan/status, tier grid with Checkout buttons, "Manage Billing" → Portal.
+- **`web/index.html`**'s `#pricing` section — replaced the old flat single-price card with the real Start/Growth/Scale/Autonomous/Enterprise tiers plus an Agency Edition section, both linking into `/billing.html`.
+
+---
+
 ## Pat — Email Delivery: Unsubscribe Compliance & Bounce Handling
 
 Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had no `List-Unsubscribe` header (a hard Gmail/Yahoo/Apple requirement for bulk senders since May 2026) and nothing ever closed the loop when a send bounced or was marked as spam, so `contacts.status` sat unused.
@@ -133,16 +173,17 @@ One intelligence profile = one business's complete Intelligence Layer (Business 
 
 | Plan | Profiles |
 |------|----------|
-| Free / Basic | 1 |
-| Pro / Professional | 3 |
-| Agency | 8 |
-| Enterprise | Admin-configured per account |
+| Free / Start / Growth / Scale / Autonomous | 1 |
+| Agency Starter | 5 |
+| Agency Growth | 15 |
+| Agency Pro | 50 |
+| Enterprise / Agency Enterprise | Admin-configured per account |
 
 ### Setup
 
 1. Run `supabase-business-brain.sql` first (if not already), then `supabase-intelligence-profiles.sql` in Supabase Dashboard → SQL Editor.
 2. No new env vars — uses the existing client-side Supabase auth.
-3. Set a user's plan in the `profiles` table (`plan` column: `basic` / `professional` / `agency` / `enterprise`).
+3. Set a user's plan in the `profiles` table (`plan` column: `free` / `start` / `growth` / `scale` / `autonomous` / `enterprise` / `agency_starter` / `agency_growth` / `agency_pro` / `agency_enterprise`).
 4. **Enterprise accounts**: an admin sets the custom allowance directly on the account row — `UPDATE profiles SET plan = 'enterprise', intel_profile_limit = <N> WHERE email = '<customer>';` — sized to what the customer pays for.
 
 ### How it works

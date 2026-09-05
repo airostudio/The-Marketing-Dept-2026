@@ -37,9 +37,11 @@ The admin system provides:
 
 ```sql
 UPDATE profiles
-SET role = 'super_admin', plan = 'admin'
+SET role = 'super_admin'
 WHERE email = 'your-email@example.com';
 ```
+
+(Admin access is controlled entirely by `role`, independent of `plan` — an admin keeps whatever billing plan they're actually on, including `free`.)
 
 **Method B: Using Supabase Auth Dashboard**
 
@@ -50,7 +52,7 @@ WHERE email = 'your-email@example.com';
 
 ```sql
 UPDATE profiles
-SET role = 'super_admin', plan = 'admin'
+SET role = 'super_admin'
 WHERE email = 'the-email-you-just-created@example.com';
 ```
 
@@ -86,9 +88,8 @@ const users = JSON.parse(localStorage.getItem('seo_agent_users') || '[]');
 const userIndex = users.findIndex(u => u.email === 'your-email@example.com');
 
 if (userIndex !== -1) {
-    // Promote to admin
+    // Promote to admin (role only — plan/billing is untouched)
     users[userIndex].role = 'super_admin';
-    users[userIndex].plan = 'admin';
 
     // Save back to localStorage
     localStorage.setItem('seo_agent_users', JSON.stringify(users));
@@ -97,7 +98,6 @@ if (userIndex !== -1) {
     const currentUser = JSON.parse(localStorage.getItem('seo_agent_user'));
     if (currentUser && currentUser.email === 'your-email@example.com') {
         currentUser.role = 'super_admin';
-        currentUser.plan = 'admin';
         localStorage.setItem('seo_agent_user', JSON.stringify(currentUser));
     }
 
@@ -295,7 +295,7 @@ email      | TEXT    | User's email
 firstname  | TEXT    | First name
 lastname   | TEXT    | Last name
 role       | TEXT    | user | admin | super_admin
-plan       | TEXT    | free | pro | enterprise | admin
+plan       | TEXT    | free | start | growth | scale | autonomous | enterprise | agency_starter | agency_growth | agency_pro | agency_enterprise
 avatar_url | TEXT    | Profile picture URL
 company    | TEXT    | User's company
 website    | TEXT    | User's website

@@ -4,13 +4,19 @@
 --
 -- One "intelligence profile" = one business's complete Intelligence Layer
 -- (Business Brain, and later radar/pulse). Users switch profiles to work on
--- different businesses. Plan limits: basic=1, professional=3, agency=8,
--- enterprise=admin-configured per account.
+-- different businesses. Plan limits (see get_intel_profile_limit below):
+-- start/growth/scale/autonomous=1, enterprise=admin-configured,
+-- agency_starter=5, agency_growth=15, agency_pro=50, agency_enterprise=admin-configured.
 
 -- ── Extend account plans ───────────────────────────────────────────────────
+-- Canonical plan enum, matching Audema's real published pricing tiers.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
 ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
-  CHECK (plan IN ('free','basic','pro','professional','agency','enterprise'));
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
 
 -- Admin-set profile allowance for enterprise accounts (NULL = not set → 1)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS intel_profile_limit INTEGER;
@@ -59,11 +65,12 @@ CREATE INDEX IF NOT EXISTS idx_brain_history_profile
 CREATE OR REPLACE FUNCTION get_intel_profile_limit(uid UUID)
 RETURNS INTEGER AS $$
   SELECT CASE plan
-    WHEN 'agency'       THEN 8
-    WHEN 'professional' THEN 3
-    WHEN 'pro'          THEN 3
-    WHEN 'enterprise'   THEN COALESCE(intel_profile_limit, 1)
-    ELSE 1  -- free / basic
+    WHEN 'agency_starter'    THEN 5
+    WHEN 'agency_growth'     THEN 15
+    WHEN 'agency_pro'        THEN 50
+    WHEN 'agency_enterprise' THEN COALESCE(intel_profile_limit, 999999)
+    WHEN 'enterprise'        THEN COALESCE(intel_profile_limit, 1)
+    ELSE 1  -- free / start / growth / scale / autonomous: single-business plans
   END
   FROM profiles WHERE id = uid;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;

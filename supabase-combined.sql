@@ -20,6 +20,7 @@
 --   7. supabase-ab-testing.sql
 --   8. supabase-agent-audits.sql
 --   9. supabase-competitor-watch.sql
+--  10. supabase-billing.sql
 -- ═══════════════════════════════════════════════════════════════════════
 
 
@@ -142,13 +143,19 @@ CREATE TRIGGER business_brain_updated_at
 --
 -- One "intelligence profile" = one business's complete Intelligence Layer
 -- (Business Brain, and later radar/pulse). Users switch profiles to work on
--- different businesses. Plan limits: basic=1, professional=3, agency=8,
--- enterprise=admin-configured per account.
+-- different businesses. Plan limits (see get_intel_profile_limit below):
+-- start/growth/scale/autonomous=1, enterprise=admin-configured,
+-- agency_starter=5, agency_growth=15, agency_pro=50, agency_enterprise=admin-configured.
 
 -- ── Extend account plans ───────────────────────────────────────────────────
+-- Canonical plan enum, matching Audema's real published pricing tiers.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
 ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
-  CHECK (plan IN ('free','basic','pro','professional','agency','enterprise'));
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
 
 -- Admin-set profile allowance for enterprise accounts (NULL = not set → 1)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS intel_profile_limit INTEGER;
@@ -197,11 +204,12 @@ CREATE INDEX IF NOT EXISTS idx_brain_history_profile
 CREATE OR REPLACE FUNCTION get_intel_profile_limit(uid UUID)
 RETURNS INTEGER AS $$
   SELECT CASE plan
-    WHEN 'agency'       THEN 8
-    WHEN 'professional' THEN 3
-    WHEN 'pro'          THEN 3
-    WHEN 'enterprise'   THEN COALESCE(intel_profile_limit, 1)
-    ELSE 1  -- free / basic
+    WHEN 'agency_starter'    THEN 5
+    WHEN 'agency_growth'     THEN 15
+    WHEN 'agency_pro'        THEN 50
+    WHEN 'agency_enterprise' THEN COALESCE(intel_profile_limit, 999999)
+    WHEN 'enterprise'        THEN COALESCE(intel_profile_limit, 1)
+    ELSE 1  -- free / start / growth / scale / autonomous: single-business plans
   END
   FROM profiles WHERE id = uid;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
@@ -961,3 +969,49 @@ CREATE POLICY "competitor_changes_owner_all" ON competitor_changes
 -- Writes to snapshots/changes happen only via the service-role key
 -- (api/cron-competitor-watch.js), which bypasses RLS entirely.
 
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-billing.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+ this trigger, any signed-in user could set their
+-- own plan/subscription_status straight through the Supabase client and grant
+-- themselves a paid plan for free, or make themselves an admin. Only the
+-- webhook (service_role, which bypasses RLS but NOT this trigger — it's
+-- allow-listed below) and an existing admin may change these columns.
+CREATE OR REPLACE FUNCTION protect_billing_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- service_role = server-side calls using SUPABASE_SERVICE_ROLE_KEY (the
+  -- Stripe webhook handler, admin API endpoints). auth.uid() IS NULL = a
+  -- direct SQL Editor / migration run, not a PostgREST request at all.
+  IF current_setting('role', true) = 'service_role' OR auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF (NEW.plan                    IS DISTINCT FROM OLD.plan
+      OR NEW.role                 IS DISTINCT FROM OLD.role
+      OR NEW.stripe_customer_id     IS DISTINCT FROM OLD.stripe_customer_id
+      OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
+      OR NEW.stripe_price_id        IS DISTINCT FROM OLD.stripe_price_id
+      OR NEW.subscription_status    IS DISTINCT FROM OLD.subscription_status
+      OR NEW.current_period_end     IS DISTINCT FROM OLD.current_period_end
+      OR NEW.intel_profile_limit    IS DISTINCT FROM OLD.intel_profile_limit)
+     AND NOT EXISTS (
+       SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','super_admin')
+     )
+  THEN
+    RAISE EXCEPTION 'Billing and role fields can only be changed by the billing system or an admin.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_billing_columns ON profiles;
+CREATE TRIGGER trg_protect_billing_columns
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION protect_billing_columns();
+
+-- DONE! profiles now carries real Stripe subscription state, every webhook
+-- event is logged to billing_events, and none of it is client-writable.

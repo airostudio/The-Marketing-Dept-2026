@@ -13,9 +13,18 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' CHECK (ro
 -- Step 2: Create index for role-based queries
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
--- Step 3: Update the plan check constraint to include 'admin'
+-- Step 3: Admin status lives entirely in the `role` column above — it is
+-- independent of `plan` (an admin can be on any billing tier, including
+-- free, since admin access isn't a purchased plan). The canonical plan enum
+-- is defined in supabase-intelligence-profiles.sql; re-assert it here too so
+-- this script still works if run standalone/out of order.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
-ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check CHECK (plan IN ('free', 'pro', 'enterprise', 'admin'));
+ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
 
 -- Step 4: Create admin RLS policies
 -- Admin users can view all profiles
@@ -103,11 +112,10 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
     END IF;
 
-    -- Update profile to admin
+    -- Update profile to admin (role only — plan/billing is untouched)
     UPDATE profiles
     SET
         role = admin_role,
-        plan = 'admin',
         updated_at = NOW()
     WHERE id = target_user_id;
 
@@ -146,11 +154,10 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
     END IF;
 
-    -- Update profile to user
+    -- Update profile to user (role only — plan/billing is untouched)
     UPDATE profiles
     SET
         role = 'user',
-        plan = 'free',
         updated_at = NOW()
     WHERE id = target_user_id;
 
@@ -182,11 +189,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. Then run ONE of these commands to make that user an admin:
 --
 --    For regular admin:
---    UPDATE profiles SET role = 'admin', plan = 'admin'
+--    UPDATE profiles SET role = 'admin'
 --    WHERE email = 'your-email@example.com';
 --
 --    For super admin:
---    UPDATE profiles SET role = 'super_admin', plan = 'admin'
+--    UPDATE profiles SET role = 'super_admin'
 --    WHERE email = 'your-email@example.com';
 --
 -- 3. After that, you can use the admin dashboard to manage other users
