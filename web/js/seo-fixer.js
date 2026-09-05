@@ -310,7 +310,7 @@
         for (const issue of issues) {
             const title = issue.title.toLowerCase();
 
-            if (title.includes('missing title tag') || title.includes('title tag too short')) {
+            if (title.includes('missing title tag') || title.includes('title tag very short') || title.includes('title tag too short')) {
                 addFix({
                     issue: issue,
                     type: FIX_TYPE.AUTO,
@@ -322,7 +322,7 @@
                 });
                 FixerState.fixed++;
             }
-            else if (title.includes('missing meta description') || title.includes('meta description too short')) {
+            else if (title.includes('missing meta description') || title.includes('meta description very short') || title.includes('meta description too short')) {
                 addFix({
                     issue: issue,
                     type: FIX_TYPE.AUTO,
@@ -521,7 +521,7 @@
                 });
                 FixerState.manual++;
             }
-            else if (title.includes('thin content')) {
+            else if (title.includes('thin content') || title.includes('very little text')) {
                 addFix({
                     issue: issue,
                     type: FIX_TYPE.MANUAL,
@@ -639,38 +639,46 @@
             const title = issue.title.toLowerCase();
 
             if (title.includes('render-blocking')) {
+                // Rewrite the page's OWN blocking scripts. The audit already
+                // identified them by URL; a snippet naming "analytics.js" and
+                // "non-critical.js" — files that exist on no real site — was
+                // the clearest possible signal that nothing here had read the
+                // page it was advising on.
+                const blocking = extractUrlsFromEvidence(issue.evidence);
                 addFix({
                     issue: issue,
                     type: FIX_TYPE.AUTO,
                     title: 'Fix Render-Blocking Scripts',
-                    description: 'Add async or defer to non-critical scripts.',
-                    code: `<!-- For non-critical scripts, add async or defer -->
-<script src="analytics.js" async></script>
-<script src="non-critical.js" defer></script>
-
-<!-- Move scripts to end of body when possible -->
-</body>
-</html>`,
+                    description: blocking.length
+                        ? `Add defer to the ${blocking.length} blocking script(s) found on this page.`
+                        : 'Add async or defer to non-critical scripts.',
+                    code: blocking.length
+                        ? `<!-- These are the scripts actually blocking render on ${issue.url} -->\n` +
+                          blocking.map(src => `<script src="${src}" defer></script>`).join('\n') +
+                          `\n\n<!-- Use async instead of defer for scripts that don't depend on\n     the DOM or on each other (analytics, for example). -->`
+                        : `<!-- For non-critical scripts, add async or defer -->\n<script src="/your-script.js" defer></script>`,
                     language: 'html',
-                    instructions: 'Add async for scripts that don\'t depend on other scripts, or defer for scripts that need to run after DOM is ready.'
+                    instructions: 'Replace the existing tags for these scripts with the versions above. Use defer when execution order matters, async when it does not.'
                 });
                 FixerState.fixed++;
             }
-            else if (title.includes('resource hints')) {
+            else if (title.includes('resource hints') || title.includes('without preconnect')) {
+                // Same principle: preconnect to the origins this page really
+                // loads from, not to a guessed list of popular CDNs.
+                const origins = extractUrlsFromEvidence(issue.evidence);
                 addFix({
                     issue: issue,
                     type: FIX_TYPE.AUTO,
                     title: 'Add Resource Hints',
-                    description: 'Add preconnect and preload hints for faster loading.',
-                    code: `<!-- Add to <head> for third-party domains -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://www.google-analytics.com">
-
-<!-- Preload critical resources -->
-<link rel="preload" href="/fonts/main.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/css/critical.css" as="style">`,
+                    description: origins.length
+                        ? `Preconnect to the ${origins.length} third-party origin(s) this page loads from.`
+                        : 'Add preconnect hints for third-party domains.',
+                    code: origins.length
+                        ? `<!-- Third-party origins ${issue.url} actually loads from -->\n` +
+                          origins.map(o => `<link rel="preconnect" href="${o}" crossorigin>`).join('\n')
+                        : `<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>`,
                     language: 'html',
-                    instructions: 'Add these to your <head> section, adjusting URLs for your actual resources.'
+                    instructions: 'Add these to your <head>, ideally before the tags that load from those origins. Preconnect only what is on the critical path — a hint for every origin costs more than it saves.'
                 });
                 FixerState.fixed++;
             }
@@ -816,76 +824,171 @@ body {
     }
 
     /**
-     * Generate title tag
+     * Get the parsed DOM of a page the audit already fetched.
+     *
+     * The audit stores every crawled page's real HTML in
+     * AuditState.pageData, so there is no excuse for the generators below to
+     * write copy from the URL slug alone. They used to, which is how a page
+     * with a perfectly good hand-written description got "fixed" with
+     * "Learn about Terms at Your Site. Find detailed information..." —
+     * text derived from nothing on the page, offered as an improvement.
+     * @returns {Document|null}
      */
-    function generateTitleTag(url, siteName) {
-        const path = new URL(url).pathname;
-        let pageTitle = 'Home';
-
-        if (path !== '/' && path !== '') {
-            // Extract page name from URL
-            const segments = path.split('/').filter(s => s);
-            if (segments.length > 0) {
-                pageTitle = segments[segments.length - 1]
-                    .replace(/[-_]/g, ' ')
-                    .replace(/\.\w+$/, '')
-                    .replace(/\b\w/g, c => c.toUpperCase());
-            }
+    function getPageDoc(url) {
+        try {
+            const state = window.SEOAudit?.getState?.();
+            const entry = state?.pageData?.[url];
+            if (!entry?.html) return null;
+            return new DOMParser().parseFromString(entry.html, 'text/html');
+        } catch (e) {
+            return null;
         }
+    }
 
-        return `<title>${pageTitle} | ${siteName}</title>`;
+    /** Human-readable page name from a URL slug — a last resort, not a first one. */
+    function pageNameFromUrl(url) {
+        try {
+            const path = new URL(url).pathname;
+            if (path === '/' || path === '') return 'Home';
+            const segments = path.split('/').filter(s => s);
+            if (!segments.length) return 'Home';
+            return segments[segments.length - 1]
+                .replace(/[-_]/g, ' ')
+                .replace(/\.\w+$/, '')
+                .replace(/\b\w/g, c => c.toUpperCase());
+        } catch (e) {
+            return 'Home';
+        }
     }
 
     /**
-     * Generate meta description
+     * Marks generated copy that we could NOT ground in the page's own
+     * content, so it is never mistaken for a finished, informed suggestion.
      */
-    function generateMetaDescription(url, siteName) {
-        const path = new URL(url).pathname;
+    const PLACEHOLDER_NOTE = '<!-- TODO: placeholder - we could not read enough of this page to write this for you. Replace with copy describing what the page actually offers. -->\n';
 
-        if (path === '/' || path === '') {
-            return `<meta name="description" content="Welcome to ${siteName}. Discover our products and services designed to help you succeed. Learn more about what we offer today.">`;
+    /**
+     * Generate title tag from what the page actually says.
+     * Preference order: existing og:title → the page's own H1 → URL slug.
+     */
+    function generateTitleTag(url, siteName) {
+        const doc = getPageDoc(url);
+        let source = null;
+        let grounded = false;
+
+        if (doc) {
+            const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
+            const h1 = doc.querySelector('h1')?.textContent?.trim();
+            if (ogTitle) { source = ogTitle; grounded = true; }
+            else if (h1 && h1.length >= 3) { source = h1; grounded = true; }
         }
 
-        const segments = path.split('/').filter(s => s);
-        const pageName = segments[segments.length - 1]
-            .replace(/[-_]/g, ' ')
-            .replace(/\.\w+$/, '')
-            .replace(/\b\w/g, c => c.toUpperCase());
+        if (!source) source = pageNameFromUrl(url);
 
-        return `<meta name="description" content="Learn about ${pageName} at ${siteName}. Find detailed information, resources, and everything you need to know about ${pageName.toLowerCase()}.">`;
+        // Don't append the brand if the source text already carries it.
+        const needsBrand = siteName && !source.toLowerCase().includes(siteName.toLowerCase());
+        const titleText = needsBrand ? `${source} | ${siteName}` : source;
+
+        return (grounded ? '' : PLACEHOLDER_NOTE) + `<title>${titleText}</title>`;
+    }
+
+    /**
+     * Generate meta description from what the page actually says.
+     * Preference order: existing og:description → first substantial
+     * paragraph of real body text → clearly-labelled placeholder.
+     */
+    function generateMetaDescription(url, siteName) {
+        const doc = getPageDoc(url);
+
+        if (doc) {
+            const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim();
+            if (ogDesc && ogDesc.length >= 50) {
+                return `<meta name="description" content="${escapeAttr(ogDesc)}">`;
+            }
+
+            // First paragraph with enough substance to describe the page.
+            const paragraphs = [...doc.querySelectorAll('main p, article p, p')]
+                .map(p => p.textContent.replace(/\s+/g, ' ').trim())
+                .filter(t => t.length >= 60);
+
+            if (paragraphs.length) {
+                let text = paragraphs[0];
+                if (text.length > 158) {
+                    // Trim at a sentence or word boundary rather than mid-word.
+                    const cut = text.slice(0, 158);
+                    const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+                    text = lastStop > 80 ? cut.slice(0, lastStop + 1) : cut.slice(0, cut.lastIndexOf(' ')) + '…';
+                }
+                return `<meta name="description" content="${escapeAttr(text)}">`;
+            }
+        }
+
+        // Nothing on the page to ground this in. Say so rather than inventing
+        // marketing copy and presenting it as a fix.
+        const pageName = pageNameFromUrl(url);
+        return PLACEHOLDER_NOTE +
+            `<meta name="description" content="${escapeAttr(`${pageName} - ${siteName}.`)}">`;
+    }
+
+    /**
+     * Pull the concrete URLs the audit recorded in a finding's evidence
+     * (it writes them as "  • https://…" lines), so generated fixes can
+     * reference the page's real resources instead of invented filenames.
+     */
+    function extractUrlsFromEvidence(evidence) {
+        if (!evidence) return [];
+        return evidence
+            .split('\n')
+            .map(line => line.replace(/^\s*[•\-*]\s*/, '').trim())
+            .filter(line => /^(https?:)?\/\//.test(line) || line.startsWith('/'))
+            .slice(0, 20);
+    }
+
+    /** Escape a string for safe use inside a double-quoted HTML attribute. */
+    function escapeAttr(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
 
     /**
      * Generate Open Graph tags
      */
     function generateOpenGraphTags(url, siteName) {
-        const path = new URL(url).pathname;
-        let pageTitle = siteName;
+        // Reuse the page's real title and description wherever it already has
+        // them, so the OG tags match what the page actually says instead of
+        // introducing a second, invented version of the page's identity.
+        const doc = getPageDoc(url);
+        const existingTitle = doc?.querySelector('title')?.textContent?.trim();
+        const existingDesc = doc?.querySelector('meta[name="description"]')?.getAttribute('content')?.trim();
+        const existingImage = doc?.querySelector('meta[property="og:image"]')?.getAttribute('content')?.trim();
 
-        if (path !== '/' && path !== '') {
-            const segments = path.split('/').filter(s => s);
-            if (segments.length > 0) {
-                const pageName = segments[segments.length - 1]
-                    .replace(/[-_]/g, ' ')
-                    .replace(/\.\w+$/, '')
-                    .replace(/\b\w/g, c => c.toUpperCase());
-                pageTitle = `${pageName} | ${siteName}`;
-            }
-        }
+        const pageTitle = existingTitle
+            || generateTitleTag(url, siteName).replace(/^[\s\S]*<title>|<\/title>[\s\S]*$/g, '');
+        const pageDesc = existingDesc
+            || (generateMetaDescription(url, siteName).match(/content="([^"]*)"/) || [, ''])[1];
+
+        const origin = new URL(url).origin;
+        const image = existingImage || `${origin}/images/og-image.jpg`;
+        const imageNote = existingImage
+            ? ''
+            : `<!-- TODO: no og:image found on this page - point the two image tags below at a real 1200x630 image. -->\n`;
 
         return `<!-- Open Graph / Facebook -->
-<meta property="og:type" content="website">
+${imageNote}<meta property="og:type" content="website">
 <meta property="og:url" content="${url}">
-<meta property="og:title" content="${pageTitle}">
-<meta property="og:description" content="Your page description here">
-<meta property="og:image" content="${new URL(url).origin}/images/og-image.jpg">
+<meta property="og:title" content="${escapeAttr(pageTitle)}">
+<meta property="og:description" content="${escapeAttr(pageDesc)}">
+<meta property="og:image" content="${escapeAttr(image)}">
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="${url}">
-<meta name="twitter:title" content="${pageTitle}">
-<meta name="twitter:description" content="Your page description here">
-<meta name="twitter:image" content="${new URL(url).origin}/images/twitter-image.jpg">`;
+<meta name="twitter:title" content="${escapeAttr(pageTitle)}">
+<meta name="twitter:description" content="${escapeAttr(pageDesc)}">
+<meta name="twitter:image" content="${escapeAttr(image)}">`;
     }
 
     /**
@@ -1265,7 +1368,16 @@ Disallow: /api/
     window.SEOFixer = {
         open: openFixModal,
         start: startFixing,
-        getState: () => FixerState
+        getState: () => FixerState,
+        // Exposed so the copy generators can be tested directly against real
+        // page HTML (tests/seo-audit/). They were previously unreachable from
+        // outside, which is part of why they drifted into emitting template
+        // text nobody was checking against actual pages.
+        generators: {
+            title: generateTitleTag,
+            description: generateMetaDescription,
+            openGraph: generateOpenGraphTags
+        }
     };
 
 })();

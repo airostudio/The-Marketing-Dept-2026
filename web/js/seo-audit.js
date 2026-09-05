@@ -52,7 +52,10 @@
         pendingUrls: [],
         brokenLinks: [],
         allLinks: [],
-        pageData: {} // Store data for each crawled page
+        pageData: {},        // Store data for each crawled page, keyed by FINAL (post-redirect) URL
+        robotsRules: null,   // Parsed robots.txt directives — the crawler obeys these
+        robotsSkipped: [],   // URLs not fetched because robots.txt disallows them
+        redirects: []        // { from, to } for every URL that redirected
     };
 
     // DOM Elements
@@ -265,6 +268,15 @@
                 continue;
             }
 
+            // Obey robots.txt. A page the site owner has told crawlers to
+            // stay out of is not a page to audit — reporting on it produces
+            // findings about content Google will never see.
+            if (isDisallowedByRobots(url)) {
+                AuditState.robotsSkipped.push(url);
+                AuditState.crawledUrls.add(url);
+                continue;
+            }
+
             // Mark as crawled
             AuditState.crawledUrls.add(url);
 
@@ -274,24 +286,46 @@
 
             try {
                 // Fetch the page
-                const html = await fetchPage(url);
+                const fetched = await fetchPage(url);
                 AuditState.pagesCrawled++;
                 updatePagesCrawled();
 
-                if (html) {
+                if (fetched) {
+                    const { html } = fetched;
+                    const finalUrl = normalizeUrl(fetched.finalUrl || url);
+                    const redirected = finalUrl !== url;
+
+                    if (redirected) {
+                        AuditState.redirects.push({ from: url, to: finalUrl });
+                    }
+
+                    // If this URL redirected somewhere we've already audited,
+                    // it's the same page reached a second way — record the
+                    // redirect and move on. Auditing it again is what used to
+                    // produce phantom "duplicate title" and "duplicate meta
+                    // description" findings for a single real page.
+                    if (redirected && AuditState.pageData[finalUrl]) {
+                        await sleep(AUDIT_CONFIG.crawlDelay);
+                        continue;
+                    }
+
                     pagesFetched++;
 
-                    // Store page data
-                    AuditState.pageData[url] = {
+                    // Store page data under the URL the content actually lives
+                    // at, so every downstream check and the duplicate-content
+                    // analysis see one entry per real page.
+                    AuditState.crawledUrls.add(finalUrl);
+                    AuditState.pageData[finalUrl] = {
                         html,
-                        crawledAt: new Date().toISOString()
+                        crawledAt: new Date().toISOString(),
+                        redirectedFrom: redirected ? url : undefined
                     };
 
                     // Run checks on this page
-                    await runPageChecks(html, url);
+                    await runPageChecks(html, finalUrl);
 
                     // Extract and queue internal links
-                    const links = extractLinks(html, url, baseDomain);
+                    const links = extractLinks(html, finalUrl, baseDomain);
 
                     links.internal.forEach(link => {
                         const normalizedLink = normalizeUrl(link);
@@ -302,7 +336,7 @@
                     });
 
                     // Track all links for broken link checking
-                    AuditState.allLinks.push(...links.all.map(l => ({ from: url, to: l.href, text: l.text })));
+                    AuditState.allLinks.push(...links.all.map(l => ({ from: finalUrl, to: l.href, text: l.text })));
                 }
 
                 // Delay between requests
@@ -491,20 +525,29 @@
             issuesByType[key].push(issue);
         });
 
-        // Flag widespread issues
+        // Flag widespread issues.
+        //
+        // The rollup keeps the underlying issue's own severity. It used to
+        // promote everything to HIGH, which meant a LOW-severity nitpick
+        // appearing on every page of a consistent template got reported as a
+        // high-severity site-wide problem — inflating the report precisely
+        // where the site was being consistent. Breadth is worth surfacing;
+        // it is not the same thing as severity.
         Object.entries(issuesByType).forEach(([title, issues]) => {
+            if (title.startsWith('Site-wide: ')) return;
             if (issues.length > pageCount * 0.5 && issues.length > 3) {
-                // More than 50% of pages have this issue - it's site-wide
                 const firstIssue = issues[0];
                 if (firstIssue.severity !== SEVERITY.CRITICAL) {
-                    // Upgrade to site-wide issue
                     addIssue({
-                        severity: SEVERITY.HIGH,
+                        severity: firstIssue.severity,
                         category: firstIssue.category,
                         title: `Site-wide: ${title}`,
-                        description: `This issue affects ${issues.length} out of ${pageCount} pages (${Math.round(issues.length/pageCount*100)}%). This appears to be a template-level problem.`,
+                        description: `This issue affects ${issues.length} out of ${pageCount} pages (${Math.round(issues.length/pageCount*100)}%). It looks like a template-level pattern, so one fix likely resolves all of them.`,
                         url: AuditState.currentUrl,
-                        recommendation: 'Fix this issue at the template level to resolve it across all affected pages.'
+                        recommendation: 'Fix this at the template level to resolve it across all affected pages.',
+                        evidence: 'Affected pages:\n' +
+                            issues.slice(0, 10).map(i => '  • ' + i.url).join('\n') +
+                            (issues.length > 10 ? `\n  …and ${issues.length - 10} more` : '')
                     });
                 }
             }
@@ -530,7 +573,9 @@
             }
         });
 
-        // Report duplicate titles
+        // Report duplicate titles. Redirect chains were already collapsed
+        // during the crawl, so anything reaching here really is two distinct
+        // URLs serving the same title, not one page reached two ways.
         Object.entries(titles).forEach(([title, urls]) => {
             if (urls.length > 1) {
                 addIssue({
@@ -539,7 +584,8 @@
                     title: 'Duplicate title tags',
                     description: `${urls.length} pages share the same title: "${truncateUrl(title, 50)}". Each page should have a unique title.`,
                     url: urls[0],
-                    recommendation: 'Create unique, descriptive title tags for each page.'
+                    recommendation: 'Create unique, descriptive title tags for each page.',
+                    evidence: `Title: "${title}"\nOn these URLs:\n${urls.map(u => '  • ' + u).join('\n')}`
                 });
             }
         });
@@ -553,10 +599,37 @@
                     title: 'Duplicate meta descriptions',
                     description: `${urls.length} pages share the same meta description. Each page should have unique content.`,
                     url: urls[0],
-                    recommendation: 'Write unique meta descriptions for each page.'
+                    recommendation: 'Write unique meta descriptions for each page.',
+                    evidence: `Description: "${desc}"\nOn these URLs:\n${urls.map(u => '  • ' + u).join('\n')}`
                 });
             }
         });
+
+        // Report what the crawl deliberately did NOT audit, so the absence of
+        // findings for those URLs is explained rather than mysterious.
+        if (AuditState.robotsSkipped.length > 0) {
+            addIssue({
+                severity: SEVERITY.LOW,
+                category: CATEGORY.INDEXING,
+                title: 'Pages skipped (disallowed by robots.txt)',
+                description: `${AuditState.robotsSkipped.length} URL(s) were not audited because your robots.txt disallows crawling them. This is informational, not a problem — search engines skip them too.`,
+                url: AuditState.currentUrl,
+                recommendation: 'No action needed unless one of these URLs is meant to be indexed, in which case remove its Disallow rule.',
+                evidence: AuditState.robotsSkipped.map(u => '  • ' + u).join('\n')
+            });
+        }
+
+        if (AuditState.redirects.length > 0) {
+            addIssue({
+                severity: SEVERITY.LOW,
+                category: CATEGORY.INDEXING,
+                title: 'Redirects encountered during crawl',
+                description: `${AuditState.redirects.length} URL(s) redirected elsewhere. Each was audited once, at its destination — not as a separate page.`,
+                url: AuditState.currentUrl,
+                recommendation: 'No action needed if these redirects are intentional. Update internal links to point at the destination directly to save a round trip.',
+                evidence: AuditState.redirects.map(r => `  • ${r.from} → ${r.to}`).join('\n')
+            });
+        }
     }
 
     /**
@@ -636,16 +709,33 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        // Check for render-blocking scripts in head
-        const headScripts = doc.querySelectorAll('head script:not([async]):not([defer])');
-        if (headScripts.length > 2) {
+        // Render-blocking means a network round trip the parser has to wait
+        // on: an EXTERNAL script in <head> with no async/defer. Inline
+        // <script> blocks are not that — they execute immediately with
+        // nothing to download — and modern frameworks put several of them in
+        // <head> as a matter of course (hydration bootstraps, theme-flash
+        // guards, tag-manager loaders that set .async themselves in JS).
+        // Counting those was flagging nearly every site built this decade.
+        // type="module" is deferred by definition, and JSON-LD isn't script
+        // execution at all, so both are excluded too.
+        const blockingScripts = [];
+        doc.querySelectorAll('head script[src]').forEach(script => {
+            if (script.hasAttribute('async') || script.hasAttribute('defer')) return;
+            const type = (script.getAttribute('type') || '').toLowerCase();
+            if (type === 'module' || (type && !/javascript|ecmascript/.test(type))) return;
+            blockingScripts.push(script.getAttribute('src'));
+        });
+
+        if (blockingScripts.length > 2) {
             addIssue({
                 severity: SEVERITY.MEDIUM,
                 category: CATEGORY.PERFORMANCE,
                 title: 'Render-blocking scripts',
-                description: `${headScripts.length} scripts in <head> without async/defer may block page rendering.`,
+                description: `${blockingScripts.length} external script(s) in <head> have neither async nor defer, so the parser waits on each download before rendering.`,
                 url: url,
-                recommendation: 'Add async or defer attributes to non-critical scripts, or move them before </body>.'
+                recommendation: 'Add async or defer to these specific scripts, or move them before </body>.',
+                evidence: 'Blocking scripts found on this page:\n' +
+                    blockingScripts.map(s => '  • ' + s).join('\n')
             });
         }
 
@@ -669,18 +759,37 @@
             });
         }
 
-        // Check for preconnect/preload hints
-        const preconnect = doc.querySelectorAll('link[rel="preconnect"]');
-        const preload = doc.querySelectorAll('link[rel="preload"]');
+        // Resource hints. "This page has no preconnect" is not by itself a
+        // finding — most pages don't need one. It's only worth raising when
+        // the page actually pulls resources from third-party origins that a
+        // preconnect would measurably help, and we can name them.
+        const preconnected = new Set();
+        doc.querySelectorAll('link[rel="preconnect"], link[rel="dns-prefetch"]').forEach(l => {
+            try { preconnected.add(new URL(l.getAttribute('href'), url).origin); } catch (e) { /* ignore */ }
+        });
 
-        if (preconnect.length === 0 && preload.length === 0) {
+        const thirdPartyOrigins = new Set();
+        doc.querySelectorAll('script[src], link[rel="stylesheet"][href], img[src]').forEach(el => {
+            const raw = el.getAttribute('src') || el.getAttribute('href');
+            if (!raw) return;
+            try {
+                const origin = new URL(raw, url).origin;
+                if (origin !== new URL(url).origin && !preconnected.has(origin)) {
+                    thirdPartyOrigins.add(origin);
+                }
+            } catch (e) { /* ignore */ }
+        });
+
+        if (thirdPartyOrigins.size >= 3) {
             addIssue({
                 severity: SEVERITY.LOW,
                 category: CATEGORY.PERFORMANCE,
-                title: 'No resource hints',
-                description: 'No preconnect or preload hints found. These can improve loading performance.',
+                title: 'Third-party origins without preconnect',
+                description: `This page loads resources from ${thirdPartyOrigins.size} third-party origins with no preconnect/dns-prefetch hint, so each costs a fresh DNS + TLS handshake.`,
                 url: url,
-                recommendation: 'Add preconnect for third-party domains and preload for critical resources.'
+                recommendation: 'Add <link rel="preconnect"> for the origins on the critical path (fonts and above-the-fold assets benefit most).',
+                evidence: 'Origins loaded without a preconnect hint:\n' +
+                    [...thirdPartyOrigins].map(o => '  • ' + o).join('\n')
             });
         }
     }
@@ -712,9 +821,26 @@
      * fetchPage(), checkRobotsTxt() and checkSitemap() so all three real
      * checks get the same reliable, non-CORS-restricted path instead of
      * depending solely on flaky third-party proxies.
+     *
+     * Returns the body only. Callers that need to know where the request
+     * actually landed after redirects use fetchViaServerDetailed() instead.
      * @returns {Promise<string|null>}
      */
     async function fetchViaServer(targetUrl, timeoutMs) {
+        const result = await fetchViaServerDetailed(targetUrl, timeoutMs);
+        return result ? result.html : null;
+    }
+
+    /**
+     * As fetchViaServer(), but keeps the finalUrl the server reports after
+     * following redirects. /api/fetch-page has always returned this; the
+     * crawler used to discard it, which is why a URL that redirects (an
+     * auth-gated /build → /login, say) got audited as though it were its own
+     * distinct page — manufacturing duplicate titles and descriptions for
+     * content that exists once.
+     * @returns {Promise<{html: string, finalUrl: string, status: number}|null>}
+     */
+    async function fetchViaServerDetailed(targetUrl, timeoutMs) {
         try {
             const response = await fetch('/api/fetch-page', {
                 method: 'POST',
@@ -723,7 +849,13 @@
                 signal: AbortSignal.timeout(timeoutMs)
             });
             const data = await response.json().catch(() => ({}));
-            if (response.ok && data.success && data.html) return data.html;
+            if (response.ok && data.success && data.html) {
+                return {
+                    html: data.html,
+                    finalUrl: data.finalUrl || targetUrl,
+                    status: data.status || 200
+                };
+            }
         } catch (e) {
             // fall through — caller tries proxies next
         }
@@ -731,12 +863,18 @@
     }
 
     /**
-     * Fetch page content. Returns the real HTML, or null if the page truly
-     * could not be fetched — callers must treat null as "this page failed",
-     * never as an excuse to fabricate a page. A prior version of this
-     * function returned a hardcoded fake HTML stub whenever fetching failed,
-     * which produced a plausible-looking but entirely synthetic "audit" with
-     * no relationship to the real site. That fallback has been removed.
+     * Fetch page content. Returns { html, finalUrl } for the real page, or
+     * null if the page truly could not be fetched — callers must treat null
+     * as "this page failed", never as an excuse to fabricate a page. A prior
+     * version of this function returned a hardcoded fake HTML stub whenever
+     * fetching failed, which produced a plausible-looking but entirely
+     * synthetic "audit" with no relationship to the real site. That fallback
+     * has been removed.
+     *
+     * finalUrl is where the request actually landed after redirects, which
+     * the caller needs in order to avoid auditing one page several times
+     * under each of the URLs that redirect to it.
+     * @returns {Promise<{html: string, finalUrl: string}|null>}
      */
     async function fetchPage(url) {
         // Try direct fetch first — cheap, and works when the target sets
@@ -747,7 +885,7 @@
                 headers: { 'Accept': 'text/html' }
             });
             if (response.ok) {
-                return await response.text();
+                return { html: await response.text(), finalUrl: response.url || url };
             }
         } catch (e) {
             // Expected for cross-origin — fall through to the server-side fetch.
@@ -755,17 +893,19 @@
 
         // Server-side fetch (/api/fetch-page) — no CORS restriction since
         // it's server-to-server, so this covers the vast majority of sites.
-        const serverHtml = await fetchViaServer(url, AUDIT_CONFIG.timeout);
-        if (serverHtml) return serverHtml;
+        const server = await fetchViaServerDetailed(url, AUDIT_CONFIG.timeout);
+        if (server) return { html: server.html, finalUrl: server.finalUrl };
 
-        // Last resort: third-party CORS proxies (best-effort, frequently rate-limited/down).
+        // Last resort: third-party CORS proxies (best-effort, frequently
+        // rate-limited/down). These can't report a final URL, so redirect
+        // collapsing is unavailable on this path.
         for (const proxy of AUDIT_CONFIG.corsProxies) {
             try {
                 const response = await fetch(proxy + encodeURIComponent(url), {
                     signal: AbortSignal.timeout(AUDIT_CONFIG.timeout)
                 });
                 if (response.ok) {
-                    return await response.text();
+                    return { html: await response.text(), finalUrl: url };
                 }
             } catch (e) {
                 continue;
@@ -780,6 +920,35 @@
     /**
      * Check meta tags
      */
+    /**
+     * Summarise what the crawler actually parsed out of <head>.
+     *
+     * Attached to every "missing X" finding, because that is the class of
+     * finding most likely to be the crawler's fault rather than the site's:
+     * if we report a missing title on a page that plainly has one, this shows
+     * at a glance whether we fetched a redirect, a JS shell, an error page,
+     * or genuinely a page with no title.
+     */
+    function headSnapshot(doc, html) {
+        const lines = [];
+        const t = doc.querySelector('title');
+        lines.push(`<title>: ${t ? `"${t.textContent.trim()}"` : '(none found)'}`);
+
+        const metas = doc.querySelectorAll('head meta[name], head meta[property]');
+        if (metas.length) {
+            const names = [...metas]
+                .map(m => m.getAttribute('name') || m.getAttribute('property'))
+                .filter(Boolean);
+            lines.push(`meta tags in <head>: ${names.join(', ')}`);
+        } else {
+            lines.push('meta tags in <head>: (none found)');
+        }
+
+        lines.push(`HTML received: ${html.length.toLocaleString()} bytes`);
+        lines.push(`First 200 bytes: ${html.slice(0, 200).replace(/\s+/g, ' ')}`);
+        return lines.join('\n');
+    }
+
     function checkMetaTags(html, url) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
@@ -788,6 +957,12 @@
         const title = doc.querySelector('title');
         const titleText = title ? title.textContent.trim() : '';
 
+        // Length thresholds are deliberately permissive. There is no SEO
+        // benefit to padding a title to hit a character count: "Terms of
+        // Service | Example.com" is 28 characters and is exactly right for
+        // that page. Only flag a title short enough to be genuinely
+        // uninformative (a bare word or two), or long enough that Google will
+        // visibly truncate it.
         if (!titleText) {
             addIssue({
                 severity: SEVERITY.CRITICAL,
@@ -795,25 +970,28 @@
                 title: 'Missing title tag',
                 description: 'The page is missing a title tag. Title tags are crucial for SEO and user experience.',
                 url: url,
-                recommendation: 'Add a unique, descriptive title tag between 50-60 characters.'
+                recommendation: 'Add a unique, descriptive title tag of roughly 50-60 characters.',
+                evidence: headSnapshot(doc, html)
             });
-        } else if (titleText.length < 30) {
-            addIssue({
-                severity: SEVERITY.MEDIUM,
-                category: CATEGORY.META,
-                title: 'Title tag too short',
-                description: `Title tag is only ${titleText.length} characters. Recommended: 50-60 characters.`,
-                url: url,
-                recommendation: 'Expand your title to include relevant keywords and be more descriptive.'
-            });
-        } else if (titleText.length > 60) {
+        } else if (titleText.length < 15) {
             addIssue({
                 severity: SEVERITY.LOW,
                 category: CATEGORY.META,
-                title: 'Title tag too long',
-                description: `Title tag is ${titleText.length} characters. It may be truncated in search results.`,
+                title: 'Title tag very short',
+                description: `Title tag is only ${titleText.length} characters, which is likely too brief to describe the page or distinguish it in results.`,
                 url: url,
-                recommendation: 'Shorten your title to 60 characters or less.'
+                recommendation: 'Consider adding the page subject and/or brand name.',
+                evidence: `Current title (${titleText.length} chars): "${titleText}"`
+            });
+        } else if (titleText.length > 65) {
+            addIssue({
+                severity: SEVERITY.LOW,
+                category: CATEGORY.META,
+                title: 'Title tag may be truncated',
+                description: `Title tag is ${titleText.length} characters. Google typically truncates around 60-65.`,
+                url: url,
+                recommendation: 'Front-load the important words so the title still reads well if cut short.',
+                evidence: `Current title (${titleText.length} chars): "${titleText}"`
             });
         }
 
@@ -821,6 +999,9 @@
         const metaDesc = doc.querySelector('meta[name="description"]');
         const descText = metaDesc ? metaDesc.getAttribute('content')?.trim() : '';
 
+        // Same reasoning as titles: a clear 90-character description is fine.
+        // Only flag one short enough to waste the snippet, or long enough to
+        // be cut off.
         if (!descText) {
             addIssue({
                 severity: SEVERITY.HIGH,
@@ -828,25 +1009,28 @@
                 title: 'Missing meta description',
                 description: 'The page is missing a meta description. This affects click-through rates from search results.',
                 url: url,
-                recommendation: 'Add a compelling meta description between 150-160 characters.'
+                recommendation: 'Add a compelling meta description of roughly 120-160 characters.',
+                evidence: headSnapshot(doc, html)
             });
-        } else if (descText.length < 120) {
-            addIssue({
-                severity: SEVERITY.MEDIUM,
-                category: CATEGORY.META,
-                title: 'Meta description too short',
-                description: `Meta description is only ${descText.length} characters. Recommended: 150-160 characters.`,
-                url: url,
-                recommendation: 'Expand your meta description to be more compelling and informative.'
-            });
-        } else if (descText.length > 160) {
+        } else if (descText.length < 70) {
             addIssue({
                 severity: SEVERITY.LOW,
                 category: CATEGORY.META,
-                title: 'Meta description too long',
-                description: `Meta description is ${descText.length} characters. It may be truncated in search results.`,
+                title: 'Meta description very short',
+                description: `Meta description is only ${descText.length} characters, leaving most of the search snippet unused.`,
                 url: url,
-                recommendation: 'Shorten your meta description to 160 characters or less.'
+                recommendation: 'Consider expanding it to make fuller use of the snippet.',
+                evidence: `Current description (${descText.length} chars): "${descText}"`
+            });
+        } else if (descText.length > 165) {
+            addIssue({
+                severity: SEVERITY.LOW,
+                category: CATEGORY.META,
+                title: 'Meta description may be truncated',
+                description: `Meta description is ${descText.length} characters. Google typically truncates around 155-160.`,
+                url: url,
+                recommendation: 'Put the key message first so it survives truncation.',
+                evidence: `Current description (${descText.length} chars): "${descText}"`
             });
         }
 
@@ -859,7 +1043,8 @@
                 title: 'Missing viewport meta tag',
                 description: 'The page is missing a viewport meta tag, which is essential for mobile responsiveness.',
                 url: url,
-                recommendation: 'Add: <meta name="viewport" content="width=device-width, initial-scale=1">'
+                recommendation: 'Add: <meta name="viewport" content="width=device-width, initial-scale=1">',
+                evidence: headSnapshot(doc, html)
             });
         }
 
@@ -872,7 +1057,9 @@
                 title: 'Missing canonical URL',
                 description: 'The page is missing a canonical URL tag, which helps prevent duplicate content issues.',
                 url: url,
-                recommendation: 'Add a canonical link tag pointing to the preferred URL of this page.'
+                recommendation: 'Add a canonical link tag pointing to the preferred URL of this page.',
+                evidence: `No <link rel="canonical"> found. Links present in <head>: ${
+                    [...doc.querySelectorAll('head link[rel]')].map(l => l.getAttribute('rel')).join(', ') || '(none)'}`
             });
         }
 
@@ -882,13 +1069,21 @@
         const ogImage = doc.querySelector('meta[property="og:image"]');
 
         if (!ogTitle || !ogDesc || !ogImage) {
+            const missing = [
+                !ogTitle && 'og:title',
+                !ogDesc && 'og:description',
+                !ogImage && 'og:image'
+            ].filter(Boolean);
             addIssue({
                 severity: SEVERITY.LOW,
                 category: CATEGORY.META,
                 title: 'Incomplete Open Graph tags',
-                description: 'Missing some Open Graph meta tags (og:title, og:description, or og:image).',
+                description: `Missing ${missing.join(', ')}.`,
                 url: url,
-                recommendation: 'Add complete Open Graph tags for better social media sharing.'
+                recommendation: 'Add the missing Open Graph tags so shared links render a proper preview card.',
+                evidence: `Missing: ${missing.join(', ')}\nPresent: ${[
+                    ogTitle && 'og:title', ogDesc && 'og:description', ogImage && 'og:image'
+                ].filter(Boolean).join(', ') || '(none)'}`
             });
         }
 
@@ -901,7 +1096,8 @@
                 title: 'Missing language attribute',
                 description: 'The HTML element is missing a lang attribute.',
                 url: url,
-                recommendation: 'Add a lang attribute to the <html> element (e.g., lang="en").'
+                recommendation: 'Add a lang attribute to the <html> element (e.g., lang="en").',
+                evidence: `<html> tag as served: ${(html.match(/<html[^>]*>/i) || ['(not found)'])[0]}`
             });
         }
     }
@@ -919,13 +1115,23 @@
 
         // Check for H1
         if (h1s.length === 0) {
+            // Headings rendered only after JS hydration won't be in the HTML
+            // we fetched. Say so, and show what headings we did see, rather
+            // than asserting the page has none.
+            const anyHeading = doc.querySelector('h2, h3, h4');
             addIssue({
-                severity: SEVERITY.CRITICAL,
+                severity: SEVERITY.HIGH,
                 category: CATEGORY.CONTENT,
                 title: 'Missing H1 heading',
-                description: 'The page has no H1 heading. Every page should have exactly one H1.',
+                description: 'No H1 heading was found in the HTML served for this page. Note that headings rendered client-side by JavaScript will not appear here — nor to crawlers that do not execute your JS.',
                 url: url,
-                recommendation: 'Add a single, descriptive H1 heading that includes your main keyword.'
+                recommendation: 'Ensure a single descriptive H1 is present in the server-rendered HTML.',
+                evidence: `Headings found in served HTML: ${
+                    ['h1', 'h2', 'h3', 'h4'].map(tag => {
+                        const n = doc.querySelectorAll(tag).length;
+                        return n ? `${n}×${tag}` : null;
+                    }).filter(Boolean).join(', ') || '(none)'
+                }${anyHeading ? `\nFirst heading text: "${anyHeading.textContent.trim().slice(0, 80)}"` : ''}`
             });
         } else if (h1s.length > 1) {
             addIssue({
@@ -934,18 +1140,22 @@
                 title: 'Multiple H1 headings',
                 description: `The page has ${h1s.length} H1 headings. Best practice is to have exactly one H1.`,
                 url: url,
-                recommendation: 'Keep only one H1 heading per page and use H2-H6 for subheadings.'
+                recommendation: 'Keep only one H1 heading per page and use H2-H6 for subheadings.',
+                evidence: [...h1s].map(h => '  • ' + h.textContent.trim().slice(0, 80)).join('\n')
             });
         } else {
+            // "Pricing" is a perfectly good H1. Only flag one so short it
+            // can't be describing anything.
             const h1Text = h1s[0].textContent.trim();
-            if (h1Text.length < 20) {
+            if (h1Text.length < 5) {
                 addIssue({
                     severity: SEVERITY.LOW,
                     category: CATEGORY.CONTENT,
-                    title: 'H1 heading too short',
+                    title: 'H1 heading very short',
                     description: `The H1 heading is only ${h1Text.length} characters long.`,
                     url: url,
-                    recommendation: 'Make your H1 more descriptive and include relevant keywords.'
+                    recommendation: 'Make your H1 descriptive of what the page actually covers.',
+                    evidence: `Current H1: "${h1Text}"`
                 });
             }
         }
@@ -1037,12 +1247,12 @@
         let emptyLinks = 0;
         let noTextLinks = 0;
         let httpLinks = 0;
-        let externalNoRel = 0;
+        const unsafeBlankLinks = [];
 
         links.forEach(link => {
             const href = link.getAttribute('href');
             const text = link.textContent.trim();
-            const rel = link.getAttribute('rel');
+            const rel = (link.getAttribute('rel') || '').toLowerCase();
 
             if (!href || href === '#' || href === 'javascript:void(0)') {
                 emptyLinks++;
@@ -1057,11 +1267,20 @@
                 httpLinks++;
             }
 
-            // Check external links without rel
+            // Reverse-tabnabbing only applies to links that open a new
+            // browsing context — an ordinary external link navigates the
+            // current tab and hands over no window.opener, so flagging it is
+            // noise. And rel="noreferrer" already blocks window.opener access
+            // on its own (it's a superset of noopener, not a weaker
+            // alternative), so a link carrying either one is safe.
             try {
                 const linkUrl = new URL(href, url);
-                if (linkUrl.hostname !== baseUrl.hostname && !rel?.includes('noopener')) {
-                    externalNoRel++;
+                const opensNewContext = (link.getAttribute('target') || '').toLowerCase() === '_blank';
+                const isExternal = linkUrl.hostname !== baseUrl.hostname;
+                const isProtected = rel.includes('noopener') || rel.includes('noreferrer');
+
+                if (isExternal && opensNewContext && !isProtected) {
+                    unsafeBlankLinks.push(href);
                 }
             } catch (e) {
                 // Invalid URL
@@ -1101,14 +1320,16 @@
             });
         }
 
-        if (externalNoRel > 0) {
+        if (unsafeBlankLinks.length > 0) {
             addIssue({
                 severity: SEVERITY.LOW,
                 category: CATEGORY.SECURITY,
                 title: 'External links missing rel="noopener"',
-                description: `${externalNoRel} external link(s) are missing rel="noopener" attribute.`,
+                description: `${unsafeBlankLinks.length} external link(s) open in a new tab (target="_blank") with neither rel="noopener" nor rel="noreferrer", so the opened page can reach back via window.opener.`,
                 url: url,
-                recommendation: 'Add rel="noopener noreferrer" to external links for security.'
+                recommendation: 'Add rel="noopener" (or rel="noreferrer", which also covers it) to these links.',
+                evidence: unsafeBlankLinks.slice(0, 10).map(h => '  • ' + h).join('\n') +
+                    (unsafeBlankLinks.length > 10 ? `\n  …and ${unsafeBlankLinks.length - 10} more` : '')
             });
         }
     }
@@ -1126,9 +1347,122 @@
                 title: 'Site not using HTTPS',
                 description: 'The website is not using HTTPS, which is a ranking factor and security concern.',
                 url: url,
-                recommendation: 'Install an SSL certificate and redirect all HTTP traffic to HTTPS.'
+                recommendation: 'Install an SSL certificate and redirect all HTTP traffic to HTTPS.',
+                evidence: `URL audited used the "${parsedUrl.protocol}" scheme.`
             });
         }
+    }
+
+    /**
+     * Parse robots.txt into the Allow/Disallow rules that apply to us.
+     *
+     * A crawler that ignores robots.txt doesn't just behave rudely — it
+     * reports nonsense. Auth-gated paths are the usual case: /build and
+     * /dashboard are disallowed precisely because they redirect anonymous
+     * visitors to /login, so crawling them anyway "discovers" three URLs
+     * serving one page and invents duplicate-title, missing-H1 and
+     * thin-content findings that describe nothing real on the site.
+     *
+     * Collects the record for `*` plus any record naming our own UA
+     * (a more specific record wins, per the spec).
+     */
+    function parseRobotsTxt(text) {
+        const rules = { allow: [], disallow: [] };
+        if (!text) return rules;
+
+        const OUR_AGENTS = ['*', 'audema-seoaudit', 'audema'];
+        let specificMatch = false;
+        const groups = []; // { agents: [], allow: [], disallow: [] }
+        let current = null;
+        let lastLineWasAgent = false;
+
+        for (const rawLine of text.split(/\r?\n/)) {
+            const line = rawLine.replace(/#.*$/, '').trim();
+            if (!line) continue;
+            const idx = line.indexOf(':');
+            if (idx === -1) continue;
+            const field = line.slice(0, idx).trim().toLowerCase();
+            const value = line.slice(idx + 1).trim();
+
+            if (field === 'user-agent') {
+                // Consecutive User-agent lines share one group of rules.
+                if (!lastLineWasAgent || !current) {
+                    current = { agents: [], allow: [], disallow: [] };
+                    groups.push(current);
+                }
+                current.agents.push(value.toLowerCase());
+                lastLineWasAgent = true;
+                continue;
+            }
+            lastLineWasAgent = false;
+            if (!current) continue;
+            if (field === 'disallow') current.disallow.push(value);
+            else if (field === 'allow') current.allow.push(value);
+        }
+
+        for (const group of groups) {
+            const matchesUs = group.agents.some(a => OUR_AGENTS.includes(a));
+            if (!matchesUs) continue;
+            const isSpecific = group.agents.some(a => a !== '*' && OUR_AGENTS.includes(a));
+            if (isSpecific && !specificMatch) {
+                // A record naming us directly supersedes the wildcard record.
+                rules.allow = [];
+                rules.disallow = [];
+                specificMatch = true;
+            } else if (specificMatch && !isSpecific) {
+                continue;
+            }
+            rules.allow.push(...group.allow);
+            rules.disallow.push(...group.disallow);
+        }
+
+        return rules;
+    }
+
+    /** Turn a robots.txt path pattern (supports * and $) into a RegExp. */
+    function robotsPatternToRegex(pattern) {
+        const escaped = pattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // escape regex metachars, leave * alone
+            .replace(/\*/g, '.*');
+        const anchored = escaped.endsWith('\\$')
+            ? '^' + escaped.slice(0, -2) + '$'
+            : '^' + escaped;
+        return new RegExp(anchored);
+    }
+
+    /**
+     * Is this URL disallowed for us by robots.txt?
+     * Longest matching rule wins; Allow beats Disallow at equal length.
+     */
+    function isDisallowedByRobots(url) {
+        const rules = AuditState.robotsRules;
+        if (!rules || (!rules.disallow.length && !rules.allow.length)) return false;
+
+        let path;
+        try {
+            const u = new URL(url);
+            path = u.pathname + u.search;
+        } catch (e) {
+            return false;
+        }
+
+        let bestDisallow = -1;
+        let bestAllow = -1;
+        for (const rule of rules.disallow) {
+            if (rule === '') continue; // "Disallow:" with no value means allow everything
+            try {
+                if (robotsPatternToRegex(rule).test(path)) bestDisallow = Math.max(bestDisallow, rule.length);
+            } catch (e) { /* malformed pattern — ignore it rather than blocking the crawl */ }
+        }
+        for (const rule of rules.allow) {
+            if (rule === '') continue;
+            try {
+                if (robotsPatternToRegex(rule).test(path)) bestAllow = Math.max(bestAllow, rule.length);
+            } catch (e) { /* ignore */ }
+        }
+
+        if (bestDisallow === -1) return false;
+        return bestAllow < bestDisallow;
     }
 
     /**
@@ -1160,18 +1494,23 @@
             }
 
             if (text) {
-                if (text.toLowerCase().includes('disallow: /')) {
-                    // Check if entire site is blocked
-                    if (text.match(/Disallow:\s*\/\s*$/m)) {
-                        addIssue({
-                            severity: SEVERITY.CRITICAL,
-                            category: CATEGORY.INDEXING,
-                            title: 'robots.txt blocking entire site',
-                            description: 'The robots.txt file is blocking all crawlers from the entire site.',
-                            url: robotsUrl,
-                            recommendation: 'Review your robots.txt file and ensure important pages are not blocked.'
-                        });
-                    }
+                // Parse the directives so the crawl below actually obeys them,
+                // rather than only reporting on the file's existence.
+                AuditState.robotsRules = parseRobotsTxt(text);
+
+                // Entire site blocked = every rule is a bare "/" with nothing
+                // allowing anything back in.
+                const blocksRoot = AuditState.robotsRules.disallow.includes('/');
+                if (blocksRoot && !AuditState.robotsRules.allow.length) {
+                    addIssue({
+                        severity: SEVERITY.CRITICAL,
+                        category: CATEGORY.INDEXING,
+                        title: 'robots.txt blocking entire site',
+                        description: 'The robots.txt file is blocking all crawlers from the entire site.',
+                        url: robotsUrl,
+                        recommendation: 'Review your robots.txt file and ensure important pages are not blocked.',
+                        evidence: `Disallow rules found: ${AuditState.robotsRules.disallow.join(', ')}`
+                    });
                 }
                 return;
             }
@@ -1280,7 +1619,8 @@
                 title: 'Sitemap not found or invalid',
                 description: 'No valid XML sitemap found at /sitemap.xml.',
                 url: sitemapUrl,
-                recommendation: 'Create an XML sitemap and submit it to Google Search Console.'
+                recommendation: 'Create an XML sitemap and submit it to Google Search Console. If your sitemap lives elsewhere, reference it from robots.txt.',
+                evidence: `Requested ${sitemapUrl} and did not get parseable sitemap XML back.`
             });
 
             return extractedUrls;
@@ -1307,14 +1647,30 @@
         const text = body.textContent.replace(/\s+/g, ' ').trim();
         const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
 
-        if (wordCount < 300) {
+        // Word count is not a ranking signal at this resolution, and plenty
+        // of page types are *supposed* to be short: an index or hub page, a
+        // changelog, a press kit, a demo, a login screen, a legal notice, a
+        // contact page. Padding those to hit an arbitrary word target makes
+        // them worse, not better. So the check only applies to pages whose
+        // genre implies prose, and it never prescribes a word count.
+        const SHORT_BY_DESIGN = /^\/?(|index|home|login|signup|sign-in|register|logout|account|dashboard|app|build|demo|pricing|contact|thanks|thank-you|changelog|releases|press|media|kit|blog|news|archive|category|tag|search|sitemap|legal|terms|privacy|cookies|status|404|500)\/?$/i;
+        let pathSegment = '';
+        try {
+            const p = new URL(url).pathname.replace(/\/$/, '');
+            pathSegment = p.split('/').filter(Boolean).pop() || '';
+        } catch (e) { /* fall through with empty segment */ }
+
+        const isShortByDesign = SHORT_BY_DESIGN.test(pathSegment);
+
+        if (wordCount < 150 && !isShortByDesign) {
             addIssue({
-                severity: SEVERITY.MEDIUM,
+                severity: SEVERITY.LOW,
                 category: CATEGORY.CONTENT,
-                title: 'Thin content detected',
-                description: `The page has only ~${wordCount} words. Pages with thin content may not rank well.`,
+                title: 'Very little text on page',
+                description: `The page has only ~${wordCount} words of body text. If this page is meant to rank for a topic, there may not be enough on it for a search engine to understand what it covers.`,
                 url: url,
-                recommendation: 'Add more valuable, comprehensive content. Aim for at least 500-1000 words for main pages.'
+                recommendation: 'If this is a landing, index or utility page, no action is needed. If it is meant to be a content page, cover the topic more fully — depth that serves the reader, not a word count.',
+                evidence: `Extracted body text (~${wordCount} words): "${text.slice(0, 200)}${text.length > 200 ? '…' : ''}"`
             });
         }
 
@@ -1617,6 +1973,11 @@
                         <h4>Affected URL</h4>
                         <code>${escapeHtml(issue.url)}</code>
                     </div>
+                    ${issue.evidence ? `
+                    <div class="issue-detail-section">
+                        <h4>What we actually found on the page</h4>
+                        <pre style="white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,0.25);padding:12px;border-radius:8px;font-size:0.85rem;margin:0;">${escapeHtml(issue.evidence)}</pre>
+                    </div>` : ''}
                     <div class="issue-detail-section">
                         <h4>Recommendation</h4>
                         <p>${escapeHtml(issue.recommendation)}</p>
