@@ -386,9 +386,15 @@
                 <input class="field-input" id="adCompetitors" type="text" placeholder="e.g. HubSpot, Salesforce, Mailchimp">
             </div>
 
-            <!-- Convert A/B Experiment Data -->
-            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;">
-                <div style="font-weight:700;color:#10b981;margin-bottom:4px;">Convert A/B Data Loaded</div>
+            <!-- Convert A/B Experiment Data.
+                 Header text and panel colour are set by loadConvertData() to
+                 match what actually happened. They used to be hardcoded to the
+                 green "Convert A/B Data Loaded" success state, so a failed
+                 load — including "credentials not configured", where nothing
+                 was fetched at all — still rendered under a green banner
+                 announcing that the data had loaded. -->
+            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-size:12px;">
+                <div id="convertExperimentHeader" style="font-weight:700;margin-bottom:4px;"></div>
                 <div id="convertExperimentSummary" style="color:rgba(255,255,255,0.6);line-height:1.5;"></div>
             </div>
             <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
@@ -1030,26 +1036,94 @@ function getSelectedFrameworks() {
 /* Convert A/B experiment data (winning copy feeds new ad variants) */
 let _convertData = null;
 
+/** Escape text for safe interpolation into the panel's innerHTML. */
+function escapeConvertText(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/**
+ * Paint the Convert panel in one of four honest states. The panel must never
+ * claim data loaded unless experiments were actually returned.
+ * @param {'loaded'|'setup'|'error'|'empty'} state
+ */
+function setConvertPanelState(state, headerText, summaryHtml) {
+    const panel = document.getElementById('convertExperimentPanel');
+    const header = document.getElementById('convertExperimentHeader');
+    const summary = document.getElementById('convertExperimentSummary');
+
+    const NEUTRAL = { colour: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' };
+    const palette = {
+        loaded: { colour: '#10b981', bg: 'rgba(16,185,129,0.07)',  border: 'rgba(16,185,129,0.2)' },
+        empty:  NEUTRAL,
+        setup:  { colour: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.25)' },
+        error:  { colour: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.25)' },
+    }[state] || NEUTRAL;
+
+    header.textContent = headerText;
+    header.style.color = palette.colour;
+    summary.innerHTML = summaryHtml;
+    panel.style.background = palette.bg;
+    panel.style.border = `1px solid ${palette.border}`;
+    panel.style.display = 'block';
+}
+
 async function loadConvertData() {
     const btn = document.getElementById('loadConvertBtn');
-    const panel = document.getElementById('convertExperimentPanel');
-    const summary = document.getElementById('convertExperimentSummary');
     btn.disabled = true;
     btn.textContent = 'Loading experiments…';
     try {
         const res = await fetch('/api/convert-experiments', { method: 'GET' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load experiments');
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            // The endpoint returns setupUrl only for the "credentials not
+            // configured" case, which is a setup step rather than a failure —
+            // worth distinguishing so it doesn't read as something broken.
+            const err = new Error(data.error || `Failed to load experiments (HTTP ${res.status})`);
+            err.setupUrl = data.setupUrl;
+            throw err;
+        }
+
+        const experiments = data.experiments || [];
+        const winners = experiments.filter(e => e.winner).length;
+
+        if (experiments.length === 0) {
+            // Connected fine, but there is nothing to feed the ad variants.
+            _convertData = null;
+            setConvertPanelState('empty', 'Convert connected — no experiments yet',
+                'Convert.com returned no active or finished experiments in the last 90 days, so there are no winners to build on. New ad variants will be generated without A/B context.');
+            btn.textContent = 'Reload Convert Data';
+            return;
+        }
+
         _convertData = data;
-        const expCount = data.experiments?.length || 0;
-        const winners = data.experiments?.filter(e => e.winner).length || 0;
-        summary.innerHTML = `${expCount} experiments found · ${winners} with declared winners · Top performer: ${data.topPerformer || 'N/A'}`;
-        panel.style.display = 'block';
+        setConvertPanelState('loaded', 'Convert A/B Data Loaded',
+            `${experiments.length} experiment${experiments.length === 1 ? '' : 's'} found · ` +
+            `${winners} with declared winner${winners === 1 ? '' : 's'} · ` +
+            `Top performer: ${data.topPerformer || 'N/A'}` +
+            (winners === 0 ? '<br><span style="color:rgba(255,255,255,0.4);">No declared winners yet, so no winning copy will be fed into new variants.</span>' : ''));
         btn.textContent = 'Reload Convert Data';
+
     } catch (err) {
-        summary.innerHTML = `<span style="color:#ef4444;">${err.message}</span><br><span style="color:rgba(255,255,255,0.4);">Add CONVERT_API_KEY + CONVERT_API_SECRET in Vercel env vars.</span>`;
-        panel.style.display = 'block';
-        btn.textContent = 'Retry Convert Data';
+        // Nothing loaded — make sure stale data from an earlier successful
+        // load can't keep silently feeding the ad prompt after a failure.
+        _convertData = null;
+
+        if (err.setupUrl) {
+            setConvertPanelState('setup', 'Convert A/B not connected',
+                'Add <code>CONVERT_API_KEY</code> and <code>CONVERT_API_SECRET</code> in your Vercel environment variables, then reload. ' +
+                `<a href="${escapeConvertText(err.setupUrl)}" target="_blank" rel="noopener noreferrer" style="color:#f59e0b;text-decoration:underline;">Get your Convert API keys →</a>` +
+                '<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>');
+            btn.textContent = 'Retry Convert Data';
+        } else {
+            setConvertPanelState('error', "Couldn't load Convert A/B data",
+                `${escapeConvertText(err.message)}<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>`);
+            btn.textContent = 'Retry Convert Data';
+        }
     } finally {
         btn.disabled = false;
     }
