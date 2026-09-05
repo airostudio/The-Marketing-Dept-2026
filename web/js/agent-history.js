@@ -24,6 +24,7 @@
     'compliance-automation':{ name: 'Compliance Automation',   icon: '⚙️', color: '#64748b' },
     'deck':                 { name: 'Deck Maker',              icon: '📊', color: '#f59e0b' },
     'linkedin':             { name: 'LinkedIn Prospecting',    icon: '💼', color: '#0ea5e9' },
+    'carol':                { name: 'Carol — Chief of Staff',  icon: '🗂️', color: '#d946ef' },
   };
 
   function _read() {

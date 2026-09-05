@@ -40,6 +40,7 @@ const ScottyOrchestrator = (() => {
     delivery:    '/agents/email-delivery-agent.html',
     audience:    '/agents/audience-agent.html',
     nancy:       '/agents/nancy-agent.html',
+    carol:       '/agents/carol-agent.html',
   };
 
   const AGENT_DESCRIPTIONS = {
@@ -60,6 +61,7 @@ const ScottyOrchestrator = (() => {
     delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
     audience:    'Beeker — Audience Manager — persistent contact database and reusable segments for campaigns',
     nancy:       'Nancy — Jam Fancy — researched, on-brand Instagram content weeks from a website URL + a photo: real screenshot, real competitor research, real finished graphics. The default for Instagram-specific content work — Social Studio remains the generalist for LinkedIn/X/TikTok/ad campaigns.',
+    carol:       'Carol — Chief of Staff — collects every agent\'s findings, flagged items, and to-dos into one prioritized daily briefing. Recommend her when the user asks "what needs my attention", "what\'s the status", or wants a single overview instead of visiting each agent individually. She reports to Scotty and has no generative work of her own, so never assign her a mission task.',
   };
 
   const HUB_URL    = '/hub.html';

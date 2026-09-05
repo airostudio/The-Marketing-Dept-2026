@@ -278,6 +278,11 @@
       name: 'NANCY', color: '#e53e3e',
       tagline: 'Instagram obsessed. One URL and a photo becomes a researched, on-brand week of content.',
       svg: function(c) { return buildSVG(c, spikyHair(), '', GRIN); }
+    },
+    carol: {
+      name: 'CAROL', color: '#d946ef',
+      tagline: 'Chief of Staff. Turns fifteen agents\' worth of findings into the one briefing you actually read.',
+      svg: function(c) { return buildSVG(c, neatHair(), '', FOCUSED); }
     }
   };
 
@@ -296,7 +301,8 @@
     chase:  '/assets/agents/chase.png',
     lift:   '/assets/agents/lift.png',
     slate:  '/assets/agents/slate.png',
-    nancy:  '/assets/agents/nancy.png'
+    nancy:  '/assets/agents/nancy.png',
+    carol:  '/assets/agents/carol.png'
   };
 
   // Per-agent photo adjustments (zoom/position for characters that sit small in frame)

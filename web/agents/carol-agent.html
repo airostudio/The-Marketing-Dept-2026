@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carol — Chief of Staff | Audema - Your AI Marketing Department</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/agent-history.js"></script>
+<script src="/js/contacts-store.js"></script>
+<script src="/js/social-posts-store.js"></script>
+<script src="/js/seo-pipeline-store.js"></script>
+<script src="/js/carol-aggregator.js"></script>
+<script src="/js/site-switcher.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #d946ef; --accent2: #c026d3;
+    --bg: #0a0a10; --panel: #111117; --panel2: #16161f; --border: rgba(255,255,255,0.09);
+    --text: #f5f5f7; --text2: rgba(245,245,247,0.62); --text3: rgba(245,245,247,0.4);
+    --green: #34d399; --amber: #fbbf24; --red: #f87171;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); background: rgba(10,10,16,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-logo { font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .nav-sep { color: var(--border); font-size: 18px; }
+  .nav-breadcrumb { font-size: 14px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+  .nav-reports-badge { font-size: 11px; color: var(--text3); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); }
+
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 120px; }
+
+  .hero { text-align: center; margin-bottom: 36px; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 12px; border-radius: 999px; background: rgba(217,70,239,0.12); border: 1px solid rgba(217,70,239,0.35); color: #e879f9; margin-bottom: 16px; }
+  .hero h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .hero-sub { font-size: 14.5px; color: var(--text2); line-height: 1.6; }
+  .hero-brief { font-size: 15.5px; color: var(--text); font-weight: 600; margin-top: 18px; }
+
+  .mission-banner { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(217,70,239,0.06)); border: 1px solid rgba(124,58,237,0.3); border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; }
+  .mission-banner-text { flex: 1; font-size: 13.5px; color: var(--text2); }
+  .mission-banner-text b { color: var(--text); }
+  .mission-banner a { color: #c4b5fd; font-weight: 600; font-size: 13px; text-decoration: none; white-space: nowrap; }
+
+  .section { margin-bottom: 28px; }
+  .section-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+  .section-count { font-size: 11.5px; color: var(--text3); background: var(--panel2); border-radius: 999px; padding: 2px 9px; }
+  .section-note { font-size: 11.5px; color: var(--text3); font-style: italic; margin-bottom: 10px; }
+
+  .item-card { display: flex; align-items: flex-start; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; }
+  .item-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .item-body { flex: 1; min-width: 0; }
+  .item-title { font-size: 13.5px; font-weight: 600; margin-bottom: 3px; }
+  .item-detail { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  .item-source { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-top: 6px; }
+  .item-priority { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+  .pri-high { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: #f87171; }
+  .pri-medium { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); color: #fbbf24; }
+  .pri-low { background: rgba(148,163,184,0.1); border: 1px solid var(--border); color: var(--text3); }
+  .item-link { color: var(--accent); text-decoration: none; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+
+  .collapsible-toggle { background: none; border: none; color: var(--text3); font-size: 11.5px; cursor: pointer; font-family: inherit; padding: 0; }
+  .collapsible-body { display: none; }
+  .collapsible-body.open { display: block; }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text3); font-size: 13.5px; }
+  .all-caught-up { text-align: center; padding: 60px 20px; }
+  .all-caught-up-icon { font-size: 40px; margin-bottom: 12px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-row { text-align: center; padding: 40px 0; color: var(--text2); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo"><span class="nav-logo-icon">📊</span> Audema</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-breadcrumb">Carol · Chief of Staff <span class="nav-reports-badge">↳ Reports to Scotty</span></span>
+  </div>
+  <div class="nav-right">
+    <a href="/scotty.html" class="nav-link">Scotty →</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="hero-badge">🗂️ Chief of Staff · Reports to Scotty</span>
+    <h1>Here's what actually needs you today.</h1>
+    <p class="hero-sub">Two decades as an agency Head of Operations before joining Audema — the person every account team went to when they needed to know what was actually happening across a dozen campaigns at once. Carol doesn't create the work; she makes sure nothing falls through the cracks, collecting what every other agent has already found, flagged, or queued into one briefing.</p>
+    <div class="hero-brief" id="brief-line"></div>
+  </div>
+
+  <div id="mission-slot"></div>
+
+  <div id="loading-row" class="loading-row"><span class="spinner"></span> Pulling together the latest from every agent…</div>
+  <div id="content" style="display:none;"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  window.toggleSection = function (id, btn) {
+    const open = document.getElementById(id).classList.toggle('open');
+    btn.textContent = open ? 'Hide' : 'Show →';
+  };
+
+  function itemCard(it) {
+    const meta = window.CarolAggregator.info(it.source);
+    return `<div class="item-card">
+      <div class="item-icon" style="background:${meta.color}22;color:${meta.color};">${meta.icon}</div>
+      <div class="item-body">
+        <div class="item-title">${escHtml(it.title)}</div>
+        ${it.detail ? `<div class="item-detail">${escHtml(it.detail)}</div>` : ''}
+        <div class="item-source" style="color:${meta.color};">${escHtml(meta.label)}</div>
+      </div>
+      <span class="item-priority pri-${it.priority}">${it.priority}</span>
+      <a class="item-link" href="${it.link}">Open →</a>
+    </div>`;
+  }
+
+  function section(id, title, items, opts) {
+    opts = opts || {};
+    if (!items.length) return '';
+    const note = opts.note ? `<div class="section-note">${escHtml(opts.note)}</div>` : '';
+    if (opts.collapsedByDefault) {
+      return `<div class="section">
+        <div class="section-header">
+          <span class="section-title">${title}</span>
+          <span class="section-count">${items.length}</span>
+          <button class="collapsible-toggle" onclick="toggleSection('${id}', this)">Show →</button>
+        </div>
+        ${note}
+        <div class="collapsible-body" id="${id}">${items.map(itemCard).join('')}</div>
+      </div>`;
+    }
+    return `<div class="section">
+      <div class="section-header">
+        <span class="section-title">${title}</span>
+        <span class="section-count">${items.length}</span>
+      </div>
+      ${note}
+      ${items.map(itemCard).join('')}
+    </div>`;
+  }
+
+  function renderMission(mission) {
+    const slot = document.getElementById('mission-slot');
+    if (!mission) { slot.innerHTML = ''; return; }
+    const done = mission.steps.filter(s => s.status === 'done').length;
+    slot.innerHTML = `<div class="mission-banner">
+      <span style="font-size:20px;">🚀</span>
+      <div class="mission-banner-text"><b>${escHtml(mission.goal || 'A mission is in progress')}</b> — ${done} of ${mission.steps.length} steps complete</div>
+      <a href="/scotty.html">Open in Scotty →</a>
+    </div>`;
+  }
+
+  async function boot() {
+    let data;
+    try {
+      data = await window.CarolAggregator.collect();
+    } catch (e) {
+      document.getElementById('loading-row').innerHTML = `<span style="color:var(--red)">Could not pull the briefing together: ${escHtml(e.message)}</span>`;
+      return;
+    }
+
+    renderMission(data.mission);
+
+    const { needsApproval, opportunities, backlog, recent } = data.sections;
+    const totalActionable = needsApproval.length + opportunities.length;
+
+    document.getElementById('brief-line').textContent = totalActionable
+      ? `${needsApproval.length ? needsApproval.length + ' thing' + (needsApproval.length === 1 ? '' : 's') + ' need' + (needsApproval.length === 1 ? 's' : '') + ' you' : ''}${needsApproval.length && opportunities.length ? ', ' : ''}${opportunities.length ? opportunities.length + ' opportunit' + (opportunities.length === 1 ? 'y' : 'ies') + ' worth a look' : ''}.`
+      : 'Nothing urgent right now — everything below is backlog and recent activity.';
+
+    const html = [
+      section('sec-approval', '🚨 Needs your decision', needsApproval, {
+        note: 'Mission automations awaiting approval in Scotty aren\'t shown here yet — that state doesn\'t persist past the Scotty tab today.',
+      }),
+      section('sec-opportunity', '🎯 High-impact opportunities', opportunities),
+      section('sec-backlog', '🗒️ Backlog', backlog, { collapsedByDefault: true }),
+      section('sec-recent', '✅ Recent activity', recent, { collapsedByDefault: true }),
+    ].join('');
+
+    document.getElementById('loading-row').style.display = 'none';
+    const contentEl = document.getElementById('content');
+    contentEl.style.display = 'block';
+
+    if (!needsApproval.length && !opportunities.length && !backlog.length && !recent.length && !data.mission) {
+      contentEl.innerHTML = `<div class="all-caught-up"><div class="all-caught-up-icon">☕</div><div style="font-size:15px;font-weight:600;margin-bottom:6px;">All caught up.</div><div style="font-size:13px;color:var(--text3);">Nothing's been flagged by any agent yet — go run one, and Carol will start collecting.</div></div>`;
+      return;
+    }
+
+    contentEl.innerHTML = html;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.SiteSwitcher) SiteSwitcher.mount();
+    boot();
+  });
+})();
+</script>
+<script src="/js/mission-store.js"></script>
+<script src="/js/mission-bar.js"></script>
+</body>
+</html>
