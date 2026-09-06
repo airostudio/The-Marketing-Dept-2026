@@ -1509,14 +1509,30 @@
 
         function updateAuditScore(metric, score) {
             var el = document.querySelector('[data-metric="' + metric + '"]');
-            if (el) {
-                el.textContent = score;
-                el.className = 'audit-score-value';
-                if (score >= 80) el.classList.add('excellent');
-                else if (score >= 60) el.classList.add('good');
-                else if (score >= 40) el.classList.add('fair');
-                else el.classList.add('poor');
+            if (!el) return;
+            el.className = 'audit-score-value';
+
+            // A dimension with no data reads as "—", not as zero and not as a
+            // placeholder number. Engagement is null until real analytics are
+            // connected; scoring it 0 would look like terrible performance
+            // and scoring it 50 (what this used to do) would look like
+            // measured, average performance. Neither happened.
+            if (typeof score !== 'number' || isNaN(score)) {
+                el.textContent = '—';
+                el.style.opacity = '0.5';
+                el.title = metric === 'audit-engagement'
+                    ? 'No analytics connected, so engagement has not been measured. It is excluded from the overall score rather than guessed.'
+                    : 'Not enough data to score this.';
+                return;
             }
+
+            el.style.opacity = '';
+            el.title = '';
+            el.textContent = score;
+            if (score >= 80) el.classList.add('excellent');
+            else if (score >= 60) el.classList.add('good');
+            else if (score >= 40) el.classList.add('fair');
+            else el.classList.add('poor');
         }
 
         // Helper functions

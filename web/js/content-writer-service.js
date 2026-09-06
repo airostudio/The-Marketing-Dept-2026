@@ -608,40 +608,72 @@ Output only the finished content — no preamble, no "Here is your content:", ju
         addToEditHistory(content);
     }
 
+    /**
+     * Score the generated content, and show "—" for anything that could not
+     * honestly be measured.
+     *
+     * The previous version of this function reported four precise-looking
+     * percentages that were largely predetermined: Tone Match could only ever
+     * be 85 or 100 (a test for the words "hey" and "gonna"), Style Guide only
+     * 75/90/100 from average sentence length while checking none of the
+     * selected guide's actual rules, SEO had a floor of 50 so empty content
+     * scored 50/100, and the headline Quality figure averaged those and so
+     * could never drop below about 53. See web/js/content-quality.js.
+     */
     function calculateQualityMetrics(content, params) {
-        const sentences = content.split(/[.!?]+/).filter(s => s.trim()).length || 1;
-        const words = content.trim().split(/\s+/).filter(w => w).length;
-        const syllables = content.toLowerCase().match(/[a-z]+/g)?.reduce((n, w) => n + (w.match(/[aeiouy]+/g) || []).length, 0) || 1;
-        const readability = Math.round(Math.max(0, Math.min(100, 206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words))));
-
-        let seoScore = 50;
-        if (words >= 300) seoScore += 20;
-        if (words >= 500) seoScore += 10;
-        if (content.includes('#')) seoScore += 10;
-        if (content.includes('•') || content.includes('-') || content.includes('→')) seoScore += 10;
-        seoScore = Math.min(100, seoScore);
-
-        let toneScore = 70;
-        const lc = content.toLowerCase();
-        if (params.tone === 'professional' && !lc.includes('hey') && !lc.includes('gonna')) toneScore += 30;
-        else if (params.tone === 'casual' && (lc.includes('hey') || lc.includes('you'))) toneScore += 30;
-        else toneScore += 15;
-        toneScore = Math.min(100, toneScore);
-
-        let styleScore = 75;
-        const avgSentLen = sentences > 0 ? words / sentences : 0;
-        if (avgSentLen < 25) styleScore += 15;
-        if (avgSentLen < 20) styleScore += 10;
-        styleScore = Math.min(100, Math.round(styleScore));
-
-        const qualityScore = Math.round((readability + seoScore + toneScore + styleScore) / 4);
-
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('readabilityScore', readability);
-        set('seoScore', seoScore);
-        set('toneCompliance', toneScore + '%');
-        set('styleCompliance', styleScore + '%');
-        set('qualityScore', qualityScore);
+        const setTip = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.title = text || '';
+            // Mark unmeasured dimensions so they read as "not assessed"
+            // rather than as a bad score.
+            if (el) el.style.opacity = text && /not assessed|cannot|Too little|No content/i.test(text) ? '0.55' : '';
+        };
+
+        if (!window.ContentQuality) {
+            ['readabilityScore', 'seoScore', 'toneCompliance', 'styleCompliance', 'qualityScore']
+                .forEach(id => { set(id, '—'); setTip(id, 'Quality analysis unavailable — content-quality.js did not load.'); });
+            return null;
+        }
+
+        const guideKey = params.styleGuide || 'default';
+        const rules = (styleGuides[guideKey] || {}).rules || {};
+
+        const r = window.ContentQuality.analyse(content, {
+            tone: params.tone,
+            styleGuideRules: rules,
+            keyword: params.keyword,
+        });
+
+        const show = (id, part, suffix) => {
+            if (part && typeof part.value === 'number') {
+                set(id, part.value + (suffix || ''));
+                setTip(id, (part.checks || []).join('\n') + (part.note ? '\n\n' + part.note : ''));
+            } else {
+                set(id, '—');
+                setTip(id, (part && part.reason) || 'Not assessed.');
+            }
+        };
+
+        show('readabilityScore', r.readability);
+        show('seoScore', r.seo);
+        show('toneCompliance', r.tone, '%');
+        show('styleCompliance', r.style, '%');
+
+        if (typeof r.overall.value === 'number') {
+            set('qualityScore', r.overall.value);
+            setTip('qualityScore',
+                `Average of the ${r.overall.measuredCount} dimension(s) that could be measured` +
+                (r.overall.measuredCount < r.overall.totalCount
+                  ? `. ${r.overall.totalCount - r.overall.measuredCount} could not be assessed and were excluded rather than counted.`
+                  : '.'));
+        } else {
+            set('qualityScore', '—');
+            setTip('qualityScore', 'Nothing could be measured on this content.');
+        }
+
+        state.lastQuality = r;
+        return r;
     }
 
     // ─── Toolbar operations ───────────────────────────────────────────────────
