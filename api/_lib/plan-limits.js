@@ -49,6 +49,35 @@ const PLAN_LABELS = {
 };
 
 /**
+ * List price per month, in AUD, for revenue reporting.
+ *
+ * null means the plan is negotiated individually and its value is NOT
+ * knowable from the plan name — Enterprise and both Agency Enterprise tiers
+ * are custom-priced, and the Agency tiers were described by client count
+ * rather than by a published price. Accounts on a null-priced plan are
+ * counted and reported separately rather than folded into MRR at zero, which
+ * would understate revenue, or at a guess, which would invent it.
+ *
+ * Autonomous is published as a A$2,999–A$4,999 range; the lower bound is used
+ * so the figure is a floor rather than an optimistic estimate.
+ */
+const PLAN_MONTHLY_PRICE_AUD = {
+  free:               0,
+  start:            299,
+  growth:           749,
+  scale:           1499,
+  autonomous:      2999,   // range 2999-4999; floor used deliberately
+  enterprise:      null,   // custom
+  agency_starter:  null,   // priced by client count, not published
+  agency_growth:   null,
+  agency_pro:      null,
+  agency_enterprise: null,
+};
+
+/** Subscription statuses that represent revenue actually being collected. */
+const REVENUE_STATUSES = ['active', 'trialing'];
+
+/**
  * @param {string} plan
  * @param {number|null} [override] profiles.mission_limit, if an admin set one
  * @returns {number|null} null means uncapped
@@ -72,5 +101,6 @@ function currentPeriod(now) {
 
 module.exports = {
   MISSION_ALLOWANCES, PLAN_LABELS, PLACEHOLDER_ALLOWANCES,
+  PLAN_MONTHLY_PRICE_AUD, REVENUE_STATUSES,
   missionAllowanceFor, currentPeriod,
 };
