@@ -16,6 +16,50 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Government Funding Room — multi-region grant discovery
+
+Admin-only (`/admin/grants.html`). Sweeps government funding sources across Australia, the UK, the EU and the US weekly and files genuinely relevant opportunities into the funding pipeline at stage *discovered*.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `CRON_SECRET` | Same bearer token the other cron jobs use | ✅ For the weekly sweep |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | To file discoveries | ✅ |
+
+### Setup
+
+1. Run `supabase-grants.sql` in Supabase Dashboard → SQL Editor. It is safe to re-run — the region/provenance columns are added by `ALTER ... IF NOT EXISTS` as well as being in the `CREATE TABLE`.
+2. The cron entry is already in `vercel.json` (`/api/cron-grant-watch`, Mondays 20:00 UTC).
+3. **Verify each source before trusting the feed** — see below.
+
+### ⚠️ The source adapters are unverified against live endpoints
+
+`api/_lib/grant-sources.js` was written against each publisher's documented contract, but **every government host was blocked by egress policy in the environment it was written in**, so none of the four adapters has ever made a real request. Their live response shapes are unconfirmed.
+
+They are built to fail loudly rather than quietly: each distinguishes "returned nothing" from "returned something unrecognised", and the second reports a sample of what actually arrived. But you should confirm them yourself on the first deploy:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<your-domain>/api/cron-grant-watch?dryRun=1"
+```
+
+`dryRun=1` fetches every source and reports what each returned — counts, one normalised example record, or the parse failure plus a slice of the payload — **without writing anything**. Add `&source=us_grants_gov` to check one at a time.
+
+| Source | Region | Mode | Confidence |
+|--------|--------|------|-----------|
+| `us_grants_gov` | US | Public JSON API (`api.grants.gov/v1/api/search2`) | Highest — documented, key-free, stable |
+| `eu_funding_tenders` | EU | Portal search API (`api.tech.ec.europa.eu`, public `SEDIA` key) | Medium — less formally documented |
+| `uk_gov_search` | UK | GOV.UK search API (`www.gov.uk/api/search.json`) | Medium — documented, but broad content search rather than a grants index, so expect noise and no close dates |
+| `au_business_gov` | AU | HTML scrape of `business.gov.au/grants-and-programs` | Lowest — no open API exists; a site redesign breaks it (and will report itself as broken) |
+
+### What it does and deliberately does not do
+
+- Only opportunities matching at least one relevance term (AI, SME, marketing, productivity, innovation, commercialisation, export, R&D, digital adoption…) are filed. The matched terms are stored on the row and shown in the UI, so a bad match is visible as a bad match.
+- Discoveries arrive **unscored**, at stage *discovered*. Discovery is not assessment — nothing is auto-scored, and nothing skips the Grant Readiness Scorecard.
+- A run inserts at most 40 new rows, and says so when it caps. Drowning the pipeline is the failure mode the scored pipeline exists to prevent.
+- Dedupe is on `(source_key, external_id)` with a unique index, so re-running is idempotent and an opportunity already moved along the pipeline is never resurrected.
+
+---
+
 ## Billing — Stripe Checkout, Customer Portal, and webhook sync
 
 Turns the plan tiers on `/index.html#pricing` and `/billing.html` into a real paid product. Card capture happens entirely on Stripe's own hosted pages (Checkout for signing up, Customer Portal for managing an existing subscription) — this app never touches card data. `profiles.plan`/`subscription_status` are only ever written by `api/stripe-webhook.js` once Stripe confirms a payment; a `protect_billing_columns` trigger (`supabase-billing.sql`) blocks every other write path, including a signed-in user hitting the Supabase REST API directly.

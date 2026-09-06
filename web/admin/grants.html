@@ -186,9 +186,13 @@
   <!-- ── PIPELINE ─────────────────────────────────────────────────────── -->
   <div class="panel-view active" id="view-pipeline">
     <div class="cards" id="summary-cards"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;gap:12px;flex-wrap:wrap;">
       <div class="section-h" style="margin:0;">Funding pipeline</div>
-      <button class="btn btn-primary" id="btn-new">+ Add opportunity</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="region-filter" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);
+                border-radius:8px;padding:7px 10px;font-family:inherit;font-size:12.5px;"></select>
+        <button class="btn btn-primary" id="btn-new">+ Add opportunity</button>
+      </div>
     </div>
     <div class="pipeline" id="pipeline"></div>
     <div id="pipeline-empty"></div>
@@ -283,9 +287,11 @@
         <div class="field"><label>Program</label><input id="f-program" placeholder="e.g. Industry Growth Program"></div>
       </div>
       <div class="field-row">
+        <div class="field"><label>Region</label><select id="f-region"></select></div>
         <div class="field"><label>Funding type</label><select id="f-level"></select></div>
-        <div class="field"><label>Stage</label><select id="f-stage"></select></div>
       </div>
+      <div class="field"><label>Stage</label><select id="f-stage"></select></div>
+      <div id="provenance"></div>
       <div class="field-row">
         <div class="field"><label>Amount min (A$)</label><input id="f-min" type="number" min="0" step="1000"></div>
         <div class="field"><label>Amount max (A$)</label><input id="f-max" type="number" min="0" step="1000"></div>
@@ -398,19 +404,40 @@
         <div class="card-sub">${unscored ? unscored + ' not yet scored' : 'all scored'}</div></div>`;
   }
 
+  let regionFilter = 'all';
+
+  function visibleRows() {
+    return regionFilter === 'all' ? rows : rows.filter(r => (r.region || 'au') === regionFilter);
+  }
+
   function renderPipeline() {
     const el = $('pipeline');
-    if (!rows.length) {
+    const shown = visibleRows();
+    if (!shown.length) {
       el.innerHTML = '';
-      $('pipeline-empty').innerHTML = `<div class="empty">
-        Nothing in the pipeline yet.<br><br>
-        Add the first opportunity — an R&amp;D Tax Incentive claim or a council program is usually the
-        fastest thing to get moving.</div>`;
+      // "Nothing here" and "nothing matching this filter" are different
+      // states and must not read the same.
+      $('pipeline-empty').innerHTML = rows.length
+        ? `<div class="empty">Nothing tracked in this region yet —
+             ${rows.length} opportunit${rows.length === 1 ? 'y is' : 'ies are'} tracked elsewhere.
+             <br><br><a href="#" id="clear-region">Show all regions →</a></div>`
+        : `<div class="empty">
+             Nothing in the pipeline yet.<br><br>
+             Add the first opportunity, or let the weekly funding sweep find some — it checks
+             Grants.gov, the EU Funding &amp; Tenders Portal, GOV.UK and business.gov.au.</div>`;
+      const clear = $('clear-region');
+      if (clear) clear.addEventListener('click', (e) => {
+        e.preventDefault();
+        regionFilter = 'all';
+        $('region-filter').value = 'all';
+        renderPipeline();
+      });
       return;
     }
+    const rows_ = shown;
     $('pipeline-empty').innerHTML = '';
     el.innerHTML = S.STAGES.map(st => {
-      const inStage = rows.filter(r => r.stage === st.key);
+      const inStage = rows_.filter(r => r.stage === st.key);
       if (!inStage.length && st.key === 'not_proceeding') return '';
       return `<div class="stage-col">
         <div class="stage-head"><span class="stage-name">${esc(st.label)}</span>
@@ -427,10 +454,12 @@
     const b = bandOf(r);
     const amount = S.midpointAmount(r);
     const closes = r.closes_at ? new Date(r.closes_at).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : null;
+    const region = S.REGIONS.find(x => x.key === (r.region || 'au'));
     return `<div class="opp" data-opp="${esc(r.id)}">
-      <div class="opp-name">${esc(r.name)}</div>
+      <div class="opp-name">${region ? region.flag + ' ' : ''}${esc(r.name)}</div>
       <div class="opp-meta">${esc((S.LEVELS.find(l => l.key === r.level) || {}).label || r.level)}${amount ? ' · ' + money(amount) : ''}${closes ? ' · closes ' + closes : ''}</div>
       <span class="opp-score band-${b.key}">${b.total == null ? 'Not scored' : b.total + ' · ' + b.label}</span>
+      ${r.source_key ? '<span class="opp-score band-unscored" style="margin-left:5px;">auto-found</span>' : ''}
     </div>`;
   }
 
@@ -526,8 +555,25 @@
 
     $('f-level').innerHTML = S.LEVELS.map(l => `<option value="${l.key}">${esc(l.label)}</option>`).join('');
     $('f-stage').innerHTML = S.STAGES.map(s => `<option value="${s.key}">${esc(s.label)}</option>`).join('');
+    $('f-region').innerHTML = S.REGIONS.map(x => `<option value="${x.key}">${x.flag} ${esc(x.label)}</option>`).join('');
 
     const r = editing || {};
+    $('f-region').value = r.region || 'au';
+
+    // Where this came from. An opportunity the sweep found should say so —
+    // and say which terms made it think this was relevant to Audema — so a
+    // bad match is visible as a bad match rather than looking like something
+    // a person chose to track.
+    $('provenance').innerHTML = r.source_key
+      ? `<div class="banner info" style="margin:0 0 13px;">
+          Found automatically by the funding sweep (<code>${esc(r.source_key)}</code>)${
+            r.match_terms && r.match_terms.length
+              ? ` because it matched: <strong>${esc((r.match_terms || []).join(', '))}</strong>`
+              : ''}.
+          Discovery is not assessment — it arrives unscored.
+         </div>`
+      : '';
+
     $('f-name').value = r.name || '';
     $('f-funder').value = r.funder || '';
     $('f-program').value = r.program || '';
@@ -560,6 +606,7 @@
       funder: $('f-funder').value.trim() || null,
       program: $('f-program').value.trim() || null,
       level: $('f-level').value,
+      region: $('f-region').value,
       stage: $('f-stage').value,
       amount_min: $('f-min').value ? Number($('f-min').value) : null,
       amount_max: $('f-max').value ? Number($('f-max').value) : null,
@@ -704,6 +751,13 @@
       t.classList.add('active');
       $('view-' + t.getAttribute('data-view')).classList.add('active');
     }));
+
+    $('region-filter').innerHTML = '<option value="all">🌍 All regions</option>' +
+      S.REGIONS.map(x => `<option value="${x.key}">${x.flag} ${esc(x.label)}</option>`).join('');
+    $('region-filter').addEventListener('change', e => {
+      regionFilter = e.target.value;
+      renderPipeline();
+    });
 
     $('btn-new').addEventListener('click', () => openModal(null));
     $('opp-close').addEventListener('click', closeModal);

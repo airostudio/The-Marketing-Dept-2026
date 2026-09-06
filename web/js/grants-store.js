@@ -31,6 +31,14 @@ window.GrantsStore = (function () {
     { key: 'not_proceeding',    label: 'Not proceeding',    group: 'closed' },
   ];
 
+  const REGIONS = [
+    { key: 'au',    label: 'Australia',     flag: '🇦🇺' },
+    { key: 'uk',    label: 'United Kingdom', flag: '🇬🇧' },
+    { key: 'eu',    label: 'European Union', flag: '🇪🇺' },
+    { key: 'us',    label: 'United States',  flag: '🇺🇸' },
+    { key: 'other', label: 'Other',          flag: '🌐' },
+  ];
+
   const LEVELS = [
     { key: 'federal',              label: 'Federal' },
     { key: 'state_vic',            label: 'Victorian' },
@@ -86,6 +94,7 @@ window.GrantsStore = (function () {
     const row = Object.assign({
       name: 'Untitled opportunity',
       level: 'federal',
+      region: 'au',
       stage: 'discovered',
       scorecard: {},
       currency: 'AUD',
@@ -190,7 +199,7 @@ window.GrantsStore = (function () {
   ];
 
   return {
-    STAGES, LEVELS, WON_STAGES, LIVE_STAGES, TARGETS,
+    STAGES, LEVELS, REGIONS, WON_STAGES, LIVE_STAGES, TARGETS,
     list, create, update, remove, rollup, midpointAmount, isCloud,
   };
 })();

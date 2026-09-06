@@ -62,9 +62,30 @@ CREATE TABLE IF NOT EXISTS grant_opportunities (
   updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── Discovery provenance (added with the multi-region grant sweep) ─────────
+-- Kept as ALTERs as well as being part of the CREATE above, so this file is
+-- correct whether it is being run for the first time or re-run against a
+-- database where grant_opportunities already exists.
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS region TEXT NOT NULL DEFAULT 'au';
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS source_key TEXT;   -- which adapter found it
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS external_id TEXT;  -- the publisher's own id, for dedupe
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS match_terms TEXT[] DEFAULT '{}';
+
+ALTER TABLE grant_opportunities DROP CONSTRAINT IF EXISTS grant_opportunities_region_check;
+ALTER TABLE grant_opportunities ADD CONSTRAINT grant_opportunities_region_check
+  CHECK (region IN ('au','uk','eu','us','other'));
+
 CREATE INDEX IF NOT EXISTS idx_grant_opps_stage  ON grant_opportunities (stage);
 CREATE INDEX IF NOT EXISTS idx_grant_opps_closes ON grant_opportunities (closes_at);
 CREATE INDEX IF NOT EXISTS idx_grant_opps_level  ON grant_opportunities (level);
+CREATE INDEX IF NOT EXISTS idx_grant_opps_region ON grant_opportunities (region);
+
+-- One row per opportunity per source. Makes the discovery sweep idempotent:
+-- re-running it can never duplicate an opportunity, and one already moved
+-- along the pipeline is never resurrected back to "discovered".
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grant_opps_source_external
+  ON grant_opportunities (source_key, external_id)
+  WHERE source_key IS NOT NULL AND external_id IS NOT NULL;
 
 -- ── updated_at ─────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION touch_grant_opportunity()
