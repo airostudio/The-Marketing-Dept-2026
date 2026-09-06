@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support | Audema</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .wrap { max-width:820px; margin:0 auto; padding:28px 24px 80px; }
+  h1 { font-size:23px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 24px; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:20px 22px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  label { display:block; font-size:12px; font-weight:700; color:var(--text2); margin-bottom:5px; }
+  input, select, textarea {
+    width:100%; background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:10px 12px; font-family:inherit; font-size:13.5px; margin-bottom:13px; }
+  textarea { min-height:130px; resize:vertical; line-height:1.6; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--purple); }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:10px 18px;
+           font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button:disabled { opacity:.55; cursor:default; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .hint { font-size:11.5px; color:var(--text3); margin:-6px 0 13px; line-height:1.5; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+
+  .pill { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+          letter-spacing:0.4px; padding:2px 9px; border-radius:999px; }
+  .pill.open     { background:rgba(6,182,212,0.16);  color:#67e8f9; }
+  .pill.pending  { background:rgba(245,158,11,0.15); color:#fcd34d; }
+  .pill.resolved { background:rgba(34,197,94,0.15);  color:#86efac; }
+  .pill.closed   { background:rgba(148,163,184,0.15); color:var(--text3); }
+
+  .ticket { display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+            padding:13px 0; border-bottom:1px solid var(--border); cursor:pointer; }
+  .ticket:last-child { border-bottom:none; }
+  .ticket:hover .t-subject { color:var(--cyan); }
+  .t-subject { font-weight:700; font-size:13.5px; margin-bottom:3px; }
+  .t-meta { font-size:11.5px; color:var(--text3); }
+
+  .bubble { border-radius:12px; padding:12px 14px; margin-bottom:11px; font-size:13.2px; line-height:1.65;
+            white-space:pre-wrap; word-break:break-word; }
+  .bubble.customer { background:var(--panel2); border:1px solid var(--border); }
+  .bubble.support  { background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.32); }
+  .bubble.internal { background:rgba(245,158,11,0.08); border:1px dashed rgba(245,158,11,0.4); }
+  .b-who { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;
+           color:var(--text3); margin-bottom:6px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/hub.html" class="nav-logo"><span class="nav-dot"></span> Audema</a>
+  <div>
+    <a href="/account.html" class="nav-link">Account</a>
+    <a href="/billing.html" class="nav-link">Billing</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Support</h1>
+  <p class="sub">Raise something with us, and follow it until it's answered.</p>
+
+  <div id="msg"></div>
+
+  <!-- New ticket -->
+  <div class="card" id="new-card">
+    <h2>Raise a ticket</h2>
+    <label for="subject">Subject</label>
+    <input id="subject" maxlength="200" placeholder="A one-line summary">
+
+    <label for="category">What is this about?</label>
+    <select id="category">
+      <option value="question">A question about how something works</option>
+      <option value="bug">Something isn't working</option>
+      <option value="billing">Billing or my plan</option>
+      <option value="feature">A request or suggestion</option>
+      <option value="account">My account or access</option>
+      <option value="other">Something else</option>
+    </select>
+
+    <label for="body">What's happening?</label>
+    <textarea id="body" maxlength="10000" placeholder="What you were doing, what you expected, and what happened instead."></textarea>
+    <p class="hint" id="page-hint"></p>
+
+    <button id="btn-send">Send to support</button>
+  </div>
+
+  <!-- Existing tickets -->
+  <div class="card" id="list-card">
+    <h2>Your tickets</h2>
+    <div id="list"><p class="muted">Loading…</p></div>
+  </div>
+
+  <!-- One thread -->
+  <div class="card" id="thread-card" style="display:none;">
+    <h2 id="thread-heading">Ticket</h2>
+    <div id="thread-meta" class="muted" style="margin-bottom:16px;"></div>
+    <div id="thread"></div>
+    <div id="reply-area">
+      <label for="reply">Add a reply</label>
+      <textarea id="reply" maxlength="10000" placeholder="Anything else that would help us."></textarea>
+      <button id="btn-reply">Send reply</button>
+      <button class="ghost" id="btn-back" style="margin-left:8px;">← All tickets</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Loading support…</div>
+
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s)
+    .replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+  const STATUS_LABELS = {
+    open:'Open', pending:'Awaiting you', resolved:'Resolved', closed:'Closed',
+  };
+  // What each status means from the customer's side. A bare word like
+  // "pending" tells them nothing about whether the ball is in their court.
+  const STATUS_MEANING = {
+    open:     'With our support team.',
+    pending:  'We have replied — this is waiting on you.',
+    resolved: 'Answered. Reply here if it is not sorted and it reopens.',
+    closed:   'Closed. Raise a new ticket if you need us again.',
+  };
+
+  // The page the customer came from, so the ticket carries it without them
+  // having to describe where they were.
+  const referrer = (() => {
+    try { return document.referrer && new URL(document.referrer).origin === location.origin
+      ? document.referrer : null; } catch (e) { return null; }
+  })();
+
+  let token = null;
+  let openTicketId = null;
+
+  const msg = (text, kind) => {
+    $('msg').innerHTML = text ? `<div class="msg ${kind || 'info'}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  async function api(payload) {
+    const res = await fetch('/api/support-tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Support is unavailable (HTTP ${res.status}).`);
+      err.code = data && data.code;
+      throw err;
+    }
+    return data;
+  }
+
+  function when(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
+  }
+
+  /* ── list ──────────────────────────────────────────────────────────── */
+  async function loadList() {
+    try {
+      const { tickets } = await api({ action: 'list' });
+      if (!tickets.length) {
+        // An empty list is stated as empty, not left as a spinner or filled
+        // with an example ticket.
+        $('list').innerHTML = '<p class="muted">You haven\'t raised anything yet. ' +
+          'Anything you send above will appear here with its replies.</p>';
+        return;
+      }
+      $('list').innerHTML = tickets.map(t => `
+        <div class="ticket" data-id="${esc(t.id)}">
+          <div>
+            <div class="t-subject">${esc(t.subject)}</div>
+            <div class="t-meta">Raised ${esc(when(t.createdAt))}
+              &nbsp;·&nbsp; Last activity ${esc(when(t.lastReplyAt))}</div>
+          </div>
+          <span class="pill ${esc(t.status)}">${esc(STATUS_LABELS[t.status] || t.status)}</span>
+        </div>`).join('');
+      $('list').querySelectorAll('.ticket').forEach(el => {
+        el.addEventListener('click', () => openThread(el.dataset.id));
+      });
+    } catch (e) {
+      if (e.code === 'not_installed') {
+        $('list').innerHTML = '<p class="muted">Support ticketing is not switched on for this ' +
+          'installation yet. Nothing you send would be stored, so the form above is disabled.</p>';
+        $('btn-send').disabled = true;
+        $('subject').disabled = $('body').disabled = $('category').disabled = true;
+        return;
+      }
+      $('list').innerHTML = `<p class="muted">Could not load your tickets: ${esc(e.message)}</p>`;
+    }
+  }
+
+  /* ── one thread ────────────────────────────────────────────────────── */
+  async function openThread(id) {
+    msg('');
+    try {
+      const data = await api({ action: 'thread', ticketId: id });
+      openTicketId = id;
+
+      $('new-card').style.display = 'none';
+      $('list-card').style.display = 'none';
+      $('thread-card').style.display = 'block';
+
+      const t = data.ticket;
+      $('thread-heading').textContent = t.subject;
+      $('thread-meta').innerHTML =
+        `<span class="pill ${esc(t.status)}">${esc(STATUS_LABELS[t.status] || t.status)}</span> ` +
+        `&nbsp;${esc(STATUS_MEANING[t.status] || '')}<br>` +
+        `Raised ${esc(when(t.createdAt))}` +
+        (t.pageUrl ? ` from <span class="muted">${esc(t.pageUrl)}</span>` : '');
+
+      $('thread').innerHTML = data.replies.map(r => `
+        <div class="bubble ${esc(r.authorRole)}">
+          <div class="b-who">${r.authorRole === 'support' ? 'Audema support' : 'You'}
+            &nbsp;·&nbsp; ${esc(when(r.createdAt))}</div>${esc(r.body)}
+        </div>`).join('');
+
+      const closed = t.status === 'closed';
+      $('reply-area').querySelector('label').style.display = closed ? 'none' : 'block';
+      $('reply').style.display = closed ? 'none' : 'block';
+      $('btn-reply').style.display = closed ? 'none' : 'inline-block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      msg('Could not open that ticket: ' + e.message, 'error');
+    }
+  }
+
+  function backToList() {
+    openTicketId = null;
+    $('thread-card').style.display = 'none';
+    $('new-card').style.display = 'block';
+    $('list-card').style.display = 'block';
+    loadList();
+  }
+
+  /* ── actions ───────────────────────────────────────────────────────── */
+  async function send() {
+    const subject = $('subject').value.trim();
+    const body = $('body').value.trim();
+    if (!subject) return msg('Please give the ticket a subject.', 'error');
+    if (!body) return msg('Please tell us what is happening.', 'error');
+
+    const btn = $('btn-send');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await api({ action: 'create', subject, body,
+                  category: $('category').value, pageUrl: referrer });
+      $('subject').value = ''; $('body').value = '';
+      msg('Sent. It is in the queue below — we will reply there.', 'ok');
+      await loadList();
+    } catch (e) {
+      msg('Could not send that: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send to support';
+    }
+  }
+
+  async function reply() {
+    const body = $('reply').value.trim();
+    if (!body) return msg('Please write a reply first.', 'error');
+    const btn = $('btn-reply');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await api({ action: 'reply', ticketId: openTicketId, body });
+      $('reply').value = '';
+      await openThread(openTicketId);
+    } catch (e) {
+      msg('Could not send that reply: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send reply';
+    }
+  }
+
+  /* ── boot ──────────────────────────────────────────────────────────── */
+  async function boot() {
+    let user = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+    } catch (e) { /* handled below */ }
+
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in to raise a support ticket.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    $('page-hint').textContent = referrer
+      ? 'We will attach the page you came from (' + referrer + ') so you don\'t have to describe it.'
+      : 'Mentioning the page you were on helps us find it faster.';
+
+    $('btn-send').addEventListener('click', send);
+    $('btn-reply').addEventListener('click', reply);
+    $('btn-back').addEventListener('click', backToList);
+
+    await loadList();
+
+    // Deep link from anywhere: /support.html?ticket=<id>
+    const wanted = new URLSearchParams(location.search).get('ticket');
+    if (wanted) openThread(wanted);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

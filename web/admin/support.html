@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support queue | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1080px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+
+  select, textarea { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  textarea { width:100%; min-height:110px; resize:vertical; line-height:1.6; margin-bottom:11px; }
+  select:focus, textarea:focus { outline:none; border-color:var(--purple); }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:9px 16px;
+           font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button:disabled { opacity:.55; cursor:default; }
+
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+
+  .pill { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+          letter-spacing:0.4px; padding:2px 9px; border-radius:999px; }
+  .pill.open     { background:rgba(6,182,212,0.16);  color:#67e8f9; }
+  .pill.pending  { background:rgba(245,158,11,0.15); color:#fcd34d; }
+  .pill.resolved { background:rgba(34,197,94,0.15);  color:#86efac; }
+  .pill.closed   { background:rgba(148,163,184,0.15); color:var(--text3); }
+  .pill.urgent   { background:rgba(239,68,68,0.18);  color:#fca5a5; }
+  .pill.high     { background:rgba(245,158,11,0.16); color:#fcd34d; }
+  .pill.normal, .pill.low { background:rgba(148,163,184,0.13); color:var(--text3); }
+
+  .ticket { display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+            padding:13px 0; border-bottom:1px solid var(--border); cursor:pointer; }
+  .ticket:last-child { border-bottom:none; }
+  .ticket:hover .t-subject { color:var(--cyan); }
+  .t-subject { font-weight:700; font-size:13.5px; margin-bottom:3px; }
+  .t-meta { font-size:11.5px; color:var(--text3); line-height:1.6; }
+  .t-right { text-align:right; white-space:nowrap; }
+  .waiting { color:#fcd34d; font-weight:700; }
+
+  .bubble { border-radius:12px; padding:12px 14px; margin-bottom:11px; font-size:13.2px; line-height:1.65;
+            white-space:pre-wrap; word-break:break-word; }
+  .bubble.customer { background:var(--panel2); border:1px solid var(--border); }
+  .bubble.support  { background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.32); }
+  .bubble.internal { background:rgba(245,158,11,0.08); border:1px dashed rgba(245,158,11,0.45); }
+  .b-who { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;
+           color:var(--text3); margin-bottom:6px; }
+  .check { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text2); margin-bottom:11px; }
+  .check input { width:auto; margin:0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/support.html" class="nav-link active">Support</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Support queue</h1>
+  <p class="sub">Ordered by who has been waiting longest, not by when they wrote in.</p>
+
+  <div id="msg"></div>
+
+  <div class="card" id="list-card">
+    <div class="filters">
+      <label for="status-filter" style="font-size:12px;font-weight:700;color:var(--text2);">Show</label>
+      <select id="status-filter">
+        <option value="open">Open</option>
+        <option value="pending">Awaiting the customer</option>
+        <option value="resolved">Resolved</option>
+        <option value="closed">Closed</option>
+        <option value="all">Everything</option>
+      </select>
+      <button class="ghost" id="btn-refresh">Refresh</button>
+    </div>
+    <p class="muted" id="counts"></p>
+    <div id="list"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="card" id="thread-card" style="display:none;">
+    <h2 id="thread-heading">Ticket</h2>
+    <div id="thread-meta" class="muted" style="margin-bottom:16px;"></div>
+    <div id="thread"></div>
+
+    <textarea id="reply" placeholder="Your reply to the customer."></textarea>
+    <div class="check">
+      <input type="checkbox" id="internal">
+      <label for="internal" style="margin:0;font-weight:600;color:var(--text2);">
+        Internal note — the customer never sees this and it does not count as a reply
+      </label>
+    </div>
+    <button id="btn-reply">Send</button>
+    <select id="set-status" style="margin-left:10px;">
+      <option value="">Change status…</option>
+      <option value="open">Open</option>
+      <option value="pending">Awaiting the customer</option>
+      <option value="resolved">Resolved</option>
+      <option value="closed">Closed</option>
+    </select>
+    <select id="set-priority" style="margin-left:6px;">
+      <option value="">Change priority…</option>
+      <option value="low">Low</option>
+      <option value="normal">Normal</option>
+      <option value="high">High</option>
+      <option value="urgent">Urgent</option>
+    </select>
+    <button class="ghost" id="btn-back" style="margin-left:10px;">← Queue</button>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s)
+    .replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+  const STATUS_LABELS = {
+    open:'Open', pending:'Awaiting customer', resolved:'Resolved', closed:'Closed',
+  };
+  const PLAN_LABELS = {
+    free:'Free', start:'Start', growth:'Growth', scale:'Scale', autonomous:'Autonomous',
+    enterprise:'Enterprise', agency_starter:'Agency Starter', agency_growth:'Agency Growth',
+    agency_pro:'Agency Pro', agency_enterprise:'Agency Enterprise',
+  };
+
+  let token = null;
+  let openTicketId = null;
+
+  const msg = (text, kind) => {
+    $('msg').innerHTML = text ? `<div class="msg ${kind || 'info'}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  async function api(payload) {
+    const res = await fetch('/api/support-tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Support is unavailable (HTTP ${res.status}).`);
+      err.code = data && data.code;
+      throw err;
+    }
+    return data;
+  }
+
+  const when = iso => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
+  };
+
+  /** How long the customer has been waiting on us — the queue's whole point. */
+  function waitedSince(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const hours = (Date.now() - d.getTime()) / 3600000;
+    if (hours < 1) return 'under an hour';
+    if (hours < 48) return Math.round(hours) + 'h';
+    return Math.round(hours / 24) + 'd';
+  }
+
+  /* ── queue ─────────────────────────────────────────────────────────── */
+  async function loadQueue() {
+    $('list').innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api({ action: 'queue', status: $('status-filter').value });
+      const tickets = data.tickets || [];
+
+      $('counts').textContent = tickets.length
+        ? `${tickets.length} ticket${tickets.length === 1 ? '' : 's'} shown` +
+          (data.truncated ? ' (the page limit was reached — there are more)' : '')
+        : '';
+
+      if (!tickets.length) {
+        // Said as a fact about this filter, not as a claim that no tickets exist.
+        $('list').innerHTML = `<p class="muted">No tickets with this status.</p>`;
+        return;
+      }
+
+      $('list').innerHTML = tickets.map(t => {
+        // "Waiting on us" is only true when the customer spoke last.
+        const onUs = t.lastReplyBy === 'customer' && (t.status === 'open' || t.status === 'pending');
+        const who = t.customer && (t.customer.name || t.customer.email) || 'Unknown account';
+        return `
+        <div class="ticket" data-id="${esc(t.id)}">
+          <div>
+            <div class="t-subject">${esc(t.subject)}</div>
+            <div class="t-meta">
+              ${esc(who)}${t.planAtOpen ? ' · ' + esc(PLAN_LABELS[t.planAtOpen] || t.planAtOpen) + ' at the time' : ''}
+              · ${esc(t.category)}<br>
+              Raised ${esc(when(t.createdAt))}
+              ${onUs ? `· <span class="waiting">waiting on us ${esc(waitedSince(t.lastReplyAt))}</span>` : ''}
+            </div>
+          </div>
+          <div class="t-right">
+            <span class="pill ${esc(t.status)}">${esc(STATUS_LABELS[t.status] || t.status)}</span><br>
+            <span class="pill ${esc(t.priority)}" style="margin-top:5px;">${esc(t.priority)}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      $('list').querySelectorAll('.ticket').forEach(el => {
+        el.addEventListener('click', () => openThread(el.dataset.id));
+      });
+    } catch (e) {
+      if (e.code === 'not_installed') {
+        $('list').innerHTML = '<p class="muted">The support tables do not exist yet. Run ' +
+          '<code>supabase-support.sql</code> in the Supabase SQL editor. This is not the same as ' +
+          'an empty queue — no ticket could have been stored.</p>';
+        return;
+      }
+      $('list').innerHTML = `<p class="muted">Could not load the queue: ${esc(e.message)}</p>`;
+    }
+  }
+
+  /* ── thread ────────────────────────────────────────────────────────── */
+  async function openThread(id) {
+    msg('');
+    try {
+      const data = await api({ action: 'thread', ticketId: id });
+      openTicketId = id;
+
+      $('list-card').style.display = 'none';
+      $('thread-card').style.display = 'block';
+
+      const t = data.ticket;
+      const who = t.customer && (t.customer.name || t.customer.email) || 'Unknown account';
+      $('thread-heading').textContent = t.subject;
+      $('thread-meta').innerHTML =
+        `<span class="pill ${esc(t.status)}">${esc(STATUS_LABELS[t.status] || t.status)}</span> ` +
+        `<span class="pill ${esc(t.priority)}">${esc(t.priority)}</span><br>` +
+        `${esc(who)}${t.customer && t.customer.email ? ' &lt;' + esc(t.customer.email) + '&gt;' : ''}<br>` +
+        `${esc(t.category)} · raised ${esc(when(t.createdAt))}` +
+        (t.planAtOpen ? ` · on ${esc(PLAN_LABELS[t.planAtOpen] || t.planAtOpen)} at the time` : '') +
+        (t.pageUrl ? `<br>From: ${esc(t.pageUrl)}` : '');
+
+      $('thread').innerHTML = data.replies.map(r => `
+        <div class="bubble ${r.internal ? 'internal' : esc(r.authorRole)}">
+          <div class="b-who">${r.internal ? 'Internal note (not visible to the customer)'
+            : (r.authorRole === 'support' ? 'Audema support' : esc(who))}
+            &nbsp;·&nbsp; ${esc(when(r.createdAt))}</div>${esc(r.body)}
+        </div>`).join('');
+
+      $('set-status').value = '';
+      $('set-priority').value = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      msg('Could not open that ticket: ' + e.message, 'error');
+    }
+  }
+
+  function backToQueue() {
+    openTicketId = null;
+    $('thread-card').style.display = 'none';
+    $('list-card').style.display = 'block';
+    loadQueue();
+  }
+
+  async function reply() {
+    const body = $('reply').value.trim();
+    if (!body) return msg('Write something first.', 'error');
+    const btn = $('btn-reply');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await api({ action: 'reply', ticketId: openTicketId, body,
+                  internal: $('internal').checked });
+      $('reply').value = '';
+      $('internal').checked = false;
+      await openThread(openTicketId);
+    } catch (e) {
+      msg('Could not send that: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send';
+    }
+  }
+
+  async function change(kind, value) {
+    if (!value) return;
+    try {
+      await api(kind === 'status'
+        ? { action: 'setStatus', ticketId: openTicketId, status: value }
+        : { action: 'setPriority', ticketId: openTicketId, priority: value });
+      await openThread(openTicketId);
+    } catch (e) {
+      msg('Could not update that: ' + e.message, 'error');
+    }
+  }
+
+  /* ── boot ──────────────────────────────────────────────────────────── */
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
+
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    // The page hides itself from a non-admin, but the endpoint refuses them
+    // too — this check is convenience, not the security boundary.
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      $('gate').textContent = 'This page is for Audema admins.';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+
+    $('status-filter').addEventListener('change', loadQueue);
+    $('btn-refresh').addEventListener('click', loadQueue);
+    $('btn-reply').addEventListener('click', reply);
+    $('btn-back').addEventListener('click', backToQueue);
+    $('set-status').addEventListener('change', e => change('status', e.target.value));
+    $('set-priority').addEventListener('change', e => change('priority', e.target.value));
+
+    await loadQueue();
+
+    const wanted = new URLSearchParams(location.search).get('ticket');
+    if (wanted) openThread(wanted);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
