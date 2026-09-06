@@ -3103,9 +3103,63 @@ class ScottyChat {
 
     /* ── ORCHESTRATION METHODS ────────────────────────────────────────────── */
 
+    /**
+     * Claim one Agent Mission from the account's monthly allowance.
+     *
+     * Called before generateMissionPlan() — the expensive part — mirroring
+     * the credit gate in api/generate-ad-image.js: check the allowance
+     * before spending, refuse with an upgrade path when it's gone.
+     *
+     * Returns true when the mission may proceed. A metering system that is
+     * unconfigured, unreachable or erroring lets the work through: a broken
+     * meter is an operator problem and must never look like a billing wall
+     * to a paying customer.
+     */
+    async _claimMissionAllowance() {
+        try {
+            const client = window.Supabase?.getClient?.();
+            const sessionRes = client ? await client.auth.getSession() : null;
+            const token = sessionRes?.data?.session?.access_token;
+            if (!token) return true; // signed out / local mode — nothing to meter against
+
+            const res = await fetch('/api/mission-usage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ action: 'consume' }),
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (res.status === 402) {
+                const { bubble } = this._createScottyBubble();
+                bubble.innerHTML =
+                    `<p>🛑 <strong>You're out of Agent Missions for this month.</strong></p>` +
+                    `<p>${this._escapeHtml(data.message || '')}</p>` +
+                    `<p><a href="${this._escapeHtml(data.upgradeUrl || '/billing.html')}" ` +
+                    `style="color:#c4b5fd;font-weight:700;">See plans and upgrade →</a></p>` +
+                    `<p style="font-size:12px;opacity:.7;">Individual agents still work — this limit is on full multi-agent missions.</p>`;
+                InfoPanel.logActivity('🛑', `Mission blocked — ${data.used}/${data.limit} used this month`);
+                this.isWaiting = false;
+                this.btnSend.disabled = false;
+                return false;
+            }
+
+            if (data && data.metered && typeof data.remaining === 'number') {
+                InfoPanel.logActivity('🎟️',
+                    `Mission ${data.used} of ${data.limit} this month${data.provisionalAllowance ? ' (provisional allowance)' : ''}`);
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Scotty] mission metering unavailable, proceeding:', e.message);
+            return true;
+        }
+    }
+
     async _runOrchestration(userGoal) {
         this.isWaiting = true;
         this.btnSend.disabled = true;
+
+        // Gate before the expensive planning call, not after.
+        if (!(await this._claimMissionAllowance())) return;
 
         const contextBundle = this._getContextBundle();
         const orch = window.ScottyOrchestrator;

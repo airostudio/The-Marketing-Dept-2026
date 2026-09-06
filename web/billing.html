@@ -140,6 +140,7 @@
                         <div>
                             <div class="plan-name" id="currentPlanName">Loading…<span class="status-pill" id="currentStatusPill" style="display:none;"></span></div>
                             <div class="plan-sub" id="currentPlanSub"></div>
+                            <div class="plan-sub" id="missionUsage" style="margin-top:6px;"></div>
                         </div>
                         <button class="manage-btn" id="manageBillingBtn">Manage Billing →</button>
                     </div>
@@ -328,6 +329,7 @@
                     : 'No active subscription';
 
                 renderTiers();
+                loadMissionUsage();
 
                 var params = new URLSearchParams(window.location.search);
                 if (params.get('checkout') === 'success') showMsg('Payment received — your plan will update shortly.', 'success');
@@ -339,6 +341,38 @@
             } catch (err) {
                 console.error('[Billing] load failed:', err);
                 renderSignedOut();
+            }
+        }
+
+        /**
+         * Show how much of this month's Agent Mission allowance is left.
+         * Read-only ('check' never increments), so opening this page cannot
+         * cost the customer a mission.
+         */
+        async function loadMissionUsage() {
+            var el = qs('#missionUsage');
+            if (!el || !accessToken) return;
+            try {
+                var res = await fetch('/api/mission-usage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + accessToken },
+                    body: JSON.stringify({ action: 'check' }),
+                });
+                var d = await res.json();
+                if (!res.ok || !d.metered) { el.textContent = ''; return; }
+
+                if (d.uncapped) {
+                    el.textContent = `${d.used} Agent Mission${d.used === 1 ? '' : 's'} used this month · no cap on this plan`;
+                    return;
+                }
+                el.innerHTML = `${d.used} of ${d.limit} Agent Missions used this month · ` +
+                    `<strong style="color:${d.remaining === 0 ? '#ef4444' : d.remaining <= 3 ? '#f59e0b' : '#10b981'};">` +
+                    `${d.remaining} left</strong>` +
+                    (d.provisionalAllowance
+                        ? ' <span style="opacity:.6;">(allowance provisional — not yet finalised)</span>'
+                        : '');
+            } catch (e) {
+                el.textContent = '';
             }
         }
 

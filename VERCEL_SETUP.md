@@ -16,6 +16,43 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Agent Mission metering — what makes the plan tiers real
+
+The Agent Mission is the unit the pricing is built on: customers aren't limited to a few agents, they have the whole department and are limited by how much work it performs. `api/mission-usage.js` enforces that, gating Scotty's multi-agent missions before the expensive planning call — the same shape as the AI-image credit gate.
+
+No new env vars. Uses `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`.
+
+### Setup
+
+1. Run `supabase-mission-usage.sql` in Supabase Dashboard → SQL Editor. It creates the `mission_usage` counter, an atomic `increment_mission_usage()` function, and adds a `profiles.mission_limit` override column.
+2. Nothing else. The gate activates automatically once the table exists.
+
+### ⚠️ The allowance numbers are placeholders
+
+The published pricing describes allowances qualitatively — Start gets "limited monthly Agent Missions", Growth a "substantially larger monthly Agent Mission allowance" — without stating figures. The defaults below are scaled to the price points so the mechanism is real and testable, but **they are a commercial decision, not a technical one**:
+
+| Plan | Monthly missions | Plan | Monthly missions |
+|------|-----------------|------|-----------------|
+| Free | 3 | Agency Starter | 100 |
+| Start | 20 | Agency Growth | 300 |
+| Growth | 60 | Agency Pro | 1,000 |
+| Scale | 150 | Agency Enterprise | uncapped |
+| Autonomous | 500 | Enterprise | uncapped |
+
+Change them in **one place**: `MISSION_ALLOWANCES` in `api/_lib/plan-limits.js`. Then set `PLACEHOLDER_ALLOWANCES = false` in the same file — until you do, the UI labels the allowance "provisional" rather than quoting it as settled policy.
+
+Per-account exceptions don't need a code change: `UPDATE profiles SET mission_limit = 250 WHERE email = '<customer>';` overrides the table for that account.
+
+### Behaviour worth knowing
+
+- **Scoped per account per calendar month (UTC)**, not per site. An agency's capacity is pooled across its client businesses, matching "agency users then purchase additional marketing capacity where necessary".
+- **A broken meter never blocks a paying customer.** If metering is unconfigured, unreachable, or the increment fails, the mission proceeds and the response says it wasn't counted. A broken meter is an operator problem; it must not look like a billing wall.
+- **Only full multi-agent missions are metered.** Individual agents keep working when the allowance is spent, and the block message says so.
+- **The count is server-side.** `MissionStore` is localStorage, which a customer can clear — fine for "what am I working on", useless as a billing record.
+- The increment is a single atomic upsert, so two missions started simultaneously can't both read the same count and both write count+1.
+
+---
+
 ## Government Funding Room — multi-region grant discovery
 
 Admin-only (`/admin/grants.html`). Sweeps government funding sources across Australia, the UK, the EU and the US weekly and files genuinely relevant opportunities into the funding pipeline at stage *discovered*.
