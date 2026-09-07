@@ -567,13 +567,23 @@
                     } else if (r.reason === 'provider_error') {
                         showNotification('Ranking check failed',
                             r.detail || 'The ranking provider did not respond.', 'error');
+                    } else if (r.market && r.marketSource === 'fallback') {
+                        // Never let a US-measured figure pass as the customer's
+                        // market without saying so. Every DataForSEO call used
+                        // to pin the United States silently.
+                        showNotification('Measured in the United States',
+                            `${r.updated} of ${r.checked} updated — but no search market is set for ` +
+                            'this project and your domain does not indicate one, so results were ' +
+                            'measured in the US. Set the market in project settings if you sell ' +
+                            'elsewhere.', 'warning');
                     } else if (r.updated === 0) {
                         showNotification('No positions returned',
                             `Checked ${r.checked} keyword${r.checked === 1 ? '' : 's'} — the provider ` +
                             'returned no positions for them.', 'info');
                     } else {
                         showNotification('Rankings updated',
-                            `${r.updated} of ${r.checked} keyword${r.checked === 1 ? '' : 's'} updated.`,
+                            `${r.updated} of ${r.checked} keyword${r.checked === 1 ? '' : 's'} updated` +
+                            (r.market ? `, measured in ${r.market}.` : '.'),
                             'success');
                     }
                 } finally {

@@ -637,7 +637,16 @@
             });
 
             this.saveTrackedKeywords(next);
-            return { ok: true, updated: updatedCount, checked: current.length, reason: null };
+
+            // The market travels with the result. A position measured in the
+            // United States is not a fact about an Australian business, and
+            // the page needs to be able to say which country it describes.
+            const sample = rankings.find(r => r && r.market) || {};
+            return {
+                ok: true, updated: updatedCount, checked: current.length, reason: null,
+                market: sample.market || null,
+                marketSource: sample.marketSource || null,
+            };
         },
 
         /**

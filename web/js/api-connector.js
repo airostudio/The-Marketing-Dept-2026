@@ -1040,7 +1040,9 @@
       function getSerpResults(keyword) {
         return dfsFetch('/serp/google/organic/live/advanced', [{
           keyword: keyword,
-          location_code: 2840,
+          // Market comes from the project, not a hardcoded United States.
+          location_code: (window.ApiConnector && window.ApiConnector.DataForSEO
+            ? window.ApiConnector.DataForSEO.resolveMarket().code : 2840),
           language_code: 'en',
           device: 'desktop',
           os: 'windows',
@@ -1052,7 +1054,8 @@
         var items = Array.isArray(keywords) ? keywords : [keywords];
         return dfsFetch('/keywords_data/google_ads/search_volume/live', [{
           keywords: items,
-          location_code: 2840,
+          location_code: (window.ApiConnector && window.ApiConnector.DataForSEO
+            ? window.ApiConnector.DataForSEO.resolveMarket().code : 2840),
           language_code: 'en'
         }], 'kwdata_' + items.join('_'));
       }
@@ -1160,6 +1163,86 @@
       return normaliseHost(getProjectIntegrationValue('site', ['websiteUrl', 'domain', 'url']));
     }
 
+    // ---- Which market a keyword is measured in -------------------------------
+    //
+    // Every DataForSEO call used to pin location_code 2840, the United States.
+    // A position and a search volume are both properties of a specific market:
+    // an Australian business ranking #3 in Australia can be nowhere in the US
+    // results, and US volume for "removalists" says nothing about demand in
+    // Melbourne. So the figures were not merely imprecise, they described a
+    // country the customer does not sell in.
+    //
+    // DataForSEO's location codes; these are the markets this product actually
+    // serves. Anything else can be passed through explicitly as a number.
+    var LOCATIONS = {
+      AU: { code: 2036, label: 'Australia',      language: 'en' },
+      NZ: { code: 2554, label: 'New Zealand',    language: 'en' },
+      GB: { code: 2826, label: 'United Kingdom', language: 'en' },
+      US: { code: 2840, label: 'United States',  language: 'en' },
+      CA: { code: 2124, label: 'Canada',         language: 'en' },
+      IE: { code: 2372, label: 'Ireland',        language: 'en' },
+      SG: { code: 2702, label: 'Singapore',      language: 'en' },
+      ZA: { code: 2710, label: 'South Africa',   language: 'en' },
+    };
+
+    // A country-code TLD is a strong statement about who a site sells to, and
+    // it is the only signal available without asking. It is a fallback, not a
+    // substitute for the setting — resolveMarket() reports which was used so
+    // the UI can say "measured in Australia (from your .com.au domain)".
+    var TLD_MARKETS = {
+      'com.au': 'AU', 'au': 'AU', 'co.nz': 'NZ', 'nz': 'NZ',
+      'co.uk': 'GB', 'org.uk': 'GB', 'uk': 'GB',
+      'ca': 'CA', 'ie': 'IE', 'sg': 'SG', 'co.za': 'ZA',
+    };
+
+    function marketFromDomain(domain) {
+      if (!domain) return null;
+      var parts = String(domain).toLowerCase().split('.');
+      if (parts.length >= 3) {
+        var two = parts.slice(-2).join('.');
+        if (TLD_MARKETS[two]) return TLD_MARKETS[two];
+      }
+      var last = parts[parts.length - 1];
+      return TLD_MARKETS[last] || null;
+    }
+
+    /**
+     * The market to search in: { code, label, source }.
+     *
+     * source says where the choice came from, so a figure can be labelled
+     * honestly rather than silently attributed to a country nobody picked.
+     */
+    function resolveMarket(explicit, domain) {
+      if (typeof explicit === 'number') {
+        var known = Object.keys(LOCATIONS).find(function (k) { return LOCATIONS[k].code === explicit; });
+        return { code: explicit, label: known ? LOCATIONS[known].label : ('location ' + explicit), source: 'explicit' };
+      }
+      if (typeof explicit === 'string' && LOCATIONS[explicit.toUpperCase()]) {
+        var m = LOCATIONS[explicit.toUpperCase()];
+        return { code: m.code, label: m.label, source: 'explicit' };
+      }
+
+      var configured = getConfig('seo.market');
+      try {
+        var settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+        configured = settings.market || configured;
+      } catch (e) { /* fall through */ }
+      if (configured && LOCATIONS[String(configured).toUpperCase()]) {
+        var c = LOCATIONS[String(configured).toUpperCase()];
+        return { code: c.code, label: c.label, source: 'setting' };
+      }
+
+      var guessed = marketFromDomain(domain || getTargetDomain());
+      if (guessed) {
+        return { code: LOCATIONS[guessed].code, label: LOCATIONS[guessed].label, source: 'domain' };
+      }
+
+      // No setting and no country-code TLD. US is DataForSEO's own default and
+      // the largest English index, but the caller is told it was a fallback so
+      // the UI can prompt for the real market instead of quietly assuming one.
+      return { code: LOCATIONS.US.code, label: LOCATIONS.US.label, source: 'fallback' };
+    }
+
     /**
      * Where the customer's own site ranks for each keyword.
      *
@@ -1178,8 +1261,9 @@
     function getRankings(keywords, options) {
       options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      var locationCode = options.location || 2840; // default US
       var target = getTargetDomain(options.domain);
+      var market = resolveMarket(options.location, target);
+      var locationCode = market.code;
 
       if (!target) {
         return Promise.reject(new Error(
@@ -1217,7 +1301,10 @@
             // organic position a person would describe as "we're number 4".
             position: hit ? (hit.rank_group || hit.rank_absolute || null) : null,
             url: hit ? (hit.url || null) : null,
-            checked: true
+            checked: true,
+            // A position is only true of the market it was measured in.
+            market: market.label,
+            marketSource: market.source
           };
         });
       });
@@ -1240,7 +1327,8 @@
     function getKeywordMetrics(keywords, options) {
       options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      var locationCode = options.location || 2840;
+      var market = resolveMarket(options.location, options.domain);
+      var locationCode = market.code;
 
       var volumes = dfsFetch(
         '/keywords_data/google_ads/search_volume/live',
@@ -1267,7 +1355,10 @@
             search_volume: typeof r.search_volume === 'number' ? r.search_volume : null,
             cpc: typeof r.cpc === 'number' ? r.cpc : null,
             competition: r.competition != null ? r.competition : null,
-            keyword_difficulty: null
+            keyword_difficulty: null,
+            // Volume is demand in one country, not in general.
+            market: market.label,
+            marketSource: market.source
           };
         });
 
@@ -1277,7 +1368,8 @@
           if (!byKeyword[key]) {
             byKeyword[key] = {
               keyword: r.keyword, search_volume: null, cpc: null,
-              competition: null, keyword_difficulty: null
+              competition: null, keyword_difficulty: null,
+              market: market.label, marketSource: market.source
             };
           }
           var kd = r.keyword_difficulty;
@@ -1338,6 +1430,8 @@
 
     return {
       isAvailable: isAvailable,
+      resolveMarket: resolveMarket,
+      markets: LOCATIONS,
       getRankings: getRankings,
       getKeywordMetrics: getKeywordMetrics,
       getBacklinks: getBacklinks,

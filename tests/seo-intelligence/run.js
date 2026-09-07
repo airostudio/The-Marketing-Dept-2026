@@ -365,6 +365,53 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
   check('difficulty was requested at all — search_volume never returns it',
     shaped.calls.some(c => c.endpoint === '/dataforseo_labs/google/bulk_keyword_difficulty/live'));
 
+  // Which country the figures describe.
+  console.log('\n──── the search market ────');
+  check('no DataForSEO call pins the United States any more',
+    !/location_code: 2840/.test(conn));
+
+  const markets = await conPage.evaluate(async () => {
+    const D = window.ApiConnector.DataForSEO;
+    const out = {};
+
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://acme.com.au' }));
+    out.fromTld = D.resolveMarket();
+
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://acme.co.uk' }));
+    out.fromUkTld = D.resolveMarket();
+
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://acme.com', market: 'NZ' }));
+    out.fromSetting = D.resolveMarket();
+
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://acme.com' }));
+    out.noSignal = D.resolveMarket();
+
+    out.explicit = D.resolveMarket('AU');
+    return out;
+  });
+  console.log('   ', JSON.stringify(markets.fromTld), JSON.stringify(markets.noSignal));
+
+  check('a .com.au domain is measured in Australia',
+    markets.fromTld.code === 2036 && markets.fromTld.source === 'domain');
+  check('a .co.uk domain is measured in the United Kingdom', markets.fromUkTld.code === 2826);
+  check('an explicit project setting beats the domain guess',
+    markets.fromSetting.code === 2554 && markets.fromSetting.source === 'setting');
+  check('an explicit argument wins outright', markets.explicit.code === 2036);
+  check('with no signal at all it falls back to the US — and says it is a fallback',
+    markets.noSignal.code === 2840 && markets.noSignal.source === 'fallback');
+
+  const carried = await conPage.evaluate(async () => {
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://www.acme.com.au' }));
+    const D = window.ApiConnector.DataForSEO;
+    const r = await D.getRankings(['blue widgets']);
+    const m = await D.getKeywordMetrics(['blue widgets']);
+    return { rank: r[0], metric: m[0] };
+  });
+  check('a position says which market it was measured in',
+    carried.rank && carried.rank.market === 'Australia');
+  check('and so does a search volume — demand is per country',
+    carried.metric && carried.metric.market === 'Australia');
+
   // A missing domain makes the whole question meaningless.
   const noDomain = await conPage.evaluate(async () => {
     localStorage.removeItem('seo-dashboard-settings');
