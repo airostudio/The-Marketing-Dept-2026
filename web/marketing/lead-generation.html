@@ -1449,7 +1449,7 @@ async function enrichProspect(id) {
 
     const res = await fetch('/api/lead-enrich', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error('Enrichment API error');
@@ -1961,7 +1961,7 @@ async function runSignalFinder() {
   try {
     const res = await fetch('/api/lead-signals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ company, domain: domain || undefined }),
     });
     const data = await res.json();
@@ -2006,7 +2006,7 @@ async function detectProspectSignals(prospectId) {
   try {
     const res = await fetch('/api/lead-signals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ company: p.company, domain: p.domain || undefined }),
     });
     const data = await res.json();
@@ -2054,7 +2054,7 @@ async function draftOutreach(prospectId) {
   try {
     const res = await fetch('/api/outreach-draft', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ prospect, seller, signals: p.signals || [] }),
     });
     const data = await res.json();

@@ -336,6 +336,7 @@
 <script src="../js/marked.min.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
 <script src="../js/competitor-watch-store.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -471,7 +472,7 @@
         try {
             const r = await fetch('/api/scout-data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domains }),
                 signal: AbortSignal.timeout(25000),
             });
@@ -521,7 +522,7 @@
         try {
             const r = await fetch('/api/domain-metrics', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domain: 'example.com' }),
                 signal: AbortSignal.timeout(5000)
             });

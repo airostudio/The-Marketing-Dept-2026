@@ -828,15 +828,34 @@ function renderProspects() {
     const scoreFilter = parseInt(document.getElementById('disc-score-filter').value) || 0;
     const sort = document.getElementById('disc-sort').value;
 
+    /**
+     * Did Claude actually return an opportunity score for this prospect?
+     *
+     * The field is optional in the model's output. Treating a missing score
+     * as a number is what produced a 5/10 ring for prospects nobody had
+     * assessed, and let them through score filters they were never measured
+     * against. A real 0 is a score; undefined and null are not.
+     */
+    const isScored = (v) => typeof v === 'number' && isFinite(v);
+
     let filtered = discoveredProspects
         .map((p, i) => ({...p, _idx: i}))
         .filter(p => {
             if (webFilter && p.websiteStatus !== webFilter) return false;
-            if (p.opportunityScore < scoreFilter) return false;
+            // `undefined < 7` is false, so an unscored prospect used to pass
+            // every score filter — "show me only 8+" listed prospects nobody
+            // had scored at all. An unscored prospect is excluded whenever a
+            // minimum is set, because it cannot be shown to meet one.
+            if (scoreFilter && !isScored(p.opportunityScore)) return false;
+            if (scoreFilter && p.opportunityScore < scoreFilter) return false;
             return true;
         });
 
-    if (sort === 'score') filtered.sort((a,b) => b.opportunityScore - a.opportunityScore);
+    // Unscored prospects sort last rather than producing NaN comparisons,
+    // which order unpredictably depending on the engine's sort.
+    if (sort === 'score') filtered.sort((a,b) =>
+        (isScored(b.opportunityScore) ? b.opportunityScore : -1) -
+        (isScored(a.opportunityScore) ? a.opportunityScore : -1));
     else if (sort === 'name') filtered.sort((a,b) => a.name.localeCompare(b.name));
     else if (sort === 'location') filtered.sort((a,b) => (a.city||'').localeCompare(b.city||''));
 
@@ -850,9 +869,15 @@ function renderProspects() {
     }
 
     grid.innerHTML = filtered.map(p => {
-        const score = p.opportunityScore || 5;
-        const pct = (score / 10) * 100;
-        const sc = score >= 8 ? 'var(--green)' : score >= 6 ? 'var(--orange)' : 'var(--cyan)';
+        // `|| 5` put a 5/10 in the ring for every prospect Claude had not
+        // scored, and turned a real 0 into a 5. An unscored prospect now shows
+        // a dash in a neutral ring — the detail view already did this, so the
+        // card was the only place claiming a score that did not exist.
+        const scored = isScored(p.opportunityScore);
+        const score = scored ? p.opportunityScore : null;
+        const pct = scored ? (score / 10) * 100 : 0;
+        const sc = !scored ? 'rgba(255,255,255,0.12)'
+                 : score >= 8 ? 'var(--green)' : score >= 6 ? 'var(--orange)' : 'var(--cyan)';
         const tagClass = {no_website:'tag-no-site',facebook_only:'tag-fb-only',outdated:'tag-outdated',has_website:'tag-has-site'}[p.websiteStatus] || 'tag-no-site';
         const tagLabel = {no_website:'No Website',facebook_only:'Facebook Only',outdated:'Outdated Site',has_website:'Has Website'}[p.websiteStatus] || 'No Website';
 
@@ -893,8 +918,9 @@ function renderProspects() {
         return `<div class="prospect-card${p.enriched?' enriched':''}" data-idx="${idx}">
             <div class="prospect-check" onclick="toggleProspect(this)">✓</div>
             <div class="prospect-top">
-                <div class="score-ring" style="background:conic-gradient(${sc} ${pct}%, rgba(255,255,255,0.06) ${pct}%)">
-                    <span>${score}</span>
+                <div class="score-ring" style="background:conic-gradient(${sc} ${pct}%, rgba(255,255,255,0.06) ${pct}%)"
+                     title="${scored ? 'Opportunity score ' + score + '/10, estimated by Claude from the business profile' : 'Not scored — Claude did not return an opportunity score for this prospect'}">
+                    <span${scored ? '' : ' style="color:var(--text3);font-weight:600;"'}>${scored ? score : '–'}</span>
                 </div>
                 <div class="prospect-info">
                     <div class="prospect-name">${escHtml(p.name)}</div>
@@ -1040,7 +1066,7 @@ async function enrichProspect(idx) {
     try {
         const r = await fetch('/api/profile-search', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ name: p.name, city: p.city, country: p.country })
         });
         if (r.ok) {
@@ -1103,7 +1129,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/hunter', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domain: websiteUrl })
             });
             if (r.ok) {
@@ -1123,12 +1149,12 @@ async function enrichProspect(idx) {
             const [orgRes, peopleRes] = await Promise.all([
                 fetch('/api/apollo-enrich', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ mode: 'organization', domain: websiteUrl }),
                 }),
                 fetch('/api/apollo-enrich', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ mode: 'people_search', domain: websiteUrl }),
                 }),
             ]);

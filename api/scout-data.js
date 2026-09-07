@@ -1,3 +1,4 @@
+const { requireUser } = require('./_lib/require-user.js');
 /**
  * api/scout-data.js
  * DataForSEO-powered competitive SEO data for the SCOUT agent.
@@ -112,7 +113,7 @@ async function fetchRankedKeywords(domains, auth, locationCode, languageCode) {
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -120,6 +121,11 @@ module.exports = async function handler(req, res) {
     if (!checkRateLimit(ip)) {
         return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
     }
+
+    // This endpoint spends the account's own third-party credits, so it has to
+    // know whose they are. It previously accepted anyone.
+    const caller = await requireUser(req, res);
+    if (!caller) return;
 
     const login = process.env.DATAFORSEO_LOGIN;
     const pass  = process.env.DATAFORSEO_PASSWORD;

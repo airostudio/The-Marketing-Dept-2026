@@ -1,9 +1,15 @@
+const { requireUser } = require('./_lib/require-user.js');
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // This endpoint spends the account's own third-party credits, so it has to
+  // know whose they are. It previously accepted anyone.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
     const apiKey = process.env.HUNTER_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'HUNTER_API_KEY not configured' });

@@ -13,6 +13,8 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
 const rateBuckets = new Map();
@@ -188,13 +190,19 @@ function normaliseUrl(u) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' });
 
+
+  // This endpoint spends the account's own third-party credits, so it has to
+  // know whose they are. It previously accepted anyone: a rate limit caps how
+  // fast the money goes, not whether the caller was entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
   const hunterKey     = process.env.HUNTER_API_KEY;
   const perplexityKey = process.env.PERPLEXITY_API_KEY;
 

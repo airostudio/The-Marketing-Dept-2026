@@ -1627,6 +1627,7 @@
   <!-- ── Scripts ────────────────────────────────────────────────────────────── -->
   <script src="/js/supabase.min.js"></script>
   <script src="/js/supabase-client.js"></script>
+  <script src="/js/send-auth.js"></script>
   <script src="/js/project-service.js"></script>
   <script src="/js/business-brain-cloud.js"></script>
   <script src="/js/intelligence-profiles.js"></script>
@@ -2201,7 +2202,7 @@
     try {
       const res  = await fetch('/api/enrich-business', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({ url }),
       });
       const data = await res.json();

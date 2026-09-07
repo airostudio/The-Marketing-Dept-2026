@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
 <!-- Already vendored in this repo — used to turn the article's Markdown into
      the HTML that gets copied/downloaded for publishing, and to render the
      on-page preview properly instead of showing raw Markdown. -->
@@ -271,7 +272,10 @@ function showStep(id) {
 }
 
 async function postJSON(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // Every endpoint this page calls now identifies the caller, because they
+  // spend the account's own third-party credits. Attaching the session here
+  // covers all of them at once rather than at each call site.
+  const res = await fetch(url, { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
   return data;

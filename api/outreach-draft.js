@@ -1,3 +1,4 @@
+const { requireUser } = require('./_lib/require-user.js');
 /**
  * Outreach draft — Vercel serverless function.
  *
@@ -47,6 +48,12 @@ module.exports = async function handler(req, res) {
   if (!checkRateLimit(ip)) {
     return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
   }
+
+  // This endpoint spends the account's own third-party credits, so it has to
+  // know whose they are. It previously accepted anyone: a rate limit caps how
+  // fast the money goes, not whether the caller was entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
