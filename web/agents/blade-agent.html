@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/contacts-store.js"></script>
 <script src="/js/site-switcher.js"></script>
@@ -343,7 +344,7 @@
   async function fetchCities(input) {
     try {
       var res = await fetch('/api/blade-cities-autocomplete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: await window.sendAuthHeaders(),
         body: JSON.stringify({ input: input, countryCode: state.country ? state.country.code : null }),
       });
       var data = await res.json();
@@ -409,7 +410,7 @@
 
     try {
       var res = await fetch('/api/blade-places-search', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           sector: state.sector,
           city: state.city ? state.city.description : '',
@@ -560,7 +561,7 @@
         renderResults();
         try {
           var res = await fetch('/api/seo-backlink-find-email', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ domain: r.website }),
           });
           var data = await res.json();
@@ -614,7 +615,7 @@
         renderResults();
         try {
           var res = await fetch('/api/blade-website-check', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ website: r.website }),
           });
           var data = await res.json();

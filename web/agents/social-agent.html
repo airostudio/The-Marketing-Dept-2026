@@ -865,7 +865,7 @@ async function generateCardImage(id) {
     try {
         const res = await fetch('/api/generate-ad-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -964,7 +964,7 @@ async function regeneratePost(id) {
         let replacement;
         if (original.source === 'ad') {
             const res = await fetch('/api/generate-ads', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], objective: document.getElementById('adObjective')?.value || 'Conversions',
                     product: (document.getElementById('adProduct')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this variant distinctly different from: "${original.headline}"` : `\n\nMake this variant distinctly different from: "${original.headline}"`),
@@ -1077,7 +1077,7 @@ async function loadConvertData() {
     btn.disabled = true;
     btn.textContent = 'Loading experiments…';
     try {
-        const res = await fetch('/api/convert-experiments', { method: 'GET' });
+        const res = await fetch('/api/convert-experiments', { method: 'GET', headers: await window.sendAuthHeaders() });
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -1477,7 +1477,7 @@ class SocialAgent {
         try {
             const res  = await fetch('/api/generate-ads', {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body:    JSON.stringify(body),
             });
             const data = await res.json();

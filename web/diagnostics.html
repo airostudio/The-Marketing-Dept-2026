@@ -78,6 +78,7 @@
         <div class="check-list" id="projectChecks"><div class="empty">Click "Test Integrations" to test the active project's connected services.</div></div>
     </div>
 
+    <script src="/js/send-auth.js"></script>
     <script src="/js/config.js"></script>
     <script src="/js/api-client.js"></script>
     <script>
@@ -151,11 +152,12 @@
         }
 
         async function callDiagnostics(path, method = 'GET', body = null) {
-            const token = getToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (token && !token.startsWith('local_')) {
-                headers.Authorization = 'Bearer ' + token;
-            }
+            // The shared helper, not a hand-rolled localStorage read: these
+            // routes now require a real session, and a stale 'access_token'
+            // left in storage is not one.
+            const headers = (typeof window.sendAuthHeaders === 'function')
+                ? await window.sendAuthHeaders()
+                : { 'Content-Type': 'application/json' };
             const res = await fetch(apiBase + path, {
                 method,
                 headers,
@@ -230,6 +232,11 @@
             } catch (e) {
                 if (e.status === 401) {
                     setBanner('You must be signed in to run system diagnostics. Showing browser-side checks instead.', 'info');
+                } else if (e.status === 403) {
+                    // A refusal is not an outage. Saying "could not reach" here
+                    // would tell an ordinary user the platform is down when it
+                    // simply declined to show them its internals.
+                    setBanner('System diagnostics describe the platform itself and are limited to administrators. Your project checks below still run, and browser-side checks are shown here.', 'info');
                 } else {
                     setBanner('Could not reach /api/diagnostics: ' + escapeHtml(e.message), 'error');
                 }

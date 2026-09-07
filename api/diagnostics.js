@@ -7,6 +7,8 @@
  * No secrets are returned to the client. Only pass/warn/fail status per service.
  */
 
+const { requireUser, requireAdmin, callerOwnsScope } = require('./_lib/require-user.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
 const rateBuckets = new Map();
@@ -278,6 +280,9 @@ async function runProjectChecks(projectId) {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) {
     return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
@@ -290,6 +295,13 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    // The project route is about the caller's own project, so any signed-in
+    // owner may run it — but it names the project in the request body, and it
+    // makes live authenticated calls to that project's integrations. Checking
+    // ownership is what stops one customer probing another's setup.
+    const auth = await requireUser(req, res);
+    if (!auth) return;
     let body = {};
     if (typeof req.body === 'object' && req.body !== null) {
       body = req.body;
@@ -299,6 +311,9 @@ module.exports = async function handler(req, res) {
     const { projectId } = body;
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' });
+    }
+    if (!(await callerOwnsScope(auth.userId, { projectId }))) {
+      return res.status(403).json({ error: 'That project is not yours.', code: 'scope_forbidden' });
     }
     try {
       const result = await runProjectChecks(projectId);
@@ -314,6 +329,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // These describe the deployment, not the caller: which services are wired
+  // up, which environment variables are missing, which upstreams are
+  // reachable. That is an operator's view of the platform, not a customer's.
+  const sysAuth = await requireAdmin(req, res);
+  if (!sysAuth) return;
 
   try {
     const result = await runSystemChecks();

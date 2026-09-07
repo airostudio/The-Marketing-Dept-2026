@@ -18,6 +18,8 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const TIMEOUT_MS = 15000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — enough for real pages, bounded against abuse
 
@@ -68,10 +70,16 @@ function parseTarget(raw) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const ip = getIp(req);
   if (isRateLimited(ip)) return res.status(429).json({ success: false, error: 'Too many requests' });

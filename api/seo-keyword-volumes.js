@@ -15,6 +15,8 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
 const rateBuckets = new Map();
@@ -35,9 +37,13 @@ function checkRateLimit(ip) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // DataForSEO bills per keyword looked up, on the account's subscription.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });

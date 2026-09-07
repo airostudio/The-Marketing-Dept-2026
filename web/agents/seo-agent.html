@@ -263,6 +263,7 @@
 
 </div>
 
+<script src="/js/send-auth.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/gemini-service.js"></script>
@@ -759,7 +760,8 @@ async function runExpressCheck() {
     resultsEl.innerHTML = `<div class="typing-indicator" style="padding:16px 0 0;"><div class="dot-pulse"><span></span><span></span><span></span></div> Running a live PageSpeed check on ${escapeHtmlSEO(url)}...</div>`;
 
     try {
-        const res = await fetch(`/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`);
+        const res = await fetch(`/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`,
+            { headers: await window.sendAuthHeaders() });
         const data = await res.json();
         if (!res.ok) {
             throw new Error(data.error?.message || data.error || `PageSpeed request failed (${res.status})`);

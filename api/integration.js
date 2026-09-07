@@ -10,6 +10,8 @@
  * Response:     upstream JSON (or error JSON)
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 const rateBuckets = new Map();
@@ -119,14 +121,25 @@ function credentialStatus() {
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
-  // Capability probe. Cheap, no upstream call, safe to hit on page load.
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // This endpoint is a proxy into Ahrefs, Semrush, DataForSEO, Mailchimp and
+  // Resend on the account's own credentials — the last two can read audience
+  // lists and send mail — and the GET branch discloses which of those the
+  // deployment holds. Neither is anything to hand a stranger, so both need a
+  // caller we can name.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  // Capability probe. Cheap, no upstream call.
   if (req.method === 'GET') {
     res.setHeader('Cache-Control', 'private, max-age=300');
     return res.status(200).json({ configured: credentialStatus() });
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const ip = getClientIp(req);

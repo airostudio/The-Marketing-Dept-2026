@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>audit harness</title></head>
 <body>
+<!-- seo-audit.js now attaches the session to /api/fetch-page and
+     /api/check-url, so the harness loads the same helper the real pages do.
+     Without it window.sendAuthHeaders is undefined and every crawl throws. -->
+<script src="/send-auth.js"></script>
 <script src="/seo-audit.js"></script>
 <script>
 window.__done = null;

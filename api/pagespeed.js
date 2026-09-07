@@ -3,6 +3,8 @@
  * Credentials never leave the server; key is read from GOOGLE_PAGESPEED_API_KEY env var.
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const PAGESPEED_BASE = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -30,6 +32,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Google's PageSpeed quota is attached to this deployment's key and is
+  // shared by every customer on it. An open proxy lets a stranger exhaust it
+  // and take the site audits down for everyone paying for them.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) {

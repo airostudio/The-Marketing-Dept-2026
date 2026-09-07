@@ -25,6 +25,8 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const DEFAULT_BASE_URL = 'https://ark.ap-southeast.bytepluses.com/api/v3';
 const DEFAULT_MODEL = 'seedance-2-0';
 
@@ -42,6 +44,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   // ARK_API_KEY is the key name BytePlus/Volcengine's own Ark console docs use;
   // SEEDANCE_API_KEY is kept as a fallback for non-Ark providers of Seedance 2.0.

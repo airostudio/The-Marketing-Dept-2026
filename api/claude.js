@@ -10,6 +10,8 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
@@ -68,6 +70,13 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // This is a proxy to Anthropic on the account's own API key. Left open it
+  // is free inference for anyone who finds the URL, billed to the owner. The
+  // rate limit below caps how fast that money goes, not whether the caller
+  // was ever entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   // Rate limit
   const ip = getClientIp(req);

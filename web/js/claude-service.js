@@ -45,9 +45,7 @@ const ClaudeService = (() => {
       // Call secure Vercel API endpoint (API key handled server-side)
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify(body),
       });
 
@@ -119,9 +117,7 @@ const ClaudeService = (() => {
     // Call secure Vercel API endpoint (API key handled server-side)
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify(body),
     });
 

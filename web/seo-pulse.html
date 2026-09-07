@@ -1365,6 +1365,7 @@
         </section>
     </main>
 
+    <script src="/js/send-auth.js"></script>
     <script src="/js/config.js"></script>
     <script src="/js/seo-fix-guide.js"></script>
     <script>
@@ -1566,7 +1567,8 @@
                 let pageSpeedError = null;
                 try {
                     const response = await fetch(
-                        `/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`);
+                        `/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`,
+                        { headers: await window.sendAuthHeaders() });
                     if (response.ok) {
                         pageSpeedData = await response.json();
                         analysisResults.rawData.pageSpeed = pageSpeedData;
@@ -1835,7 +1837,8 @@
                     // probe the project wizard uses (real HTTP status, no CORS opacity)
                     // makes this check actually check something.
                     const sitemapUrl = new URL('/sitemap.xml', url).href;
-                    const checkResp = await fetch(`/api/check-url?url=${encodeURIComponent(sitemapUrl)}`);
+                    const checkResp = await fetch(`/api/check-url?url=${encodeURIComponent(sitemapUrl)}`,
+                        { headers: await window.sendAuthHeaders() });
                     const checkData = await checkResp.json();
                     if (!checkData.reachable) {
                         analysisResults.issues.push({

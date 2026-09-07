@@ -118,10 +118,25 @@
 
   function refreshServerCapabilities() {
     if (serverCapsPromise) return serverCapsPromise;
-    serverCapsPromise = fetch('/api/integration', { method: 'GET' })
+    // The probe says which paid credentials this deployment holds, so it is
+    // answered only for a signed-in caller. Before the session exists it
+    // returns 401, which is handled below as "ask again later" rather than
+    // being cached as "nothing is configured".
+    var headersReady = (typeof window.sendAuthHeaders === 'function')
+      ? window.sendAuthHeaders()
+      : Promise.resolve({});
+    serverCapsPromise = headersReady
+      .then(function(headers) { return fetch('/api/integration', { method: 'GET', headers: headers }); })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) {
-        serverCaps = (data && data.configured) || {};
+        // A refused or failed probe is not an answer. Caching {} here would
+        // record "no provider is configured" on an account that is paying for
+        // one, purely because the probe raced the session restore.
+        if (!data || !data.configured) {
+          serverCapsPromise = null;
+          return null;
+        }
+        serverCaps = data.configured;
         try { sessionStorage.setItem(SERVER_CAPS_KEY, JSON.stringify(serverCaps)); } catch (e) {}
         return serverCaps;
       })
@@ -145,6 +160,28 @@
 
   // Probe once at load so the first isAvailable() of the page has an answer.
   refreshServerCapabilities();
+
+  /**
+   * Every call into /api/integration, carrying the caller's session.
+   *
+   * The proxy holds the account's Ahrefs, Semrush, DataForSEO, Mailchimp and
+   * Resend credentials, so it now refuses callers it cannot identify — two of
+   * those services can read audience lists and send mail. These six call sites
+   * sit inside plain promise chains rather than async functions, so the header
+   * lookup is folded in here instead of being awaited at each one.
+   */
+  function integrationFetch(payload) {
+    var headersReady = (typeof window.sendAuthHeaders === 'function')
+      ? window.sendAuthHeaders()
+      : Promise.resolve({ 'Content-Type': 'application/json' });
+    return headersReady.then(function(headers) {
+      return fetchWithRetry('/api/integration', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+    });
+  }
 
   // ---- Fetch with retry + exponential backoff ----
 
@@ -768,11 +805,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
           });
@@ -822,11 +855,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
           });
@@ -889,11 +918,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -959,11 +984,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -1026,11 +1047,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body })
-          }).then(function(data) {
+          return integrationFetch({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -1112,16 +1129,12 @@
         var cached = cacheKeyStr ? cacheGet(NS, cacheKeyStr) : null;
         if (cached) return Promise.resolve(cached);
 
-        return fetchWithRetry('/api/integration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        return integrationFetch({
             service: 'dataforseo',
             endpoint: endpoint,
             method: method || 'POST',
             body: body
-          })
-        }).then(function(data) {
+          }).then(function(data) {
           if (cacheKeyStr) cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
           return data;
         });
@@ -1550,28 +1563,36 @@
       // errors down to a bare `null`, which would hide specific messages
       // like "SEEDANCE_API_KEY is not configured" from the user. Callers
       // catch the rejected promise directly and show err.message instead.
+      // Video generation is billed per clip on the account's Ark/Seedance
+      // key, so the endpoint now identifies the caller; both calls carry the
+      // session through this one helper.
+      function videoFetch(payload) {
+        var headersReady = (typeof window.sendAuthHeaders === 'function')
+          ? window.sendAuthHeaders()
+          : Promise.resolve({ 'Content-Type': 'application/json' });
+        return headersReady.then(function(headers) {
+          return fetchWithRetry('/api/generate-video', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+          });
+        });
+      }
+
       function createVideo(options) {
-        return fetchWithRetry('/api/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'create',
-            prompt: options.prompt,
-            mode: options.mode || 'text-to-video',
-            imageUrl: options.imageUrl || null,
-            aspectRatio: options.aspectRatio || '16:9',
-            duration: options.duration || 5,
-            resolution: options.resolution || '1080p'
-          })
+        return videoFetch({
+          action: 'create',
+          prompt: options.prompt,
+          mode: options.mode || 'text-to-video',
+          imageUrl: options.imageUrl || null,
+          aspectRatio: options.aspectRatio || '16:9',
+          duration: options.duration || 5,
+          resolution: options.resolution || '1080p'
         });
       }
 
       function getVideoStatus(taskId) {
-        return fetchWithRetry('/api/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'status', taskId: taskId })
-        });
+        return videoFetch({ action: 'status', taskId: taskId });
       }
 
       return {

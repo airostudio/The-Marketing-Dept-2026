@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
@@ -229,7 +230,9 @@ function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&am
 function arr(x) { return Array.isArray(x) ? x : []; }
 
 async function postJSON(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // These endpoints spend the account's own Perplexity/Claude credits and
+  // now identify the caller. One helper carries the session for all of them.
+  const res = await fetch(url, { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
   return data;
@@ -377,7 +380,7 @@ async function runVisibilityCheck() {
 async function runOneCheck(q) {
   try {
     const res = await fetch('/api/perplexity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: await window.sendAuthHeaders(),
       body: JSON.stringify({
         messages: [{ role: 'user', content: q.question }],
         systemPrompt: "Answer the user's question directly and concisely, citing your real sources.",

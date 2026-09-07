@@ -8,6 +8,8 @@
  * Non-streaming: JSON    → { "text": "..." }
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
@@ -27,6 +29,11 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Free inference on the owner's OpenAI key for anyone with the URL, unless
+  // we know who is asking.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

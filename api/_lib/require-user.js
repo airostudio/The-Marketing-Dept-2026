@@ -84,4 +84,63 @@ async function requireUser(req, res) {
   return { userId: user.id, profile: (p.ok && p.data && p.data[0]) || {} };
 }
 
-module.exports = { requireUser };
+/**
+ * Identify the caller and require an admin role, or answer and return null.
+ *
+ * For endpoints whose output is about the deployment rather than about the
+ * caller's own data — configuration state, which integrations are wired up,
+ * which environment variables exist. That is reconnaissance for anyone else,
+ * and it is not information a customer needs about the platform they rent.
+ */
+async function requireAdmin(req, res) {
+  const auth = await requireUser(req, res);
+  if (!auth) return null;
+
+  const role = auth.profile && auth.profile.role;
+  if (role !== 'admin' && role !== 'super_admin') {
+    res.status(403).json({
+      error: 'This is an operator diagnostic and is limited to administrators.',
+      code: 'not_admin',
+    });
+    return null;
+  }
+  return auth;
+}
+
+/**
+ * Confirm the caller may bill, or read, the scope they named.
+ *
+ * An endpoint that meters credits against an id taken from the request body
+ * is only as safe as its check that the caller owns that id. Without one,
+ * being signed in is enough to spend somebody else's balance — the account
+ * gate stops strangers and does nothing about the customer next door.
+ *
+ * Accepts an intelligence profile (owner or member) or a project (owner).
+ * Returns true when the scope is the caller's, false when it is not, and
+ * true when neither id was supplied (there is no scope to protect, and the
+ * caller is simply unmetered).
+ */
+async function callerOwnsScope(userId, { intelProfileId, projectId }) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!intelProfileId && !projectId) return true;
+  if (!supabaseUrl || !serviceKey) return false;
+
+  if (intelProfileId) {
+    const owned = await sbRest(supabaseUrl, serviceKey, 'GET',
+      `/intelligence_profiles?id=eq.${encodeURIComponent(intelProfileId)}` +
+      `&owner_id=eq.${userId}&select=id&limit=1`);
+    if (owned.ok && owned.data && owned.data.length) return true;
+
+    const member = await sbRest(supabaseUrl, serviceKey, 'GET',
+      `/intelligence_profile_members?profile_id=eq.${encodeURIComponent(intelProfileId)}` +
+      `&user_id=eq.${userId}&select=profile_id&limit=1`);
+    return !!(member.ok && member.data && member.data.length);
+  }
+
+  const proj = await sbRest(supabaseUrl, serviceKey, 'GET',
+    `/projects?id=eq.${encodeURIComponent(projectId)}&user_id=eq.${userId}&select=id&limit=1`);
+  return !!(proj.ok && proj.data && proj.data.length);
+}
+
+module.exports = { requireUser, requireAdmin, callerOwnsScope };

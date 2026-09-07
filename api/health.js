@@ -5,11 +5,21 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireAdmin } = require('./_lib/require-user.js');
+
 module.exports = async function handler(req, res) {
   // Allow GET requests for easy browser testing
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
   }
+
+  // This endpoint served the deployment's configuration to anyone who asked:
+  // which API keys exist, how long they are, and the names of every
+  // Anthropic/Claude/API_KEY/Vercel environment variable. That is a map of the
+  // system for someone deciding what to attack. It is an operator tool, so it
+  // now answers operators only.
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   const diagnostics = {
     timestamp: new Date().toISOString(),
@@ -39,8 +49,10 @@ module.exports = async function handler(req, res) {
       diagnostics.status = 'degraded';
     }
 
-    // Show first/last 4 characters for verification (NEVER expose full key)
-    diagnostics.checks.apiKeyPreview = `${apiKey.substring(0, 11)}...${apiKey.substring(apiKey.length - 4)}`;
+    // No preview. "Only 15 of the characters" is still 15 characters of a
+    // live secret in a log, a screenshot or a bug report, and it buys nothing
+    // that `configured: true` plus the format check has not already told an
+    // operator.
   } else {
     diagnostics.checks.apiKeyConfigured = false;
     diagnostics.checks.apiKeyFormat = 'missing';

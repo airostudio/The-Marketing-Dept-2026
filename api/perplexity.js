@@ -11,6 +11,8 @@
  * Non-streaming: JSON    → { "text": "...", "citations": [...] }
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
 
 /**
@@ -29,6 +31,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Free web-search inference on the owner's Perplexity key otherwise.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {

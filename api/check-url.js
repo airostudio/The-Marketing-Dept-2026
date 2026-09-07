@@ -13,6 +13,8 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const TIMEOUT_MS = 12000;
 const MAX_REDIRECTS = 5;
 
@@ -46,6 +48,12 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const ip = getIp(req);
   if (isRateLimited(ip)) return res.status(429).json({ error: 'Too many requests' });

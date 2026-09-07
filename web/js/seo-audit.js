@@ -479,6 +479,7 @@
         // that may mask or rewrite the target's actual status code.
         try {
             const response = await fetch(`/api/check-url?url=${encodeURIComponent(url)}`, {
+                headers: await window.sendAuthHeaders(),
                 signal: AbortSignal.timeout(8000)
             });
             const data = await response.json().catch(() => ({}));
@@ -844,7 +845,7 @@
         try {
             const response = await fetch('/api/fetch-page', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ url: targetUrl }),
                 signal: AbortSignal.timeout(timeoutMs)
             });

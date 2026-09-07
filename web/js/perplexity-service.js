@@ -13,7 +13,7 @@ window.PerplexityService = (function () {
     try {
       const res = await fetch('/api/perplexity', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           messages,
           systemPrompt,

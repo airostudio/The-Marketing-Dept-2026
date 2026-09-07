@@ -1014,7 +1014,7 @@ async function enrichProspect(idx) {
         const locationHint = [p.city, p.country].filter(Boolean).join(' ');
         const r = await fetch('/api/places', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ query: `${p.name} ${locationHint}`.trim() })
         });
         if (r.ok) {
@@ -1045,7 +1045,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/crawl', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ url: websiteUrl })
             });
             if (r.ok) {
@@ -1104,7 +1104,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/crawl', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ url: socialUrl })
             });
             if (r.ok) {

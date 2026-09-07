@@ -109,6 +109,10 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     return res.end(fs.readFileSync(path.join(__dirname, 'harness.html'), 'utf8'));
   }
+  if (p === '/send-auth.js') {
+    res.writeHead(200, { 'Content-Type': 'application/javascript' });
+    return res.end(fs.readFileSync(path.join(REPO, 'web/js/send-auth.js'), 'utf8'));
+  }
   if (p === '/seo-audit.js') {
     res.writeHead(200, { 'content-type': 'application/javascript' });
     return res.end(fs.readFileSync(path.join(REPO, 'web/js/seo-audit.js'), 'utf8'));

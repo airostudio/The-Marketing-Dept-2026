@@ -688,7 +688,8 @@
                 testBtn.disabled = true;
                 testBtn.textContent = 'Testing…';
                 try {
-                    const r = await fetch('/api/pagespeed?url=https%3A%2F%2Fwww.google.com&strategy=mobile');
+                    const r = await fetch('/api/pagespeed?url=https%3A%2F%2Fwww.google.com&strategy=mobile',
+                        { headers: await window.sendAuthHeaders() });
                     if (r.status < 500) {
                         showNotification('Connected', 'PageSpeed API is reachable and configured.', 'success');
                         updatePagespeedStatusUI(statusEl, true);

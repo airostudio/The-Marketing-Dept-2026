@@ -43,6 +43,7 @@
 'use strict';
 
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+const { requireUser, callerOwnsScope } = require('./_lib/require-user.js');
 
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 
@@ -207,9 +208,13 @@ async function deductCredits({ supabaseUrl, serviceKey, balanceId, newCreditsUse
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Each call buys an image from OpenAI on the account's key.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -229,6 +234,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: `format must be one of: ${[...FORMATS].join(', ')}` });
   }
 
+  // The credit scope arrives in the request body, so it has to be checked
+  // against the caller. Without this, being signed in at all would be enough
+  // to bill another customer's balance — the account gate stops strangers and
+  // does nothing about the customer next door.
+  if (!(await callerOwnsScope(auth.userId, { intelProfileId, projectId }))) {
+    return res.status(403).json({
+      error: 'That business is not yours to bill.',
+      code: 'scope_forbidden',
+    });
+  }
+
   // ── Credit gate — checked before spending any money on the OpenAI call ──
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -236,7 +252,16 @@ module.exports = async function handler(req, res) {
   try {
     balance = await getOrCreateBalance({ supabaseUrl, serviceKey, intelProfileId, projectId });
   } catch (err) {
-    console.warn('[generate-ad-image] credit balance lookup failed, proceeding unmetered:', err.message);
+    // Failing open here means a database blip turns metering off entirely and
+    // images keep being bought with nothing counting them. A scope was named,
+    // so it must be honoured or the call must stop.
+    console.error('[generate-ad-image] credit balance lookup failed:', err.message);
+    if (intelProfileId || projectId) {
+      return res.status(503).json({
+        error: 'Could not check your image credits, so nothing was generated. Try again shortly.',
+        code: 'credits_unavailable',
+      });
+    }
   }
 
   if (balance) {

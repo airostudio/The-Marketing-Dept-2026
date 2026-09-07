@@ -239,7 +239,12 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
 
   const conn = read('web/js/api-connector.js');
   check('the connector probes the server for capabilities',
-    /refreshServerCapabilities/.test(conn) && /fetch\('\/api\/integration', \{ method: 'GET' \}\)/.test(conn));
+    /refreshServerCapabilities/.test(conn) &&
+    /fetch\('\/api\/integration', \{ method: 'GET'/.test(conn));
+  // The probe now says which paid credentials the deployment holds, so it is
+  // answered only for a signed-in caller and has to carry the session.
+  check('and the probe carries the session',
+    /sendAuthHeaders[\s\S]{0,300}fetch\('\/api\/integration'/.test(conn));
   check('a failed probe is not cached as "nothing configured"',
     /serverCapsPromise = null;[\s\S]{0,80}return null;/.test(conn));
 

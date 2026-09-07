@@ -10,7 +10,7 @@ window.OpenAIService = (function () {
     try {
       const res = await fetch('/api/openai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           messages,
           systemPrompt,
