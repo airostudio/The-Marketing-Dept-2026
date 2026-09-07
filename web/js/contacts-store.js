@@ -337,7 +337,62 @@ window.ContactsStore = (function () {
     if (error) console.warn('[ContactsStore] failed to log campaign send:', error.message);
   }
 
+  /**
+   * The campaigns this account has actually sent, newest first.
+   *
+   * Every send is already written to campaign_sends by logCampaignSend, but
+   * nothing ever read them back — so the Email Marketing dashboard showed a
+   * hardcoded table of invented campaigns instead. This groups the real rows
+   * into one entry per campaign.
+   *
+   * Engagement (opens, clicks) is deliberately NOT included: it lives in
+   * email_events and is fetched per campaign from /api/campaign-stats, which
+   * can distinguish "nobody opened it" from "opens are not being tracked".
+   * Returning a 0 here would erase that distinction.
+   */
+  async function listCampaigns() {
+    const client = await getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return { available: false, reason: 'not_signed_in', campaigns: [] };
+
+    const { data, error } = await client
+      .from('campaign_sends')
+      .select('campaign_id,campaign_name,subject,segment_id,status,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (error) {
+      return { available: false, reason: error.message, campaigns: [] };
+    }
+
+    const byId = new Map();
+    (data || []).forEach(row => {
+      const id = row.campaign_id || '(untitled)';
+      let c = byId.get(id);
+      if (!c) {
+        c = {
+          campaignId: id,
+          name: row.campaign_name || row.subject || 'Untitled campaign',
+          subject: row.subject || null,
+          segmentId: row.segment_id || null,
+          sent: 0, failed: 0, rejected: 0,
+          sentAt: row.created_at,
+        };
+        byId.set(id, c);
+      }
+      if (row.status === 'sent') c.sent++;
+      else if (row.status === 'rejected') c.rejected++;
+      else c.failed++;
+      // Rows arrive newest-first, so the oldest row seen last is the start.
+      if (row.created_at && row.created_at < c.sentAt) c.sentAt = row.created_at;
+    });
+
+    return { available: true, campaigns: [...byId.values()] };
+  }
+
   return {
+    listCampaigns,
     upsertContacts,
     listContacts,
     updateContact,
