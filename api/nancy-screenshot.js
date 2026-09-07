@@ -71,8 +71,11 @@ module.exports = async function handler(req, res) {
     return res.status(422).json({ success: false, error: 'Could not fetch the homepage to inspect its CSS.' });
   }
 
-  const colourCandidates = extractColours(crawl.homepageHtml);
-  const fontHints = extractFontHints(crawl.homepageHtml);
+  // The site's linked stylesheets, not just its inline CSS — see the note in
+  // nancy-crawl.js. Without them this returned no candidates on most real
+  // sites, and the brand step went on to name a colour nobody had measured.
+  const colourCandidates = extractColours(crawl.homepageHtml, crawl.homepageCss);
+  const fontHints = extractFontHints(crawl.homepageHtml, crawl.homepageCss);
 
   try {
     const shot = await screenshotProvider(crawl.origin);

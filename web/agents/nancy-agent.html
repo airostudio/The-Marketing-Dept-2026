@@ -208,6 +208,7 @@
         <div class="brand-desc" id="brand-desc">—</div>
         <div class="pill-row" id="brand-personality"></div>
         <div class="swatch-row" id="brand-swatches"></div>
+        <div id="brand-swatch-note" style="display:none;font-size:12px;color:var(--text3);margin-top:-4px;"></div>
         <div style="font-size:13px;color:var(--text3);" id="brand-notes"></div>
       </div>
     </div>
@@ -619,7 +620,17 @@ async function runResearchPipeline(url) {
   });
   State.brand = brandResult.brand;
   setStage('brand', 'done');
-  addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}.` + (State.screenshot.available ? '' : ' (No live screenshot service configured — colours read from CSS.)'));
+  // Report what was actually read, and from where. The old line named a
+  // colour unconditionally and then explained it as "read from CSS" even on
+  // the sites where no CSS colour had been found and the hex was a guess.
+  if (State.brand.colours_measured === false) {
+    addDiscovery(State.brand.measurement_reason ||
+      "We couldn't read your brand colours from your site — set them on the next screen.");
+  } else if (State.brand.measured_from === 'stylesheet') {
+    addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}, read from your site's stylesheets.`);
+  } else {
+    addDiscovery(`Your strongest brand colour is ${State.brand.primary_colour}, read from a screenshot of your live site.`);
+  }
 
   setStage('market', 'active');
   const searchResult = await postJSON('/api/nancy-search-competitors', { businessProfile: State.businessProfile });
@@ -664,20 +675,51 @@ function populateBrandReview() {
 
   document.getElementById('brand-personality').innerHTML = (b.brand_personality || []).map(t => `<span class="pill">${t}</span>`).join('');
 
-  const swatches = [
-    { key: 'primary_colour', label: 'Primary', value: b.primary_colour },
-    ...(b.secondary_colours || []).slice(0, 2).map((c, i) => ({ key: `secondary_${i}`, label: 'Secondary', value: c })),
-    ...(b.accent_colours || []).slice(0, 2).map((c, i) => ({ key: `accent_${i}`, label: 'Accent', value: c })),
-  ];
+  // When nothing could be measured, offer the pickers empty-handed and say so.
+  // The swatch defaulted to #7c3aed, which showed the customer a purple chip
+  // labelled "Primary" — indistinguishable from a colour actually found on
+  // their site, and it is what a whole week of posts then got rendered in.
+  const unmeasured = b.colours_measured === false;
+  const swatches = unmeasured
+    ? [{ key: 'primary_colour', label: 'Primary', value: null },
+       { key: 'secondary_0', label: 'Secondary', value: null },
+       { key: 'accent_0', label: 'Accent', value: null }]
+    : [
+        { key: 'primary_colour', label: 'Primary', value: b.primary_colour },
+        ...(b.secondary_colours || []).slice(0, 2).map((c, i) => ({ key: `secondary_${i}`, label: 'Secondary', value: c })),
+        ...(b.accent_colours || []).slice(0, 2).map((c, i) => ({ key: `accent_${i}`, label: 'Accent', value: c })),
+      ];
+
+  if (unmeasured) {
+    b.secondary_colours = b.secondary_colours || [];
+    b.accent_colours = b.accent_colours || [];
+  }
+
+  const swatchNote = document.getElementById('brand-swatch-note');
+  if (swatchNote) {
+    swatchNote.textContent = unmeasured
+      ? (b.measurement_reason || "We couldn't read colours from your site — choose yours here.")
+      : (b.measured_from === 'screenshot'
+          ? 'Read from a screenshot of your live site. Adjust anything that looks off.'
+          : "Read from your site's stylesheets. Adjust anything that looks off.");
+    swatchNote.style.display = 'block';
+  }
+
   document.getElementById('brand-swatches').innerHTML = swatches.map(s => `
     <div class="swatch">
-      <input type="color" value="${s.value || '#7c3aed'}" data-key="${s.key}">
-      <span class="swatch-label">${s.label}</span>
+      <input type="color" value="${s.value || '#000000'}" data-key="${s.key}"${s.value ? '' : ' data-unset="1"'}>
+      <span class="swatch-label">${s.label}${s.value ? '' : ' — not detected'}</span>
     </div>`).join('');
 
   document.getElementById('brand-swatches').querySelectorAll('input[type=color]').forEach(inp => {
     inp.addEventListener('input', () => {
       const key = inp.dataset.key;
+      // Once the customer picks a colour it is a real answer, whatever the
+      // site did or did not declare.
+      delete inp.dataset.unset;
+      const label = inp.parentElement.querySelector('.swatch-label');
+      if (label) label.textContent = label.textContent.replace(' — not detected', '');
+      b.colours_measured = true;
       if (key === 'primary_colour') b.primary_colour = inp.value;
       else if (key.startsWith('secondary_')) b.secondary_colours[Number(key.split('_')[1])] = inp.value;
       else if (key.startsWith('accent_')) b.accent_colours[Number(key.split('_')[1])] = inp.value;
@@ -698,6 +740,20 @@ function populateBrandReview() {
 
 document.getElementById('brand-back-btn').addEventListener('click', () => showStep('step-url'));
 document.getElementById('brand-continue-btn').addEventListener('click', () => {
+  // A week of creative gets rendered in these colours, so the run does not
+  // start until there is a real one — either measured or chosen. Continuing
+  // with an unset picker would put an arbitrary colour on every post.
+  const unset = document.querySelectorAll('#brand-swatches input[data-unset]');
+  if (unset.length && !State.brand.primary_colour) {
+    const note = document.getElementById('brand-swatch-note');
+    if (note) {
+      note.textContent = 'Pick your primary brand colour before continuing — every post this week is rendered in it.';
+      note.style.color = 'var(--danger, #ef4444)';
+    }
+    unset[0].focus();
+    return;
+  }
+
   // If Scotty dispatched this run with a strategic brief, seed it into
   // Q5 (editable, never silently applied) so the content plan honours
   // whatever Scotty was actually asked for — same intake contract every
@@ -1232,9 +1288,13 @@ document.getElementById('print-calendar-btn').addEventListener('click', () => {
       <p><b>Posting notes:</b> ${escapeHtml(p.visual_direction || '')}</p>
       <div style="clear:both;"></div>
     </div>`).join('');
+  // The mission-bar loader tags belong on this page, not inside the print
+  // window's HTML — and the closing tag of the one that landed here ended
+  // THIS script, orphaning everything below it. They are loaded properly at
+  // the foot of the page instead. Note the escaped <\/script> above: an
+  // unescaped one closes the surrounding script even inside a template
+  // literal, which is exactly what went wrong.
   w.document.write(`<html><head><title>Content Calendar</title></head><body style="font-family:sans-serif;">${rows}<script>window.print()<\/script>
-<script src="/js/mission-store.js"></script>
-<script src="/js/mission-bar.js"></script>
 </body></html>`);
   w.document.close();
 });
@@ -1379,5 +1439,7 @@ async function buildAndDownloadZip() {
 document.addEventListener('DOMContentLoaded', () => { checkForDraftOnLoad(); });
 </script>
     <script src="/js/url-utils.js"></script>
+    <script src="/js/mission-store.js"></script>
+    <script src="/js/mission-bar.js"></script>
 </body>
 </html>
