@@ -265,8 +265,12 @@ const ev = (type, over) => Object.assign({
   check('a failed generation says so instead of filling the preview',
     /showGeneratorError/.test(page));
 
-  check('revenue is left blank rather than invented',
-    /Revenue attribution needs order data/.test(page));
+  // Revenue is now real when orders have been reported, and blank with a
+  // reason when they have not — never a zero, and never invented.
+  check('revenue is rendered from reported orders, not from markup',
+    /cell-revenue/.test(pageCode) && /d\.revenue/.test(pageCode));
+  check('and a campaign with no reported orders shows a dash with the reason',
+    /revenue\.textContent = '—'/.test(pageCode));
 
   // listCampaigns must not invent engagement of its own.
   const store = read('web/js/contacts-store.js');

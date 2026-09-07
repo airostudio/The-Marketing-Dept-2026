@@ -83,6 +83,41 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: `Could not read email events (HTTP ${q.status}).` });
   }
 
+  // Revenue, if any orders have been reported for this campaign. This is a
+  // separate table with its own installation state: a campaign can have full
+  // engagement data and no revenue data, because revenue arrives from the
+  // customer's own shop via api/track-conversion.js and many accounts will
+  // never wire that up.
+  let revenue = null;
+  const rev = await sbRest(supabaseUrl, serviceKey, 'POST', '/rpc/campaign_revenue', {
+    cid: campaignId, uid: caller.id,
+  });
+  if (rev.ok) {
+    const rr = (Array.isArray(rev.data) ? rev.data[0] : rev.data) || {};
+    const conversions = Number(rr.conversions || 0);
+    revenue = {
+      available: true,
+      conversions,
+      // Null rather than 0 when nothing has been reported: "this campaign
+      // earned nothing" and "no orders have ever been reported to us" are
+      // different claims, and only one of them is ours to make.
+      amountCents: conversions > 0 ? Number(rr.revenue_cents || 0) : null,
+      currency: rr.currency || null,
+      note: conversions === 0
+        ? 'No orders have been attributed to this campaign. Revenue is reported by your shop ' +
+          'through /api/track-conversion — if that is not wired up, this stays blank rather ' +
+          'than showing zero.'
+        : undefined,
+    };
+  } else {
+    revenue = {
+      available: false,
+      reason: rev.status === 404
+        ? 'Revenue attribution is not installed — run supabase-email-engine.sql.'
+        : `Could not read conversions (HTTP ${rev.status}).`,
+    };
+  }
+
   const row = (Array.isArray(q.data) ? q.data[0] : q.data) || {};
   const sent      = Number(row.sent || 0);
   const delivered = Number(row.delivered || 0);
@@ -131,6 +166,7 @@ module.exports = async function handler(req, res) {
 
     openTracking,
     clickTracking,
+    revenue,
 
     // Said in words, because a dashboard cell has no room to explain itself.
     notes: {

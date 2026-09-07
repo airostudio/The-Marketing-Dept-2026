@@ -75,8 +75,86 @@ dash; a zero renders as "nobody opened it".
   98.7%"), and a plain substring search would turn an assertion about shipped
   markup into an assertion about how the comment is worded.
 
-## Still not measured, deliberately
+## Revenue
 
-Per-campaign **revenue** is left blank. Attributing revenue to a send needs
-order data linked back to it, and nothing in this app records that. The column
-shows an em dash with a tooltip saying why, rather than a number.
+Per-campaign revenue was blank in the first pass of this audit, because
+attributing an order to a send needs data this app did not record. It is now
+real — see **Revenue: the rule is recorded, not assumed** below — but only for
+accounts whose shop posts orders to `/api/track-conversion`. Where that is not
+wired up the column still shows an em dash with the reason, never a zero.
+
+---
+
+# Split tests, flows and revenue
+
+```
+node tests/email-engine/engine.js
+```
+
+32 assertions over `api/ab-tests.js`, `api/email-flows.js`,
+`api/cron-email-flows.js`, `api/track-conversion.js` and
+`api/_lib/ab-split.js` — the three things that showed as "not set up" once
+the invented markup was removed.
+
+## A/B: why assignment is hashed, not random
+
+A send can be retried — a batch fails halfway, an operator re-runs it, a flow
+step is reprocessed after a timeout. With `Math.random()` the same person
+lands in A on the first attempt and B on the second, and their open is then
+counted against a variant they were never shown. `assignVariant()` hashes
+`testId:email`, so a retry re-derives the assignment it already made. The
+suite asserts a repeated batch of 200 produces a byte-identical arm list and
+creates no duplicate rows.
+
+Variants are sorted by label before the buckets are laid out. Without that, a
+query returning B before A would silently swap who gets what between two runs
+of the same send.
+
+The summary reports a **leader**, never a winner: it is a difference between
+two rates, not a significance test, and at typical list sizes a handful of
+opens reverses it. A variant with no delivered mail has a `null` rate, not 0%
+— an arm with no data is not an arm that converted nobody.
+
+## Flows: claim before send
+
+The cron moves an enrolment forward **before** sending it, using a
+compare-and-set on `(status, next_step_order)`. If two runs overlap, the
+second updates zero rows and skips. The ordering is deliberate: claiming
+afterwards would risk sending the same step twice on a retry, and a duplicate
+send cannot be taken back, whereas a missed step is visible and recoverable.
+
+Suppression is re-checked at send time, not only at enrolment — the enrolment
+may predate the recipient's unsubscribe by days. The suite asserts a contact
+who unsubscribes mid-sequence is not sent the next step and is exited with the
+reason recorded.
+
+A paused flow sends nothing, and its enrolments are left intact so resuming
+continues rather than restarting everyone.
+
+`MAX_SENDS_PER_RUN` caps a single run at 200. A flow misconfigured to enrol an
+entire list should cost one capped run, not the sending domain.
+
+## Revenue: the rule is recorded, not assumed
+
+An order is credited to the campaign the buyer most recently **clicked** before
+it, within `ATTRIBUTION_WINDOW_DAYS` (7); failing that the most recent
+**open**; failing that **nothing**. Last-click-in-a-window is a convention, not
+a truth — somebody who clicked a newsletter then bought after seeing a
+billboard is credited to the newsletter — so every row stores which rule
+fired, and orders matching no campaign are kept with `attribution: 'none'` and
+excluded from campaign revenue rather than spread across campaigns or dropped
+so the totals look tidier.
+
+Amounts are integer cents. `49.95` is asserted to survive as `4995`.
+
+A repeated `externalId` is reported as a duplicate and not counted twice — an
+order webhook retrying is normal.
+
+## Setup this needs
+
+- `supabase-email-engine.sql` (also in `supabase-install-all.sql`).
+- `CRON_SECRET` — already used by the other cron jobs. The flow cron is
+  registered in `vercel.json` at `*/15 * * * *`.
+- `CONVERSION_API_KEY` — a separate key for the customer's shop to post orders
+  with. Deliberately not a user session: the caller is a server, not a browser.
+- Optional `ATTRIBUTION_WINDOW_DAYS` (default 7).

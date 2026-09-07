@@ -473,7 +473,7 @@
                     <td class="cell-opens" style="color:var(--color-text-tertiary);">…</td>
                     <td class="cell-clicks" style="color:var(--color-text-tertiary);">…</td>
                     <td class="cell-bounces" style="color:var(--color-text-tertiary);">…</td>
-                    <td style="color:var(--color-text-tertiary);" title="Revenue attribution needs order data linked back to a send. Nothing in this app records that yet, so no figure is shown rather than a made-up one.">—</td>
+                    <td class="cell-revenue" style="color:var(--color-text-tertiary);">…</td>
                 </tr>`).join('');
 
             result.campaigns.forEach(c => hydrateCampaignRow(c.campaignId));
@@ -485,13 +485,14 @@
             const opens = row.querySelector('.cell-opens');
             const clicks = row.querySelector('.cell-clicks');
             const bounces = row.querySelector('.cell-bounces');
+            const revenue = row.querySelector('.cell-revenue');
 
             const r = await authedFetch('/api/campaign-stats', { campaignId });
             if (!r || !r.ok) {
                 const why = r && r.data && r.data.code === 'not_installed'
                     ? 'Event tracking is not installed (run supabase-email-events.sql).'
                     : 'Engagement figures could not be loaded.';
-                [opens, clicks, bounces].forEach(c => { if (c) { c.textContent = '—'; c.title = why; } });
+                [opens, clicks, bounces, revenue].forEach(c => { if (c) { c.textContent = '—'; c.title = why; } });
                 return;
             }
 
@@ -517,6 +518,26 @@
             } else {
                 bounces.textContent = `${d.counts.bounced.toLocaleString()} (${d.rates.bounceRate}%)`;
                 bounces.style.color = '';
+            }
+
+            // Revenue only ever shows a number when orders were actually
+            // reported for this campaign. No orders and no integration both
+            // render as an em dash with the reason behind it, because
+            // "this campaign earned nothing" is not ours to claim.
+            if (revenue) {
+                const rv = d.revenue;
+                if (rv && rv.available && rv.amountCents !== null) {
+                    const amount = (rv.amountCents / 100).toLocaleString(undefined, {
+                        style: 'currency', currency: rv.currency || 'AUD',
+                    });
+                    revenue.textContent = amount;
+                    revenue.title = `${rv.conversions} attributed order${rv.conversions === 1 ? '' : 's'}.`;
+                    revenue.style.color = '';
+                } else {
+                    revenue.textContent = '—';
+                    revenue.title = (rv && (rv.note || rv.reason)) ||
+                        'No revenue data for this campaign.';
+                }
             }
         }
 
@@ -604,23 +625,100 @@
 
         /* ── automations and A/B tests ──────────────────────────────────── */
 
-        function renderAutomations() {
-            // The old markup listed four flows — Welcome Series, Abandoned
-            // Cart and so on — each with a triggered count and a conversion
-            // rate. No automation engine exists in this app, so every one of
-            // those numbers described a flow that had never run.
-            emptyState(document.getElementById('automationList'),
-                'No automation flows',
-                'Automated flows are not set up for this account. Email Delivery sends campaigns ' +
-                'on demand today; scheduled and triggered flows are not running, so there is ' +
-                'nothing to report here.');
+        /**
+         * Automation flows.
+         *
+         * The old markup listed four flows — Welcome Series, Abandoned Cart —
+         * each with a triggered count and a conversion rate, describing flows
+         * that had never run. These are the account's real flows, with the
+         * enrolment counts the cron is actually working through.
+         */
+        async function renderAutomations() {
+            const el = document.getElementById('automationList');
+            if (!el) return;
+            el.innerHTML = '<div style="color:var(--color-text-tertiary);">Loading…</div>';
+
+            const r = await authedFetch('/api/email-flows', { action: 'list' });
+            if (!r) {
+                return emptyState(el, 'Not signed in', 'Sign in to see this account\'s automation flows.');
+            }
+            if (!r.ok) {
+                return emptyState(el,
+                    r.data && r.data.code === 'not_installed' ? 'Automation is not installed' : 'Could not load flows',
+                    (r.data && r.data.error) || `HTTP ${r.status}`);
+            }
+            const flows = r.data.flows || [];
+            if (!flows.length) {
+                return emptyState(el, 'No automation flows',
+                    'No flows have been created for this account yet. A flow sends a sequence of ' +
+                    'emails on a delay after someone is enrolled.');
+            }
+
+            el.innerHTML = flows.map(f => `
+                <div class="automation-card">
+                    <div class="auto-name">${esc(f.name)}
+                        <span class="badge">${esc(f.status)}</span></div>
+                    <div class="metric"><div class="metric-val">${f.enrolled.toLocaleString()}</div><div class="metric-label">Enrolled</div></div>
+                    <div class="metric"><div class="metric-val">${f.active.toLocaleString()}</div><div class="metric-label">In progress</div></div>
+                    <div class="metric"><div class="metric-val">${f.completed.toLocaleString()}</div><div class="metric-label">Completed</div></div>
+                    ${f.status !== 'active' ? '<p style="font-size:12px;color:var(--color-text-tertiary);margin:8px 0 0;">' +
+                        'This flow is not active, so nothing is being sent from it.</p>' : ''}
+                </div>`).join('');
         }
 
-        function renderAbTests() {
-            emptyState(document.getElementById('abTestList'),
-                'No A/B tests',
-                'No subject-line or content split tests have been run from this account. ' +
-                'Results appear here once a campaign is sent as a test.');
+        /**
+         * Split tests.
+         *
+         * Rates come from real delivery and open events per variant. A variant
+         * with no delivered mail shows an em dash rather than 0% — an arm with
+         * no data is not an arm that converted nobody.
+         */
+        async function renderAbTests() {
+            const el = document.getElementById('abTestList');
+            if (!el) return;
+            el.innerHTML = '<div style="color:var(--color-text-tertiary);">Loading…</div>';
+
+            const r = await authedFetch('/api/ab-tests', { action: 'list' });
+            if (!r) {
+                return emptyState(el, 'Not signed in', 'Sign in to see this account\'s split tests.');
+            }
+            if (!r.ok) {
+                return emptyState(el,
+                    r.data && r.data.code === 'not_installed' ? 'Split testing is not installed' : 'Could not load tests',
+                    (r.data && r.data.error) || `HTTP ${r.status}`);
+            }
+            const tests = r.data.tests || [];
+            if (!tests.length) {
+                return emptyState(el, 'No A/B tests',
+                    'No split tests have been run from this account. Create one against a campaign ' +
+                    'to compare subject lines or content.');
+            }
+
+            const blocks = [];
+            for (const t of tests.slice(0, 10)) {
+                const rr = await authedFetch('/api/ab-tests', { action: 'results', testId: t.id });
+                if (!rr || !rr.ok) {
+                    blocks.push(`<div class="ab-test"><div class="ab-name">${esc(t.name)}</div>
+                        <p style="color:var(--color-text-tertiary);font-size:12.5px;">Results unavailable.</p></div>`);
+                    continue;
+                }
+                const d = rr.data;
+                blocks.push(`
+                    <div class="ab-test">
+                        <div class="ab-name">${esc(t.name)}
+                            <span class="badge">${esc(t.dimension)} · goal: ${esc(d.goal)}</span></div>
+                        ${d.variants.map(v => `
+                            <div class="variant-row">
+                                <span class="variant-label">${esc(v.label)}${v.subject ? ' — ' + esc(v.subject) : ''}</span>
+                                <span class="variant-rate">${v.rate === null
+                                    ? '<span style="color:var(--color-text-tertiary);" title="No mail delivered for this variant yet.">&mdash;</span>'
+                                    : v.rate + '%'}</span>
+                            </div>`).join('')}
+                        <p style="font-size:12px;color:var(--color-text-tertiary);margin:8px 0 0;line-height:1.6;">
+                            ${esc(d.readable)}</p>
+                    </div>`);
+            }
+            el.innerHTML = blocks.join('');
         }
 
         const EMAIL_STORAGE_KEY = 'email-marketing';
