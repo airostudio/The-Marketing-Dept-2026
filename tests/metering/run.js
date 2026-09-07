@@ -40,7 +40,25 @@ check('agency tiers rise with client count',
 check('enterprise tiers are uncapped, not guessed at',
   PL.MISSION_ALLOWANCES.enterprise === null &&
   PL.MISSION_ALLOWANCES.agency_enterprise === null);
-check('the numbers are flagged as provisional', PL.PLACEHOLDER_ALLOWANCES === true);
+// Confirmation is per plan, not one global flag. The five standard tiers were
+// confirmed by the account owner; the Agency figures are still scaled guesses,
+// and a single boolean would have to be flipped all-or-nothing — quoting an
+// invented Agency Pro allowance to a paying agency as settled policy.
+check('the confirmed standard tiers are the ones that were signed off',
+  ['free', 'start', 'growth', 'scale', 'autonomous']
+    .every(p => PL.isAllowanceConfirmed(p)));
+check('and they are the exact numbers given',
+  PL.MISSION_ALLOWANCES.free === 3 && PL.MISSION_ALLOWANCES.start === 20 &&
+  PL.MISSION_ALLOWANCES.growth === 60 && PL.MISSION_ALLOWANCES.scale === 150 &&
+  PL.MISSION_ALLOWANCES.autonomous === 500);
+check('the agency tiers are still reported as provisional',
+  !PL.isAllowanceConfirmed('agency_starter') &&
+  !PL.isAllowanceConfirmed('agency_growth') &&
+  !PL.isAllowanceConfirmed('agency_pro'));
+check('an uncapped plan is not called provisional — there is no number to confirm',
+  PL.isAllowanceConfirmed('enterprise') && PL.isAllowanceConfirmed('agency_enterprise'));
+check('an admin override makes an account\'s allowance settled',
+  PL.isAllowanceConfirmed('agency_pro', 750));
 check('an admin override beats the table', PL.missionAllowanceFor('start', 999) === 999);
 check('an override of 0 is honoured, not treated as unset',
   PL.missionAllowanceFor('growth', 0) === 0);

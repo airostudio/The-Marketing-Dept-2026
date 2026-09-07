@@ -22,7 +22,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
-const { missionAllowanceFor, currentPeriod, PLAN_LABELS, PLACEHOLDER_ALLOWANCES } =
+const { missionAllowanceFor, currentPeriod, PLAN_LABELS, isAllowanceConfirmed } =
   require('./_lib/plan-limits.js');
 
 async function getCallerFromToken(supabaseUrl, serviceKey, accessToken) {
@@ -88,9 +88,11 @@ module.exports = async function handler(req, res) {
     limit,
     remaining,
     uncapped,
-    // Say plainly that the figure is provisional, rather than quoting a
-    // placeholder as if it were settled policy.
-    provisionalAllowance: PLACEHOLDER_ALLOWANCES && !uncapped,
+    // Per plan, not a single global flag. The five standard tiers are
+    // confirmed; the Agency figures are still scaled guesses, and quoting one
+    // of those to a paying agency as settled policy is exactly what this flag
+    // exists to prevent.
+    provisionalAllowance: !uncapped && !isAllowanceConfirmed(plan, profile.mission_limit),
   };
 
   if (action === 'check') {

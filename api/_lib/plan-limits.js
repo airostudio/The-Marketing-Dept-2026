@@ -5,19 +5,33 @@
  * limited to a few agents, they have the whole department and are limited by
  * how much work it performs. This is the one place those allowances live.
  *
- * ── The numbers are placeholders and are marked as such ──────────────────
+ * ── Which allowances are settled, and which are still guesses ────────────
  * The published pricing describes allowances qualitatively — Start gets
  * "limited monthly Agent Missions", Growth a "substantially larger monthly
- * Agent Mission allowance" — without stating figures. The values below are
- * scaled to the price points so the mechanism is real and testable, but they
- * are a commercial decision, not a technical one. Change them here and
- * nothing else needs touching. Until they are confirmed, the UI says the
- * allowance is provisional rather than quoting it as settled policy.
+ * Agent Mission allowance" — without stating figures, so every number here
+ * began as a placeholder scaled to the price points.
+ *
+ * The five standard tiers have since been confirmed. The Agency tiers have
+ * not: they are priced by client count and no per-tier mission figure has
+ * been set, so the values below are still scaled guesses.
+ *
+ * That is why this is a set rather than a boolean. A single flag would have
+ * to be flipped all-or-nothing, and flipping it would quote an invented
+ * Agency Pro allowance to a paying agency as settled policy. Naming the
+ * confirmed plans lets the UI say "provisional" for exactly those tiers where
+ * it is still true.
  */
 
 'use strict';
 
-const PLACEHOLDER_ALLOWANCES = true; // flip to false once the real numbers are set
+/**
+ * Plans whose mission allowance is a confirmed commercial decision.
+ * Anything not listed here is enforced, but is shown to the customer as
+ * provisional.
+ */
+const CONFIRMED_ALLOWANCES = new Set([
+  'free', 'start', 'growth', 'scale', 'autonomous',
+]);
 
 /**
  * Monthly Agent Mission allowance per plan.
@@ -25,6 +39,7 @@ const PLACEHOLDER_ALLOWANCES = true; // flip to false once the real numbers are 
  * override on profiles.mission_limit takes precedence over anything here).
  */
 const MISSION_ALLOWANCES = {
+  // Confirmed.
   free:               3,
   start:             20,
   growth:            60,
@@ -35,6 +50,9 @@ const MISSION_ALLOWANCES = {
   // Agency tiers are pooled across the agency's client businesses, matching
   // "agency users then purchase additional marketing capacity where
   // necessary" — capacity is bought at the account level, not per client.
+  // These figures are NOT confirmed: see CONFIRMED_ALLOWANCES above. They are
+  // enforced so the mechanism works, and reported to the customer as
+  // provisional so nobody plans against a number that may move.
   agency_starter:   100,
   agency_growth:    300,
   agency_pro:      1000,
@@ -93,6 +111,21 @@ function missionAllowanceFor(plan, override) {
     : MISSION_ALLOWANCES.free;
 }
 
+/**
+ * Is this plan's allowance a settled figure the customer can rely on?
+ *
+ * An uncapped plan counts as settled: there is no number to confirm, and
+ * calling "unlimited" provisional would be a warning about nothing.
+ * An account with an admin-set override is also settled — somebody chose that
+ * number for this account deliberately.
+ */
+function isAllowanceConfirmed(plan, override) {
+  if (override !== undefined && override !== null && override !== '') return true;
+  const key = String(plan || 'free');
+  if (MISSION_ALLOWANCES[key] === null) return true;   // uncapped
+  return CONFIRMED_ALLOWANCES.has(key);
+}
+
 /** Current billing-usage period. Calendar month, matching "monthly allowance". */
 function currentPeriod(now) {
   const d = now ? new Date(now) : new Date();
@@ -100,7 +133,7 @@ function currentPeriod(now) {
 }
 
 module.exports = {
-  MISSION_ALLOWANCES, PLAN_LABELS, PLACEHOLDER_ALLOWANCES,
+  MISSION_ALLOWANCES, PLAN_LABELS, CONFIRMED_ALLOWANCES,
   PLAN_MONTHLY_PRICE_AUD, REVENUE_STATUSES,
-  missionAllowanceFor, currentPeriod,
+  missionAllowanceFor, isAllowanceConfirmed, currentPeriod,
 };
