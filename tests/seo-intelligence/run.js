@@ -80,11 +80,35 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
         res.writeHead(429, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Rate limit exceeded. Please wait before retrying.' }));
       }
+      if (psMode === 'partial') {
+        // Google scored the page but returned no best-practices category and no
+        // vitals — a real shape, not a hypothetical one.
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({
+          lighthouseResult: {
+            categories: { performance: { score: 0.5 }, seo: { score: 0.5 }, accessibility: { score: 0.5 } },
+            audits: { 'document-title': { score: 1 } },
+          },
+        }));
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({
         lighthouseResult: {
-          categories: { performance: { score: 0.9 }, seo: { score: 0.8 }, accessibility: { score: 0.7 } },
-          audits: { 'meta-description': { score: 1 }, 'document-title': { score: 1 }, viewport: { score: 1 } },
+          categories: {
+            performance: { score: 0.9 }, seo: { score: 0.8 },
+            accessibility: { score: 0.7 }, 'best-practices': { score: 0.6 },
+          },
+          audits: {
+            'meta-description': { score: 1 }, 'document-title': { score: 1 }, viewport: { score: 1 },
+            'largest-contentful-paint': { score: 0.38, numericValue: 4600, displayValue: '4.6 s',
+                                          title: 'Largest Contentful Paint' },
+            'cumulative-layout-shift':  { score: 0.95, numericValue: 0.04, displayValue: '0.04' },
+            'total-blocking-time':      { score: 0.72, numericValue: 210, displayValue: '210 ms' },
+            'first-contentful-paint':   { score: 0.81, numericValue: 1800, displayValue: '1.8 s' },
+            // Excluded from the pass ratio — they have no pass/fail to count.
+            'network-requests':  { score: null, scoreDisplayMode: 'informative' },
+            'uses-http2':        { score: 0.2 },
+          },
         },
       }));
     }
@@ -510,6 +534,64 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
   const good = await scan('https://example.com');
   check('a successful scan still shows a score', good.scoreShown && !good.panelShown);
   check('and the score is a real number', /\d/.test(good.scoreText));
+
+  console.log('\n──── the results dials ────');
+  const dials = await p2.evaluate(() => {
+    const cards = [...document.querySelectorAll('.dial-card')].map(c => ({
+      name: c.querySelector('.dial-name')?.textContent.trim(),
+      pct: c.querySelector('.dial-pct')?.textContent.trim(),
+      detail: c.querySelector('.dial-detail')?.textContent.trim(),
+      offset: c.querySelector('.dial-fill')?.getAttribute('stroke-dashoffset'),
+      dash: c.querySelector('.dial-fill')?.getAttribute('stroke-dasharray'),
+      cls: c.querySelector('.dial-fill')?.getAttribute('class'),
+    }));
+    return { cards, body: document.body.innerText };
+  });
+  console.log('   ', dials.cards.length, 'dials:', dials.cards.map(c => c.name + ' ' + c.pct).join(' | '));
+
+  check('a dial is drawn per Lighthouse category', dials.cards.length >= 4);
+  check('Best Practices is shown — it was fetched and discarded before',
+    dials.cards.some(c => c.name === 'Best Practices' && /60/.test(c.pct)));
+  check('the category scores are the ones Google returned',
+    dials.cards.some(c => c.name === 'Performance' && /90/.test(c.pct)) &&
+    dials.cards.some(c => c.name === 'SEO' && /80/.test(c.pct)));
+
+  // A dial whose arc does not track its number is decoration.
+  const perf = dials.cards.find(c => c.name === 'Performance');
+  const expected = (2 * Math.PI * 45) * (1 - 0.90);
+  check('the arc length actually encodes the percentage',
+    Math.abs(parseFloat(perf.offset) - expected) < 0.5);
+
+  check('Core Web Vitals get their own dials',
+    dials.cards.some(c => /Largest Contentful Paint/.test(c.name)));
+  check('and each carries the measured value beside the score',
+    dials.cards.some(c => /Largest Contentful Paint/.test(c.name) && /4\.6/.test(c.detail)));
+  check('a poor vital is coloured as poor, not neutral',
+    /dial-poor/.test(dials.cards.find(c => /Largest Contentful/.test(c.name)).cls));
+
+  check('the proportion of individual checks that passed is stated',
+    /checks passed/i.test(dials.body));
+  check('HTTPS is stated as a fact, not dressed up as a percentage dial',
+    /Served over HTTPS/i.test(dials.body) &&
+    !dials.cards.some(c => /HTTPS|Security/i.test(c.name || '')));
+
+  // A category Google did not score must read as absent, never as zero — a
+  // 0% dial in red says the site failed a check nobody ran.
+  psMode = 'partial';
+  const partial = await scan('https://example.com');
+  const partialDials = await p2.evaluate(() => [...document.querySelectorAll('.dial-card')].map(c => ({
+    name: c.querySelector('.dial-name')?.textContent.trim(),
+    pct: c.querySelector('.dial-pct')?.textContent.trim(),
+    cls: c.querySelector('.dial-fill')?.getAttribute('class'),
+  })));
+  const bp = partialDials.find(c => c.name === 'Best Practices');
+  check('an unscored category reads n/a, not 0%', bp && bp.pct === 'n/a');
+  check('and its ring is neutral rather than red', bp && /dial-none/.test(bp.cls));
+  check('vitals Google did not return are omitted rather than shown empty',
+    !partialDials.some(c => /Contentful Paint/.test(c.name || '')));
+  check('the categories it did score are still shown',
+    partialDials.some(c => c.name === 'Performance' && /50/.test(c.pct)));
+  psMode = 'ok';
 
   /* ── 6. Dead ends ─────────────────────────────────────────────────────── */
   console.log('\n──── dead ends ────');
