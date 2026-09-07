@@ -277,6 +277,107 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
   check('a measured volume of 0 replaces the old value rather than being ignored',
     zero.searchVolume === 0);
 
+  /* ── 3c. The connector talks to the proxy and parses what comes back ──── */
+  console.log('\n──── transport and response shaping ────');
+
+  check('no DataForSEO call reaches the browser\'s network directly',
+    !/fetchWithRetry\(BASE \+/.test(conn));
+  check('and the module keeps no upstream base URL to slip out through',
+    !/var DataForSEO = \(function\(\)\s*\{[\s\S]{0,200}var BASE = 'https:\/\/api\.dataforseo\.com/.test(conn));
+
+  // Drive the real connector against a fake /api/integration that returns
+  // DataForSEO's actual envelope shape.
+  const conPage = await browser.newPage();
+  conPage.on('pageerror', e => errs.push(e.message));
+  await conPage.goto(`http://localhost:${port}/harness.html`);
+  await conPage.evaluate(() => {
+    localStorage.setItem('seo-dashboard-settings', JSON.stringify({ websiteUrl: 'https://www.acme.com/' }));
+  });
+  await conPage.addScriptTag({ content: conn });
+
+  const shaped = await conPage.evaluate(async () => {
+    const calls = [];
+    window.fetch = async (url, opts) => {
+      const body = opts && opts.body ? JSON.parse(opts.body) : null;
+      calls.push({ url, endpoint: body && body.endpoint, service: body && body.service });
+
+      if (url === '/api/integration' && (!opts || opts.method === 'GET')) {
+        return { ok: true, json: async () => ({ configured: { dataforseo: true } }) };
+      }
+      const ep = body && body.endpoint;
+      if (ep === '/serp/google/organic/live/advanced') {
+        // Real envelope: tasks[].result[].items[], with other sites present.
+        return { ok: true, json: async () => ({ tasks: [{ result: [{
+          keyword: 'blue widgets',
+          items: [
+            { type: 'paid',    domain: 'ads.example',  rank_group: 1 },
+            { type: 'organic', domain: 'rival.com',    rank_group: 1, rank_absolute: 2 },
+            { type: 'organic', domain: 'www.acme.com', rank_group: 4, rank_absolute: 6,
+              url: 'https://www.acme.com/widgets' },
+          ],
+        }, {
+          keyword: 'red widgets',
+          items: [{ type: 'organic', domain: 'rival.com', rank_group: 1 }],
+        }] }] }) };
+      }
+      if (ep === '/keywords_data/google_ads/search_volume/live') {
+        return { ok: true, json: async () => ({ tasks: [{ result: [
+          { keyword: 'blue widgets', search_volume: 1900, cpc: 2.4, competition: 'HIGH' },
+        ] }] }) };
+      }
+      if (ep === '/dataforseo_labs/google/bulk_keyword_difficulty/live') {
+        return { ok: true, json: async () => ({ tasks: [{ result: [
+          { keyword: 'blue widgets', keyword_difficulty: 62 },
+        ] }] }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    };
+
+    // Re-run the connector so it picks up the stubbed fetch.
+    const D = window.ApiConnector.DataForSEO;
+    const ranks = await D.getRankings(['blue widgets', 'red widgets']);
+    const metrics = await D.getKeywordMetrics(['blue widgets']);
+    return { calls, ranks, metrics };
+  });
+
+  check('every DataForSEO request is addressed to the proxy',
+    shaped.calls.filter(c => c.endpoint).every(c => c.url === '/api/integration'));
+  check('and names dataforseo as the service',
+    shaped.calls.filter(c => c.endpoint).every(c => c.service === 'dataforseo'));
+
+  const blue = shaped.ranks.find(r => r.keyword === 'blue widgets');
+  const red = shaped.ranks.find(r => r.keyword === 'red widgets');
+  check('the SERP envelope is unwrapped into a flat array',
+    Array.isArray(shaped.ranks) && shaped.ranks.length === 2);
+  check('our own domain\'s organic position is picked out of the results page',
+    blue && blue.position === 4);
+  check('and www./https:// differences do not stop the match',
+    blue && blue.url === 'https://www.acme.com/widgets');
+  check('a rival ranking first is not reported as our position',
+    blue && blue.position !== 1);
+  check('a keyword we do not rank for reads as unranked, having been checked',
+    red && red.position === null && red.checked === true);
+
+  const m = shaped.metrics[0];
+  check('search volume is unwrapped from its envelope', m && m.search_volume === 1900);
+  check('difficulty is fetched from the Labs endpoint and merged in',
+    m && m.keyword_difficulty === 62);
+  check('difficulty was requested at all — search_volume never returns it',
+    shaped.calls.some(c => c.endpoint === '/dataforseo_labs/google/bulk_keyword_difficulty/live'));
+
+  // A missing domain makes the whole question meaningless.
+  const noDomain = await conPage.evaluate(async () => {
+    localStorage.removeItem('seo-dashboard-settings');
+    try {
+      await window.ApiConnector.DataForSEO.getRankings(['x']);
+      return 'resolved';
+    } catch (e) { return e.message; }
+  });
+  check('rankings refuse to run with no site set, rather than guessing',
+    /no domain to measure rankings against/i.test(noDomain));
+
+  await conPage.close();
+
   /* ── 4. Refresh Rankings is no longer silent ──────────────────────────── */
   console.log('\n──── refresh rankings reports what happened ────');
 

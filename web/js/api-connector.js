@@ -1077,7 +1077,9 @@
 
   var DataForSEO = (function() {
     var NS = 'dfs';
-    var BASE = 'https://api.dataforseo.com/v3';
+    // No BASE here on purpose: every call goes through /api/integration, which
+    // owns the upstream URL and the credentials. A base URL in this file is
+    // what let two calls slip out of the browser directly.
 
     function getLogin() {
       return getConfig('dataforseo.login') || getConfig('seo.dataforseo.login');
@@ -1095,32 +1097,96 @@
       return (!!getLogin() && !!getPassword()) || serverHasCredential('dataforseo');
     }
 
-    function authHeader() {
-      return 'Basic ' + btoa(getLogin() + ':' + getPassword());
-    }
-
-    function dfsFetch(endpoint, body, cacheKeyStr, ttl) {
+    // Through /api/integration, exactly like SEOTools.dataforseo already did.
+    //
+    // This module used to POST to api.dataforseo.com straight from the browser
+    // with `Basic btoa(login + ':' + password)`. That needed the credentials in
+    // page config — where a paid API secret must never be — and would have been
+    // blocked by CORS anyway. The proxy holds the credentials server-side and
+    // is the only transport that works.
+    function dfsFetch(endpoint, body, cacheKeyStr, ttl, method) {
       return safeCall('DataForSEO', function() {
-        var cached = cacheGet(NS, cacheKeyStr);
+        var cached = cacheKeyStr ? cacheGet(NS, cacheKeyStr) : null;
         if (cached) return Promise.resolve(cached);
 
-        return fetchWithRetry(BASE + endpoint, {
+        return fetchWithRetry('/api/integration', {
           method: 'POST',
-          headers: {
-            'Authorization': authHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(body)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            service: 'dataforseo',
+            endpoint: endpoint,
+            method: method || 'POST',
+            body: body
+          })
         }).then(function(data) {
-          cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
+          if (cacheKeyStr) cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
           return data;
         });
       });
     }
 
-    function getRankings(keywords, location) {
+    // ---- Response shaping ---------------------------------------------------
+    //
+    // DataForSEO answers with an envelope — { tasks: [ { result: [ ... ] } ] }
+    // — but every caller in this app expects a flat array of plain objects.
+    // These functions were returning the envelope untouched, so callers ran
+    // `Array.isArray(response)` against an object, got false, and concluded the
+    // provider had returned nothing. The credentials could have been perfect
+    // and the result would still have read as "no data".
+
+    function firstResult(raw) {
+      if (!raw || !Array.isArray(raw.tasks)) return [];
+      var out = [];
+      raw.tasks.forEach(function(task) {
+        if (task && Array.isArray(task.result)) out = out.concat(task.result);
+      });
+      return out;
+    }
+
+    function normaliseHost(value) {
+      if (!value) return '';
+      var s = String(value).trim().toLowerCase();
+      s = s.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      return s.split('/')[0];
+    }
+
+    /** The site whose rankings we are asking about. */
+    function getTargetDomain(explicit) {
+      if (explicit) return normaliseHost(explicit);
+      try {
+        var settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+        if (settings.websiteUrl) return normaliseHost(settings.websiteUrl);
+      } catch (e) { /* fall through */ }
+      return normaliseHost(getProjectIntegrationValue('site', ['websiteUrl', 'domain', 'url']));
+    }
+
+    /**
+     * Where the customer's own site ranks for each keyword.
+     *
+     * A SERP is a list of everybody's results. "Your position" only exists
+     * relative to a domain, and this function had no domain to compare
+     * against — it returned the whole search results page and left the caller
+     * to imagine a position from it. The target now comes from the argument or
+     * the configured project site, and without one the call refuses rather
+     * than returning something that cannot mean what the caller wants.
+     *
+     * Resolves to [{ keyword, position, url, checked }]. position is null when
+     * the site is genuinely absent from the results — checked stays true, so
+     * "we looked and you are not there" is distinguishable from "we did not
+     * look".
+     */
+    function getRankings(keywords, options) {
+      options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      var locationCode = location || 2840; // default US
+      var locationCode = options.location || 2840; // default US
+      var target = getTargetDomain(options.domain);
+
+      if (!target) {
+        return Promise.reject(new Error(
+          'No website is set for this project, so there is no domain to measure ' +
+          'rankings against. Add your site under project settings first.'));
+      }
+
       var tasks = items.map(function(kw) {
         return {
           keyword: kw,
@@ -1131,25 +1197,95 @@
           depth: 100
         };
       });
+
       return dfsFetch(
         '/serp/google/organic/live/advanced',
         tasks,
-        'rankings_' + items.join('|') + '_' + locationCode
-      );
+        'rankings_' + items.join('|') + '_' + locationCode + '_' + target
+      ).then(function(raw) {
+        return firstResult(raw).map(function(page) {
+          var hit = null;
+          (page.items || []).forEach(function(item) {
+            if (hit) return;
+            if (item.type !== 'organic') return;
+            if (normaliseHost(item.domain || item.url) !== target) return;
+            hit = item;
+          });
+          return {
+            keyword: page.keyword,
+            // rank_absolute counts every SERP feature; rank_group is the
+            // organic position a person would describe as "we're number 4".
+            position: hit ? (hit.rank_group || hit.rank_absolute || null) : null,
+            url: hit ? (hit.url || null) : null,
+            checked: true
+          };
+        });
+      });
     }
 
-    function getKeywordMetrics(keywords) {
+    /**
+     * Search volume and keyword difficulty.
+     *
+     * These come from two different DataForSEO products and the code used to
+     * request only the first: Google Ads search_volume returns volume, cpc and
+     * competition, but it does not return keyword difficulty at all. So
+     * difficulty would have stayed empty no matter how well the credentials
+     * were configured. The Labs bulk_keyword_difficulty endpoint supplies it,
+     * and the two are merged here.
+     *
+     * Resolves to [{ keyword, search_volume, cpc, competition, keyword_difficulty }].
+     * A field stays null when its endpoint had nothing for that keyword —
+     * never 0, which would read as a measurement.
+     */
+    function getKeywordMetrics(keywords, options) {
+      options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      return dfsFetch(
+      var locationCode = options.location || 2840;
+
+      var volumes = dfsFetch(
         '/keywords_data/google_ads/search_volume/live',
-        [{
-          keywords: items,
-          location_code: 2840,
-          language_code: 'en',
-          sort_by: 'search_volume'
-        }],
-        'kw_metrics_' + items.join('|')
+        [{ keywords: items, location_code: locationCode, language_code: 'en', sort_by: 'search_volume' }],
+        'kw_volume_' + items.join('|') + '_' + locationCode
       );
+
+      // Difficulty is a separate product and a separate subscription. If it is
+      // not on the account this call fails on its own without taking the
+      // volume figures down with it.
+      var difficulty = dfsFetch(
+        '/dataforseo_labs/google/bulk_keyword_difficulty/live',
+        [{ keywords: items, location_code: locationCode, language_code: 'en' }],
+        'kw_diff_' + items.join('|') + '_' + locationCode
+      ).catch(function() { return null; });
+
+      return Promise.all([volumes, difficulty]).then(function(pair) {
+        var byKeyword = {};
+
+        firstResult(pair[0]).forEach(function(r) {
+          if (!r || !r.keyword) return;
+          byKeyword[r.keyword.toLowerCase()] = {
+            keyword: r.keyword,
+            search_volume: typeof r.search_volume === 'number' ? r.search_volume : null,
+            cpc: typeof r.cpc === 'number' ? r.cpc : null,
+            competition: r.competition != null ? r.competition : null,
+            keyword_difficulty: null
+          };
+        });
+
+        firstResult(pair[1]).forEach(function(r) {
+          if (!r || !r.keyword) return;
+          var key = r.keyword.toLowerCase();
+          if (!byKeyword[key]) {
+            byKeyword[key] = {
+              keyword: r.keyword, search_volume: null, cpc: null,
+              competition: null, keyword_difficulty: null
+            };
+          }
+          var kd = r.keyword_difficulty;
+          byKeyword[key].keyword_difficulty = typeof kd === 'number' ? kd : null;
+        });
+
+        return Object.keys(byKeyword).map(function(k) { return byKeyword[k]; });
+      });
     }
 
     function getBacklinks(target) {
@@ -1187,15 +1323,11 @@
           }
           var taskId = taskResponse.tasks[0].id;
 
-          // Step 2: Poll for results (simplified — single check after delay)
+          // Step 2: Poll for results (simplified — single check after delay).
+          // Through the proxy like every other call: this was the second place
+          // reaching api.dataforseo.com directly with browser-held credentials.
           return wait(15000).then(function() {
-            return fetchWithRetry(BASE + '/on_page/summary/' + taskId, {
-              method: 'GET',
-              headers: {
-                'Authorization': authHeader(),
-                'Content-Type': 'application/json'
-              }
-            });
+            return dfsFetch('/on_page/summary/' + taskId, undefined, null, 0, 'GET');
           }).then(function(data) {
             cacheSet(NS, 'onpage_' + url, data, 60 * 60 * 1000);
             return data;

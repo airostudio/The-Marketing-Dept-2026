@@ -590,13 +590,30 @@
                 const metric = Array.isArray(metrics)
                     ? metrics.find(m => m.keyword === k.keyword) : null;
                 if (!ranking || !ranking.position) {
+                    const patch = {};
+
+                    // "We searched and your site was not in the results" is a
+                    // real finding — the keyword has dropped out, or never
+                    // ranked. Recording it as unranked is the truth; leaving a
+                    // stale position would keep showing a ranking the provider
+                    // has just told us is gone. `checked` separates that from
+                    // "this keyword was not in the response at all".
+                    if (ranking && ranking.checked && isRanked(k.position)) {
+                        patch.previousPosition = k.position;
+                        patch.position = null;
+                        patch.trend = 'lost';
+                        updatedCount++;
+                    }
+
                     // Metrics can arrive for a keyword that has no position yet.
-                    if (!metric) return k;
-                    return Object.assign({}, k, {
-                        searchVolume: pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume),
-                        difficulty: pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty),
-                        lastUpdated: new Date().toISOString(),
-                    });
+                    if (metric) {
+                        patch.searchVolume = pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume);
+                        patch.difficulty = pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty);
+                    }
+
+                    if (!Object.keys(patch).length) return k;
+                    patch.lastUpdated = new Date().toISOString();
+                    return Object.assign({}, k, patch);
                 }
                 updatedCount++;
                 return Object.assign({}, k, {
