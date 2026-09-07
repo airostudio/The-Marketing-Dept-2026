@@ -5,32 +5,30 @@
  * limited to a few agents, they have the whole department and are limited by
  * how much work it performs. This is the one place those allowances live.
  *
- * ── Which allowances are settled, and which are still guesses ────────────
+ * ── Which allowances are settled ─────────────────────────────────────────
  * The published pricing describes allowances qualitatively — Start gets
  * "limited monthly Agent Missions", Growth a "substantially larger monthly
  * Agent Mission allowance" — without stating figures, so every number here
- * began as a placeholder scaled to the price points.
+ * began as a placeholder scaled to the price points. All eight capped tiers
+ * have since been confirmed as a commercial decision.
  *
- * The five standard tiers have since been confirmed. The Agency tiers have
- * not: they are priced by client count and no per-tier mission figure has
- * been set, so the values below are still scaled guesses.
- *
- * That is why this is a set rather than a boolean. A single flag would have
- * to be flipped all-or-nothing, and flipping it would quote an invented
- * Agency Pro allowance to a paying agency as settled policy. Naming the
- * confirmed plans lets the UI say "provisional" for exactly those tiers where
- * it is still true.
+ * This stays a set rather than reverting to a boolean. Any tier added later
+ * starts unconfirmed by default and is shown to the customer as provisional
+ * until it is named here — which is the safe direction for a new plan to
+ * fail, and is not something a single "everything is confirmed" flag could
+ * express.
  */
 
 'use strict';
 
 /**
  * Plans whose mission allowance is a confirmed commercial decision.
- * Anything not listed here is enforced, but is shown to the customer as
- * provisional.
+ * Anything not listed here is still enforced, but is shown to the customer as
+ * provisional rather than quoted as settled policy.
  */
 const CONFIRMED_ALLOWANCES = new Set([
   'free', 'start', 'growth', 'scale', 'autonomous',
+  'agency_starter', 'agency_growth', 'agency_pro',
 ]);
 
 /**
@@ -50,9 +48,7 @@ const MISSION_ALLOWANCES = {
   // Agency tiers are pooled across the agency's client businesses, matching
   // "agency users then purchase additional marketing capacity where
   // necessary" — capacity is bought at the account level, not per client.
-  // These figures are NOT confirmed: see CONFIRMED_ALLOWANCES above. They are
-  // enforced so the mechanism works, and reported to the customer as
-  // provisional so nobody plans against a number that may move.
+  // Confirmed.
   agency_starter:   100,
   agency_growth:    300,
   agency_pro:      1000,

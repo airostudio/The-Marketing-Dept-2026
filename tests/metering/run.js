@@ -40,21 +40,30 @@ check('agency tiers rise with client count',
 check('enterprise tiers are uncapped, not guessed at',
   PL.MISSION_ALLOWANCES.enterprise === null &&
   PL.MISSION_ALLOWANCES.agency_enterprise === null);
-// Confirmation is per plan, not one global flag. The five standard tiers were
-// confirmed by the account owner; the Agency figures are still scaled guesses,
-// and a single boolean would have to be flipped all-or-nothing — quoting an
-// invented Agency Pro allowance to a paying agency as settled policy.
-check('the confirmed standard tiers are the ones that were signed off',
+// Confirmation is per plan rather than one global flag. All eight capped
+// tiers are now signed off, but the set stays: it was what let the standard
+// tiers be confirmed while the Agency figures were still guesses, and it is
+// what keeps any tier added later provisional by default.
+check('the standard tiers are confirmed',
   ['free', 'start', 'growth', 'scale', 'autonomous']
     .every(p => PL.isAllowanceConfirmed(p)));
 check('and they are the exact numbers given',
   PL.MISSION_ALLOWANCES.free === 3 && PL.MISSION_ALLOWANCES.start === 20 &&
   PL.MISSION_ALLOWANCES.growth === 60 && PL.MISSION_ALLOWANCES.scale === 150 &&
   PL.MISSION_ALLOWANCES.autonomous === 500);
-check('the agency tiers are still reported as provisional',
-  !PL.isAllowanceConfirmed('agency_starter') &&
-  !PL.isAllowanceConfirmed('agency_growth') &&
-  !PL.isAllowanceConfirmed('agency_pro'));
+check('the agency tiers are confirmed too',
+  PL.isAllowanceConfirmed('agency_starter') &&
+  PL.isAllowanceConfirmed('agency_growth') &&
+  PL.isAllowanceConfirmed('agency_pro'));
+check('and are the exact numbers given',
+  PL.MISSION_ALLOWANCES.agency_starter === 100 &&
+  PL.MISSION_ALLOWANCES.agency_growth === 300 &&
+  PL.MISSION_ALLOWANCES.agency_pro === 1000);
+// The set is kept rather than collapsed back to "everything is confirmed":
+// a tier added later must start provisional, which is the safe direction for
+// a new plan to fail and is not something a boolean could express.
+check('a tier added later would still default to provisional',
+  !PL.isAllowanceConfirmed('agency_platinum'));
 check('an uncapped plan is not called provisional — there is no number to confirm',
   PL.isAllowanceConfirmed('enterprise') && PL.isAllowanceConfirmed('agency_enterprise'));
 check('an admin override makes an account\'s allowance settled',
