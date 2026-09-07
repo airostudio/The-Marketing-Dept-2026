@@ -104,34 +104,40 @@ module.exports = async function handler(req, res) {
   }
 
   // ── consume ─────────────────────────────────────────────────────────────
-  if (!uncapped && used >= limit) {
+  //
+  // The allowance check and the increment are one statement in the database,
+  // not a comparison here followed by a write. Deciding in JavaScript on the
+  // `used` value read above would let an account on its last mission fire ten
+  // at once: all ten read the same count, all ten pass, all ten increment.
+  // consume_mission_usage() takes the row lock that serialises them.
+  const conRes = await sbRest(supabaseUrl, serviceKey, 'POST',
+    '/rpc/consume_mission_usage', { uid: caller.id, p: period, lim: uncapped ? null : limit });
+
+  if (!conRes.ok) {
+    // Do not block the customer's work because our counter is broken; record
+    // that it failed so it shows up rather than silently under-counting.
+    console.error('[mission-usage] consume failed:', conRes.status, conRes.data);
+    return res.json(Object.assign({ allowed: true, counted: false,
+      reason: 'Mission allowed, but the usage counter could not be updated.' }, base));
+  }
+
+  // The function returns a one-row table, which PostgREST sends as an array.
+  const row = (Array.isArray(conRes.data) ? conRes.data[0] : conRes.data) || {};
+  const newUsed = Number.isFinite(row.used) ? row.used : used;
+  const withCount = Object.assign({}, base, {
+    used: newUsed,
+    remaining: uncapped ? null : Math.max(0, limit - newUsed),
+  });
+
+  if (row.allowed === false) {
     return res.status(402).json(Object.assign({
       error: 'mission_limit_reached',
       allowed: false,
       message: `You've used all ${limit} Agent Missions included with the ${PLAN_LABELS[plan] || plan} plan this month. ` +
                `The allowance resets at the start of next month.`,
       upgradeUrl: '/billing.html',
-    }, base));
+    }, withCount));
   }
 
-  // Atomic increment — two missions started at the same moment must not both
-  // read the same count and both write count+1.
-  const incRes = await sbRest(supabaseUrl, serviceKey, 'POST',
-    '/rpc/increment_mission_usage', { uid: caller.id, p: period });
-
-  if (!incRes.ok) {
-    // Do not block the customer's work because our counter is broken; record
-    // that it failed so it shows up rather than silently under-counting.
-    console.error('[mission-usage] increment failed:', incRes.status, incRes.data);
-    return res.json(Object.assign({ allowed: true, counted: false,
-      reason: 'Mission allowed, but the usage counter could not be updated.' }, base));
-  }
-
-  const newUsed = typeof incRes.data === 'number' ? incRes.data : used + 1;
-  return res.json(Object.assign({}, base, {
-    allowed: true,
-    counted: true,
-    used: newUsed,
-    remaining: uncapped ? null : Math.max(0, limit - newUsed),
-  }));
+  return res.json(Object.assign(withCount, { allowed: true, counted: true }));
 };

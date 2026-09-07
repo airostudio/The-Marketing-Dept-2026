@@ -85,36 +85,92 @@ ALTER TABLE goals       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitors    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversions ENABLE ROW LEVEL SECURITY;
 
--- Service role bypasses RLS — needed for the MCP server (server-side)
--- Authenticated users see only their own experiments
+-- Service role bypasses RLS — that is how api/ab-track.js writes tracking
+-- rows and how the MCP server reads them. Nothing here needs to be reachable
+-- with the anon key, which is published in every browser that loads the app.
+--
+-- ── What these policies replaced, and why ─────────────────────────────────
+--
+-- The first version of this file carried four policies that evaluated to
+-- TRUE for every role, including `anon`:
+--
+--   "Anyone can write visitors"    ON visitors    FOR INSERT WITH CHECK (TRUE)
+--   "Anyone can write conversions" ON conversions FOR INSERT WITH CHECK (TRUE)
+--   "Service can read visitors"    ON visitors    FOR SELECT USING (TRUE)
+--   "Service can read conversions" ON conversions FOR SELECT USING (TRUE)
+--
+-- The names say "service", but a policy with no role list applies to every
+-- role. Since the anon key ships to the browser, those two SELECT policies
+-- made every visitor and conversion row in the database — experiment_id,
+-- variant_id, visitor_id, revenue, metadata, across every customer —
+-- readable by anyone who opened the app and copied the key out of it. The
+-- two INSERT policies let the same stranger fabricate visits and conversions
+-- against any experiment id, which is the cheapest possible way to flip
+-- which variant a customer declares the winner of.
+--
+-- Neither INSERT policy was ever needed: the tracking snippet POSTs to
+-- api/ab-track.js, which holds SUPABASE_SERVICE_ROLE_KEY and bypasses RLS.
+--
+-- The ownership policies also carried `OR user_id IS NULL`. experiments.user_id
+-- is ON DELETE SET NULL, so deleting a user turned their experiments into
+-- rows every other tenant could read AND write — and because a FOR ALL policy
+-- with no WITH CHECK reuses its USING expression as the write check, any
+-- signed-in user could also create an experiment with user_id NULL and share
+-- it with the whole database. Both halves are gone.
+--
+-- Existing rows with user_id IS NULL become invisible to end users after this
+-- migration. That is the intended direction: they are currently visible to
+-- *everyone*, and they remain reachable with the service-role key for
+-- reassignment.
+
+DROP POLICY IF EXISTS "Users see own experiments"   ON experiments;
+DROP POLICY IF EXISTS "Users see own variants"      ON variants;
+DROP POLICY IF EXISTS "Users see own goals"         ON goals;
+DROP POLICY IF EXISTS "Anyone can write visitors"   ON visitors;
+DROP POLICY IF EXISTS "Anyone can write conversions" ON conversions;
+DROP POLICY IF EXISTS "Service can read visitors"   ON visitors;
+DROP POLICY IF EXISTS "Service can read conversions" ON conversions;
+DROP POLICY IF EXISTS "Owners read own visitors"    ON visitors;
+DROP POLICY IF EXISTS "Owners read own conversions" ON conversions;
+
 CREATE POLICY "Users see own experiments"
   ON experiments FOR ALL
-  USING (auth.uid() = user_id OR user_id IS NULL);
+  USING      (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users see own variants"
   ON variants FOR ALL
-  USING (experiment_id IN (SELECT id FROM experiments WHERE auth.uid() = user_id OR user_id IS NULL));
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users see own goals"
   ON goals FOR ALL
-  USING (experiment_id IN (SELECT id FROM experiments WHERE auth.uid() = user_id OR user_id IS NULL));
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
--- Tracking is write-only from the browser via anon key
-CREATE POLICY "Anyone can write visitors"
-  ON visitors FOR INSERT
-  WITH CHECK (TRUE);
-
-CREATE POLICY "Anyone can write conversions"
-  ON conversions FOR INSERT
-  WITH CHECK (TRUE);
-
-CREATE POLICY "Service can read visitors"
+-- Results belong to whoever owns the experiment. web/js/experiments-store.js
+-- reads these two tables straight from the browser (getResults()), always
+-- filtered by experiment_id, so scoping by owner keeps that working and
+-- stops it returning anybody else's rows.
+CREATE POLICY "Owners read own visitors"
   ON visitors FOR SELECT
-  USING (TRUE);
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
-CREATE POLICY "Service can read conversions"
+CREATE POLICY "Owners read own conversions"
   ON conversions FOR SELECT
-  USING (TRUE);
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+-- No INSERT/UPDATE/DELETE policy on visitors or conversions at all. Tracking
+-- rows are written only by api/ab-track.js with the service-role key; with
+-- RLS enabled and no permissive policy, every other role is refused.
+
+-- ── One conversion per visitor per goal ───────────────────────────────────
+-- A real visitor completing a goal is one event. Without this, a single
+-- fabricated visitor_id can be replayed against the conversions endpoint
+-- until a variant "wins" — the constraint makes repeat submissions collide
+-- in the database rather than accumulate as results.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conversions_visitor_goal
+  ON conversions (experiment_id, visitor_id, goal_id);
 
 -- ── Updated_at trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -122,6 +178,7 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS experiments_updated_at ON experiments;
 CREATE TRIGGER experiments_updated_at
   BEFORE UPDATE ON experiments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

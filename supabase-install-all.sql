@@ -1320,6 +1320,81 @@ CREATE TRIGGER trg_credit_balance_touch
   BEFORE UPDATE ON credit_balances
   FOR EACH ROW EXECUTE FUNCTION touch_credit_balance();
 
+-- ── Atomic reserve and refund ───────────────────────────────────────────────
+--
+-- api/generate-ad-image.js used to read the balance, compare it in JavaScript,
+-- call OpenAI, and then write back `credits_used + cost` as an absolute value.
+-- Two things went wrong with that under any real concurrency:
+--
+--   * Lost update. Two calls that both read credits_used = X both write
+--     X + 100, so the second image is free. The write is an absolute value,
+--     so it overwrites rather than accumulates.
+--   * A gate held open for two minutes. The check happened before the OpenAI
+--     call and the deduction after it, and that call can take 120 seconds. An
+--     account with 100 credits left could start twenty generations inside that
+--     window, and every one of them would pass a check against the same
+--     pre-spend balance. Twenty images bought, one image charged.
+--
+-- consume_credits() closes both: it compares and deducts in a single UPDATE,
+-- so the row lock serialises concurrent callers and the second one re-reads
+-- what the first one wrote. The endpoint calls it BEFORE spending money and
+-- calls refund_credits() if the generation then fails, so an unlucky customer
+-- is not billed for an image they never received.
+--
+-- Returns (allowed, used_after, total). On refusal used_after is the unchanged
+-- current value, so the caller can report an accurate remaining figure.
+CREATE OR REPLACE FUNCTION consume_credits(pid UUID, ipid UUID, cost INTEGER)
+RETURNS TABLE (allowed BOOLEAN, used_after INTEGER, total INTEGER) AS $$
+DECLARE
+  new_used  INTEGER;
+  new_total INTEGER;
+  cur_used  INTEGER;
+  cur_total INTEGER;
+BEGIN
+  UPDATE credit_balances b
+     SET credits_used = b.credits_used + cost
+   WHERE (
+           (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+        OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+         )
+     AND b.credits_used + cost <= b.credits_total
+  RETURNING b.credits_used, b.credits_total INTO new_used, new_total;
+
+  IF new_used IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, new_used, new_total;
+    RETURN;
+  END IF;
+
+  SELECT b.credits_used, b.credits_total INTO cur_used, cur_total
+    FROM credit_balances b
+   WHERE (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+      OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+   LIMIT 1;
+
+  -- No row matched at all: the scope has no balance, which is a different
+  -- thing from a spent one. Refuse rather than report a zero balance that
+  -- was never issued.
+
+  RETURN QUERY SELECT FALSE, COALESCE(cur_used, 0), COALESCE(cur_total, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Give back credits reserved for a generation that then failed. Clamped at
+-- zero so a double refund cannot manufacture credits.
+CREATE OR REPLACE FUNCTION refund_credits(pid UUID, ipid UUID, cost INTEGER)
+RETURNS INTEGER AS $$
+DECLARE
+  new_used INTEGER;
+BEGIN
+  UPDATE credit_balances b
+     SET credits_used = GREATEST(0, b.credits_used - cost)
+   WHERE (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+      OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+  RETURNING b.credits_used INTO new_used;
+  RETURN COALESCE(new_used, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- ── Row-Level Security ──────────────────────────────────────────────────────
 -- Deductions and inserts always happen server-side via SUPABASE_SERVICE_
 -- ROLE_KEY (which bypasses RLS) — api/generate-ad-image.js is the only
@@ -1336,7 +1411,6 @@ CREATE POLICY "credit_balances_scope_read" ON credit_balances
     ))
     OR (project_id IS NOT NULL AND EXISTS (SELECT 1 FROM projects pr WHERE pr.id = project_id AND pr.user_id = auth.uid()))
   );
-
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- SOURCE: supabase-audience.sql
@@ -1670,43 +1744,92 @@ ALTER TABLE goals       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitors    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversions ENABLE ROW LEVEL SECURITY;
 
--- Service role bypasses RLS — needed for the MCP server (server-side)
--- Authenticated users see only their own experiments
-DROP POLICY IF EXISTS "Users see own experiments" ON experiments;
+-- Service role bypasses RLS — that is how api/ab-track.js writes tracking
+-- rows and how the MCP server reads them. Nothing here needs to be reachable
+-- with the anon key, which is published in every browser that loads the app.
+--
+-- ── What these policies replaced, and why ─────────────────────────────────
+--
+-- The first version of this file carried four policies that evaluated to
+-- TRUE for every role, including `anon`:
+--
+--   "Anyone can write visitors"    ON visitors    FOR INSERT WITH CHECK (TRUE)
+--   "Anyone can write conversions" ON conversions FOR INSERT WITH CHECK (TRUE)
+--   "Service can read visitors"    ON visitors    FOR SELECT USING (TRUE)
+--   "Service can read conversions" ON conversions FOR SELECT USING (TRUE)
+--
+-- The names say "service", but a policy with no role list applies to every
+-- role. Since the anon key ships to the browser, those two SELECT policies
+-- made every visitor and conversion row in the database — experiment_id,
+-- variant_id, visitor_id, revenue, metadata, across every customer —
+-- readable by anyone who opened the app and copied the key out of it. The
+-- two INSERT policies let the same stranger fabricate visits and conversions
+-- against any experiment id, which is the cheapest possible way to flip
+-- which variant a customer declares the winner of.
+--
+-- Neither INSERT policy was ever needed: the tracking snippet POSTs to
+-- api/ab-track.js, which holds SUPABASE_SERVICE_ROLE_KEY and bypasses RLS.
+--
+-- The ownership policies also carried `OR user_id IS NULL`. experiments.user_id
+-- is ON DELETE SET NULL, so deleting a user turned their experiments into
+-- rows every other tenant could read AND write — and because a FOR ALL policy
+-- with no WITH CHECK reuses its USING expression as the write check, any
+-- signed-in user could also create an experiment with user_id NULL and share
+-- it with the whole database. Both halves are gone.
+--
+-- Existing rows with user_id IS NULL become invisible to end users after this
+-- migration. That is the intended direction: they are currently visible to
+-- *everyone*, and they remain reachable with the service-role key for
+-- reassignment.
+
+DROP POLICY IF EXISTS "Users see own experiments"   ON experiments;
+DROP POLICY IF EXISTS "Users see own variants"      ON variants;
+DROP POLICY IF EXISTS "Users see own goals"         ON goals;
+DROP POLICY IF EXISTS "Anyone can write visitors"   ON visitors;
+DROP POLICY IF EXISTS "Anyone can write conversions" ON conversions;
+DROP POLICY IF EXISTS "Service can read visitors"   ON visitors;
+DROP POLICY IF EXISTS "Service can read conversions" ON conversions;
+DROP POLICY IF EXISTS "Owners read own visitors"    ON visitors;
+DROP POLICY IF EXISTS "Owners read own conversions" ON conversions;
+
 CREATE POLICY "Users see own experiments"
   ON experiments FOR ALL
-  USING (auth.uid() = user_id OR user_id IS NULL);
+  USING      (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users see own variants" ON variants;
 CREATE POLICY "Users see own variants"
   ON variants FOR ALL
-  USING (experiment_id IN (SELECT id FROM experiments WHERE auth.uid() = user_id OR user_id IS NULL));
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
-DROP POLICY IF EXISTS "Users see own goals" ON goals;
 CREATE POLICY "Users see own goals"
   ON goals FOR ALL
-  USING (experiment_id IN (SELECT id FROM experiments WHERE auth.uid() = user_id OR user_id IS NULL));
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
--- Tracking is write-only from the browser via anon key
-DROP POLICY IF EXISTS "Anyone can write visitors" ON visitors;
-CREATE POLICY "Anyone can write visitors"
-  ON visitors FOR INSERT
-  WITH CHECK (TRUE);
-
-DROP POLICY IF EXISTS "Anyone can write conversions" ON conversions;
-CREATE POLICY "Anyone can write conversions"
-  ON conversions FOR INSERT
-  WITH CHECK (TRUE);
-
-DROP POLICY IF EXISTS "Service can read visitors" ON visitors;
-CREATE POLICY "Service can read visitors"
+-- Results belong to whoever owns the experiment. web/js/experiments-store.js
+-- reads these two tables straight from the browser (getResults()), always
+-- filtered by experiment_id, so scoping by owner keeps that working and
+-- stops it returning anybody else's rows.
+CREATE POLICY "Owners read own visitors"
   ON visitors FOR SELECT
-  USING (TRUE);
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
-DROP POLICY IF EXISTS "Service can read conversions" ON conversions;
-CREATE POLICY "Service can read conversions"
+CREATE POLICY "Owners read own conversions"
   ON conversions FOR SELECT
-  USING (TRUE);
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+-- No INSERT/UPDATE/DELETE policy on visitors or conversions at all. Tracking
+-- rows are written only by api/ab-track.js with the service-role key; with
+-- RLS enabled and no permissive policy, every other role is refused.
+
+-- ── One conversion per visitor per goal ───────────────────────────────────
+-- A real visitor completing a goal is one event. Without this, a single
+-- fabricated visitor_id can be replayed against the conversions endpoint
+-- until a variant "wins" — the constraint makes repeat submissions collide
+-- in the database rather than accumulate as results.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conversions_visitor_goal
+  ON conversions (experiment_id, visitor_id, goal_id);
 
 -- ── Updated_at trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -1718,7 +1841,6 @@ DROP TRIGGER IF EXISTS experiments_updated_at ON experiments;
 CREATE TRIGGER experiments_updated_at
   BEFORE UPDATE ON experiments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- SOURCE: supabase-agent-audits.sql
@@ -2566,6 +2688,57 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- ── Atomic check-and-consume ───────────────────────────────────────────────
+-- increment_mission_usage() above makes the *counter* correct, but it does not
+-- make the *gate* correct. The endpoint was reading the count, comparing it to
+-- the plan allowance, and then calling the increment — three steps, with the
+-- decision made on the value read in step one. An account on its last mission
+-- that fires ten at the same moment has all ten read used = limit - 1, all ten
+-- pass the comparison, and all ten increment: nine missions the plan did not
+-- include, and the counter honestly reports 69 of 60 used afterwards.
+--
+-- This does the comparison and the increment in one statement, so the row lock
+-- Postgres already takes for the UPDATE is what serialises the decision. The
+-- second concurrent caller re-reads the value the first one wrote.
+--
+-- lim IS NULL means an uncapped plan — always allowed, still counted.
+--
+-- Returns (allowed, used). `used` is the value after this call when allowed,
+-- and the unchanged current value when refused, so the caller can report
+-- "60 of 60" rather than having to read it again.
+CREATE OR REPLACE FUNCTION consume_mission_usage(uid UUID, p TEXT, lim INTEGER)
+RETURNS TABLE (allowed BOOLEAN, used INTEGER) AS $$
+DECLARE
+  new_used INTEGER;
+  cur_used INTEGER;
+BEGIN
+  -- Make sure the row exists so the UPDATE below has something to lock.
+  INSERT INTO mission_usage (user_id, period, used)
+  VALUES (uid, p, 0)
+  ON CONFLICT (user_id, period) DO NOTHING;
+
+  UPDATE mission_usage m
+     SET used = m.used + 1
+   WHERE m.user_id = uid
+     AND m.period  = p
+     AND (lim IS NULL OR m.used < lim)
+  RETURNING m.used INTO new_used;
+
+  IF new_used IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, new_used;
+    RETURN;
+  END IF;
+
+  -- The UPDATE matched nothing, which at this point can only mean the
+  -- allowance is spent. Report the count without changing it.
+  SELECT m.used INTO cur_used
+    FROM mission_usage m
+   WHERE m.user_id = uid AND m.period = p;
+
+  RETURN QUERY SELECT FALSE, COALESCE(cur_used, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- ── Row-Level Security ─────────────────────────────────────────────────────
 -- Written only by api/mission-usage.js with the service-role key. Users may
 -- read their own usage so the UI can show "12 of 60 missions used"; admins
@@ -2586,7 +2759,6 @@ CREATE POLICY "mission_usage_admin_read" ON mission_usage
 -- could grant itself unlimited missions.
 
 -- DONE! Agent Missions are now countable per account per month.
-
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- SOURCE: supabase-support.sql

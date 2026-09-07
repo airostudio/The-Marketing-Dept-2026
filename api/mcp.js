@@ -41,6 +41,8 @@
 
 'use strict';
 
+const crypto = require('crypto');
+
 // ── Supabase REST helper ───────────────────────────────────────────────────
 async function sb(env, method, path, body) {
   const url = `${env.SUPABASE_URL}/rest/v1${path}`;
@@ -542,6 +544,25 @@ function jsonrpcErr(id, code, message) {
   return { jsonrpc: '2.0', id, error: { code, message } };
 }
 
+/**
+ * Constant-time string comparison for the bearer secret.
+ *
+ * `a !== b` returns as soon as two bytes differ, so how long the comparison
+ * takes leaks how much of the secret a guess got right. crypto.timingSafeEqual
+ * needs equal-length buffers, so the lengths are compared first and both
+ * buffers padded to the same size — comparing a wrong-length guess still costs
+ * the same as comparing a right-length one.
+ */
+function timingSafeEqual(given, expected) {
+  const a = Buffer.from(String(given));
+  const b = Buffer.from(String(expected));
+  const len = Math.max(a.length, b.length, 1);
+  const pa = Buffer.alloc(len);
+  const pb = Buffer.alloc(len);
+  a.copy(pa); b.copy(pb);
+  return crypto.timingSafeEqual(pa, pb) && a.length === b.length;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -549,13 +570,26 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json(jsonrpcErr(null, -32600, 'Method not allowed'));
 
-  // Auth check
+  // ── Auth check ───────────────────────────────────────────────────────────
+  //
+  // This used to read `if (secret) { ...check... }`, which meant that with
+  // MCP_SECRET unset the entire server was open: no token required, and the
+  // tools below hold SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS. An
+  // unauthenticated caller could read and rewrite the experiments, variants
+  // and results of every account in the database, and spend the account's
+  // Anthropic key through the analysis tool.
+  //
+  // Every cron endpoint here already fails closed on a missing secret. This
+  // one now does the same: no secret configured means no service, not free
+  // service.
   const secret = process.env.MCP_SECRET;
-  if (secret) {
-    const auth = req.headers['authorization'] || '';
-    if (!auth.startsWith('Bearer ') || auth.slice(7) !== secret) {
-      return res.status(401).json(jsonrpcErr(null, -32600, 'Unauthorized'));
-    }
+  if (!secret) {
+    return res.status(500).json(jsonrpcErr(null, -32603,
+      'MCP_SECRET is not configured — refusing to serve an unauthenticated MCP session.'));
+  }
+  const auth = req.headers['authorization'] || '';
+  if (!auth.startsWith('Bearer ') || !timingSafeEqual(auth.slice(7), secret)) {
+    return res.status(401).json(jsonrpcErr(null, -32600, 'Unauthorized'));
   }
 
   const env = {

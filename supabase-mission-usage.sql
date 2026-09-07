@@ -62,6 +62,57 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- ── Atomic check-and-consume ───────────────────────────────────────────────
+-- increment_mission_usage() above makes the *counter* correct, but it does not
+-- make the *gate* correct. The endpoint was reading the count, comparing it to
+-- the plan allowance, and then calling the increment — three steps, with the
+-- decision made on the value read in step one. An account on its last mission
+-- that fires ten at the same moment has all ten read used = limit - 1, all ten
+-- pass the comparison, and all ten increment: nine missions the plan did not
+-- include, and the counter honestly reports 69 of 60 used afterwards.
+--
+-- This does the comparison and the increment in one statement, so the row lock
+-- Postgres already takes for the UPDATE is what serialises the decision. The
+-- second concurrent caller re-reads the value the first one wrote.
+--
+-- lim IS NULL means an uncapped plan — always allowed, still counted.
+--
+-- Returns (allowed, used). `used` is the value after this call when allowed,
+-- and the unchanged current value when refused, so the caller can report
+-- "60 of 60" rather than having to read it again.
+CREATE OR REPLACE FUNCTION consume_mission_usage(uid UUID, p TEXT, lim INTEGER)
+RETURNS TABLE (allowed BOOLEAN, used INTEGER) AS $$
+DECLARE
+  new_used INTEGER;
+  cur_used INTEGER;
+BEGIN
+  -- Make sure the row exists so the UPDATE below has something to lock.
+  INSERT INTO mission_usage (user_id, period, used)
+  VALUES (uid, p, 0)
+  ON CONFLICT (user_id, period) DO NOTHING;
+
+  UPDATE mission_usage m
+     SET used = m.used + 1
+   WHERE m.user_id = uid
+     AND m.period  = p
+     AND (lim IS NULL OR m.used < lim)
+  RETURNING m.used INTO new_used;
+
+  IF new_used IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, new_used;
+    RETURN;
+  END IF;
+
+  -- The UPDATE matched nothing, which at this point can only mean the
+  -- allowance is spent. Report the count without changing it.
+  SELECT m.used INTO cur_used
+    FROM mission_usage m
+   WHERE m.user_id = uid AND m.period = p;
+
+  RETURN QUERY SELECT FALSE, COALESCE(cur_used, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- ── Row-Level Security ─────────────────────────────────────────────────────
 -- Written only by api/mission-usage.js with the service-role key. Users may
 -- read their own usage so the UI can show "12 of 60 missions used"; admins
