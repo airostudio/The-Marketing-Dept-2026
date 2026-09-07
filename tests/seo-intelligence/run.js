@@ -201,6 +201,82 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
     check('getOpportunities is reachable', wins !== null);
   }
 
+  /* ── 3b. The provider was reachable all along ─────────────────────────── */
+  console.log('\n──── the provider integration is reachable ────');
+
+  // The server-side proxy holds the credentials. The browser cannot see them,
+  // so it must be able to ask whether they exist — otherwise a paid-for
+  // provider is permanently reported as "not connected".
+  const integ = read('api/integration.js');
+  check('the proxy answers a capability probe', /req\.method === 'GET'/.test(integ));
+  check('and reports booleans, never the credential values',
+    /ahrefs:\s*!!process\.env\.AHREFS_API_KEY/.test(integ) &&
+    !/configured[\s\S]{0,400}process\.env\.\w+\s*\|\|\s*''/.test(integ));
+
+  const conn = read('web/js/api-connector.js');
+  check('the connector probes the server for capabilities',
+    /refreshServerCapabilities/.test(conn) && /fetch\('\/api\/integration', \{ method: 'GET' \}\)/.test(conn));
+  check('a failed probe is not cached as "nothing configured"',
+    /serverCapsPromise = null;[\s\S]{0,80}return null;/.test(conn));
+
+  // No SEO provider may still demand a credential the browser must never hold.
+  const gated = [
+    /function isAvailable\(\)\s*\{[^}]*return !!getApiToken\(\);\s*\}/,        // ahrefs
+    /function isAvailable\(\)\s*\{[^}]*return !!getApiKey\(\);\s*\}/,          // semrush
+    /return apiEnabled\('seo\.dataforseo'\) && !!getLogin\(\) && !!getPassword\(\);/,
+  ].filter(re => re.test(conn));
+  check('no SEO provider is gated on browser-side credentials alone',
+    gated.length === 0);
+  check('each SEO provider accepts a server-held credential',
+    (conn.match(/serverHasCredential\('(ahrefs|semrush|dataforseo)'\)/g) || []).length >= 4);
+
+  // The two DataForSEO modules are different shapes; calling the wrong one
+  // throws even when everything is configured.
+  check('ranking calls resolve the module that actually has the method',
+    /function rankingProvider\(\)/.test(svc) && /typeof m\.getRankings === 'function'/.test(svc));
+  check('and nothing calls getRankings on SEOTools.dataforseo directly',
+    !/SEOTools\.dataforseo\.getRankings/.test(svc) &&
+    !/SEOTools\.dataforseo\.getKeywordMetrics/.test(svc));
+
+  const resolves = await page.evaluate(async () => {
+    const T = window.KeywordService.KeywordTracker;
+    T.saveTrackedKeywords([{ keyword: 'k', position: null, searchVolume: 0, difficulty: null }]);
+    // Exactly the real shape: SEOTools.dataforseo has no getRankings, the
+    // top-level DataForSEO does. The resolver must pick the top-level one.
+    window.ApiConnector = {
+      SEOTools: { dataforseo: {
+        isAvailable: () => true,
+        getSerpResults: async () => [],
+        getKeywordData: async () => [],
+      } },
+      DataForSEO: {
+        isAvailable: () => true,
+        getRankings: async () => [{ keyword: 'k', position: 4 }],
+        getKeywordMetrics: async () => [{ keyword: 'k', search_volume: 2400, keyword_difficulty: 38 }],
+      },
+    };
+    const r = await T.refreshRankings();
+    return { r, row: T.getTrackedKeywords()[0] };
+  });
+  check('the refresh succeeds against the real module shapes',
+    resolves.r.ok === true && resolves.r.updated === 1);
+  check('and volume arrives with it, so the column is no longer blank',
+    resolves.row.searchVolume === 2400);
+  check('and difficulty arrives from the provider, not from a word count',
+    resolves.row.difficulty === 38);
+
+  // A provider-reported zero is a real answer and must not be discarded.
+  const zero = await page.evaluate(async () => {
+    const T = window.KeywordService.KeywordTracker;
+    T.saveTrackedKeywords([{ keyword: 'k', position: 4, searchVolume: 2400, difficulty: 38 }]);
+    window.ApiConnector.DataForSEO.getKeywordMetrics =
+      async () => [{ keyword: 'k', search_volume: 0, keyword_difficulty: 0 }];
+    await T.refreshRankings();
+    return T.getTrackedKeywords()[0];
+  });
+  check('a measured volume of 0 replaces the old value rather than being ignored',
+    zero.searchVolume === 0);
+
   /* ── 4. Refresh Rankings is no longer silent ──────────────────────────── */
   console.log('\n──── refresh rankings reports what happened ────');
 
@@ -212,19 +288,21 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
   const refresh = await page.evaluate(async () => {
     const T = window.KeywordService.KeywordTracker;
     T.saveTrackedKeywords([{ keyword: 'z', position: null, searchVolume: 10, difficulty: null }]);
-    // No provider configured — the common case.
+    // No provider configured at all — the common case. (Cleared explicitly:
+    // the previous block installed one.)
+    delete window.ApiConnector;
     const noProvider = await T.refreshRankings();
 
     // A provider that answers.
-    window.ApiConnector = { SEOTools: { dataforseo: {
+    window.ApiConnector = { DataForSEO: {
       isAvailable: () => true,
       getRankings: async () => [{ keyword: 'z', position: 7 }],
-    } } };
+    } };
     const worked = await T.refreshRankings();
     const after = T.getTrackedKeywords()[0];
 
     // A provider that fails.
-    window.ApiConnector.SEOTools.dataforseo.getRankings = async () => { throw new Error('quota exceeded'); };
+    window.ApiConnector.DataForSEO.getRankings = async () => { throw new Error('quota exceeded'); };
     const broke = await T.refreshRankings();
 
     return { noProvider, worked, after, broke };

@@ -36,6 +36,32 @@ with nothing behind it, next to progress text reading "Meta tags analyzed".
 It now goes through `/api/pagespeed` like every other SEO tool, and a failed
 scan shows no score at all — just what failed and why.
 
+## The third bug: the provider was reachable all along
+
+`api/integration.js` is a working server-side proxy for Ahrefs, Semrush and
+DataForSEO, holding the credentials in environment variables — the only
+correct place for them. But every client-side `isAvailable()` decided whether
+a provider was usable by looking for those same credentials in `window`
+config, where they must never appear. So in a correctly configured deployment
+the check was always false, the working proxy was never called, and the UI
+reported "no ranking provider connected" on an account that was paying for
+one.
+
+Underneath that sat a second fault it was hiding. There are two DataForSEO
+objects on `ApiConnector` and they are not the same shape:
+`SEOTools.dataforseo` exposes `isAvailable`/`getSerpResults`/`getKeywordData`,
+while `getRankings` and `getKeywordMetrics` live on the top-level
+`ApiConnector.DataForSEO`. Three call sites in `keyword-service.js` asked
+`SEOTools.dataforseo` for `getRankings`/`getKeywordMetrics`, which would have
+thrown "not a function" — but `isAvailable()` was false, so execution never
+reached the broken call. Fixing either bug alone would have surfaced the
+other.
+
+`/api/integration` now answers a `GET` capability probe with booleans (never
+values), the connector caches it and `isAvailable()` reads the cache while
+staying synchronous, and both call paths resolve the module that actually has
+the method.
+
 ## Harness note
 
 `KeywordTracker` persists to `localStorage`, which throws a `SecurityError` on

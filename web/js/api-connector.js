@@ -93,6 +93,59 @@
     }
   }
 
+  // ---- Server-side credential capability ------------------------------------
+  //
+  // /api/integration proxies Ahrefs, Semrush and DataForSEO using credentials
+  // held in server environment variables — which is the only correct place for
+  // them. But every isAvailable() below decided whether a provider was usable
+  // by looking for those same credentials in window config, where they must
+  // never appear. So in any correctly configured deployment the check was
+  // false, the working proxy was never called, and the UI told customers "no
+  // ranking provider is connected" on accounts that were paying for one.
+  //
+  // The browser cannot know what the server holds, so it asks. The probe
+  // returns booleans only and is cached for the page's lifetime; isAvailable()
+  // stays synchronous, reading the cached answer, so no caller has to change.
+
+  var serverCaps = null;          // null = not asked yet
+  var serverCapsPromise = null;
+  var SERVER_CAPS_KEY = 'audema-integration-caps';
+
+  try {
+    var cached = sessionStorage.getItem(SERVER_CAPS_KEY);
+    if (cached) serverCaps = JSON.parse(cached);
+  } catch (e) { /* private mode, or storage disabled — just re-probe */ }
+
+  function refreshServerCapabilities() {
+    if (serverCapsPromise) return serverCapsPromise;
+    serverCapsPromise = fetch('/api/integration', { method: 'GET' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        serverCaps = (data && data.configured) || {};
+        try { sessionStorage.setItem(SERVER_CAPS_KEY, JSON.stringify(serverCaps)); } catch (e) {}
+        return serverCaps;
+      })
+      .catch(function() {
+        // A failed probe is not evidence that nothing is configured, so it is
+        // NOT cached as {} — the next call tries again.
+        serverCapsPromise = null;
+        return null;
+      });
+    return serverCapsPromise;
+  }
+
+  /** True only once the server has confirmed it holds this credential. */
+  function serverHasCredential(service) {
+    if (serverCaps === null) {
+      refreshServerCapabilities();   // warm it for the next call
+      return false;
+    }
+    return !!serverCaps[service];
+  }
+
+  // Probe once at load so the first isAvailable() of the page has an answer.
+  refreshServerCapabilities();
+
   // ---- Fetch with retry + exponential backoff ----
 
   function wait(ms) {
@@ -824,7 +877,11 @@
       }
 
       function isAvailable() {
-        return !!getApiToken();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return !!getApiToken() || serverHasCredential('ahrefs');
       }
 
       function ahrefsFetch(endpoint, params, cacheKeyStr, ttl) {
@@ -890,7 +947,11 @@
       }
 
       function isAvailable() {
-        return !!getApiKey();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return !!getApiKey() || serverHasCredential('semrush');
       }
 
       function semrushFetch(params, cacheKeyStr, ttl) {
@@ -949,7 +1010,11 @@
       }
 
       function isAvailable() {
-        return apiEnabled('seo.dataforseo') && !!getLogin() && !!getPassword();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return (!!getLogin() && !!getPassword()) || serverHasCredential('dataforseo');
       }
 
       function authHeader() {
@@ -1023,7 +1088,11 @@
     }
 
     function isAvailable() {
-      return (apiEnabled('dataforseo') || apiEnabled('seo.dataforseo')) && !!getLogin() && !!getPassword();
+      // A credential held server-side in an env var is the correct
+      // setup and the only one a deployment should use; a client-side
+      // value stays supported for a self-serve key entered in the
+      // project wizard. Either makes the provider usable.
+      return (!!getLogin() && !!getPassword()) || serverHasCredential('dataforseo');
     }
 
     function authHeader() {

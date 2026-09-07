@@ -94,9 +94,37 @@ async function callResend(endpoint, params, method, body) {
 
 const SERVICES = { ahrefs: callAhrefs, semrush: callSemrush, dataforseo: callDataForSEO, mailchimp: callMailchimp, resend: callResend };
 
+/**
+ * Which services actually have credentials on the server.
+ *
+ * The browser cannot answer this for itself. Every client-side isAvailable()
+ * used to decide by looking for the credentials in window config — but these
+ * are server secrets that must never be shipped to a page, so that check could
+ * only ever be false in a correctly configured deployment. The result was that
+ * this proxy, which works, was permanently gated off, and the UI reported "no
+ * provider connected" on an account that had DataForSEO paid for and wired up.
+ *
+ * Booleans only. Never the values, never a partial value, never the length.
+ */
+function credentialStatus() {
+  return {
+    ahrefs:     !!process.env.AHREFS_API_KEY,
+    semrush:    !!process.env.SEMRUSH_API_KEY,
+    dataforseo: !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD),
+    mailchimp:  !!process.env.MAILCHIMP_API_KEY,
+    resend:     !!process.env.RESEND_API_KEY,
+  };
+}
+
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
+  // Capability probe. Cheap, no upstream call, safe to hit on page load.
+  if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.status(200).json({ configured: credentialStatus() });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

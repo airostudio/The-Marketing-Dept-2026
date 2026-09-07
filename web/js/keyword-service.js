@@ -37,6 +37,64 @@
         return typeof position === 'number' && isFinite(position) && position > 0;
     }
 
+    /**
+     * The DataForSEO module that actually has ranking and metric methods.
+     *
+     * There are two DataForSEO objects on ApiConnector and they are not the
+     * same shape. ApiConnector.SEOTools.dataforseo exposes only isAvailable,
+     * getSerpResults and getKeywordData; getRankings and getKeywordMetrics
+     * live on the top-level ApiConnector.DataForSEO. This file called them on
+     * the SEOTools one, so with credentials configured it would have thrown
+     * "getRankings is not a function" — and without them isAvailable() was
+     * false, so it never got that far and the broken call was never reached.
+     * One bug hid the other.
+     *
+     * Returns null when no module can do the job, so callers can say "no
+     * provider" rather than crash.
+     */
+    function rankingProvider() {
+        const conn = window.ApiConnector;
+        if (!conn) return null;
+        const candidates = [conn.DataForSEO, conn.SEOTools && conn.SEOTools.dataforseo];
+        for (const m of candidates) {
+            if (m && typeof m.isAvailable === 'function' && m.isAvailable()
+                  && typeof m.getRankings === 'function') {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * First real number among the candidates, else null.
+     *
+     * Deliberately not `a || b || fallback`: DataForSEO legitimately returns 0
+     * for a keyword with no measurable search volume, and `||` would discard
+     * that real zero and fall through to the previous value — so a keyword
+     * would keep showing a stale volume the provider had just contradicted.
+     * A missing field is null; a measured 0 is 0.
+     */
+    function pickNumber(...candidates) {
+        for (const c of candidates) {
+            if (typeof c === 'number' && isFinite(c)) return c;
+        }
+        return null;
+    }
+
+    /** The module that can return search volume / difficulty, or null. */
+    function metricsProvider() {
+        const conn = window.ApiConnector;
+        if (!conn) return null;
+        const candidates = [conn.DataForSEO, conn.SEOTools && conn.SEOTools.dataforseo];
+        for (const m of candidates) {
+            if (m && typeof m.isAvailable === 'function' && m.isAvailable()
+                  && typeof m.getKeywordMetrics === 'function') {
+                return m;
+            }
+        }
+        return null;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // KEYWORD EXTRACTION & ANALYSIS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -401,12 +459,18 @@
 
             this.saveTrackedKeywords([...current, ...uniqueNew]);
 
-            // Asynchronously fetch real metrics from API
-            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable() && uniqueNew.length > 0) {
+            // Asynchronously fetch real metrics from whichever module can
+            // actually supply them (see rankingProvider/metricsProvider — the
+            // two DataForSEO objects on ApiConnector expose different methods).
+            const metricsApi = metricsProvider();
+            const rankingApi = rankingProvider();
+            if ((metricsApi || rankingApi) && uniqueNew.length > 0) {
                 const kwStrings = uniqueNew.map(function(k) { return k.keyword; });
                 Promise.all([
-                    window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(kwStrings).catch(function() { return null; }),
-                    window.ApiConnector.SEOTools.dataforseo.getRankings(kwStrings).catch(function() { return null; })
+                    metricsApi ? metricsApi.getKeywordMetrics(kwStrings).catch(function() { return null; })
+                               : Promise.resolve(null),
+                    rankingApi ? rankingApi.getRankings(kwStrings).catch(function() { return null; })
+                               : Promise.resolve(null)
                 ]).then(function(apiResults) {
                     const metrics = apiResults[0];
                     const rankings = apiResults[1];
@@ -417,8 +481,15 @@
                             const ranking = rankings && rankings.find(function(r) { return r.keyword === k.keyword; });
                             if (metric || ranking) {
                                 return Object.assign({}, k, {
-                                    searchVolume: (metric && (metric.searchVolume || metric.search_volume)) || k.searchVolume,
-                                    difficulty: (metric && (metric.difficulty || metric.keyword_difficulty)) || k.difficulty,
+                                    // pickNumber, not ||: a provider-reported
+                                    // volume of 0 is a real answer and must not
+                                    // fall through to the previous value.
+                                    searchVolume: metric
+                                        ? pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume)
+                                        : k.searchVolume,
+                                    difficulty: metric
+                                        ? pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty)
+                                        : k.difficulty,
                                     cpc: (metric && metric.cpc) || k.cpc,
                                     position: (ranking && ranking.position) || k.position,
                                     lastUpdated: new Date().toISOString()
@@ -483,14 +554,24 @@
                 return { ok: false, updated: 0, checked: 0, reason: 'no_keywords' };
             }
 
-            const provider = window.ApiConnector?.SEOTools?.dataforseo;
-            if (!provider || !provider.isAvailable || !provider.isAvailable()) {
+            const provider = rankingProvider();
+            if (!provider) {
                 return { ok: false, updated: 0, checked: keywords.length, reason: 'no_provider' };
             }
 
-            let rankings;
+            const names = keywords.map(k => k.keyword);
+            let rankings, metrics = null;
             try {
-                rankings = await provider.getRankings(keywords.map(k => k.keyword));
+                // Volume and difficulty are fetched alongside the positions, so
+                // one refresh fills every column the table shows rather than
+                // leaving two of them permanently blank.
+                const metricsApi = metricsProvider();
+                const [r, m] = await Promise.all([
+                    provider.getRankings(names),
+                    metricsApi ? metricsApi.getKeywordMetrics(names).catch(() => null) : Promise.resolve(null),
+                ]);
+                rankings = r;
+                metrics = m;
             } catch (e) {
                 return {
                     ok: false, updated: 0, checked: keywords.length,
@@ -506,11 +587,27 @@
             const current = this.getTrackedKeywords();
             const next = current.map(k => {
                 const ranking = rankings.find(r => r.keyword === k.keyword);
-                if (!ranking || !ranking.position) return k;
+                const metric = Array.isArray(metrics)
+                    ? metrics.find(m => m.keyword === k.keyword) : null;
+                if (!ranking || !ranking.position) {
+                    // Metrics can arrive for a keyword that has no position yet.
+                    if (!metric) return k;
+                    return Object.assign({}, k, {
+                        searchVolume: pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume),
+                        difficulty: pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty),
+                        lastUpdated: new Date().toISOString(),
+                    });
+                }
                 updatedCount++;
                 return Object.assign({}, k, {
                     previousPosition: k.position,
                     position: ranking.position,
+                    searchVolume: metric
+                        ? pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume)
+                        : k.searchVolume,
+                    difficulty: metric
+                        ? pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty)
+                        : k.difficulty,
                     // The first real ranking for a keyword has nothing to
                     // compare against. Comparing to a null previous position
                     // made `5 > null` true, so every keyword's first ever
@@ -725,16 +822,23 @@
                 ? seedKeywords
                 : seedKeywords.split(',').map(k => k.trim()).filter(k => k);
 
-            // Try real API data from DataForSEO
-            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable()) {
+            // Try real API data from whichever module actually exposes
+            // getKeywordMetrics — SEOTools.dataforseo does not have it, so this
+            // call named a function that was never there.
+            const metricsApi = metricsProvider();
+            if (metricsApi) {
                 try {
-                    const apiResults = await window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(seeds);
+                    const apiResults = await metricsApi.getKeywordMetrics(seeds);
                     if (apiResults && apiResults.length > 0) {
                         const mapped = apiResults.map(r => ({
                             keyword: r.keyword,
                             type: r.type || 'api',
-                            searchVolume: r.searchVolume || r.search_volume || 0,
-                            difficulty: r.difficulty || r.keyword_difficulty || 0,
+                            // pickNumber: a provider-reported 0 is a measurement,
+                            // and `|| 0` would coerce a missing field to the same
+                            // thing, making "no data" indistinguishable from
+                            // "measured as zero".
+                            searchVolume: pickNumber(r.searchVolume, r.search_volume),
+                            difficulty: pickNumber(r.difficulty, r.keyword_difficulty),
                             cpc: r.cpc || '0.00',
                             intent: r.intent || this.determineSearchIntent(r.keyword, r.type || 'api'),
                             trend: r.trend || 'stable',
