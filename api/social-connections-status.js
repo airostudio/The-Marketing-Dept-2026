@@ -14,12 +14,19 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Which platforms are connected is an account fact, not public information.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const connected = {
     'Meta/Facebook': !!(process.env.META_PAGE_ID && process.env.META_PAGE_ACCESS_TOKEN),

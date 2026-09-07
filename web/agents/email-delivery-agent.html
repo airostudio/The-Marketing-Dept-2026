@@ -633,7 +633,7 @@
     async function loadConnectionStatus() {
         const row = document.getElementById('connStatusRow');
         try {
-            const res = await fetch('/api/social-connections-status');
+            const res = await fetch('/api/social-connections-status', { headers: await window.sendAuthHeaders() });
             const status = await res.json();
             const platforms = ['LinkedIn', 'Meta/Facebook', 'Instagram', 'Twitter/X', 'TikTok'];
             row.innerHTML = platforms.map(p => {
@@ -712,7 +712,7 @@
         try {
             const res = await fetch('/api/publish-social-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platform: post.platform, headline: post.headline, body: post.body,
                     cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '',

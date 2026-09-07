@@ -11,6 +11,8 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -57,12 +59,16 @@ const INSTRUCTION_GUIDANCE = {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+
+  // Spends the account's own API credits, so it has to know whose they are.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const { post, instruction, businessProfile = {}, brand = {} } = req.body || {};
   if (!post || !instruction) return res.status(400).json({ error: 'post and instruction are required' });

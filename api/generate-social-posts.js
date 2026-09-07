@@ -28,6 +28,8 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX    = 10;
 const rateBuckets       = new Map();
@@ -201,12 +203,16 @@ function renderPostsAsMarkdown(planNote, posts) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+
+  // Spends the account's own API credits, so it has to know whose they are.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });

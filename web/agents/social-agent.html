@@ -921,7 +921,7 @@ async function generateCardImageQuick(id) {
     try {
         const res = await fetch('/api/render-social-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -978,7 +978,7 @@ async function regeneratePost(id) {
             replacement = normalizeAdVariant(data.variants[0], idx);
         } else {
             const res = await fetch('/api/generate-social-posts', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], contentGoal: document.getElementById('contentGoal')?.value || 'Engagement',
                     topic: (document.getElementById('topic')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this distinctly different from: "${original.hook}"` : `\n\nMake this distinctly different from: "${original.hook}"`),
@@ -1566,7 +1566,7 @@ class SocialAgent {
         try {
             const res = await fetch('/api/generate-social-posts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ platforms: [platform], contentGoal, topic, frequency, postCount, businessContext }),
             });
             const data = await res.json();

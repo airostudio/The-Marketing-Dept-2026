@@ -371,6 +371,7 @@
     <script src="../js/supabase.min.js"></script>
     <script src="/js/config.js"></script>
     <script src="/js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/project-service.js"></script>
     <script src="/js/marketing-store.js"></script>
@@ -400,23 +401,43 @@
             return n.toLocaleString();
         }
 
-        /* ── KPI Rendering ── */
+        /* ── KPI Rendering ──
+           A number we did not measure is not a zero, and a change we never
+           computed is not "▲ 0.0%". Both render as a dash with a plain note,
+           so nobody reads a green up-arrow off a month of history that this
+           dashboard has never stored. Pass null for anything unmeasured. ── */
+        function measured(v) { return typeof v === 'number' && isFinite(v); }
+
+        function setValue(id, value, format) {
+            document.getElementById(id).textContent = measured(value) ? format(value) : '--';
+        }
+
+        function setChange(id, change, decimals, note) {
+            var el = document.getElementById(id);
+            if (!measured(change)) {
+                el.innerHTML = note || 'No previous period to compare';
+                el.className = 'kpi-change';
+                return;
+            }
+            el.innerHTML = (change >= 0 ? '&#9650; ' : '&#9660; ') +
+                Math.abs(change).toFixed(decimals) + '% vs last month';
+            el.className = 'kpi-change ' + (change >= 0 ? 'up' : 'down');
+        }
+
         function renderKPIs(data) {
-            document.getElementById('kpi-followers').textContent = formatNumber(data.totalFollowers);
-            document.getElementById('kpi-followers-change').innerHTML = (data.followersChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.followersChange).toFixed(1) + '% vs last month';
-            document.getElementById('kpi-followers-change').className = 'kpi-change ' + (data.followersChange >= 0 ? 'up' : 'down');
+            setValue('kpi-followers', data.totalFollowers, formatNumber);
+            setChange('kpi-followers-change', data.followersChange, 1);
 
-            document.getElementById('kpi-engagement').textContent = data.engagementRate.toFixed(2) + '%';
-            document.getElementById('kpi-engagement-change').innerHTML = (data.engagementChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.engagementChange).toFixed(2) + '% vs last month';
-            document.getElementById('kpi-engagement-change').className = 'kpi-change ' + (data.engagementChange >= 0 ? 'up' : 'down');
+            setValue('kpi-engagement', data.engagementRate, function(v) { return v.toFixed(2) + '%'; });
+            setChange('kpi-engagement-change', data.engagementChange, 2);
 
-            document.getElementById('kpi-traffic').textContent = formatNumber(data.socialTraffic);
-            document.getElementById('kpi-traffic-change').innerHTML = (data.trafficChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.trafficChange).toFixed(1) + '% vs last month';
-            document.getElementById('kpi-traffic-change').className = 'kpi-change ' + (data.trafficChange >= 0 ? 'up' : 'down');
+            setValue('kpi-traffic', data.socialTraffic, formatNumber);
+            setChange('kpi-traffic-change', data.trafficChange, 1);
 
-            document.getElementById('kpi-sov').textContent = data.shareOfVoice.toFixed(1) + '%';
-            document.getElementById('kpi-sov-change').innerHTML = (data.sovChange >= 0 ? '&#9650; ' : '&#9660; ') + Math.abs(data.sovChange).toFixed(1) + '% vs last month';
-            document.getElementById('kpi-sov-change').className = 'kpi-change ' + (data.sovChange >= 0 ? 'up' : 'down');
+            // Share of voice needs competitor mention volume, which nothing in
+            // this app collects. Saying so beats printing a confident 0.0%.
+            setValue('kpi-sov', data.shareOfVoice, function(v) { return v.toFixed(1) + '%'; });
+            setChange('kpi-sov-change', data.sovChange, 1, 'Not tracked &mdash; needs competitor monitoring');
         }
 
         /* ── Platform Cards ── */
@@ -424,10 +445,13 @@
             const keys = ['fb', 'ig', 'tw', 'li', 'tt', 'yt'];
             keys.forEach(function(key) {
                 var p = platforms[key] || {};
-                document.getElementById(key + '-followers').textContent = formatNumber(p.followers || 0);
-                document.getElementById(key + '-engagement').textContent = (p.engagement || 0).toFixed(2) + '%';
-                document.getElementById(key + '-growth').textContent = ((p.growth || 0) >= 0 ? '+' : '') + (p.growth || 0).toFixed(1) + '%';
-                document.getElementById(key + '-reach').textContent = formatNumber(p.reach || 0);
+                // A platform that reported nothing shows a dash, not a zero —
+                // "we have no figure" and "the figure is zero" are different
+                // facts and only one of them is true here.
+                setValue(key + '-followers', p.followers, formatNumber);
+                setValue(key + '-engagement', p.engagement, function(v) { return v.toFixed(2) + '%'; });
+                setValue(key + '-growth', p.growth, function(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; });
+                setValue(key + '-reach', p.reach, formatNumber);
             });
         }
 
@@ -632,7 +656,7 @@
             try {
                 var res = await fetch('/api/publish-social-post', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ platform: post.platform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '' }),
                 });
                 var result = await res.json();
@@ -696,7 +720,7 @@
         async function refreshData() {
             var svc = window.SocialMediaService;
             if (!svc) {
-                renderKPIs({ totalFollowers: 0, followersChange: 0, engagementRate: 0, engagementChange: 0, socialTraffic: 0, trafficChange: 0, shareOfVoice: 0, sovChange: 0 });
+                renderKPIs({ totalFollowers: null, followersChange: null, engagementRate: null, engagementChange: null, socialTraffic: null, trafficChange: null, shareOfVoice: null, sovChange: null });
                 renderPlatforms({ fb: {}, ig: {}, tw: {}, li: {}, tt: {}, yt: {} });
                 document.getElementById('engagement-chart').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);"><p>Connect your social accounts to see engagement trends</p></div>';
                 document.getElementById('trending-grid').innerHTML = '<div class="empty-state" style="padding:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;">No trending topics tracked yet</div>';
@@ -707,21 +731,31 @@
             var connected = svc.getConnectedPlatforms().filter(function(c) { return c.connected; });
             var platforms = { fb: {}, ig: {}, tw: {}, li: {}, tt: {}, yt: {} };
             var totalFollowers = 0;
+            var knownFollowers = 0;
             connected.forEach(function(c) {
                 var key = PLATFORM_KEY_MAP[c.platform];
                 if (!key) return;
                 var stats = svc.getPlatformStats(c.platform);
-                platforms[key] = { followers: stats.followers, engagement: stats.engagementRate, growth: 0, reach: stats.reach };
-                totalFollowers += stats.followers;
+                platforms[key] = { followers: stats.followers, engagement: stats.engagementRate, growth: stats.followerGrowth, reach: stats.reach };
+                if (typeof stats.followers === 'number' && isFinite(stats.followers)) {
+                    totalFollowers += stats.followers;
+                    knownFollowers++;
+                }
             });
             renderPlatforms(platforms);
 
             var eng = svc.getEngagementMetrics();
+            var engRate = parseFloat(eng.totals.engagementRate);
             renderKPIs({
-                totalFollowers: totalFollowers, followersChange: 0,
-                engagementRate: parseFloat(eng.totals.engagementRate) || 0, engagementChange: 0,
-                socialTraffic: eng.totals.clicks || 0, trafficChange: 0,
-                shareOfVoice: 0, sovChange: 0
+                // Followers only counts platforms that actually reported a
+                // number; if none did, that is "unknown", not "zero followers".
+                totalFollowers: knownFollowers ? totalFollowers : null,
+                engagementRate: isFinite(engRate) ? engRate : null,
+                socialTraffic: eng.postCount ? (eng.totals.clicks || 0) : null,
+                // No month-over-month history is stored anywhere, so there is
+                // nothing to compare against. Left null deliberately.
+                followersChange: null, engagementChange: null,
+                trafficChange: null, shareOfVoice: null, sovChange: null
             });
 
             document.getElementById('engagement-chart').innerHTML = connected.length
