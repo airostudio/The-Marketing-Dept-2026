@@ -426,6 +426,7 @@
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
 <script src="../js/experiments-store.js"></script>
+<script src="../js/cro-backlog-store.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-characters.js"></script>
@@ -791,11 +792,52 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     // alongside anything they added — a starter backlog that was never theirs,
     // indistinguishable from their work once the label scrolled past. The
     // table now starts genuinely empty and says what to put in it.
-    const ICE_KEY = 'cro_ice_tests';
-    let iceTests = [];
-    try { iceTests = JSON.parse(localStorage.getItem(ICE_KEY) || '[]') || []; } catch { iceTests = []; }
+    // The backlog is a team's shared, prioritised list — and each row can be
+    // dispatched to Scotty as a mission — so it belongs in the account, next
+    // to the experiments it feeds. It used to be localStorage only while the
+    // experiments beside it on this same page were already cloud-backed.
+    let iceTests = window.CroBacklogStore ? window.CroBacklogStore.list() : [];
 
-    function saveIce() { localStorage.setItem(ICE_KEY, JSON.stringify(iceTests)); }
+    function saveIce() {
+        if (!window.CroBacklogStore) return;
+        window.CroBacklogStore.save(iceTests).then(ok => {
+            if (!ok) renderIceSyncState({ synced: false });
+        });
+    }
+
+    function renderIceSyncState(state) {
+        let el = document.getElementById('iceSyncState');
+        if (!el) {
+            const body = document.getElementById('iceBody');
+            const table = body && body.closest('table');
+            if (!table || !table.parentNode) return;
+            el = document.createElement('div');
+            el.id = 'iceSyncState';
+            el.style.cssText = 'font-size:11px;padding:5px 9px;border-radius:7px;margin-top:8px;line-height:1.55;';
+            table.parentNode.insertBefore(el, table.nextSibling);
+        }
+        if (state.error) {
+            el.style.cssText += ';background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.32);color:#fca5a5;';
+            el.textContent = 'Saved on this device only — could not reach your account: ' + state.error;
+            el.style.display = '';
+            return;
+        }
+        if (state.synced) { el.style.display = 'none'; return; }
+        el.style.cssText += ';background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.26);color:#fbbf24;';
+        el.textContent = 'Sign in to share this backlog with your team.';
+        el.style.display = '';
+    }
+
+    if (window.CroBacklogStore) {
+        window.CroBacklogStore.setOnSyncChange(renderIceSyncState);
+        // Render from the cache first so the table is never blank, then
+        // reconcile with the account and re-render against what it holds.
+        window.CroBacklogStore.syncFromCloud().then(result => {
+            iceTests = window.CroBacklogStore.list();
+            renderIce();
+            renderIceSyncState({ synced: result.synced });
+        });
+    }
 
     function renderIce() {
         const sorted = [...iceTests].sort((a,b) => (b.impact*b.confidence*b.ease) - (a.impact*a.confidence*a.ease));

@@ -181,6 +181,47 @@ const PAGE = 'web/agents/cro-agent.html';
   check('the Convert.com proxy identifies its caller before spending',
     /requireUser\(req, res\)/.test(read('api/convert-experiments.js')));
 
+  /* ── 7. The backlog is shared, not stranded on one browser ───────────── */
+  console.log('\n──── the backlog lives in the account ────');
+
+  const backlogSql = read('supabase-cro-backlog.sql');
+  const backlogStore = read('web/js/cro-backlog-store.js');
+
+  check('there is a table for the backlog',
+    /CREATE TABLE IF NOT EXISTS cro_backlog_tests/.test(backlogSql));
+  check('it is row-level secured to its owner',
+    /ENABLE ROW LEVEL SECURITY/.test(backlogSql) && /auth\.uid\(\) = user_id/.test(backlogSql));
+  check('a teammate on a shared profile sees the same list',
+    /intelligence_profile_members/.test(backlogSql));
+  check('ICE scores are constrained to 1-10 in the database too',
+    /impact\s+INTEGER[^,]*BETWEEN 1 AND 10/.test(backlogSql));
+  check('re-saving a test updates it rather than duplicating',
+    /UNIQUE \(user_id, client_id\)/.test(backlogSql));
+  check('the migration is idempotent and in the installer',
+    /DROP POLICY IF EXISTS/.test(backlogSql) &&
+    /cro_backlog_tests/.test(read('supabase-install-all.sql')));
+
+  check('the page no longer writes the backlog straight to localStorage',
+    !/localStorage\.setItem\(ICE_KEY/.test(page) && !/const ICE_KEY/.test(page));
+  check('and loads the store',
+    /cro-backlog-store\.js/.test(read(PAGE)));
+  check('a score is clamped before it reaches the constrained column',
+    /Math\.min\(10, Math\.max\(1, n\)\)/.test(backlogStore));
+  check('an existing local backlog is lifted up once',
+    /function migrateLocal\(/.test(backlogStore) && /MIGRATED_FLAG/.test(backlogStore));
+  check('and the page reconciles with the account on load',
+    /CroBacklogStore\.syncFromCloud\(\)/.test(page));
+  check('and never overwrites a backlog the team built elsewhere',
+    /cloud already has records/.test(backlogStore));
+  check('deleting on one device removes it from the account',
+    /\.delete\(\)/.test(backlogStore) && /not\('client_id', 'in'/.test(backlogStore));
+  check('an offline project id is not sent into a uuid column',
+    /startsWith\('local_'\)/.test(backlogStore));
+  check('a failed save is surfaced rather than swallowed',
+    /Saved on this device only/.test(page));
+  check('and being signed out is stated rather than looking synced',
+    /Sign in to share this backlog/.test(page));
+
   /* ── 6. In a browser ──────────────────────────────────────────────────── */
   console.log('\n──── the real pages, in a real browser ────');
 
@@ -190,7 +231,10 @@ const PAGE = 'web/agents/cro-agent.html';
     if (b.croErrors.length) console.log('    ', b.croErrors);
     check('the ICE table starts empty for a new customer',
       /No tests in the backlog yet/.test(b.iceBody));
-    check('and nothing was written to storage on load', b.iceStored === null);
+    check('the backlog store is wired up at runtime',
+      b.backlogApi.every(t => t === 'function'));
+    check('and signed out, the table says the backlog is not shared yet',
+      /Sign in to share this backlog/.test(b.iceSync || ''));
 
     check('the checklist page loads with no JavaScript error', b.clErrors.length === 0);
     if (b.clErrors.length) console.log('    ', b.clErrors);
@@ -246,7 +290,11 @@ async function inBrowser() {
   await cro.goto(base + '/agents/cro-agent.html', { waitUntil: 'domcontentloaded' });
   await cro.waitForTimeout(1200);
   const iceBody = await cro.evaluate(() => (document.getElementById('iceBody') || {}).textContent || '');
-  const iceStored = await cro.evaluate(() => localStorage.getItem('cro_ice_tests'));
+  const backlogApi = await cro.evaluate(() =>
+    ['list', 'save', 'syncFromCloud', 'migrateLocal', 'getSyncState', 'setOnSyncChange']
+      .map(f => typeof window.CroBacklogStore[f]));
+  const iceSync = await cro.evaluate(() =>
+    (document.getElementById('iceSyncState') || {}).textContent || '');
 
   const clErrors = [];
   const cl = await br.newPage();
@@ -278,7 +326,7 @@ async function inBrowser() {
     document.getElementById('exportDropdown').classList.contains('show'));
 
   return {
-    croErrors, iceBody, iceStored,
+    croErrors, iceBody, backlogApi, iceSync,
     clErrors, clSections: shape.sections, clItems: shape.items,
     clAfterCount: after.count, clTotal: after.total, clOffset: after.offset,
     clSection: after.section, clPersisted: persisted,
