@@ -1127,7 +1127,15 @@
 <div class="save-toast" id="saveToast">✓ Saved</div>
 
 <script src="../js/marked.min.js"></script>
+<!-- This page sends email through /api/send-email, which now identifies the
+     sending account from the caller's session. It had no auth stack at all,
+     so the send would have had no identity to present. Standard load order:
+     supabase.min.js → config.js → supabase-client.js → auth.js. -->
+<script src="/js/supabase.min.js"></script>
 <script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/send-auth.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/claude-service.js"></script>
 <script>
@@ -1612,7 +1620,7 @@ async function dispatchEmail() {
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ to, subject, html, text: rawBody, prospectId }),
     });
     const data = await res.json();

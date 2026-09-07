@@ -282,6 +282,7 @@
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
@@ -894,7 +895,7 @@
         try {
             const res = await fetch('/api/send-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     to: item.to, subject: item.subject,
                     html: plainTextToHtml(item.body), text: item.body,

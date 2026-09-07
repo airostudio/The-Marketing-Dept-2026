@@ -1,0 +1,38 @@
+/**
+ * send-auth.js — attach the caller's session to a send request.
+ *
+ * api/send-campaign.js and api/send-email.js used to accept anyone. They now
+ * identify the sending account from the caller's own Supabase access token,
+ * which means every client call site has to carry it. This is that one line,
+ * in one place, so a new call site cannot quietly omit it and a future change
+ * to how sessions are read touches a single function.
+ *
+ * Exposes: window.sendAuthHeaders()
+ */
+(function () {
+  'use strict';
+
+  /**
+   * Content-Type plus Authorization when a session is available.
+   *
+   * Returns without the header rather than throwing when there is no session:
+   * the server is the thing that must refuse an unauthenticated send, and a
+   * client-side throw here would just produce a worse error message than the
+   * server's own "Sign in to send".
+   */
+  window.sendAuthHeaders = async function sendAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    try {
+      if (window.Supabase && window.Supabase.ready) await window.Supabase.ready();
+      const client = window.Supabase && window.Supabase.getClient && window.Supabase.getClient();
+      const session = client && await client.auth.getSession();
+      const token = session && session.data && session.data.session
+        && session.data.session.access_token;
+      if (token) headers.Authorization = 'Bearer ' + token;
+    } catch (e) {
+      // No session, or the auth client is not loaded on this page. The send
+      // will come back 401 with a message that says what to do.
+    }
+    return headers;
+  };
+})();

@@ -106,6 +106,49 @@ async function flipContactStatus(contactId, status) {
   return ok;
 }
 
+/**
+ * Record the address itself as suppressed, whether or not it is a contact.
+ *
+ * Unsubscribe used to be keyed entirely on contact_id, so a recipient who had
+ * been pasted into an ad-hoc send had nothing to update — clicking the link
+ * recorded nothing at all, while the confirmation page told them they would
+ * not be emailed again. The next send to the same pasted list mailed them.
+ *
+ * The suppression list is keyed on the address, so the promise the page makes
+ * is one the system can actually keep. api/send-campaign.js and
+ * api/send-email.js both check it before every send.
+ */
+async function suppressAddress(contactId, email) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey || !email) return false;
+
+  // Which account is this suppression for? A contact row names it directly.
+  // Without one, fall back to any account that has previously sent to this
+  // address — the send is what created the relationship being ended.
+  let userId = null;
+  if (contactId) {
+    const c = await sbRest(supabaseUrl, serviceKey, 'GET',
+      `/contacts?id=eq.${encodeURIComponent(contactId)}&select=user_id&limit=1`);
+    if (c.ok && c.data && c.data[0]) userId = c.data[0].user_id;
+  }
+  if (!userId) {
+    const s = await sbRest(supabaseUrl, serviceKey, 'GET',
+      `/campaign_sends?email=eq.${encodeURIComponent(email)}&select=user_id&order=created_at.desc&limit=1`);
+    if (s.ok && s.data && s.data[0]) userId = s.data[0].user_id;
+  }
+  if (!userId) return false;
+
+  const res = await sbRest(supabaseUrl, serviceKey, 'POST',
+    '/email_suppressions?on_conflict=user_id,email', {
+      user_id: userId,
+      email: String(email).trim().toLowerCase(),
+      reason: 'unsubscribed',
+      source: 'unsubscribe link',
+    });
+  return res.ok || res.status === 409;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -126,10 +169,19 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     await flipContactStatus(contactId, 'unsubscribed');
-    return res.status(200).send(page('Unsubscribed', `
-      <h1>You're unsubscribed</h1>
-      <p><strong>${escapeHtml(email)}</strong> won't receive marketing email from us again.</p>
-    `));
+    const suppressed = await suppressAddress(contactId, email);
+
+    // Only promise what was actually recorded. If neither the contact status
+    // nor the suppression list could be written, saying "you won't receive
+    // email from us again" would be a claim about something that did not
+    // happen — and about a legal right.
+    return res.status(200).send(page('Unsubscribed', suppressed
+      ? `<h1>You're unsubscribed</h1>
+         <p><strong>${escapeHtml(email)}</strong> won't receive marketing email from us again.</p>`
+      : `<h1>We couldn't complete that</h1>
+         <p>Something went wrong recording the opt-out for <strong>${escapeHtml(email)}</strong>,
+         so we can't promise it has taken effect. Please reply to any of our messages and
+         we'll remove you by hand.</p>`));
   }
 
   const actionUrl = `/api/unsubscribe?c=${encodeURIComponent(contactId || '-')}&e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;

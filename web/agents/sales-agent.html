@@ -15,6 +15,7 @@
     <script src="../js/intelligence-engine.js"></script>
     <script src="../js/supabase.min.js"></script>
     <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
     <script src="../js/intelligence-profiles.js"></script>
     <script src="../js/site-switcher.js"></script>
     <script src="../js/contacts-store.js"></script>
@@ -1802,7 +1803,7 @@ async function sendFromPipeline(prospectId) {
     try {
         const res = await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ to, subject, html, text, prospectId: String(prospectId) }),
         });
         const data = await res.json();

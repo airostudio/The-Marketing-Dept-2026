@@ -25,13 +25,13 @@
 'use strict';
 
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
+  require('./_lib/send-guard.js');
 
-const DAILY_SEND_LIMIT   = 50;
 const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX     = 10;
 
 const rateBuckets   = new Map();
-let dailySendCount  = 0;
 let dailyWindowDate = new Date().toDateString();
 
 function getClientIp(req) {
@@ -51,29 +51,31 @@ function checkRateLimit(ip) {
   return b.count <= RATE_LIMIT_MAX;
 }
 
-function checkDailyLimit() {
-  const today = new Date().toDateString();
-  if (today !== dailyWindowDate) {
-    dailySendCount  = 0;
-    dailyWindowDate = today;
-  }
-  if (dailySendCount >= DAILY_SEND_LIMIT) return false;
-  dailySendCount++;
-  return true;
-}
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ip = getClientIp(req);
   if (!checkRateLimit(ip))
     return res.status(429).json({ error: 'Too many requests. Slow down.' });
-  if (!checkDailyLimit())
-    return res.status(429).json({ error: `Daily send limit of ${DAILY_SEND_LIMIT} reached. Resets at midnight.` });
+
+  // Same open-relay problem as api/send-campaign.js: this accepted a
+  // recipient, a subject and an HTML body from anyone who could reach the URL
+  // and sent it through the account's Resend key from its verified domain.
+  const auth = await authenticateSender(req);
+  if (auth.error) {
+    const message = {
+      server_unconfigured: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.',
+      no_token: 'Sign in to send email.',
+      invalid_token: 'Your session has expired. Sign in again.',
+      auth_unreachable: 'Could not verify your session. Nothing was sent.',
+    }[auth.error] || 'Not authorised.';
+    return res.status(auth.error === 'server_unconfigured' ? 500 : 401).json({ error: message });
+  }
+  const { userId, profile } = auth;
 
   const apiKey    = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;
@@ -92,6 +94,31 @@ module.exports = async function handler(req, res) {
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))
     return res.status(400).json({ error: 'Invalid recipient email address' });
+
+  // Opt-outs apply to one-off sends too. A prospect who unsubscribed from a
+  // campaign must not then receive an individually-drafted follow-up.
+  const supp = await filterSuppressed(userId, [{ to }]);
+  if (!supp.ok) {
+    return res.status(supp.code === 'not_installed' ? 503 : 500)
+      .json({ error: supp.error, code: supp.code });
+  }
+  if (supp.suppressed.length) {
+    return res.status(409).json({
+      error: `${to} has opted out or is undeliverable (${supp.suppressed[0].reason}). Nothing was sent.`,
+      code: 'suppressed',
+    });
+  }
+
+  const quota = await claimQuota(userId, 1, profile);
+  if (!quota.ok) {
+    return res.status(quota.code === 'not_installed' ? 503 : 500)
+      .json({ error: quota.error, code: quota.code });
+  }
+  if (quota.granted <= 0) {
+    return res.status(429).json({
+      error: `Daily send limit of ${quota.cap} reached for this account. Resets at midnight UTC.`,
+    });
+  }
 
   // Every email this endpoint sends gets a compliance footer (unsubscribe/
   // opt-out language + physical mailing address) unless the body already has
@@ -147,17 +174,20 @@ module.exports = async function handler(req, res) {
         id:         data.id,      // Resend email ID for tracking
         to,
         subject,
-        dailySent:  dailySendCount,
-        dailyLimit: DAILY_SEND_LIMIT,
+        dailyLimit: quota.cap,
         ...(warnings.length ? { warnings } : {}),
       });
     }
 
     // Resend error format: { name, message, statusCode }
+    // The quota was claimed before the call, so a failure hands it back —
+    // otherwise a provider outage silently eats the day's allowance.
+    await releaseQuota(userId, 1);
     const errMsg = data.message || data.name || `Resend error ${upstream.status}`;
     return res.status(upstream.status).json({ error: errMsg });
 
   } catch (err) {
+    await releaseQuota(userId, 1);
     return res.status(502).json({ error: err.message });
   }
 };

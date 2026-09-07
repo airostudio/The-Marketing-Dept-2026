@@ -279,7 +279,20 @@ window.ContactsStore = (function () {
 
     const rules = segment.filter_rules || {};
     let q = client.from('contacts').select('*').eq('user_id', userId);
-    q = q.eq('status', rules.status || SENDABLE);
+
+    // Always sendable, whatever the segment's rules say. This was
+    // `rules.status || SENDABLE`, so a segment saved with status
+    // 'unsubscribed' — which createSegment accepts, and which the owner can
+    // set directly on their own row under RLS — returned opted-out people,
+    // and toRecipients handed them straight to the sender. The static branch
+    // above always filtered to sendable; this one did not, and the asymmetry
+    // was invisible because the only UI that creates segments hardcodes
+    // 'subscribed'.
+    //
+    // The server checks this again before every send. Both guards are
+    // deliberate: this one keeps the counts and previews in the UI honest,
+    // and the server one is what actually cannot be gone around.
+    q = q.eq('status', SENDABLE);
     if (rules.tagsAny && rules.tagsAny.length) q = q.overlaps('tags', rules.tagsAny);
     if (rules.tagsAll && rules.tagsAll.length) q = q.contains('tags', rules.tagsAll);
 
