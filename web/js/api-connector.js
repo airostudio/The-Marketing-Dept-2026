@@ -1453,103 +1453,19 @@
   })();
 
   // ---------------------------------------------------------------------------
-  // 9. AI Video Generation — Tavus, HeyGen, Synthesia
+  // 9. AI Video Generation — Seedance 2.0 (server-proxied)
   // ---------------------------------------------------------------------------
 
   var VideoGeneration = (function() {
-    // ----- Tavus API (AI-generated personalized videos) -----
-    var TavusAPI = (function() {
-      var NS = 'tavus';
-
-      function isAvailable() {
-        return apiEnabled('video.tavus');
-      }
-
-      function authHeader() {
-        var apiKey = getConfig('video.tavus.apiKey');
-        if (!apiKey) throw new Error('Tavus API key not configured');
-        return 'Bearer ' + apiKey;
-      }
-
-      function tavusFetch(endpoint, body, cacheKey, ttl) {
-        return safeCall('Tavus.' + endpoint, function() {
-          if (cacheKey) {
-            var cached = cacheGet(NS, cacheKey);
-            if (cached) return Promise.resolve(cached);
-          }
-
-          var url = 'https://tavusapi.com/v2' + endpoint;
-          return fetchWithRetry(url, {
-            method: 'POST',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', ''),
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(data) {
-            if (cacheKey && ttl) {
-              cacheSet(NS, cacheKey, data, ttl);
-            }
-            return data;
-          });
-        });
-      }
-
-      function createVideo(options) {
-        var scriptContent = options.script || '';
-        var avatarId = options.avatar_id || null;
-        var voiceId = options.voice_id || null;
-        var backgroundUrl = options.background_url || null;
-
-        return tavusFetch('/videos', {
-          script: scriptContent,
-          avatar_id: avatarId,
-          voice_id: voiceId,
-          background_source_url: backgroundUrl
-        });
-      }
-
-      function getVideoStatus(videoId) {
-        return safeCall('Tavus.getVideoStatus', function() {
-          var url = 'https://tavusapi.com/v2/videos/' + videoId;
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', '')
-            }
-          });
-        });
-      }
-
-      function listAvatars() {
-        return safeCall('Tavus.listAvatars', function() {
-          var cached = cacheGet(NS, 'avatars_list');
-          if (cached) return Promise.resolve(cached);
-
-          var url = 'https://tavusapi.com/v2/avatars';
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', '')
-            }
-          }).then(function(data) {
-            cacheSet(NS, 'avatars_list', data, 24 * 60 * 60 * 1000); // 24 hour cache
-            return data;
-          });
-        });
-      }
-
-      return {
-        isAvailable: isAvailable,
-        createVideo: createVideo,
-        getVideoStatus: getVideoStatus,
-        listAvatars: listAvatars
-      };
-    })();
+    // The TavusAPI adapter that lived here required video.tavus.apiKey in
+    // browser config — a paid API secret in a page — and called tavusapi.com
+    // directly from the browser, which CORS blocks. It could never have run.
+    // If avatar video is wanted, it needs a server-side proxy like
+    // api/generate-video.js, not a client adapter.
 
     // ----- Seedance 2.0 (prompt-driven AI video generation) -----
-    // Unlike Tavus above, this never touches the provider directly from the
-    // browser — the API key lives server-side only (SEEDANCE_API_KEY), and
+    // This never touches the provider directly from the browser — the API key
+    // lives server-side only (SEEDANCE_API_KEY), and
     // the client talks to /api/generate-video, which proxies to Seedance.
     var SeedanceAPI = (function() {
       function isAvailable() {
@@ -1603,7 +1519,6 @@
     })();
 
     return {
-      tavus: TavusAPI,
       seedance: SeedanceAPI
     };
   })();
@@ -1627,7 +1542,7 @@
     if (SEOTools.semrush.isAvailable()) integrations.push('SEOTools.semrush');
     if (SEOTools.dataforseo.isAvailable()) integrations.push('SEOTools.dataforseo');
     if (DataForSEO.isAvailable()) integrations.push('DataForSEO');
-    if (VideoGeneration.tavus.isAvailable()) integrations.push('VideoGeneration.tavus');
+    if (VideoGeneration.seedance.isAvailable()) integrations.push('VideoGeneration.seedance');
 
     return integrations;
   }

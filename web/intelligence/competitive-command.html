@@ -698,6 +698,10 @@
     </div>
 </div>
 
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/competitive-roster-store.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/send-auth.js"></script>
 <script src="/js/claude-service.js"></script>
@@ -707,16 +711,73 @@
 'use strict';
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
-const RADAR_KEY  = 'tmd_radar';
-const GAPS_KEY   = 'tmd_ci_gaps';
-const BC_KEY     = 'tmd_ci_battlecards';
+//
+// The roster, gaps and battlecards used to live in localStorage and nowhere
+// else, so a team's whole competitive picture existed on one browser on one
+// machine — gone if site data was cleared, invisible on a second device, and
+// an empty page for a colleague on the same account.
+//
+// They are now rows in competitive_roster (see supabase-competitive-roster.sql),
+// with localStorage kept only as a write-through cache. Reads stay synchronous
+// so the thirty-odd existing call sites and the render path are unchanged; the
+// cache is refreshed from the cloud on load, and writes go to both.
 
-function loadCompetitors() { return JSON.parse(localStorage.getItem(RADAR_KEY) || '[]'); }
-function saveCompetitors(data) { localStorage.setItem(RADAR_KEY, JSON.stringify(data)); }
-function loadGaps() { return JSON.parse(localStorage.getItem(GAPS_KEY) || '[]'); }
-function saveGaps(data) { localStorage.setItem(GAPS_KEY, JSON.stringify(data)); }
-function loadBattlecards() { return JSON.parse(localStorage.getItem(BC_KEY) || '{}'); }
-function saveBattlecards(data) { localStorage.setItem(BC_KEY, JSON.stringify(data)); }
+function cloudStore() { return window.CompetitiveRosterStore || null; }
+
+function loadCompetitors() { return cloudStore() ? cloudStore().cacheRead('competitor') : []; }
+function loadGaps()        { return cloudStore() ? cloudStore().cacheRead('gap') : []; }
+function loadBattlecards() { return cloudStore() ? cloudStore().cacheRead('battlecard') : {}; }
+
+// Sync state, so the page can say plainly whether what you are looking at has
+// reached the cloud. A save that quietly stayed local would be the original
+// bug wearing a fix.
+let cloudSynced = false;
+
+function persist(kind, data) {
+    const store = cloudStore();
+    if (!store) return;
+    store.save(kind, data).then(() => {
+        if (!cloudSynced) { cloudSynced = true; renderSyncState(); }
+    }).catch(err => {
+        cloudSynced = false;
+        renderSyncState(err.message);
+    });
+}
+
+function saveCompetitors(data) { persist('competitor', data); }
+function saveGaps(data)        { persist('gap', data); }
+function saveBattlecards(data) { persist('battlecard', data); }
+
+/** A quiet, honest line about where this data actually lives. */
+function renderSyncState(errorMessage) {
+    let el = document.getElementById('ciSyncState');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'ciSyncState';
+        el.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:9999;font-size:11.5px;' +
+            'padding:6px 12px;border-radius:8px;pointer-events:none;max-width:320px;line-height:1.5;';
+        document.body.appendChild(el);
+    }
+    if (errorMessage) {
+        el.style.background = 'rgba(239,68,68,0.12)';
+        el.style.border     = '1px solid rgba(239,68,68,0.35)';
+        el.style.color      = '#fca5a5';
+        el.textContent      = 'Saved on this device only — could not reach the cloud: ' + errorMessage;
+        return;
+    }
+    if (cloudSynced) {
+        el.style.background = 'rgba(16,185,129,0.10)';
+        el.style.border     = '1px solid rgba(16,185,129,0.28)';
+        el.style.color      = '#34d399';
+        el.textContent      = 'Synced to your account';
+        setTimeout(() => { if (el && cloudSynced) el.style.display = 'none'; }, 4000);
+        return;
+    }
+    el.style.background = 'rgba(245,158,11,0.10)';
+    el.style.border     = '1px solid rgba(245,158,11,0.28)';
+    el.style.color      = '#fbbf24';
+    el.textContent      = 'Sign in to sync your competitive roster across devices.';
+}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let selectedFilter  = 'all';
@@ -1586,11 +1647,39 @@ window.saveGap = function() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
+    // Render immediately from the local cache so the page is never blank while
+    // the cloud round-trip runs.
     renderRoster();
     refreshKPIs();
     refreshFeed();
-    // Check for Intelligence Engine
     try { if (window.IntelligenceEngine) console.log('[CC] Intelligence Engine ready'); } catch(e) {}
+    syncFromCloud();
+}
+
+async function syncFromCloud() {
+    const store = cloudStore();
+    if (!store) { renderSyncState(); return; }
+    try {
+        // Lift anything already sitting in this browser into the account, once.
+        // It never overwrites a roster the cloud already holds.
+        await store.migrateLocal();
+
+        const [comps, gaps, cards] = await Promise.all([
+            store.load('competitor'), store.load('gap'), store.load('battlecard'),
+        ]);
+        cloudSynced = comps.synced && gaps.synced && cards.synced;
+        renderSyncState();
+        if (cloudSynced) {
+            // The caches are already refreshed by load(); re-render against them.
+            renderRoster();
+            refreshKPIs();
+            refreshFeed();
+            if (typeof renderGaps === 'function') renderGaps();
+        }
+    } catch (err) {
+        cloudSynced = false;
+        renderSyncState(err.message);
+    }
 }
 
 // Retry init if IE not loaded yet

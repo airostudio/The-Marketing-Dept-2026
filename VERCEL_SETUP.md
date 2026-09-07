@@ -225,7 +225,11 @@ Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text p
 
 **Provider note:** Seedance 2.0 ships through more than one host, and exact field names vary slightly per host. `api/generate-video.js` implements the Ark-style async task contract (`POST .../contents/generations/tasks` → task id, `GET .../contents/generations/tasks/{id}` → status + video URL), which is the pattern ByteDance's video models have used since Seedance 1.0. If you're on a different provider (fal.ai, Replicate, OpenRouter, etc.), point `SEEDANCE_API_BASE_URL`/`SEEDANCE_MODEL` at it and adjust the two small request/response-shaping blocks in `api/generate-video.js` to match — everything else (validation, the create→poll contract the client speaks) stays the same. Verify the exact contract against your provider's live docs before going to production; third-party API surfaces move fast.
 
-Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, Tavus avatar videos) keeps working either way.
+Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, the script-to-scene handoff) keeps working either way.
+
+**Set the R2 variables too if you use video.** The generator returns a signed link that expires within hours. With R2 configured, `api/generate-video.js` copies each finished video into your own bucket and hands back a durable URL. Without it, the video is still generated and downloadable, but the gallery and any social post scheduled around it carry a link that will die — the UI marks every such video "this link will expire" rather than letting it quietly rot into a broken player.
+
+There is no Tavus avatar-video integration. A client-side adapter for it existed but could never run: it required a paid Tavus key in browser config, and called `tavusapi.com` directly, which a browser blocks on CORS. It has been removed. Avatar video would need a server-side proxy in the shape of `api/generate-video.js`.
 
 ---
 

@@ -198,6 +198,50 @@ const PAGES = {
     await b.close();
   }
 
+  /* ── 6. The roster lives in the account, not one browser ─────────────── */
+  console.log('\n──── the competitive picture is not trapped on one machine ────');
+
+  const sql = read('supabase-competitive-roster.sql');
+  const store = read('web/js/competitive-roster-store.js');
+  const cmd = code(PAGES.command);
+
+  check('there is a table for the roster', /CREATE TABLE IF NOT EXISTS competitive_roster/.test(sql));
+  check('it is row-level secured to its owner',
+    /ENABLE ROW LEVEL SECURITY/.test(sql) && /auth\.uid\(\) = user_id/.test(sql));
+  check('a teammate on a shared profile can read it',
+    /intelligence_profile_members/.test(sql));
+  check('re-saving a record updates it rather than duplicating',
+    /UNIQUE \(user_id, kind, client_id\)/.test(sql));
+  check('the migration is idempotent like the others',
+    /CREATE TABLE IF NOT EXISTS/.test(sql) && /DROP POLICY IF EXISTS/.test(sql));
+  check('and is in the combined installer',
+    /competitive_roster/.test(read('supabase-install-all.sql')));
+
+  check('the page writes through a store, not straight to localStorage',
+    !/localStorage\.setItem\(RADAR_KEY/.test(cmd) &&
+    !/localStorage\.setItem\(GAPS_KEY/.test(cmd) &&
+    !/localStorage\.setItem\(BC_KEY/.test(cmd));
+  check('and loads the store',
+    /competitive-roster-store\.js/.test(read(PAGES.command)));
+  check('Supabase is actually loaded on the page',
+    /supabase-client\.js/.test(read(PAGES.command)));
+
+  check('an existing local roster is lifted into the account once',
+    /migrateLocal/.test(store) && /migrateLocal/.test(cmd));
+  check('and never overwrites what the cloud already holds',
+    /if \(remote\.length\) continue;/.test(store));
+  check('an offline project id is not sent into a uuid column',
+    /startsWith\('local_'\)/.test(store));
+
+  // The failure this whole change is about: a save the customer believes
+  // happened, that only ever reached this browser.
+  check('a failed cloud save is reported, not swallowed',
+    /Saved on this device only/.test(cmd));
+  check('and being signed out is stated rather than looking synced',
+    /Sign in to sync your competitive roster/.test(cmd));
+  check('a read that could not reach the cloud is distinguishable from an empty one',
+    /return null;/.test(store) && /source: 'cache', synced: false/.test(store));
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));
