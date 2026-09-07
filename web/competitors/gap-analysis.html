@@ -82,7 +82,7 @@
                             </div>
                             <span class="metric-card-title">Keyword Gaps</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="gapKeywords">&mdash;</div>
                         <p class="metric-card-desc">Keywords competitors rank for</p>
                     </div>
                     <div class="metric-card">
@@ -92,7 +92,7 @@
                             </div>
                             <span class="metric-card-title">Content Gaps</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="gapContent">&mdash;</div>
                         <p class="metric-card-desc">Missing topic areas</p>
                     </div>
                     <div class="metric-card">
@@ -102,13 +102,13 @@
                             </div>
                             <span class="metric-card-title">Your Advantages</span>
                         </div>
-                        <div class="metric-card-value">--</div>
+                        <div class="metric-card-value" id="gapAdvantages">&mdash;</div>
                         <p class="metric-card-desc">Keywords only you rank for</p>
                     </div>
                 </div>
 
-                <!-- Empty state -->
-                <div class="empty-state-card" style="margin-top: 24px;">
+                <!-- State panel: filled in by the script below -->
+                <div class="empty-state-card" style="margin-top: 24px;" id="gapStatePanel">
                     <div class="empty-state-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="20" x2="18" y2="10"/>
@@ -116,13 +116,110 @@
                             <line x1="6" y1="20" x2="6" y2="14"/>
                         </svg>
                     </div>
-                    <h3>No Competitors Added</h3>
-                    <p>Add competitors in the Competitor Analysis section to discover keyword and content gaps.</p>
-                    <a href="../seo/competitors.html" class="btn btn-primary" style="margin-top: 16px;">Add Competitors</a>
+                    <h3 id="gapStateTitle">Loading&hellip;</h3>
+                    <p id="gapStateBody">Checking which competitors you are tracking.</p>
+                    <a href="../seo/competitors.html" class="btn btn-primary" style="margin-top: 16px;" id="gapStateCta">Add Competitors</a>
                 </div>
             </div>
         </main>
     </div>
+    <script src="/js/send-auth.js"></script>
     <script src="../js/dashboard.js"></script>
+    <script>
+    /* ── Gap Analysis ─────────────────────────────────────────────────────
+       This page was a stub: three tiles hardcoded to "--", and an empty state
+       reading "No Competitors Added" that showed unconditionally — including
+       right after you had added competitors on the page its own button sends
+       you to. It read no data at all.
+
+       Keyword-level gap analysis needs a keyword API this deployment may not
+       hold, so the honest thing is to report the two states separately: no
+       competitors tracked yet, or competitors tracked but no keyword provider
+       to compare them with. Neither is a number, so neither gets one. */
+    (function () {
+        'use strict';
+
+        const els = {
+            keywords:   document.getElementById('gapKeywords'),
+            content:    document.getElementById('gapContent'),
+            advantages: document.getElementById('gapAdvantages'),
+            title:      document.getElementById('gapStateTitle'),
+            body:       document.getElementById('gapStateBody'),
+            cta:        document.getElementById('gapStateCta'),
+        };
+
+        function setState(title, body, ctaText, ctaHref) {
+            if (els.title) els.title.textContent = title;
+            if (els.body)  els.body.textContent  = body;
+            if (els.cta) {
+                if (ctaText) { els.cta.textContent = ctaText; els.cta.href = ctaHref; els.cta.style.display = ''; }
+                else els.cta.style.display = 'none';
+            }
+        }
+
+        function trackedCompetitors() {
+            try {
+                const raw = localStorage.getItem('seo-competitors');
+                const list = raw ? JSON.parse(raw) : [];
+                return Array.isArray(list) ? list : [];
+            } catch { return []; }
+        }
+
+        /** True only once a provider has actually answered for this deployment. */
+        async function keywordProviderAvailable() {
+            try {
+                const headers = (typeof window.sendAuthHeaders === 'function')
+                    ? await window.sendAuthHeaders()
+                    : { 'Content-Type': 'application/json' };
+                const r = await fetch('/api/integration', { method: 'GET', headers });
+                if (!r.ok) return { ok: false, reason: r.status === 401
+                    ? 'Sign in to check which SEO providers are connected.'
+                    : 'Could not check which SEO providers are connected.' };
+                const data = await r.json();
+                const c = (data && data.configured) || {};
+                const provider = c.ahrefs ? 'Ahrefs' : c.semrush ? 'Semrush' : c.dataforseo ? 'DataForSEO' : null;
+                return provider
+                    ? { ok: true, provider }
+                    : { ok: false, reason: 'No keyword provider is connected. Gap analysis compares the keywords ' +
+                        'your competitors rank for against yours, which needs Ahrefs, Semrush or DataForSEO.' };
+            } catch (e) {
+                return { ok: false, reason: 'Could not check which SEO providers are connected: ' + e.message };
+            }
+        }
+
+        (async function init() {
+            const competitors = trackedCompetitors();
+
+            if (!competitors.length) {
+                setState('No competitors tracked yet',
+                    'Add the websites you compete with, then come back here to compare what they rank for against what you do.',
+                    'Add competitors', '../seo/competitors.html');
+                return;
+            }
+
+            const provider = await keywordProviderAvailable();
+            const names = competitors.map(c => c.domain).filter(Boolean);
+
+            if (!provider.ok) {
+                // Say what IS known — the tracked list is real — and why the
+                // comparison cannot be made, rather than showing three dashes
+                // and a message about having no competitors.
+                setState('Tracking ' + names.length + ' competitor' + (names.length === 1 ? '' : 's'),
+                    names.join(', ') + '. ' + provider.reason,
+                    'Manage competitors', '../seo/competitors.html');
+                return;
+            }
+
+            // A provider is connected but this page does not yet run the
+            // comparison. Saying so plainly beats a permanent "--" that reads
+            // like a measurement of zero.
+            setState('Tracking ' + names.length + ' competitor' + (names.length === 1 ? '' : 's') +
+                     ' \u2014 ' + provider.provider + ' connected',
+                names.join(', ') + '. Run the keyword comparison from SEO Intelligence to see which of their ' +
+                'terms you are missing; this summary will fill in once that analysis has been run.',
+                'Open SEO Intelligence', '../agents/seo-agent.html');
+        })();
+    })();
+    </script>
 </body>
 </html>

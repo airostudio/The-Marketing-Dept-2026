@@ -970,8 +970,14 @@ window.generateBattlecard = async function() {
     const comp  = comps.find(c => c.id === id);
     if (!comp) return;
 
-    if (!window.ClaudeService?.getApiKey()) {
-        alert('Claude API key not configured. Go to Settings to add your key.');
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
         return;
     }
 
@@ -1228,8 +1234,14 @@ window.toggleGapFilter = function(cat, btn) {
 };
 
 window.discoverGaps = async function() {
-    if (!window.ClaudeService?.getApiKey()) {
-        alert('Claude API key not configured. Go to Settings to add your key.');
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
         return;
     }
 
@@ -1464,7 +1476,16 @@ window.saveCompetitor = function() {
 window.analyzeMove = async function() {
     const desc = document.getElementById('moveDesc').value.trim();
     if (!desc) { alert('Please describe the competitor move first.'); return; }
-    if (!window.ClaudeService?.getApiKey()) { alert('Claude API key not configured.'); return; }
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
+        return;
+    }
 
     const compId = document.getElementById('moveCompetitorSelect').value;
     const comps  = loadCompetitors();
