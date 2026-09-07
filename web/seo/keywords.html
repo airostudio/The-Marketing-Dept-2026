@@ -193,6 +193,7 @@
                             <div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">Position 50+</div>
                         </div>
                     </div>
+                    <p id="unrankedNote" style="font-size:12.5px;color:var(--color-text-tertiary);margin:14px 0 0;line-height:1.6;"></p>
                 </div>
 
                 <!-- Suggested Keywords from Site Crawl -->
@@ -538,9 +539,44 @@
             document.getElementById('crawlSiteBtn').addEventListener('click', startCrawl);
 
             // Refresh Rankings Button
-            document.getElementById('refreshRankingsBtn').addEventListener('click', () => {
-                window.KeywordService.KeywordTracker.simulateRankingUpdate();
-                loadAndDisplayKeywords();
+            //
+            // This used to call a synchronous simulateRankingUpdate() and repaint
+            // immediately, so the click produced no visible change and no message
+            // whether the refresh worked, found nothing, or was never possible
+            // because no ranking provider is connected. All four outcomes are
+            // now said out loud.
+            document.getElementById('refreshRankingsBtn').addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.textContent = 'Checking rankings…';
+                try {
+                    const r = await window.KeywordService.KeywordTracker.refreshRankings();
+                    loadAndDisplayKeywords();
+
+                    if (r.reason === 'no_keywords') {
+                        showNotification('Nothing to refresh', 'Add some keywords to track first.', 'info');
+                    } else if (r.reason === 'no_provider') {
+                        showNotification('No ranking provider connected',
+                            'Positions come from a ranking data provider (DataForSEO). Until one is ' +
+                            'connected, tracked keywords stay unranked — we will not guess a position.',
+                            'warning');
+                    } else if (r.reason === 'provider_error') {
+                        showNotification('Ranking check failed',
+                            r.detail || 'The ranking provider did not respond.', 'error');
+                    } else if (r.updated === 0) {
+                        showNotification('No positions returned',
+                            `Checked ${r.checked} keyword${r.checked === 1 ? '' : 's'} — the provider ` +
+                            'returned no positions for them.', 'info');
+                    } else {
+                        showNotification('Rankings updated',
+                            `${r.updated} of ${r.checked} keyword${r.checked === 1 ? '' : 's'} updated.`,
+                            'success');
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
             });
 
             // Filter Tabs
@@ -711,7 +747,17 @@
 
         async function startCrawl() {
             const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
-            const url = settings.websiteUrl || 'example.com';
+
+            // This used to fall back to 'example.com', so with no project
+            // configured the crawl went off and read someone else's website and
+            // presented its keywords as suggestions for the customer's site.
+            const url = (settings.websiteUrl || '').trim();
+            if (!url) {
+                showNotification('No website set',
+                    'Add your site under Dashboard → Project settings before crawling — ' +
+                    'there is no page to read keywords from yet.', 'warning');
+                return;
+            }
 
             document.getElementById('crawlModal').style.display = 'flex';
             document.getElementById('crawlStatus').textContent = 'Initializing crawler...';
@@ -766,12 +812,18 @@
                     tag.style.cssText = 'cursor: pointer; padding: 8px 14px; display: inline-flex; align-items: center; gap: 8px;';
 
                     const volume = kw.estimatedVolume || kw.searchVolume || kw.totalScore || 0;
-                    const difficulty = kw.estimatedDifficulty || kw.difficulty || 30;
+                    // `|| 30` used to supply a difficulty for keywords nobody had
+                    // measured, so a crawl-discovered term arrived wearing an
+                    // amber "30" badge that meant nothing at all.
+                    const difficulty = hasDifficulty(kw.estimatedDifficulty) ? kw.estimatedDifficulty
+                                     : hasDifficulty(kw.difficulty) ? kw.difficulty : null;
 
                     tag.innerHTML = `
                         <strong>${escapeHtml(kw.keyword)}</strong>
-                        <span style="opacity: 0.6; font-size: 11px;">${formatNumber(volume)}/mo</span>
-                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; background: ${getDifficultyColor(difficulty)}20; color: ${getDifficultyColor(difficulty)};">${difficulty}</span>
+                        <span style="opacity: 0.6; font-size: 11px;">${volume > 0 ? formatNumber(volume) + '/mo' : 'volume unknown'}</span>
+                        ${difficulty === null
+                            ? '<span style="padding:2px 6px;border-radius:4px;font-size:10px;background:rgba(148,163,184,0.14);color:var(--color-text-tertiary);">difficulty not measured</span>'
+                            : `<span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; background: ${getDifficultyColor(difficulty)}20; color: ${getDifficultyColor(difficulty)};">${difficulty}</span>`}
                     `;
 
                     tag.addEventListener('click', () => {
@@ -887,14 +939,31 @@
             document.getElementById('dist21to50').textContent = stats.distribution['21-50'];
             document.getElementById('dist50plus').textContent = stats.distribution['50+'];
 
+            // How much of the list has no ranking data behind it. Without this
+            // the distribution bars look like a complete picture of the account
+            // when they may describe only a handful of its keywords.
+            const unrankedEl = document.getElementById('unrankedNote');
+            if (unrankedEl) {
+                unrankedEl.textContent = stats.unranked > 0
+                    ? `${formatNumber(stats.unranked)} of ${formatNumber(stats.total)} tracked keywords have no ranking data yet — ` +
+                      `they are not counted in the positions above.`
+                    : '';
+            }
+
             // Filter keywords
+            // isRanked, not a bare comparison: a keyword with no reported
+            // position has position === null, and `null <= 10` is true in
+            // JavaScript, so the "Top 10" tab used to list every keyword that
+            // had never been looked up.
             let filtered = keywords;
             if (currentFilter === 'improved') {
-                filtered = keywords.filter(k => k.previousPosition && k.position < k.previousPosition);
+                filtered = keywords.filter(k =>
+                    isRanked(k.previousPosition) && isRanked(k.position) && k.position < k.previousPosition);
             } else if (currentFilter === 'declined') {
-                filtered = keywords.filter(k => k.previousPosition && k.position > k.previousPosition);
+                filtered = keywords.filter(k =>
+                    isRanked(k.previousPosition) && isRanked(k.position) && k.position > k.previousPosition);
             } else if (currentFilter === 'top10') {
-                filtered = keywords.filter(k => k.position <= 10);
+                filtered = keywords.filter(k => isRanked(k.position) && k.position <= 10);
             }
 
             // Pagination
@@ -931,11 +1000,24 @@
             tbody.innerHTML = '';
 
             keywords.forEach(kw => {
-                const change = kw.previousPosition ? kw.previousPosition - kw.position : 0;
-                const changeClass = change > 0 ? 'color: var(--color-success)' : change < 0 ? 'color: var(--color-error)' : 'color: var(--color-text-tertiary)';
-                const changeText = change > 0 ? `+${change}` : change < 0 ? change : '0';
+                // A change needs two known positions. `previousPosition - null`
+                // evaluated to previousPosition, so a keyword that had never
+                // been ranked showed a large green improvement.
+                const hasMove = isRanked(kw.position) && isRanked(kw.previousPosition);
+                const change = hasMove ? kw.previousPosition - kw.position : 0;
+                const changeClass = !hasMove ? 'color: var(--color-text-tertiary)'
+                    : change > 0 ? 'color: var(--color-success)'
+                    : change < 0 ? 'color: var(--color-error)' : 'color: var(--color-text-tertiary)';
+                const changeText = !hasMove ? '—' : change > 0 ? `+${change}` : change < 0 ? change : '0';
 
-                const positionClass = kw.position <= 3 ? 'top3' : kw.position <= 10 ? 'top10' : kw.position <= 20 ? 'top20' : '';
+                // No position means no badge colour. `null <= 3` is true, so an
+                // unranked keyword used to render a green "top 3" badge reading
+                // the literal text "null".
+                const positionClass = !isRanked(kw.position) ? 'unranked'
+                    : kw.position <= 3 ? 'top3'
+                    : kw.position <= 10 ? 'top10'
+                    : kw.position <= 20 ? 'top20' : '';
+                const positionText = isRanked(kw.position) ? kw.position : 'Not ranked';
 
                 const intentColors = {
                     informational: 'tag-blue',
@@ -949,14 +1031,16 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${escapeHtml(kw.keyword)}</strong></td>
-                    <td><span class="position-badge ${positionClass}">${kw.position}</span></td>
+                    <td><span class="position-badge ${positionClass}">${escapeHtml(positionText)}</span></td>
                     <td style="${changeClass}; font-weight: 500;">${changeText}</td>
-                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>${kw.searchVolume > 0 ? formatNumber(kw.searchVolume) + '/mo' : '<span style="color:var(--color-text-tertiary);">—</span>'}</td>
                     <td>
+                        ${hasDifficulty(kw.difficulty) ? `
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
                             <span>${kw.difficulty}</span>
-                        </div>
+                        </div>` : `
+                        <span style="color:var(--color-text-tertiary);" title="Keyword difficulty comes from a ranking data provider. None is connected, so this has not been measured.">—</span>`}
                     </td>
                     <td><span class="tag ${intentColors[kw.intent] || 'tag-gray'}">${kw.intent}</span></td>
                     <td>${formatNumber(estTraffic)}</td>
@@ -1022,6 +1106,26 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        /**
+         * A tracked keyword has position === null until a ranking provider
+         * reports one, and `null <= 10` is true in JavaScript. Every position
+         * comparison on this page goes through here so an unranked keyword is
+         * never counted, coloured or filtered as though it ranked.
+         */
+        function isRanked(position) {
+            return typeof position === 'number' && isFinite(position) && position > 0;
+        }
+
+        /**
+         * Difficulty is null unless a ranking provider measured it. It used to
+         * be derived from the keyword's word count, which is not a measurement
+         * of anything, so an absent value must render as absent rather than as
+         * a number on a coloured bar.
+         */
+        function hasDifficulty(d) {
+            return typeof d === 'number' && isFinite(d) && d > 0;
+        }
     })();
     </script>
     <style>
@@ -1047,6 +1151,13 @@
         .position-badge.top20 {
             background: rgba(245, 158, 11, 0.15);
             color: var(--color-warning);
+        }
+        /* No ranking data. Deliberately neutral — an unranked keyword is not a
+           bad position, it is an absent one. */
+        .position-badge.unranked {
+            background: rgba(148, 163, 184, 0.13);
+            color: var(--color-text-tertiary);
+            font-weight: 500;
         }
         .modal-overlay {
             position: fixed;

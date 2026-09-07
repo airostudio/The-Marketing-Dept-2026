@@ -494,6 +494,36 @@
             overflow: hidden;
         }
 
+        /* Shown in place of the score when the scan could not run. Deliberately
+           not styled like a bad score — it is not a result at all. */
+        .unmeasured-panel {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-left: 4px solid #f59e0b;
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            line-height: 1.65;
+        }
+        .unmeasured-panel h3 { margin: 0 0 10px; font-size: 19px; }
+        .unmeasured-panel p { margin: 0 0 12px; }
+        .unmeasured-panel p:last-child { margin-bottom: 0; }
+        .unmeasured-panel code {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 0.9em;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(148, 163, 184, 0.16);
+        }
+        .unmeasured-panel .unmeasured-reason {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 12.5px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.12);
+            word-break: break-word;
+        }
+
         .score-card::before {
             content: '';
             position: absolute;
@@ -1198,6 +1228,9 @@
                 </defs>
             </svg>
 
+            <!-- Shown instead of the score when nothing could be measured -->
+            <div class="unmeasured-panel" id="unmeasuredPanel" style="display:none;"></div>
+
             <!-- Score Card -->
             <div class="score-card">
                 <div class="score-header">
@@ -1458,19 +1491,32 @@
                 setCheckActive('content');
                 scanningStatus.textContent = 'Running PageSpeed Insights analysis...';
 
-                const apiKey = window.APP_CONFIG?.GOOGLE?.API_KEY || '';
-                const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${apiKey ? '&key=' + apiKey : ''}`;
-
+                // Through /api/pagespeed, the same server-side proxy the rest of
+                // the SEO tools use. This page used to call googleapis.com
+                // straight from the browser with window.APP_CONFIG.GOOGLE.API_KEY,
+                // which is deliberately empty (the key lives in a Vercel env var
+                // and must never be shipped to a page) — so every request went
+                // out unauthenticated and Google rate-limits those hard.
                 let pageSpeedData = null;
+                let pageSpeedError = null;
                 try {
-                    const response = await fetch(apiUrl);
+                    const response = await fetch(
+                        `/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`);
                     if (response.ok) {
                         pageSpeedData = await response.json();
                         analysisResults.rawData.pageSpeed = pageSpeedData;
+                    } else {
+                        const body = await response.json().catch(() => null);
+                        pageSpeedError = (body && body.error) ||
+                            `PageSpeed returned HTTP ${response.status}.`;
                     }
                 } catch (e) {
-                    console.warn('PageSpeed API error:', e);
+                    pageSpeedError = e.message || 'The PageSpeed request could not be sent.';
                 }
+                if (!pageSpeedData && !pageSpeedError) {
+                    pageSpeedError = 'PageSpeed returned nothing usable.';
+                }
+                analysisResults.pageSpeedError = pageSpeedError;
 
                 // Extract metrics from PageSpeed if available
                 if (pageSpeedData && pageSpeedData.lighthouseResult) {
@@ -1636,13 +1682,18 @@
                     }
                 }
 
-                updateProgress('meta', 'Meta tags analyzed');
+                // These four lines used to run unconditionally, so the scan said
+                // "Meta tags analyzed / Performance checked / Content analyzed"
+                // in the exact run where PageSpeed had returned nothing and none
+                // of it had been looked at.
+                const psOk = !!pageSpeedData;
+                updateProgress('meta', psOk ? 'Meta tags analyzed' : 'Meta tags not checked');
                 await sleep(100);
-                updateProgress('performance', 'Performance checked');
+                updateProgress('performance', psOk ? 'Performance checked' : 'Performance not measured');
                 await sleep(100);
-                updateProgress('mobile', 'Mobile friendliness checked');
+                updateProgress('mobile', psOk ? 'Mobile friendliness checked' : 'Mobile not measured');
                 await sleep(100);
-                updateProgress('content', 'Content analyzed');
+                updateProgress('content', psOk ? 'Content analyzed' : 'Content not analysed');
 
                 // 3. Check for sitemap
                 setCheckActive('links');
@@ -1676,22 +1727,40 @@
                 updateProgress('links', 'Link analysis complete');
 
                 // Calculate overall score
+                //
+                // Three of the four inputs (performance, seo, accessibility) come
+                // only from PageSpeed. When PageSpeed fails they are all still 0,
+                // and the weighted sum for an HTTPS site lands on exactly 15 —
+                // clamped to a floor of 10, so the page reported a confident
+                // "15/100" with an empty issue list. That reads as "your site is
+                // among the worst we have seen and we found nothing to fix",
+                // when the truth is that nothing was measured at all.
+                //
+                // There is no honest number to show in that case, so no number is
+                // shown. The score is null and the results view says why.
                 const { metrics, issues } = analysisResults;
-                let score = Math.round(
-                    (metrics.performance * 0.3) +
-                    (metrics.seo * 0.35) +
-                    (metrics.accessibility * 0.2) +
-                    (metrics.security * 0.15)
-                );
 
-                // Adjust for critical issues
-                const criticalCount = issues.filter(i => i.severity === 'critical').length;
-                const warningCount = issues.filter(i => i.severity === 'warning').length;
-                score -= criticalCount * 5;
-                score -= warningCount * 2;
-                score = Math.max(10, Math.min(100, score));
+                if (!pageSpeedData) {
+                    analysisResults.score = null;
+                    analysisResults.measured = false;
+                } else {
+                    let score = Math.round(
+                        (metrics.performance * 0.3) +
+                        (metrics.seo * 0.35) +
+                        (metrics.accessibility * 0.2) +
+                        (metrics.security * 0.15)
+                    );
 
-                analysisResults.score = score;
+                    // Adjust for critical issues
+                    const criticalCount = issues.filter(i => i.severity === 'critical').length;
+                    const warningCount = issues.filter(i => i.severity === 'warning').length;
+                    score -= criticalCount * 5;
+                    score -= warningCount * 2;
+                    score = Math.max(10, Math.min(100, score));
+
+                    analysisResults.score = score;
+                    analysisResults.measured = true;
+                }
 
                 // Final status
                 scanningStatus.textContent = 'Analysis complete!';
@@ -1737,6 +1806,16 @@
             resultFavicon.textContent = results.domain.charAt(0).toUpperCase();
             resultUrl.textContent = results.domain;
 
+            // When PageSpeed didn't answer there is no score, and nothing here
+            // may imply otherwise: no ring, no metric bars, and an issue list
+            // that says it is empty because nothing ran — not because the site
+            // is clean.
+            if (results.measured === false) {
+                showUnmeasured(results.pageSpeedError);
+                return;
+            }
+            clearUnmeasured();
+
             // Animate score
             animateScore(results.score);
 
@@ -1748,6 +1827,52 @@
 
             // Update issues
             updateIssues(results.issues);
+        }
+
+        /**
+         * Replace the score ring and metrics with a plain statement that the
+         * scan could not be run, and why.
+         *
+         * The one thing that IS known without PageSpeed is whether the URL was
+         * served over HTTPS, so that stays — labelled as the only check that
+         * completed, rather than dressed up as a partial score.
+         */
+        function showUnmeasured(reason) {
+            const panel = document.getElementById('unmeasuredPanel');
+            const scoreCard = document.querySelector('.score-card');
+            const metricsGrid = document.querySelector('.metrics-grid');
+
+            if (scoreCard) scoreCard.style.display = 'none';
+            if (metricsGrid) metricsGrid.style.display = 'none';
+
+            if (panel) {
+                panel.style.display = 'block';
+                panel.innerHTML =
+                    '<h3>We could not scan this site</h3>' +
+                    '<p>The PageSpeed Insights analysis did not complete, so there is no ' +
+                    'score to show. This is not a result about your site — nothing was ' +
+                    'measured.</p>' +
+                    '<p class="unmeasured-reason">' + escapeHtml(reason || 'No reason reported.') + '</p>' +
+                    '<p>Google rate-limits this analysis. Waiting a minute and scanning ' +
+                    'again usually works. If it keeps failing, check that ' +
+                    '<code>GOOGLE_PAGESPEED_API_KEY</code> is set in the deployment ' +
+                    'environment.</p>';
+            }
+
+            // Anything already rendered from a previous scan must go, or the old
+            // score sits on screen next to the "we could not scan" message.
+            if (issuesList) issuesList.innerHTML = '';
+            const issuesCountEl = document.getElementById('issuesCount');
+            if (issuesCountEl) issuesCountEl.textContent = '';
+        }
+
+        function clearUnmeasured() {
+            const panel = document.getElementById('unmeasuredPanel');
+            const scoreCard = document.querySelector('.score-card');
+            const metricsGrid = document.querySelector('.metrics-grid');
+            if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+            if (scoreCard) scoreCard.style.display = '';
+            if (metricsGrid) metricsGrid.style.display = '';
         }
 
         // Animate Score
@@ -1974,6 +2099,13 @@
         // Utilities
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // The unmeasured panel prints an error string that originates from
+        // Google's API response, so it goes through here before reaching innerHTML.
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
         }
 
     })();

@@ -308,13 +308,53 @@
         });
 
         function setupEventListeners() {
-            document.getElementById('discoverBtn').addEventListener('click', async () => {
+            document.getElementById('discoverBtn').addEventListener('click', async (e) => {
                 const settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
-                const domain = settings.websiteUrl || 'example.com';
-                const discovered = await window.BacklinkService.discoverBacklinks(domain);
-                window.BacklinkService.addBacklinks(discovered);
-                loadBacklinkData();
-                alert(`Discovered ${discovered.length} new backlinks!`);
+
+                // This used to fall back to 'example.com' when no site was
+                // configured, so the button ran a discovery against a domain the
+                // customer does not own and reported the result as theirs.
+                const domain = (settings.websiteUrl || '').trim();
+                if (!domain) {
+                    alert('No website is set for this project yet.\n\n' +
+                          'Add your site under Dashboard → Project settings, then run discovery — ' +
+                          'otherwise there is no domain to look up backlinks for.');
+                    return;
+                }
+
+                const btn = e.currentTarget;
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.textContent = 'Searching…';
+                try {
+                    const discovered = await window.BacklinkService.discoverBacklinks(domain);
+                    window.BacklinkService.addBacklinks(discovered);
+                    loadBacklinkData();
+
+                    // "0 backlinks" and "we have no way to look for backlinks"
+                    // are completely different statements about a customer's
+                    // site, and both used to render as "Discovered 0 new
+                    // backlinks!". Only say the first when a provider actually
+                    // answered.
+                    const provider = hasBacklinkProvider();
+                    if (discovered.length > 0) {
+                        alert(`Found ${discovered.length} backlink${discovered.length === 1 ? '' : 's'} for ${domain}.`);
+                    } else if (provider) {
+                        alert(`No backlinks found for ${domain}.\n\n` +
+                              'That is the provider\'s answer, not a failure — this domain has no ' +
+                              'links they can see.');
+                    } else {
+                        alert('No backlink provider is connected.\n\n' +
+                              'Backlink discovery needs Ahrefs or Semrush credentials. Without one ' +
+                              'we cannot tell whether your site has no backlinks or whether we simply ' +
+                              'have no way to look — so we are not reporting a number.');
+                    }
+                } catch (err) {
+                    alert('Backlink discovery failed: ' + (err.message || 'unknown error'));
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
             });
 
             document.getElementById('exportBtn').addEventListener('click', () => {
@@ -452,6 +492,21 @@
         function truncateUrl(url) { if (url.length > 30) return url.substring(0, 27) + '...'; return url; }
         function getDAClass(da) { if (da >= 70) return 'high'; if (da >= 40) return 'medium'; return 'low'; }
         function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+        /**
+         * Is there any provider that could actually look up backlinks?
+         *
+         * BacklinkService.discoverBacklinks returns [] both when a provider
+         * reports no links and when no provider exists at all. Those mean
+         * opposite things to a customer, so the page checks which situation it
+         * is in before describing the empty result.
+         */
+        function hasBacklinkProvider() {
+            const tools = window.ApiConnector && window.ApiConnector.SEOTools;
+            if (!tools) return false;
+            const live = p => !!(p && typeof p.isAvailable === 'function' && p.isAvailable());
+            return live(tools.ahrefs) || live(tools.semrush);
+        }
+
         function downloadFile(content, filename, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); }
     })();
     </script>

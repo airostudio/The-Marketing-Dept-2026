@@ -278,9 +278,12 @@
 
             // Update stats
             document.getElementById('keywordsFound').textContent = researchResults.length;
-            document.getElementById('lowCompetition').textContent = researchResults.filter(k => k.difficulty < 40).length;
+            // `k.difficulty < 40` is true for null and for undefined, so every
+            // keyword nobody had measured was counted as "low competition".
+            document.getElementById('lowCompetition').textContent =
+                researchResults.filter(k => hasDifficulty(k.difficulty) && k.difficulty < 40).length;
             document.getElementById('totalVolume').textContent = formatNumber(
-                researchResults.reduce((sum, k) => sum + k.searchVolume, 0)
+                researchResults.reduce((sum, k) => sum + (Number(k.searchVolume) || 0), 0)
             );
 
             document.getElementById('researchStats').style.display = 'grid';
@@ -318,12 +321,14 @@
                 row.innerHTML = `
                     <td><input type="checkbox" data-keyword="${escapeHtml(kw.keyword)}" ${isSelected ? 'checked' : ''}></td>
                     <td><strong>${escapeHtml(kw.keyword)}</strong></td>
-                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>${kw.searchVolume > 0 ? formatNumber(kw.searchVolume) + '/mo' : '<span style="color:var(--color-text-tertiary);">—</span>'}</td>
                     <td>
+                        ${hasDifficulty(kw.difficulty) ? `
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
                             <span>${kw.difficulty}</span>
-                        </div>
+                        </div>` : `
+                        <span style="color:var(--color-text-tertiary);" title="Keyword difficulty comes from a ranking data provider. None is connected, so this has not been measured.">—</span>`}
                     </td>
                     <td>$${kw.cpc}</td>
                     <td><span class="tag ${intentColors[kw.intent] || 'tag-gray'}">${kw.intent}</span></td>
@@ -381,6 +386,11 @@
             if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
             if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
             return num.toString();
+        }
+
+        /** Difficulty is null unless a ranking provider measured it. */
+        function hasDifficulty(d) {
+            return typeof d === 'number' && isFinite(d) && d > 0;
         }
 
         function getDifficultyColor(difficulty) {
