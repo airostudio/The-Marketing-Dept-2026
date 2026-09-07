@@ -26,7 +26,11 @@
  *      page — and called tavusapi.com directly, which CORS blocks. Its
  *      failure message told customers to add that key in Settings.
  *
- *   4. (reported, not fixed) The gallery is still localStorage-only.
+ *   4. The gallery was localStorage-only, so a customer's videos lived on one
+ *      browser. That bit hardest on a render still in progress: the provider's
+ *      task id lived in the record and nowhere else, so losing it stranded a
+ *      video the customer had already paid for — there is no way to ask "is it
+ *      done yet" without the task id. It is now a row in video_generations.
  *
  *   node tests/video-suite/run.js
  */
@@ -162,9 +166,68 @@ const API  = 'api/generate-video.js';
     check('a permanent one is not',
       (b.gallery.match(/will expire/g) || []).length === 1);
     check('an in-flight render offers "Check again"', /Check again/.test(b.galleryHtml));
+    check('the store exposes its cloud API at runtime',
+      b.storeApi.every(t => t === 'function'));
+    check('and signed out, the gallery says the videos are device-only',
+      /Sign in to keep your videos/.test(b.syncNotice || ''));
   } finally {
     await b.close();
   }
+
+  /* ── 6. The gallery lives in the account, not one browser ────────────── */
+  console.log('\n──── the gallery is not trapped on one machine ────');
+
+  const sql = read('supabase-video-gallery.sql');
+  const store = read('web/js/video-gen-store.js');
+
+  check('there is a table for generated videos',
+    /CREATE TABLE IF NOT EXISTS video_generations/.test(sql));
+  check('it is row-level secured to its owner',
+    /ENABLE ROW LEVEL SECURITY/.test(sql) && /auth\.uid\(\) = user_id/.test(sql));
+  check('a teammate on a shared profile can see them',
+    /intelligence_profile_members/.test(sql));
+  check('re-saving a record updates it rather than duplicating',
+    /UNIQUE \(user_id, client_id\)/.test(sql));
+  check('the migration is idempotent like the others',
+    /CREATE TABLE IF NOT EXISTS/.test(sql) && /DROP POLICY IF EXISTS/.test(sql));
+  check('and is in the combined installer',
+    /video_generations/.test(read('supabase-install-all.sql')));
+
+  // The point of moving this: the task id is the only handle on a render that
+  // is still running. Losing it strands work the customer has paid for.
+  check('the provider task id is a stored column, not only a local field',
+    /task_id\s+TEXT/.test(sql));
+  check('and in-flight renders are indexed so they can be found again',
+    /status IN \('pending', 'processing'\)/.test(sql));
+  check('the storage warning is stored too, so it survives a device change',
+    /storage\s+TEXT/.test(sql) && /storage_note/.test(sql));
+
+  check('the store writes through to the cloud on create',
+    /function create\(entry\)[\s\S]{0,900}pushRecord\(record\)/.test(store));
+  check('and on update and delete',
+    /pushRecord\(items\[idx\]\)/.test(store) && /deleteRecord\(id\)/.test(store));
+  check('reads stay synchronous so the existing call sites are unchanged',
+    /function list\(\) \{ return load\(\); \}/.test(store));
+  check('an existing local gallery is lifted into the account once',
+    /migrateLocal/.test(store));
+  check('and never overwrites a gallery built on another device',
+    /cloud already has records/.test(store));
+  check('an offline project id is not sent into a uuid column',
+    /startsWith\('local_'\)/.test(store));
+  check('a failed cloud write is surfaced rather than swallowed',
+    /setOnSyncChange/.test(store) && /setSyncState\(false, error\.message\)/.test(store));
+
+  const vpage = code(PAGE);
+  check('the page reconciles with the account on load',
+    /syncFromCloud\(\)/.test(vpage));
+  check('and resumes renders after that, so one started elsewhere is picked up',
+    /syncFromCloud\(\)[\s\S]{0,300}status === 'processing' \|\| item\.status === 'pending'/.test(vpage));
+  check('a save that only reached this device says so',
+    /Saved on this device only/.test(vpage));
+  check('and being signed out is stated rather than looking synced',
+    /Sign in to keep your videos/.test(vpage));
+  check('Supabase loads before the store needs it',
+    read(PAGE).indexOf('supabase-client.js') < read(PAGE).indexOf('video-gen-store.js'));
 
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
@@ -266,6 +329,10 @@ async function inBrowser() {
       deadFns: ['generateAIVideo', 'pollVideoStatus'].map(f => typeof window[f]),
       gallery: g ? g.textContent : '',
       galleryHtml: g ? g.innerHTML : '',
+      storeApi: ['create', 'update', 'remove', 'list', 'getById',
+                 'syncFromCloud', 'migrateLocal', 'getSyncState', 'setOnSyncChange']
+        .map(f => typeof window.VideoGenStore[f]),
+      syncNotice: (document.getElementById('videoSyncState') || {}).textContent,
     };
   });
   return { ...result, errors, close: async () => { await br.close(); server.close(); } };

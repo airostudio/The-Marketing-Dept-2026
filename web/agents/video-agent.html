@@ -602,6 +602,9 @@
     </div>
 </div>
 
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
 <script src="../js/marked.min.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -1214,19 +1217,52 @@ Format as a proper production script with clear section headers and timestamps.`
         }
     }
 
-    // Resume polling any generations still in-flight from a previous page load
-    (function resumeInFlightGenerations() {
+    /* ── Gallery sync ─────────────────────────────────────────────────────
+       The gallery is now stored in the account (video_generations), not just
+       this browser. That matters most for a render still in progress: while
+       Seedance works, the provider's task id lives in the record and nowhere
+       else, so losing it made a video the customer had already paid for
+       unreachable — there is no way to ask "is it done yet" without it. */
+    function renderVideoSyncState(state) {
+        let el = document.getElementById('videoSyncState');
+        if (!el) {
+            const gallery = document.getElementById('videogenGallery');
+            if (!gallery) return;
+            el = document.createElement('div');
+            el.id = 'videoSyncState';
+            el.style.cssText = 'font-size:11.5px;padding:6px 10px;border-radius:8px;margin-bottom:10px;line-height:1.55;';
+            gallery.parentNode.insertBefore(el, gallery);
+        }
+        if (state.error) {
+            el.style.cssText += ';background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#fca5a5;';
+            el.textContent = 'Saved on this device only — could not reach your account: ' + state.error;
+            el.style.display = '';
+            return;
+        }
+        if (state.synced) { el.style.display = 'none'; return; }
+        el.style.cssText += ';background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.28);color:#fbbf24;';
+        el.textContent = 'Sign in to keep your videos — and any render still in progress — across devices.';
+        el.style.display = '';
+    }
+
+    window.VideoGenStore.setOnSyncChange(renderVideoSyncState);
+
+    // Render immediately from the local cache, then reconcile with the account
+    // and resume anything still rendering — including a render started on
+    // another device, which was previously invisible here.
+    (async function resumeInFlightGenerations() {
+        renderGallery();
+        const result = await window.VideoGenStore.syncFromCloud();
+        renderVideoSyncState({ synced: result.synced, error: result.synced ? null : null });
+        renderGallery();
         window.VideoGenStore.list()
             .filter(item => item.status === 'processing' || item.status === 'pending')
             .forEach(item => { if (item.taskId) pollSeedanceStatus(item.id, 0); });
-        renderGallery();
     })();
 
     consumeScriptHandoff();
 </script>
     <script src="/js/url-utils.js"></script>
-<script src="/js/supabase.min.js"></script>
-<script src="/js/supabase-client.js"></script>
 <script src="/js/send-auth.js"></script>
 <script src="/js/social-posts-store.js"></script>
 <script src="/js/mission-store.js"></script>
