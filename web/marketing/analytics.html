@@ -1143,213 +1143,297 @@
         return data;
     }
 
-    /* ── Empty State Data ── */
-    const emptyKPIs = {
-        conversions: { value: '0', change: 'No data', direction: 'neutral' },
-        roi: { value: '0%', change: 'No data', direction: 'neutral' },
-        ltv: { value: '$0', change: 'No data', direction: 'neutral' },
-        mer: { value: '0x', change: 'No data', direction: 'neutral' }
-    };
+    /* ── Rendering ──────────────────────────────────────────────────────────
+       Every panel on this page now renders one of two things: a real measured
+       number, or a plain statement of why there isn't one. The old defaults
+       were the third option — a shape that looked like data — and because the
+       service methods this page calls never existed, that third option was the
+       only one anybody ever saw. */
 
-    /* ── Default Data (used only when real data exists) ── */
-    const defaultKPIs = emptyKPIs;
+    function isNum(v) { return typeof v === 'number' && isFinite(v); }
+    function fmtInt(v) { return isNum(v) ? v.toLocaleString() : '--'; }
+    function fmtMoney(v) { return isNum(v) ? '$' + Math.round(v).toLocaleString() : '--'; }
 
-    const defaultAttribution = {
-        'first-touch': []
-    };
-
-    const defaultFunnel = [
-        { stage: 'Awareness', count: 0, color: '#4f46e5' },
-        { stage: 'Interest', count: 0, color: '#6366f1' },
-        { stage: 'Consideration', count: 0, color: '#818cf8' },
-        { stage: 'Intent', count: 0, color: '#3b82f6' },
-        { stage: 'Purchase', count: 0, color: '#10b981' },
-        { stage: 'Loyalty', count: 0, color: '#059669' }
-    ];
-
-    const defaultInsights = [];
-
-    const defaultSegments = [];
-
-    const defaultGoals = [];
-
-    /* ── Render Functions ── */
-    function renderKPIs(data) {
-        const kpis = data || defaultKPIs;
-        document.getElementById('kpiConversions').textContent = kpis.conversions.value;
-        document.getElementById('kpiConversionsChange').textContent = kpis.conversions.change;
-        document.getElementById('kpiConversionsChange').className = 'kpi-change ' + kpis.conversions.direction;
-        document.getElementById('kpiROI').textContent = kpis.roi.value;
-        document.getElementById('kpiROIChange').textContent = kpis.roi.change;
-        document.getElementById('kpiROIChange').className = 'kpi-change ' + kpis.roi.direction;
-        document.getElementById('kpiLTV').textContent = kpis.ltv.value;
-        document.getElementById('kpiLTVChange').textContent = kpis.ltv.change;
-        document.getElementById('kpiLTVChange').className = 'kpi-change ' + kpis.ltv.direction;
-        document.getElementById('kpiMER').textContent = kpis.mer.value;
-        document.getElementById('kpiMERChange').textContent = kpis.mer.change;
-        document.getElementById('kpiMERChange').className = 'kpi-change ' + kpis.mer.direction;
+    /** A short, honest reason in place of a chart or table. */
+    function notMeasured(reason) {
+        return '<div class="empty-note" style="padding:28px 16px;text-align:center;color:#9595b0;font-size:13px;line-height:1.7;">'
+             + escapeHtmlAn(reason || 'Not measured yet.') + '</div>';
     }
 
-    function renderAttribution(model) {
-        const data = defaultAttribution['first-touch'];
+    function escapeHtmlAn(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    /* ── Render Functions ── */
+    function renderKPIs(kpis) {
+        const set = (valId, changeId, value, formatter, note) => {
+            const v = document.getElementById(valId);
+            const c = document.getElementById(changeId);
+            if (!v || !c) return;
+            v.textContent = formatter(value);
+            // No arrow and no "vs last period" — this page stores no history to
+            // compare against, and the old markup carried an up-arrow class
+            // regardless of whether anything had gone up.
+            c.textContent = note || '';
+            c.className = 'kpi-change neutral';
+        };
+        const k = kpis || {};
+        set('kpiConversions', 'kpiConversionsChange', k.conversions?.value, fmtInt,
+            k.conversions?.measured ? 'Last 30 days' : 'Not measured');
+        set('kpiROI', 'kpiROIChange', k.roi?.value, v => (isNum(v) ? v + '%' : '--'),
+            k.roi?.reason || 'Not measured');
+        set('kpiLTV', 'kpiLTVChange', k.ltv?.value, fmtMoney,
+            k.ltv?.reason || 'Not measured');
+        // The fourth tile was "Marketing Efficiency Ratio" — revenue over ad
+        // spend. Ad spend is not in any connected source, so it is relabelled
+        // to the thing we can actually compute from GA4.
+        const merLabel = document.querySelector('#kpiMER')?.closest('.kpi-card')?.querySelector('.kpi-label');
+        if (merLabel) merLabel.textContent = 'Average Order Value';
+        set('kpiMER', 'kpiMERChange', k.avgOrderValue?.value, fmtMoney,
+            k.avgOrderValue?.measured ? 'Revenue ÷ conversions, last 30 days' : 'Not measured');
+    }
+
+    function renderAttribution(report) {
         const tbody = document.getElementById('attributionBody');
-        tbody.innerHTML = data.map(row => `
+        if (!tbody) return;
+        if (!report || !report.measured) {
+            tbody.innerHTML = '<tr><td colspan="4">' + notMeasured(report && report.reason) + '</td></tr>';
+            return;
+        }
+        const rows = Object.entries(report.attribution || {})
+            .sort((a, b) => b[1].credit - a[1].credit);
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4">' + notMeasured('No conversion paths in this period.') + '</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(([channel, row]) => `
             <tr>
-                <td><strong>${row.channel}</strong></td>
-                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${row.conversions.toLocaleString()}</td>
-                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${row.revenue}</td>
+                <td><strong>${escapeHtmlAn(channel)}</strong></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${row.credit.toLocaleString()}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmtMoney(row.revenue)}</td>
                 <td>
                     <div class="pct-bar">
-                        <div class="pct-bar-track"><div class="pct-bar-fill" style="width:${row.pct}%"></div></div>
-                        <span class="pct-bar-label">${row.pct}%</span>
+                        <div class="pct-bar-track"><div class="pct-bar-fill" style="width:${isNum(row.percentage) ? row.percentage : 0}%"></div></div>
+                        <span class="pct-bar-label">${isNum(row.percentage) ? row.percentage + '%' : '--'}</span>
                     </div>
                 </td>
             </tr>
         `).join('');
     }
 
-    function renderFunnel(data) {
-        const funnel = data || defaultFunnel;
-        const maxCount = funnel[0].count;
+    function renderFunnel(stages, reason) {
         const container = document.getElementById('funnelVisual');
-        container.innerHTML = funnel.map((stage, i) => {
-            const heightPct = Math.max(25, (stage.count / maxCount) * 100);
-            const dropoff = i < funnel.length - 1
-                ? '-' + ((1 - funnel[i + 1].count / stage.count) * 100).toFixed(1) + '%'
+        if (!container) return;
+        if (!Array.isArray(stages) || !stages.length) {
+            container.innerHTML = notMeasured(reason);
+            return;
+        }
+        // The old code divided by funnel[0].count, which was zero once the
+        // demo numbers were removed — so every bar rendered height:NaNpx with
+        // a "-NaN%" drop-off caption underneath it.
+        const measured = stages.filter(s2 => s2.measured && isNum(s2.visitors));
+        const top = measured.length ? measured[0].visitors : 0;
+        const COLORS = ['#4f46e5', '#6366f1', '#818cf8', '#3b82f6', '#10b981', '#059669'];
+
+        container.innerHTML = stages.map((stage, i) => {
+            const has = stage.measured && isNum(stage.visitors);
+            const heightPct = (has && top > 0) ? Math.max(8, (stage.visitors / top) * 100) : 8;
+            const label = has
+                ? (stage.visitors >= 1000 ? (stage.visitors / 1000).toFixed(1) + 'K' : String(stage.visitors))
+                : '--';
+            // A drop-off is only stated between two stages we measured; across
+            // an unmeasured gap there is no rate to quote.
+            const next = stages[i + 1];
+            const showDrop = has && next && next.measured && isNum(next.visitors) && stage.visitors > 0;
+            const drop = showDrop
+                ? '-' + ((1 - next.visitors / stage.visitors) * 100).toFixed(1) + '%'
                 : null;
             return `
-                <div class="funnel-stage">
+                <div class="funnel-stage"${has ? '' : ' title="' + escapeHtmlAn(stage.reason || 'Not measured') + '"'}>
                     <div class="funnel-bar-wrapper">
-                        <div class="funnel-bar" style="background:${stage.color};height:${heightPct * 2}px">
-                            <span class="count">${(stage.count / 1000).toFixed(1)}K</span>
+                        <div class="funnel-bar" style="background:${COLORS[i % COLORS.length]};height:${heightPct * 2}px;${has ? '' : 'opacity:.28'}">
+                            <span class="count">${label}</span>
                         </div>
                     </div>
-                    <div class="funnel-stage-label">${stage.stage}</div>
-                    ${dropoff ? `<div class="funnel-dropoff">${dropoff}</div>` : ''}
+                    <div class="funnel-stage-label">${escapeHtmlAn(stage.stage)}</div>
+                    ${drop ? `<div class="funnel-dropoff">${drop}</div>` : ''}
                 </div>
             `;
         }).join('');
     }
 
-    function renderInsights(data) {
-        const insights = data || defaultInsights;
-        document.getElementById('insightList').innerHTML = insights.map(item => `
-            <div class="insight-item ${item.severity}">
-                <span class="insight-badge ${item.severity}">${item.severity === 'high' ? 'High Impact' : item.severity === 'medium' ? 'Medium' : 'Opportunity'}</span>
-                <div class="insight-text">${item.text}</div>
-            </div>
-        `).join('');
+    function renderInsights(insights, reason) {
+        const el = document.getElementById('insightList');
+        if (!el) return;
+        if (!Array.isArray(insights) || !insights.length) {
+            el.innerHTML = notMeasured(reason || 'No insights yet — connect Google Analytics and press Refresh.');
+            return;
+        }
+        el.innerHTML = insights.map(item => {
+            const sev = item.severity || (item.category === 'risk' ? 'high' : item.category === 'growth' ? 'medium' : 'low');
+            return `
+            <div class="insight-item ${sev}">
+                <span class="insight-badge ${sev}">${sev === 'high' ? 'High Impact' : sev === 'medium' ? 'Medium' : 'Opportunity'}</span>
+                <div class="insight-text">${escapeHtmlAn(item.text || item.detail || item.title || '')}</div>
+            </div>`;
+        }).join('');
     }
 
-    function renderSegments(data) {
-        const segments = data || defaultSegments;
-        document.getElementById('segmentGrid').innerHTML = segments.map(seg => `
+    function renderSegments(segments, reason) {
+        const el = document.getElementById('segmentGrid');
+        if (!el) return;
+        if (!Array.isArray(segments) || !segments.length) {
+            el.innerHTML = notMeasured(reason ||
+                'Customer segments need per-customer purchase history, which is not connected yet. ' +
+                'Build a real, rule-based segment over your contacts in the Analytics Brain agent.');
+            return;
+        }
+        el.innerHTML = segments.map(seg => `
             <div class="segment-card">
-                <div class="segment-name">${seg.name}</div>
+                <div class="segment-name">${escapeHtmlAn(seg.name)}</div>
                 <div class="segment-stats">
-                    <div class="segment-stat">
-                        <span class="label">Size</span>
-                        <span class="value">${seg.size}</span>
-                    </div>
-                    <div class="segment-stat">
-                        <span class="label">Avg LTV</span>
-                        <span class="value">${seg.ltv}</span>
-                    </div>
-                    <div class="segment-stat">
-                        <span class="label">Engagement</span>
-                        <span class="engagement-badge ${seg.engagement}">${seg.engagement}</span>
-                    </div>
+                    <div class="segment-stat"><span class="label">Size</span><span class="value">${escapeHtmlAn(seg.size)}</span></div>
+                    <div class="segment-stat"><span class="label">Avg LTV</span><span class="value">${escapeHtmlAn(seg.ltv)}</span></div>
+                    <div class="segment-stat"><span class="label">Engagement</span><span class="engagement-badge ${escapeHtmlAn(seg.engagement)}">${escapeHtmlAn(seg.engagement)}</span></div>
                 </div>
             </div>
         `).join('');
     }
 
-    function renderGoals(data) {
-        const goals = data || defaultGoals;
-        document.getElementById('goalsList').innerHTML = goals.map(goal => {
-            const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+    function renderGoals(goals, reason) {
+        const el = document.getElementById('goalsList');
+        if (!el) return;
+        if (!Array.isArray(goals) || !goals.length) {
+            el.innerHTML = notMeasured(reason || 'No goals set yet.');
+            return;
+        }
+        el.innerHTML = goals.map(goal => {
+            const pct = (isNum(goal.current) && goal.target > 0)
+                ? Math.min(100, Math.round((goal.current / goal.target) * 100))
+                : null;
             return `
                 <div class="goal-item">
                     <div class="goal-header">
-                        <span class="goal-name">${goal.name}</span>
-                        <span class="goal-projected">Projected: ${goal.projected}</span>
+                        <span class="goal-name">${escapeHtmlAn(goal.name)}</span>
+                        <span class="goal-projected">${goal.projected ? 'Projected: ' + escapeHtmlAn(goal.projected) : ''}</span>
                     </div>
                     <div class="progress-track">
-                        <div class="progress-fill ${goal.status}" style="width:${pct}%"></div>
+                        <div class="progress-fill ${escapeHtmlAn(goal.status || '')}" style="width:${pct === null ? 0 : pct}%"></div>
                     </div>
                     <div class="goal-footer">
-                        <span class="goal-progress-text">${pct}% &mdash; ${goal.current.toLocaleString()} / ${goal.target.toLocaleString()}</span>
-                        <span class="goal-ai-rec">${goal.rec}</span>
+                        <span class="goal-progress-text">${pct === null
+                            ? 'Progress not measurable — ' + escapeHtmlAn(goal.metric || 'this metric') + ' is not tracked by a connected source.'
+                            : pct + '% &mdash; ' + fmtInt(goal.current) + ' / ' + fmtInt(goal.target)}</span>
+                        <span class="goal-ai-rec">${escapeHtmlAn(goal.rec || '')}</span>
                     </div>
                 </div>
             `;
         }).join('');
     }
 
-    /* ── Chart Placeholder ── */
-    function loadChannelChart(channel) {
+    /**
+     * Channel performance over time.
+     *
+     * This used to draw five sine waves — val = 40 + 30·sin(...) + 15·cos(...)
+     * — on a 0-100% axis, labelled Organic / Paid / Social / Email / Referral.
+     * It was decoration that read as a performance chart, and it moved
+     * convincingly. It now plots the real GA4 series, or says there isn't one.
+     */
+    async function loadChannelChart(channel) {
         const canvas = document.getElementById('channelPerformanceChart');
+        if (!canvas) return;
+        const holder = canvas.parentElement;
         const ctx = canvas.getContext('2d');
-        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.width = holder.offsetWidth;
         canvas.height = 320;
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const channels = channel === 'all'
-            ? ['Organic', 'Paid', 'Social', 'Email', 'Referral']
-            : [channel.charAt(0).toUpperCase() + channel.slice(1)];
-        const colors = ['#4f46e5', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'];
+
+        const message = (text) => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#9595b0';
+            ctx.font = '13px Inter';
+            ctx.textAlign = 'center';
+            wrapText(ctx, text, canvas.width / 2, canvas.height / 2 - 10, canvas.width - 80, 20);
+        };
+
+        if (typeof MarketingAnalyticsService === 'undefined') {
+            message('Analytics service unavailable.');
+            return;
+        }
+        message('Loading…');
+        const wanted = channel === 'all' ? null : channel;
+        let trend;
+        try {
+            trend = await MarketingAnalyticsService.getChannelTrends(
+                wanted ? wanted.charAt(0).toUpperCase() + wanted.slice(1) : null, 'daily');
+        } catch (e) {
+            message('Could not load channel data: ' + e.message);
+            return;
+        }
+        if (!trend || !trend.measured) {
+            message(trend?.reason || 'No channel data to chart yet.');
+            return;
+        }
+
+        const points = trend.points;
+        const values = points.map(p => p.traffic);
+        const max = Math.max(...values, 1);
         const padding = { top: 30, right: 30, bottom: 40, left: 60 };
         const chartW = canvas.width - padding.left - padding.right;
         const chartH = canvas.height - padding.top - padding.bottom;
 
-        /* grid */
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = 'rgba(51,51,80,0.4)';
         ctx.lineWidth = 1;
         for (let i = 0; i <= 5; i++) {
             const y = padding.top + (chartH / 5) * i;
             ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(padding.left + chartW, y); ctx.stroke();
-            ctx.fillStyle = '#9595b0'; ctx.font = '11px JetBrains Mono';
-            ctx.textAlign = 'right';
-            ctx.fillText(((5 - i) * 20) + '%', padding.left - 10, y + 4);
+            ctx.fillStyle = '#9595b0'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'right';
+            ctx.fillText(Math.round((max / 5) * (5 - i)).toLocaleString(), padding.left - 10, y + 4);
         }
 
-        /* x labels */
-        const days = 30;
         ctx.fillStyle = '#9595b0'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
-        for (let d = 0; d < days; d += 5) {
-            const x = padding.left + (chartW / (days - 1)) * d;
-            ctx.fillText('Day ' + (d + 1), x, canvas.height - 10);
+        const step = Math.max(1, Math.floor(points.length / 6));
+        for (let d = 0; d < points.length; d += step) {
+            const x = padding.left + (chartW / Math.max(1, points.length - 1)) * d;
+            ctx.fillText(points[d].date.slice(5), x, canvas.height - 10);
         }
 
-        /* lines */
-        channels.forEach((ch, ci) => {
-            ctx.beginPath();
-            ctx.strokeStyle = colors[ci % colors.length];
-            ctx.lineWidth = 2;
-            const seed = ci * 17 + 42;
-            for (let d = 0; d < days; d++) {
-                const val = 40 + 30 * Math.sin((d + seed) * 0.3) + 15 * Math.cos((d + seed) * 0.15);
-                const x = padding.left + (chartW / (days - 1)) * d;
-                const y = padding.top + chartH - (val / 100) * chartH;
-                d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+        ctx.beginPath();
+        ctx.strokeStyle = '#4f46e5';
+        ctx.lineWidth = 2;
+        points.forEach((p, d) => {
+            const x = padding.left + (chartW / Math.max(1, points.length - 1)) * d;
+            const y = padding.top + chartH - (p.traffic / max) * chartH;
+            d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         });
+        ctx.stroke();
 
-        /* legend */
         ctx.textAlign = 'left';
-        channels.forEach((ch, ci) => {
-            const lx = padding.left + ci * 100;
-            ctx.fillStyle = colors[ci % colors.length];
-            ctx.fillRect(lx, 10, 12, 3);
-            ctx.fillStyle = '#e2e2f0'; ctx.font = '11px Inter';
-            ctx.fillText(ch, lx + 16, 14);
-        });
+        ctx.fillStyle = '#4f46e5'; ctx.fillRect(padding.left, 10, 12, 3);
+        ctx.fillStyle = '#e2e2f0'; ctx.font = '11px Inter';
+        ctx.fillText((wanted || 'All channels') + ' — sessions', padding.left + 16, 14);
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = String(text).split(' ');
+        let line = '', lines = [];
+        for (const w of words) {
+            const test = line + w + ' ';
+            if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w + ' '; }
+            else line = test;
+        }
+        lines.push(line);
+        const startY = y - ((lines.length - 1) * lineHeight) / 2;
+        lines.forEach((l, i) => ctx.fillText(l.trim(), x, startY + i * lineHeight));
     }
 
     /* ── Attribution Model Switch ── */
-    function loadAttributionData(model) {
-        renderAttribution(model);
+    let lastDashboard = null;
+    async function loadAttributionData(model) {
+        if (typeof MarketingAnalyticsService === 'undefined') return;
+        renderAttribution(MarketingAnalyticsService.getAttributionReport(model));
     }
 
     /* ── AI Insights Refresh ── */
@@ -1358,15 +1442,21 @@
         btn.disabled = true;
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Analyzing...';
         try {
-            if (typeof MarketingAnalyticsService !== 'undefined' && MarketingAnalyticsService.getAIInsights) {
-                const insights = await MarketingAnalyticsService.getAIInsights();
-                if (insights && insights.length) { renderInsights(insights); return; }
+            if (typeof MarketingAnalyticsService === 'undefined') {
+                renderInsights(null, 'Analytics service unavailable.');
+                return;
             }
-            await new Promise(r => setTimeout(r, 1500));
-            renderInsights(defaultInsights);
+            const result = await MarketingAnalyticsService.getAIInsights();
+            // A refusal carries its reason; showing a canned list instead was
+            // how this page ended up presenting insights about nobody's data.
+            if (!result || !result.measured) {
+                renderInsights(null, result && result.reason);
+                return;
+            }
+            renderInsights(result.insights, 'No insights were returned for this period.');
         } catch (e) {
-            console.warn('AI insights refresh failed, using defaults:', e);
-            renderInsights(defaultInsights);
+            console.warn('AI insights refresh failed:', e);
+            renderInsights(null, 'Insights could not be generated: ' + e.message);
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Refresh';
@@ -1392,30 +1482,51 @@
         }, 2000);
     }
 
-    /* ── Dashboard Initialization ── */
-    async function initDashboard(dateRange) {
-        try {
-            if (typeof MarketingAnalyticsService !== 'undefined') {
-                const data = await MarketingAnalyticsService.getDashboardData(dateRange);
-                if (data) {
-                    if (data.kpis) renderKPIs(data.kpis);
-                    if (data.funnel) renderFunnel(data.funnel);
-                    if (data.insights) renderInsights(data.insights);
-                    if (data.segments) renderSegments(data.segments);
-                    if (data.goals) renderGoals(data.goals);
-                }
-            }
-        } catch (e) {
-            console.warn('Service unavailable, rendering defaults:', e);
+    /* ── Dashboard Initialization ──
+       Every panel is rendered exactly once, from whatever the service actually
+       returned. The old version rendered real data and then immediately called
+       every render function again with no arguments, so the placeholder
+       defaults overwrote real results even on the success path — and since
+       getDashboardData did not exist, the success path never ran anyway. */
+    async function initDashboard(dateRange = 'last-30d') {
+        if (typeof MarketingAnalyticsService === 'undefined') {
+            const reason = 'The analytics service failed to load. Reload the page, and if it persists, contact support.';
+            renderKPIs(null); renderAttribution(null); renderFunnel(null, reason);
+            renderInsights(null, reason); renderSegments(null, reason); renderGoals(null, reason);
+            await loadChannelChart('all');
+            return;
         }
 
-        renderKPIs();
-        renderAttribution('first-touch');
-        renderFunnel();
-        renderInsights();
-        renderSegments();
-        renderGoals();
-        loadChannelChart('all');
+        let data = null;
+        try {
+            data = await MarketingAnalyticsService.getDashboardData(dateRange);
+        } catch (e) {
+            console.warn('[Analytics] dashboard load failed:', e);
+            data = { measured: false, reason: 'Analytics could not be loaded: ' + e.message };
+        }
+        lastDashboard = data;
+
+        if (!data || !data.measured) {
+            const reason = (data && data.reason) || 'No analytics source is connected yet.';
+            renderKPIs(null);
+            renderAttribution(null);
+            renderFunnel(null, reason);
+            // Segments do not come from Google Analytics, so the GA reason
+            // would be the wrong explanation — renderSegments states its own.
+            renderSegments(null);
+            renderGoals(data && data.goals, reason);
+            renderInsights(null, reason);
+            await loadChannelChart('all');
+            return;
+        }
+
+        renderKPIs(data.kpis);
+        renderAttribution(data.attribution);
+        renderFunnel(data.funnel, data.funnelReason);
+        renderGoals(data.goals);
+        renderSegments(null);
+        renderInsights(null, 'Press Refresh to generate insights from your connected analytics.');
+        await loadChannelChart('all');
     }
 
     /* ── Auth Protection & Init ── */

@@ -1,334 +1,139 @@
-# Analytics Brain Production Readiness Audit
-**Date:** 2026-03-15
-**Agent:** Analytics Brain (analytics-agent.html)
-**Service:** Marketing Analytics Service (marketing-analytics-service.js)
-**Status:** ❌ NOT PRODUCTION READY
+# Analytics Brain — Audit
+
+**Superseded:** the previous version of this file (dated 2026-03-15) is kept in
+git history. Several of its findings had already been fixed, one of its
+"working well" items was wrong, and it missed the most serious problems. This
+is a re-audit against the code as it stands, with every claim verified by
+running it.
+
+Covered by `tests/analytics-brain/run.js`.
 
 ---
 
-## Executive Summary
+## The module is two things, and only one was in trouble
 
-The Analytics Brain module provides attribution modeling, marketing mix analysis, customer segmentation, performance analysis, and AI-powered reporting. While it **successfully integrates with Google Analytics API** for real web insights, it has **extensive demo/fake data fallbacks** and **NO Intelligence Layer integration** for business context.
+**`web/agents/analytics-agent.html` — the Analytics Brain agent — is honest.**
+The March audit's headline finding ("NO Intelligence Layer integration") was
+already false: the page pulls structured business context, competitor radar and
+objectives from `IntelligenceEngine`, builds real rule-based segments over the
+actual `ContactsStore`, computes attribution from touchpoint sequences the user
+pastes (and labels the result "real math, not an AI estimate"), and persists
+reports through `AnalyticsStore`. It tells Claude not to invent demographics for
+a real segment. Nothing here fabricates. It was left alone.
 
-**CRITICAL FINDING:** Analytics insights are generic and don't leverage ICP, brand voice, or business intelligence from BusinessBrain.
-
----
-
-## Critical Issues
-
-### 1. ❌ NO Intelligence Layer Integration (analytics-agent.html)
-
-**Missing Entirely:**
-- No `IntelligenceEngine` reference
-- No `getContextBundle()` calls
-- No BusinessBrain integration
-- No ICP-specific analytics insights
-- No brand voice consideration
-- No competitive intelligence integration
-
-**Impact:** All AI insights are generic and don't understand:
-- Who our ICP is (can't segment by ICP attributes)
-- Our value propositions (can't map to conversion drivers)
-- Our competitive position (can't benchmark performance)
-- Our buyer journey stages (can't optimize funnel by stage)
+**`web/marketing/analytics.html` + `web/js/marketing-analytics-service.js` were
+the opposite.**
 
 ---
 
-### 2. ❌ Demo/Fake Data Fallbacks (marketing-analytics-service.js)
+## What was wrong
 
-**Location:** Lines 146-174
-**Function:** `generateChannelData(dateRange)`
+### 1. The dashboard's only data path did not exist
 
-**Hardcoded Demo Data:**
-```javascript
-const base = {
-    SEO:      { traffic: 12400, leads: 310, conversions: 62, revenue: 31000, spend: 4200 },
-    Paid:     { traffic: 8600,  leads: 430, conversions: 86, revenue: 43000, spend: 18500 },
-    Social:   { traffic: 6200,  leads: 186, conversions: 28, revenue: 14000, spend: 5600 },
-    Email:    { traffic: 3800,  leads: 380, conversions: 95, revenue: 47500, spend: 1200 },
-    Direct:   { traffic: 4500,  leads: 135, conversions: 40, revenue: 20000, spend: 0 },
-    Referral: { traffic: 2100,  leads: 84,  conversions: 17, revenue: 8500,  spend: 800 }
-};
-```
+The page called `MarketingAnalyticsService.getDashboardData()` and
+`.getAIInsights()`. **Neither method was ever defined.** Every page load threw a
+`TypeError`, a `catch` logged "Service unavailable, rendering defaults", and the
+page fell through to its placeholder renders. Nothing a customer saw on that
+page had ever touched their account.
 
-**Issue:** When Google Analytics is NOT configured, system shows fake metrics instead of empty state.
+Worse, even the success path discarded real data: it rendered `data.kpis`, then
+immediately called `renderKPIs()` again with no arguments, so the placeholders
+overwrote anything real.
 
----
+### 2. The Google Analytics integration could not work — three ways over
 
-### 3. ❌ Hardcoded Customer Segments (marketing-analytics-service.js)
+The March audit listed this under "What's Working Well". It was not working.
 
-**Location:** Lines 446-452
-**Function:** `getCustomerSegments()`
+- It called `GoogleAnalytics.getDashboardData()`, which the connector does not
+  export either.
+- `getOverviewMetrics` and `getChannelBreakdown` were **synchronous** but the
+  connector returns a **Promise**, so they returned a Promise where callers
+  expected an object; `data[ch].traffic` on a Promise is `undefined`.
+- Nothing mapped GA4's `{rows:[{dimensionValues, metricValues}]}` envelope into
+  the `{SEO:{traffic,…}}` shape every caller assumed.
 
-**Hardcoded Fake Segments:**
-```javascript
-return parseAIJson(text, [
-    { name: 'Power Buyers',     size_pct: 12, avg_ltv: 2800, channels: ['Email', 'Direct']   },
-    { name: 'Social Explorers', size_pct: 24, avg_ltv: 450,  channels: ['Social', 'SEO']     },
-    { name: 'Deal Seekers',     size_pct: 18, avg_ltv: 620,  channels: ['Paid', 'Email']     },
-    { name: 'Enterprise Leads', size_pct: 8,  avg_ltv: 5200, channels: ['SEO', 'Referral']   },
-    { name: 'Casual Browsers',  size_pct: 38, avg_ltv: 120,  channels: ['SEO', 'Social']     }
-]);
-```
+### 3. "Attribution" was a lookup table, not attribution
 
-**Issue:** Falls back to generic B2C segments instead of using ICP from BusinessBrain.
+Credit was assigned by **the channel's index in the `CHANNELS` array**, not by a
+touch's position in anyone's path. `first-touch` gave 100% of the credit to
+whichever channel happened to be listed first (SEO) and `last-touch` to whichever
+was last (Referral) — for every account, forever, regardless of what any customer
+did. `data-driven` was a fixed row of constants. With no data the percentage was
+`0/0`, rendered as `NaN%`.
 
----
+### 4. Invented constants throughout the service
 
-### 4. ❌ Generic AI Prompts Without Business Context
+A flat trend series (traffic 3000, leads 90, conversions 18, revenue 9000 on
+*every* point, dated backwards from today) — charted as performance history and
+fed to the anomaly detector and forecaster. Ten fake conversion paths ("SEO →
+Email → Direct, 142 conversions, $285 average"). A hardcoded funnel
+`[50000, 28000, 14000, 7200, 3600, 2100]` whose drop-offs Claude was asked to
+explain. An LTV of $1,240 with a median of $860 and a five-bucket distribution.
+A churn rate of 5.2% with risk scores of 89/72/54. A weekly scorecard of 72/100.
+A goal projection of `current × 1.3`. An LTV multiplier of `× 3.2`.
 
-**Example 1 - Attribution Analysis (lines 791-815):**
-```javascript
-return `You are an expert marketing analytics consultant specializing in attribution modeling.
-Analyze this campaign data and provide a comprehensive attribution analysis:
+The anomaly detector deserves its own note: run over a series where every value
+was identical, the standard deviation was 0, every deviation was `0/0 = NaN`,
+`Math.abs(NaN) > 2` was false — so it **always** reported "No significant
+anomalies detected." A confident all-clear derived from nothing.
 
-CAMPAIGN DATA:
-${data}
-...
-```
+### 5. Removing the demo numbers had left division by zero
 
-**Missing:**
-- ICP definition → can't attribute by persona
-- Value propositions → can't map to conversion drivers
-- Buyer journey stages → can't optimize attribution by stage
-- Brand voice → insights don't match company tone
+An earlier pass zeroed the page's demo constants but not the arithmetic over
+them. `maxCount = funnel[0].count` was 0, so every funnel bar rendered
+`height:NaNpx` with a `-NaN%` drop-off caption under it, and "0.0K" as the count.
 
----
+### 6. The channel performance chart drew sine waves
 
-**Example 2 - Segmentation (lines 843-871):**
-```javascript
-return `You are an expert customer segmentation strategist using Segment Personas methodology.
-Create ${count} detailed customer segment profiles based on this description:
-
-CUSTOMER BASE DESCRIPTION:
-${customers}
-...
-```
-
-**Missing:**
-- ICP from BusinessBrain → should start with existing ICP definition
-- Pain points from Intelligence Layer → should segment by pain point severity
-- Product positioning → should segment by product fit
-- Competitive differentiation → should segment by competitor threat level
+`val = 40 + 30·sin((d+seed)·0.3) + 15·cos((d+seed)·0.15)`, five coloured lines
+on a 0–100% axis labelled Organic / Paid / Social / Email / Referral. Decoration
+that read as a performance chart, and it moved convincingly.
 
 ---
 
-### 5. ❌ No Strategic Validation Warnings
+## What was done
 
-**Missing Checks:**
-- When Google Analytics NOT configured → should warn to connect GA4
-- When Intelligence Layer < 30% complete → should warn to configure BusinessBrain
-- When ICP not defined → insights will be generic
-- When analyzing attribution without buyer journey → can't optimize by stage
+**One rule: a number is measured or it is named as absent.** Zeros were rejected
+as a fix — a dashboard reading "0 conversions, 0% ROI" tells a customer their
+marketing failed, when in fact nothing was counted. Every reader now returns
+`{ measured, reason, … }` and the UI renders the reason.
 
----
-
-## ✅ What's Working Well
-
-### 1. ✅ Real Google Analytics API Integration
-
-**Excellent Implementation (lines 187-197, 223-233):**
-```javascript
-if (window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
-    try {
-        const gaData = window.ApiConnector.GoogleAnalytics.getDashboardData(dateRange);
-        if (gaData) {
-            store('overview-' + dateRange, gaData);
-            return gaData;
-        }
-    } catch (e) {
-        warn('GA4 dashboard fetch failed, using local data:', e.message);
-    }
-}
-```
-
-**Verification:** ✅ YES, module DOES reach out to Google Analytics for real web insights (acquisition, behavior, conversion)
-
----
-
-### 2. ✅ Full-Funnel Analysis & Customer Journey
-
-**Lines 374-549:**
-- `getFunnelMetrics()` - Awareness through loyalty stages
-- `getFunnelDropoffs()` - AI-powered drop-off analysis
-- `getCustomerJourneyMap()` - Journey stage mapping with touchpoints
-
-**Verification:** ✅ YES, connects the full customer journey
+- **Real GA4 integration.** `readChannels()` awaits the connector, maps the row
+  envelope, and translates GA4's own channel-group names onto this module's
+  labels. An unmapped group is dropped rather than guessed at.
+- **Honest limits of the source.** GA4 holds no ad spend, so ROI, CAC and spend
+  stay `null` with a stated reason rather than being computed against a spend of
+  zero. LTV needs repeat-purchase history, so the KPI tile that claimed it now
+  reports *average order value* — a real number, correctly named.
+- **Real attribution.** `computeAttribution(paths, model)` weights by a touch's
+  position in its own path: first/last/linear/time-decay/position-based, with
+  percentages guarded against division by zero. Without recorded paths it
+  refuses and explains what a touchpoint path is.
+- **A funnel of what GA4 can actually fill.** Sessions (awareness) and
+  conversions (purchase) are real; the middle stages are returned
+  `measured:false` with the event each would need, and drop-off rates are only
+  quoted between two measured stages.
+- **Guidance is labelled as guidance.** Churn signals and the journey map are
+  useful and are kept — flagged `isGuidance` with a line saying they describe
+  what to watch for, not a measurement of this account's customers.
+- **The two missing methods now exist**, and a test asserts that every method
+  the page names is exported by the service, and every connector method the
+  service names is exported by the connector — the failure that hid all of this.
+- **The page** renders each panel exactly once from what the service returned,
+  shows a reason where there is no number, and plots the real GA4 series.
 
 ---
 
-### 3. ✅ Claude API Integration
+## Still not measured, and said so in the UI
 
-**Lines 939-950:**
-```javascript
-if (typeof ClaudeService !== 'undefined' && ClaudeService.callAgent) {
-    let result = '';
-    await ClaudeService.callAgent(AGENT_ID, prompt, {}, (chunk) => {
-        result += chunk;
-        outBody.textContent = result;
-    });
-}
-```
+These need data sources the product does not yet connect. They are named
+plainly rather than filled in:
 
-**Verification:** ✅ YES, uses Claude API for AI insights
-
----
-
-### 4. ✅ Comprehensive Analytics Features
-
-- ✅ Cross-Channel Dashboard (lines 180-283)
-- ✅ Multi-Touch Attribution Modeling - 6 models (lines 290-322)
-- ✅ Funnel Analysis with AI drop-off diagnosis (lines 370-432)
-- ✅ Customer Segmentation, LTV & Churn Prediction (lines 437-530)
-- ✅ AI Insights Engine with anomaly detection (lines 555-652)
-- ✅ Automated Reporting & Goal Tracking (lines 656-827)
-
----
-
-## Required Fixes
-
-### Fix 1: Add Intelligence Layer Integration to analytics-agent.html
-
-**Add to each workspace prompt:**
-
-```javascript
-attribution: () => {
-    const data = document.getElementById('attr-data').value.trim();
-    const model = document.getElementById('attr-model').value;
-    const goal = document.getElementById('attr-goal').value;
-    if (!data) return null;
-
-    let prompt = `You are an expert marketing analytics consultant...`;
-
-    // ADD INTELLIGENCE LAYER CONTEXT
-    if (window.IntelligenceEngine) {
-        const contextBundle = window.IntelligenceEngine.getContextBundle();
-        if (contextBundle && contextBundle.isReady) {
-            prompt += buildICPAttributionContext(contextBundle);
-            prompt += buildValuePropConversionContext(contextBundle);
-            prompt += buildBuyerJourneyStageContext(contextBundle);
-        }
-    }
-
-    return prompt;
-}
-```
-
----
-
-### Fix 2: Remove Demo Data Fallbacks in marketing-analytics-service.js
-
-**Replace `generateChannelData()` with:**
-
-```javascript
-function generateChannelData(dateRange) {
-    warn('Google Analytics not configured - returning empty state');
-    return {
-        SEO:      { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null },
-        Paid:     { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null },
-        Social:   { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null },
-        Email:    { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null },
-        Direct:   { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null },
-        Referral: { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0, cac: 0, roi: null }
-    };
-}
-```
-
----
-
-### Fix 3: Integrate ICP into Customer Segmentation
-
-**Replace `getCustomerSegments()` with:**
-
-```javascript
-async function getCustomerSegments() {
-    log('Generating customer segments');
-
-    let prompt = 'Generate 5 distinct marketing customer segments...';
-
-    // ADD ICP CONTEXT FROM BUSINESSBRAIN
-    if (window.IntelligenceEngine && window.IntelligenceEngine.brain) {
-        const data = window.IntelligenceEngine.brain.load();
-        if (data && data.icp) {
-            prompt += `\n\nStart with this ICP definition:\n`;
-            prompt += `Persona: ${data.icp.persona}\n`;
-            prompt += `Pain Points: ${data.icp.painPoints.join(', ')}\n`;
-            prompt += `Buyer Journey: ${JSON.stringify(data.icp.buyerJourney)}\n`;
-            prompt += `\nCreate segments that map to different sub-segments of this ICP.`;
-        }
-    }
-
-    const text = await askAI(prompt);
-    return parseAIJson(text, []); // Empty array fallback, no fake segments
-}
-```
-
----
-
-### Fix 4: Add Intelligence Builders for Analytics
-
-**New Functions Needed:**
-
-- `buildICPAttributionContext(contextBundle)` - Map ICP personas → attribution channels
-- `buildValuePropConversionContext(contextBundle)` - Map value props → conversion drivers
-- `buildBuyerJourneyStageContext(contextBundle)` - Map journey stages → funnel optimization
-- `buildCompetitiveBenchmarkContext(contextBundle)` - Add competitive benchmarks to insights
-- `buildBrandVoiceAnalyticsStyle(contextBundle)` - Format insights in brand voice tone
-
----
-
-### Fix 5: Add Strategic Validation Warnings
-
-**Add to each workspace function:**
-
-```javascript
-if (!window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
-    alert('⚠️ Google Analytics not configured. Analytics will show empty data. Configure GA4 in Settings to see real web insights.');
-    return;
-}
-
-if (!window.IntelligenceEngine?.getContextBundle()?.isReady) {
-    const proceed = confirm('⚠️ Intelligence Layer not configured. Analytics insights will be generic without ICP context. Proceed anyway?');
-    if (!proceed) return;
-}
-```
-
----
-
-## Verification Checklist
-
-- [ ] Intelligence Layer integrated in all analytics prompts
-- [ ] ICP-specific attribution analysis working
-- [ ] Buyer journey stage mapping in funnel analysis
-- [ ] Value prop → conversion driver mapping
-- [ ] Demo/fake data removed (empty states shown instead)
-- [ ] Customer segmentation uses ICP from BusinessBrain
-- [ ] Strategic validation warnings implemented
-- [ ] Google Analytics API integration still working
-- [ ] All AI insights flow from Claude API + Intelligence Layer + GA4 data
-
----
-
-## Risk Assessment
-
-**Severity:** MEDIUM-HIGH
-**User Impact:** Analytics insights are generic, don't understand business context
-**Business Impact:** Missed optimization opportunities, poor segmentation, generic recommendations
-
-**Recommendation:** BLOCK PRODUCTION until:
-1. Demo/fake data removed
-2. Intelligence Layer integrated
-3. ICP-specific analytics working
-4. Google Analytics configured and tested
-
----
-
-## Production Deployment Blockers
-
-1. **Demo Data Fallbacks** - Must show empty states instead of fake metrics
-2. **Generic Customer Segments** - Must use ICP from BusinessBrain
-3. **No Business Context** - All insights must leverage Intelligence Layer
-4. **Missing Validation** - Must warn when GA4 not configured
-
-**Estimated Fix Time:** 4-6 hours
-**Priority:** HIGH (blocks analytics credibility)
+| Not measured | What it would take |
+|---|---|
+| ROI, CAC, marketing efficiency | Ad spend from the ad platforms |
+| Customer lifetime value | Repeat-purchase history per customer |
+| Retention cohorts | Per-customer first-purchase dates and repeat activity |
+| Mid-funnel stages | Engagement / consideration / intent events in GA4 |
+| Multi-touch conversion paths | Touchpoint capture across sessions |
+| Customer segments (on this page) | Purchase history — the agent's rule-based segments over real contacts work today |
