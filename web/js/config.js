@@ -161,13 +161,19 @@ window.APP_CONFIG = {
             PRO_MODEL: 'gemini-3.1-pro-preview'  // For complex tasks
         },
 
-        // Anthropic Claude - https://console.anthropic.com/
-        // Best for: Long-form content, nuanced analysis
-        ANTHROPIC: {
-            ENABLED: false,
-            API_KEY: '',
-            MODEL: 'claude-3-5-sonnet-20241022'
-        },
+        // No ANTHROPIC block here on purpose.
+        //
+        // One stood here holding ENABLED/API_KEY/MODEL, and nothing read it —
+        // ai-service.js, the only consumer of this AI block, has clients for
+        // OpenAI and Gemini and none for Anthropic. Its model id had been
+        // stale for a year without anyone noticing, because nothing noticed
+        // it at all.
+        //
+        // It is not being updated, because the shape is wrong: an API_KEY
+        // field in browser configuration is a key shipped to every visitor in
+        // view-source. Claude is reached through /api/claude, which holds the
+        // key server-side — see web/js/claude-service.js. Anything that needs
+        // Claude goes through there.
 
         // AI Feature Settings
         SETTINGS: {
