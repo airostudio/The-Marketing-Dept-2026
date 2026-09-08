@@ -3067,7 +3067,18 @@ class ScottyChat {
                 onError:  (err) => {
                     console.error('Scotty AI Error:', err);
                     const errorMsg = err.message || err.error || 'Unknown error';
-                    bubble.innerHTML = `⚠️ <strong>AI Connection Error:</strong><br>${errorMsg}<br><br>` +
+                    // err.code / err.upstream, when present, are the machine-readable
+                    // reason the server gave — showing them turns "session expired"
+                    // (which could mean five different things server-side) into
+                    // something that can be diagnosed from the screen alone.
+                    const detailBits = [];
+                    if (err.code) detailBits.push(`code: ${err.code}`);
+                    if (err.httpStatus) detailBits.push(`http: ${err.httpStatus}`);
+                    if (err.upstream) detailBits.push(`upstream: ${err.upstream}`);
+                    const detail = detailBits.length
+                        ? `<br><small style="opacity:.7">${this._escapeHtml(detailBits.join(' · '))}</small>`
+                        : '';
+                    bubble.innerHTML = `⚠️ <strong>AI Connection Error:</strong><br>${this._escapeHtml(errorMsg)}${detail}<br><br>` +
                         `<small>Check <a href="/api/health" target="_blank">/api/health</a> for diagnostics</small>`;
                     this._finaliseResponse(text, '');
                 }

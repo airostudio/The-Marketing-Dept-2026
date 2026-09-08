@@ -52,7 +52,15 @@ const ClaudeService = (() => {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         const errMsg = errData.error?.message || (typeof errData.error === 'string' ? errData.error : null) || `API error ${response.status}`;
-        throw new Error(errMsg);
+        const err = new Error(errMsg);
+        // require-user.js and api/claude.js both attach a machine-readable
+        // `code` (and sometimes the upstream Supabase status) precisely so a
+        // banner like this one can say more than "something went wrong" —
+        // carry them onto the thrown Error instead of dropping them here.
+        if (errData.code) err.code = errData.code;
+        if (errData.upstream) err.upstream = errData.upstream;
+        err.httpStatus = response.status;
+        throw err;
       }
 
       const reader = response.body.getReader();
