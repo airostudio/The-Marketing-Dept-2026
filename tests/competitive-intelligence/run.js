@@ -242,6 +242,43 @@ const PAGES = {
   check('a read that could not reach the cloud is distinguishable from an empty one',
     /return null;/.test(store) && /source: 'cache', synced: false/.test(store));
 
+
+  /* ── The Battlecard Builder's two dead ends ───────────────────────────── */
+  console.log('\n──── a battlecard you can actually reach ────');
+
+  // Reported by a user as "Generate Battlecard doesn't work". It worked —
+  // there was no way to reach it. With an empty roster the dropdown held only
+  // its placeholder, the button was permanently disabled, and the empty state
+  // read "Select a competitor to build a battlecard", which cannot be done.
+  // The only Add Competitor control lives in the sidebar of a different tab
+  // and nothing on this one mentioned it.
+  check('an empty roster says so, instead of showing an unusable control',
+    /No competitors on your roster yet/.test(cmd));
+  check('and offers the fix in place',
+    cmd.includes('+ Add your first competitor') && /onclick="openAddModal\(\)"/.test(cmd));
+  check('the selector is disabled when there is nothing to select',
+    /sel\.disabled = empty/.test(cmd));
+
+  // The section parser used (?=^## |\Z). JavaScript has no \Z anchor — there
+  // it is a literal capital Z — so any section containing one was truncated.
+  check('the section parser no longer treats \\Z as an end anchor',
+    !/\(\?=\^## \|\\Z\)/.test(cmd));
+
+  (function () {
+    function parse(text) {
+      const sections = {};
+      const re = /^## ([^\n]+)\n([\s\S]*?)(?=^## )/gm;
+      let m;
+      while ((m = re.exec(text + '\n## END')) !== null) sections[m[1].trim()] = m[2].trim();
+      return sections;
+    }
+    const p = parse('## AT A GLANCE\nBased in New Zealand. Competes with Zendesk.\n\n## TALK TRACK\nWe win on depth.');
+    check('a section naming New Zealand or Zendesk survives intact',
+      p['AT A GLANCE'] === 'Based in New Zealand. Competes with Zendesk.');
+    check('and the last section still terminates, without the sentinel leaking',
+      p['TALK TRACK'] === 'We win on depth.');
+  })();
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));

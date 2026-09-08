@@ -1003,6 +1003,28 @@ function renderBattlecardSelectors() {
     sel.innerHTML = '<option value="">— Choose competitor —</option>' +
         comps.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     if (cur) sel.value = cur;
+
+    // With an empty roster this view was a dead end: a dropdown with nothing
+    // in it, a permanently disabled Generate button, and an empty state
+    // saying "Select a competitor" — which cannot be done. The only way to
+    // add one is a button in the sidebar of a different tab, which the copy
+    // never mentioned. Say what is missing and offer the thing that fixes it.
+    const empty = comps.length === 0;
+    sel.disabled = empty;
+    if (empty) {
+        document.getElementById('bcContent').innerHTML = `
+            <div class="bc-empty">
+                <div class="bc-empty-icon">🃏</div>
+                <div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:8px;">
+                    No competitors on your roster yet
+                </div>
+                <div style="font-size:13px;color:var(--text3);margin-bottom:18px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.6;">
+                    A battlecard is built from a specific competitor's positioning, strengths and
+                    recent moves. Add one and this fills in.
+                </div>
+                <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+            </div>`;
+    }
 }
 
 window.onBattlecardSelect = function() {
@@ -1166,7 +1188,13 @@ Stage: [company stage + funding]
 function renderBattlecard(text) {
     // Parse sections
     const sections = {};
-    const sectionRe = /^## ([^\n]+)\n([\s\S]*?)(?=^## |\Z)/gm;
+    // The lookahead used to read (?=^## |\Z). JavaScript has no \Z anchor —
+    // \Z there is simply a literal capital Z, so any section containing one
+    // was truncated at it: a competitor "based in New Zealand" rendered as
+    // "based in New", and a card about Zendesk, Zoom or Zapier lost text at
+    // every mention. The sentinel appended below already terminates the last
+    // section, so the alternation was never needed for its stated purpose.
+    const sectionRe = /^## ([^\n]+)\n([\s\S]*?)(?=^## )/gm;
     let m;
     while ((m = sectionRe.exec(text + '\n## END')) !== null) {
         sections[m[1].trim()] = m[2].trim();
