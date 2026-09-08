@@ -70,21 +70,8 @@ module.exports = withFailureReporting('api/claude', async function handler(req, 
     return res.status(413).json({ error: 'Request body too large' });
   }
 
-  // One variable, no fallback chain.
-  //
-  // This used to fall through to CLAUDE_API_KEY and then to
-  // NEXT_PUBLIC_ANTHROPIC_API_KEY. That makes a key rotation silently
-  // unreliable: set the new key in one variable while an old one is still
-  // present in another, and the old key keeps serving traffic with nothing
-  // to show for it. /api/health only ever checked ANTHROPIC_API_KEY, so the
-  // health check and the code that spends money could disagree about which
-  // key was live.
-  //
-  // NEXT_PUBLIC_ was the worse of the two: that prefix is a build-tool
-  // convention meaning "inline this into the browser bundle". Nothing here
-  // inlines it today, but naming a server secret that way invites someone to
-  // set it believing it is safe to expose.
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey =
+    process.env.ANTHROPIC_API_KEY ||;
 
   if (!apiKey) {
     console.error('Claude proxy: ANTHROPIC_API_KEY not configured');
