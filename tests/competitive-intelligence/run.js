@@ -279,6 +279,37 @@ const PAGES = {
       p['TALK TRACK'] === 'We win on depth.');
   })();
 
+
+  /* ── Gap Analysis and the Activity Feed, same shape ───────────────────── */
+  console.log('\n──── no view invites a click it will refuse ────');
+
+  // Reported as "AI Discover Gaps is not working". The button ran; it just
+  // refused. With an empty roster the empty state read 'Use "AI Discover
+  // Gaps" to find opportunities' — an instruction whose only outcome was a
+  // browser alert saying "Add at least one competitor first", which names the
+  // problem, not the fix, and which a customer can dismiss without reading.
+  check('an empty roster is told what is missing, on the gaps view',
+    /Add a competitor before analysing gaps/.test(cmd));
+  check('and the Discover button is disabled rather than refusing on click',
+    /db\.disabled = !haveCompetitors/.test(cmd));
+  check('the alert that named the problem and not the fix is gone',
+    !/alert\('Add at least one competitor first\.'\)/.test(cmd));
+
+  // The Activity Feed had the same shape: it pointed at "+ Log Move", which
+  // asks which competitor the move belongs to.
+  check('the feed distinguishes "no moves" from "no competitors"',
+    /No competitors to track yet/.test(cmd) && /No moves logged yet/.test(cmd));
+
+  // All three views offer the same way out, in place.
+  check('every empty-roster state offers the add control itself',
+    (cmd.match(/\+ Add your first competitor/g) || []).length >= 3);
+
+  // And the populated copy must survive — an empty state that always says
+  // "add a competitor" would be its own bug.
+  check('with competitors present the original invitations remain',
+    /Use "AI Discover Gaps" to find opportunities/.test(cmd) &&
+    /Start tracking competitor activity using the/.test(cmd));
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));

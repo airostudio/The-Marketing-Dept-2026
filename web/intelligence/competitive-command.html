@@ -969,7 +969,20 @@ function refreshFeed() {
 
     const el = document.getElementById('feedList');
     if (!moves.length) {
-        el.innerHTML = `<div class="empty-state"><div class="es-icon">📡</div><div class="es-text">No moves logged yet</div><div class="es-sub">Start tracking competitor activity using the "+ Log Move" button.</div></div>`;
+        // "+ Log Move" asks which competitor the move belongs to, so with an
+        // empty roster that instruction leads to the same dead end the gaps
+        // and battlecard views had.
+        el.innerHTML = comps.length
+            ? `<div class="empty-state"><div class="es-icon">📡</div><div class="es-text">No moves logged yet</div><div class="es-sub">Start tracking competitor activity using the "+ Log Move" button.</div></div>`
+            : `<div class="empty-state">
+                 <div class="es-icon">📡</div>
+                 <div class="es-text">No competitors to track yet</div>
+                 <div class="es-sub" style="max-width:420px;margin:0 auto 18px;line-height:1.6;">
+                   Add the companies you compete with and their moves, gaps and battlecards all
+                   build from here.
+                 </div>
+                 <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+               </div>`;
         return;
     }
 
@@ -1293,9 +1306,31 @@ function renderGaps() {
 
     const el = document.getElementById('gapList');
     if (!filtered.length) {
-        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">🕳️</div><div class="es-text">No gaps logged yet</div><div class="es-sub">Use "AI Discover Gaps" to find opportunities, or add gaps manually.</div></div>`;
+        // Two different empty states, because they need two different things
+        // from the reader. With competitors on the roster, "no gaps yet" is
+        // true and the invitation to press Discover is actionable. With an
+        // empty roster it was a trap: the copy told you to press a button
+        // whose only response is an alert refusing you, and never said what
+        // was actually missing or where to fix it.
+        const haveCompetitors = loadCompetitors().length > 0;
+        el.innerHTML = haveCompetitors
+            ? `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">🕳️</div><div class="es-text">No gaps logged yet</div><div class="es-sub">Use "AI Discover Gaps" to find opportunities, or add gaps manually.</div></div>`
+            : `<div class="empty-state" style="grid-column:1/-1;">
+                 <div class="es-icon">🕳️</div>
+                 <div class="es-text">Add a competitor before analysing gaps</div>
+                 <div class="es-sub" style="max-width:440px;margin:0 auto 18px;line-height:1.6;">
+                   A strategic gap is somewhere your competitors are collectively weak or absent.
+                   With nobody on the roster there is nothing to compare against.
+                 </div>
+                 <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+               </div>`;
+        // Nothing to discover from, so do not present a control that will refuse.
+        const db = document.getElementById('discoverBtn');
+        if (db) db.disabled = !haveCompetitors;
         return;
     }
+    const db = document.getElementById('discoverBtn');
+    if (db) db.disabled = false;
 
     el.innerHTML = filtered.map(g => `
         <div class="gap-card">
@@ -1337,7 +1372,11 @@ window.discoverGaps = async function() {
 
     const comps = loadCompetitors();
     if (!comps.length) {
-        alert('Add at least one competitor first.');
+        // renderGaps() already shows the empty-roster state with the add
+        // button in it; re-render rather than firing an alert that names the
+        // problem and not the fix, and that a customer can dismiss without
+        // reading.
+        renderGaps();
         return;
     }
 
