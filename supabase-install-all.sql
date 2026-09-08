@@ -905,20 +905,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- FIRST ADMIN USER CREATION
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
--- IMPORTANT: After running this schema, you need to:
+-- ADMINISTRATORS
 --
--- 1. Register a user account through the normal signup process
--- 2. Then run ONE of these commands to make that user an admin:
+-- You no longer need to run anything here to create the first one. Set
+-- OWNER_EMAIL in the deployment to the address that owns this platform and
+-- sign in with it: the account is granted super_admin on its next request.
+-- Comma-separate the variable for more than one owner. The address has to be
+-- confirmed in Supabase first, so an unconfirmed signup cannot claim it.
 --
---    For regular admin:
---    UPDATE profiles SET role = 'admin'
---    WHERE email = 'your-email@example.com';
+-- From there, /admin/users.html manages everyone else. The statements below
+-- still work if you would rather do it by hand or need to correct a role
+-- without a deploy:
 --
---    For super admin:
---    UPDATE profiles SET role = 'super_admin'
---    WHERE email = 'your-email@example.com';
---
--- 3. After that, you can use the admin dashboard to manage other users
+--    UPDATE profiles SET role = 'admin'       WHERE email = 'you@example.com';
+--    UPDATE profiles SET role = 'super_admin' WHERE email = 'you@example.com';
 --
 -- ═══════════════════════════════════════════════════════════════════════════════
 

@@ -81,7 +81,66 @@ async function requireUser(req, res) {
   const p = await sbRest(supabaseUrl, serviceKey, 'GET',
     `/profiles?id=eq.${user.id}&select=id,plan,role&limit=1`);
 
-  return { userId: user.id, profile: (p.ok && p.data && p.data[0]) || {} };
+  let profile = (p.ok && p.data && p.data[0]) || {};
+
+  // The owner account, designated by email.
+  //
+  // Bootstrapping the first administrator used to mean opening the Supabase
+  // SQL editor and running an UPDATE by hand — the schema still carries that
+  // instruction in a comment. That is fine once and awful forever: it is
+  // undocumented in the deployment, easy to forget when moving to a new
+  // environment, and there is no record of who holds the role or why.
+  //
+  // OWNER_EMAIL names the account (or accounts, comma separated) that should
+  // hold super_admin. Set it, sign in with that address, and the role is
+  // yours. Nothing to run.
+  profile = await applyOwnerEmail(supabaseUrl, serviceKey, user, profile);
+
+  return { userId: user.id, profile, email: user.email || null };
+}
+
+/**
+ * Promote the designated owner account, if this is one.
+ *
+ * Three things this deliberately does NOT do:
+ *
+ *   It does not trust the email on the profiles row. It uses the address
+ *   Supabase verified on the session, because a profile column is data and
+ *   an authenticated identity is not.
+ *
+ *   It does not promote an unconfirmed address. Otherwise anyone who knows
+ *   the owner's email could sign up as it and hold super_admin until the
+ *   confirmation was noticed — the promotion has to wait for proof the
+ *   address belongs to whoever is holding it.
+ *
+ *   It does not demote. Clearing OWNER_EMAIL removes the automatic grant for
+ *   future sign-ins; it does not strip the role from anyone who has it, so a
+ *   mistyped variable cannot lock every administrator out of the console.
+ */
+async function applyOwnerEmail(supabaseUrl, serviceKey, user, profile) {
+  const owners = (process.env.OWNER_EMAIL || '')
+    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  if (!owners.length) return profile;
+
+  const email = String(user.email || '').trim().toLowerCase();
+  if (!email || !owners.includes(email)) return profile;
+
+  // Supabase sets email_confirmed_at once the address is proven. Some
+  // configurations use confirmed_at instead; accept either, require one.
+  if (!user.email_confirmed_at && !user.confirmed_at) return profile;
+
+  if (profile.role === 'super_admin') return profile;
+
+  const res = await sbRest(supabaseUrl, serviceKey, 'PATCH',
+    `/profiles?id=eq.${user.id}`, { role: 'super_admin' });
+
+  if (!res.ok) {
+    // Worth hearing about: the owner cannot reach their own console.
+    console.error('[owner-email] could not promote', email, res.status, res.data);
+    return profile;
+  }
+  console.log('[owner-email] promoted to super_admin:', email);
+  return Object.assign({}, profile, { role: 'super_admin' });
 }
 
 /**
@@ -143,4 +202,4 @@ async function callerOwnsScope(userId, { intelProfileId, projectId }) {
   return !!(proj.ok && proj.data && proj.data.length);
 }
 
-module.exports = { requireUser, requireAdmin, callerOwnsScope };
+module.exports = { requireUser, requireAdmin, callerOwnsScope, applyOwnerEmail };

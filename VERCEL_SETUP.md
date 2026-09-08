@@ -103,6 +103,7 @@ Turns the plan tiers on `/index.html#pricing` and `/billing.html` into a real pa
 
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
+| `OWNER_EMAIL` | The email address that owns this deployment. That account is granted `super_admin` on its next sign-in, so the admin console needs no manual SQL to bootstrap. Comma-separate for more than one. The address must be confirmed in Supabase before the role is granted. | ✅ To reach /admin |
 | `STRIPE_SECRET_KEY` | Your Stripe secret key (`sk_test_...` / `sk_live_...`) | ✅ For billing |
 | `STRIPE_WEBHOOK_SECRET` | The `whsec_...` signing secret Stripe gives you when you add the webhook endpoint | ✅ For billing |
 | `STRIPE_PRICE_START_MONTHLY` / `STRIPE_PRICE_START_YEARLY` | Price IDs for the Start tier | ✅ For Start checkout |
