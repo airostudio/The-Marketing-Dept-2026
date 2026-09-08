@@ -11,27 +11,12 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // Build a query string from a plain object
 function qs(params) {
@@ -142,10 +127,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ configured: credentialStatus() });
   }
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded' });
-  }
+  if (rateLimited(req, res, { name: 'integration', max: 30, windowMs: 60 * 1000, auth })) return;
 
   const { service, endpoint = '/', params, method = 'GET', body } = req.body || {};
 

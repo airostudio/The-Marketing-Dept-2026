@@ -36,30 +36,14 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 
 const APOLLO_API_BASE = 'https://api.apollo.io/api/v1';
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 15;
-const rateBuckets = new Map();
 
 const DEFAULT_TITLES = ['Owner', 'Founder', 'Co-Founder', 'President', 'CEO', 'Managing Director', 'General Manager'];
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 function cleanDomain(raw) {
   return (raw || '')
@@ -77,15 +61,16 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests' });
-
 
   // This endpoint spends the account's own third-party credits, so it has to
   // know whose they are. It previously accepted anyone: a rate limit caps how
   // fast the money goes, not whether the caller was entitled to spend it.
   const auth = await requireUser(req, res);
   if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'apollo-enrich', max: 15, windowMs: 60 * 1000, auth: auth })) return;
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
     return res.status(500).json({

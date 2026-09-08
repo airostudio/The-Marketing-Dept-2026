@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 /**
  * api/scout-data.js
  * DataForSEO-powered competitive SEO data for the SCOUT agent.
@@ -17,24 +18,8 @@ const { requireUser } = require('./_lib/require-user.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-    const fwd = req.headers['x-forwarded-for'];
-    if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-    return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-    const now = Date.now();
-    let b = rateBuckets.get(ip);
-    if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-        b = { windowStart: now, count: 0 };
-        rateBuckets.set(ip, b);
-    }
-    b.count++;
-    return b.count <= RATE_LIMIT_MAX;
-}
 
 function cleanDomain(raw) {
     return (raw || '')
@@ -117,15 +102,14 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const ip = getClientIp(req);
-    if (!checkRateLimit(ip)) {
-        return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-    }
-
     // This endpoint spends the account's own third-party credits, so it has to
     // know whose they are. It previously accepted anyone.
     const caller = await requireUser(req, res);
     if (!caller) return;
+
+    // After authentication, so the burst limit is keyed on the account whose
+    // credits are being spent rather than on an address.
+    if (rateLimited(req, res, { name: 'scout-data', max: 10, windowMs: 60 * 1000, auth: caller })) return;
 
     const login = process.env.DATAFORSEO_LOGIN;
     const pass  = process.env.DATAFORSEO_PASSWORD;

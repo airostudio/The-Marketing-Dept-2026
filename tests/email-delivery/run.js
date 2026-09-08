@@ -32,7 +32,14 @@ const read = f => require('fs').readFileSync(path.join(REPO, f), 'utf8');
 
 /* ── Fake Supabase ──────────────────────────────────────────────────────── */
 let db;
+const { resetForTests: resetRateLimits } = require(path.join(REPO, 'api/_lib/rate-limit.js'));
+
 function reset() {
+  // The burst limiter is shared state now, not a Map inside each endpoint's
+  // own module, so it outlives a scenario the way the fake database would if
+  // this did not clear it. send-campaign allows three a minute by design;
+  // this suite runs more scenarios than that.
+  resetRateLimits();
   db = {
     suppressions: [],      // {user_id, email, reason}
     contacts: [],          // {id, user_id, email, status}

@@ -14,6 +14,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 const { safeFetch } = require('./_lib/safe-fetch.js');
 
 const TIMEOUT_MS = 12000;
@@ -24,22 +25,8 @@ const RL_WINDOW = 60_000;
 // 80/min — high enough to cover both the project-wizard's one-off reachability
 // check and the SEO audit's bulk broken-link verification (up to 50 links/run).
 const RL_MAX = 80;
-const rateBuckets = new Map();
 
-function getIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip) || { count: 0, reset: now + RL_WINDOW };
-  if (now > bucket.reset) { bucket.count = 0; bucket.reset = now + RL_WINDOW; }
-  bucket.count++;
-  rateBuckets.set(ip, bucket);
-  return bucket.count > RL_MAX;
-}
 
 module.exports = async function handler(req, res) {
   // CORS headers so the browser client can call this from any origin
@@ -56,8 +43,7 @@ module.exports = async function handler(req, res) {
   const auth = await requireUser(req, res);
   if (!auth) return;
 
-  const ip = getIp(req);
-  if (isRateLimited(ip)) return res.status(429).json({ error: 'Too many requests' });
+  if (rateLimited(req, res, { name: 'check-url', max: 80, windowMs: 60_000, auth })) return;
 
   // Parse and validate the target URL
   const raw = (req.query.url || '').trim();

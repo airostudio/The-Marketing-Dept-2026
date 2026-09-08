@@ -25,31 +25,16 @@
 'use strict';
 
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
   require('./_lib/send-guard.js');
 
 const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX     = 10;
 
-const rateBuckets   = new Map();
 let dailyWindowDate = new Date().toDateString();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,10 +42,6 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip))
-    return res.status(429).json({ error: 'Too many requests. Slow down.' });
 
   // Same open-relay problem as api/send-campaign.js: this accepted a
   // recipient, a subject and an HTML body from anyone who could reach the URL
@@ -76,6 +57,16 @@ module.exports = async function handler(req, res) {
     return res.status(auth.error === 'server_unconfigured' ? 500 : 401).json({ error: message });
   }
   const { userId, profile } = auth;
+
+  // Keyed on the sender, and therefore placed after authentication.
+  // Sending mail from the account's verified domain is the most
+  // valuable thing here to abuse, and an address is the wrong unit to
+  // meter it by: a shared office is charged as one sender, while one
+  // account can spread a burst across as many addresses as it can
+  // reach. The daily ceiling that actually protects deliverability is
+  // claimQuota() below, which is database-backed; this only stops one
+  // account hammering one instance.
+  if (rateLimited(req, res, { name: 'send-email', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth: { userId } })) return;
 
   const apiKey    = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;

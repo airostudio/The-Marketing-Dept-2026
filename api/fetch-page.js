@@ -19,6 +19,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 const { safeFetchText } = require('./_lib/safe-fetch.js');
 
 const TIMEOUT_MS = 15000;
@@ -29,22 +30,8 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — enough for real pages, bound
 // the simple single-URL checks elsewhere in the app.
 const RL_WINDOW = 60_000;
 const RL_MAX = 60;
-const rateBuckets = new Map();
 
-function getIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip) || { count: 0, reset: now + RL_WINDOW };
-  if (now > bucket.reset) { bucket.count = 0; bucket.reset = now + RL_WINDOW; }
-  bucket.count++;
-  rateBuckets.set(ip, bucket);
-  return bucket.count > RL_MAX;
-}
 
 function parseTarget(raw) {
   const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
@@ -74,8 +61,7 @@ module.exports = async function handler(req, res) {
   const auth = await requireUser(req, res);
   if (!auth) return;
 
-  const ip = getIp(req);
-  if (isRateLimited(ip)) return res.status(429).json({ success: false, error: 'Too many requests' });
+  if (rateLimited(req, res, { name: 'fetch-page', max: 60, windowMs: 60_000, auth })) return;
 
   const raw = (req.body?.url || '').trim();
   if (!raw) return res.status(400).json({ success: false, error: 'url is required' });

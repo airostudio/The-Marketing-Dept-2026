@@ -4,29 +4,14 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 
 const PAGESPEED_BASE = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let bucket = rateBuckets.get(ip);
-  if (!bucket || now - bucket.windowStart > RATE_LIMIT_WINDOW_MS) {
-    bucket = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, bucket);
-  }
-  bucket.count++;
-  return bucket.count <= RATE_LIMIT_MAX;
-}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -39,10 +24,7 @@ module.exports = async function handler(req, res) {
   const auth = await requireUser(req, res);
   if (!auth) return;
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-  }
+  if (rateLimited(req, res, { name: 'pagespeed', max: 10, windowMs: 60 * 1000, auth })) return;
 
   const { url, strategy = 'mobile' } = req.query;
   if (!url) {

@@ -8,27 +8,11 @@
  */
 
 const { requireUser, requireAdmin, callerOwnsScope } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -283,11 +267,6 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-  }
-
   const urlPath = (req.url || '').split('?')[0].replace(/\/$/, '');
   const isProjectRoute = urlPath.endsWith('/project');
 
@@ -302,6 +281,10 @@ module.exports = async function handler(req, res) {
     // ownership is what stops one customer probing another's setup.
     const auth = await requireUser(req, res);
     if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'diagnostics', max: 20, windowMs: 60 * 1000, auth: auth })) return;
     let body = {};
     if (typeof req.body === 'object' && req.body !== null) {
       body = req.body;
