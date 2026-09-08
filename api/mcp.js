@@ -395,7 +395,7 @@ For each variant: headline (with char count), body (with char count), CTA, visua
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] }),
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] }),
     signal: AbortSignal.timeout(45000),
   });
 

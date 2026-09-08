@@ -23,7 +23,7 @@
  * post is a real, individually-addressable object, not a fragment of one big
  * markdown blob regex'd back apart client-side.
  *
- * Uses Claude claude-sonnet-5. Requires ANTHROPIC_API_KEY env var.
+ * Uses Claude claude-sonnet-4-6. Requires ANTHROPIC_API_KEY env var.
  */
 
 'use strict';
@@ -255,7 +255,7 @@ module.exports = withFailureReporting('api/generate-social-posts', async functio
         'Content-Type':      'application/json',
       },
       body: JSON.stringify({
-        model:       'claude-sonnet-5',
+        model:       'claude-sonnet-4-6',
         max_tokens:  maxTokens,
         system:      systemBlocks,
         tools:       [SOCIAL_POSTS_TOOL],
