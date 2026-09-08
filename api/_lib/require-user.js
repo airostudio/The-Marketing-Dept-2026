@@ -140,6 +140,22 @@ async function applyOwnerEmail(supabaseUrl, serviceKey, user, profile) {
     return profile;
   }
   console.log('[owner-email] promoted to super_admin:', email);
+
+  // Granting super_admin is the single most consequential thing that happens
+  // without a human pressing anything, so it is recorded like any other
+  // administrative action. Required lazily: this module is loaded by every
+  // authenticated endpoint, and the audit log is only needed on the one
+  // request in the lifetime of an account that actually promotes it.
+  try {
+    const { recordAdminAction, ACTIONS } = require('./audit-log.js');
+    await recordAdminAction({
+      adminId: user.id, adminEmail: email,
+      action: ACTIONS.OWNER_CLAIMED,
+      targetUserId: user.id, targetEmail: email,
+      details: { role: 'super_admin', previousRole: profile.role || null, grantedBy: 'OWNER_EMAIL' },
+    });
+  } catch (e) { /* the grant stands; recordAdminAction reports its own failures */ }
+
   return Object.assign({}, profile, { role: 'super_admin' });
 }
 

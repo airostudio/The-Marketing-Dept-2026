@@ -138,11 +138,13 @@ CREATE POLICY "Users see own experiments"
   USING      (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users see own variants" ON variants;
 CREATE POLICY "Users see own variants"
   ON variants FOR ALL
   USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
   WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users see own goals" ON goals;
 CREATE POLICY "Users see own goals"
   ON goals FOR ALL
   USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
@@ -152,10 +154,12 @@ CREATE POLICY "Users see own goals"
 -- reads these two tables straight from the browser (getResults()), always
 -- filtered by experiment_id, so scoping by owner keeps that working and
 -- stops it returning anybody else's rows.
+DROP POLICY IF EXISTS "Owners read own visitors" ON visitors;
 CREATE POLICY "Owners read own visitors"
   ON visitors FOR SELECT
   USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Owners read own conversions" ON conversions;
 CREATE POLICY "Owners read own conversions"
   ON conversions FOR SELECT
   USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));

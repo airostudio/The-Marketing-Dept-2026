@@ -286,37 +286,46 @@ ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can only see/edit their own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON profiles
     FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
 -- Projects: Users can only access their own projects
+DROP POLICY IF EXISTS "Users can view own projects" ON projects;
 CREATE POLICY "Users can view own projects" ON projects
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create projects" ON projects;
 CREATE POLICY "Users can create projects" ON projects
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
 CREATE POLICY "Users can update own projects" ON projects
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
 CREATE POLICY "Users can delete own projects" ON projects
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Audits: Users can access audits for their projects
+DROP POLICY IF EXISTS "Users can view project audits" ON audits;
 CREATE POLICY "Users can view project audits" ON audits
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = audits.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create project audits" ON audits;
 CREATE POLICY "Users can create project audits" ON audits
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = audits.project_id AND projects.user_id = auth.uid())
     );
 
 -- Audit Issues: Users can access issues for their audits
+DROP POLICY IF EXISTS "Users can view audit issues" ON audit_issues;
 CREATE POLICY "Users can view audit issues" ON audit_issues
     FOR SELECT USING (
         EXISTS (
@@ -326,6 +335,7 @@ CREATE POLICY "Users can view audit issues" ON audit_issues
         )
     );
 
+DROP POLICY IF EXISTS "Users can create audit issues" ON audit_issues;
 CREATE POLICY "Users can create audit issues" ON audit_issues
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -335,6 +345,7 @@ CREATE POLICY "Users can create audit issues" ON audit_issues
         )
     );
 
+DROP POLICY IF EXISTS "Users can update audit issues" ON audit_issues;
 CREATE POLICY "Users can update audit issues" ON audit_issues
     FOR UPDATE USING (
         EXISTS (
@@ -345,27 +356,32 @@ CREATE POLICY "Users can update audit issues" ON audit_issues
     );
 
 -- Keywords: Users can access keywords for their projects
+DROP POLICY IF EXISTS "Users can view project keywords" ON keywords;
 CREATE POLICY "Users can view project keywords" ON keywords
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create project keywords" ON keywords;
 CREATE POLICY "Users can create project keywords" ON keywords
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can update project keywords" ON keywords;
 CREATE POLICY "Users can update project keywords" ON keywords
     FOR UPDATE USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can delete project keywords" ON keywords;
 CREATE POLICY "Users can delete project keywords" ON keywords
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
     );
 
 -- Keyword Rankings: Users can access rankings for their keywords
+DROP POLICY IF EXISTS "Users can view keyword rankings" ON keyword_rankings;
 CREATE POLICY "Users can view keyword rankings" ON keyword_rankings
     FOR SELECT USING (
         EXISTS (
@@ -375,6 +391,7 @@ CREATE POLICY "Users can view keyword rankings" ON keyword_rankings
         )
     );
 
+DROP POLICY IF EXISTS "Users can create keyword rankings" ON keyword_rankings;
 CREATE POLICY "Users can create keyword rankings" ON keyword_rankings
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -385,55 +402,66 @@ CREATE POLICY "Users can create keyword rankings" ON keyword_rankings
     );
 
 -- Competitors: Users can access competitors for their projects
+DROP POLICY IF EXISTS "Users can view project competitors" ON competitors;
 CREATE POLICY "Users can view project competitors" ON competitors
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create project competitors" ON competitors;
 CREATE POLICY "Users can create project competitors" ON competitors
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can delete project competitors" ON competitors;
 CREATE POLICY "Users can delete project competitors" ON competitors
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
     );
 
 -- Backlinks: Users can access backlinks for their projects
+DROP POLICY IF EXISTS "Users can view project backlinks" ON backlinks;
 CREATE POLICY "Users can view project backlinks" ON backlinks
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = backlinks.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create project backlinks" ON backlinks;
 CREATE POLICY "Users can create project backlinks" ON backlinks
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = backlinks.project_id AND projects.user_id = auth.uid())
     );
 
 -- Alerts: Users can access alerts for their projects
+DROP POLICY IF EXISTS "Users can view project alerts" ON alerts;
 CREATE POLICY "Users can view project alerts" ON alerts
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can create project alerts" ON alerts;
 CREATE POLICY "Users can create project alerts" ON alerts
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
     );
 
+DROP POLICY IF EXISTS "Users can update project alerts" ON alerts;
 CREATE POLICY "Users can update project alerts" ON alerts
     FOR UPDATE USING (
         EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
     );
 
 -- User Settings: Users can only access their own settings
+DROP POLICY IF EXISTS "Users can view own settings" ON user_settings;
 CREATE POLICY "Users can view own settings" ON user_settings
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own settings" ON user_settings;
 CREATE POLICY "Users can create own settings" ON user_settings
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own settings" ON user_settings;
 CREATE POLICY "Users can update own settings" ON user_settings
     FOR UPDATE USING (auth.uid() = user_id);
 
@@ -462,15 +490,19 @@ CREATE INDEX IF NOT EXISTS idx_marketing_store_lookup ON marketing_store(user_id
 -- RLS for marketing_store
 ALTER TABLE marketing_store ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own marketing data" ON marketing_store;
 CREATE POLICY "Users can view own marketing data" ON marketing_store
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own marketing data" ON marketing_store;
 CREATE POLICY "Users can create own marketing data" ON marketing_store
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own marketing data" ON marketing_store;
 CREATE POLICY "Users can update own marketing data" ON marketing_store
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own marketing data" ON marketing_store;
 CREATE POLICY "Users can delete own marketing data" ON marketing_store
     FOR DELETE USING (auth.uid() = user_id);
 
@@ -505,15 +537,19 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_type ON marketing_campaigns(type);
 
 ALTER TABLE marketing_campaigns ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own campaigns" ON marketing_campaigns;
 CREATE POLICY "Users can view own campaigns" ON marketing_campaigns
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own campaigns" ON marketing_campaigns;
 CREATE POLICY "Users can create own campaigns" ON marketing_campaigns
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own campaigns" ON marketing_campaigns;
 CREATE POLICY "Users can update own campaigns" ON marketing_campaigns
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own campaigns" ON marketing_campaigns;
 CREATE POLICY "Users can delete own campaigns" ON marketing_campaigns
     FOR DELETE USING (auth.uid() = user_id);
 
@@ -546,15 +582,19 @@ CREATE INDEX IF NOT EXISTS idx_content_type ON content_items(type);
 
 ALTER TABLE content_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own content" ON content_items;
 CREATE POLICY "Users can view own content" ON content_items
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own content" ON content_items;
 CREATE POLICY "Users can create own content" ON content_items
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own content" ON content_items;
 CREATE POLICY "Users can update own content" ON content_items
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own content" ON content_items;
 CREATE POLICY "Users can delete own content" ON content_items
     FOR DELETE USING (auth.uid() = user_id);
 
@@ -572,22 +612,27 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply updated_at triggers
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at
     BEFORE UPDATE ON projects
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_keywords_updated_at ON keywords;
 CREATE TRIGGER update_keywords_updated_at
     BEFORE UPDATE ON keywords
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_competitors_updated_at ON competitors;
 CREATE TRIGGER update_competitors_updated_at
     BEFORE UPDATE ON competitors
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
 CREATE TRIGGER update_user_settings_updated_at
     BEFORE UPDATE ON user_settings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

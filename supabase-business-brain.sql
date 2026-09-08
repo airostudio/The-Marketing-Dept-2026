@@ -39,11 +39,13 @@ CREATE INDEX IF NOT EXISTS idx_brain_history_user      ON business_brain_history
 ALTER TABLE business_brain         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE business_brain_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users manage own brain" ON business_brain;
 CREATE POLICY "Users manage own brain"
   ON business_brain FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users manage own brain history" ON business_brain_history;
 CREATE POLICY "Users manage own brain history"
   ON business_brain_history FOR ALL
   USING (auth.uid() = user_id)
@@ -55,6 +57,7 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS business_brain_updated_at ON business_brain;
 CREATE TRIGGER business_brain_updated_at
   BEFORE UPDATE ON business_brain
   FOR EACH ROW EXECUTE FUNCTION update_business_brain_updated_at();
