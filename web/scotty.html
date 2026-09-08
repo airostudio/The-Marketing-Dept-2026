@@ -4489,8 +4489,13 @@ const ReviewInbox = (() => {
     function actionsBlock(it) {
         if (it.status === 'approved' || it.status === 'rejected' || it.status === 'dismissed') {
             const txt = { approved: '✅ Approved', rejected: '🚫 Rejected', dismissed: '— Dismissed' }[it.status];
+            // An approved email draft was hand off to Pat, not left in Email
+            // Engine — point the link at where it actually went.
+            const wentToPat = it.status === 'approved' && it.sourceRef?.store === 'agent_history' && it.agentKey === 'email';
+            const linkHref = wentToPat ? '/agents/email-delivery-agent.html' : it.link;
+            const linkText = wentToPat ? 'Open in Pat →' : 'Open in agent →';
             return `<div class="review-actions"><span class="review-decided">${txt}</span>
-                ${it.link ? `<a class="review-open-link" href="${esc(it.link)}">Open in agent →</a>` : ''}</div>`;
+                ${linkHref ? `<a class="review-open-link" href="${esc(linkHref)}">${linkText}</a>` : ''}</div>`;
         }
         return `<div class="review-actions">
             <button class="review-btn" onclick="ReviewInbox.reviewOne('${esc(it.id)}')" ${it.verdict ? '' : ''}>
@@ -4602,6 +4607,31 @@ const ReviewInbox = (() => {
     }
 
     /**
+     * An approved Email Engine draft is content already generated — the exact
+     * shape web/agents/email-agent.html's own "Send to Pat" button builds from
+     * the same AgentHistory record (see its sendToPat()) — so approving it
+     * here can hand off straight to Pat instead of making the owner re-open
+     * Email Engine only to click the button it already has.
+     */
+    function handoffEmailDraftToPat(it) {
+        if (!window.PatHandoff?.sendDraft) return false;
+        const rawText = (it.payload && it.payload.content) || it.snapshot || '';
+        if (!rawText.trim()) return false;
+
+        const subjectMatch = rawText.match(/\*\*Subject(?:\s*A)?:?\*\*\s*(.+)/i) || rawText.match(/subject:\s*(.+)/i);
+        const guessedSubject = subjectMatch ? subjectMatch[1].replace(/[*_]/g, '').trim() : '';
+        const topic = (it.payload && it.payload.topic) || '';
+
+        window.PatHandoff.sendDraft({
+            campaignName: topic ? `${topic} — Email Sequence` : (it.title || 'Email Sequence'),
+            subject: guessedSubject || topic || it.title || 'Email Sequence',
+            html: typeof marked !== 'undefined' ? marked.parse(rawText) : `<pre>${esc(rawText)}</pre>`,
+            text: rawText,
+        });
+        return true;
+    }
+
+    /**
      * The owner's decision — and the part that makes it mean something:
      * write it back to the record it came from.
      */
@@ -4609,6 +4639,7 @@ const ReviewInbox = (() => {
         const it = window.ReviewQueue.decide(id, decision);
         if (!it) return;
 
+        let sentToPat = false;
         try {
             if (it.sourceRef?.store === 'social_posts' && window.SocialPostsStore?.updateStatus) {
                 await window.SocialPostsStore.updateStatus(
@@ -4618,6 +4649,8 @@ const ReviewInbox = (() => {
                 );
             } else if (it.sourceRef?.store === 'pending_approvals' && window.MissionStore?.resolveApproval) {
                 window.MissionStore.resolveApproval(it.sourceRef.id, decision === 'approved' ? 'approved' : 'dismissed');
+            } else if (it.sourceRef?.store === 'agent_history' && it.agentKey === 'email' && decision === 'approved') {
+                sentToPat = handoffEmailDraftToPat(it);
             }
         } catch (e) {
             console.warn('[ReviewInbox] could not write decision back to source:', e.message);
@@ -4625,6 +4658,7 @@ const ReviewInbox = (() => {
 
         InfoPanel.logActivity(decision === 'approved' ? '✅' : '🚫',
             `${decision === 'approved' ? 'Approved' : 'Rejected'}: ${it.title.slice(0, 40)}`);
+        if (sentToPat) InfoPanel.logActivity('📬', `Sent to Pat for sending: ${it.title.slice(0, 40)}`);
         render();
         refreshBadge();
     }
