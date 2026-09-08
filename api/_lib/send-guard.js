@@ -125,9 +125,15 @@ async function claimQuota(userId, want, profile) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const cap = Number.isFinite(Number(profile && profile.daily_send_limit))
-    && Number(profile.daily_send_limit) >= 0
-      ? Number(profile.daily_send_limit)
+  // daily_send_limit is a nullable column with no default, so an account
+  // that has never had it explicitly set comes back as `null` — and
+  // Number(null) is 0, not NaN. Left unguarded, that reads as "this
+  // account's real cap is zero" instead of "unset, use the default", and
+  // every such account is blocked from sending anything, forever.
+  const raw = profile && profile.daily_send_limit;
+  const cap = raw !== null && raw !== undefined
+    && Number.isFinite(Number(raw)) && Number(raw) >= 0
+      ? Number(raw)
       : DEFAULT_DAILY_SEND_LIMIT;
 
   const res = await sbRest(supabaseUrl, serviceKey, 'POST', '/rpc/claim_send_quota', {

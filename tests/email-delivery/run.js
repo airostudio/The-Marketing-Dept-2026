@@ -311,6 +311,17 @@ async function call(handler, body, opts) {
   check('and the endpoint no longer keeps a shared in-memory counter',
     !/let dailySendCount/.test(campaignSrc) && !/let dailySendCount/.test(emailSrc));
 
+  // daily_send_limit is nullable with no default, so an account that has
+  // never had it explicitly set gets `null` back from Supabase, not 0.
+  // Number(null) is 0 — if that isn't guarded against, every such account
+  // reads as "capped at zero" and can never send anything.
+  reset();
+  db.cap = null;
+  resendCalls = [];
+  r = await call(sendEmail, { to: 'a@x.test', subject: 'Hi', html: '<p>x</p>' });
+  check('an account with no daily_send_limit set falls back to the default cap, not zero',
+    r.status === 200 && resendCalls.length === 1);
+
   // Quota claimed but not spent must come back.
   reset();
   db.cap = 10;
