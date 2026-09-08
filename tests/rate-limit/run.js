@@ -158,11 +158,35 @@ check('no limiter falls back to the address on an authenticated endpoint',
 if (addressKeyed.length) console.log('      ', addressKeyed);
 
 // The ReferenceError this suite exists for: `auth` read before it is declared.
+//
+// Checked per call site, not by comparing the first index of each. Two
+// endpoints branch — failures.js and diagnostics.js each authenticate a
+// reporting path with requireUser and a later admin path with requireAdmin —
+// and a first-index comparison reports those as misordered when both branches
+// are in fact correct. What has to hold is narrower and truer: before every
+// individual rateLimited() call, some authentication has already run.
+const AUTH_CALLS = [
+  'await requireUser(req, res)',
+  'await requireAdmin(req, res)',
+  'await authenticateSender(req)',
+];
 const misordered = ENDPOINTS.filter(f => {
   const s = code(f);
-  const rl = s.indexOf('rateLimited(req, res');
-  const au = Math.max(s.indexOf('await requireUser(req, res)'), s.indexOf('await authenticateSender(req)'));
-  return au === -1 || rl < au;
+  const authAt = AUTH_CALLS
+    .flatMap(call => {
+      const out = []; let i = s.indexOf(call);
+      while (i !== -1) { out.push(i); i = s.indexOf(call, i + 1); }
+      return out;
+    })
+    .sort((a, b) => a - b);
+  if (!authAt.length) return true;
+  // Every guard must have an auth call somewhere above it.
+  let i = s.indexOf('rateLimited(req, res');
+  while (i !== -1) {
+    if (!authAt.some(a => a < i)) return true;
+    i = s.indexOf('rateLimited(req, res', i + 1);
+  }
+  return false;
 });
 check('every guard runs after the authentication that produces its key',
   misordered.length === 0);
