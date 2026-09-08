@@ -828,76 +828,26 @@
 
     // ═══════════════════════════════════════════════════════════════════════════
     // API KEYS
+    //
+    // Removed, not rewritten. This section advertised a "Production Key" and a
+    // "Development Key" for programmatic access, and every control on it was
+    // theatre over a product that has no public API at all:
+    //
+    //   Show     revealed a key made up on the spot by generateFakeKey() —
+    //            'sk_live_' plus 24 random characters.
+    //   Copy     put that same invented string on the clipboard, where a
+    //            customer could paste it into their own integration.
+    //   Revoke   greyed the row out and reported "The API key has been
+    //            revoked" — there was nothing to revoke.
+    //   Generate reported "New API key generated successfully" and did
+    //            nothing whatsoever.
+    //
+    // Nothing here can be made honest without a real key-issuing endpoint, so
+    // the panel is gone until there is one. Announcing work that did not
+    // happen is worse than the missing feature.
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function initAPIKeyButtons() {
-        document.querySelectorAll('.api-key-item').forEach(item => {
-            const showBtn = item.querySelector('.btn-ghost:nth-child(1)');
-            const copyBtn = item.querySelector('.btn-ghost:nth-child(2)');
-            const revokeBtn = item.querySelector('.btn-ghost:nth-child(3)');
-            const keyValue = item.querySelector('.api-key-value');
-
-            if (showBtn && keyValue) {
-                let isShown = false;
-                const originalText = keyValue.textContent;
-
-                showBtn.addEventListener('click', () => {
-                    isShown = !isShown;
-                    if (isShown) {
-                        // Generate a fake visible key for demo
-                        keyValue.textContent = generateFakeKey(keyValue.textContent.includes('live') ? 'live' : 'test');
-                        showBtn.textContent = 'Hide';
-                    } else {
-                        keyValue.textContent = originalText;
-                        showBtn.textContent = 'Show';
-                    }
-                });
-            }
-
-            if (copyBtn && keyValue) {
-                copyBtn.addEventListener('click', () => {
-                    const text = keyValue.textContent.includes('••••') ?
-                        generateFakeKey(keyValue.textContent.includes('live') ? 'live' : 'test') :
-                        keyValue.textContent;
-
-                    navigator.clipboard.writeText(text).then(() => {
-                        const originalText = copyBtn.textContent;
-                        copyBtn.textContent = 'Copied!';
-                        setTimeout(() => {
-                            copyBtn.textContent = originalText;
-                        }, 2000);
-                    });
-                });
-            }
-
-            if (revokeBtn) {
-                revokeBtn.addEventListener('click', () => {
-                    if (confirm('Are you sure you want to revoke this API key? This cannot be undone.')) {
-                        item.style.opacity = '0.5';
-                        item.style.pointerEvents = 'none';
-                        showNotification('API Key Revoked', 'The API key has been revoked.', 'info');
-                    }
-                });
-            }
-        });
-
-        // Generate new key button
-        const generateBtn = document.querySelector('.settings-panel[data-panel="api"] .btn-outline');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', () => {
-                showNotification('New API Key', 'New API key generated successfully.', 'success');
-            });
-        }
-    }
-
-    function generateFakeKey(type) {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let key = type === 'live' ? 'sk_live_' : 'sk_test_';
-        for (let i = 0; i < 24; i++) {
-            key += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return key;
-    }
+    function initAPIKeyButtons() { /* the API-keys panel no longer exists */ }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // NOTIFICATIONS
