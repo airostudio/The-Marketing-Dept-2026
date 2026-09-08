@@ -623,6 +623,32 @@ Include a brief strategy overview at the top explaining the sequence flow.${icpE
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
             outputEl.innerHTML = '';
+
+            // streamResponse never rejects — it routes every failure to
+            // onError, which this call did not pass. So the try/catch below
+            // caught nothing, and a bad key or a dropped connection left the
+            // output blank and the button stuck on "Generating..." with no way
+            // out but a page reload.
+            const fail = (message) => {
+                if (runBtn.disabled === false) return;   // already finished
+                clearTimeout(timeoutId);
+                runBtn.disabled = false;
+                runBtn.textContent = 'Generate Sequence';
+                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
+                    <strong>Sequence generation failed:</strong> ${escapeEmailHtml(message)}<br><br>
+                    <small style="opacity:0.7;">Your brief is still in the form — press Generate Sequence to try again.</small>
+                </div>`;
+                if (window.reportFailure) {
+                    window.reportFailure(`Email Engine sequence generation failed: ${message}`,
+                        { where: 'email-agent.run' });
+                }
+            };
+
+            // A stream that simply stops sending never calls onError either.
+            const timeoutId = setTimeout(() => {
+                fail('the request timed out after 90 seconds. The AI API may be unreachable or overloaded.');
+            }, 90000);
+
             try {
                 await this.claudeService.streamResponse({
                     systemPrompt,
@@ -633,15 +659,21 @@ Include a brief strategy overview at the top explaining the sequence flow.${icpE
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
                     onDone: () => {
+                        clearTimeout(timeoutId);
                         runBtn.disabled = false; runBtn.textContent = 'Generate Sequence';
-                        if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'email', taskType: 'Email Sequence', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' });
+                        if (!fullResponse.trim()) {
+                            outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Try again, or check the Vercel function logs.</div>`;
+                            if (window.reportFailure) window.reportFailure('Email Engine: empty response from the AI API', { where: 'email-agent.run' });
+                            return;
+                        }
+                        if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'email', taskType: 'Email Sequence', content: fullResponse, topic: document.getElementById('product')?.value?.trim() || '' });
                         const sendBtn = document.getElementById('sendToPatBtn');
-                        if (sendBtn && fullResponse.trim()) { sendBtn.style.display = ''; sendBtn._sequenceText = fullResponse; }
-                    }
+                        if (sendBtn) { sendBtn.style.display = ''; sendBtn._sequenceText = fullResponse; }
+                    },
+                    onError: (e) => fail((e && e.message) || 'unknown error'),
                 });
             } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                runBtn.disabled = false; runBtn.textContent = 'Generate Sequence';
+                fail((e && e.message) || 'unknown error');
             }
         } else {
             outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
@@ -654,6 +686,13 @@ Include a brief strategy overview at the top explaining the sequence flow.${icpE
 }
 
 const agent = new EmailAgent();
+
+/** An API error message can carry anything the upstream service returned. */
+function escapeEmailHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function copyOutput(btn) {
     // Two bugs lived here.

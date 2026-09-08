@@ -141,6 +141,51 @@ window.ContactsStore = (function () {
    * @param {number} [opts.limit]
    * @param {number} [opts.offset]
    */
+  /**
+   * The or() filter for a free-text contact search.
+   *
+   * PostgREST's or() takes a comma-separated list of conditions in a string,
+   * so a comma, parenthesis or dot in the search term is grammar, not text.
+   * The old version stripped only % and _ (the LIKE wildcards), which meant a
+   * perfectly ordinary search — `Smith, John` or `Acme (UK)` — produced a
+   * malformed filter and the customer got an error instead of results.
+   *
+   * PostgREST accepts a double-quoted value with backslash escapes, which
+   * takes the term out of the grammar entirely.
+   */
+  function orSearch(term) {
+    const escaped = String(term)
+      .replace(/[%_]/g, '')          // LIKE wildcards: search them literally
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+    const like = `"%${escaped}%"`;
+    return ['email', 'first_name', 'last_name', 'company']
+      .map(col => `${col}.ilike.${like}`)
+      .join(',');
+  }
+
+  /**
+   * How many contacts match, ignoring limit/offset.
+   *
+   * The Audience Manager loads at most 200 rows. Without this it had no way to
+   * say so, and a customer with 3,000 contacts saw 200 and no indication that
+   * the other 2,800 existed.
+   */
+  async function countContacts(opts = {}) {
+    const client = await getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return 0;
+
+    let q = client.from('contacts').select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    if (opts.status) q = q.eq('status', opts.status);
+    if (opts.tag) q = q.contains('tags', [opts.tag]);
+    if (opts.search) q = q.or(orSearch(opts.search));
+
+    const { count, error } = await q;
+    if (error) throw new Error(error.message);
+    return count || 0;
+  }
+
   async function listContacts(opts = {}) {
     const client = await getSupabase();
     const userId = await getUserId();
@@ -149,10 +194,7 @@ window.ContactsStore = (function () {
     let q = client.from('contacts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (opts.status) q = q.eq('status', opts.status);
     if (opts.tag) q = q.contains('tags', [opts.tag]);
-    if (opts.search) {
-      const s = opts.search.replace(/[%_]/g, '');
-      q = q.or(`email.ilike.%${s}%,first_name.ilike.%${s}%,last_name.ilike.%${s}%,company.ilike.%${s}%`);
-    }
+    if (opts.search) q = q.or(orSearch(opts.search));
     if (opts.limit) q = q.limit(opts.limit);
     if (opts.offset) q = q.range(opts.offset, opts.offset + (opts.limit || 50) - 1);
 
@@ -408,6 +450,7 @@ window.ContactsStore = (function () {
     listCampaigns,
     upsertContacts,
     listContacts,
+    countContacts,
     updateContact,
     unsubscribeContact,
     deleteContact,

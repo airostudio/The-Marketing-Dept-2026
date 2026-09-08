@@ -261,6 +261,10 @@
       data = await window.CarolAggregator.collect();
     } catch (e) {
       document.getElementById('loading-row').innerHTML = `<span style="color:var(--red)">Could not pull the briefing together: ${escHtml(e.message)}</span>`;
+      if (window.reportFailure) {
+        window.reportFailure('Carol could not assemble the briefing: ' + e.message,
+          { where: 'carol-agent.boot' });
+      }
       return;
     }
 
