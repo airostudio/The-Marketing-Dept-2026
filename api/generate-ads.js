@@ -35,6 +35,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX    = 8;
@@ -359,11 +360,7 @@ module.exports = withFailureReporting('api/generate-ads', async function handler
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model:      'claude-sonnet-4-6',
         max_tokens: 8000,

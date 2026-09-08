@@ -31,6 +31,7 @@
 'use strict';
 
 const { withFailureReporting } = require('./_lib/report-failure.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 const WEB_SEARCH_MAX_USES_PER_AGENT = 4;
 const PER_AGENT_TIMEOUT_MS = 40000; // leaves headroom inside the 60s function ceiling for the Supabase writes after all agents settle
 const MODEL = 'claude-sonnet-4-6';
@@ -131,11 +132,7 @@ async function auditOneAgent(apiKey, agent) {
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
+    headers: anthropicHeaders(apiKey),
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(PER_AGENT_TIMEOUT_MS),
   });

@@ -13,6 +13,7 @@
 'use strict';
 
 const { reportFailureAsync } = require('./report-failure.js');
+const { anthropicHeaders } = require('./anthropic-headers.js');
 
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
@@ -101,11 +102,7 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
   try {
     upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: maxTokens,

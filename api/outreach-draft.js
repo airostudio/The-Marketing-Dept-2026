@@ -1,6 +1,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 /**
  * Outreach draft — Vercel serverless function.
  *
@@ -125,11 +126,7 @@ Return ONLY this JSON object — no markdown fences, no extra text:
   try {
     const cRes = await fetch(CLAUDE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,

@@ -13,9 +13,9 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS_CAP = 8192;
@@ -106,11 +106,7 @@ module.exports = withFailureReporting('api/claude', async function handler(req, 
 
     const upstream = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify(requestBody)
     });
 
