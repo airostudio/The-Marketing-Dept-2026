@@ -260,6 +260,13 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
+
+    /** An API error message can carry anything the upstream service returned. */
+    function escHtmlShield(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
     const SYSTEM_PROMPT = `You are a brand compliance and legal review specialist with expertise in FTC regulations, GDPR, CCPA, HIPAA, financial services compliance, and industry-specific regulatory frameworks. Review the provided content for: brand voice consistency, unsubstantiated claims, competitor disparagement risks, regulatory compliance issues (GDPR, FTC, CCPA, industry-specific), accessibility concerns, and reputational risks. When industry/ICP context is provided, apply industry-specific regulatory requirements (HIPAA for healthcare, SEC/FINRA for finance, FTC Green Guides for sustainability claims). Provide specific line-by-line feedback with severity ratings (critical = legal risk, warning = brand/regulatory risk, suggestion = improvement opportunity) and corrected versions that preserve intent while removing compliance risk.`;
 
     (function checkIntel() {
@@ -535,6 +542,23 @@ Critical issues: N | Warnings: N | Suggestions: N
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Review Content" forever. Every setTimeout on this page was a
+        // button-label flash; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🛡️';
+            document.getElementById('btnText').textContent = 'Review Content';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 90 seconds. The AI API may be unreachable or overloaded — press Review Content to try again.</div>';
+            if (window.reportFailure) window.reportFailure('Compliance Guard timed out after 90s', { where: 'compliance-agent.html.run' });
+            releaseButton();
+        }, 90000);
+
         try {
             if (window.ClaudeService) {
                 let fullText = '';
@@ -565,18 +589,19 @@ Critical issues: N | Warnings: N | Suggestions: N
                         }
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlShield(err.message)}</div>`;
+                        if (window.reportFailure) window.reportFailure('Compliance Guard generation failed: ' + err.message, { where: 'compliance-agent.run' });
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered compliance review.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlShield(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Compliance Guard generation failed: ' + e.message, { where: 'compliance-agent.run' });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '🛡️';
-            document.getElementById('btnText').textContent = 'Review Content';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 

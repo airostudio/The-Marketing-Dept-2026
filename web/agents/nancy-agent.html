@@ -536,6 +536,7 @@ async function openHistoryWeek(weekId) {
   } catch (err) {
     body.innerHTML = prevHtml;
     alert('Could not open this week: ' + err.message);
+    if (window.reportFailure) window.reportFailure('Instagram could not open a saved week: ' + err.message, { where: 'nancy-agent.openWeek' });
   }
 }
 
@@ -937,6 +938,7 @@ async function startGeneration() {
     showStep('step-results');
   } catch (err) {
     alert('Generation failed: ' + err.message);
+    if (window.reportFailure) window.reportFailure('Instagram week generation failed: ' + err.message, { where: 'nancy-agent.generate' });
     showStep('step-photos');
   }
 }

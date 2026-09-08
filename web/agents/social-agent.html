@@ -606,6 +606,7 @@ async function runBusinessResearch() {
     } catch (err) {
         status.textContent = 'Research failed: ' + err.message;
         status.className = 'research-status error';
+        if (window.reportFailure) window.reportFailure('Social Studio research failed: ' + err.message, { where: 'social-agent.research' });
     } finally {
         goBtn.disabled = false;
         goBtn.textContent = 'Research';
@@ -644,6 +645,7 @@ function renderResearchIdeas(data) {
 let _reviewPosts    = [];   // current batch: normalized {id, platform, hook, headline, body, cta, hashtags, meta, status}
 let _reviewPlanNote = '';
 let _reviewCloudBacked = false; // true once persisted to SocialPostsStore (signed in)
+let _reviewSaveError = null;    // set when a save was attempted and failed, which is not the same as being signed out
 
 function normalizeAdVariant(v, i) {
     return {
@@ -690,6 +692,7 @@ function normalizeOrganicPost(p, i) {
 /** Persist a freshly-generated batch (best-effort — works signed-out too, just not saved). */
 async function persistReviewBatch(posts) {
     _reviewCloudBacked = false;
+    _reviewSaveError = null;
     if (!window.SocialPostsStore) return posts;
     try {
         const { posts: saved } = await window.SocialPostsStore.createBatch(posts.map(p => ({
@@ -703,7 +706,17 @@ async function persistReviewBatch(posts) {
         // Re-attach real DB ids/status to the normalized posts, preserving order
         return posts.map((p, i) => ({ ...p, id: saved[i]?.id || p.id, status: saved[i]?.status || p.status }));
     } catch (err) {
+        // This used to be a console warning and nothing else. The banner below
+        // keys off _reviewCloudBacked, so a signed-in customer whose save
+        // failed was told to "sign in to save this review queue" — our outage,
+        // reported as their auth state, on a page holding work they just paid
+        // an AI call to generate.
         console.warn('[SocialStudio] Could not save review queue to cloud:', err.message);
+        _reviewSaveError = err.message || 'unknown error';
+        if (window.reportFailure) {
+            window.reportFailure('Social Studio could not save the review queue: ' + _reviewSaveError,
+                { where: 'social-agent.persistReviewBatch', postCount: posts.length });
+        }
         return posts;
     }
 }
@@ -775,7 +788,10 @@ function renderReviewQueue() {
 
     let html = `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
     if (!_reviewCloudBacked) {
-        html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
+        html += _reviewSaveError
+            ? `<div class="review-signin-note">These posts could not be saved to your account: ${escHtmlCard(_reviewSaveError)}.
+                 They are kept in this browser only — a closed tab loses them. Regenerate or retry once the problem clears.</div>`
+            : `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
     }
     const creditsNote = _lastCreditsRemaining !== null
         ? `<span class="credits-meter${_lastCreditsRemaining < 500 ? ' low' : ''}">🎨 ${_lastCreditsRemaining.toLocaleString()} AI image credits left</span>`
@@ -788,14 +804,14 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
-            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
+            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${escHtmlCard(p.imageUrl)}" alt="Generated creative"></div>` : ''}
             ${p.imageUrl && p.imageIsAI ? `<div class="post-card-ai-disclosure">⚠️ AI-generated image — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
             ${p.outOfCredits ? `
                 <div class="credits-upsell">
                     <div class="credits-upsell-title">⚡ Out of AI image credits</div>
                     <div class="credits-upsell-body">${escHtmlCard(p.outOfCredits.message)}</div>
-                    <a class="credits-upsell-btn" href="${p.outOfCredits.upgradeUrl || '/index.html#pricing'}" target="_blank" rel="noopener">Upgrade for more credits →</a>
+                    <a class="credits-upsell-btn" href="${escHtmlCard(p.outOfCredits.upgradeUrl || '/index.html#pricing')}" target="_blank" rel="noopener">Upgrade for more credits →</a>
                 </div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
@@ -1498,7 +1514,8 @@ class SocialAgent {
                 });
             }
         } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${err.message}</div>`;
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
         } finally {
             runBtn.disabled    = false;
             runBtn.textContent = 'Generate Ad Variants';
@@ -1582,7 +1599,8 @@ class SocialAgent {
                 window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: data.content, topic });
             }
         } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${err.message}</div>`;
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
         } finally {
             runBtn.disabled = false;
             runBtn.textContent = 'Create Content';

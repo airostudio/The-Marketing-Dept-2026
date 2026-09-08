@@ -650,6 +650,23 @@ Deliver a complete CRO analysis following the 7-section framework in your system
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Optimize" forever. Every setTimeout on this page was a
+        // button-label flash; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '📈';
+            document.getElementById('btnText').textContent = 'Optimize';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 90 seconds. The AI API may be unreachable or overloaded — press Optimize to try again.</div>';
+            if (window.reportFailure) window.reportFailure('CRO Lab timed out after 90s', { where: 'cro-agent.html.run' });
+            releaseButton();
+        }, 90000);
+
         try {
             if (window.ClaudeService) {
                 let fullText = '';
@@ -665,18 +682,19 @@ Deliver a complete CRO analysis following the 7-section framework in your system
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'cro', taskType: task || 'CRO Analysis', content: text, topic: pageDesc || '' });
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlCro(err.message)}</div>`;
+                        if (window.reportFailure) window.reportFailure('CRO Lab generation failed: ' + err.message, { where: 'cro-agent.run' });
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered CRO analysis.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlCro(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('CRO Lab generation failed: ' + e.message, { where: 'cro-agent.run' });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '📈';
-            document.getElementById('btnText').textContent = 'Optimize';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 

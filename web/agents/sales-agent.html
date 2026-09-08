@@ -15,6 +15,7 @@
     <script src="../js/intelligence-engine.js"></script>
     <script src="../js/supabase.min.js"></script>
     <script src="../js/supabase-client.js"></script>
+<script src="/js/escape-html.js"></script>
 <script src="/js/send-auth.js"></script>
 <script src="/js/failure-reporter.js"></script>
     <script src="../js/intelligence-profiles.js"></script>
@@ -778,19 +779,23 @@ Rules:
         btn.innerHTML = '🔍 Search';
     };
     const fail = (e) => {
-        streamText.innerHTML = `<span style="color:#ef4444">Search error: ${e}</span>`;
+        // The message can come back from a remote service, and it went into
+        // innerHTML with no escaping.
+        streamText.innerHTML = `<span style="color:#ef4444">Search error: ${escHtml(e && e.message ? e.message : e)}</span>`;
         btn.disabled = false;
         btn.innerHTML = '🔍 Search';
     };
 
+    const cancelStall = stallGuard(120000, 'discovery search', (e) => fail(e.message));
     try {
         await window.PerplexityService.streamResponse({
             systemPrompt, messages: [{ role: 'user', content: userMsg }],
             onChunk(c) { fullText += c; streamText.textContent = `Receiving... ${fullText.length} chars`; },
             onCitations(citations) { if (citations?.length) renderCitations(citations); },
-            onDone: done, onError: fail
+            onDone: (t) => { cancelStall(); done(t); },
+            onError: (e) => { cancelStall(); fail(e && e.message ? e.message : e); },
         });
-    } catch(e) { fail(e.message); }
+    } catch(e) { cancelStall(); fail(e.message); }
 }
 
 function renderCitations(citations) {
@@ -818,6 +823,27 @@ function parseResults(text) {
             `<span style="color:#f59e0b;font-weight:600">Could not parse JSON response.</span> Raw output below — try a more specific query or run again.<div class="stream-raw">${escHtml(text.substring(0, 3000))}</div>`;
         document.getElementById('disc-results-area').style.display = 'none';
     }
+}
+
+/**
+ * A stall backstop for a streamed call.
+ *
+ * onError covers a stream that fails. It does not cover one that simply stops
+ * sending: nothing rejects, the await never settles, the finally never runs,
+ * and the button stays disabled until the page is reloaded. Every setTimeout
+ * on this page before this one was a button-label flash or a rate-limit pause.
+ *
+ * Returns a cancel() to call once the stream has genuinely finished.
+ */
+function stallGuard(ms, where, onStall) {
+    const t = setTimeout(() => {
+        if (window.reportFailure) {
+            window.reportFailure('Sales Intelligence: ' + where + ' timed out after ' + Math.round(ms / 1000) + 's',
+                { where: 'sales-agent.' + where });
+        }
+        onStall(new Error('the request timed out after ' + Math.round(ms / 1000) + ' seconds — the AI API may be unreachable or overloaded'));
+    }, ms);
+    return () => clearTimeout(t);
 }
 
 function escHtml(s) {
@@ -903,15 +929,21 @@ function renderProspects() {
                 const bg = GENERIC.some(g => b.split('@')[0].startsWith(g)) ? 0 : 1;
                 return ag - bg;
             });
+            // Scraped off the prospect's own website by the enrichment
+            // endpoint — remote content, and it was the one field on this card
+            // that went in unescaped.
             const emailsHtml = allEmails.slice(0,3).map(e =>
-                `<span class="enrichment-email">${e}</span>`
+                `<span class="enrichment-email">${escHtml(e)}</span>`
             ).join(' &nbsp;');
 
             // Merge all social sources
             const allSocials = {...(p.profileSocials||{}), ...(p.crawlSocials||{})};
-            const socialsHtml = Object.entries(allSocials).slice(0,4).map(([k,v]) =>
-                `<a href="${v}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:capitalize">${k}</a>`
-            ).join(' · ');
+            // Same: both the label and the URL come from the crawl, and the
+            // URL went straight into an href.
+            const socialsHtml = Object.entries(allSocials).slice(0,4).map(([k,v]) => {
+                const href = (window.safeUrl ? window.safeUrl(v) : v) || '#';
+                return `<a href="${escHtml(href)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:capitalize">${escHtml(k)}</a>`;
+            }).join(' · ');
 
             enrichHtml = `<div class="enrichment-bar">
                 <strong>⚡ Enriched</strong>
@@ -1927,16 +1959,28 @@ Write compelling, personalised ${typeMap[type]} copy.`;
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'outreach copy', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await (window.OpenAIService || window.ClaudeService).streamResponse({
             systemPrompt, messages: [{ role: 'user', content: userMsg }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence outreach copy failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.outreach copy' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence outreach copy failed: ' + (e.message || e), { where: 'sales-agent.outreach copy' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
 }
@@ -1966,17 +2010,29 @@ async function runStrat() {
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'strategy', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await window.ClaudeService.streamResponse({
             systemPrompt: bbContext() + 'You are a B2B sales strategy expert with deep knowledge of EU, UK and US markets. Create detailed, actionable strategies compliant with GDPR, UK GDPR/PECR and CAN-SPAM. Use specific examples and templates.',
             messages: [{ role: 'user', content: `Create a ${typeMap[type]} for:\nTarget Market: ${market}\nOffer: ${offer}${volume?'\nCurrent Volume: '+volume:''}\n\nMake it specific and actionable, noting any regulatory considerations for the target market.` }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence strategy failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.strategy' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence strategy failed: ' + (e.message || e), { where: 'sales-agent.strategy' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
 }
@@ -2002,17 +2058,29 @@ async function genLIA() {
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'LIA', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await window.ClaudeService.streamResponse({
             systemPrompt: 'You are a GDPR compliance expert. Generate formal Legitimate Interest Assessment documents that are legally sound.',
             messages: [{ role: 'user', content: `Generate a complete LIA document:\n\nOrganisation: ${org}\nPurpose: ${purpose}\nData Collected: ${data||'Business name, contact details'}\nSources: ${sources||'Public business directories'}\nAudience: ${audience||'B2B prospects'}\nDate: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}\n\nInclude: 1. Purpose Test, 2. Necessity Test, 3. Balancing Test, 4. Safeguards, 5. Conclusion. Format professionally.` }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); actions.style.display = 'flex'; if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); actions.style.display = 'flex'; if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence LIA failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.LIA' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence LIA failed: ' + (e.message || e), { where: 'sales-agent.LIA' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
 }

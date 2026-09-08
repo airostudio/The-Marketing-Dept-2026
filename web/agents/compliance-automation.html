@@ -315,6 +315,13 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
+
+    /** An API error message can carry anything the upstream service returned. */
+    function escHtmlAuto(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
     const SYSTEM_PROMPT = `You are an enterprise compliance automation specialist with expertise in SOC 2, ISO 27001, GDPR, HIPAA, PCI DSS, and security frameworks. You help companies automate compliance evidence collection, continuous monitoring, and security workflows to close enterprise deals faster. Provide detailed, actionable automation plans with specific tools, API integrations, and step-by-step implementation guides. Focus on eliminating manual compliance busywork through automation.`;
 
     (function checkIntel() {
@@ -757,6 +764,23 @@ This is an automation plan, not evidence of compliance. Never phrase anything in
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Generate Compliance Automation" forever. Every setTimeout on this page was a
+        // button-label flash; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🔒';
+            document.getElementById('btnText').textContent = 'Generate Compliance Automation';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 90 seconds. The AI API may be unreachable or overloaded — press Generate Compliance Automation to try again.</div>';
+            if (window.reportFailure) window.reportFailure('Enterprise Compliance timed out after 90s', { where: 'compliance-automation.html.run' });
+            releaseButton();
+        }, 90000);
+
         try {
             if (window.ClaudeService) {
                 let fullText = '';
@@ -774,18 +798,19 @@ This is an automation plan, not evidence of compliance. Never phrase anything in
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'compliance-automation', taskType: automationGoal || 'Compliance Automation', content: text, topic: (frameworks || []).join(', ') });
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlAuto(err.message)}</div>`;
+                        if (window.reportFailure) window.reportFailure('Enterprise Compliance generation failed: ' + err.message, { where: 'compliance-automation.run' });
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered compliance automation.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlAuto(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Enterprise Compliance generation failed: ' + e.message, { where: 'compliance-automation.run' });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '🔒';
-            document.getElementById('btnText').textContent = 'Generate Compliance Automation';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 

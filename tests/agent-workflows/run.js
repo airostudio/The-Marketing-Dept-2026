@@ -69,8 +69,11 @@ function code(rel) {
     .split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 }
 
-const AGENTS = ['audience', 'blade', 'carol', 'content-studio', 'deck', 'email', 'linkedin', 'seo']
-  .map(n => `web/agents/${n}-agent.html`);
+/* Every agent page, so a new one cannot be added without these guarantees. */
+const AGENTS = fs.readdirSync(path.join(REPO, 'web', 'agents'))
+  .filter(f => f.endsWith('.html'))
+  .map(f => `web/agents/${f}`)
+  .sort();
 
 console.log('\n──── 1. a stream failure always ends the run ────');
 
@@ -84,9 +87,15 @@ for (const page of AGENTS) {
   const src = code(page);
   if (!/streamResponse\(\{/.test(src)) continue;
   const calls = src.split('streamResponse({').length - 1;
-  const handlers = (src.match(/onError\s*:/g) || []).length;
+  /* Both spellings: `onError: (e) => …` and the method shorthand `onError(e) {`
+     that sales-agent uses. Counting only the first reported four missing
+     handlers on a page that has all four. */
+  const handlers = (src.match(/onError\s*[:(]/g) || []).length;
   check(`${path.basename(page)} passes onError to every streamResponse call (${handlers}/${calls})`,
     handlers >= calls);
+  /* A page can have a dozen setTimeouts and no backstop — on the ten agents
+     audited second, every single one was a button-label flash or a poll
+     interval. What makes it a backstop is that firing says the run timed out. */
   check(`${path.basename(page)} has a timeout backstop for a stream that stops`,
     /setTimeout\(/.test(src) && /timed out/i.test(src));
 }
@@ -156,12 +165,56 @@ check('a truncated list says how many actually match',
 check('the status breakdown is labelled as counted over the loaded rows',
   /\(of loaded\)/.test(audience));
 
-console.log('\n──── 7. every caught failure reaches the admin console ────');
+console.log('\n──── 7. remote content is escaped wherever it is rendered ────');
+
+/* Each of these renders something fetched from outside the browser: a
+   citation URL from Perplexity's live search, an email address scraped off a
+   prospect's site, a media URL from the render API, an error message returned
+   by an upstream service. Every one went into innerHTML raw. */
+const REMOTE_SINKS = [
+  ['web/agents/competitive-agent.html', /<a href="\$\{c\}"/,                     'Perplexity citation URL'],
+  ['web/agents/sales-agent.html',       /class="enrichment-email">\$\{e\}/,      'scraped email address'],
+  ['web/agents/sales-agent.html',       /<a href="\$\{v\}"/,                     'scraped social profile URL'],
+  ['web/agents/social-agent.html',      /<img src="\$\{p\.imageUrl\}"/,          'generated image URL'],
+  ['web/agents/video-agent.html',       /<video src="\$\{item\.videoUrl\}"/,     'rendered video URL'],
+  ['web/agents/blade-agent.html',       /'<span class="email-real">' \+ r\.email/, 'scraped email address'],
+];
+for (const [page, pattern, what] of REMOTE_SINKS) {
+  check(`${path.basename(page)} no longer renders a raw ${what}`, !pattern.test(code(page)));
+}
+
+/* An error message can carry whatever the upstream service put in it. */
+for (const page of AGENTS) {
+  const src = code(page);
+  check(`${path.basename(page)} escapes error text before it reaches innerHTML`,
+    !/innerHTML\s*=\s*`[^`]*Error: \$\{(?:e|err|error)\.message\}/.test(src));
+}
+
+console.log('\n──── 8. our outage is never reported as the customer\'s state ────');
+
+const social = code('web/agents/social-agent.html');
+check('a failed cloud save is not reported as being signed out',
+  /_reviewSaveError/.test(social) && /could not be saved to your account/.test(social));
+check('and it is not swallowed into a console warning alone',
+  /reportFailure\('Social Studio could not save the review queue/.test(social));
+
+console.log('\n──── 9. every caught failure reaches the admin console ────');
 
 for (const page of AGENTS) {
   check(`${path.basename(page)} reports its failures`, /reportFailure/.test(code(page)));
+  check(`${path.basename(page)} loads the reporter it calls`,
+    /failure-reporter\.js/.test(read(page)));
 }
 check('contacts loading failure is reported', /reportFailure/.test(audience));
+
+/* safeUrl comes from escape-html.js — calling it without loading it is a
+   silent no-op that leaves a javascript: URL in an href. */
+for (const page of AGENTS) {
+  const src = code(page);
+  if (!/window\.safeUrl/.test(src)) continue;
+  check(`${path.basename(page)} loads escape-html.js for the safeUrl it calls`,
+    /escape-html\.js/.test(read(page)));
+}
 
 console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
 process.exit(failures === 0 ? 0 : 1);
