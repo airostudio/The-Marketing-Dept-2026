@@ -1072,7 +1072,12 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     function renderSlidePreview(slides, design) {
         const section = document.getElementById('slidePreviewSection');
         if (!section || !slides.length) return;
-        const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // Escapes quotes as well as &<>: this is used inside attributes as
+        // well as between tags, and a " in the value ended the attribute.
+        // See web/js/escape-html.js.
+        const esc = s => String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
         // Pull colours directly from the (already normalised) design object
         const bgHex     = design.colors.background || 'FFFFFF';

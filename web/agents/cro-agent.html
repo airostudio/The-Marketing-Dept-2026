@@ -946,9 +946,14 @@ Deliver a complete CRO analysis following the 7-section framework in your system
     let _newVariantCount = 0;
 
     function escHtmlCro(s) {
-        const d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
+        // Escapes quotes as well as &<> — this is used inside attributes
+        // (value="...", href="...") as well as between tags, and the
+        // textContent/innerHTML trick this replaced left quotes alone, so a
+        // " in the value ended the attribute and the rest was parsed as more
+        // attributes on the tag. See web/js/escape-html.js.
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     async function refreshExperiments() {
