@@ -13,7 +13,7 @@
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = 'claude-sonnet-5-0';
 const MAX_TOKENS_CAP = 8192;
 const MAX_MESSAGES = 100;
 const MAX_BODY_BYTES = 256 * 1024; // 256 KB
@@ -84,9 +84,7 @@ module.exports = async function handler(req, res) {
   }
 
   const apiKey =
-    process.env.ANTHROPIC_API_KEY ||
-    process.env.CLAUDE_API_KEY ||
-    process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY ||;
 
   if (!apiKey) {
     console.error('Claude proxy: ANTHROPIC_API_KEY not configured');
