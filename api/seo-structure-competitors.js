@@ -13,7 +13,7 @@
 
 const { requireUser } = require('./_lib/require-user.js');
 
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
@@ -83,8 +83,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'searchText (from seo-search-competitors) is required' });
   }
 
-  const system = `You structure market/content research findings into a clean schema. Use ONLY businesses, URLs and topics explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real competitors were found, return only what's real; do not pad the list.`;
-  const user = `Research findings:\n${searchText}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the competitor content research schema.`;
+  const system = `You structure market/content research findings into a clean schema. Use ONLY businesses, URLs and topics explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real competitors were found, return only what's real; do not pad the list.
+
+${UNTRUSTED_CONTENT_RULE}`;
+  // searchText is a web-search result: text this product did not write,
+  // pulled from pages it does not control. Fenced so a page that says
+  // "ignore the above" is described rather than obeyed.
+  const user = `Research findings:\n${asUntrustedContent(searchText, 'web search results')}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the competitor content research schema.`;
 
   try {
     const result = await callClaudeForJSON({ system, user, tool: COMPETITORS_TOOL, maxTokens: 3500, timeoutMs: 45000 });

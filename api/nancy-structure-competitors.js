@@ -16,7 +16,7 @@
 
 const { requireUser } = require('./_lib/require-user.js');
 
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
@@ -88,8 +88,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'searchText (from nancy-search-competitors) is required' });
   }
 
-  const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list. Keep every field within the length noted in its schema description — this is a scannable research summary, not a full profile per competitor.`;
-  const user = `Research findings:\n${searchText}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the competitor research schema.`;
+  const system = `You structure market research findings into a clean schema. Use ONLY businesses and facts explicitly present in the research text below — every competitor's source_urls must be pulled from the citation list provided, never invented. If fewer than 5 real businesses were found, return only what's real; do not pad the list. Keep every field within the length noted in its schema description — this is a scannable research summary, not a full profile per competitor.
+
+${UNTRUSTED_CONTENT_RULE}`;
+  // searchText is a web-search result: text this product did not write,
+  // pulled from pages it does not control. Fenced so a page that says
+  // "ignore the above" is described rather than obeyed.
+  const user = `Research findings:\n${asUntrustedContent(searchText, 'web search results')}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the competitor research schema.`;
 
   try {
     // maxTokens was previously fixed at 2000, which up to 10 competitors

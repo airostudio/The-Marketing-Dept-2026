@@ -17,7 +17,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 
 const { crawlSite } = require('./_lib/nancy-crawl.js');
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 6;
@@ -80,11 +80,14 @@ module.exports = async function handler(req, res) {
     return res.status(422).json({ success: false, error: err.message });
   }
 
-  const pagesText = crawl.pages
-    .map(p => `--- PAGE: ${p.title} (${p.url}) ---\n${p.text}`)
-    .join('\n\n');
+  const pagesText = asUntrustedContent(
+    crawl.pages.map(p => `--- PAGE: ${p.title} (${p.url}) ---\n${p.text}`).join('\n\n'),
+    'crawled page content'
+  );
 
-  const system = `You are an SEO strategist extracting structured facts from real website content. Base every field ONLY on what is actually present in the provided page text — never invent a product, service, or topic that isn't genuinely there. existing_topics must be real subjects the site actually has content on (blog post titles, FAQ questions, resource pages) — if the site has no blog/resources, return an empty array rather than guessing.`;
+  const system = `You are an SEO strategist extracting structured facts from real website content. Base every field ONLY on what is actually present in the provided page text — never invent a product, service, or topic that isn't genuinely there. existing_topics must be real subjects the site actually has content on (blog post titles, FAQ questions, resource pages) — if the site has no blog/resources, return an empty array rather than guessing.
+
+${UNTRUSTED_CONTENT_RULE}`;
 
   const user = `Website: ${crawl.origin}\n\nCrawled page content:\n\n${pagesText}\n\nExtract the SEO-relevant business profile.`;
 

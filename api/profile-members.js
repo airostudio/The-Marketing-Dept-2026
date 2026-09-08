@@ -28,7 +28,7 @@
 
 'use strict';
 
-const { sbRest } = require('./_lib/supabase-rest.js');
+const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
 
 const ROLES = ['editor', 'viewer'];   // 'owner' is the profile's owner_id, not a grantable role
 
@@ -94,6 +94,15 @@ module.exports = async function handler(req, res) {
 
   const { action, profileId, email, userId, role } = req.body || {};
   if (!profileId) return res.status(400).json({ error: 'profileId is required' });
+
+  // Both ids go straight into PostgREST filter strings below. Anything that
+  // is not a uuid could never have matched a row, so rejecting it here costs
+  // a real caller nothing and stops a value carrying '&' from adding query
+  // parameters to a request it does not own.
+  if (!isUuid(profileId)) return res.status(400).json({ error: 'profileId is not a valid id' });
+  if (userId !== undefined && userId !== null && !isUuid(userId)) {
+    return res.status(400).json({ error: 'userId is not a valid id' });
+  }
 
   // Ownership, read fresh from the database. This endpoint holds the
   // service-role key and so bypasses RLS — the check the database would

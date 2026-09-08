@@ -13,7 +13,7 @@
 
 const { requireUser } = require('./_lib/require-user.js');
 
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
@@ -77,8 +77,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'searchText (from seo-backlink-search) is required' });
   }
 
-  const system = `You structure link-prospecting research into a clean schema. Use ONLY domains explicitly present in the research text — source_urls must be pulled from the citation list, never invented.`;
-  const user = `Research findings:\n${searchText}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the backlink prospects schema.`;
+  const system = `You structure link-prospecting research into a clean schema. Use ONLY domains explicitly present in the research text — source_urls must be pulled from the citation list, never invented.
+
+${UNTRUSTED_CONTENT_RULE}`;
+  // searchText is a web-search result: text this product did not write,
+  // pulled from pages it does not control. Fenced so a page that says
+  // "ignore the above" is described rather than obeyed.
+  const user = `Research findings:\n${asUntrustedContent(searchText, 'web search results')}\n\nCitations available: ${JSON.stringify(citations)}\n\nStructure this into the backlink prospects schema.`;
 
   const result = await callClaudeForJSON({ system, user, tool: PROSPECTS_TOOL, maxTokens: 2500, timeoutMs: 45000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });

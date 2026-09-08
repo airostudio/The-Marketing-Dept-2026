@@ -21,9 +21,14 @@ const check = (name, cond) => {
   if (!cond) fail.push(name);
 };
 
-const OWNER = 'owner-1';
+const OWNER = 'b1e5a3d2-7c44-4e18-9f02-6a3d5c8e91b7';   // a uuid, for the same reason as PROFILE below
 const OTHER = 'someone-else';
-const PROFILE = 'profile-1';
+// A real uuid, because profile-members now rejects anything that is not one
+// before it reaches a PostgREST filter. 'profile-1' would have been refused —
+// correctly — and the fixture would have been testing the id check rather
+// than the permission model it is here for.
+const PROFILE = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+const ALICE   = '9c858901-8a57-4791-81fe-4c455b099bc9';
 
 let state, calls;
 
@@ -31,6 +36,9 @@ const helperPath = path.join(REPO, 'api/_lib/supabase-rest.js');
 require.cache[helperPath] = {
   id: helperPath, filename: helperPath, loaded: true,
   exports: {
+    // The id check is real, not stubbed — a fake that always says "valid"
+    // would let this suite pass while the endpoint shipped without one.
+    isUuid: require(path.join(REPO, 'api/_lib/supabase-rest.js')).isUuid,
     sbRest: async (url, key, method, p, body) => {
       calls.push({ method, path: p, body });
 
@@ -105,7 +113,7 @@ function reset(overrides) {
     profileMissing: false,
     members: [],
     accounts: [
-      { id: 'alice-id', email: 'alice@example.com', firstname: 'Alice', lastname: 'Ng' },
+      { id: ALICE, email: 'alice@example.com', firstname: 'Alice', lastname: 'Ng' },
       { id: OWNER, email: 'owner@example.com', firstname: 'Sam', lastname: 'Rivera' },
     ],
   }, overrides || {});
@@ -124,7 +132,7 @@ function reset(overrides) {
   check('a non-owner cannot grant access', r.status === 403 && state.members.length === 0);
 
   reset({ callerId: OTHER });
-  r = await call({ action: 'remove', profileId: PROFILE, userId: 'alice-id' });
+  r = await call({ action: 'remove', profileId: PROFILE, userId: ALICE });
   check('a non-owner cannot remove access', r.status === 403);
 
   reset();
@@ -148,7 +156,7 @@ function reset(overrides) {
   r = await call({ action: 'invite', profileId: PROFILE, email: 'alice@example.com', role: 'editor' });
   console.log('  invited:', JSON.stringify(r.body.member));
   check('the owner can grant access by email', r.status === 200 && r.body.success === true);
-  check('the email was resolved to a real account', r.body.member.userId === 'alice-id');
+  check('the email was resolved to a real account', r.body.member.userId === ALICE);
   check('the member is returned with a human name, not a UUID', r.body.member.name === 'Alice Ng');
 
   r = await call({ action: 'invite', profileId: PROFILE, email: 'alice@example.com', role: 'viewer' });
@@ -174,22 +182,22 @@ function reset(overrides) {
 
   console.log('\n──── managing ────');
 
-  reset({ members: [{ user_id: 'alice-id', role: 'editor', created_at: 'now' }] });
+  reset({ members: [{ user_id: ALICE, role: 'editor', created_at: 'now' }] });
   r = await call({ action: 'list', profileId: PROFILE });
   check('members list resolves emails and roles',
     r.body.members.length === 1 && r.body.members[0].email === 'alice@example.com' &&
     r.body.members[0].role === 'editor');
 
-  r = await call({ action: 'updateRole', profileId: PROFILE, userId: 'alice-id', role: 'viewer' });
+  r = await call({ action: 'updateRole', profileId: PROFILE, userId: ALICE, role: 'viewer' });
   check('a role can be downgraded', r.status === 200 && state.members[0].role === 'viewer');
 
-  r = await call({ action: 'updateRole', profileId: PROFILE, userId: 'alice-id', role: 'owner' });
+  r = await call({ action: 'updateRole', profileId: PROFILE, userId: ALICE, role: 'owner' });
   check('a role cannot be escalated to owner', r.status === 400 && state.members[0].role === 'viewer');
 
   r = await call({ action: 'remove', profileId: PROFILE, userId: OWNER });
   check("the owner's own access cannot be removed", r.status === 400 && /owner/i.test(r.body.error));
 
-  r = await call({ action: 'remove', profileId: PROFILE, userId: 'alice-id' });
+  r = await call({ action: 'remove', profileId: PROFILE, userId: ALICE });
   check('a member can be removed', r.status === 200 && state.members.length === 0);
 
   reset();
@@ -198,6 +206,22 @@ function reset(overrides) {
 
   r = await call({ action: 'list' });
   check('a missing profileId is rejected', r.status === 400);
+
+  // An id is a uuid or it is not an id. Both ids here are interpolated into
+  // PostgREST filter strings, so a value carrying '&' would be composing part
+  // of a query it does not own — extra filters cannot broaden a result, but
+  // '&select=', '&limit=' and '&order=' are all reachable that way.
+  reset();
+  r = await call({ action: 'list', profileId: PROFILE + '&select=*' });
+  check('a profileId carrying a query parameter is refused',
+    r.status === 400 && /valid id/i.test(r.body.error));
+  check('and no query was issued with it',
+    !calls.some(c => String(c.path).includes('select=*')));
+
+  reset();
+  r = await call({ action: 'remove', profileId: PROFILE, userId: 'alice-id' });
+  check('a userId that is not a uuid is refused',
+    r.status === 400 && /valid id/i.test(r.body.error));
 
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'

@@ -14,7 +14,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 
 const { crawlSite } = require('./_lib/nancy-crawl.js');
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 6;
@@ -93,13 +93,18 @@ module.exports = async function handler(req, res) {
     return res.status(422).json({ success: false, error: err.message });
   }
 
-  const pagesText = crawl.pages
-    .map(p => `--- PAGE: ${p.title} (${p.url}) ---\n${p.text}`)
-    .join('\n\n');
+  // Fenced and labelled: this is a stranger's website, and it gets to choose
+  // every character of what follows. See asUntrustedContent().
+  const pagesText = asUntrustedContent(
+    crawl.pages.map(p => `--- PAGE: ${p.title} (${p.url}) ---\n${p.text}`).join('\n\n'),
+    'crawled page content'
+  );
 
-  const system = `You are a business analyst who extracts structured facts from real website content. Base every field ONLY on what is actually present in the provided page text. If something genuinely cannot be determined, use an empty string or empty array — never invent a plausible-sounding fact. proof_points must be things actually stated on the site (real testimonials, real numbers, real credentials) — if none exist, return an empty array rather than fabricating one.`;
+  const system = `You are a business analyst who extracts structured facts from real website content. Base every field ONLY on what is actually present in the provided page text. If something genuinely cannot be determined, use an empty string or empty array — never invent a plausible-sounding fact. proof_points must be things actually stated on the site (real testimonials, real numbers, real credentials) — if none exist, return an empty array rather than fabricating one.
 
-  const user = `Website: ${crawl.origin}\n\nCrawled page content:\n\n${pagesText}\n\nExtract the structured business profile.`;
+${UNTRUSTED_CONTENT_RULE}`;
+
+  const user = `Website: ${crawl.origin}\n\nCrawled page content:\n\n${pagesText}\n\nExtract the structured business profile from the page content above.`;
 
   // Crawl + Claude extraction share this one function's 60s ceiling
   // (vercel.json) — the crawl is now parallelized (see nancy-crawl.js) so it
