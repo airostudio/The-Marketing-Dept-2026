@@ -151,7 +151,14 @@ if (unimported.length) console.log('      ', unimported);
 /* ── 6. The guard is keyed, and reachable ───────────────────────────────── */
 console.log('\n──── keyed on the account, and after the account exists ────');
 
+/* app-config is deliberately public: it carries the Supabase probe, which
+   exists to be reachable when authentication is the broken thing. There is no
+   account to key on there, so the address is the only key available, and the
+   limit is correspondingly tight. Everything else must key on the account. */
+const PUBLIC_BY_DESIGN = new Set(['api/app-config.js']);
+
 const addressKeyed = ENDPOINTS.filter(f =>
+  !PUBLIC_BY_DESIGN.has(f) &&
   (code(f).match(/rateLimited\(req, res, \{[^}]*\}/g) || []).some(c => !/auth/.test(c)));
 check('no limiter falls back to the address on an authenticated endpoint',
   addressKeyed.length === 0);
@@ -171,6 +178,7 @@ const AUTH_CALLS = [
   'await authenticateSender(req)',
 ];
 const misordered = ENDPOINTS.filter(f => {
+  if (PUBLIC_BY_DESIGN.has(f)) return false;   // no auth to come after
   const s = code(f);
   const authAt = AUTH_CALLS
     .flatMap(call => {

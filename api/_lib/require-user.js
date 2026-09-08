@@ -27,6 +27,7 @@
 'use strict';
 
 const { sbRest } = require('./supabase-rest.js');
+const { reportFailureAsync } = require('./report-failure.js');
 
 /**
  * Identify the caller, or answer the request and return null.
@@ -59,12 +60,23 @@ async function requireUser(req, res) {
   }
 
   let user = null;
+  let upstreamStatus = 0;
+  let upstreamMessage = '';
   try {
     const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10000),
     });
-    if (r.ok) user = await r.json();
+    upstreamStatus = r.status;
+    if (r.ok) {
+      user = await r.json();
+    } else {
+      // Keep why. This used to be discarded, and everything that was not a
+      // 200 came back to the customer as "your session has expired" — which
+      // is only one of the reasons Supabase says no.
+      const body = await r.json().catch(() => null);
+      upstreamMessage = String((body && (body.msg || body.message || body.error_description || body.error)) || '').slice(0, 200);
+    }
   } catch (e) {
     res.status(503).json({
       error: 'Could not verify your session, so nothing was run.',
@@ -74,7 +86,39 @@ async function requireUser(req, res) {
   }
 
   if (!user || !user.id) {
-    res.status(401).json({ error: 'Your session has expired. Sign in again.', code: 'invalid_token' });
+    // Supabase answers "Invalid API key" when OUR apikey header is wrong —
+    // the service-role key missing, truncated, or belonging to a different
+    // project than SUPABASE_URL. That rejects every token from every
+    // customer, however fresh, and telling them their session expired sends
+    // them round a sign-in loop that cannot succeed. It is our outage, and
+    // it should read like one.
+    const ourKeyIsWrong = /invalid api key|no api key|api key/i.test(upstreamMessage);
+
+    if (ourKeyIsWrong) {
+      reportFailureAsync({
+        source: 'api/_lib/require-user',
+        message: `Supabase rejected the server's own credentials (${upstreamStatus}): ${upstreamMessage}. ` +
+                 'SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL must belong to the same project. ' +
+                 'Every authenticated request is failing until this is fixed.',
+        severity: 'critical',
+        kind: 'configuration',
+      });
+      res.status(503).json({
+        error: 'The server could not verify your sign-in because it is misconfigured. ' +
+               'This is not a problem with your account — signing in again will not help. ' +
+               'It has been reported.',
+        code: 'auth_misconfigured',
+      });
+      return null;
+    }
+
+    res.status(401).json({
+      error: 'Your session has expired. Sign in again.',
+      code: 'invalid_token',
+      // Enough to tell an expired token from a rejected one, without echoing
+      // anything the caller did not already hold.
+      upstream: upstreamStatus || undefined,
+    });
     return null;
   }
 
