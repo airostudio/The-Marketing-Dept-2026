@@ -279,9 +279,24 @@
       tagline: 'Instagram obsessed. One URL and a photo becomes a researched, on-brand week of content.',
       svg: function(c) { return buildSVG(c, spikyHair(), '', GRIN); }
     },
+    beeker: {
+      name: 'BEEKER', color: '#06b6d4',
+      tagline: 'List keeper. Guards consent, honours every unsubscribe, keeps the calendar straight.',
+      svg: function(c) { return buildSVG(c, bunHair(), rectGlasses(c), SMILE); }
+    },
+    pat: {
+      name: 'PAT', color: '#10b981',
+      tagline: 'Last check before send. Reads every campaign, then puts it in the post.',
+      svg: function(c) { return buildSVG(c, neatHair(), '', FOCUSED); }
+    },
+    blade: {
+      name: 'BLADE', color: '#f43f5e',
+      tagline: 'Street-level prospector. Finds the businesses whose websites are letting them down.',
+      svg: function(c) { return buildSVG(c, shortTopHair(), binoculars(c), WIDE); }
+    },
     carol: {
       name: 'CAROL', color: '#d946ef',
-      tagline: 'Chief of Staff. Turns fifteen agents\' worth of findings into the one briefing you actually read.',
+      tagline: 'Chief of Staff. Turns seventeen agents\' worth of findings into the one briefing you actually read.',
       svg: function(c) { return buildSVG(c, neatHair(), '', FOCUSED); }
     }
   };
@@ -302,6 +317,9 @@
     lift:   '/assets/agents/lift.png',
     slate:  '/assets/agents/slate.png',
     nancy:  '/assets/agents/nancy.png',
+    beeker: '/assets/agents/beeker.png',
+    pat:    '/assets/agents/1785444247426.png',
+    blade:  '/assets/agents/blade.png',
     carol:  '/assets/agents/carol.jpg'
   };
 
