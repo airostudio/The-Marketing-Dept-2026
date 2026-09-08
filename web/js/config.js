@@ -166,7 +166,7 @@ window.APP_CONFIG = {
         ANTHROPIC: {
             ENABLED: false,
             API_KEY: '',
-            MODEL: 'claude-3-5-sonnet-20241022'
+            MODEL: 'claude-sonnet-5'
         },
 
         // AI Feature Settings

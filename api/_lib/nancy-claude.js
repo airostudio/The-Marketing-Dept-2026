@@ -14,7 +14,7 @@
 
 const { reportFailureAsync } = require('./report-failure.js');
 
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+const CLAUDE_MODEL = 'claude-sonnet-5';
 
 /**
  * Every way this helper can fail goes through here.

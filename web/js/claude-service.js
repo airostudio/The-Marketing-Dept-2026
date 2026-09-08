@@ -1,14 +1,14 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * CLAUDE SERVICE — Audema - Your AI Marketing Department
- * Streaming AI responses via Claude claude-sonnet-4-6
+ * Streaming AI responses via Claude claude-sonnet-5
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
 const ClaudeService = (() => {
   'use strict';
 
-  const MODEL = 'claude-sonnet-4-6';
+  const MODEL = 'claude-sonnet-5';
   // Use Vercel serverless function endpoint (secure, server-side API key)
   const API_URL = '/api/claude';
   const MAX_TOKENS = 4096;

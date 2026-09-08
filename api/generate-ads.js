@@ -27,7 +27,7 @@
  * regex'd back apart. This is what makes each ad a real per-post record instead
  * of a fragment of one big blob.
  *
- * Uses Claude claude-sonnet-4-6. Requires ANTHROPIC_API_KEY env var.
+ * Uses Claude claude-sonnet-5. Requires ANTHROPIC_API_KEY env var.
  */
 
 'use strict';
@@ -365,7 +365,7 @@ module.exports = withFailureReporting('api/generate-ads', async function handler
         'Content-Type':      'application/json',
       },
       body: JSON.stringify({
-        model:      'claude-sonnet-4-6',
+        model:      'claude-sonnet-5',
         max_tokens: 8000,
         system:     systemPrompt,
         tools:      [AD_VARIANTS_TOOL],

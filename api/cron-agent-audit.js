@@ -33,7 +33,7 @@
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const WEB_SEARCH_MAX_USES_PER_AGENT = 4;
 const PER_AGENT_TIMEOUT_MS = 40000; // leaves headroom inside the 60s function ceiling for the Supabase writes after all agents settle
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // One entry per specialist agent — agentKey should match (or map cleanly
 // onto) the AGENT_META keys used in web/scotty.html, so findings can link
