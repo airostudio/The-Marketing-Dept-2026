@@ -54,6 +54,18 @@ module.exports = withFailureReporting('api/health', async function handler(req, 
     // live secret in a log, a screenshot or a bug report, and it buys nothing
     // that `configured: true` plus the format check has not already told an
     // operator.
+    //
+    // A fingerprint does buy something the format check cannot: it answers
+    // "is the key I just rotated to the one actually serving traffic?"
+    // SHA-256 is one-way, so the digest can sit in a screenshot safely, and
+    // it can be reproduced from the new key without revealing either:
+    //
+    //   printf '%s' "$NEW_KEY" | sha256sum | cut -c1-12
+    //
+    // Matching digests mean the deployment picked up the rotation. Different
+    // digests mean it did not, which is the whole point of having this.
+    diagnostics.checks.apiKeyFingerprint =
+      require('crypto').createHash('sha256').update(apiKey).digest('hex').slice(0, 12);
   } else {
     diagnostics.checks.apiKeyConfigured = false;
     diagnostics.checks.apiKeyFormat = 'missing';
@@ -74,7 +86,11 @@ module.exports = withFailureReporting('api/health', async function handler(req, 
     total: Object.keys(envVars).length,
     relevant: relevantEnvVars,
     hasAnthropicApiKey: 'ANTHROPIC_API_KEY' in envVars,
-    hasClaudeApiKey: 'CLAUDE_API_KEY' in envVars,
+    // These two are no longer read by anything. If either is still set after
+    // a rotation it is an old credential sitting in the environment doing
+    // nothing but waiting to be leaked — worth seeing here so it gets removed.
+    staleKeyVariablesStillSet: ['CLAUDE_API_KEY', 'NEXT_PUBLIC_ANTHROPIC_API_KEY']
+      .filter(function (k) { return k in envVars; }),
   };
 
   // Return appropriate status code
