@@ -26,6 +26,7 @@
 'use strict';
 
 const { safeFetchText } = require('./_lib/safe-fetch.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
@@ -136,7 +137,7 @@ async function runWithConcurrency(items, limit, worker) {
   return results;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-competitor-watch', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated competitor-watch sweep.' });
@@ -172,4 +173,4 @@ module.exports = async function handler(req, res) {
     truncated, // if true, more active watches exist than this run could cover — raise MAX_WATCHES_PER_RUN or shard across more frequent runs
     checkedAt: new Date().toISOString(),
   });
-};
+});

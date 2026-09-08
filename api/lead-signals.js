@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 /**
  * Lead signals — Vercel serverless function.
@@ -19,7 +20,7 @@ const RATE_LIMIT_MAX = 10;
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/lead-signals', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -143,4 +144,4 @@ Rules:
     console.error('[lead-signals] error:', err.message);
     return res.status(500).json({ error: 'Signal detection failed', detail: err.message });
   }
-};
+});

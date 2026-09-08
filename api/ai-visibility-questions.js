@@ -17,6 +17,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
@@ -54,7 +55,7 @@ const QUESTIONS_TOOL = {
   },
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/ai-visibility-questions', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -94,4 +95,4 @@ Ground every single one in the real business details above.`;
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({ success: true, questions: result.data.questions || [] });
-};
+});

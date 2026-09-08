@@ -43,6 +43,7 @@
 'use strict';
 
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { requireUser, callerOwnsScope } = require('./_lib/require-user.js');
 
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
@@ -232,7 +233,7 @@ async function refundCredits({ supabaseUrl, serviceKey, intelProfileId, projectI
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-ad-image', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -405,4 +406,4 @@ module.exports = async function handler(req, res) {
     await releaseReservation();
     return res.status(500).json({ error: err.message });
   }
-};
+});

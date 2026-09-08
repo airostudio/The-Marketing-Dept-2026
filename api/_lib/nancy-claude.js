@@ -12,7 +12,30 @@
 
 'use strict';
 
+const { reportFailureAsync } = require('./report-failure.js');
+
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+/**
+ * Every way this helper can fail goes through here.
+ *
+ * Callers of callClaudeForJSON() surface the error to the customer honestly,
+ * which is right — and used to be the end of it, so an expired key or a
+ * degraded upstream was visible to every customer and to nobody who could fix
+ * it. This is the choke point for every Nancy and SEO agent's model call, so
+ * reporting here covers all of them at once.
+ *
+ * Fire-and-forget: the caller's own error is what matters, and reporting must
+ * not delay or replace it.
+ */
+function fail(error, detail) {
+  reportFailureAsync({
+    source: 'api/_lib/nancy-claude',
+    message: String(error),
+    detail: Object.assign({ model: CLAUDE_MODEL }, detail || {}),
+  });
+  return { success: false, error };
+}
 
 /**
  * Wrap content fetched from somewhere else so the model treats it as material
@@ -72,7 +95,7 @@ const UNTRUSTED_CONTENT_RULE =
  */
 async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeoutMs = 50000 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { success: false, error: 'ANTHROPIC_API_KEY not configured' };
+  if (!apiKey) return fail('ANTHROPIC_API_KEY not configured');
 
   let upstream;
   try {
@@ -96,12 +119,14 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
     });
   } catch (err) {
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    return { success: false, error: isTimeout ? 'Claude took too long to respond. Try again.' : err.message };
+    return fail(isTimeout ? 'Claude took too long to respond. Try again.' : err.message,
+      { stage: 'request', timeout: isTimeout, timeoutMs });
   }
 
   if (!upstream.ok) {
     const errData = await upstream.json().catch(() => ({}));
-    return { success: false, error: errData.error?.message || `Anthropic error ${upstream.status}` };
+    return fail(errData.error?.message || `Anthropic error ${upstream.status}`,
+      { stage: 'response', status: upstream.status });
   }
 
   let toolInputJson = '';
@@ -151,8 +176,9 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
     }
   }
 
-  if (streamError) return { success: false, error: streamError };
-  if (!sawToolUse || !toolInputJson) return { success: false, error: 'Claude did not return structured output. Try again.' };
+  if (streamError) return fail(streamError, { stage: 'stream' });
+  if (!sawToolUse || !toolInputJson) return fail('Claude did not return structured output. Try again.',
+    { stage: 'stream', sawToolUse, tool: tool && tool.name });
 
   try {
     return { success: true, data: JSON.parse(toolInputJson), usage };
@@ -163,9 +189,11 @@ async function callClaudeForJSON({ system, user, tool, maxTokens = 4000, timeout
     // Surface that distinctly so it's diagnosable (and so a caller knows to
     // raise its maxTokens) instead of a generic, unactionable message.
     if (stopReason === 'max_tokens') {
-      return { success: false, error: 'Claude\'s response was cut off before it finished (hit the output length limit). Try again with a smaller request.' };
+      return fail('Claude\'s response was cut off before it finished (hit the output length limit). Try again with a smaller request.',
+        { stage: 'parse', stopReason, maxTokens });
     }
-    return { success: false, error: 'Claude returned malformed structured output. Try again.' };
+    return fail('Claude returned malformed structured output. Try again.',
+      { stage: 'parse', stopReason, tool: tool && tool.name });
   }
 }
 

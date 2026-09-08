@@ -8,6 +8,7 @@
  */
 
 const { requireUser, requireAdmin, callerOwnsScope } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -263,7 +264,7 @@ async function runProjectChecks(projectId) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/diagnostics', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -327,4 +328,4 @@ module.exports = async function handler(req, res) {
     console.error('[diagnostics] error:', err.message);
     return res.status(500).json({ error: 'Diagnostics failed', detail: err.message });
   }
-};
+});

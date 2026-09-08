@@ -12,6 +12,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON, asUntrustedContent, UNTRUSTED_CONTENT_RULE } = require('./_lib/nancy-claude.js');
@@ -44,7 +45,7 @@ const PROSPECTS_TOOL = {
   },
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-backlink-structure', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -77,4 +78,4 @@ ${UNTRUSTED_CONTENT_RULE}`;
 
   const prospects = (result.data.prospects || []).map(p => ({ ...p, data_source: 'estimate' }));
   return res.json({ success: true, prospects });
-};
+});

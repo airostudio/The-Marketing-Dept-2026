@@ -30,6 +30,7 @@
 
 'use strict';
 
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const WEB_SEARCH_MAX_USES_PER_AGENT = 4;
 const PER_AGENT_TIMEOUT_MS = 40000; // leaves headroom inside the 60s function ceiling for the Supabase writes after all agents settle
 const MODEL = 'claude-sonnet-4-6';
@@ -172,7 +173,7 @@ async function sb(supabaseUrl, serviceKey, method, path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-agent-audit', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated agent audit.' });
@@ -249,4 +250,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.json({ success: true, runId, status, agentCount: AGENT_REGISTRY.length, flaggedCount, failedCount, overallSummary });
-};
+});

@@ -1,5 +1,6 @@
 const { requireUser } = require('./_lib/require-user.js');
-module.exports = async (req, res) => {
+const { withFailureReporting } = require('./_lib/report-failure.js');
+module.exports = withFailureReporting('api/domain-metrics', async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -117,4 +118,4 @@ module.exports = async (req, res) => {
         provider: 'none',
         message: 'Add DATAFORSEO_LOGIN + DATAFORSEO_PASSWORD to Vercel environment variables to enable live domain metrics.',
     });
-};
+});

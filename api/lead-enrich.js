@@ -14,6 +14,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -171,7 +172,7 @@ function normaliseUrl(u) {
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/lead-enrich', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -248,4 +249,4 @@ module.exports = async function handler(req, res) {
   await Promise.all([...hunterPromises, perplexityPromise]);
 
   return res.json(result);
-};
+});

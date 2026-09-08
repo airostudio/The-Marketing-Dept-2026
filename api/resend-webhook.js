@@ -29,6 +29,7 @@
 
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 module.exports.config = { api: { bodyParser: false } };
 
@@ -97,7 +98,7 @@ function verifySignature(secret, id, timestamp, rawBody, signatureHeader) {
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/resend-webhook', async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const secret = process.env.RESEND_WEBHOOK_SECRET;
@@ -180,4 +181,4 @@ module.exports = async function handler(req, res) {
   // 200 + no body is all Resend/Svix requires to consider this delivered —
   // returning JSON here is just for anyone poking the endpoint by hand.
   return res.status(200).json({ received: true });
-};
+});

@@ -15,6 +15,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
@@ -36,7 +37,7 @@ const OUTREACH_TOOL = {
   },
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-outreach-draft', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -75,4 +76,4 @@ Draft the outreach email.`;
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({ success: true, subject: result.data.subject, body: result.data.body });
-};
+});

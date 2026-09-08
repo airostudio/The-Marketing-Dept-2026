@@ -31,6 +31,7 @@
 
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { stripeRequest } = require('./_lib/stripe-rest.js');
 const { planForPriceId } = require('./_lib/plans.js');
 
@@ -94,7 +95,7 @@ async function applySubscriptionToProfile(supabaseUrl, serviceKey, subscription)
   return supabaseUserId || null;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/stripe-webhook', async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -164,4 +165,4 @@ module.exports = async function handler(req, res) {
   });
 
   return res.status(200).json({ received: true });
-};
+});

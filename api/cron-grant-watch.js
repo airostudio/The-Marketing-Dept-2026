@@ -26,6 +26,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { SOURCES, runSource } = require('./_lib/grant-sources.js');
 
 // Hard ceiling on how many new rows one sweep may add. A portal redesign or
@@ -34,7 +35,7 @@ const { SOURCES, runSource } = require('./_lib/grant-sources.js');
 // failure mode this whole feature is supposed to avoid.
 const MAX_INSERTS_PER_RUN = 40;
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-grant-watch', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated grant sweep.' });
@@ -146,7 +147,7 @@ module.exports = async function handler(req, res) {
     failedSources: results.filter(r => !r.ok).map(r => r.key),
     checkedAt: new Date().toISOString(),
   });
-};
+});
 
 /**
  * Map a discovery onto the funding-type vocabulary the Funding Room already

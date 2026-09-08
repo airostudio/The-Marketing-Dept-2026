@@ -11,6 +11,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -105,7 +106,7 @@ function credentialStatus() {
 
 // ── Handler ─────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/integration', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -149,4 +150,4 @@ module.exports = async function handler(req, res) {
     const status = err.status || 502;
     return res.status(status).json({ error: err.message });
   }
-}
+});

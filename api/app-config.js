@@ -1,3 +1,4 @@
+const { withFailureReporting } = require('./_lib/report-failure.js');
 /**
  * api/app-config.js
  * Serves public frontend configuration from Vercel environment variables.
@@ -7,7 +8,7 @@
  * Returns: { supabaseUrl, supabaseKey, configured }
  */
 
-module.exports = function handler(req, res) {
+module.exports = withFailureReporting('api/app-config', function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -20,4 +21,4 @@ module.exports = function handler(req, res) {
     // Cache for 5 minutes — public keys don't change often
     res.setHeader('Cache-Control', 'public, max-age=300');
     return res.status(200).json({ supabaseUrl, supabaseKey, configured });
-};
+});

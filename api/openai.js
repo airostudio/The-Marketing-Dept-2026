@@ -9,6 +9,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -25,7 +26,7 @@ function describeEmptyOpenAIResponse(finishReason) {
   return 'OpenAI returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/openai', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -151,4 +152,4 @@ module.exports = async function handler(req, res) {
 
   res.write('data: [DONE]\n\n');
   res.end();
-};
+});

@@ -12,6 +12,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
@@ -43,7 +44,7 @@ const INSTRUCTION_GUIDANCE = {
   'more direct': 'Rewrite all fields to be blunter and more direct — cut hedging language, get to the point faster.',
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-edit-post', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -71,4 +72,4 @@ module.exports = async function handler(req, res) {
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
   return res.json({ success: true, post: { ...post, ...result.data } });
-};
+});

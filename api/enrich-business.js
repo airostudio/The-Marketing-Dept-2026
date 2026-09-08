@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { safeFetchText } = require('./_lib/safe-fetch.js');
 /**
@@ -66,7 +67,7 @@ function extractMeta(html) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/enrich-business', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -243,4 +244,4 @@ Rules:
     console.error('[enrich-business] error:', err.message);
     return res.status(500).json({ error: 'Business enrichment failed', detail: err.message });
   }
-};
+});

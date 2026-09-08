@@ -21,6 +21,7 @@
 
 'use strict';
 
+const { withFailureReporting } = require('./_lib/report-failure.js');
 async function sb(env, method, path, body, prefer) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1${path}`, {
     method,
@@ -108,7 +109,7 @@ async function eventIsCoherent(env, { experimentId, variantId, goalId }) {
   return true;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/ab-track', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -190,4 +191,4 @@ module.exports = async function handler(req, res) {
   } catch {
     return res.status(204).end(); // Always 204 — don't break the user's page
   }
-};
+});

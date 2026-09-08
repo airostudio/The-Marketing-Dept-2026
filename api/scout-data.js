@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 /**
  * api/scout-data.js
@@ -95,7 +96,7 @@ async function fetchRankedKeywords(domains, auth, locationCode, languageCode) {
     return results;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/scout-data', async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -160,4 +161,4 @@ module.exports = async function handler(req, res) {
             keywords:  keywordsResult.status  === 'rejected' ? keywordsResult.reason?.message  : null,
         },
     });
-};
+});

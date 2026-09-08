@@ -42,6 +42,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 function missingEnvResult(varNames) {
   return {
@@ -255,7 +256,7 @@ async function publishPost({ platform, headline = '', body = '', cta = '', hasht
   }
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/publish-social-post', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -274,7 +275,7 @@ module.exports = async function handler(req, res) {
 
   const result = await publishPost({ platform, headline, body, cta, hashtags, imageUrl });
   return res.json(result);
-};
+});
 
 module.exports.publishPost = publishPost;
 module.exports.ADAPTERS = ADAPTERS;

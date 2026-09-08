@@ -4,6 +4,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const PAGESPEED_BASE = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
@@ -13,7 +14,7 @@ const RATE_LIMIT_MAX = 10;
 
 
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/pagespeed', async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -71,4 +72,4 @@ module.exports = async function handler(req, res) {
     console.error('[pagespeed] upstream error:', err.message);
     return res.status(502).json({ error: 'PageSpeed API request failed', detail: err.message });
   }
-}
+});

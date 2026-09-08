@@ -33,6 +33,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const DEFAULT_WINDOW_DAYS = 7;
 const MAX_AMOUNT_CENTS = 100_000_000;   // A$1,000,000 — a typo guard, not a policy
@@ -51,7 +52,7 @@ function toCents(amount) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/track-conversion', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -194,7 +195,7 @@ module.exports = async function handler(req, res) {
         'rather than assigned to the nearest one.'
       : undefined,
   });
-};
+});
 
 module.exports.toCents = toCents;
 module.exports.windowDays = windowDays;

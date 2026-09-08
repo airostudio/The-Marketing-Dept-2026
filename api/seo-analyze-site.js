@@ -15,6 +15,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { crawlSite } = require('./_lib/nancy-crawl.js');
@@ -42,7 +43,7 @@ const PROFILE_TOOL = {
   },
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-analyze-site', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -86,4 +87,4 @@ ${UNTRUSTED_CONTENT_RULE}`;
     profile: result.data,
     pagesFetched: crawl.pages.map(p => ({ url: p.url, title: p.title })),
   });
-};
+});

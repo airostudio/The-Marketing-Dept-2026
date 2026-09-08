@@ -29,6 +29,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
@@ -184,7 +185,7 @@ function renderPostsAsMarkdown(planNote, posts) {
   return out;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-social-posts', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -374,4 +375,4 @@ module.exports = async function handler(req, res) {
     }
     return res.status(502).json({ error: err.message });
   }
-};
+});

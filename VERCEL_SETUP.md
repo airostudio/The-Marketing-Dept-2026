@@ -670,3 +670,22 @@ No paid API required — it fetches the tracked page's HTML directly and extract
 **Last Updated**: March 15, 2026
 **Deployed by**: Claude (AI Assistant)
 **Session**: https://claude.ai/code
+
+## Failure alerts
+
+Failures across the whole product are recorded in `system_failures`, grouped by
+cause, and shown at `/admin/failures.html`. Two optional environment variables
+control who is emailed when one is new or still going an hour later:
+
+| Variable | Purpose |
+|---|---|
+| `FAILURE_ALERT_EMAILS` | Comma-separated addresses to alert instead of the admin accounts — an on-call alias or a ticketing inbox. Leave unset to email every account with the `admin` or `super_admin` role. |
+| `APP_URL` | Used for the "open the failures console" link in the alert. Defaults to `https://audema.com`. |
+
+Alerts are sent through the `RESEND_API_KEY` / `RESEND_FROM_EMAIL` already
+configured for outbound mail. Without those, incidents are still recorded and
+still visible in the console — the deployment log says plainly that no alert
+was sent, rather than a silent no-op looking like a delivered alert.
+
+Run `supabase-system-failures.sql` (or `supabase-install-all.sql`, which
+contains it) before this does anything.

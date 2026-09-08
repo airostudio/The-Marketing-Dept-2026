@@ -15,8 +15,9 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/social-connections-status', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -39,4 +40,4 @@ module.exports = async function handler(req, res) {
   connected['Facebook'] = connected['Meta/Facebook'];
 
   return res.json(connected);
-};
+});

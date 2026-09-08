@@ -29,6 +29,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
@@ -86,7 +87,7 @@ function buildTool(days, includeRationale) {
   };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-content-plan', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -155,4 +156,4 @@ Hard rules:
     week_rationale: result.data.week_rationale || null,
     posts: result.data.posts,
   });
-};
+});

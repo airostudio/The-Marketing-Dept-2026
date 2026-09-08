@@ -17,6 +17,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const CONVERT_API_BASE = 'https://api.convert.com/api/v1';
@@ -88,7 +89,7 @@ function deriveTopPerformer(experiments) {
   return `"${best.winnerVariant.name}" in "${best.name}" (+${best.winnerVariant.uplift})`;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/convert-experiments', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -186,4 +187,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }
-};
+});

@@ -33,6 +33,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscribe-token.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
 
@@ -56,7 +57,7 @@ function personalise(text, contact) {
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-email-flows', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated send.' });
@@ -248,6 +249,6 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json(Object.assign({ ok: true, dryRun: !!dryRun,
     capped: due.length === MAX_SENDS_PER_RUN }, report));
-};
+});
 
 module.exports.MAX_SENDS_PER_RUN = MAX_SENDS_PER_RUN;

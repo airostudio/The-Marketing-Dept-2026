@@ -29,6 +29,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const {
   PLAN_LABELS, PLAN_MONTHLY_PRICE_AUD, REVENUE_STATUSES,
   MISSION_ALLOWANCES, currentPeriod,
@@ -73,7 +74,7 @@ function lastNMonths(n) {
   return out;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/admin-metrics', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -210,4 +211,4 @@ module.exports = async function handler(req, res) {
 
     planLabels: PLAN_LABELS,
   });
-};
+});

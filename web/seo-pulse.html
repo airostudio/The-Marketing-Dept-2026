@@ -1366,6 +1366,7 @@
     </main>
 
     <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="/js/config.js"></script>
     <script src="/js/seo-fix-guide.js"></script>
     <script>
@@ -1584,6 +1585,16 @@
                     pageSpeedError = 'PageSpeed returned nothing usable.';
                 }
                 analysisResults.pageSpeedError = pageSpeedError;
+
+                // The customer already sees the truth: no score, and what
+                // failed. That is the right thing to show them and it tells
+                // nobody who could fix it — an expired key degrades the scan
+                // for every customer until somebody complains. This is the
+                // other half.
+                if (pageSpeedError && typeof window.reportFailure === 'function') {
+                    window.reportFailure(`PageSpeed scan failed: ${pageSpeedError}`,
+                        { where: 'seo-pulse-scan', target: url });
+                }
 
                 // Extract metrics from PageSpeed if available
                 if (pageSpeedData && pageSpeedData.lighthouseResult) {

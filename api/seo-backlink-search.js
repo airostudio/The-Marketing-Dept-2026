@@ -16,6 +16,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { searchProvider } = require('./_lib/nancy-providers.js');
@@ -24,7 +25,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 5;
 
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-backlink-search', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -56,4 +57,4 @@ Find 8-12 REAL websites/blogs/publications that write about topics relevant to t
   }
 
   return res.json({ success: true, available: true, text: search.text, citations: search.citations });
-};
+});

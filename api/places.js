@@ -1,6 +1,7 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
-module.exports = async (req, res) => {
+module.exports = withFailureReporting('api/places', async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -72,4 +73,4 @@ module.exports = async (req, res) => {
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
-};
+});

@@ -27,6 +27,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { assignVariant, summariseResults } = require('./_lib/ab-split.js');
 
 const DIMENSIONS = ['subject', 'content', 'from_name', 'send_time'];
@@ -49,7 +50,7 @@ function tableError(res) {
   return { code: 'db_error', error: `Database error (HTTP ${res.status}).` };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/ab-tests', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -254,4 +255,4 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Unexpected error.' });
   }
-};
+});

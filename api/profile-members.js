@@ -29,6 +29,7 @@
 'use strict';
 
 const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const ROLES = ['editor', 'viewer'];   // 'owner' is the profile's owner_id, not a grantable role
 
@@ -72,7 +73,7 @@ async function decorateMembers(supabaseUrl, serviceKey, members) {
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/profile-members', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -187,4 +188,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }
-};
+});

@@ -26,6 +26,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const TRIGGERS = ['manual', 'contact_created', 'segment_entry'];
 const STATUSES = ['draft', 'active', 'paused'];
@@ -51,7 +52,7 @@ function tableError(res) {
   return { code: 'db_error', error: `Database error (HTTP ${res.status}).` };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/email-flows', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -262,6 +263,6 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Unexpected error.' });
   }
-};
+});
 
 module.exports.SUPPRESSED = SUPPRESSED;

@@ -39,6 +39,7 @@
 'use strict';
 
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const CATEGORIES = ['question', 'bug', 'billing', 'feature', 'account', 'other'];
 const STATUSES   = ['open', 'pending', 'resolved', 'closed'];
@@ -96,7 +97,7 @@ function shapeTicket(t, people) {
   };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/support-tickets', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -334,7 +335,7 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Unexpected error.' });
   }
-};
+});
 
 module.exports.CATEGORIES = CATEGORIES;
 module.exports.STATUSES = STATUSES;

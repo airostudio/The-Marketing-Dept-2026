@@ -25,6 +25,7 @@
 'use strict';
 
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
   require('./_lib/send-guard.js');
@@ -36,7 +37,7 @@ let dailyWindowDate = new Date().toDateString();
 
 
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/send-email', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -181,4 +182,4 @@ module.exports = async function handler(req, res) {
     await releaseQuota(userId, 1);
     return res.status(502).json({ error: err.message });
   }
-};
+});

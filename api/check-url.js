@@ -14,6 +14,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { safeFetch } = require('./_lib/safe-fetch.js');
 
@@ -28,7 +29,7 @@ const RL_MAX = 80;
 
 
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/check-url', async function handler(req, res) {
   // CORS headers so the browser client can call this from any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -125,4 +126,4 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ reachable: false, status: 0, error });
   }
-}
+});

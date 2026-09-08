@@ -14,6 +14,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
@@ -41,7 +42,7 @@ const EXPLAIN_TOOL = {
   },
 };
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/ai-visibility-explain', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -88,4 +89,4 @@ Analyze this real data — what's the honest visibility picture, and what should
     recommendations: result.data.recommendations || [],
     topDomains: topDomains.map(([domain, count]) => ({ domain, count })),
   });
-};
+});

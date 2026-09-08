@@ -6,8 +6,9 @@
  */
 
 const { requireAdmin } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/health', async function handler(req, res) {
   // Allow GET requests for easy browser testing
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
@@ -81,4 +82,4 @@ module.exports = async function handler(req, res) {
                      diagnostics.status === 'degraded' ? 207 : 500;
 
   return res.status(statusCode).json(diagnostics);
-}
+});

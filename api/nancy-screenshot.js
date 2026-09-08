@@ -19,6 +19,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { crawlSite } = require('./_lib/nancy-crawl.js');
@@ -30,7 +31,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 6;
 
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-screenshot', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -85,4 +86,4 @@ module.exports = async function handler(req, res) {
     // crash here should still come back as JSON, not a platform error page.
     return res.status(500).json({ success: false, error: err.message || 'Screenshot capture failed unexpectedly.' });
   }
-};
+});

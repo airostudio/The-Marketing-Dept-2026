@@ -26,6 +26,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
 
 const DEFAULT_BASE_URL = 'https://ark.ap-southeast.bytepluses.com/api/v3';
@@ -81,7 +82,7 @@ function normalizeStatus(arkStatus) {
   return 'processing';
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-video', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -213,4 +214,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.status(400).json({ error: "action must be 'create' or 'status'" });
-};
+});

@@ -41,6 +41,7 @@
 
 'use strict';
 
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const crypto = require('crypto');
 
 // ── Supabase REST helper ───────────────────────────────────────────────────
@@ -563,7 +564,7 @@ function timingSafeEqual(given, expected) {
   return crypto.timingSafeEqual(pa, pb) && a.length === b.length;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/mcp', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
@@ -647,4 +648,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.json(jsonrpcErr(id, -32601, `Method not found: ${method}`));
-};
+});

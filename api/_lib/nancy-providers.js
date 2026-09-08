@@ -15,6 +15,31 @@
 
 'use strict';
 
+const { reportFailureAsync } = require('./report-failure.js');
+
+/**
+ * Every "we could not do this" answer this module gives, recorded as it is
+ * returned.
+ *
+ * The {available:false, reason} contract is deliberately honest — callers show
+ * the customer what was not available rather than inventing a result — and
+ * honesty to the customer is not the same as telling someone who can fix it.
+ * An unset key or a provider that has started refusing us is invisible until
+ * somebody complains, unless it is reported here.
+ *
+ * A missing key is a configuration failure and needs a person; everything else
+ * is the provider's behaviour and is classified from the message.
+ */
+function unavailable(provider, reason, kind) {
+  reportFailureAsync({
+    source: `api/_lib/nancy-providers:${provider}`,
+    message: String(reason),
+    kind,
+    detail: { provider },
+  });
+  return { available: false, reason };
+}
+
 // ── Search / research provider ──────────────────────────────────────────────
 // Uses Perplexity Sonar (already integrated elsewhere in this app — see
 // api/enrich-business.js, api/perplexity.js) because it does live web search
@@ -25,7 +50,7 @@
 async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
-    return { available: false, reason: 'PERPLEXITY_API_KEY not configured — live web research is unavailable.' };
+    return unavailable('perplexity', 'PERPLEXITY_API_KEY not configured — live web research is unavailable.', 'config_missing');
   }
 
   try {
@@ -52,7 +77,7 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
-      return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+      return unavailable('perplexity', `Perplexity error ${res.status}: ${errText.slice(0, 200)}`);
     }
 
     const data = await res.json();
@@ -66,7 +91,7 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
     // would crash the whole handler with a non-JSON response instead of a
     // real error message.
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    return { available: false, reason: isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}` };
+    return unavailable('perplexity', isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}`);
   }
 }
 
@@ -82,10 +107,9 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
 async function screenshotProvider(targetUrl) {
   const apiKey = process.env.SCREENSHOT_API_KEY;
   if (!apiKey) {
-    return {
-      available: false,
-      reason: 'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (screenshotlayer by default). Brand colours will be extracted from raw HTML/CSS only.',
-    };
+    return unavailable('screenshot',
+      'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (screenshotlayer by default). Brand colours will be extracted from raw HTML/CSS only.',
+      'config_missing');
   }
 
   const provider = (process.env.SCREENSHOT_PROVIDER || 'screenshotlayer').toLowerCase();
@@ -115,12 +139,12 @@ async function screenshotProvider(targetUrl) {
       if (contentType.includes('application/json') || contentType.includes('text/')) {
         const body = await res.json().catch(() => null);
         const info = body?.error?.info || body?.error?.type || `HTTP ${res.status}`;
-        return { available: false, reason: `screenshotlayer error: ${info}` };
+        return unavailable('screenshot', `screenshotlayer error: ${info}`);
       }
-      if (!res.ok) return { available: false, reason: `screenshotlayer error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `screenshotlayer error ${res.status}`);
 
       const buf = Buffer.from(await res.arrayBuffer());
-      if (!buf.length) return { available: false, reason: 'screenshotlayer returned an empty response' };
+      if (!buf.length) return unavailable('screenshot', 'screenshotlayer returned an empty response');
       return { available: true, buffer: buf, mimeType: FORMAT_MIME[format] || 'image/png' };
     }
 
@@ -140,7 +164,7 @@ async function screenshotProvider(targetUrl) {
       const res = await fetch(`https://api.screenshotone.com/take?${params.toString()}`, {
         signal: AbortSignal.timeout(40000),
       });
-      if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
@@ -153,14 +177,14 @@ async function screenshotProvider(targetUrl) {
         body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
         signal: AbortSignal.timeout(40000),
       });
-      if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
 
-    return { available: false, reason: `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotlayer, screenshotone, browserless.` };
+    return unavailable('screenshot', `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotlayer, screenshotone, browserless.`);
   } catch (err) {
-    return { available: false, reason: `Screenshot capture failed: ${err.message}` };
+    return unavailable('screenshot', `Screenshot capture failed: ${err.message}`);
   }
 }
 
@@ -177,7 +201,7 @@ async function screenshotProvider(targetUrl) {
 async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
   const apiKey = process.env.IMAGE_GEN_API_KEY;
   if (!apiKey) {
-    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.' };
+    return unavailable('image-gen', 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.', 'config_missing');
   }
 
   const provider = (process.env.IMAGE_GEN_PROVIDER || 'openai').toLowerCase();
@@ -203,20 +227,20 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        return { available: false, reason: `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}` };
+        return unavailable('image-gen', `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}`);
       }
 
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json;
-      if (!b64) return { available: false, reason: 'OpenAI image generation returned no image data.' };
+      if (!b64) return unavailable('image-gen', 'OpenAI image generation returned no image data.');
 
       return { available: true, buffer: Buffer.from(b64, 'base64'), mimeType: 'image/png' };
     }
 
-    return { available: false, reason: `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai.` };
+    return unavailable('image-gen', `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai.`);
   } catch (err) {
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    return { available: false, reason: isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}` };
+    return unavailable('image-gen', isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}`);
   }
 }
 

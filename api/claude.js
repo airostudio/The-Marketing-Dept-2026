@@ -11,6 +11,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -46,7 +47,7 @@ function validateMessages(messages) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/claude', async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -150,4 +151,4 @@ module.exports = async function handler(req, res) {
     console.error('Claude proxy unexpected error:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});

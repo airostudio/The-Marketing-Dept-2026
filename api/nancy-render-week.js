@@ -31,6 +31,7 @@
 'use strict';
 
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { imageGenProvider } = require('./_lib/nancy-providers.js');
 
 const CANVAS = { width: 1080, height: 1350 };
@@ -486,7 +487,7 @@ function buildImagePrompt(post, colours, businessName, businessProfile = {}) {
   return parts.join('\n');
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-render-week', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -531,4 +532,4 @@ module.exports = async function handler(req, res) {
     success: true,
     asset: { day: post.day, format: 'svg', svg, dataUri, hostedUrl, mimeType: 'image/svg+xml', width: CANVAS.width, height: CANVAS.height, fallbackReason: gen.reason },
   });
-};
+});

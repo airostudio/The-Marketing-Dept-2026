@@ -35,6 +35,7 @@
 'use strict';
 
 const { verify } = require('./_lib/unsubscribe-token.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { sbRest } = require('./_lib/supabase-rest.js');
 
 function decodeEmail(e) {
@@ -149,7 +150,7 @@ async function suppressAddress(contactId, email) {
   return res.ok || res.status === 409;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/unsubscribe', async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -192,4 +193,4 @@ module.exports = async function handler(req, res) {
       <button type="submit">Confirm unsubscribe</button>
     </form>
   `));
-};
+});

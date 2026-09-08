@@ -38,6 +38,7 @@
 
 'use strict';
 
+const { withFailureReporting } = require('./_lib/report-failure.js');
 async function getCallerFromToken(supabaseUrl, serviceKey, accessToken) {
   const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${accessToken}` },
@@ -107,7 +108,7 @@ async function deleteUser(supabaseUrl, serviceKey, userId) {
   }
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/admin-users', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -156,4 +157,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }
-};
+});
