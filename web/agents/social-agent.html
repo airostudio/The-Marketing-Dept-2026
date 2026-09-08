@@ -411,7 +411,7 @@
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
                 <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(var(--agent-color-rgb),0.3);">⬇ Buffer CSV</button>
-                <button class="btn-icon" onclick="copyOutput()">Copy</button>
+                <button class="btn-icon" onclick="copyOutput(this)">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
         </div>
@@ -1613,14 +1613,19 @@ function renderPostsAsPlainText(posts) {
     }).join('\n\n---\n\n');
 }
 
-function copyOutput() {
+function copyOutput(btn) {
     const posts = nonRejected();
     if (!posts.length) { alert('Nothing to copy yet — generate some content first.'); return; }
     const text = renderPostsAsPlainText(posts);
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target; btn.textContent = 'Copied!'; btn.style.color = '#10b981';
-        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
-    });
+    // `event.target` inside the promise callback read window.event after
+    // dispatch had finished, so it was undefined and this threw — the copy
+    // succeeded and the customer saw an error. The button is passed in now.
+    navigator.clipboard.writeText(text).then(
+        () => { if (btn) { btn.textContent = 'Copied!'; btn.style.color = '#10b981';
+                           setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000); } },
+        () => { if (btn) { btn.textContent = 'Copy failed';
+                           setTimeout(() => { btn.textContent = 'Copy'; }, 2000); } }
+    );
 }
 
 function downloadOutput() {

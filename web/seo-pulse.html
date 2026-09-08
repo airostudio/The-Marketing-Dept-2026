@@ -1180,7 +1180,7 @@
                     Check Pulse
                 </button>
             </div>
-            <p class="input-hint">Free instant analysis - No account required</p>
+            <p class="input-hint" id="inputHint">Free instant analysis - No account required</p>
         </section>
 
         <!-- Features -->
@@ -1461,17 +1461,37 @@
             }
         }
 
+        // Say what is wrong in the hint line under the input, then put the
+        // original hint back once the visitor starts typing again.
+        let hintTimer = null;
+        function hintProblem(message) {
+            const hint = document.getElementById('inputHint');
+            if (!hint) return;
+            if (!hint.dataset.original) hint.dataset.original = hint.textContent;
+            hint.textContent = message;
+            hint.style.color = 'var(--color-danger, #ef4444)';
+            urlInput.focus();
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(function () {
+                hint.textContent = hint.dataset.original;
+                hint.style.color = '';
+            }, 5000);
+        }
+
         // Start Scan
         function startScan() {
             let url = urlInput.value.trim();
-            if (!url) return;
+            // The first thing a brand-new visitor does is press the button to
+            // see what it does. An empty or malformed URL used to return here
+            // silently, which is indistinguishable from a broken button.
+            if (!url) { hintProblem('Enter a website URL first — for example https://example.com'); return; }
 
             // Add protocol if missing
             if (!url.startsWith('http')) {
                 url = 'https://' + url;
             }
 
-            if (!isValidUrl(url)) return;
+            if (!isValidUrl(url)) { hintProblem('That does not look like a website address. Try https://example.com'); return; }
             if (isScanning) return;
 
             isScanning = true;

@@ -253,10 +253,40 @@
             document.getElementById('noDataState').style.display = 'block';
         }
 
+
+        /**
+         * The first-run state for this page: no project, so nothing to measure.
+         *
+         * Replaces an alert() that said "create a project first" without saying
+         * where, and that a customer could dismiss without reading. Uses the
+         * page's own noDataState panel so the answer stays where the question
+         * was asked.
+         */
+        function showNeedsProject() {
+            const el = document.getElementById('noDataState');
+            if (!el) return;
+            el.style.display = 'block';
+            el.innerHTML = `
+                <div class="empty-state" style="padding:48px;text-align:center;">
+                    <div style="font-size:40px;margin-bottom:12px;">🗂️</div>
+                    <h3 style="margin:0 0 8px;font-size:17px;">The mobile test needs a website to test</h3>
+                    <p style="margin:0 auto 20px;max-width:420px;line-height:1.6;color:var(--color-text-secondary);">
+                        A project is the site everything on this page is measured against.
+                        Create one and this page fills in.
+                    </p>
+                    <a href="/project-wizard.html" class="btn btn-primary"
+                       style="display:inline-block;text-decoration:none;">Create a project →</a>
+                </div>`;
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         async function runTest() {
             const project = SEOModules.getCurrentProject();
             if (!project || !project.websiteUrl) {
-                alert('Please create a project first to run the mobile test.');
+                // A browser alert names the problem and not the fix, and can be
+                // dismissed without being read. A brand-new account arrives here
+                // with no project — which is the normal first-run state, not an
+                // error — so say what is needed and link to where it is made.
+                showNeedsProject();
                 return;
             }
 

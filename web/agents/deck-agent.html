@@ -1179,14 +1179,25 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     }
 
     function copyOutput() {
+        // On first run there is no output at all: `outputBody` is only created
+        // when a generation starts, so the old `if (!body) return;` made Copy a
+        // button that did nothing and said nothing. Tell the customer why
+        // instead, and never put a placeholder on the clipboard.
+        const btn = document.getElementById('copyBtn');
         const body = document.getElementById('outputBody');
-        if (!body) return;
-        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { flashCopy(btn, 'Nothing to copy yet'); return; }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopy(btn, 'Copied!', true),
+            () => flashCopy(btn, 'Copy failed')
+        );
+    }
+
+    function flashCopy(btn, message, ok) {
+        if (!btn) return;
+        btn.textContent = message;
+        if (ok) btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
     // ============================================

@@ -384,10 +384,35 @@
         }
 
         // Run CWV test
+
+        /**
+         * The first-run state for this page: no project, so nothing to measure.
+         *
+         * Replaces an alert() that said "create a project first" without saying
+         * where, and that a customer could dismiss without reading. The answer
+         * goes into the assessment panel's own description, directly under the
+         * button that was pressed — this page has no separate empty-state panel
+         * to write into.
+         */
+        function showNeedsProject() {
+            const status = document.getElementById('cwvStatus');
+            const desc = document.getElementById('cwvDescription');
+            if (!desc) return;
+            if (status) status.style.borderLeftColor = 'var(--color-warning, #f59e0b)';
+            desc.innerHTML = `
+                <strong>Core Web Vitals need a website to measure.</strong><br>
+                A project is the site everything on this page is measured against.
+                <a href="/project-wizard.html">Create a project</a> and this page fills in.`;
+            desc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         async function runTest() {
             const project = SEOModules.getCurrentProject();
             if (!project || !project.websiteUrl) {
-                alert('Please create a project first to test Core Web Vitals.\n\nGo to Dashboard → Create Project to set up your website.');
+                // A browser alert names the problem and not the fix, and can be
+                // dismissed without being read. A brand-new account arrives here
+                // with no project — which is the normal first-run state, not an
+                // error — so say what is needed and link to where it is made.
+                showNeedsProject();
                 return;
             }
 

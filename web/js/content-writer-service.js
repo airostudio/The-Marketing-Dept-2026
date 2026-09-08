@@ -305,6 +305,92 @@ const ContentWriterService = (() => {
         showProjectInfo(project);
     }
 
+    /**
+     * List the account's content projects and let one be opened.
+     *
+     * The page has always had a "📁 View Projects" button calling this. The
+     * method was never written, so the button threw
+     * "ContentWriterService.viewAllProjects is not a function" — silently, to
+     * the console, with nothing on screen. A first-time visitor pressing the
+     * one control that promises to show them their work got no response at
+     * all and no reason.
+     *
+     * Built on UnifiedProjectManager's real API (getAllProjects /
+     * setCurrentProject), the same one createNewProject() already uses.
+     */
+    function viewAllProjects() {
+        if (typeof window.UnifiedProjectManager === 'undefined') {
+            showAlert('Project management is not available on this page.', 'warning');
+            return;
+        }
+        const projects = window.UnifiedProjectManager.getAllProjects({
+            type: window.PROJECT_TYPES?.CONTENT,
+        }) || [];
+
+        document.getElementById('cw-projects-panel')?.remove();
+
+        const panel = document.createElement('div');
+        panel.id = 'cw-projects-panel';
+        panel.className = 'modal-overlay active';
+        panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;' +
+            'display:flex;align-items:center;justify-content:center;padding:24px;';
+
+        const esc = v => String(v == null ? '' : v)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+        // An empty list is the common first-run case and gets its own answer,
+        // rather than an empty box that looks broken.
+        const body = projects.length
+            ? projects.map(p => `
+                <button class="cw-project-row" data-id="${esc(p.id)}" style="display:block;width:100%;text-align:left;
+                        padding:12px 14px;margin-bottom:8px;border:1px solid var(--color-border,#e5e7eb);
+                        border-radius:8px;background:transparent;cursor:pointer;">
+                  <div style="font-weight:600;">${esc(p.name || 'Untitled project')}</div>
+                  <div style="font-size:12px;opacity:.7;">
+                    ${esc(p.state || 'active')}${p.updatedAt ? ' · updated ' + esc(new Date(p.updatedAt).toLocaleDateString()) : ''}
+                  </div>
+                </button>`).join('')
+            : `<p style="opacity:.75;line-height:1.6;margin:0 0 16px;">
+                 No content projects yet. A project keeps a piece of writing, its brief and its
+                 revisions together so you can come back to it.
+               </p>
+               <button id="cw-projects-new" style="padding:10px 18px;border:none;border-radius:8px;color:#fff;
+                       font-weight:600;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);">
+                 ➕ Create your first project
+               </button>`;
+
+        panel.innerHTML = `
+            <div style="background:var(--color-bg-primary,#fff);color:var(--color-text-primary,#111);
+                        border-radius:14px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:22px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="margin:0;font-size:17px;">Your content projects</h3>
+                <button id="cw-projects-close" aria-label="Close"
+                        style="background:none;border:none;font-size:20px;cursor:pointer;color:inherit;">×</button>
+              </div>
+              ${body}
+            </div>`;
+
+        document.body.appendChild(panel);
+
+        // Listeners rather than inline handlers: a project name is data, and
+        // data does not belong in an attribute that is parsed as code.
+        panel.querySelector('#cw-projects-close')?.addEventListener('click', () => panel.remove());
+        panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
+        panel.querySelector('#cw-projects-new')?.addEventListener('click', () => {
+            panel.remove();
+            createNewProject();
+        });
+        panel.querySelectorAll('.cw-project-row').forEach(row => {
+            row.addEventListener('click', () => {
+                window.UnifiedProjectManager.setCurrentProject(row.getAttribute('data-id'));
+                panel.remove();
+                loadCurrentProject();
+                showAlert('Project opened.', 'success');
+            });
+        });
+    }
+
     function showProjectInfo(project) {
         let banner = document.getElementById('project-info-banner');
         if (!banner) {
@@ -768,6 +854,7 @@ Output only the finished content — no preamble, no "Here is your content:", ju
         displayContent,
         calculateQualityMetrics,
         createNewProject,
+        viewAllProjects,
         loadCurrentProject,
         saveToProject,
         pauseCurrentProject

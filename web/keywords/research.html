@@ -247,9 +247,27 @@
             }
         }
 
+        let seedHintTimer = null;
+        function hintSeedsRequired() {
+            const input = document.getElementById('seedKeywords');
+            const hint = input.parentElement.parentElement.querySelector('.form-hint');
+            input.focus();
+            if (!hint) return;
+            if (!hint.dataset.original) hint.dataset.original = hint.textContent;
+            hint.textContent = 'Enter at least one seed keyword — for example "seo tools, marketing software".';
+            hint.style.color = 'var(--color-danger, #ef4444)';
+            clearTimeout(seedHintTimer);
+            seedHintTimer = setTimeout(function () {
+                hint.textContent = hint.dataset.original;
+                hint.style.color = '';
+            }, 5000);
+        }
+
         async function runResearch() {
             const input = document.getElementById('seedKeywords').value.trim();
-            if (!input) return;
+            // Pressing Research with nothing typed used to return silently,
+            // which reads as a broken button on a brand-new account.
+            if (!input) { hintSeedsRequired(); return; }
 
             // Show loading state
             document.getElementById('emptyState').style.display = 'none';
