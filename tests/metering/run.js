@@ -95,10 +95,19 @@ require.cache[helperPath] = {
       if (p.startsWith('/mission_usage')) {
         return { ok: true, status: 200, data: state.used === 0 ? [] : [{ used: state.used }] };
       }
-      if (p === '/rpc/increment_mission_usage') {
+      if (p === '/rpc/consume_mission_usage') {
         if (state.incrementFails) return { ok: false, status: 500, data: 'boom' };
+        // Stand in for the SQL function: the ALLOWANCE COMPARISON HAPPENS
+        // HERE, in the same step as the increment. That is the whole point of
+        // the change — the endpoint must not be re-deciding it against a
+        // value it read earlier, because ten simultaneous calls all read the
+        // same one.
+        const lim = body && body.lim;
+        if (lim !== null && lim !== undefined && state.used >= lim) {
+          return { ok: true, status: 200, data: [{ allowed: false, used: state.used }] };
+        }
         state.used += 1;
-        return { ok: true, status: 200, data: state.used };
+        return { ok: true, status: 200, data: [{ allowed: true, used: state.used }] };
       }
       return { ok: false, status: 404, data: null };
     },
@@ -147,14 +156,17 @@ async function call(body, env, opts) {
   check('check reports real usage against the plan',
     r.body.used === 5 && r.body.limit === PL.MISSION_ALLOWANCES.growth && r.body.allowed === true);
   check('check does NOT consume a mission',
-    !calls.some(c => c.path === '/rpc/increment_mission_usage') && state.used === 5);
+    !calls.some(c => c.path === '/rpc/consume_mission_usage') && state.used === 5);
 
   // consume increments
   r = await call({ action: 'consume' });
   check('consume increments the counter', r.body.used === 6 && r.body.counted === true);
   check('and reports what is left', r.body.remaining === PL.MISSION_ALLOWANCES.growth - 6);
   check('the increment goes through the atomic RPC, not a read-then-write',
-    calls.some(c => c.path === '/rpc/increment_mission_usage'));
+    calls.some(c => c.path === '/rpc/consume_mission_usage'));
+  check('the plan allowance is sent to the database, so the DB decides it',
+    calls.some(c => c.path === '/rpc/consume_mission_usage' &&
+                    c.body && c.body.lim === PL.MISSION_ALLOWANCES.growth));
 
   // exhausted
   state = { plan: 'start', used: PL.MISSION_ALLOWANCES.start, override: null, validToken: true };
@@ -175,6 +187,27 @@ async function call(body, env, opts) {
   state = { plan: 'free', used: 5, override: 100, validToken: true };
   r = await call({ action: 'check' });
   check('an admin override raises the cap', r.body.limit === 100 && r.body.allowed === true);
+
+  console.log('\n──── the last mission, claimed twice at once ────');
+  // The bug this replaced: the endpoint read `used`, compared it to the
+  // allowance itself, and only then called the increment. Ten missions fired
+  // together all read used = limit - 1, all passed that comparison, and all
+  // incremented — nine missions the plan did not include.
+  //
+  // The mock's RPC now owns the comparison, as the SQL function does. Firing
+  // several consumes concurrently against a single remaining mission must
+  // produce exactly one success, no matter what the initial read said.
+  state = { plan: 'start', used: PL.MISSION_ALLOWANCES.start - 1, override: null, validToken: true };
+  const burst = await Promise.all(
+    Array.from({ length: 10 }, () => call({ action: 'consume' }))
+  );
+  const granted = burst.filter(x => x.status === 200 && x.body.allowed === true).length;
+  const refused = burst.filter(x => x.status === 402).length;
+  console.log(`  10 simultaneous consumes on the last mission → ${granted} granted, ${refused} refused`);
+  check('exactly one of ten simultaneous consumes is granted', granted === 1);
+  check('the other nine are refused with 402', refused === 9);
+  check('the counter lands exactly on the allowance, never past it',
+    state.used === PL.MISSION_ALLOWANCES.start);
 
   console.log('\n──── a broken meter must not block paying customers ────');
 

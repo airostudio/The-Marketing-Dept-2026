@@ -14,6 +14,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { safeFetch } = require('./_lib/safe-fetch.js');
 
 const TIMEOUT_MS = 12000;
 const MAX_REDIRECTS = 5;
@@ -67,29 +68,22 @@ module.exports = async function handler(req, res) {
     const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
     target = new URL(withProto);
     if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-    // Block private IP ranges and localhost to prevent SSRF
-    const h = target.hostname.toLowerCase();
-    if (
-      h === 'localhost' ||
-      h.endsWith('.local') ||
-      /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-      h === '::1'
-    ) {
-      return res.status(400).json({ error: 'Private/internal addresses not allowed' });
-    }
+    // The address check runs at fetch time, in api/_lib/safe-fetch.js. The
+    // blocklist that used to be here matched hostname strings only, so it
+    // missed the numeric spellings of an address and anything a caller's own
+    // DNS pointed inward — and it had drifted from the copy in
+    // api/fetch-page.js, silently allowing 0.0.0.0 and the cloud metadata
+    // endpoint that the other copy blocked.
   } catch {
     return res.status(400).json({ reachable: false, status: 0, error: 'Invalid URL format' });
   }
 
-  // Perform a HEAD request (falls back to GET if HEAD is refused)
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+  // Perform a HEAD request (falls back to GET if HEAD is refused).
+  // safeFetch owns the timeout, so there is no AbortController here.
   async function probe(method) {
-    return fetch(target.toString(), {
+    return safeFetch(target.toString(), {
       method,
-      redirect: 'follow',
-      signal: controller.signal,
+      timeoutMs: TIMEOUT_MS,
       headers: {
         'User-Agent': 'Audema-URLCheck/1.0 (SEO Audit Bot; +https://audema.com)',
         'Accept': 'text/html,application/xhtml+xml,*/*',
@@ -106,11 +100,13 @@ module.exports = async function handler(req, res) {
         response = await probe('GET');
       }
     } catch (headErr) {
+      // A refused target will refuse the GET too — don't spend a second
+      // lookup on it, and let the outer handler report why it was refused
+      // rather than dressing it up as an unreachable site.
+      if (headErr.message && headErr.message.startsWith('Refused to fetch')) throw headErr;
       // HEAD failed (e.g. network error) — try GET before giving up
       response = await probe('GET');
     }
-
-    clearTimeout(timer);
 
     const status = response.status;
     const reachable = status >= 200 && status < 400;
@@ -128,9 +124,11 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ reachable, status, title, url: target.toString() });
 
   } catch (err) {
-    clearTimeout(timer);
+    if (err.message && err.message.startsWith('Refused to fetch')) {
+      return res.status(400).json({ reachable: false, status: 0, error: err.message });
+    }
 
-    const isTimeout = err.name === 'AbortError';
+    const isTimeout = err.name === 'AbortError' || err.name === 'TimeoutError';
     const isDns = err.cause?.code === 'ENOTFOUND' || err.message?.includes('ENOTFOUND');
 
     const error = isTimeout

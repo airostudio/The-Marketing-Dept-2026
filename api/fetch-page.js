@@ -19,6 +19,7 @@
  */
 
 const { requireUser } = require('./_lib/require-user.js');
+const { safeFetchText } = require('./_lib/safe-fetch.js');
 
 const TIMEOUT_MS = 15000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — enough for real pages, bounded against abuse
@@ -50,20 +51,12 @@ function parseTarget(raw) {
   const target = new URL(withProto);
   if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
 
-  // Block private IP ranges and localhost — this endpoint accepts an
-  // arbitrary attacker-supplied URL and fetches it server-side, so without
-  // this it would be an open SSRF proxy into internal/cloud-metadata addresses.
-  const h = target.hostname.toLowerCase();
-  if (
-    h === 'localhost' ||
-    h.endsWith('.local') ||
-    h === '0.0.0.0' ||
-    h === '169.254.169.254' || // cloud metadata endpoint
-    /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-    h === '::1'
-  ) {
-    throw new Error('Private/internal addresses not allowed');
-  }
+  // Shape check only. This endpoint accepts an arbitrary caller-supplied URL
+  // and fetches it server-side, so the address check has to resolve the
+  // hostname and re-check every redirect hop — that is
+  // api/_lib/safe-fetch.js, called below. The blocklist that used to live
+  // here could not do either, and three other copies of it around the
+  // codebase had already drifted out of agreement with this one.
   return target;
 }
 
@@ -94,23 +87,19 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ success: false, error: e.message });
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
-    const response = await fetch(target.toString(), {
+    const response = await safeFetchText(target.toString(), {
       method: 'GET',
-      redirect: 'follow',
-      signal: controller.signal,
+      timeoutMs: TIMEOUT_MS,
+      maxBytes: MAX_BODY_BYTES,
       headers: {
         'User-Agent': 'Audema-SEOAudit/1.0 (+https://audema.com/seo-bot)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
     });
-    clearTimeout(timer);
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       return res.status(502).json({ success: false, error: `Site responded with HTTP ${response.status}`, status: response.status });
     }
 
@@ -119,8 +108,7 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ success: false, error: `Unsupported content type: ${contentType || 'unknown'}` });
     }
 
-    const text = await response.text();
-    const html = text.length > MAX_BODY_BYTES ? text.slice(0, MAX_BODY_BYTES) : text;
+    const html = response.text;
 
     if (!html || html.trim().length < 20) {
       return res.status(502).json({ success: false, error: 'Site returned an empty page' });
@@ -134,8 +122,15 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    clearTimeout(timer);
-    const isTimeout = err.name === 'AbortError';
+    // A refused target is the caller asking for something they may not have,
+    // not this server failing to reach a site — 400, and say which address
+    // was refused rather than reporting it as unreachable.
+    if (err.message && err.message.startsWith('Refused to fetch')) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    // AbortSignal.timeout() rejects with a TimeoutError; an aborted controller
+    // gives AbortError. Both mean the same thing to the caller.
+    const isTimeout = err.name === 'AbortError' || err.name === 'TimeoutError';
     const isDns = err.cause?.code === 'ENOTFOUND' || err.message?.includes('ENOTFOUND');
     const error = isTimeout
       ? 'Request timed out — site may be down or blocking automated requests'

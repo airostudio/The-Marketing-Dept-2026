@@ -2,13 +2,16 @@
  * api/_lib/nancy-crawl.js — bounded, SSRF-safe multi-page site crawl for
  * Nancy's Website Analyst (Agent 1) and Brand Identity Extraction.
  *
- * Reuses the SSRF-blocking target validation already established in
- * api/fetch-page.js and api/check-url.js (block localhost/private ranges/
- * cloud metadata endpoint) rather than duplicating a weaker version.
+ * Every request goes through api/_lib/safe-fetch.js, which is the one place
+ * that decides whether an address the caller named may be connected to. This
+ * file used to carry its own copy of a hostname blocklist, alongside three
+ * other copies elsewhere that had already drifted apart; that copy is gone.
  * Sensible, hard page/byte/time limits — "do not crawl endlessly" per spec.
  */
 
 'use strict';
+
+const { safeFetchText } = require('./safe-fetch.js');
 
 const PAGE_TIMEOUT_MS = 10000;
 const MAX_PAGES = 6;
@@ -29,38 +32,37 @@ const CANDIDATE_PATHS = [
   '/contact', '/contact-us', '/blog', '/case-studies', '/testimonials',
 ];
 
+/**
+ * Parse and shape-check a target, synchronously.
+ *
+ * This is the fast, callable-anywhere check: it is imported by several
+ * endpoints that need a URL object before they do anything else. It is NOT
+ * the SSRF boundary — that lives in api/_lib/safe-fetch.js, which resolves
+ * the hostname and re-checks every redirect hop, and which every fetch below
+ * goes through. A synchronous string test cannot see what a name resolves to,
+ * so it cannot be the thing relied on.
+ */
 function parseTarget(raw) {
   const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
   const target = new URL(withProto);
   if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-  const h = target.hostname.toLowerCase();
-  if (
-    h === 'localhost' || h.endsWith('.local') || h === '0.0.0.0' ||
-    h === '169.254.169.254' ||
-    /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-    h === '::1'
-  ) {
-    throw new Error('Private/internal addresses not allowed');
-  }
   return target;
 }
 
 async function fetchOne(url) {
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+    const r = await safeFetchText(url, {
+      timeoutMs: PAGE_TIMEOUT_MS,
+      maxBytes: MAX_HTML_BYTES_PER_PAGE,
       headers: {
         'User-Agent': 'NancyJamFancy/1.0 (+content research bot)',
         'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
       },
     });
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
+    if (r.status < 200 || r.status >= 300) return null;
+    const ct = r.headers.get('content-type') || '';
     if (!ct.includes('text/html') && !ct.includes('text/plain')) return null;
-    const text = await res.text();
-    return { html: text.slice(0, MAX_HTML_BYTES_PER_PAGE), finalUrl: res.url || url };
+    return { html: r.text, finalUrl: r.url || url };
   } catch {
     return null;
   }
@@ -70,15 +72,13 @@ async function fetchOne(url) {
  *  stylesheet degrades the colour read, it does not fail the crawl. */
 async function fetchCss(url) {
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+    const r = await safeFetchText(url, {
+      timeoutMs: PAGE_TIMEOUT_MS,
+      maxBytes: MAX_CSS_BYTES_PER_SHEET,
       headers: { 'User-Agent': 'NancyJamFancy/1.0 (+content research bot)', Accept: 'text/css,*/*;q=0.1' },
     });
-    if (!res.ok) return '';
-    const text = await res.text();
-    return text.slice(0, MAX_CSS_BYTES_PER_SHEET);
+    if (r.status < 200 || r.status >= 300) return '';
+    return r.text;
   } catch {
     return '';
   }

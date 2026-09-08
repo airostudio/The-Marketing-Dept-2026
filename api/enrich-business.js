@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { safeFetchText } = require('./_lib/safe-fetch.js');
 /**
  * Business enrichment — Vercel serverless function.
  *
@@ -125,17 +126,19 @@ module.exports = async function handler(req, res) {
   // ── Step 1: Fetch homepage meta tags ──────────────────────────────────────
   let meta = {};
   try {
-    const homeRes = await fetch(parsedUrl.href, {
+    // Through safe-fetch: the URL comes from the request body, so the
+    // address it resolves to — and the address any redirect points at —
+    // has to be checked, not just its protocol.
+    const homeRes = await safeFetchText(parsedUrl.href, {
+      timeoutMs: 10_000,
+      maxBytes: 50_000,   // only need <head>
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; AudemaBot/1.0; +https://aduma.io)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
-      signal: AbortSignal.timeout(10_000),
-      redirect: 'follow',
     });
-    if (homeRes.ok) {
-      const html = await homeRes.text();
-      meta = extractMeta(html.slice(0, 50_000)); // only need <head>
+    if (homeRes.status >= 200 && homeRes.status < 300) {
+      meta = extractMeta(homeRes.text);
     }
   } catch (err) {
     console.warn('[enrich-business] homepage fetch failed:', err.message);

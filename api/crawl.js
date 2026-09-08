@@ -1,4 +1,5 @@
 const { requireUser } = require('./_lib/require-user.js');
+const { safeFetchText, validateTarget } = require('./_lib/safe-fetch.js');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,13 +17,16 @@ module.exports = async (req, res) => {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ error: 'url required' });
 
-    let origin;
-    try {
-        const base = url.startsWith('http') ? url : `https://${url}`;
-        origin = new URL(base).origin;
-    } catch (e) {
-        return res.status(400).json({ error: 'invalid url' });
+    // This endpoint fetches whatever origin the caller names and hands back
+    // what it found, which is an SSRF proxy unless the target is checked.
+    // validateTarget resolves the hostname and refuses private, loopback,
+    // link-local and cloud-metadata addresses however they are written.
+    const base = url.startsWith('http') ? url : `https://${url}`;
+    const check = await validateTarget(base);
+    if (!check.ok) {
+        return res.status(400).json({ error: `Cannot crawl that address — ${check.reason}.` });
     }
+    const origin = check.url.origin;
 
     const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 
@@ -43,23 +47,24 @@ module.exports = async (req, res) => {
         youtube:   /(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:channel|c|@)[a-zA-Z0-9\-_]+/,
     };
 
+    // safeFetchText re-validates every redirect hop, so a public page that
+    // 302s to an internal address cannot smuggle one past the check above,
+    // and bounds the read so a huge file is not pulled into memory.
     const fetchPage = async (pageUrl) => {
         try {
-            const r = await fetch(pageUrl, {
+            const r = await safeFetchText(pageUrl, {
+                timeoutMs: 8000,
+                maxBytes: 512000,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (compatible; business-contact-finder/1.0)',
                     'Accept': 'text/html,application/xhtml+xml',
                     'Accept-Language': 'en-US,en;q=0.9',
                 },
-                signal: AbortSignal.timeout(8000),
-                redirect: 'follow',
             });
-            if (!r.ok) return null;
+            if (r.status < 200 || r.status >= 300) return null;
             const ct = r.headers.get('content-type') || '';
             if (!ct.includes('text/html') && !ct.includes('text/plain')) return null;
-            // Cap at 500KB to avoid huge pages
-            const text = await r.text();
-            return text.substring(0, 512000);
+            return r.text;
         } catch {
             return null;
         }

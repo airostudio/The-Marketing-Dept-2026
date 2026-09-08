@@ -118,6 +118,16 @@ const { fetchLinkedStylesheets } = require(path.join(REPO, 'api/_lib/nancy-crawl
   check('the crawler fetches the stylesheets a page links to',
     served.includes('--primary'));
 
+  // The hrefs come out of the crawled site's own HTML, so the site chooses
+  // where we make a request to. A "stylesheet" pointed at the cloud metadata
+  // endpoint must not be fetched, and its response must never reach the
+  // colour extractor or the Claude prompt downstream of it.
+  const blocked = await blockedStylesheetHost();
+  check('a stylesheet linked at an internal address is not fetched',
+    blocked.requested === false);
+  check('and the crawl returns nothing rather than that address’s response',
+    blocked.out === '');
+
   const crawlSrc = read('api/_lib/nancy-crawl.js');
   check('stylesheet fetching is bounded like the page crawl',
     /MAX_STYLESHEETS/.test(crawlSrc) && /MAX_CSS_BYTES_PER_SHEET/.test(crawlSrc));
@@ -200,18 +210,72 @@ async function inBrowser() {
 }
 
 // Stands up a page that links a stylesheet, and asks the crawler to fetch it.
+/**
+ * Fetch the stylesheets a page links to, against a stubbed network.
+ *
+ * This used to stand up a real http server on 127.0.0.1. It cannot any more,
+ * and that is the point: every crawl request now goes through
+ * api/_lib/safe-fetch.js, which refuses loopback. The stylesheet path is one
+ * of the places that matters most, because the hrefs come out of the HTML of
+ * the site being crawled — a hostile page can link a "stylesheet" at
+ * http://169.254.169.254/ and have us fetch it and feed the response into the
+ * colour extractor and then into a Claude prompt. withStylesheetServer() is
+ * therefore split: this one proves the fetching works against a reachable
+ * host, and blockedStylesheetHost() below proves it does not against an
+ * internal one.
+ */
 async function withStylesheetServer(css) {
-  const server = http.createServer((req, res) => {
-    if (req.url === '/theme.css') {
-      res.writeHead(200, { 'Content-Type': 'text/css' });
-      return res.end(css);
+  const realFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).endsWith('/theme.css')) {
+      return {
+        status: 200,
+        url: String(url),
+        headers: new Map([['content-type', 'text/css']]),
+        body: streamOf(css),
+      };
     }
-    res.writeHead(404); res.end('nf');
-  });
-  await new Promise(r => server.listen(0, '127.0.0.1', r));
-  const port = server.address().port;
-  const html = `<html><head><link rel="stylesheet" href="/theme.css"></head><body></body></html>`;
-  const out = await fetchLinkedStylesheets(html, `http://127.0.0.1:${port}/`);
-  server.close();
-  return out;
+    return { status: 404, url: String(url), headers: new Map(), body: streamOf('nf') };
+  };
+  try {
+    const html = `<html><head><link rel="stylesheet" href="/theme.css"></head><body></body></html>`;
+    return await fetchLinkedStylesheets(html, 'https://example.com/');
+  } finally {
+    global.fetch = realFetch;
+  }
+}
+
+/** A single-chunk ReadableStream, which is what safeFetchText reads from. */
+function streamOf(text) {
+  const bytes = Buffer.from(text, 'utf8');
+  let sent = false;
+  return {
+    getReader() {
+      return {
+        read: async () => (sent ? { done: true } : (sent = true, { done: false, value: bytes })),
+        cancel: async () => {},
+      };
+    },
+  };
+}
+
+/**
+ * A page that links its "stylesheet" at an internal address. Returns what the
+ * crawler came back with, and whether it actually made the request.
+ */
+async function blockedStylesheetHost() {
+  const realFetch = global.fetch;
+  let requested = false;
+  global.fetch = async (url) => {
+    requested = true;
+    return { status: 200, url: String(url), headers: new Map([['content-type', 'text/css']]), body: streamOf(':root{--primary:#000}') };
+  };
+  try {
+    const html = '<html><head><link rel="stylesheet" href="http://169.254.169.254/latest/meta-data/">' +
+                 '<link rel="stylesheet" href="http://127.0.0.1:9/admin.css"></head><body></body></html>';
+    const out = await fetchLinkedStylesheets(html, 'https://example.com/');
+    return { out, requested };
+  } finally {
+    global.fetch = realFetch;
+  }
 }

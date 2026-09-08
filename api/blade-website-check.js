@@ -21,6 +21,7 @@
 'use strict';
 
 const { requireUser } = require('./_lib/require-user.js');
+const { safeFetch } = require('./_lib/safe-fetch.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 40;
@@ -57,19 +58,14 @@ const OLD_GENERATOR_PATTERNS = [
   /Drupal\s+[1-6]\b/i,
 ];
 
+// Shape check only. The address check that matters lives in
+// api/_lib/safe-fetch.js and runs at fetch time below, because it has to
+// resolve the hostname and re-check each redirect — neither of which a
+// synchronous string test can do.
 function parseTarget(raw) {
   const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
   const target = new URL(withProto);
   if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-  const h = target.hostname.toLowerCase();
-  if (
-    h === 'localhost' || h.endsWith('.local') || h === '0.0.0.0' ||
-    h === '169.254.169.254' ||
-    /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-    h === '::1'
-  ) {
-    throw new Error('Private/internal addresses not allowed');
-  }
   return target;
 }
 
@@ -133,14 +129,13 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(target.href, {
+    const response = await safeFetch(target.href, {
       method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+      timeoutMs: PAGE_TIMEOUT_MS,
       headers: { 'User-Agent': 'NancyJamFancy/1.0 (+content research bot)', 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
     });
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       return res.json({ success: true, status: 'unreachable', signals: {}, reasons: [`Site responded with ${response.status}`] });
     }
 

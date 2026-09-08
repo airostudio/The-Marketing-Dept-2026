@@ -25,6 +25,8 @@
 
 'use strict';
 
+const { safeFetchText } = require('./_lib/safe-fetch.js');
+
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
 
@@ -59,13 +61,17 @@ function contentHash(html) {
 
 async function fetchSnapshot(url) {
   try {
-    const res = await fetch(url, {
+    // The watched URL is whatever a customer typed into the competitor
+    // tracker, and this runs unattended on a schedule with no one reading the
+    // result — exactly the shape of request that should not be able to reach
+    // an internal address.
+    const res = await safeFetchText(url, {
+      timeoutMs: PER_FETCH_TIMEOUT_MS,
+      maxBytes: 1_000_000,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AudemaScoutBot/1.0; +https://audema.ai/bot)' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PER_FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) return { error: `HTTP ${res.status}` };
-    const html = await res.text();
+    if (res.status < 200 || res.status >= 300) return { error: `HTTP ${res.status}` };
+    const html = res.text;
     return {
       title: extractTitle(html),
       meta_description: extractMetaDescription(html),
