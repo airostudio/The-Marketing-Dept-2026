@@ -70,8 +70,9 @@ module.exports = withFailureReporting('api/claude', async function handler(req, 
     return res.status(413).json({ error: 'Request body too large' });
   }
 
-  const apiKey =
-    process.env.ANTHROPIC_API_KEY ||;
+  // One variable, no fallback chain — see api/health.js for how to verify a
+  // rotation actually took (the fingerprint check there).
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error('Claude proxy: ANTHROPIC_API_KEY not configured');
