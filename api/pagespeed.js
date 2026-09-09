@@ -6,8 +6,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-
-const PAGESPEED_BASE = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+const { fetchPageSpeed } = require('./_lib/pagespeed-client.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
@@ -47,27 +46,14 @@ module.exports = withFailureReporting('api/pagespeed', async function handler(re
     return res.status(400).json({ error: 'strategy must be mobile or desktop' });
   }
 
-  const apiUrl = new URL(PAGESPEED_BASE);
-  apiUrl.searchParams.set('url', parsedUrl.href);
-  apiUrl.searchParams.set('strategy', strategy);
-  ['performance', 'accessibility', 'seo', 'best-practices'].forEach(c =>
-    apiUrl.searchParams.append('category', c)
-  );
-
   // Add server-side API key if configured
   const apiKey = process.env.GOOGLE_PAGESPEED_API_KEY;
-  if (apiKey) apiUrl.searchParams.set('key', apiKey);
 
   try {
-    const upstream = await fetch(apiUrl.toString(), {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(90_000),
-    });
-
-    const data = await upstream.json();
+    const { status, data } = await fetchPageSpeed(parsedUrl.href, strategy, apiKey);
 
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-    return res.status(upstream.status).json(data);
+    return res.status(status).json(data);
   } catch (err) {
     console.error('[pagespeed] upstream error:', err.message);
     return res.status(502).json({ error: 'PageSpeed API request failed', detail: err.message });
