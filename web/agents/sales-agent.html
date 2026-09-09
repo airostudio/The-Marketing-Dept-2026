@@ -21,6 +21,8 @@
     <script src="../js/intelligence-profiles.js"></script>
     <script src="../js/site-switcher.js"></script>
     <script src="../js/contacts-store.js"></script>
+    <script src="../js/agent-history.js"></script>
+    <script src="../js/review-queue.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -250,11 +252,47 @@
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* PROSPECT HUNTER */
+        .hunter-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+        .hunter-step { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--text2); background: none; transition: all 0.15s; }
+        .hunter-step:hover { color: var(--text); }
+        .hunter-step.active { border-color: var(--green); color: var(--green); background: rgba(var(--green-rgb),0.08); }
+        .hunter-panel { display: none; }
+        .hunter-panel.active { display: block; }
+        .hunter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .hunter-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+        .hunter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip-check { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--text2); background: none; transition: all 0.15s; }
+        .chip-check input { width: auto; margin: 0; accent-color: var(--green); cursor: pointer; }
+        .chip-check.checked { border-color: var(--green); color: var(--green); background: rgba(var(--green-rgb),0.08); }
+        .hunter-region-check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; }
+        .hunter-region-check input { width: auto; accent-color: var(--green); cursor: pointer; }
+
+        .hunter-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1200px; }
+        .hunter-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); font-weight: 600; cursor: pointer; white-space: nowrap; user-select: none; }
+        .hunter-table th:hover { color: var(--text); }
+        .hunter-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .hunter-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .cls-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .cls-exceptional { background: rgba(16,185,129,0.28); color: var(--green); }
+        .cls-high_priority { background: rgba(16,185,129,0.15); color: var(--green); }
+        .cls-strong_prospect { background: rgba(6,182,212,0.15); color: var(--cyan); }
+        .cls-potential_prospect { background: rgba(245,158,11,0.15); color: var(--orange); }
+        .cls-low_priority { background: rgba(255,255,255,0.08); color: var(--text2); }
+        .cls-do_not_contact { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .cls-unaudited { background: rgba(255,255,255,0.06); color: var(--text2); }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: #0d0d1a; border: 1px solid var(--border); border-radius: 14px; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 24px; }
+
         @media (max-width: 768px) {
             .discover-form { grid-template-columns: 1fr; }
             .discover-filters { grid-template-columns: 1fr 1fr; }
             .strat-grid, .outreach-layout { grid-template-columns: 1fr; }
             .compliance-grid, .lia-form, .detail-grid { grid-template-columns: 1fr; }
+            .hunter-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
@@ -282,6 +320,7 @@
     <button class="tab-btn" onclick="switchTab('outreach')">✉ Outreach</button>
     <button class="tab-btn" onclick="switchTab('strategy')">🎯 Strategy</button>
     <button class="tab-btn" onclick="switchTab('compliance')">⚖️ Compliance</button>
+    <button class="tab-btn" onclick="switchTab('hunter')">🎯 Prospect Hunter</button>
 </div>
 
 <!-- DISCOVER -->
@@ -628,6 +667,101 @@
     </div>
 </div>
 
+<!-- PROSPECT HUNTER -->
+<div id="tab-hunter" class="tab-panel">
+    <div class="section-title">Prospect Hunter</div>
+    <div class="section-sub">Search a region for real businesses on a target website platform, audit their site with the full lead-intelligence pipeline, and rank the results by opportunity score — no fabricated leads, no invented scores.</div>
+
+    <div class="card mt8">
+        <div class="card-body">
+            <div class="hunter-steps">
+                <div class="hunter-step active" id="hstep-btn-1" onclick="hunterGoStep(1)">1. Location</div>
+                <div class="hunter-step" id="hstep-btn-2" onclick="hunterGoStep(2)">2. Industry</div>
+                <div class="hunter-step" id="hstep-btn-3" onclick="hunterGoStep(3)">3. Platform &amp; Run</div>
+            </div>
+
+            <div class="hunter-panel active" id="hstep-1">
+                <div class="hunter-grid">
+                    <div><label>Country</label><input id="h-country" type="text" placeholder="e.g. United States"></div>
+                    <div><label>State / Province</label><input id="h-state" type="text" placeholder="e.g. Texas"></div>
+                    <div><label>City</label><input id="h-city" type="text" placeholder="e.g. Austin"></div>
+                    <div><label>Radius</label><input id="h-radius" type="number" min="1" value="25" placeholder="miles"></div>
+                </div>
+                <label class="hunter-region-check">
+                    <input type="checkbox" id="h-entire-region" onchange="hunterToggleRegion(this.checked)"> Search entire region (ignore city/radius)
+                </label>
+                <div class="hunter-nav"><span></span><button class="btn btn-primary" onclick="hunterGoStep(2)">Next: Industry →</button></div>
+            </div>
+
+            <div class="hunter-panel" id="hstep-2">
+                <label>Industries (select any number)</label>
+                <div class="hunter-chips" id="h-industry-chips"></div>
+                <div class="mt16"><label>Other / custom industry</label><input id="h-industry-other" type="text" placeholder="e.g. Veterinary clinics"></div>
+                <div class="hunter-nav">
+                    <button class="btn btn-ghost" onclick="hunterGoStep(1)">← Back</button>
+                    <button class="btn btn-primary" onclick="hunterGoStep(3)">Next: Platform →</button>
+                </div>
+            </div>
+
+            <div class="hunter-panel" id="hstep-3">
+                <label>Target Website Platform</label>
+                <div class="hunter-chips" id="h-platform-chips"></div>
+                <div class="hunter-grid mt16" style="grid-template-columns:1fr">
+                    <div style="max-width:220px"><label>How many qualified results?</label><input id="h-count" type="number" min="1" max="100" value="20"></div>
+                </div>
+                <div class="hunter-nav">
+                    <button class="btn btn-ghost" onclick="hunterGoStep(2)">← Back</button>
+                    <button class="btn btn-primary" id="h-run-btn" onclick="runHunterSearch()">🎯 Run Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="h-progress-area" class="mt16" style="display:none">
+        <div class="card">
+            <div class="card-header"><span class="card-title">🔄 Pipeline Progress</span></div>
+            <div class="card-body">
+                <div id="h-progress-text" class="stream-status">Starting…</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="h-results-area" class="mt20" style="display:none">
+        <div class="discover-meta">
+            <div class="prospect-count">Ranked <strong id="h-results-count">0</strong> qualified leads</div>
+        </div>
+        <div style="overflow-x:auto">
+            <table class="hunter-table" id="h-results-table">
+                <thead><tr>
+                    <th onclick="hunterSortBy('classification')">Priority</th>
+                    <th onclick="hunterSortBy('name')">Business</th>
+                    <th onclick="hunterSortBy('industry')">Industry</th>
+                    <th onclick="hunterSortBy('city')">Location</th>
+                    <th>Website</th>
+                    <th onclick="hunterSortBy('platform')">Platform</th>
+                    <th onclick="hunterSortBy('placesRating')">Rating</th>
+                    <th onclick="hunterSortBy('placesReviews')">Reviews</th>
+                    <th onclick="hunterSortBy('auditAvg')">Health</th>
+                    <th onclick="hunterSortBy('perf')">Perf</th>
+                    <th onclick="hunterSortBy('seo')">SEO</th>
+                    <th onclick="hunterSortBy('mobile')">Mobile</th>
+                    <th onclick="hunterSortBy('conversion')">Conversion</th>
+                    <th onclick="hunterSortBy('opportunityScore')">Opp. Score</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody id="h-results-tbody"></tbody>
+            </table>
+        </div>
+        <div id="h-skipped-area" class="mt16"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="h-modal-overlay" onclick="if(event.target===this) hunterCloseModal()">
+    <div class="modal-box" id="h-modal-box"></div>
+</div>
+
 <div class="copy-toast" id="copy-toast">Copied!</div>
 
 <script>
@@ -690,6 +824,7 @@ function switchTab(name) {
     event.currentTarget.classList.add('active');
     if (name === 'pipeline') renderPipe();
     if (name === 'outreach') populateProspectSelect();
+    if (name === 'hunter') renderHunterChips();
 }
 
 // ── JSON EXTRACTION ───────────────────────────────────────────────────────────
@@ -2085,6 +2220,513 @@ async function genLIA() {
     }
 }
 
+// ── PROSPECT HUNTER ──────────────────────────────────────────────────────────
+// A guided search wizard that discovers real businesses (Perplexity, same
+// hard-stop-if-unavailable rule as runDiscover()), cheaply filters them by
+// detected website platform (api/tech-detect.js) BEFORE the expensive full
+// audit (api/sales-audit-lead.js), then ranks the survivors by real
+// opportunity score. Nothing here invents a business, a score, or a signal
+// the backend didn't actually return.
+
+const HUNTER_INDUSTRIES = ['Plumbers','Electricians','HVAC','Roofers','Builders','Landscapers','Painters','Pest control','Physiotherapists','Dentists','Accountants','Mortgage brokers','Real estate agencies','Property managers','Lawyers','Medical clinics','Cleaning businesses','Automotive businesses','Solar installers','Security companies','Fire protection'];
+const HUNTER_NAMED_PLATFORMS = ['Wix','GoDaddy Website Builder','Squarespace','WordPress','Shopify','Webflow'];
+const HUNTER_PLATFORMS = [...HUNTER_NAMED_PLATFORMS, 'Other', 'Unknown'];
+const HUNTER_DEFAULT_PLATFORMS = ['Wix','GoDaddy Website Builder']; // matches api/sales-audit-lead.js's TARGET_PLATFORMS
+const HUNTER_THROTTLE_MS = 400; // same pacing as enrichAll()'s rate-limit delay, for consistency
+
+let hunterSelectedIndustries = new Set();
+let hunterSelectedPlatforms = new Set(HUNTER_DEFAULT_PLATFORMS);
+let hunterResults = [];       // scored + audited leads from the current run
+let hunterSortedCache = [];   // last-rendered sort order, for detail-modal lookups by row index
+let hunterSkipped = [];       // [{name, website, reason}] — never silently dropped
+let hunterSortState = { key: 'opportunityScore', dir: 'desc' };
+let hunterRunning = false;
+
+function renderHunterChips() {
+    const indEl = document.getElementById('h-industry-chips');
+    if (indEl && !indEl.dataset.rendered) {
+        indEl.innerHTML = HUNTER_INDUSTRIES.map(ind => `
+            <label class="chip-check">
+                <input type="checkbox" onchange="hunterToggleIndustry('${escHtml(ind)}', this)"> ${escHtml(ind)}
+            </label>`).join('');
+        indEl.dataset.rendered = '1';
+    }
+    const platEl = document.getElementById('h-platform-chips');
+    if (platEl && !platEl.dataset.rendered) {
+        platEl.innerHTML = HUNTER_PLATFORMS.map(p => `
+            <label class="chip-check${hunterSelectedPlatforms.has(p) ? ' checked' : ''}">
+                <input type="checkbox" ${hunterSelectedPlatforms.has(p) ? 'checked' : ''} onchange="hunterTogglePlatform('${escHtml(p)}', this)"> ${escHtml(p)}
+            </label>`).join('');
+        platEl.dataset.rendered = '1';
+    }
+}
+
+function hunterToggleIndustry(name, cb) {
+    if (cb.checked) hunterSelectedIndustries.add(name); else hunterSelectedIndustries.delete(name);
+    cb.closest('.chip-check').classList.toggle('checked', cb.checked);
+}
+function hunterTogglePlatform(name, cb) {
+    if (cb.checked) hunterSelectedPlatforms.add(name); else hunterSelectedPlatforms.delete(name);
+    cb.closest('.chip-check').classList.toggle('checked', cb.checked);
+}
+function hunterToggleRegion(checked) {
+    ['h-city', 'h-radius'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = checked; });
+}
+
+function hunterGoStep(n) {
+    [1, 2, 3].forEach(i => {
+        document.getElementById('hstep-' + i)?.classList.toggle('active', i === n);
+        document.getElementById('hstep-btn-' + i)?.classList.toggle('active', i === n);
+    });
+}
+
+function hunterLocationLabel() {
+    const country = document.getElementById('h-country').value.trim();
+    const state = document.getElementById('h-state').value.trim();
+    const city = document.getElementById('h-city').value.trim();
+    const radius = document.getElementById('h-radius').value.trim();
+    const entireRegion = document.getElementById('h-entire-region').checked;
+    const parts = [];
+    if (!entireRegion && city) parts.push(city);
+    if (state) parts.push(state);
+    if (country) parts.push(country);
+    let label = parts.filter(Boolean).join(', ');
+    if (!entireRegion && city && radius) label += ` (within ${radius} miles of ${city})`;
+    return label;
+}
+
+function hunterIndustryLabel() {
+    const other = document.getElementById('h-industry-other').value.trim();
+    const list = [...hunterSelectedIndustries];
+    if (other) list.push(other);
+    return list;
+}
+
+function hunterProgress(text) {
+    const area = document.getElementById('h-progress-area');
+    const el = document.getElementById('h-progress-text');
+    if (area) area.style.display = 'block';
+    if (el) el.textContent = text;
+}
+
+function hunterAuditAvg(scores) {
+    if (!scores) return null;
+    const vals = Object.entries(scores).filter(([k, v]) => !k.startsWith('_') && typeof v === 'number').map(([, v]) => v);
+    if (!vals.length) return null;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+async function runHunterSearch() {
+    if (hunterRunning) return;
+    const location = hunterLocationLabel();
+    const industries = hunterIndustryLabel();
+    const platforms = [...hunterSelectedPlatforms];
+    const requestedCount = Math.max(1, Math.min(100, parseInt(document.getElementById('h-count').value) || 20));
+
+    if (!location) { alert('Please enter at least a country or city.'); return; }
+    if (!industries.length) { alert('Please select at least one industry (or enter a custom one).'); return; }
+    if (!platforms.length) { alert('Please select at least one target platform.'); return; }
+
+    // Discovery requires live web search — same hard-stop rule as runDiscover():
+    // Claude cannot search the web and would fabricate businesses.
+    if (!window.PerplexityService) {
+        hunterProgress('Live business discovery requires the Perplexity integration (PERPLEXITY_API_KEY). Without it, results would be AI-invented and unsafe to contact.');
+        return;
+    }
+
+    hunterRunning = true;
+    hunterResults = [];
+    hunterSkipped = [];
+    document.getElementById('h-results-area').style.display = 'none';
+    const runBtn = document.getElementById('h-run-btn');
+    if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span> Running…'; }
+
+    // Discover more candidates than requested since platform + audit filtering
+    // will remove most of them — capped so this can't ask for an unbounded count.
+    const discoverCount = Math.min(requestedCount * 4, 200);
+    hunterProgress(`Searching for up to ${discoverCount} candidate businesses in ${location}…`);
+
+    const systemPrompt = `You are a business research assistant. Your ONLY output is a raw JSON array — no explanation, no markdown, no code fences, no text before or after.
+
+Search public sources: Google Maps, Yelp, Yell.com, local business directories relevant to the target region.
+
+JSON schema per entry (use null for unknown fields):
+{"name":"string","industry":"string","city":"string","country":"string","phone":"string|null","email":"string|null","website":"string|null","description":"string"}
+
+Rules:
+- REAL businesses only — no fabrication
+- Only include businesses that have their OWN website (a real URL you found) — skip businesses with no website or Facebook-only presence entirely
+- Start your response with [ and end with ]`;
+
+    const userMsg = `Find up to ${discoverCount} REAL businesses with their own website, matching industries: ${industries.join(', ')}. Location: ${location}. Output the JSON array only.`;
+
+    let fullText = '';
+    try {
+        await new Promise((resolve, reject) => {
+            const cancelStall = stallGuard(120000, 'prospect hunter discovery', (e) => reject(e));
+            window.PerplexityService.streamResponse({
+                systemPrompt, messages: [{ role: 'user', content: userMsg }],
+                onChunk(c) { fullText += c; hunterProgress(`Receiving candidates… ${fullText.length} chars`); },
+                onDone: () => { cancelStall(); resolve(); },
+                onError: (e) => { cancelStall(); reject(e); },
+            });
+        });
+    } catch (e) {
+        hunterProgress(`Search error: ${e && e.message ? e.message : e}`);
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    const candidates = extractJSON(fullText) || [];
+    if (!candidates.length) {
+        hunterProgress('Could not parse any candidates from the search response. Try a broader location or different industries.');
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    const withSite = candidates.filter(c => c.website);
+    candidates.filter(c => !c.website).forEach(c => hunterSkipped.push({ name: c.name, website: null, reason: 'No website found — not applicable to a platform migration pitch' }));
+
+    // Step 1 — cheap platform check on every candidate with a site, BEFORE the
+    // expensive audit call. Only platform-matched candidates proceed.
+    const platformMatched = [];
+    for (let i = 0; i < withSite.length; i++) {
+        const c = withSite[i];
+        hunterProgress(`Checking platform: ${i + 1}/${withSite.length}…`);
+        try {
+            const r = await fetch('/api/tech-detect', {
+                method: 'POST', headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ url: c.website }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.success) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: (d && d.error) || 'Platform check failed — could not be audited' });
+                continue;
+            }
+            if (!d.available) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: d.reason || 'Could not verify the platform for this site' });
+                continue;
+            }
+            const platformCats = new Set(['website-builder', 'cms', 'ecommerce']);
+            const hits = (d.technologies || []).filter(t => platformCats.has(t.category));
+            const detected = hits[0] ? hits[0].name : null;
+            // Match: an exact named platform the wizard selected, OR a
+            // detected-but-unlisted platform when "Other" is selected, OR no
+            // platform detected at all when "Unknown" is selected.
+            const isMatch = detected
+                ? (platforms.includes(detected) || (!HUNTER_NAMED_PLATFORMS.includes(detected) && platforms.includes('Other')))
+                : platforms.includes('Unknown');
+            if (isMatch) platformMatched.push({ ...c, _platform: detected });
+        } catch (e) {
+            hunterSkipped.push({ name: c.name, website: c.website, reason: 'Platform check failed: ' + (e.message || e) });
+        }
+        await new Promise(r => setTimeout(r, HUNTER_THROTTLE_MS));
+    }
+
+    if (!platformMatched.length) {
+        hunterProgress(`Checked ${withSite.length} candidate site(s) — none matched the selected platform filter.`);
+        renderHunterResults();
+        renderHunterSkipped();
+        document.getElementById('h-results-area').style.display = 'block';
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    // Step 2 — full audit only on platform-matched candidates.
+    for (let i = 0; i < platformMatched.length; i++) {
+        const c = platformMatched[i];
+        hunterProgress(`Auditing: ${i + 1}/${platformMatched.length}…`);
+        try {
+            const r = await fetch('/api/sales-audit-lead', {
+                method: 'POST', headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ url: c.website, industry: c.industry || null }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.success) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: (d && d.error) || 'Audit failed — could not be audited' });
+                continue;
+            }
+            hunterResults.push({
+                name: c.name, industry: c.industry || null, city: c.city || null, country: c.country || null,
+                phone: c.phone || null, email: c.email || null, website: d.url,
+                platform: d.technologyCheck?.available ? d.platform : null,
+                isTargetPlatform: d.isTargetPlatform,
+                technologyAvailable: !!d.technologyCheck?.available,
+                technologies: d.technologies || [],
+                auditScores: d.audit?.scores || null,
+                auditProblems: d.audit?.problems || [],
+                opportunityScore: typeof d.opportunity?.score === 'number' ? d.opportunity.score : null,
+                opportunityBreakdown: d.opportunity?.breakdown || [],
+                opportunityClassification: d.opportunity?.classification || null,
+                lastAuditedAt: d.checkedAt || new Date().toISOString(),
+            });
+        } catch (e) {
+            hunterSkipped.push({ name: c.name, website: c.website, reason: 'Audit failed: ' + (e.message || e) });
+        }
+        await new Promise(r => setTimeout(r, HUNTER_THROTTLE_MS));
+    }
+
+    // Rank successfully-scored candidates by opportunity score, keep top N.
+    hunterResults.sort((a, b) => (b.opportunityScore ?? -1) - (a.opportunityScore ?? -1));
+    hunterResults = hunterResults.slice(0, requestedCount);
+
+    // Persist into the shared pipeline store — merge onto an existing
+    // prospect by name+city (Store.add()'s own dedupe), then layer the
+    // Hunter-specific fields on with updByName().
+    hunterResults.forEach(p => {
+        Store.add({ name: p.name, industry: p.industry, city: p.city, country: p.country, phone: p.phone, email: p.email, website: p.website, websiteStatus: 'has_website' });
+        Store.updByName(p.name, p.city, {
+            platform: p.platform, isTargetPlatform: p.isTargetPlatform, technologies: p.technologies,
+            auditScores: p.auditScores, auditProblems: p.auditProblems,
+            opportunityScore: p.opportunityScore, opportunityBreakdown: p.opportunityBreakdown,
+            opportunityClassification: p.opportunityClassification, lastAuditedAt: p.lastAuditedAt,
+        });
+    });
+
+    hunterProgress(`Done. ${hunterResults.length} qualified lead(s) ranked and saved to Pipeline${hunterSkipped.length ? `, ${hunterSkipped.length} could not be audited or matched (see below)` : ''}.`);
+    renderHunterResults();
+    renderHunterSkipped();
+    document.getElementById('h-results-area').style.display = 'block';
+    hunterRunning = false;
+    if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+}
+
+function hunterSortBy(key) {
+    if (hunterSortState.key === key) hunterSortState.dir = hunterSortState.dir === 'asc' ? 'desc' : 'asc';
+    else { hunterSortState.key = key; hunterSortState.dir = 'desc'; }
+    renderHunterResults();
+}
+
+function hunterSortValue(p, key) {
+    switch (key) {
+        case 'classification':
+        case 'opportunityScore': return p.opportunityScore ?? -1;
+        case 'name': return (p.name || '').toLowerCase();
+        case 'industry': return (p.industry || '').toLowerCase();
+        case 'city': return (p.city || '').toLowerCase();
+        case 'platform': return (p.platform || '').toLowerCase();
+        case 'placesRating': return p.placesRating ?? -1;
+        case 'placesReviews': return p.placesReviews ?? -1;
+        case 'auditAvg': return hunterAuditAvg(p.auditScores) ?? -1;
+        case 'perf': return p.auditScores?.performance ?? -1;
+        case 'seo': return p.auditScores?.seo ?? -1;
+        case 'mobile': return p.auditScores?.mobile ?? -1;
+        case 'conversion': return p.auditScores?.conversion ?? -1;
+        default: return 0;
+    }
+}
+
+const HUNTER_CLASS_LABELS = { exceptional: 'Exceptional', high_priority: 'High Priority', strong_prospect: 'Strong Prospect', potential_prospect: 'Potential', low_priority: 'Low Priority', do_not_contact: 'Do Not Contact' };
+
+function renderHunterResults() {
+    const tbody = document.getElementById('h-results-tbody');
+    if (!tbody) return;
+    const sorted = [...hunterResults].sort((a, b) => {
+        const va = hunterSortValue(a, hunterSortState.key), vb = hunterSortValue(b, hunterSortState.key);
+        if (va < vb) return hunterSortState.dir === 'asc' ? -1 : 1;
+        if (va > vb) return hunterSortState.dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    hunterSortedCache = sorted;
+    document.getElementById('h-results-count').textContent = sorted.length;
+    if (!sorted.length) {
+        tbody.innerHTML = `<tr><td colspan="17" style="text-align:center;padding:30px;color:var(--text2)">No qualified leads yet — run a search above.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = sorted.map((p, i) => {
+        const classLabel = HUNTER_CLASS_LABELS[p.opportunityClassification] || 'Unaudited';
+        const clsClass = p.opportunityClassification ? `cls-${p.opportunityClassification}` : 'cls-unaudited';
+        const avg = hunterAuditAvg(p.auditScores);
+        return `<tr>
+            <td><span class="cls-badge ${clsClass}">${escHtml(classLabel)}</span></td>
+            <td style="font-weight:600">${escHtml(p.name)}</td>
+            <td>${escHtml(p.industry || '—')}</td>
+            <td>${escHtml([p.city, p.country].filter(Boolean).join(', ') || '—')}</td>
+            <td>${p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--cyan)">${escHtml(p.website.replace(/^https?:\/\//, ''))}</a>` : '—'}</td>
+            <td>${escHtml(p.platform || 'Could not verify')}</td>
+            <td>${typeof p.placesRating === 'number' ? `⭐ ${p.placesRating}` : '—'}</td>
+            <td>${p.placesReviews ?? '—'}</td>
+            <td>${avg != null ? avg : '—'}</td>
+            <td>${p.auditScores?.performance ?? '—'}</td>
+            <td>${p.auditScores?.seo ?? '—'}</td>
+            <td>${p.auditScores?.mobile ?? '—'}</td>
+            <td>${p.auditScores?.conversion ?? '—'}</td>
+            <td style="font-weight:700">${p.opportunityScore ?? '—'}</td>
+            <td>${p.email ? `<span style="color:var(--green)">${escHtml(p.email)}</span>` : (p.phone ? escHtml(p.phone) : '—')}</td>
+            <td><span class="tag tag-industry">New</span></td>
+            <td><button class="btn btn-sm btn-ghost" onclick="hunterOpenDetail(${i})">View Details</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderHunterSkipped() {
+    const el = document.getElementById('h-skipped-area');
+    if (!el) return;
+    if (!hunterSkipped.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="card">
+        <div class="card-header"><span class="card-title">⚠ ${hunterSkipped.length} could not be audited or matched</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto">
+            ${hunterSkipped.map(s => `<div style="font-size:12px;color:var(--text2)"><strong style="color:var(--text)">${escHtml(s.name || 'Unnamed')}</strong>${s.website ? ' — ' + escHtml(s.website) : ''}: ${escHtml(s.reason)}</div>`).join('')}
+        </div>
+    </div>`;
+}
+
+function hunterOpenDetail(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const box = document.getElementById('h-modal-box');
+    const avg = hunterAuditAvg(p.auditScores);
+    const problemsHtml = (p.auditProblems || []).length
+        ? p.auditProblems.map(pr => `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                <span style="font-weight:600">${escHtml(pr.issue || 'Issue')}</span>
+                <span class="tag ${pr.severity === 'high' ? 'tag-no-site' : pr.severity === 'medium' ? 'tag-fb-only' : 'tag-has-site'}" style="text-transform:uppercase">${escHtml(pr.severity || '')}</span>
+            </div>
+            ${pr.evidence ? `<div style="font-size:12px;color:var(--text2);margin-top:4px">Evidence: ${escHtml(pr.evidence)}</div>` : ''}
+            ${pr.recommendation ? `<div style="font-size:12px;color:var(--green);margin-top:4px">→ ${escHtml(pr.recommendation)}</div>` : ''}
+        </div>`).join('')
+        : '<div style="color:var(--text2);font-size:12px">No specific problems recorded.</div>';
+    const breakdownHtml = (p.opportunityBreakdown || []).length
+        ? p.opportunityBreakdown.map(b => `<div style="font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><strong style="color:${b.points >= 0 ? 'var(--green)' : '#ef4444'}">${b.points >= 0 ? '+' : ''}${b.points}</strong> — ${escHtml(b.factor)}: <span style="color:var(--text2)">${escHtml(b.reason)}</span></div>`).join('')
+        : '<div style="color:var(--text2);font-size:12px">No breakdown available.</div>';
+
+    box.innerHTML = `
+        <div class="row-between" style="margin-bottom:14px">
+            <div>
+                <div style="font-size:18px;font-weight:700">${escHtml(p.name)}</div>
+                <div style="font-size:12px;color:var(--text2)">${escHtml([p.city, p.country].filter(Boolean).join(', '))} · ${escHtml(p.industry || '')}</div>
+            </div>
+            <button class="qs-close" onclick="hunterCloseModal()" style="font-size:20px">✕</button>
+        </div>
+        <div class="detail-grid" style="margin-bottom:16px">
+            <div class="detail-item"><label>Website</label><p>${p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--cyan)">${escHtml(p.website)}</a>` : '—'}</p></div>
+            <div class="detail-item"><label>Platform</label><p>${escHtml(p.technologyAvailable ? (p.platform || 'No matching platform detected') : 'Could not verify')}</p></div>
+            <div class="detail-item"><label>Phone</label><p>${p.phone ? escHtml(p.phone) : '—'}</p></div>
+            <div class="detail-item"><label>Email</label><p>${p.email ? escHtml(p.email) : '—'}</p></div>
+            <div class="detail-item"><label>Website Health (avg)</label><p>${avg != null ? avg + '/100' : '—'}</p></div>
+            <div class="detail-item"><label>Opportunity Score</label><p>${p.opportunityScore ?? '—'}/100${p.opportunityClassification ? ` (${escHtml(HUNTER_CLASS_LABELS[p.opportunityClassification] || p.opportunityClassification)})` : ''}</p></div>
+        </div>
+        <div style="margin-bottom:16px">
+            <label>Audit Problems</label>
+            <div style="margin-top:6px">${problemsHtml}</div>
+        </div>
+        <div style="margin-bottom:16px">
+            <label>Why This Score — Breakdown</label>
+            <div style="margin-top:6px">${breakdownHtml}</div>
+        </div>
+        <button class="btn btn-primary" onclick="hunterGenerateOutreach(${i})">✉ Generate Outreach</button>
+        <div id="h-outreach-area-${i}" class="mt16"></div>
+    `;
+    document.getElementById('h-modal-overlay').classList.add('open');
+}
+
+function hunterCloseModal() {
+    document.getElementById('h-modal-overlay').classList.remove('open');
+}
+
+/**
+ * Builds an outreach draft from plain-JS template logic (not an LLM call) —
+ * given the hard "never fabricate a signal" constraint, this is the safer
+ * default: it can only ever reference fields that are actually present on
+ * the audited lead, and simply omits anything that's null.
+ */
+function hunterBuildOutreachDraft(p) {
+    const subject = `${p.name} — Website Health Score ${p.opportunityScore != null ? p.opportunityScore + '/100' : 'Review'}`;
+    const lines = [`Subject: ${subject}`, '', `Hi ${p.name} team,`, ''];
+
+    let intro = `I came across ${p.name}'s website${p.website ? ` (${p.website})` : ''}`;
+    if (p.city || p.country) intro += ` while researching ${p.industry ? p.industry.toLowerCase() + ' ' : ''}businesses in ${[p.city, p.country].filter(Boolean).join(', ')}`;
+    intro += '.';
+    lines.push(intro, '');
+
+    if (typeof p.placesRating === 'number') {
+        lines.push(`I noticed you have a ${p.placesRating}★ rating${p.placesReviews ? ` from ${p.placesReviews} reviews` : ''} — clearly a well-regarded business.`, '');
+    }
+
+    const problems = (p.auditProblems || []).slice().sort((a, b) => (a.severity === 'high' ? 0 : 1) - (b.severity === 'high' ? 0 : 1)).slice(0, 3);
+    if (problems.length) {
+        lines.push('While reviewing your site, I found a few concrete things that could be costing you business:');
+        problems.forEach(pr => lines.push(`- ${pr.issue}${pr.recommendation ? ` — ${pr.recommendation}` : ''}`));
+        lines.push('');
+    }
+
+    if (p.isTargetPlatform && p.platform) {
+        lines.push(`Your site is currently built on ${p.platform}. We specialise in migrating ${p.platform} sites to a faster, better-converting setup without losing your existing content.`, '');
+    }
+
+    lines.push('Would you be open to a quick 15-minute call to see if we can help with any of this?', '', 'Best,');
+    return { subject, text: lines.join('\n') };
+}
+
+function hunterGenerateOutreach(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const { subject, text } = hunterBuildOutreachDraft(p);
+    const area = document.getElementById('h-outreach-area-' + i);
+    if (!area) return;
+    area.innerHTML = `
+        <label>Subject</label>
+        <input id="h-out-subj-${i}" type="text" value="${escHtml(subject)}" style="margin-bottom:10px">
+        <label>Draft (editable)</label>
+        <textarea id="h-out-body-${i}" rows="12">${escHtml(text)}</textarea>
+        <div id="h-out-status-${i}" class="qs-status"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" onclick="hunterSendForApproval(${i})">📬 Send for Approval</button>
+        </div>
+    `;
+}
+
+/**
+ * Queues the draft into the same Carol→Scotty→Pat approval chain the rest of
+ * the app uses (web/js/review-queue.js), and ALSO saves it to AgentHistory
+ * with agentKey:'email' — the exact shape web/scotty.html's ReviewInbox.decide()
+ * checks for (`sourceRef.store === 'agent_history' && it.agentKey === 'email'`)
+ * before it hands an approved draft straight to Pat via PatHandoff.sendDraft().
+ */
+async function hunterSendForApproval(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const subjEl = document.getElementById('h-out-subj-' + i);
+    const bodyEl = document.getElementById('h-out-body-' + i);
+    const statusEl = document.getElementById('h-out-status-' + i);
+    const subject = subjEl?.value?.trim();
+    const text = bodyEl?.value?.trim();
+    if (!subject || !text) { if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Subject and draft are required.'; } return; }
+
+    if (!window.AgentHistory || !window.ReviewQueue) {
+        if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Review Queue is unavailable — reload the page and try again.'; }
+        return;
+    }
+
+    const fullContent = text.startsWith('Subject:') ? text : `Subject: ${subject}\n\n${text}`;
+    const entry = window.AgentHistory.save({ agentKey: 'email', taskType: 'Prospect Outreach', content: fullContent, topic: p.name });
+    if (!entry) { if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Could not save draft.'; } return; }
+
+    const html = text.split('\n\n').map(para => `<p style="margin:0 0 12px">${escHtml(para).replace(/\n/g, '<br>')}</p>`).join('');
+
+    const result = window.ReviewQueue.send([{
+        source: 'email',
+        type: 'needs_approval',
+        title: `Outreach: ${p.name}`,
+        preview: fullContent,
+        payload: { campaignName: `${p.name} — Prospect Outreach`, subject, html, text: fullContent, topic: p.name, content: fullContent },
+        sourceRef: { store: 'agent_history', id: entry.id },
+        link: '/agents/sales-agent.html',
+        priority: 'high',
+    }], { section: 'Prospect Hunter' });
+
+    if (statusEl) {
+        statusEl.className = 'qs-status ok';
+        statusEl.textContent = result.added ? '✓ Sent to Scotty for review — approving it there hands it to Pat automatically.' : 'Already queued for review.';
+    }
+
+    const stored = Store.load().find(x => x.name === p.name && x.city === p.city);
+    if (stored) logActivity(stored.id, 'note', `Outreach draft sent for approval: ${subject}`);
+}
+
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
 function copyOutput(id) {
     const el = document.getElementById(id);
@@ -2113,6 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPipe();
     populateProspectSelect();
     prefillOfferFields();
+    renderHunterChips();
 
     ['disc-web-filter','disc-score-filter','disc-sort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
