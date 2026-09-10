@@ -30,6 +30,7 @@ const { crawlSite } = require('./nancy-crawl.js');
 const { detectTechnology, matchSignatures, shapeHeaders } = require('./tech-detect.js');
 const { fetchPageSpeed } = require('./pagespeed-client.js');
 const { safeFetch } = require('./safe-fetch.js');
+const { extractColours } = require('./nancy-colours.js');
 
 const CURRENT_YEAR = new Date().getFullYear();
 const STALE_COPYRIGHT_YEARS = 2;
@@ -230,11 +231,24 @@ async function auditWebsite(url, opts = {}) {
       },
       problems: [{ issue: 'Site could not be crawled', severity: 'high', evidence: err.message, potentialImpact: 'No audit data could be gathered at all', recommendation: 'Verify the URL is correct and the site is publicly reachable' }],
       raw: { pagespeed: null, technologies: [] },
+      brandColors: null,
     };
   }
 
   const html = crawl.homepageHtml || '';
   const partial = [];
+
+  // Piggybacks on the crawl this function already did for the HTML checks
+  // above — no second fetch. Low-risk, since it only reads the homepage
+  // markup/CSS this function already has in memory; a lead with no usable
+  // colour signal just gets brandColors:null rather than an invented palette.
+  const brandColors = html
+    ? (() => {
+        const c = extractColours(html, crawl.homepageCss);
+        const swatch = [c.primary, ...c.secondary, ...c.accent].filter(Boolean);
+        return swatch.length ? swatch.slice(0, 5) : null;
+      })()
+    : null;
 
   const seo = html ? auditSeo(html) : null;
   const mobile = html ? auditMobile(html) : null;
@@ -306,6 +320,7 @@ async function auditWebsite(url, opts = {}) {
     },
     problems,
     raw: { pagespeed: pagespeedRaw, technologies },
+    brandColors,
   };
 }
 

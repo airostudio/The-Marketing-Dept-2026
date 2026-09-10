@@ -104,6 +104,12 @@ module.exports = withFailureReporting('api/sales-audit-lead', async function han
       scores: audit.scores,
       problems: audit.problems,
     },
+    // Extracted from the same homepage crawl the audit already ran — a
+    // best-effort palette (never fabricated: null when the page declared no
+    // usable colour signal), so a later step like generate-website-mockup.js
+    // can offer real brand colours as a default without a caller having to
+    // supply their own.
+    brandColors: audit.brandColors,
     opportunity,
     raw: audit.raw,
   });

@@ -2462,6 +2462,11 @@ Rules:
                 opportunityBreakdown: d.opportunity?.breakdown || [],
                 opportunityClassification: d.opportunity?.classification || null,
                 lastAuditedAt: d.checkedAt || new Date().toISOString(),
+                // Best-effort palette extracted from the audited homepage's
+                // own CSS (api/_lib/website-audit.js) — null, never guessed,
+                // when the site declared no usable colour signal. Feeds the
+                // "Generate Website Mockup" action's default palette.
+                brandColors: Array.isArray(d.brandColors) ? d.brandColors : null,
             });
         } catch (e) {
             hunterSkipped.push({ name: c.name, website: c.website, reason: 'Audit failed: ' + (e.message || e) });
@@ -2483,6 +2488,7 @@ Rules:
             auditScores: p.auditScores, auditProblems: p.auditProblems,
             opportunityScore: p.opportunityScore, opportunityBreakdown: p.opportunityBreakdown,
             opportunityClassification: p.opportunityClassification, lastAuditedAt: p.lastAuditedAt,
+            brandColors: p.brandColors,
         });
     });
 
@@ -2574,9 +2580,17 @@ function renderHunterSkipped() {
     </div>`;
 }
 
+// i -> { imageUrl, disclaimer } for a lead whose "Generate Website Mockup"
+// call has succeeded — cleared whenever that lead's detail modal is reopened,
+// so a stale mockup from a previous open can never be inserted into a fresh
+// draft.
+let hunterMockups = {};
+const MOCKUP_DISCLAIMER = "AI-generated concept — an illustrative example only, not built from this business's actual content or logo.";
+
 function hunterOpenDetail(i) {
     const p = hunterSortedCache[i];
     if (!p) return;
+    delete hunterMockups[i];
     const box = document.getElementById('h-modal-box');
     const avg = hunterAuditAvg(p.auditScores);
     const problemsHtml = (p.auditProblems || []).length
@@ -2617,7 +2631,11 @@ function hunterOpenDetail(i) {
             <label>Why This Score — Breakdown</label>
             <div style="margin-top:6px">${breakdownHtml}</div>
         </div>
-        <button class="btn btn-primary" onclick="hunterGenerateOutreach(${i})">✉ Generate Outreach</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="hunterGenerateOutreach(${i})">✉ Generate Outreach</button>
+            <button id="h-mockup-btn-${i}" class="btn btn-ghost" onclick="hunterGenerateMockup(${i})">🎨 Generate Website Mockup</button>
+        </div>
+        <div id="h-mockup-area-${i}" class="mt16"></div>
         <div id="h-outreach-area-${i}" class="mt16"></div>
     `;
     document.getElementById('h-modal-overlay').classList.add('open');
@@ -2659,6 +2677,69 @@ function hunterBuildOutreachDraft(p) {
 
     lines.push('Would you be open to a quick 15-minute call to see if we can help with any of this?', '', 'Best,');
     return { subject, text: lines.join('\n') };
+}
+
+/**
+ * "🎨 Generate Website Mockup" — calls api/generate-website-mockup.js
+ * (Gemini) for a quick, generic "what a new site could look like" concept
+ * image, to include as a visual teaser in this lead's outreach. Slow (a
+ * real external image-gen call), so the button shows a loading state; on
+ * failure this renders the real error from the endpoint (credits exhausted,
+ * provider unavailable, etc.) — never a fabricated "mockup generated" state.
+ */
+async function hunterGenerateMockup(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const area = document.getElementById('h-mockup-area-' + i);
+    const btn = document.getElementById('h-mockup-btn-' + i);
+    if (!area) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '🎨 Generating… (up to a minute)'; }
+    area.innerHTML = '<div class="qs-status" style="opacity:.8">Generating an AI concept mockup with Gemini — this can take up to a minute…</div>';
+
+    try {
+        const r = await fetch('/api/generate-website-mockup', {
+            method: 'POST', headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({
+                businessName: p.name,
+                industry: p.industry || undefined,
+                brandColors: (Array.isArray(p.brandColors) && p.brandColors.length) ? p.brandColors : undefined,
+                tagline: p.description || undefined,
+            }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.success) {
+            area.innerHTML = `<div class="qs-status err">${escHtml(d.message || d.error || 'Could not generate a mockup.')}</div>`;
+            return;
+        }
+        const disclaimer = d.disclaimer || MOCKUP_DISCLAIMER;
+        hunterMockups[i] = { imageUrl: d.imageUrl, disclaimer };
+        area.innerHTML = `
+            <img src="${escHtml(d.imageUrl)}" alt="Website concept preview" style="max-width:100%;border-radius:8px;margin-top:8px;display:block">
+            <div style="font-size:11px;color:var(--text2);margin-top:6px;font-style:italic">${escHtml(disclaimer)}</div>
+            <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="hunterInsertMockupIntoDraft(${i})">➕ Insert into outreach draft</button>
+        `;
+    } catch (e) {
+        area.innerHTML = `<div class="qs-status err">${escHtml('Mockup generation failed: ' + (e.message || e))}</div>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '🎨 Generate Website Mockup'; }
+    }
+}
+
+/**
+ * Appends the last successfully-generated mockup for this lead into the SAME
+ * textarea hunterGenerateOutreach() populates from hunterBuildOutreachDraft()
+ * — not a separate draft path. hunterSendForApproval() below recognises the
+ * <img> line and passes it through as real markup instead of escaping it, so
+ * the teaser actually renders as an image once approved and sent.
+ */
+function hunterInsertMockupIntoDraft(i) {
+    const mock = hunterMockups[i];
+    if (!mock) return;
+    const bodyEl = document.getElementById('h-out-body-' + i);
+    if (!bodyEl) { showToast('Generate the outreach draft first, then insert the mockup.'); return; }
+    const block = `<img src="${mock.imageUrl}" style="max-width:100%;margin:16px 0" alt="Website concept preview">\n\n${mock.disclaimer}`;
+    bodyEl.value = bodyEl.value.replace(/\s+$/, '') + '\n\n' + block;
+    showToast('Mockup inserted into draft');
 }
 
 function hunterGenerateOutreach(i) {
@@ -2705,7 +2786,15 @@ async function hunterSendForApproval(i) {
     const entry = window.AgentHistory.save({ agentKey: 'email', taskType: 'Prospect Outreach', content: fullContent, topic: p.name });
     if (!entry) { if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Could not save draft.'; } return; }
 
-    const html = text.split('\n\n').map(para => `<p style="margin:0 0 12px">${escHtml(para).replace(/\n/g, '<br>')}</p>`).join('');
+    // A paragraph that is exactly the mockup <img> tag hunterInsertMockupIntoDraft()
+    // appended is passed through as real markup rather than escaped — the whole
+    // point of the mockup teaser is that it actually renders as an image in the
+    // sent email, not as visible tag text.
+    const html = text.split('\n\n').map(para => {
+        const trimmed = para.trim();
+        if (trimmed.startsWith('<img ')) return trimmed;
+        return `<p style="margin:0 0 12px">${escHtml(para).replace(/\n/g, '<br>')}</p>`;
+    }).join('');
 
     const result = window.ReviewQueue.send([{
         source: 'email',
