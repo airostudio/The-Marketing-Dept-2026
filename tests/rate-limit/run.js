@@ -176,6 +176,7 @@ const AUTH_CALLS = [
   'await requireUser(req, res)',
   'await requireAdmin(req, res)',
   'await authenticateSender(req)',
+  'await requireBuiltWithAccess(req, res)', // wraps requireUser() plus the tool's own unlock-token check
 ];
 const misordered = ENDPOINTS.filter(f => {
   if (PUBLIC_BY_DESIGN.has(f)) return false;   // no auth to come after
