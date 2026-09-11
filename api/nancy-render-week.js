@@ -33,6 +33,8 @@
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { imageGenProvider } = require('./_lib/nancy-providers.js');
+const { requireUser } = require('./_lib/require-user.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 
 const CANVAS = { width: 1080, height: 1350 };
 const MARGIN = 72;
@@ -490,9 +492,20 @@ function buildImagePrompt(post, colours, businessName, businessProfile = {}) {
 module.exports = withFailureReporting('api/nancy-render-week', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // This was reachable by anyone who found the URL, with no identity check
+  // and no limit — a real external image-generation call, spent on this
+  // deployment's own IMAGE_GEN_API_KEY, for an unauthenticated caller. Every
+  // other endpoint in Nancy's pipeline (nancy-content-plan.js,
+  // nancy-screenshot.js, etc.) already gates on this; this one had fallen
+  // through the sweep.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'nancy-render-week', max: 8, windowMs: 60 * 1000, auth })) return;
 
   const { post, brand = {}, businessName = '', businessProfile = {}, userPhotos = [] } = req.body || {};
   if (!post || typeof post !== 'object') return res.status(400).json({ error: 'post is required' });
