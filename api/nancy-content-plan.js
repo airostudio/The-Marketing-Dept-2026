@@ -33,6 +33,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { reportFailureAsync } = require('./_lib/report-failure.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
@@ -151,9 +152,35 @@ Hard rules:
   const result = await callClaudeForJSON({ system, user, tool, maxTokens, timeoutMs: 45000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
+  // callClaudeForJSON only guarantees the tool call's JSON parsed — it does
+  // not check that JSON actually matches the schema's own required shape.
+  // Anthropic's tool_choice is a strong steer, not an enforced contract, so
+  // "parsed fine" and "posts is really an array of the days we asked for"
+  // are two different claims. Skipping this check used to mean an
+  // occasional missing/short posts array came back as {success:true} —
+  // callers (nancy-agent.html) trusted that and forwarded posts[0], which
+  // for a missing day is undefined; JSON.stringify then drops that key
+  // entirely from the next request body, so the actual failure surfaced
+  // three steps downstream as api/nancy-render-week's generic
+  // "post is required", with nothing here to explain what really happened.
+  const posts = Array.isArray(result.data.posts) ? result.data.posts : [];
+  const validDays = new Set(days);
+  const validPosts = posts.filter(p => p && typeof p === 'object' && validDays.has(p.day));
+  if (validPosts.length !== days.length) {
+    reportFailureAsync({
+      source: 'api/nancy-content-plan',
+      message: `Claude's content plan for day(s) ${days.join(', ')} came back with ${validPosts.length}/${days.length} valid post(s) instead of the requested count — the tool call parsed but did not match its own schema.`,
+      detail: { requestedDays: days, receivedPostCount: posts.length, validPostCount: validPosts.length },
+    });
+    return res.status(502).json({
+      success: false,
+      error: `Claude did not return a post for day${days.length > 1 ? 's' : ''} ${days.join(', ')}. This has been reported — try generating this day again.`,
+    });
+  }
+
   return res.json({
     success: true,
     week_rationale: result.data.week_rationale || null,
-    posts: result.data.posts,
+    posts: validPosts,
   });
 });

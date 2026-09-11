@@ -912,7 +912,14 @@ async function startGeneration() {
       setStage(`day${day}`, 'active');
       const priorPosts = planPosts.map(p => ({ day: p.day, objective: p.objective, content_pillar: p.content_pillar, hook: p.hook }));
       const dayResult = await postJSON('/api/nancy-content-plan', { ...basePlanArgs, dayRange: [day, day], priorPosts });
-      const post = dayResult.posts[0];
+      const post = dayResult.posts && dayResult.posts[0];
+      // api/nancy-content-plan.js now refuses to report success without a
+      // real post for the requested day, but this is the only thing standing
+      // between "no post" and sending `post: undefined` to nancy-render-week
+      // — where JSON.stringify would silently drop the key and turn this
+      // into a confusing, unrelated "post is required" from a different
+      // endpoint three steps downstream. Fail loudly, here, by day.
+      if (!post) throw new Error(`Day ${day}'s content plan did not come back with a post. Try generating this week again.`);
       if (dayResult.week_rationale) weekRationale = dayResult.week_rationale;
 
       // Render this single post right away — image generation is its own
