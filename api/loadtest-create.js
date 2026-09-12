@@ -36,7 +36,7 @@
 
 'use strict';
 
-const { withFailureReporting } = require('./_lib/report-failure.js');
+const { withFailureReporting, reportFailureAsync } = require('./_lib/report-failure.js');
 const { requireInternalToolsAccess } = require('./_lib/internal-tools-access-token.js');
 const { sbRest } = require('./_lib/supabase-rest.js');
 const { validateConfig, computeCalibratedMuSeconds } = require('./_lib/loadtest-engine.js');
@@ -139,7 +139,26 @@ module.exports = withFailureReporting('api/loadtest-create', async function hand
     last_tick_at: now.toISOString(),
   }]);
   if (!insertResp.ok) {
-    return res.status(502).json({ error: 'Could not create the run', detail: insertResp.data });
+    // The most common real cause: supabase-load-testing.sql hasn't been run
+    // yet, or was run before a later ALTER TABLE (e.g. calibration_result)
+    // was added to it — either way, the table/column PostgREST is
+    // complaining about is present in this Postgrest error, so surface it
+    // instead of a generic message that gives no way to diagnose it.
+    reportFailureAsync({
+      source: 'api/loadtest-create',
+      message: `Could not insert into load_test_runs (HTTP ${insertResp.status}): ${JSON.stringify(insertResp.data)}. ` +
+               'Likely cause: supabase-load-testing.sql has not been run (or was run before a later ' +
+               'ALTER TABLE was added to it) in this project\'s Supabase instance.',
+      severity: 'high',
+      kind: 'configuration',
+    });
+    const hint = insertResp.status === 404 || insertResp.status === 400
+      ? ' This usually means supabase-load-testing.sql has not been run (or needs re-running) in the Supabase SQL editor.'
+      : '';
+    return res.status(502).json({
+      error: `Could not create the run (HTTP ${insertResp.status}): ` +
+             `${(insertResp.data && (insertResp.data.message || insertResp.data.error)) || JSON.stringify(insertResp.data)}.${hint}`,
+    });
   }
 
   const run = (insertResp.data || [])[0];
