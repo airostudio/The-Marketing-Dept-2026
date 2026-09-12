@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools | Audema - Your AI Marketing Department</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #070711;
+            --bg2:       #0d0d1a;
+            --bg3:       #12121f;
+            --border:    rgba(255,255,255,0.08);
+            --border-h:  rgba(255,255,255,0.14);
+            --text:      #f1f5f9;
+            --text2:     #94a3b8;
+            --text3:     #64748b;
+            --purple:    #7c3aed;
+            --pink:      #ec4899;
+            --cyan:      #06b6d4;
+            --green:     #22c55e;
+            --amber:     #f59e0b;
+            --card-bg:   rgba(255,255,255,0.03);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.4); border-radius: 3px; }
+
+        /* ── Navbar (same shape as hub.html, so "Tools" reads as one more
+           stop in the same primary nav rather than a different app) ── */
+        .navbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(7,7,17,0.85);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-inner {
+            max-width: 1280px; margin: 0 auto; padding: 0 24px; height: 64px;
+            display: flex; align-items: center; gap: 24px;
+        }
+        .nav-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text); font-weight: 700; font-size: 15px; white-space: nowrap;
+        }
+        .nav-logo-icon {
+            width: 34px; height: 34px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        }
+        .nav-breadcrumb {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text2); font-size: 13px; padding-left: 8px; border-left: 1px solid var(--border);
+        }
+        .nav-breadcrumb strong { color: var(--text); font-weight: 600; }
+        .nav-links { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+        .nav-links a {
+            color: var(--text2); text-decoration: none; font-size: 13.5px; font-weight: 500;
+            padding: 8px 14px; border-radius: 8px; transition: all 0.15s;
+        }
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { color: var(--text); background: rgba(124,58,237,0.15); }
+        .nav-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--purple), var(--cyan));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+        }
+
+        @media (max-width: 900px) {
+            .nav-breadcrumb { display: none; }
+            .nav-links { gap: 0; }
+            .nav-links a { padding: 8px 10px; font-size: 12.5px; }
+        }
+
+        /* ── Page ── */
+        .main { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+        .page-head { margin-bottom: 40px; }
+        .page-head h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+        .page-head p { color: var(--text2); font-size: 15px; margin-top: 8px; max-width: 640px; line-height: 1.5; }
+
+        .tool-section { margin-bottom: 44px; }
+        .tool-section-title {
+            font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text3); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+        }
+        .tool-section-title .rule { flex: 1; height: 1px; background: var(--border); }
+
+        .tool-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+        }
+
+        .tool-card {
+            display: flex; flex-direction: column; gap: 10px;
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
+            padding: 20px; text-decoration: none; color: var(--text);
+            transition: border-color 0.15s, transform 0.15s, background 0.15s;
+            position: relative;
+        }
+        .tool-card:hover { border-color: var(--border-h); transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+        .tool-card.restricted { border-style: dashed; border-color: rgba(245,158,11,0.35); }
+        .tool-card.restricted:hover { border-color: rgba(245,158,11,0.6); }
+
+        .tool-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 19px;
+            background: rgba(124,58,237,0.14);
+        }
+        .tool-card.restricted .tool-icon { background: rgba(245,158,11,0.14); }
+
+        .tool-name { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .tool-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+        .tool-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 3px 8px; border-radius: 6px;
+            background: rgba(245,158,11,0.15); color: var(--amber);
+        }
+
+        .tool-arrow { margin-left: auto; color: var(--text3); font-size: 15px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="nav-inner">
+        <a href="/index.html" class="nav-logo">
+            <div class="nav-logo-icon">🧠</div>
+            Audema
+        </a>
+
+        <div class="nav-breadcrumb">
+            <span>/</span>
+            <strong>Tools</strong>
+        </div>
+
+        <div class="nav-links">
+            <a href="/hub.html">Hub</a>
+            <a href="/scotty.html">Scotty</a>
+            <a href="/intelligence/business-brain.html">Intelligence</a>
+            <a href="/history.html">History</a>
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/tools.html" class="active">Tools</a>
+        </div>
+
+        <div class="nav-avatar" title="User account">U</div>
+    </div>
+</nav>
+
+<main class="main">
+    <div class="page-head">
+        <h1>Tools</h1>
+        <p>Standalone utilities that don't need a full agent conversation — quick generators and lookups you can use on their own.</p>
+    </div>
+
+    <div class="tool-section">
+        <div class="tool-section-title"><span>SEO &amp; Site Tools</span><span class="rule"></span></div>
+        <div class="tool-grid">
+            <a href="/tools/cro-checklist.html" class="tool-card">
+                <div class="tool-icon">✅</div>
+                <div class="tool-name">Shopify CRO Checklist</div>
+                <div class="tool-desc">A conversion-rate-optimization checklist tailored to Shopify storefronts.</div>
+            </a>
+            <a href="/tools/meta-tags.html" class="tool-card">
+                <div class="tool-icon">🏷️</div>
+                <div class="tool-name">Meta Tag Generator</div>
+                <div class="tool-desc">Generate title tags, meta descriptions, and Open Graph markup for a page.</div>
+            </a>
+            <a href="/tools/schema.html" class="tool-card">
+                <div class="tool-icon">🔗</div>
+                <div class="tool-name">Schema Markup Generator</div>
+                <div class="tool-desc">Build structured data (JSON-LD) for LocalBusiness, Product, FAQ and more.</div>
+            </a>
+            <a href="/tools/robots.html" class="tool-card">
+                <div class="tool-icon">🤖</div>
+                <div class="tool-name">Robots.txt Generator</div>
+                <div class="tool-desc">Create a robots.txt file with the right crawl rules for your site.</div>
+            </a>
+            <a href="/tools/redirects.html" class="tool-card">
+                <div class="tool-icon">↪️</div>
+                <div class="tool-name">Redirect Mapper</div>
+                <div class="tool-desc">Map old URLs to new ones and export the rules for a migration.</div>
+            </a>
+            <a href="/tools/htaccess.html" class="tool-card">
+                <div class="tool-icon">⚙️</div>
+                <div class="tool-name">.htaccess Generator</div>
+                <div class="tool-desc">Generate .htaccess rules for redirects, caching, and common Apache config.</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="tool-section">
+        <div class="tool-section-title"><span>Internal / Restricted</span><span class="rule"></span></div>
+        <div class="tool-grid">
+            <a href="/tools/builtwith-research.html" class="tool-card restricted">
+                <div class="tool-icon">🔎</div>
+                <div class="tool-name">BuiltWith Research <span class="tool-badge">🔒 Password</span></div>
+                <div class="tool-desc">Technology lookups and reverse discovery (Domain / Lists / Trends / Relationships) against the team's BuiltWith subscription. Requires your normal sign-in plus the separate research-tool password.</div>
+            </a>
+        </div>
+    </div>
+</main>
+
+</body>
+</html>
