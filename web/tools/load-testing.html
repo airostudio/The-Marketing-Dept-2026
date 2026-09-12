@@ -480,6 +480,7 @@ async function ltFetch(endpoint, opts) {
         const err = new Error(data.error || `Request failed (${res.status})`);
         err.code = data && data.code;
         err.calibrationResult = data && data.calibrationResult;
+        err.activeRunId = data && data.activeRunId;
         throw err;
     }
     return data;
@@ -640,6 +641,14 @@ async function submitCreate(config, calEnabled) {
                 'Starting a simulation on top of a currently-broken real pipeline would be misleading. ' +
                 'Fix the underlying issue, or start fully synthetic instead.<br>' +
                 '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="startWithoutCalibration()">Start without calibration (fully synthetic)</button>';
+        } else if (e.code === 'run_already_active' && e.activeRunId) {
+            // The config form was showing, but a run is already active — the
+            // owner has no way from here to see or control it without this.
+            status.textContent = '';
+            failBox.style.display = '';
+            failBox.innerHTML = `<strong>${esc(e.message)}</strong><br>` +
+                '<button class="btn btn-primary btn-sm" style="margin-top:10px;" ' +
+                `onclick="viewRun('${esc(e.activeRunId)}')">View running test</button>`;
         } else {
             status.textContent = e.message;
         }
@@ -845,6 +854,12 @@ async function refreshStatus(runId) {
             showDashboard();
             dashStatus.className = 'status-line';
             dashStatus.textContent = 'Last updated ' + new Date().toLocaleTimeString();
+            // A run found here can be one already active before this page
+            // ever loaded (e.g. a fresh page load/reload, or a different
+            // browser/tab started it) — resume live polling regardless of
+            // how we got here, not only when this same session just started
+            // or navigated to it via viewRun()/submitCreate().
+            if (data.run.status === 'running' || data.run.status === 'paused') startPolling();
         } else {
             showConfigForm();
         }
