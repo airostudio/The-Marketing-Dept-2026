@@ -67,7 +67,7 @@ module.exports = withFailureReporting('api/loadtest-status', async function hand
   }
 
   const historyResp = await sbRest(supabaseUrl, serviceKey, 'GET',
-    `/load_test_runs?order=created_at.desc&limit=${HISTORY_LIMIT}&select=id,status,config,started_at,ends_at,last_tick_at,jobs_requested_total,jobs_succeeded_total,jobs_failed_total,errors_by_category,total_cost_usd,peak_concurrent_vus,peak_concurrent_builds,peak_queue_depth,created_at`);
+    `/load_test_runs?order=created_at.desc&limit=${HISTORY_LIMIT}&select=id,status,config,calibration_result,started_at,ends_at,last_tick_at,jobs_requested_total,jobs_succeeded_total,jobs_failed_total,errors_by_category,total_cost_usd,peak_concurrent_vus,peak_concurrent_builds,peak_queue_depth,created_at`);
   const history = historyResp.ok ? (historyResp.data || []) : [];
 
   return res.status(200).json({ run, snapshots, history });

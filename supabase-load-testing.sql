@@ -92,6 +92,33 @@ CREATE TABLE IF NOT EXISTS load_test_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_load_test_snapshots_run     ON load_test_snapshots (run_id, snapshot_at DESC);
 
+-- ── Calibration (added after this feature's initial launch) ────────────────
+-- ONE real, disclosed, credit-spending call per run, made ONLY when the
+-- owner opts in at creation time (see api/_lib/loadtest-calibration.js and
+-- api/loadtest-create.js) — used to derive this run's duration/cost
+-- parameters from reality instead of the hardcoded constants in
+-- api/_lib/loadtest-engine.js. NULL for every run that did not opt in
+-- (config.calibrated will be false/absent on those rows too).
+--
+-- Shape written by api/loadtest-create.js:
+--   { success, realLatencyMs, realCreditsUsed, failureCategory,
+--     failureMessage, servedCheck: {applicable, ok, status, latencyMs, reason} }
+--
+-- NOTE ON UNITS: a calibrated run's config.costPerGenerationUsd column (in
+-- `config`, not a separate column) is REUSED to carry a value in CREDITS
+-- rather than USD once config.costUnit = 'credits' — see the long comment on
+-- this in api/_lib/loadtest-engine.js's validateConfig. The same reuse
+-- applies to load_test_runs.total_cost_usd / load_test_jobs.simulated_cost_usd
+-- / load_test_snapshots.total_cost_usd below: their column names predate
+-- calibration and were not renamed (a larger migration than this feature
+-- warrants) — for a calibrated run they hold a credits figure, not USD, and
+-- the dashboard (web/tools/load-testing.html) labels them accordingly by
+-- reading config.costUnit, never presenting a credits number as a dollar
+-- amount. Nothing in this codebase invents a $-per-credit exchange rate —
+-- config.usdPerCredit, when the owner supplies one, only ever produces a
+-- figure explicitly labeled "estimated."
+ALTER TABLE load_test_runs ADD COLUMN IF NOT EXISTS calibration_result JSONB;
+
 -- ── Row-Level Security ──────────────────────────────────────────────────────
 -- Read-only for any signed-in user (page access is already gated by the
 -- internal-tools password); writes only via the service-role key the cron

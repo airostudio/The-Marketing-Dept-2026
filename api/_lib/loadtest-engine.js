@@ -112,6 +112,45 @@ function validateConfig(input) {
   let costPerGenerationUsd = Number(input.costPerGenerationUsd);
   if (!Number.isFinite(costPerGenerationUsd) || costPerGenerationUsd < 0) costPerGenerationUsd = 0.38;
 
+  // ── Calibration passthrough fields ────────────────────────────────────
+  // These are never set by the frontend's own request body — they are
+  // filled in by api/loadtest-create.js AFTER this function returns,
+  // once (and only if) a real calibration call has actually run. They are
+  // accepted here too (rather than only via direct mutation) so this
+  // function stays the single source of truth for "what a config object
+  // looks like" and so tests can construct an already-calibrated config in
+  // one call. See api/_lib/loadtest-calibration.js for how they get their
+  // real values.
+  //
+  //   artificialAiDelay.muSeconds — overrides LOGNORMAL_MU for this run's
+  //     duration sampling (see sampleDurationMs). null/omitted means "use
+  //     the default constant", i.e. today's fully-synthetic behavior.
+  //   costUnit — 'usd' (default, unchanged behavior) or 'credits'. Purely a
+  //     display/labeling concern: costPerGenerationUsd is reused to carry
+  //     whichever unit this names (see the long comment in
+  //     api/loadtest-create.js for why the field keeps its name).
+  //   usdPerCredit — optional, user-typed, ONLY used to derive a labeled
+  //     "estimated" dollar figure in the UI when costUnit is 'credits'.
+  //     Never fabricated by this codebase — see the task's PageSpeed
+  //     precedent for why no default exchange rate is invented here.
+  //   calibrated — true once a real calibration call has actually run and
+  //     succeeded for this run. Purely informational for the dashboard.
+  let muSeconds = null;
+  if (input.artificialAiDelay && input.artificialAiDelay.muSeconds != null) {
+    const m = Number(input.artificialAiDelay.muSeconds);
+    if (Number.isFinite(m)) muSeconds = m;
+  }
+  const costUnit = input.costUnit === 'credits' ? 'credits' : 'usd';
+  let usdPerCredit = null;
+  if (input.usdPerCredit !== undefined && input.usdPerCredit !== null && input.usdPerCredit !== '') {
+    const u = Number(input.usdPerCredit);
+    if (!Number.isFinite(u) || u < 0) {
+      return { ok: false, error: 'usdPerCredit must be a non-negative number, if provided' };
+    }
+    usdPerCredit = u;
+  }
+  const calibrated = !!input.calibrated;
+
   return {
     ok: true,
     config: {
@@ -120,9 +159,12 @@ function validateConfig(input) {
       personaMix: cleanMix,
       generationConcurrency,
       spike: { enabled: spikeEnabled, peakVirtualUsers },
-      artificialAiDelay: { enabled: artificialAiDelayEnabled },
+      artificialAiDelay: { enabled: artificialAiDelayEnabled, muSeconds },
       apiFailureInjection: { enabled: apiFailureInjectionEnabled, rate: failureRate },
       costPerGenerationUsd,
+      costUnit,
+      usdPerCredit,
+      calibrated,
     },
   };
 }
@@ -235,15 +277,50 @@ function randNormal() {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-function sampleDurationMs(artificialAiDelayEnabled) {
+/**
+ * @param {boolean} artificialAiDelayEnabled
+ * @param {number|null} [muSeconds] — overrides LOGNORMAL_MU for this one
+ *   draw. Used by a CALIBRATED run to center the distribution on a real
+ *   measured latency instead of the hardcoded constant — see
+ *   computeCalibratedMuSeconds() below and api/_lib/loadtest-calibration.js.
+ *   null/undefined/non-finite falls back to LOGNORMAL_MU, i.e. today's
+ *   fully-synthetic behavior is unchanged when no calibration ran.
+ */
+function sampleDurationMs(artificialAiDelayEnabled, muSeconds) {
   if (!artificialAiDelayEnabled) {
     return Math.round(NO_DELAY_MIN_MS + Math.random() * (NO_DELAY_MAX_MS - NO_DELAY_MIN_MS));
   }
-  const seconds = Math.exp(LOGNORMAL_MU + LOGNORMAL_SIGMA * randNormal());
+  const mu = Number.isFinite(muSeconds) ? muSeconds : LOGNORMAL_MU;
+  const seconds = Math.exp(mu + LOGNORMAL_SIGMA * randNormal());
   // Clamp to a sane range: a real generation is never sub-second nor beyond
   // ~15 minutes, however unlucky the draw.
   const clamped = Math.min(900, Math.max(1, seconds));
   return Math.round(clamped * 1000);
+}
+
+/**
+ * Derive this run's log-normal mu from one real measured latency, so a
+ * calibrated run's simulated durations center on reality instead of a
+ * hardcoded guess.
+ *
+ * Formula (documented per the task spec): treat the real measured
+ * milliseconds as the target MEDIAN of the distribution (a log-normal's
+ * median is exp(mu), same relationship LOGNORMAL_MU already uses for the
+ * default 100s target — see that constant's own comment), and solve for mu:
+ *
+ *   median_seconds = realLatencyMs / 1000
+ *   mu = ln(median_seconds)
+ *
+ * sigma (spread) is deliberately left at LOGNORMAL_SIGMA — one real sample
+ * carries no information about spread at all, only about the center, so
+ * there is no principled way to recompute it from a single data point; the
+ * existing spread shape (~2x P95/median) is kept as-is, per the task's own
+ * instruction not to change it without a reason.
+ */
+function computeCalibratedMuSeconds(realLatencyMs) {
+  const ms = Number(realLatencyMs);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.log(ms / 1000);
 }
 
 /* ── Failure injection ───────────────────────────────────────────────────── */
@@ -278,7 +355,7 @@ function pickFailureCategory() {
  * waiting on anything real). Returns { success, failureCategory, durationMs }.
  */
 function simulateJobOutcome(config) {
-  const durationMs = sampleDurationMs(config.artificialAiDelay.enabled);
+  const durationMs = sampleDurationMs(config.artificialAiDelay.enabled, config.artificialAiDelay.muSeconds);
   if (!config.apiFailureInjection.enabled || Math.random() >= config.apiFailureInjection.rate) {
     return { success: true, failureCategory: null, durationMs };
   }
@@ -307,6 +384,7 @@ module.exports = {
   splitByPersonaMix,
   simulateJobOutcome,
   sampleDurationMs,
+  computeCalibratedMuSeconds,
   pickFailureCategory,
   percentile,
   MINUTES_PER_JOB_PER_VU,
