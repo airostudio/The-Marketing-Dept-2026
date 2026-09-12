@@ -60,7 +60,13 @@ module.exports = withFailureReporting('api/openai', async function handler(req, 
   const body = {
     model,
     messages: openaiMessages,
-    max_tokens: 4096,
+    // OpenAI renamed this parameter for its current model line — sending
+    // the old max_tokens key gets rejected outright with "Unsupported
+    // parameter" rather than silently working, which is exactly what broke
+    // every caller of this endpoint (default model gpt-5.6-luna requires
+    // the new name; max_completion_tokens is what OpenAI's current chat
+    // completions API expects across the board).
+    max_completion_tokens: 4096,
     temperature: 0.7,
   };
 
