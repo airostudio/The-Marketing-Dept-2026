@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Testing Agent | Audema</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Same script chain other agent pages load, in the same order, so
+         window.Supabase / window.sendAuthHeaders are available here too. -->
+    <script src="/js/supabase.min.js"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/escape-html.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
+    <script src="/js/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --green: #10b981; --green-rgb: 16,185,129;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --orange: #f59e0b; --red: #ef4444;
+            --bg: #070711; --card: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.08);
+            --text: #ffffff; --text2: rgba(255,255,255,0.55);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        nav { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 58px; border-bottom: 1px solid var(--border); background: rgba(7,7,17,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 8px; }
+        .nav-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .nav-logo { font-size: 14px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .nav-sep { color: var(--border); }
+        .nav-crumb { font-size: 13px; color: var(--text2); }
+        .nav-crumb span { color: var(--green); font-weight: 600; }
+        .nav-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .nav-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 9px; border-radius: 6px; background: rgba(245,158,11,0.14); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+        .nav-btn { padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); transition: all 0.15s; cursor: pointer; background: none; }
+        .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .card-body { padding: 18px; }
+
+        .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--green); color: #000; }
+        .btn-primary:hover { background: #0da874; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+        .btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+        .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text2); border: 1px solid var(--border); }
+        .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+        input, textarea, select { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 13px; font-family: inherit; width: 100%; outline: none; transition: border 0.15s; }
+        input:focus, textarea:focus, select:focus { border-color: rgba(var(--green-rgb), 0.5); }
+        label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 5px; }
+
+        /* ── Password gate ─────────────────────────────────────────────── */
+        .gate { max-width: 420px; margin: 90px auto; text-align: center; }
+        .gate .logo-icon { width: 44px; height: 44px; font-size: 20px; margin: 0 auto 18px; }
+        .gate h1 { font-size: 19px; margin-bottom: 6px; }
+        .gate p { font-size: 13px; color: var(--text2); margin-bottom: 22px; line-height: 1.6; }
+        .gate form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+        .gate-error { font-size: 12.5px; color: var(--red); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 9px 12px; display: none; }
+
+        .banner { padding: 12px 14px; border-radius: 9px; font-size: 12.5px; margin-bottom: 18px; line-height: 1.6; }
+        .banner.info { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.25); color: #67e8f9; }
+        .banner.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+        .banner.safety { background: rgba(16,185,129,0.1); border: 1.5px solid rgba(16,185,129,0.4); color: #86efac; font-weight: 600; }
+        .banner strong { color: inherit; }
+
+        .status-line { font-size: 12.5px; color: var(--text2); margin: 10px 0; min-height: 18px; }
+        .status-line.err { color: var(--red); }
+        .status-line.ok { color: var(--green); }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .persona-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
+        .persona-field { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+        .persona-field label { margin-bottom: 6px; }
+        .mix-total { font-size: 12.5px; margin-top: 8px; font-weight: 600; }
+        .mix-total.ok { color: var(--green); }
+        .mix-total.bad { color: var(--red); }
+
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .toggle-row:last-child { border-bottom: none; }
+        .toggle-row .toggle-label { font-size: 13px; font-weight: 600; }
+        .toggle-row .toggle-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+        .switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider { position: absolute; inset: 0; background: rgba(255,255,255,0.15); border-radius: 999px; cursor: pointer; transition: 0.15s; }
+        .switch .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.15s; }
+        .switch input:checked + .slider { background: var(--green); }
+        .switch input:checked + .slider::before { transform: translateX(18px); }
+
+        .peak-vu-field { margin-top: 10px; display: none; }
+        .peak-vu-field.show { display: block; }
+
+        /* ── Dashboard ────────────────────────────────────────────────── */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+        .stat-tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+        .stat-tile .stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-bottom: 6px; }
+        .stat-tile .stat-value { font-size: 22px; font-weight: 800; }
+        .stat-tile .stat-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+        .stat-tile.green .stat-value { color: var(--green); }
+        .stat-tile.red .stat-value { color: var(--red); }
+        .stat-tile.orange .stat-value { color: var(--orange); }
+        .stat-tile.cyan .stat-value { color: var(--cyan); }
+
+        .pill { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+        .pill-running { background: rgba(var(--green-rgb),0.15); color: var(--green); }
+        .pill-paused { background: rgba(245,158,11,0.15); color: var(--orange); }
+        .pill-completed { background: rgba(6,182,212,0.15); color: var(--cyan); }
+        .pill-cancelled { background: rgba(239,68,68,0.15); color: var(--red); }
+        .pill-draft { background: rgba(255,255,255,0.1); color: var(--text2); }
+
+        .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin: 18px 0; }
+        .chart-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+        .chart-box h3 { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+        .chart-box canvas { max-height: 220px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        .table-wrap { overflow-x: auto; }
+        .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }
+        .muted { color: var(--text2); }
+        .link-btn { background: none; border: none; color: var(--cyan); cursor: pointer; font-size: 12.5px; text-decoration: underline; padding: 0; }
+
+        section { margin-bottom: 26px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a class="nav-logo" href="#"><span class="logo-icon">⚡</span> Load Testing Agent</a>
+        <span class="nav-sep">/</span>
+        <span class="nav-crumb">Internal tool — <span>not linked from the app</span></span>
+    </div>
+    <div class="nav-right">
+        <span class="nav-badge" id="quota-badge">100% simulated — no real AI calls</span>
+        <button class="nav-btn" id="lock-again-btn" onclick="lockAgain()" style="display:none;">Lock</button>
+    </div>
+</nav>
+
+<div class="wrap">
+
+    <!-- ── Password gate ─────────────────────────────────────────────── -->
+    <div class="gate" id="gate">
+        <div class="logo-icon">⚡</div>
+        <h1>Load Testing Agent</h1>
+        <p>You need to already be signed into Audema, and you need the internal tools' shared access
+           password (the same one used by BuiltWith Research).</p>
+        <form id="gate-form" onsubmit="return submitPassword(event)">
+            <div>
+                <label for="gate-password">Access password</label>
+                <input type="password" id="gate-password" autocomplete="off" placeholder="Enter the shared password" required>
+            </div>
+            <div class="gate-error" id="gate-error"></div>
+            <button type="submit" class="btn btn-primary" id="gate-submit" style="justify-content:center;">Unlock</button>
+        </form>
+    </div>
+
+    <!-- ── Tool (hidden until unlocked) ──────────────────────────────── -->
+    <div id="tool" style="display:none;">
+
+        <div class="banner safety">
+            🔒 This test is fully simulated. It never calls a real AI provider (Claude / OpenAI / Gemini) and never
+            spends real money. Every duration, success/failure outcome, and dollar figure below is generated by a
+            job-processing model — not a single real generation request is ever made.
+        </div>
+
+        <!-- ── No active run: configuration form ─────────────────────── -->
+        <section id="config-section">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Test Scenario</span></div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div>
+                            <label for="cfg-vus">Virtual users</label>
+                            <input type="number" id="cfg-vus" value="1000" min="1" max="5000">
+                        </div>
+                        <div>
+                            <label for="cfg-duration">Duration (days)</label>
+                            <input type="number" id="cfg-duration" value="5" min="0.1" max="14" step="0.1">
+                        </div>
+                        <div>
+                            <label for="cfg-concurrency">Generation concurrency</label>
+                            <input type="number" id="cfg-concurrency" value="50" min="1" max="500">
+                        </div>
+                    </div>
+
+                    <label style="margin-bottom:10px;">Persona mix (must sum to 100%)</label>
+                    <div class="persona-grid">
+                        <div class="persona-field"><label for="p-websiteBuilders">Website builders %</label><input type="number" id="p-websiteBuilders" value="40" min="0" max="100"></div>
+                        <div class="persona-field"><label for="p-siteVisitors">Site visitors %</label><input type="number" id="p-siteVisitors" value="25" min="0" max="100"></div>
+                        <div class="persona-field"><label for="p-existingEditors">Existing editors %</label><input type="number" id="p-existingEditors" value="15" min="0" max="100"></div>
+                        <div class="persona-field"><label for="p-ecommerce">Ecommerce %</label><input type="number" id="p-ecommerce" value="10" min="0" max="100"></div>
+                        <div class="persona-field"><label for="p-heavyUsers">Heavy users %</label><input type="number" id="p-heavyUsers" value="5" min="0" max="100"></div>
+                        <div class="persona-field"><label for="p-failureSimulations">Failure simulations %</label><input type="number" id="p-failureSimulations" value="5" min="0" max="100"></div>
+                    </div>
+                    <div class="mix-total" id="mix-total">Total: 100%</div>
+
+                    <div style="margin-top:18px;">
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">Spike traffic</div>
+                                <div class="toggle-desc">Periodic bursts up to a peak virtual-user count</div>
+                            </div>
+                            <label class="switch"><input type="checkbox" id="cfg-spike-enabled" checked onchange="onSpikeToggle()"><span class="slider"></span></label>
+                        </div>
+                        <div class="peak-vu-field show" id="peak-vu-field">
+                            <label for="cfg-peak-vus">Peak virtual users</label>
+                            <input type="number" id="cfg-peak-vus" value="500" min="1" max="5000">
+                        </div>
+
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">Artificial AI delay</div>
+                                <div class="toggle-desc">Simulated generation time drawn from a realistic latency distribution (disable for pure queue/concurrency testing)</div>
+                            </div>
+                            <label class="switch"><input type="checkbox" id="cfg-delay-enabled" checked><span class="slider"></span></label>
+                        </div>
+
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">API failure injection</div>
+                                <div class="toggle-desc">Simulated Claude / Image API / Deployment / Database error rate</div>
+                            </div>
+                            <label class="switch"><input type="checkbox" id="cfg-failure-enabled" checked><span class="slider"></span></label>
+                        </div>
+                        <div style="margin-top:10px;">
+                            <label for="cfg-failure-rate">Failure rate (fraction, e.g. 0.02 = 2%)</label>
+                            <input type="number" id="cfg-failure-rate" value="0.02" min="0" max="0.5" step="0.01">
+                        </div>
+
+                        <div style="margin-top:14px;">
+                            <label for="cfg-cost">Average generation cost (USD, synthetic constant)</label>
+                            <input type="number" id="cfg-cost" value="0.38" min="0" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="status-line" id="create-status"></div>
+                    <button class="btn btn-primary" id="start-btn" onclick="startTest()" style="margin-top:10px;">Start Test</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Active/completed run dashboard ──────────────────────────── -->
+        <section id="dashboard-section" style="display:none;">
+            <div class="card" style="margin-bottom:18px;">
+                <div class="card-header">
+                    <span class="card-title">Dashboard</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="pill" id="run-status-pill"></span>
+                        <button class="btn btn-ghost btn-sm" id="pause-btn" onclick="controlRun('pause')">Pause</button>
+                        <button class="btn btn-primary btn-sm" id="resume-btn" onclick="controlRun('resume')" style="display:none;">Resume</button>
+                        <button class="btn btn-danger btn-sm" id="cancel-btn" onclick="controlRun('cancel')">Cancel</button>
+                        <button class="btn btn-ghost btn-sm" onclick="showConfigForm()">New Test</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="banner info" id="run-config-line"></div>
+
+                    <div class="stat-grid">
+                        <div class="stat-tile"><div class="stat-label">Sites requested</div><div class="stat-value" id="stat-requested">—</div></div>
+                        <div class="stat-tile green"><div class="stat-label">Sites successfully built</div><div class="stat-value" id="stat-succeeded">—</div><div class="stat-sub" id="stat-success-pct">Success: —</div></div>
+                        <div class="stat-tile"><div class="stat-label">Median build</div><div class="stat-value" id="stat-median">—</div></div>
+                        <div class="stat-tile"><div class="stat-label">P95</div><div class="stat-value" id="stat-p95">—</div></div>
+                        <div class="stat-tile"><div class="stat-label">P99</div><div class="stat-value" id="stat-p99">—</div></div>
+                        <div class="stat-tile cyan"><div class="stat-label">Peak concurrent users</div><div class="stat-value" id="stat-peak-vus">—</div></div>
+                        <div class="stat-tile cyan"><div class="stat-label">Peak concurrent builds</div><div class="stat-value" id="stat-peak-builds">—</div></div>
+                        <div class="stat-tile orange"><div class="stat-label">Maximum queue</div><div class="stat-value" id="stat-max-queue">—</div></div>
+                        <div class="stat-tile red"><div class="stat-label">Claude errors</div><div class="stat-value" id="stat-err-claude">—</div></div>
+                        <div class="stat-tile red"><div class="stat-label">Image API errors</div><div class="stat-value" id="stat-err-image">—</div></div>
+                        <div class="stat-tile red"><div class="stat-label">Deployment errors</div><div class="stat-value" id="stat-err-deploy">—</div></div>
+                        <div class="stat-tile red"><div class="stat-label">Database errors</div><div class="stat-value" id="stat-err-db">—</div></div>
+                        <div class="stat-tile"><div class="stat-label">Average generation cost</div><div class="stat-value" id="stat-avg-cost">—</div><div class="stat-sub">Synthetic — configured constant, not a real charge</div></div>
+                        <div class="stat-tile"><div class="stat-label">Total test AI cost</div><div class="stat-value" id="stat-total-cost">—</div><div class="stat-sub">Synthetic — never billed anywhere</div></div>
+                    </div>
+
+                    <div class="chart-grid">
+                        <div class="chart-box"><h3>Concurrent virtual users</h3><canvas id="chart-vus"></canvas></div>
+                        <div class="chart-box"><h3>Concurrent builds</h3><canvas id="chart-builds"></canvas></div>
+                        <div class="chart-box"><h3>Queue depth</h3><canvas id="chart-queue"></canvas></div>
+                    </div>
+
+                    <div class="status-line" id="dashboard-status"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── History ──────────────────────────────────────────────────── -->
+        <section>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Run History</span></div>
+                <div class="card-body">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Started</th><th>Status</th><th>VUs</th><th>Duration</th><th>Requested</th><th>Success %</th><th>Total cost</th><th></th></tr></thead>
+                            <tbody id="history-tbody"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Access token (shared with BuiltWith Research — same password/token system) ──
+const TOKEN_KEY = 'builtwith_access_token';
+
+function loadStoredToken() {
+    try {
+        const raw = sessionStorage.getItem(TOKEN_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.token || !parsed.expiresAt) return null;
+        if (Date.now() > parsed.expiresAt) return null;
+        return parsed;
+    } catch (e) { return null; }
+}
+function storeToken(token, expiresAt) {
+    try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expiresAt })); } catch (e) {}
+}
+function clearToken() {
+    try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+}
+
+let ACCESS_TOKEN = null;
+let POLL_TIMER = null;
+let CHARTS = {};
+let CURRENT_RUN = null;
+
+function showGate(errorMsg) {
+    document.getElementById('gate').style.display = '';
+    document.getElementById('tool').style.display = 'none';
+    document.getElementById('lock-again-btn').style.display = 'none';
+    const err = document.getElementById('gate-error');
+    if (errorMsg) { err.textContent = errorMsg; err.style.display = ''; }
+    else { err.style.display = 'none'; }
+}
+function showTool() {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('tool').style.display = '';
+    document.getElementById('lock-again-btn').style.display = '';
+    refreshStatus();
+}
+function lockAgain() {
+    clearToken();
+    ACCESS_TOKEN = null;
+    if (POLL_TIMER) clearInterval(POLL_TIMER);
+    showGate();
+}
+
+async function submitPassword(evt) {
+    evt.preventDefault();
+    const btn = document.getElementById('gate-submit');
+    const password = document.getElementById('gate-password').value;
+    const err = document.getElementById('gate-error');
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    try {
+        const headers = await (window.sendAuthHeaders ? window.sendAuthHeaders() : { 'Content-Type': 'application/json' });
+        const res = await fetch('/api/builtwith-unlock', {
+            method: 'POST', headers, body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            err.textContent = data.error || 'Could not unlock the tool.';
+            err.style.display = '';
+            return false;
+        }
+        ACCESS_TOKEN = data.token;
+        storeToken(data.token, data.expiresAt);
+        showTool();
+    } catch (e) {
+        err.textContent = 'Network error contacting the unlock endpoint.';
+        err.style.display = '';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+    }
+    return false;
+}
+
+async function ltHeaders() {
+    const headers = await (window.sendAuthHeaders ? window.sendAuthHeaders() : { 'Content-Type': 'application/json' });
+    return Object.assign({}, headers, { 'X-BuiltWith-Token': ACCESS_TOKEN });
+}
+async function ltFetch(endpoint, opts) {
+    opts = opts || {};
+    const headers = await ltHeaders();
+    const res = await fetch(endpoint, Object.assign({ headers }, opts));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        if (data && data.code === 'builtwith_locked') { lockAgain(); }
+        throw new Error(data.error || `Request failed (${res.status})`);
+    }
+    return data;
+}
+
+(function init() {
+    const stored = loadStoredToken();
+    if (stored) { ACCESS_TOKEN = stored.token; showTool(); }
+    else { showGate(); }
+})();
+
+function esc(s) {
+    if (window.escapeHtml) return window.escapeHtml(s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+// ── Config form helpers ─────────────────────────────────────────────────
+function onSpikeToggle() {
+    document.getElementById('peak-vu-field').classList.toggle('show', document.getElementById('cfg-spike-enabled').checked);
+}
+const PERSONA_IDS = ['websiteBuilders', 'siteVisitors', 'existingEditors', 'ecommerce', 'heavyUsers', 'failureSimulations'];
+function readPersonaMix() {
+    const mix = {};
+    for (const key of PERSONA_IDS) mix[key] = Number(document.getElementById('p-' + key).value) || 0;
+    return mix;
+}
+function updateMixTotal() {
+    const mix = readPersonaMix();
+    const total = Object.values(mix).reduce((a, b) => a + b, 0);
+    const el = document.getElementById('mix-total');
+    el.textContent = `Total: ${total}%`;
+    el.className = 'mix-total ' + (total === 100 ? 'ok' : 'bad');
+    return total === 100;
+}
+PERSONA_IDS.forEach(key => {
+    document.addEventListener('DOMContentLoaded', () => {
+        const el = document.getElementById('p-' + key);
+        if (el) el.addEventListener('input', updateMixTotal);
+    });
+});
+document.addEventListener('DOMContentLoaded', updateMixTotal);
+
+function showConfigForm() {
+    document.getElementById('config-section').style.display = '';
+    document.getElementById('dashboard-section').style.display = 'none';
+    if (POLL_TIMER) { clearInterval(POLL_TIMER); POLL_TIMER = null; }
+}
+
+async function startTest() {
+    const status = document.getElementById('create-status');
+    status.className = 'status-line'; status.textContent = '';
+
+    if (!updateMixTotal()) {
+        status.className = 'status-line err';
+        status.textContent = 'Persona mix must sum to exactly 100%.';
+        return;
+    }
+
+    const config = {
+        virtualUsers: Number(document.getElementById('cfg-vus').value),
+        durationDays: Number(document.getElementById('cfg-duration').value),
+        personaMix: readPersonaMix(),
+        generationConcurrency: Number(document.getElementById('cfg-concurrency').value),
+        spike: {
+            enabled: document.getElementById('cfg-spike-enabled').checked,
+            peakVirtualUsers: Number(document.getElementById('cfg-peak-vus').value),
+        },
+        artificialAiDelay: { enabled: document.getElementById('cfg-delay-enabled').checked },
+        apiFailureInjection: {
+            enabled: document.getElementById('cfg-failure-enabled').checked,
+            rate: Number(document.getElementById('cfg-failure-rate').value),
+        },
+        costPerGenerationUsd: Number(document.getElementById('cfg-cost').value),
+    };
+
+    const btn = document.getElementById('start-btn');
+    btn.disabled = true;
+    status.textContent = 'Starting simulated test…';
+    try {
+        const data = await ltFetch('/api/loadtest-create', { method: 'POST', body: JSON.stringify(config) });
+        status.className = 'status-line ok';
+        status.textContent = 'Test started.';
+        CURRENT_RUN = data.run;
+        showDashboard();
+        startPolling();
+    } catch (e) {
+        status.className = 'status-line err';
+        status.textContent = e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function controlRun(action) {
+    if (!CURRENT_RUN) return;
+    if (action === 'cancel' && !confirm('Cancel this load test?')) return;
+    try {
+        await ltFetch('/api/loadtest-control', { method: 'POST', body: JSON.stringify({ runId: CURRENT_RUN.id, action }) });
+        await refreshStatus();
+    } catch (e) {
+        document.getElementById('dashboard-status').className = 'status-line err';
+        document.getElementById('dashboard-status').textContent = e.message;
+    }
+}
+
+// ── Dashboard rendering ─────────────────────────────────────────────────
+function fmtDuration(ms) {
+    if (ms == null) return '—';
+    const totalSec = Math.round(ms / 1000);
+    const m = Math.floor(totalSec / 60), s = totalSec % 60;
+    if (m === 0) return `${s}s`;
+    return `${m}m ${String(s).padStart(2, '0')}s`;
+}
+function fmtNum(n) { return n == null ? '—' : Number(n).toLocaleString(); }
+function fmtUsd(n) { return n == null ? '—' : '$' + Number(n).toFixed(2); }
+
+function showDashboard() {
+    document.getElementById('config-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = '';
+}
+
+function renderRun(run) {
+    CURRENT_RUN = run;
+    const pill = document.getElementById('run-status-pill');
+    pill.textContent = run.status;
+    pill.className = 'pill pill-' + run.status;
+
+    document.getElementById('pause-btn').style.display = run.status === 'running' ? '' : 'none';
+    document.getElementById('resume-btn').style.display = run.status === 'paused' ? '' : 'none';
+    document.getElementById('cancel-btn').style.display = (run.status === 'running' || run.status === 'paused') ? '' : 'none';
+
+    const c = run.config || {};
+    document.getElementById('run-config-line').textContent =
+        `Virtual users: ${fmtNum(c.virtualUsers)} · Duration: ${c.durationDays}d · Concurrency: ${c.generationConcurrency} · ` +
+        `Spike: ${c.spike && c.spike.enabled ? 'enabled (peak ' + fmtNum(c.spike.peakVirtualUsers) + ')' : 'disabled'} · ` +
+        `Artificial AI delay: ${c.artificialAiDelay && c.artificialAiDelay.enabled ? 'enabled' : 'disabled'} · ` +
+        `API failure injection: ${c.apiFailureInjection && c.apiFailureInjection.enabled ? 'enabled (' + (c.apiFailureInjection.rate * 100).toFixed(1) + '%)' : 'disabled'} — ` +
+        `all figures below are simulated, not real spend.`;
+
+    const requested = Number(run.jobs_requested_total || 0);
+    const succeeded = Number(run.jobs_succeeded_total || 0);
+    const failed = Number(run.jobs_failed_total || 0);
+    const pct = requested > 0 ? (succeeded / requested * 100) : 0;
+
+    document.getElementById('stat-requested').textContent = fmtNum(requested);
+    document.getElementById('stat-succeeded').textContent = fmtNum(succeeded);
+    document.getElementById('stat-success-pct').textContent = `Success: ${pct.toFixed(2)}%`;
+
+    document.getElementById('stat-peak-vus').textContent = fmtNum(run.peak_concurrent_vus);
+    document.getElementById('stat-peak-builds').textContent = fmtNum(run.peak_concurrent_builds);
+    document.getElementById('stat-max-queue').textContent = fmtNum(run.peak_queue_depth);
+
+    const errs = run.errors_by_category || {};
+    document.getElementById('stat-err-claude').textContent = fmtNum(errs.claude_error || 0);
+    document.getElementById('stat-err-image').textContent = fmtNum(errs.image_api_error || 0);
+    document.getElementById('stat-err-deploy').textContent = fmtNum(errs.deployment_error || 0);
+    document.getElementById('stat-err-db').textContent = fmtNum(errs.database_error || 0);
+
+    const avgCost = c.costPerGenerationUsd != null ? c.costPerGenerationUsd : (requested > 0 ? Number(run.total_cost_usd || 0) / requested : 0);
+    document.getElementById('stat-avg-cost').textContent = fmtUsd(avgCost);
+    document.getElementById('stat-total-cost').textContent = fmtUsd(run.total_cost_usd);
+}
+
+function renderPercentilesFromSnapshots(snapshots) {
+    const last = snapshots.length ? snapshots[snapshots.length - 1] : null;
+    document.getElementById('stat-median').textContent = last ? fmtDuration(last.p50_ms) : '—';
+    document.getElementById('stat-p95').textContent = last ? fmtDuration(last.p95_ms) : '—';
+    document.getElementById('stat-p99').textContent = last ? fmtDuration(last.p99_ms) : '—';
+}
+
+function chartOpts(label, color) {
+    return {
+        type: 'line',
+        data: { labels: [], datasets: [{ label, data: [], borderColor: color, backgroundColor: color + '22', tension: 0.25, pointRadius: 0, fill: true }] },
+        options: {
+            responsive: true, animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: 'rgba(255,255,255,0.4)', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: 'rgba(255,255,255,0.4)' }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
+            },
+        },
+    };
+}
+
+function ensureCharts() {
+    if (CHARTS.vus) return;
+    if (typeof Chart === 'undefined') return; // vendored lib failed to load — dashboard numbers still work
+    CHARTS.vus = new Chart(document.getElementById('chart-vus'), chartOpts('Concurrent VUs', '#06b6d4'));
+    CHARTS.builds = new Chart(document.getElementById('chart-builds'), chartOpts('Concurrent builds', '#10b981'));
+    CHARTS.queue = new Chart(document.getElementById('chart-queue'), chartOpts('Queue depth', '#f59e0b'));
+}
+
+function renderCharts(snapshots) {
+    ensureCharts();
+    if (!CHARTS.vus) return;
+    const labels = snapshots.map(s => new Date(s.snapshot_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    CHARTS.vus.data.labels = labels;
+    CHARTS.vus.data.datasets[0].data = snapshots.map(s => s.concurrent_vus);
+    CHARTS.vus.update();
+    CHARTS.builds.data.labels = labels;
+    CHARTS.builds.data.datasets[0].data = snapshots.map(s => s.concurrent_builds);
+    CHARTS.builds.update();
+    CHARTS.queue.data.labels = labels;
+    CHARTS.queue.data.datasets[0].data = snapshots.map(s => s.queue_depth);
+    CHARTS.queue.update();
+}
+
+function renderHistory(history) {
+    const tbody = document.getElementById('history-tbody');
+    if (!history.length) { tbody.innerHTML = '<tr><td colspan="8" class="muted">No runs yet.</td></tr>'; return; }
+    tbody.innerHTML = history.map(r => {
+        const c = r.config || {};
+        const requested = Number(r.jobs_requested_total || 0);
+        const succeeded = Number(r.jobs_succeeded_total || 0);
+        const pct = requested > 0 ? (succeeded / requested * 100).toFixed(1) + '%' : '—';
+        return `<tr>
+            <td class="mono">${esc(r.started_at ? new Date(r.started_at).toLocaleString() : '—')}</td>
+            <td><span class="pill pill-${esc(r.status)}">${esc(r.status)}</span></td>
+            <td>${fmtNum(c.virtualUsers)}</td>
+            <td>${esc(c.durationDays)}d</td>
+            <td>${fmtNum(requested)}</td>
+            <td>${pct}</td>
+            <td>${fmtUsd(r.total_cost_usd)}</td>
+            <td><button class="link-btn" onclick="viewRun('${esc(r.id)}')">View</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function viewRun(runId) {
+    if (POLL_TIMER) { clearInterval(POLL_TIMER); POLL_TIMER = null; }
+    await refreshStatus(runId);
+    showDashboard();
+    if (CURRENT_RUN && (CURRENT_RUN.status === 'running' || CURRENT_RUN.status === 'paused')) startPolling();
+}
+
+async function refreshStatus(runId) {
+    const dashStatus = document.getElementById('dashboard-status');
+    try {
+        const qs = runId ? ('?runId=' + encodeURIComponent(runId)) : '';
+        const data = await ltFetch('/api/loadtest-status' + qs, { method: 'GET' });
+        renderHistory(data.history || []);
+        if (data.run) {
+            renderRun(data.run);
+            renderPercentilesFromSnapshots(data.snapshots || []);
+            renderCharts(data.snapshots || []);
+            showDashboard();
+            dashStatus.className = 'status-line';
+            dashStatus.textContent = 'Last updated ' + new Date().toLocaleTimeString();
+        } else {
+            showConfigForm();
+        }
+    } catch (e) {
+        dashStatus.className = 'status-line err';
+        dashStatus.textContent = e.message;
+    }
+}
+
+function startPolling() {
+    if (POLL_TIMER) clearInterval(POLL_TIMER);
+    POLL_TIMER = setInterval(async () => {
+        if (!CURRENT_RUN) return;
+        if (CURRENT_RUN.status !== 'running' && CURRENT_RUN.status !== 'paused') { clearInterval(POLL_TIMER); POLL_TIMER = null; return; }
+        await refreshStatus(CURRENT_RUN.id);
+    }, 20000); // poll every 20s while a run is active
+}
+</script>
+</body>
+</html>

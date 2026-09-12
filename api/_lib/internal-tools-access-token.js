@@ -1,20 +1,33 @@
 /**
- * api/_lib/builtwith-access-token.js — signed, time-limited "unlock" token for
- * the internal BuiltWith research tool (web/tools/builtwith-research.html).
+ * api/_lib/internal-tools-access-token.js — signed, time-limited "unlock"
+ * token shared by this app's password-gated internal tools (the BuiltWith
+ * research tool at web/tools/builtwith-research.html, and the Load Testing
+ * Agent at web/tools/load-testing.html).
+ *
+ * Originally api/_lib/builtwith-access-token.js / requireBuiltWithAccess,
+ * written for BuiltWith alone. Generalized here (rename only — no behavior
+ * change) so a second internal tool can reuse the exact same shared password
+ * and token flow instead of inventing its own. Still uses the same env vars
+ * (BUILTWITH_TOOL_PASSWORD, BUILTWITH_TOOL_SECRET) and the same
+ * X-BuiltWith-Token wire header on purpose: renaming those would be a bigger,
+ * riskier change (rotating a deployed secret's name, changing a header every
+ * client sends) for no benefit — only the code-side names changed.
  *
  * Not a Vercel route (api/_lib/ is excluded from routing) — imported by
- * api/builtwith-unlock.js (issues) and by every api/builtwith-*.js proxy
- * endpoint (verifies, via requireBuiltWithAccess below).
+ * api/builtwith-unlock.js (issues, for both tools) and by every gated proxy
+ * endpoint (verifies, via requireInternalToolsAccess below).
  *
  * ── Why a second gate on top of normal login ────────────────────────────────
  *
- * Every signed-in Audema customer already clears requireUser(). BuiltWith is
- * a paid, metered subscription the team holds for its own research — it must
- * not be reachable by every customer account, only by whoever the team hands
- * the shared password to. So this is deliberately a SEPARATE secret and a
- * SEPARATE short-lived token, layered on top of (never instead of) the normal
- * Supabase session check. Losing this token leaks nothing but "can spend
- * BuiltWith quota"; it is not a login credential and is never treated as one.
+ * Every signed-in Audema customer already clears requireUser(). These are
+ * internal tools the team uses for its own purposes (BuiltWith spends a paid,
+ * metered subscription; the Load Testing Agent can hammer the simulated
+ * pipeline for days) — neither should be reachable by every customer account,
+ * only by whoever the team hands the shared password to. So this is
+ * deliberately a SEPARATE secret and a SEPARATE short-lived token, layered on
+ * top of (never instead of) the normal Supabase session check. Losing this
+ * token leaks nothing but "can use the internal tools"; it is not a login
+ * credential and is never treated as one.
  *
  * Same shape as api/_lib/unsubscribe-token.js: HMAC-SHA256 via Node's
  * `crypto`, `crypto.timingSafeEqual` for verification, a dedicated env var
@@ -110,14 +123,15 @@ function verifyToken(token) {
 }
 
 /**
- * Two-layer check every BuiltWith-spending endpoint must run before touching
- * BuiltWith or spending anything: normal Supabase auth (requireUser), AND
- * this tool's own unlock token in the X-BuiltWith-Token header. Either layer
- * failing answers the request itself and returns null, so a caller that
- * forgets to check cannot accidentally spend BuiltWith quota for a caller who
- * never entered the password.
+ * Two-layer check every gated internal-tool endpoint must run before doing
+ * anything: normal Supabase auth (requireUser), AND this tool's own unlock
+ * token in the X-BuiltWith-Token header (shared by every internal tool that
+ * uses this password — the header name is a wire detail kept as-is, not tied
+ * to BuiltWith specifically). Either layer failing answers the request itself
+ * and returns null, so a caller that forgets to check cannot accidentally let
+ * through a caller who never entered the password.
  */
-async function requireBuiltWithAccess(req, res) {
+async function requireInternalToolsAccess(req, res) {
   const { requireUser } = require('./require-user.js');
 
   const auth = await requireUser(req, res);
@@ -127,7 +141,7 @@ async function requireBuiltWithAccess(req, res) {
   const check = verifyToken(token);
   if (!check.valid) {
     res.status(403).json({
-      error: 'BuiltWith research tool is locked. Enter the access password.',
+      error: 'This internal tool is locked. Enter the access password.',
       code: 'builtwith_locked',
     });
     return null;
@@ -136,4 +150,4 @@ async function requireBuiltWithAccess(req, res) {
   return auth;
 }
 
-module.exports = { issueToken, verifyToken, requireBuiltWithAccess, isConfigured: () => !!secret() };
+module.exports = { issueToken, verifyToken, requireInternalToolsAccess, isConfigured: () => !!secret() };

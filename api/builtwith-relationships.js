@@ -21,7 +21,7 @@
 
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-const { requireBuiltWithAccess } = require('./_lib/builtwith-access-token.js');
+const { requireInternalToolsAccess } = require('./_lib/internal-tools-access-token.js');
 const { callBuiltWith } = require('./_lib/builtwith-client.js');
 
 /**
@@ -50,7 +50,7 @@ module.exports = withFailureReporting('api/builtwith-relationships', async funct
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const auth = await requireBuiltWithAccess(req, res);
+  const auth = await requireInternalToolsAccess(req, res);
   if (!auth) return;
 
   if (rateLimited(req, res, { name: 'builtwith-relationships', max: 20, windowMs: 60 * 1000, auth })) return;

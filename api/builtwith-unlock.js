@@ -21,7 +21,7 @@ const crypto = require('crypto');
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-const { issueToken } = require('./_lib/builtwith-access-token.js');
+const { issueToken } = require('./_lib/internal-tools-access-token.js');
 
 /**
  * Constant-time string compare. Buffer.compare/timingSafeEqual both require

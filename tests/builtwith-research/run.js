@@ -102,7 +102,7 @@ async function call(handler, body, opts) {
 
 (async () => {
   const unlock = require(path.join(REPO, 'api/builtwith-unlock.js'));
-  const { issueToken, verifyToken } = require(path.join(REPO, 'api/_lib/builtwith-access-token.js'));
+  const { issueToken, verifyToken } = require(path.join(REPO, 'api/_lib/internal-tools-access-token.js'));
   const domain = require(path.join(REPO, 'api/builtwith-domain.js'));
   const lists = require(path.join(REPO, 'api/builtwith-lists.js'));
   const trends = require(path.join(REPO, 'api/builtwith-trends.js'));
@@ -203,7 +203,7 @@ async function call(handler, body, opts) {
     check(`${name}: refuses valid auth with an INVALID unlock token`, res.status === 403 && res.body.code === 'builtwith_locked');
 
     resetRateLimits();
-    const { issueToken: issue2 } = require(path.join(REPO, 'api/_lib/builtwith-access-token.js'));
+    const { issueToken: issue2 } = require(path.join(REPO, 'api/_lib/internal-tools-access-token.js'));
     const expired = issue2('user-1', -1000);
     res = await call(handler, body, { headers: { 'x-builtwith-token': expired.token } });
     check(`${name}: refuses valid auth with an EXPIRED unlock token`, res.status === 403 && res.body.code === 'builtwith_locked');
@@ -211,7 +211,7 @@ async function call(handler, body, opts) {
 
   /* ── 7. A valid token + valid auth actually reaches BuiltWith ──────────── */
   console.log('\n──── a fully unlocked, authenticated call succeeds ────');
-  const { issueToken: issue3 } = require(path.join(REPO, 'api/_lib/builtwith-access-token.js'));
+  const { issueToken: issue3 } = require(path.join(REPO, 'api/_lib/internal-tools-access-token.js'));
   const freshToken = issue3('user-1').token;
 
   for (const [name, handler, body] of PROXIES) {
@@ -253,8 +253,8 @@ async function call(handler, body, opts) {
 
   /* ── 10. Static shape checks ─────────────────────────────────────────────── */
   console.log('\n──── static checks ────');
-  check('builtwith-access-token.js uses timingSafeEqual for signature verification',
-    read('api/_lib/builtwith-access-token.js').includes('timingSafeEqual'));
+  check('internal-tools-access-token.js uses timingSafeEqual for signature verification',
+    read('api/_lib/internal-tools-access-token.js').includes('timingSafeEqual'));
   check('builtwith-unlock.js uses timingSafeEqual for the password compare, not ===',
     read('api/builtwith-unlock.js').includes('timingSafeEqual') && !/if\s*\(\s*password\s*===\s*configured/.test(read('api/builtwith-unlock.js')));
   check('builtwith-unlock.js checks requireUser before the password',
@@ -263,7 +263,7 @@ async function call(handler, body, opts) {
       return src.indexOf('requireUser(req, res)') < src.indexOf('process.env.BUILTWITH_TOOL_PASSWORD');
     })());
   for (const f of ['api/builtwith-domain.js', 'api/builtwith-lists.js', 'api/builtwith-trends.js', 'api/builtwith-relationships.js']) {
-    check(`${f} calls requireBuiltWithAccess (both auth layers)`, read(f).includes('requireBuiltWithAccess'));
+    check(`${f} calls requireInternalToolsAccess (both auth layers)`, read(f).includes('requireInternalToolsAccess'));
     check(`${f} never references BUILTWITH_API_KEY directly (stays inside _lib/builtwith-client.js)`,
       !read(f).includes('BUILTWITH_API_KEY'));
   }
