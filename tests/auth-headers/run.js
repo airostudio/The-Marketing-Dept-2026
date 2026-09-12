@@ -102,5 +102,55 @@ check('it returns headers rather than throwing when there is no session',
 check('and the Authorization header is only added when a token exists',
   /if \(token\) headers\.Authorization/.test(sendAuth));
 
-console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
-process.exit(failures === 0 ? 0 : 1);
+console.log('\n──── transient lock contention is retried, not treated as "no session" ────');
+
+async function runSendAuthHeaders(getSessionImpl) {
+  // send-auth.js is a plain browser IIFE that attaches to `window` — give it
+  // just enough of a fake window/Supabase/client to exercise the real logic,
+  // the same technique the rest of this suite already relies on for globals.
+  const fakeWindow = {
+    Supabase: {
+      ready: async () => {},
+      getClient: () => ({ auth: { getSession: getSessionImpl } }),
+    },
+    setTimeout,
+  };
+  const fn = new Function('window', `${sendAuth}\nreturn window.sendAuthHeaders;`);
+  const sendAuthHeaders = fn(fakeWindow);
+  return sendAuthHeaders();
+}
+
+function acquireTimeoutError() {
+  const e = new Error('Acquiring an exclusive Navigator LockManager lock "x" immediately failed');
+  e.isAcquireTimeout = true;
+  return e;
+}
+
+(async () => {
+  let calls = 0;
+  const succeedsOnThirdTry = async () => {
+    calls++;
+    if (calls < 3) throw acquireTimeoutError();
+    return { data: { session: { access_token: 'real-token' } } };
+  };
+  const h1 = await runSendAuthHeaders(succeedsOnThirdTry);
+  check('a session found after two transient lock failures still gets the real token',
+    h1.Authorization === 'Bearer real-token');
+  check('it actually retried (did not give up on the first lock failure)', calls === 3);
+
+  let calls2 = 0;
+  const alwaysLocked = async () => { calls2++; throw acquireTimeoutError(); };
+  const h2 = await runSendAuthHeaders(alwaysLocked);
+  check('persistent lock contention eventually gives up cleanly (no Authorization header, no throw)',
+    !h2.Authorization);
+  check('it retries a bounded number of times, not forever', calls2 === 3);
+
+  let calls3 = 0;
+  const unrelatedError = async () => { calls3++; throw new Error('Invalid Refresh Token'); };
+  const h3 = await runSendAuthHeaders(unrelatedError);
+  check('a non-lock error is NOT retried — it fails soft on the first attempt',
+    calls3 === 1 && !h3.Authorization);
+
+  console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
+  process.exit(failures === 0 ? 0 : 1);
+})();
