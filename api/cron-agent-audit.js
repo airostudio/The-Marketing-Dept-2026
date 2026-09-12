@@ -19,13 +19,27 @@
  * consequential changes behind human review, and code changes are exactly
  * that kind of change.
  *
+ * This same principle covers the "AI Model Health" check added below: it
+ * runs real, cheap live tests against the actual production model APIs
+ * this app depends on (Claude/OpenAI/Gemini) and researches whether those
+ * models are still current, but it only ever WRITES A FINDING for a human
+ * to review in Scotty's review queue. It never edits api/claude.js,
+ * api/openai.js, api/gemini.js, or any other file, and never redeploys
+ * anything — detection and surfacing only, exactly like every other
+ * finding in this file.
+ *
  * Required env vars:
- *   ANTHROPIC_API_KEY — same key api/claude.js uses
+ *   ANTHROPIC_API_KEY — same key api/claude.js uses; also used for the
+ *     Claude live-test and the model-health research call below.
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — data access (service role,
  *     since a cron job has no logged-in user session — see
  *     api/cron-auto-publish.js for the same pattern)
  *   CRON_SECRET — Vercel sends `Authorization: Bearer <CRON_SECRET>` on its
  *     own scheduled invocations once this is set; anything else is rejected.
+ *   OPENAI_API_KEY, GEMINI_API_KEY — optional. Used only by the AI Model
+ *     Health check's live tests for those providers; if either is absent,
+ *     that provider's models are reported as `skipped` (a deployment-config
+ *     fact) rather than failing the whole audit run.
  */
 
 'use strict';
@@ -71,6 +85,278 @@ const AGENT_REGISTRY = [
   { key: 'deck', label: 'Deck Maker', discipline: 'AI presentation/deck generation',
     currentApproach: 'Generates real .pptx files (via a Python-based generation pipeline) from an LLM-written outline/content plan, with a Gemini-based spell-check pass.' },
 ];
+
+// ── AI Model Health ──────────────────────────────────────────────────────
+// One entry per distinct model string actually found in production code —
+// verified against the real source files, not guessed. See the file header
+// for each model's exact source:
+//   Claude text  -> api/claude.js DEFAULT_MODEL
+//   OpenAI text  -> api/openai.js default `model`
+//   OpenAI image -> api/generate-ad-image.js / api/_lib/nancy-providers.js
+//   Gemini text  -> api/gemini.js default `model` (server default), plus the
+//                   faster client-side tier from web/js/config.js GEMINI.MODEL
+//   Gemini image -> api/_lib/nancy-providers.js imageGenProvider 'gemini' branch
+const MODEL_REGISTRY = [
+  {
+    id: 'claude-sonnet-4-6',
+    provider: 'anthropic',
+    kind: 'text',
+    usedIn: 'api/claude.js (DEFAULT_MODEL) and most other Claude-calling endpoints (Scotty chat, Nancy\'s Instagram pipeline, Chase outreach, ad/social copy, this audit itself)',
+    purpose: 'general chat/completion',
+  },
+  {
+    id: 'gpt-5.6-luna',
+    provider: 'openai',
+    kind: 'text',
+    usedIn: 'api/openai.js (default model), used by Social Studio and Chase\'s Outreach Generator when OpenAI is selected',
+    purpose: 'general chat/completion',
+  },
+  {
+    id: 'gpt-image-1',
+    provider: 'openai',
+    kind: 'image',
+    usedIn: 'api/generate-ad-image.js (OPENAI_IMAGE_MODEL default) and api/_lib/nancy-providers.js imageGenProvider \'openai\' branch',
+    purpose: 'ad image generation',
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    provider: 'gemini',
+    kind: 'text',
+    usedIn: 'api/gemini.js (default model), and web/js/config.js GEMINI.PRO_MODEL for complex client-side tasks',
+    purpose: 'general chat/completion (higher-capability tier)',
+  },
+  {
+    id: 'gemini-3.5-flash',
+    provider: 'gemini',
+    kind: 'text',
+    usedIn: 'web/js/config.js GEMINI.MODEL — faster/cheaper client-side tier',
+    purpose: 'general chat/completion (fast/cost-effective tier)',
+  },
+  {
+    id: 'gemini-2.5-flash-image',
+    provider: 'gemini',
+    kind: 'image',
+    usedIn: 'api/_lib/nancy-providers.js imageGenProvider \'gemini\' branch (env-overridable via GEMINI_IMAGE_MODEL)',
+    purpose: 'ad image generation',
+  },
+];
+
+const MODEL_TEST_TIMEOUT_MS = 15000;
+
+/** Truncate a live error to something readable/storable without losing the actionable part. */
+function truncateErr(s, max = 500) {
+  s = String(s == null ? '' : s);
+  return s.length > max ? s.slice(0, max) + '…' : s;
+}
+
+/**
+ * Run one real, minimal, cheap live test/existence-check against a model's
+ * actual production API, mirroring the exact request shape the real
+ * endpoint file currently sends. Never throws — a network failure or
+ * timeout is itself a legitimate ok:false result, not a crash of the audit.
+ * Skips (does not fail) a model whose required API key isn't configured.
+ */
+async function testModelLive(entry, apiKeys) {
+  const { id, provider } = entry;
+  try {
+    if (provider === 'anthropic') {
+      const apiKey = apiKeys.anthropic;
+      if (!apiKey) return { id, provider, skipped: true, reason: 'ANTHROPIC_API_KEY not configured' };
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: anthropicHeaders(apiKey),
+        body: JSON.stringify({
+          model: id,
+          max_tokens: 8,
+          messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
+        }),
+        signal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { id, provider, ok: false, status: res.status, error: truncateErr(data.error?.message || `Anthropic error ${res.status}`) };
+      }
+      return { id, provider, ok: true };
+    }
+
+    if (provider === 'openai') {
+      const apiKey = apiKeys.openai;
+      if (!apiKey) return { id, provider, skipped: true, reason: 'OPENAI_API_KEY not configured' };
+
+      if (entry.kind === 'image') {
+        // A real generation call costs real money per check, and this needs
+        // to run often — instead, confirm the model id still exists/is
+        // accessible via the models-retrieve endpoint. Chat models below get
+        // a real 8-token completion test because that's cheap; image models
+        // get an existence check instead.
+        const res = await fetch(`https://api.openai.com/v1/models/${encodeURIComponent(id)}`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { id, provider, ok: false, status: res.status, error: truncateErr(data.error?.message || `OpenAI error ${res.status}`) };
+        }
+        return { id, provider, ok: true };
+      }
+
+      // Mirrors api/openai.js's CURRENT body shape exactly — max_completion_tokens,
+      // not max_tokens (that rename is exactly the incident this check exists to catch).
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: id,
+          messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
+          max_completion_tokens: 8,
+        }),
+        signal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        return { id, provider, ok: false, status: res.status, error: truncateErr(data.error?.message || `OpenAI error ${res.status}`) };
+      }
+      return { id, provider, ok: true };
+    }
+
+    if (provider === 'gemini') {
+      const apiKey = apiKeys.gemini;
+      if (!apiKey) return { id, provider, skipped: true, reason: 'GEMINI_API_KEY not configured' };
+
+      if (entry.kind === 'image') {
+        // Same "existence check" approach as OpenAI images — a GET against
+        // the model-info endpoint rather than a real paid image generation
+        // call every run.
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(id)}?key=${apiKey}`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          return { id, provider, ok: false, status: res.status, error: truncateErr(errText || `Gemini error ${res.status}`) };
+        }
+        return { id, provider, ok: true };
+      }
+
+      // Mirrors api/gemini.js's exact non-streaming generateContent request shape.
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(id)}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }],
+          generationConfig: { maxOutputTokens: 8, temperature: 0.7 },
+        }),
+        signal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return { id, provider, ok: false, status: res.status, error: truncateErr(errText || `Gemini error ${res.status}`) };
+      }
+      return { id, provider, ok: true };
+    }
+
+    return { id, provider, ok: false, error: `Unknown provider "${provider}"` };
+  } catch (err) {
+    const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    return { id, provider, ok: false, error: truncateErr(isTimeout ? 'Request timed out' : (err && err.message) || String(err)) };
+  }
+}
+
+function buildModelHealthPrompt(liveResults) {
+  const today = new Date().toISOString().slice(0, 10);
+  const modelList = MODEL_REGISTRY.map((m) => `- ${m.id} (${m.provider}, ${m.kind}) — ${m.usedIn}`).join('\n');
+  const liveSummary = JSON.stringify(
+    liveResults.map((r) => ({ id: r.id, provider: r.provider, ok: r.ok ?? null, skipped: !!r.skipped, status: r.status ?? null, error: r.error || null })),
+    null,
+    2
+  );
+
+  return `Today's date is ${today}. You are auditing the AI MODELS this marketing platform depends on in production — not any specialist agent's prompt or workflow, the underlying model dependencies themselves.
+
+## MODELS ACTUALLY IN USE TODAY
+${modelList}
+
+## LIVE PRODUCTION TEST RESULTS (just run, moments ago, against the real APIs)
+${liveSummary}
+
+Any model above marked "ok": false is a CONFIRMED, currently-happening failure against the real production API — not something to verify, something already proven broken right now. A model marked "skipped": true simply has no API key configured in this environment for testing; that is not evidence of a model problem.
+
+## YOUR TASK
+1. Use web search to check, for EACH model listed above, current (this year, dated) information on:
+   - Whether it has been deprecated, or has an announced sunset/retirement date.
+   - Whether a newer model in the same family/tier from the same provider has been released with better price and/or performance, that this app should consider migrating to.
+   - Anything else about to break: an announced upcoming API change to that model or its request/response shape (the kind of thing that already broke this app once — OpenAI renamed max_tokens to max_completion_tokens for its newer models, silently breaking every caller until a customer hit the error).
+2. Never guess or state a pricing/capability comparison you did not find via search. If you cannot find current information for a model, say so plainly rather than reasoning from training data.
+3. Call submit_agent_audit_finding with your structured findings. Merge the live test results above into your gaps/summary using the exact verbatim error text for anything that failed live — do not paraphrase it.
+4. Set upToDate to true only if every model tested live is healthy AND you found no deprecation/sunset/imminent-breaking-change risk for any model in the list.
+
+Search first, then call submit_agent_audit_finding as your final action. Do not respond with plain text.`;
+}
+
+async function auditModelHealth(apiKey, liveTestResults) {
+  const anyLiveFailure = liveTestResults.some((r) => r.ok === false);
+
+  const body = {
+    model: MODEL,
+    max_tokens: 2000,
+    messages: [{ role: 'user', content: buildModelHealthPrompt(liveTestResults) }],
+    tools: [
+      { type: 'web_search_20250305', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES_PER_AGENT },
+      FINDING_TOOL,
+    ],
+  };
+
+  let finding;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: anthropicHeaders(apiKey),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(PER_AGENT_TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error?.message || `Anthropic error ${res.status}`);
+    if (data.stop_reason === 'pause_turn') {
+      throw new Error('Search took too long and paused mid-turn — treating as a timeout for this run (will retry next scheduled audit).');
+    }
+    const toolUse = (data.content || []).find((b) => b.type === 'tool_use' && b.name === 'submit_agent_audit_finding');
+    if (!toolUse) throw new Error('Claude did not return a structured finding for model health.');
+    finding = toolUse.input;
+  } catch (err) {
+    // The research call failing does not excuse us from surfacing confirmed
+    // live-test failures — those are ground truth measured moments ago,
+    // independent of whether Claude's research call succeeded.
+    finding = {
+      upToDate: !anyLiveFailure,
+      summary: `Model-health research call failed (${err.message}); reporting live test results only.`,
+      gaps: [],
+      recommendations: [],
+      securityNotes: [],
+      sources: [],
+    };
+  }
+
+  // Live-test failures are ground truth. Merge them into gaps verbatim, and
+  // force upToDate false regardless of what Claude's research concluded — an
+  // LLM's judgment must never be allowed to soften or override a confirmed,
+  // currently-happening API failure.
+  const liveFailureGaps = liveTestResults
+    .filter((r) => r.ok === false)
+    .map((r) => `LIVE TEST FAILED for ${r.id} (${r.provider}): ${r.status ? `HTTP ${r.status} — ` : ''}${r.error}`);
+
+  const gaps = liveFailureGaps.concat(Array.isArray(finding.gaps) ? finding.gaps : []);
+  const upToDate = anyLiveFailure ? false : !!finding.upToDate;
+
+  return {
+    upToDate,
+    summary: finding.summary || '',
+    gaps,
+    recommendations: Array.isArray(finding.recommendations) ? finding.recommendations : [],
+    securityNotes: Array.isArray(finding.securityNotes) ? finding.securityNotes : [],
+    sources: Array.isArray(finding.sources) ? finding.sources : [],
+  };
+}
 
 const FINDING_TOOL = {
   name: 'submit_agent_audit_finding',
@@ -188,7 +474,27 @@ module.exports = withFailureReporting('api/cron-agent-audit', async function han
     return res.status(500).json({ error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.' });
   }
 
-  const results = await Promise.allSettled(AGENT_REGISTRY.map((agent) => auditOneAgent(apiKey, agent)));
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  const [results, modelHealthResult] = await Promise.all([
+    Promise.allSettled(AGENT_REGISTRY.map((agent) => auditOneAgent(apiKey, agent))),
+    (async () => {
+      try {
+        const liveTestResults = (await Promise.allSettled(
+          MODEL_REGISTRY.map((entry) => testModelLive(entry, { anthropic: apiKey, openai: openaiKey, gemini: geminiKey }))
+        )).map((r, i) => (r.status === 'fulfilled' ? r.value : { id: MODEL_REGISTRY[i].id, provider: MODEL_REGISTRY[i].provider, ok: false, error: truncateErr((r.reason && r.reason.message) || String(r.reason)) }));
+
+        const testedResults = liveTestResults.filter((r) => !r.skipped);
+        const finding = await auditModelHealth(apiKey, testedResults);
+        return { status: 'fulfilled', value: finding };
+      } catch (err) {
+        // Matches this file's own documented convention: no finding on a
+        // failed run — don't falsely flag as needing work.
+        return { status: 'fulfilled', value: { upToDate: true, summary: null, gaps: [], recommendations: [], securityNotes: [], sources: [], error: err instanceof Error ? err.message : String(err) } };
+      }
+    })(),
+  ]);
 
   const findings = results.map((result, i) => {
     const agent = AGENT_REGISTRY[i];
@@ -221,15 +527,34 @@ module.exports = withFailureReporting('api/cron-agent-audit', async function han
     };
   });
 
+  // The AI Model Health check is folded into the SAME run/findings array as
+  // every specialist agent — same run row, same insert, agent_key
+  // 'platform-model-health' (a reserved pseudo-agent-key; see
+  // supabase-agent-audits.sql).
+  const modelHealthFinding = modelHealthResult.value;
+  findings.push({
+    run_id: null,
+    agent_key: 'platform-model-health',
+    agent_label: 'AI Model Health (Platform Infrastructure)',
+    up_to_date: modelHealthFinding.error ? true : !!modelHealthFinding.upToDate,
+    summary: modelHealthFinding.summary || null,
+    gaps: modelHealthFinding.gaps || [],
+    recommendations: modelHealthFinding.recommendations || [],
+    security_notes: modelHealthFinding.securityNotes || [],
+    sources: modelHealthFinding.sources || [],
+    error: modelHealthFinding.error || null,
+  });
+
+  const agentCount = AGENT_REGISTRY.length + 1; // + AI Model Health
   const failedCount = findings.filter((f) => f.error).length;
   const flaggedCount = findings.filter((f) => !f.up_to_date).length;
   const status = failedCount === 0 ? 'completed' : (failedCount === findings.length ? 'failed' : 'partial');
 
-  const overallSummary = `Audited ${AGENT_REGISTRY.length} agents — ${flaggedCount} flagged with gaps, ${failedCount} failed to complete research${failedCount ? ' (will retry next scheduled run)' : ''}.`;
+  const overallSummary = `Audited ${agentCount} agents — ${flaggedCount} flagged with gaps, ${failedCount} failed to complete research${failedCount ? ' (will retry next scheduled run)' : ''}.`;
 
   const runInsert = await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_runs', {
     status,
-    agent_count: AGENT_REGISTRY.length,
+    agent_count: agentCount,
     flagged_count: flaggedCount,
     overall_summary: overallSummary,
   });
@@ -246,5 +571,11 @@ module.exports = withFailureReporting('api/cron-agent-audit', async function han
     return res.status(502).json({ error: 'Run created but failed to save findings.', runId, detail: findingsInsert.data });
   }
 
-  return res.json({ success: true, runId, status, agentCount: AGENT_REGISTRY.length, flaggedCount, failedCount, overallSummary });
+  return res.json({ success: true, runId, status, agentCount, flaggedCount, failedCount, overallSummary });
 });
+
+// Exposed for tests/model-health/run.js only — Vercel invokes module.exports
+// directly as a function, so these extra properties are inert in production.
+module.exports.MODEL_REGISTRY = MODEL_REGISTRY;
+module.exports.testModelLive = testModelLive;
+module.exports.auditModelHealth = auditModelHealth;

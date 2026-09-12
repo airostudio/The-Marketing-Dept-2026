@@ -5037,6 +5037,53 @@ const AgentAudit = (() => {
         if (!localStorage.getItem(DISMISS_KEY_PREFIX + run.id)) {
             InfoPanel.logActivity('🛰️', `New agent audit ready — ${run.flagged_count ?? 0} of ${run.agent_count ?? 0} agents flagged for review`);
         }
+
+        // Bridge the AI Model Health finding (if this run flagged one) into
+        // Scotty's review/approval flow. Detection-only, same as every other
+        // finding here — there is nothing to auto-apply, so ReviewInbox.decide()
+        // just records the owner's verdict with no special write-back (its
+        // sourceRef.store won't match any of the known stores there, which is
+        // exactly the correct, safe behavior for this finding type).
+        await queueModelHealthFinding(sb, run.id);
+    }
+
+    async function queueModelHealthFinding(sb, runId) {
+        if (!window.ReviewQueue) return; // review-queue.js loads later in the page; init() runs on DOMContentLoaded, after it has executed
+        try {
+            const { data: finding, error } = await sb
+                .from('agent_audit_findings')
+                .select('*')
+                .eq('run_id', runId)
+                .eq('agent_key', 'platform-model-health')
+                .limit(1)
+                .maybeSingle();
+            if (error || !finding) return;
+            if (finding.up_to_date) return;
+            const gaps = Array.isArray(finding.gaps) ? finding.gaps : [];
+            const recs = Array.isArray(finding.recommendations) ? finding.recommendations : [];
+            if (!gaps.length && !recs.length) return;
+
+            // Join the gaps and recommendation texts into one readable block,
+            // exactly as data — never paraphrased or invented.
+            const lines = [];
+            if (finding.summary) lines.push(finding.summary);
+            if (gaps.length) lines.push('Gaps:', ...gaps.map(g => `- ${g}`));
+            if (recs.length) lines.push('Recommendations:', ...recs.map(r => `- [${r.impact || 'medium'}] ${r.text}`));
+
+            // ReviewQueue.send() already dedupes on `${sourceRef.store}:${sourceRef.id}`
+            // against still-open items, so calling this on every init() (every
+            // page load) does not re-queue the same finding twice.
+            window.ReviewQueue.send([{
+                source: 'platform-model-health',
+                type: 'needs_approval',
+                title: 'AI Model Health: action needed',
+                preview: lines.join('\n'),
+                payload: finding,
+                sourceRef: { store: 'agent_audit_findings', id: finding.id },
+                link: null,
+                priority: 'high',
+            }]);
+        } catch (e) { /* best-effort — never block the audit card on this */ }
     }
 
     return { init };
