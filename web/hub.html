@@ -454,6 +454,8 @@
         /* ── Agent Grid ── */
         .agents-wrap { margin-bottom: 48px; }
         .scotty-row { margin-bottom: 16px; }
+        .carol-row { margin-bottom: 16px; }
+        .card-reports-to { font-size: 11px; color: var(--text3); margin-top: 4px; }
         .agents-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 
         .agent-card {
@@ -515,6 +517,25 @@
         }
 
         .scotty-desc { font-size: 14px; color: var(--text2); line-height: 1.65; max-width: 580px; margin-bottom: 14px; }
+
+        /* Carol card — same full-width row treatment as Scotty's (she sits
+           directly under him, not in the narrow 3-column specialist grid),
+           with her own fixed-size cropped photo rather than the grid cards'
+           edge-to-edge portrait banner, which stretches badly at full
+           page width. */
+        .agent-card.carol-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 22px 32px;
+            border-color: rgba(217,70,239,0.25);
+            background: rgba(217,70,239,0.04);
+        }
+        .agent-card.carol-card:hover {
+            box-shadow: 0 16px 48px rgba(217,70,239,0.30), 0 0 0 1px rgba(217,70,239,0.30);
+            border-color: rgba(217,70,239,0.45);
+        }
+        .carol-photo { width: 90px; height: 105px; object-fit: cover; object-position: 50% 12%; border-radius: 12px; display: block; box-shadow: 0 12px 32px rgba(217,70,239,0.35), 0 0 0 1px rgba(217,70,239,0.25); flex-shrink: 0; margin-right: 20px; }
+        .carol-body { flex: 1; }
 
         /* Portrait cards */
         .card-portrait-area {
@@ -755,6 +776,7 @@
             <a href="/intelligence/business-brain.html">Intelligence</a>
             <a href="/history.html">History</a>
             <a href="/dashboard.html">Dashboard</a>
+            <a href="/tools.html">Tools</a>
         </div>
 
         <div id="site-switcher-mount"></div>
@@ -795,7 +817,7 @@
                 <div class="intel-banner-icon">🛰️</div>
                 <div>
                     <h2>Intelligence Layer</h2>
-                    <p>The shared context brain all 14 agents draw from</p>
+                    <p>The shared context brain all 17 agents draw from</p>
                 </div>
             </div>
             <a href="/intelligence/business-brain.html" class="btn-configure">
@@ -852,7 +874,7 @@
             <h2>Meet Your Team</h2>
             <p>Click any agent to open their workspace</p>
         </div>
-        <span class="section-count">14 specialists + Scotty</span>
+        <span class="section-count">17 specialists + Scotty</span>
     </div>
 
     <!-- Team banner -->
@@ -861,7 +883,7 @@
         <div class="team-banner-overlay">
             <div class="team-banner-label">Your AI Marketing Department</div>
             <div class="team-banner-title">The Full Squad</div>
-            <div class="team-banner-sub">14 specialists + Scotty. One shared intelligence layer.</div>
+            <div class="team-banner-sub">17 specialists + Scotty. One shared intelligence layer.</div>
         </div>
     </div>
 
@@ -892,7 +914,22 @@
             </a>
         </div>
 
-        <!-- 13 Specialist Agents — 3-column grid -->
+        <!-- CAROL · Chief of Staff — sits directly under Scotty, not in the specialist grid -->
+        <div class="carol-row">
+            <a href="/agents/carol-agent.html" class="agent-card carol-card" data-char="carol">
+                <img class="carol-photo" src="/assets/agents/carol.jpg" alt="Carol" loading="lazy" onerror="this.style.display='none'">
+                <div class="carol-body">
+                    <div class="scotty-badge" style="color:#e879f9;">Chief of Staff</div>
+                    <div class="scotty-name" style="background:linear-gradient(135deg,#f1f5f9,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Carol</div>
+                    <p class="scotty-desc">Turns seventeen agents' worth of findings into the one briefing you actually read.</p>
+                    <span class="card-status-pill">Ready</span>
+                    <div class="card-reports-to">↳ Reports to Scotty</div>
+                </div>
+                <span class="card-arrow">→</span>
+            </a>
+        </div>
+
+        <!-- 17 Specialist Agents — 3-column grid -->
         <div class="agents-3col">
 
             <!-- INK · Content Studio -->

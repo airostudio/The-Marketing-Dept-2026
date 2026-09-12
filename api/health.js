@@ -5,11 +5,22 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-module.exports = async function handler(req, res) {
+const { requireAdmin } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
+module.exports = withFailureReporting('api/health', async function handler(req, res) {
   // Allow GET requests for easy browser testing
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
   }
+
+  // This endpoint served the deployment's configuration to anyone who asked:
+  // which API keys exist, how long they are, and the names of every
+  // Anthropic/Claude/API_KEY/Vercel environment variable. That is a map of the
+  // system for someone deciding what to attack. It is an operator tool, so it
+  // now answers operators only.
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   const diagnostics = {
     timestamp: new Date().toISOString(),
@@ -39,8 +50,22 @@ module.exports = async function handler(req, res) {
       diagnostics.status = 'degraded';
     }
 
-    // Show first/last 4 characters for verification (NEVER expose full key)
-    diagnostics.checks.apiKeyPreview = `${apiKey.substring(0, 11)}...${apiKey.substring(apiKey.length - 4)}`;
+    // No preview. "Only 15 of the characters" is still 15 characters of a
+    // live secret in a log, a screenshot or a bug report, and it buys nothing
+    // that `configured: true` plus the format check has not already told an
+    // operator.
+    //
+    // A fingerprint does buy something the format check cannot: it answers
+    // "is the key I just rotated to the one actually serving traffic?"
+    // SHA-256 is one-way, so the digest can sit in a screenshot safely, and
+    // it can be reproduced from the new key without revealing either:
+    //
+    //   printf '%s' "$NEW_KEY" | sha256sum | cut -c1-12
+    //
+    // Matching digests mean the deployment picked up the rotation. Different
+    // digests mean it did not, which is the whole point of having this.
+    diagnostics.checks.apiKeyFingerprint =
+      require('crypto').createHash('sha256').update(apiKey).digest('hex').slice(0, 12);
   } else {
     diagnostics.checks.apiKeyConfigured = false;
     diagnostics.checks.apiKeyFormat = 'missing';
@@ -61,7 +86,11 @@ module.exports = async function handler(req, res) {
     total: Object.keys(envVars).length,
     relevant: relevantEnvVars,
     hasAnthropicApiKey: 'ANTHROPIC_API_KEY' in envVars,
-    hasClaudeApiKey: 'CLAUDE_API_KEY' in envVars,
+    // These two are no longer read by anything. If either is still set after
+    // a rotation it is an old credential sitting in the environment doing
+    // nothing but waiting to be leaked — worth seeing here so it gets removed.
+    staleKeyVariablesStillSet: ['CLAUDE_API_KEY', 'NEXT_PUBLIC_ANTHROPIC_API_KEY']
+      .filter(function (k) { return k in envVars; }),
   };
 
   // Return appropriate status code
@@ -69,4 +98,4 @@ module.exports = async function handler(req, res) {
                      diagnostics.status === 'degraded' ? 207 : 500;
 
   return res.status(statusCode).json(diagnostics);
-}
+});

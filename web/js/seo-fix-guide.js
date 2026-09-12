@@ -642,9 +642,14 @@ window.SEOFixGuide = (function() {
      * Escape HTML for safe display
      */
     function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        // Escapes quotes as well as &<> — this is used inside attributes
+        // (value="...", href="...") as well as between tags, and the
+        // textContent/innerHTML trick this replaced left quotes alone, so a
+        // " in the value ended the attribute and the rest was parsed as more
+        // attributes on the tag. See web/js/escape-html.js.
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     /**

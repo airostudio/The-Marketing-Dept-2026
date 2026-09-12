@@ -554,18 +554,46 @@ class BusinessBrain {
  */
 class CompetitiveRadar {
   constructor() {
-    /** @private */
-    this._key = STORAGE_KEYS.COMPETITIVE_RADAR;
+    /** @private legacy global key, kept for one-time migration into scoped storage */
+    this._legacyKey = STORAGE_KEYS.COMPETITIVE_RADAR;
+  }
+
+  /**
+   * Scoped storage key — mirrors BusinessBrain._key()'s scope resolution
+   * (active intelligence profile > current project > 'default'). This used
+   * to be a single global bucket (STORAGE_KEYS.COMPETITIVE_RADAR, unscoped),
+   * so a multi-project user saw Scout's gaps/moves/borrowed ideas bleed
+   * across every project rather than staying per-client like BusinessBrain/
+   * ContactsStore/SocialPosts/SEOPipeline already do.
+   * @private
+   */
+  _key() {
+    const profileId = localStorage.getItem('intel_active_profile');
+    if (profileId) return `${STORAGE_KEYS.COMPETITIVE_RADAR}__profile_${profileId}`;
+    const projectId = localStorage.getItem('seo-current-project');
+    return `${STORAGE_KEYS.COMPETITIVE_RADAR}__${projectId || 'default'}`;
   }
 
   /** @private */
   _load() {
-    return _lsGet(this._key) || { competitors: [] };
+    const scoped = _lsGet(this._key());
+    if (scoped) return scoped;
+    // One-time migration: the first scope to load after this change inherits
+    // whatever was in the old global bucket (rather than every future scope
+    // re-copying it), so pre-existing competitor data isn't silently lost —
+    // it just settles into whichever project loads Scout first.
+    const legacy = _lsGet(this._legacyKey);
+    if (legacy) {
+      _lsSet(this._key(), legacy);
+      localStorage.removeItem(this._legacyKey);
+      return legacy;
+    }
+    return { competitors: [] };
   }
 
   /** @private */
   _save(data) {
-    _lsSet(this._key, data);
+    _lsSet(this._key(), data);
     return data;
   }
 
@@ -1600,10 +1628,13 @@ class IntelligenceEngine {
     }
 
     Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
-    // Business Brain is stored per-project (STORAGE_KEYS.BUSINESS_BRAIN + '__' + projectId) —
-    // remove every project-scoped bucket too, not just the legacy global key.
+    // Business Brain and the Competitive Radar are both stored per-project
+    // (STORAGE_KEYS.*_KEY + '__' + scopeId) — remove every scoped bucket
+    // too, not just the legacy global key, or a sign-out "clear everything"
+    // leaves another account's next sign-in able to read the previous
+    // account's per-project competitor data.
     Object.keys(localStorage)
-      .filter(k => k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`))
+      .filter(k => k.startsWith(`${STORAGE_KEYS.BUSINESS_BRAIN}__`) || k.startsWith(`${STORAGE_KEYS.COMPETITIVE_RADAR}__`))
       .forEach(k => localStorage.removeItem(k));
     console.info('[IntelligenceEngine] All intelligence stores cleared.');
   }

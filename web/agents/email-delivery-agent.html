@@ -282,6 +282,8 @@
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
@@ -424,6 +426,7 @@
                 lastReview = await window.EmailDeliveryService.reviewWithScotty(campaign);
                 renderReview(lastReview);
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery pre-send review failed: ' + e.message, { where: 'email-delivery-agent.runReview' });
                 body.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">⚠️ Review failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>
                 <div class="btn-row"><button class="btn-secondary" onclick="EDA.runReview()">Retry Review</button></div>`;
             }
@@ -512,6 +515,7 @@
                     });
                 }
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery send failed: ' + e.message, { where: 'email-delivery-agent.send' });
                 progressEl.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">Send failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '🚀 Send Campaign Now';
@@ -632,7 +636,7 @@
     async function loadConnectionStatus() {
         const row = document.getElementById('connStatusRow');
         try {
-            const res = await fetch('/api/social-connections-status');
+            const res = await fetch('/api/social-connections-status', { headers: await window.sendAuthHeaders() });
             const status = await res.json();
             const platforms = ['LinkedIn', 'Meta/Facebook', 'Instagram', 'Twitter/X', 'TikTok'];
             row.innerHTML = platforms.map(p => {
@@ -711,7 +715,7 @@
         try {
             const res = await fetch('/api/publish-social-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platform: post.platform, headline: post.headline, body: post.body,
                     cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '',
@@ -894,7 +898,7 @@
         try {
             const res = await fetch('/api/send-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     to: item.to, subject: item.subject,
                     html: plainTextToHtml(item.body), text: item.body,

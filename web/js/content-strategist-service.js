@@ -401,32 +401,40 @@
                 itemAudits: []
             };
 
-            var qualitySum = 0;
-            var seoSum = 0;
-            var engagementSum = 0;
-            var freshnessSum = 0;
+            // Average each dimension over the items that actually have a
+            // score for it. Engagement is null wherever no analytics exist,
+            // and summing nulls would produce NaN or, worse, silently drag
+            // the average toward zero.
+            var sums = { quality: 0, seo: 0, engagement: 0, freshness: 0 };
+            var counts = { quality: 0, seo: 0, engagement: 0, freshness: 0 };
 
             contentItems.forEach(function(item) {
                 var itemAudit = ContentAudit.auditItem(item);
                 auditResults.itemAudits.push(itemAudit);
-
-                qualitySum += itemAudit.scores.quality;
-                seoSum += itemAudit.scores.seo;
-                engagementSum += itemAudit.scores.engagement;
-                freshnessSum += itemAudit.scores.freshness;
+                Object.keys(sums).forEach(function (k) {
+                    if (typeof itemAudit.scores[k] === 'number') {
+                        sums[k] += itemAudit.scores[k];
+                        counts[k]++;
+                    }
+                });
             });
 
-            var count = contentItems.length || 1;
-            auditResults.scores.quality = Math.round(qualitySum / count);
-            auditResults.scores.seo = Math.round(seoSum / count);
-            auditResults.scores.engagement = Math.round(engagementSum / count);
-            auditResults.scores.freshness = Math.round(freshnessSum / count);
-            auditResults.scores.overall = Math.round(
-                (auditResults.scores.quality * 0.3) +
-                (auditResults.scores.seo * 0.25) +
-                (auditResults.scores.engagement * 0.25) +
-                (auditResults.scores.freshness * 0.2)
-            );
+            Object.keys(sums).forEach(function (k) {
+                auditResults.scores[k] = counts[k] > 0 ? Math.round(sums[k] / counts[k]) : null;
+            });
+
+            var weights = { quality: 0.30, seo: 0.25, engagement: 0.25, freshness: 0.20 };
+            var totalWeight = 0, weighted = 0;
+            Object.keys(weights).forEach(function (k) {
+                if (typeof auditResults.scores[k] === 'number') {
+                    weighted += auditResults.scores[k] * weights[k];
+                    totalWeight += weights[k];
+                }
+            });
+            auditResults.scores.overall = totalWeight > 0 ? Math.round(weighted / totalWeight) : null;
+            auditResults.scoredDimensions = Object.keys(weights).filter(function (k) {
+                return typeof auditResults.scores[k] === 'number';
+            });
 
             // Generate recommendations
             auditResults.recommendations = ContentAudit.generateRecommendations(auditResults);
@@ -472,15 +480,28 @@
             if (item.description && item.description.length >= 120 && item.description.length <= 160) seoScore += 15;
             audit.scores.seo = Math.min(100, seoScore);
 
-            // Engagement Score (based on metrics)
-            var engagementScore = 50;
-            if (item.metrics) {
-                if (item.metrics.views > 100) engagementScore += 15;
-                if (item.metrics.engagement > 5) engagementScore += 15;
-                if (item.metrics.shares > 10) engagementScore += 10;
-                if (item.metrics.conversions > 0) engagementScore += 10;
+            // Engagement Score — only when there is real performance data.
+            //
+            // This used to start at 50 and add points from item.metrics. But
+            // metrics is initialised to { views: 0, engagement: 0, shares: 0,
+            // conversions: 0 } and nothing in the app ever populates it from
+            // an analytics source, so every piece of content scored exactly
+            // 50 — a constant, presented as a measurement of engagement, and
+            // weighted 25% into the overall audit score. Null means "no
+            // analytics connected", and the overall calculation below
+            // redistributes that weight instead of counting the constant.
+            var m = item.metrics || {};
+            var hasRealMetrics = (m.views > 0 || m.engagement > 0 || m.shares > 0 || m.conversions > 0);
+            if (!hasRealMetrics) {
+                audit.scores.engagement = null;
+            } else {
+                var engagementScore = 50;
+                if (m.views > 100) engagementScore += 15;
+                if (m.engagement > 5) engagementScore += 15;
+                if (m.shares > 10) engagementScore += 10;
+                if (m.conversions > 0) engagementScore += 10;
+                audit.scores.engagement = Math.min(100, engagementScore);
             }
-            audit.scores.engagement = Math.min(100, engagementScore);
 
             // Freshness Score
             var freshnessScore = 100;
@@ -496,13 +517,22 @@
             }
             audit.scores.freshness = Math.max(0, freshnessScore);
 
-            // Overall
-            audit.scores.overall = Math.round(
-                (audit.scores.quality * 0.3) +
-                (audit.scores.seo * 0.25) +
-                (audit.scores.engagement * 0.25) +
-                (audit.scores.freshness * 0.2)
-            );
+            // Overall — weighted across the dimensions actually measured.
+            // When engagement is unavailable its 25% is redistributed over
+            // the rest rather than filled with a placeholder, so the overall
+            // never inherits a number nobody measured.
+            var weights = { quality: 0.30, seo: 0.25, engagement: 0.25, freshness: 0.20 };
+            var totalWeight = 0, weighted = 0;
+            Object.keys(weights).forEach(function (k) {
+                if (typeof audit.scores[k] === 'number') {
+                    weighted += audit.scores[k] * weights[k];
+                    totalWeight += weights[k];
+                }
+            });
+            audit.scores.overall = totalWeight > 0 ? Math.round(weighted / totalWeight) : null;
+            audit.scoredDimensions = Object.keys(weights).filter(function (k) {
+                return typeof audit.scores[k] === 'number';
+            });
 
             // Generate issues and suggestions
             if (audit.scores.quality < 70) {
@@ -552,12 +582,23 @@
                 });
             }
 
-            if (auditResults.scores.engagement < 60) {
+            // `null < 60` is true in JavaScript, so without the type guard
+            // this fired "Boost Content Engagement" for every account that
+            // simply has no analytics connected — advice about performance
+            // nobody had measured.
+            if (typeof auditResults.scores.engagement === 'number' && auditResults.scores.engagement < 60) {
                 recommendations.push({
                     type: 'engagement',
                     priority: 'medium',
                     title: 'Boost Content Engagement',
                     description: 'Consider adding more engaging elements like visuals, CTAs, or interactive components to increase engagement metrics.'
+                });
+            } else if (auditResults.scores.engagement === null) {
+                recommendations.push({
+                    type: 'engagement',
+                    priority: 'low',
+                    title: 'Connect analytics to measure engagement',
+                    description: 'No view, share or conversion data is recorded against this content, so engagement could not be scored and is excluded from the overall figure.'
                 });
             }
 

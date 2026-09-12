@@ -29,10 +29,45 @@
 
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 
 module.exports.config = { api: { bodyParser: false } };
 
 const TOLERANCE_SECONDS = 300; // reject signatures on requests older/newer than 5 min — replay protection
+
+// Resend's event names mapped to the column vocabulary in
+// supabase-email-events.sql. Anything not listed here is ignored rather than
+// stored under a guessed type.
+const EVENT_TYPES = {
+  'email.sent':             'sent',
+  'email.delivered':        'delivered',
+  'email.delivery_delayed': 'delivery_delayed',
+  'email.opened':           'opened',
+  'email.clicked':          'clicked',
+  'email.bounced':          'bounced',
+  'email.complained':       'complained',
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(v) { return typeof v === 'string' && UUID_RE.test(v); }
+
+/**
+ * Resend sends tags back as an array of {name, value} — the same shape they
+ * were submitted in — not as the object this handler originally assumed.
+ * Reading `tags.contact_id` off an array yields undefined, so the contact
+ * would never be found. Both shapes are accepted.
+ */
+function normaliseTags(tags) {
+  if (!tags) return {};
+  if (Array.isArray(tags)) {
+    const out = {};
+    tags.forEach((t) => {
+      if (t && typeof t.name === 'string') out[t.name] = t.value;
+    });
+    return out;
+  }
+  return typeof tags === 'object' ? tags : {};
+}
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -63,7 +98,7 @@ function verifySignature(secret, id, timestamp, rawBody, signatureHeader) {
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/resend-webhook', async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const secret = process.env.RESEND_WEBHOOK_SECRET;
@@ -92,9 +127,46 @@ module.exports = async function handler(req, res) {
 
   const type = event && event.type;
   const data = (event && event.data) || {};
-  const tags = data.tags || {};
+  const tags = normaliseTags(data.tags);
   const contactId = tags.contact_id;
+  const campaignId = tags.campaign_id;
 
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // ── Record the engagement event ───────────────────────────────────────
+  // This endpoint used to act only on bounces and complaints and drop
+  // everything else on the floor. Opens and clicks were therefore never
+  // recorded anywhere, and every campaign reported a 0.0% open rate — which
+  // reads as "nobody opened it" rather than "nothing was counted".
+  const eventType = EVENT_TYPES[type];
+  if (eventType && supabaseUrl && serviceKey) {
+    const row = {
+      campaign_id: campaignId || null,
+      contact_id:  isUuid(contactId) ? contactId : null,
+      event_type:  eventType,
+      email_id:    data.email_id || null,
+      recipient:   Array.isArray(data.to) ? data.to[0] : (data.to || null),
+      link_url:    (data.click && data.click.link) || null,
+      occurred_at: data.created_at || event.created_at || new Date().toISOString(),
+    };
+
+    // A conflict is Resend retrying a webhook it already delivered, which is
+    // normal and must not double-count. Swallow it rather than 500 — a 500
+    // makes Resend retry again, forever.
+    const ins = await sbRest(supabaseUrl, serviceKey, 'POST', '/email_events', row);
+    if (!ins.ok && ins.status !== 409) {
+      // A missing table means the migration has not been run. Say so in the
+      // log, but still return 200: refusing the delivery would make Resend
+      // retry an event we have nowhere to put.
+      console.warn('[resend-webhook] could not record event',
+        ins.status === 404
+          ? 'email_events table does not exist — run supabase-email-events.sql'
+          : `HTTP ${ins.status}`);
+    }
+  }
+
+  // ── Suppress future sends where the event demands it ──────────────────
   // Only a permanent bounce or a spam complaint suppresses future sends —
   // a transient bounce (full mailbox, greylisting) isn't a reason to stop
   // emailing someone, so it's intentionally left unhandled here.
@@ -102,15 +174,11 @@ module.exports = async function handler(req, res) {
   if (type === 'email.complained') newStatus = 'complained';
   if (type === 'email.bounced' && data.bounce && data.bounce.type === 'Permanent') newStatus = 'bounced';
 
-  if (newStatus && contactId) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (supabaseUrl && serviceKey) {
-      await sbRest(supabaseUrl, serviceKey, 'PATCH', `/contacts?id=eq.${encodeURIComponent(contactId)}`, { status: newStatus });
-    }
+  if (newStatus && contactId && supabaseUrl && serviceKey) {
+    await sbRest(supabaseUrl, serviceKey, 'PATCH', `/contacts?id=eq.${encodeURIComponent(contactId)}`, { status: newStatus });
   }
 
   // 200 + no body is all Resend/Svix requires to consider this delivered —
   // returning JSON here is just for anyone poking the endpoint by hand.
   return res.status(200).json({ received: true });
-};
+});

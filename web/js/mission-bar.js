@@ -23,6 +23,7 @@ window.MissionBar = (function () {
     'compliance-automation': { icon: '🔒', name: 'Enterprise Compliance' },
     competitive: { icon: '🕵️', name: 'Competitive' }, nancy: { icon: '📸', name: 'Instagram' },
     blade: { icon: '🗡️', name: 'Blade' }, email_delivery: { icon: '📬', name: 'Pat' },
+    carol: { icon: '🗂️', name: 'Carol' },
   };
 
   function meta(agentKey) { return META[agentKey] || { icon: '🤖', name: agentKey }; }

@@ -20,22 +20,14 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { safeFetch } = require('./_lib/safe-fetch.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 40;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 const PAGE_TIMEOUT_MS = 7000;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -55,19 +47,14 @@ const OLD_GENERATOR_PATTERNS = [
   /Drupal\s+[1-6]\b/i,
 ];
 
+// Shape check only. The address check that matters lives in
+// api/_lib/safe-fetch.js and runs at fetch time below, because it has to
+// resolve the hostname and re-check each redirect — neither of which a
+// synchronous string test can do.
 function parseTarget(raw) {
   const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
   const target = new URL(withProto);
   if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-  const h = target.hostname.toLowerCase();
-  if (
-    h === 'localhost' || h.endsWith('.local') || h === '0.0.0.0' ||
-    h === '169.254.169.254' ||
-    /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-    h === '::1'
-  ) {
-    throw new Error('Private/internal addresses not allowed');
-  }
   return target;
 }
 
@@ -104,15 +91,20 @@ function analyseHtml(html, finalUrl) {
   return { status: score >= 2 ? 'outdated' : 'modern', signals, reasons };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/blade-website-check', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'blade-website-check', max: 40, windowMs: 60 * 1000, auth })) return;
 
   const { website } = req.body || {};
   if (!website || !String(website).trim()) return res.status(400).json({ error: 'website is required' });
@@ -125,14 +117,13 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(target.href, {
+    const response = await safeFetch(target.href, {
       method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+      timeoutMs: PAGE_TIMEOUT_MS,
       headers: { 'User-Agent': 'NancyJamFancy/1.0 (+content research bot)', 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
     });
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       return res.json({ success: true, status: 'unreachable', signals: {}, reasons: [`Site responded with ${response.status}`] });
     }
 
@@ -147,4 +138,4 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     return res.json({ success: true, status: 'unreachable', signals: {}, reasons: ['Site did not respond'] });
   }
-};
+});

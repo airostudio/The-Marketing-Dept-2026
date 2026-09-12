@@ -1127,7 +1127,16 @@
 <div class="save-toast" id="saveToast">✓ Saved</div>
 
 <script src="../js/marked.min.js"></script>
+<!-- This page sends email through /api/send-email, which now identifies the
+     sending account from the caller's session. It had no auth stack at all,
+     so the send would have had no identity to present. Standard load order:
+     supabase.min.js → config.js → supabase-client.js → auth.js. -->
+<script src="/js/supabase.min.js"></script>
 <script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/claude-service.js"></script>
 <script>
@@ -1441,7 +1450,7 @@ async function enrichProspect(id) {
 
     const res = await fetch('/api/lead-enrich', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error('Enrichment API error');
@@ -1612,7 +1621,7 @@ async function dispatchEmail() {
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ to, subject, html, text: rawBody, prospectId }),
     });
     const data = await res.json();
@@ -1953,7 +1962,7 @@ async function runSignalFinder() {
   try {
     const res = await fetch('/api/lead-signals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ company, domain: domain || undefined }),
     });
     const data = await res.json();
@@ -1998,7 +2007,7 @@ async function detectProspectSignals(prospectId) {
   try {
     const res = await fetch('/api/lead-signals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ company: p.company, domain: p.domain || undefined }),
     });
     const data = await res.json();
@@ -2046,7 +2055,7 @@ async function draftOutreach(prospectId) {
   try {
     const res = await fetch('/api/outreach-draft', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await window.sendAuthHeaders(),
       body: JSON.stringify({ prospect, seller, signals: p.signals || [] }),
     });
     const data = await res.json();

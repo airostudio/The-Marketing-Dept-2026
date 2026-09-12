@@ -602,6 +602,9 @@
     </div>
 </div>
 
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
 <script src="../js/marked.min.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -824,6 +827,23 @@ Format as a proper production script with clear section headers and timestamps.`
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Generating..." forever. Every setTimeout on this page was a
+        // button-label flash or a poll interval; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            btnIcon.textContent = '🎬';
+            btnText.textContent = 'Generate Script';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 90 seconds. The AI API may be unreachable or overloaded — press Generate Script to try again.</div>';
+            if (window.reportFailure) window.reportFailure('Video Studio script generation timed out after 90s', { where: 'video-agent.run' });
+            releaseButton();
+        }, 90000);
+
         try {
             if (window.ClaudeService) {
                 let fullText = '';
@@ -838,23 +858,14 @@ Format as a proper production script with clear section headers and timestamps.`
                         outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'video', taskType: videoType || 'Video Script', content: text, topic: topic || '' });
 
-                        // Add video generation button if Tavus API available
-                        if (window.ApiConnector?.VideoGeneration?.tavus?.isAvailable()) {
-                            const videoGenBtn = document.createElement('div');
-                            videoGenBtn.style.cssText = 'margin-top:20px;padding:16px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:12px;';
-                            videoGenBtn.innerHTML = `
-                                <div style="display:flex;align-items:center;gap:12px;">
-                                    <div style="flex:1;">
-                                        <div style="font-weight:600;margin-bottom:4px;color:#a78bfa;">🎥 AI Video Generation Available</div>
-                                        <div style="font-size:13px;color:rgba(255,255,255,0.6);">Transform this script into an AI-generated video with Tavus</div>
-                                    </div>
-                                    <button onclick="generateAIVideo()" style="padding:10px 20px;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer;font-size:14px;">Generate Video</button>
-                                </div>
-                                <div id="videoGenStatus" style="margin-top:12px;display:none;"></div>
-                                <div id="videoPreview" style="margin-top:12px;display:none;"></div>
-                            `;
-                            outputBody.appendChild(videoGenBtn);
-                        }
+                        // The Tavus avatar-video CTA that used to sit here is gone.
+                        // It only appeared when a Tavus API key was placed in
+                        // browser config — a paid secret that must never be in a
+                        // page — and it called tavusapi.com directly, which a
+                        // browser blocks on CORS regardless. It could not work,
+                        // and its failure message told customers to add a key in
+                        // Settings that would have been unsafe to add. The
+                        // Seedance handoff below is the real, server-proxied path.
 
                         // Open the Seedance 2.0 AI Video Generator in a new window,
                         // prefilled with a scene prompt distilled from this script.
@@ -876,114 +887,50 @@ Format as a proper production script with clear section headers and timestamps.`
                         window.lastGeneratedVideoType = videoType;
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escapeHtmlVG(err.message)}</div>`;
+                        if (window.reportFailure) window.reportFailure('Video Studio generation failed: ' + err.message, { where: 'video-agent.run' });
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered script generation.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escapeHtmlVG(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Video Studio generation failed: ' + e.message, { where: 'video-agent.run' });
         } finally {
-            btn.disabled = false;
-            btnIcon.textContent = '🎬';
-            btnText.textContent = 'Generate Script';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 
     function copyOutput() {
+        // On first run there is no output at all: `outputBody` is only created
+        // when a generation starts, so the old `if (!body) return;` made Copy a
+        // button that did nothing and said nothing. Tell the customer why
+        // instead, and never put a placeholder on the clipboard.
+        const btn = document.getElementById('copyBtn');
         const body = document.getElementById('outputBody');
-        if (!body) return;
-        const text = body.innerText || body.textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { flashCopy(btn, 'Nothing to copy yet'); return; }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopy(btn, 'Copied!', true),
+            () => flashCopy(btn, 'Copy failed')
+        );
     }
 
-    async function generateAIVideo() {
-        const scriptText = window.lastGeneratedScript;
-        if (!scriptText) {
-            alert('No script available. Generate a script first.');
-            return;
-        }
-
-        if (!window.ApiConnector?.VideoGeneration?.tavus?.isAvailable()) {
-            alert('⚠️ Tavus API not configured.\n\nAdd your Tavus API key in Settings → API Keys to generate AI videos.');
-            return;
-        }
-
-        const statusDiv = document.getElementById('videoGenStatus');
-        statusDiv.style.display = 'block';
-        statusDiv.innerHTML = '<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Creating AI video...</div>';
-
-        try {
-            // Create video with Tavus API
-            const response = await window.ApiConnector.VideoGeneration.tavus.createVideo({
-                script: scriptText,
-                avatar_id: null, // Use default avatar (user can customize later)
-                voice_id: null,  // Use default voice
-                background_url: null
-            });
-
-            if (!response || !response.video_id) {
-                throw new Error('Failed to create video job');
-            }
-
-            const videoId = response.video_id;
-            statusDiv.innerHTML = `<div style="color:#10b981;">✓ Video job created (ID: ${videoId})</div><div style="color:rgba(255,255,255,0.6);margin-top:4px;">Rendering... This may take 2-5 minutes.</div>`;
-
-            // Poll for video completion
-            pollVideoStatus(videoId);
-
-        } catch (error) {
-            statusDiv.innerHTML = `<div style="color:#f87171;">❌ Error: ${error.message}</div><div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">Check your Tavus API configuration in Settings.</div>`;
-        }
+    function flashCopy(btn, message, ok) {
+        if (!btn) return;
+        btn.textContent = message;
+        if (ok) btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
-    async function pollVideoStatus(videoId, attempts = 0) {
-        const maxAttempts = 60; // 5 minutes max (5s intervals)
-        const statusDiv = document.getElementById('videoGenStatus');
-        const previewDiv = document.getElementById('videoPreview');
-
-        if (attempts >= maxAttempts) {
-            statusDiv.innerHTML = '<div style="color:#f87171;">❌ Video generation timed out. Check Tavus dashboard for status.</div>';
-            return;
-        }
-
-        try {
-            const status = await window.ApiConnector.VideoGeneration.tavus.getVideoStatus(videoId);
-
-            if (status.status === 'completed' && status.download_url) {
-                // Video ready!
-                statusDiv.innerHTML = '<div style="color:#10b981;font-weight:600;">✓ Video generated successfully!</div>';
-                previewDiv.style.display = 'block';
-                previewDiv.innerHTML = `
-                    <video controls style="width:100%;max-width:600px;border-radius:8px;margin-top:8px;">
-                        <source src="${status.download_url}" type="video/mp4">
-                        Your browser does not support video playback.
-                    </video>
-                    <div style="margin-top:8px;">
-                        <a href="${status.download_url}" download style="display:inline-block;padding:8px 16px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Download Video</a>
-                    </div>
-                    <div class="video-card-ai-disclosure" style="padding:0;margin-top:10px;">⚠️ AI-generated video — put a visible "AI-generated" label on screen in the first few seconds (FTC guidance) and declare it as AI content when you upload to TikTok/Meta; both platforms require it on paid or organic AI video as of 2026.</div>
-                `;
-            } else if (status.status === 'failed') {
-                statusDiv.innerHTML = `<div style="color:#f87171;">❌ Video generation failed: ${status.error || 'Unknown error'}</div>`;
-            } else {
-                // Still processing — indeterminate status (Tavus does not report real progress)
-                statusDiv.innerHTML = `<div style="color:#a78bfa;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Rendering… (checking status, attempt ${attempts + 1})</div>`;
-
-                // Poll again in 5 seconds
-                setTimeout(() => pollVideoStatus(videoId, attempts + 1), 5000);
-            }
-
-        } catch (error) {
-            statusDiv.innerHTML = `<div style="color:#f87171;">❌ Error checking status: ${error.message}</div>`;
-        }
-    }
+    // generateAIVideo() and pollVideoStatus() lived here and drove the Tavus
+    // path described above. Both are removed rather than left dormant: dead
+    // code that reads like a feature is how the getApiKey guards elsewhere in
+    // this app survived so long. Video generation goes through
+    // generateAIVideoClip() → /api/generate-video, which holds its key
+    // server-side.
 
     // Enter key shortcut
     document.getElementById('topic').addEventListener('keydown', (e) => {
@@ -1008,9 +955,14 @@ Format as a proper production script with clear section headers and timestamps.`
     }
 
     function escapeHtmlVG(str) {
-        const d = document.createElement('div');
-        d.textContent = str || '';
-        return d.innerHTML;
+        // Escapes quotes as well as &<> — this is used inside attributes
+        // (value="...", href="...") as well as between tags, and the
+        // textContent/innerHTML trick this replaced left quotes alone, so a
+        // " in the value ended the attribute and the rest was parsed as more
+        // attributes on the tag. See web/js/escape-html.js.
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     const SCRIPT_HANDOFF_KEY = 'reel_script_handoff';
@@ -1138,9 +1090,21 @@ Format as a proper production script with clear section headers and timestamps.`
         if (!record || !record.taskId) return;
 
         if (attempts >= maxAttempts) {
-            window.VideoGenStore.update(recordId, { status: 'failed', error: 'Timed out waiting for Seedance.' });
+            // We stopped watching; that is not the same as the render failing.
+            // Marking it 'failed' asserted an outcome nobody observed, and —
+            // because only pending/processing records are resumed on reload —
+            // it also removed the only route back to a video the customer had
+            // already paid for and which was very likely still rendering.
+            window.VideoGenStore.update(recordId, {
+                status: 'processing',
+                error: null,
+                stoppedWatchingAt: new Date().toISOString(),
+            });
             renderGallery();
-            if (statusDiv) statusDiv.innerHTML = '<div style="color:#f87171;">❌ Video generation timed out. Check your Seedance dashboard for status.</div>';
+            if (statusDiv) statusDiv.innerHTML =
+                '<div style="color:#fbbf24;">⏳ Still rendering after ' + Math.round(maxAttempts * 5 / 60) +
+                ' minutes. We have stopped watching for now — it is kept in your gallery and will be ' +
+                'checked again when you reload this page, or press “Check again” on the card.</div>';
             return;
         }
 
@@ -1148,9 +1112,28 @@ Format as a proper production script with clear section headers and timestamps.`
             const status = await window.ApiConnector.VideoGeneration.seedance.getVideoStatus(record.taskId);
 
             if (status.status === 'succeeded' && status.videoUrl) {
-                window.VideoGenStore.update(recordId, { status: 'succeeded', videoUrl: status.videoUrl, thumbnailUrl: status.thumbnailUrl });
+                window.VideoGenStore.update(recordId, {
+                    status: 'succeeded',
+                    videoUrl: status.videoUrl,
+                    thumbnailUrl: status.thumbnailUrl,
+                    // 'permanent' once mirrored into our own storage;
+                    // 'temporary' means the link is the generator's own and
+                    // will expire. The gallery says so rather than letting a
+                    // video quietly rot into a broken player.
+                    storage: status.storage || 'temporary',
+                    storageNote: status.storageNote || null,
+                });
                 renderGallery();
-                if (statusDiv) statusDiv.innerHTML = '<div style="color:#10b981;font-weight:600;">✓ Video generated successfully!</div>';
+                if (statusDiv) {
+                    const temporary = (status.storage || 'temporary') !== 'permanent';
+                    statusDiv.innerHTML =
+                        '<div style="color:#10b981;font-weight:600;">✓ Video generated successfully!</div>' +
+                        (temporary
+                            ? '<div style="color:#fbbf24;font-size:12px;margin-top:6px;line-height:1.6;">⚠️ ' +
+                              escapeHtmlVG(status.storageNote || 'This link comes from the generator and will expire.') +
+                              ' Download it now to keep it.</div>'
+                            : '');
+                }
                 if (previewDiv) {
                     previewDiv.style.display = 'block';
                     previewDiv.innerHTML = `
@@ -1187,7 +1170,7 @@ Format as a proper production script with clear section headers and timestamps.`
         gallery.innerHTML = items.map(item => `
             <div class="video-card">
                 ${item.status === 'succeeded' && item.videoUrl
-                    ? `<video src="${item.videoUrl}" ${item.thumbnailUrl ? `poster="${item.thumbnailUrl}"` : ''} controls></video>`
+                    ? `<video src="${escapeHtmlVG(item.videoUrl)}" ${item.thumbnailUrl ? `poster="${escapeHtmlVG(item.thumbnailUrl)}"` : ''} controls></video>`
                     : `<div class="video-placeholder">${item.status === 'failed' ? '⚠️ Failed' : '⏳ Rendering...'}</div>`
                 }
                 <div class="video-card-body">
@@ -1197,13 +1180,27 @@ Format as a proper production script with clear section headers and timestamps.`
                         <div class="video-card-actions">
                             ${item.status === 'succeeded' && item.videoUrl ? `<button onclick="window.open('${item.videoUrl}','_blank')">Download</button>` : ''}
                             ${item.status === 'succeeded' && item.videoUrl ? `<button onclick="addVideoToSocialPost('${item.id}')">📱 Add to social post</button>` : ''}
+                            ${(item.status === 'processing' || item.status === 'pending') && item.taskId ? `<button onclick="recheckVideo('${item.id}')">Check again</button>` : ''}
                             <button onclick="deleteVideoGenRecord('${item.id}')">Delete</button>
                         </div>
                     </div>
                 </div>
+                ${item.status === 'succeeded' && item.videoUrl && item.storage !== 'permanent'
+                    ? `<div class="video-card-ai-disclosure" style="border-color:rgba(245,158,11,0.35);color:#fbbf24;">⏳ This link is the generator's own and will expire &mdash; download the file to keep it.${item.storageNote ? ' ' + escapeHtmlVG(item.storageNote) : ''}</div>`
+                    : ''}
                 ${item.status === 'succeeded' && item.videoUrl ? `<div class="video-card-ai-disclosure">⚠️ AI-generated video — put a visible "AI-generated" label on screen in the first few seconds (FTC guidance) and declare it as AI content when you upload to TikTok/Meta; both platforms require it on paid or organic AI video as of 2026.</div>` : ''}
             </div>
         `).join('');
+    }
+
+    // A render we stopped watching can be picked up again from its task id.
+    // Without this the only route back was a full page reload.
+    function recheckVideo(id) {
+        const item = window.VideoGenStore.getById(id);
+        if (!item || !item.taskId) return;
+        window.VideoGenStore.update(id, { status: 'processing', error: null });
+        renderGallery();
+        pollSeedanceStatus(id, 0);
     }
 
     function deleteVideoGenRecord(id) {
@@ -1220,6 +1217,17 @@ Format as a proper production script with clear section headers and timestamps.`
         if (!item || !item.videoUrl) return;
         if (!window.SocialPostsStore) { alert('Social Studio is unavailable right now — try reloading the page.'); return; }
 
+        // A scheduled post that carries a temporary link publishes a dead
+        // video. Better to say so now than to let it fail in public later.
+        if (item.storage !== 'permanent') {
+            const proceed = confirm(
+                'This video is still on the generator\'s temporary link, which expires — a scheduled post ' +
+                'using it may publish a broken video.\n\n' +
+                (item.storageNote ? item.storageNote + '\n\n' : '') +
+                'Add it anyway?');
+            if (!proceed) return;
+        }
+
         const platform = prompt('Post this video to which platform? (e.g. instagram, tiktok, linkedin, facebook)', 'instagram');
         if (!platform) return;
 
@@ -1229,7 +1237,12 @@ Format as a proper production script with clear section headers and timestamps.`
                 headline: (item.prompt || 'AI-generated video').slice(0, 120),
                 body: item.prompt || '',
                 imageUrl: item.videoUrl,
-                metadata: { origin_agent: 'video', videoGenId: item.id, thumbnailUrl: item.thumbnailUrl || null },
+                metadata: {
+                origin_agent: 'video', videoGenId: item.id,
+                thumbnailUrl: item.thumbnailUrl || null,
+                // Carried through so the review queue can show the same warning.
+                videoStorage: item.storage || 'temporary',
+            },
             }]);
             alert('Added to Pulse\'s review queue — approve it there to send it on to Pat.');
         } catch (e) {
@@ -1237,19 +1250,54 @@ Format as a proper production script with clear section headers and timestamps.`
         }
     }
 
-    // Resume polling any generations still in-flight from a previous page load
-    (function resumeInFlightGenerations() {
+    /* ── Gallery sync ─────────────────────────────────────────────────────
+       The gallery is now stored in the account (video_generations), not just
+       this browser. That matters most for a render still in progress: while
+       Seedance works, the provider's task id lives in the record and nowhere
+       else, so losing it made a video the customer had already paid for
+       unreachable — there is no way to ask "is it done yet" without it. */
+    function renderVideoSyncState(state) {
+        let el = document.getElementById('videoSyncState');
+        if (!el) {
+            const gallery = document.getElementById('videogenGallery');
+            if (!gallery) return;
+            el = document.createElement('div');
+            el.id = 'videoSyncState';
+            el.style.cssText = 'font-size:11.5px;padding:6px 10px;border-radius:8px;margin-bottom:10px;line-height:1.55;';
+            gallery.parentNode.insertBefore(el, gallery);
+        }
+        if (state.error) {
+            el.style.cssText += ';background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#fca5a5;';
+            el.textContent = 'Saved on this device only — could not reach your account: ' + state.error;
+            el.style.display = '';
+            return;
+        }
+        if (state.synced) { el.style.display = 'none'; return; }
+        el.style.cssText += ';background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.28);color:#fbbf24;';
+        el.textContent = 'Sign in to keep your videos — and any render still in progress — across devices.';
+        el.style.display = '';
+    }
+
+    window.VideoGenStore.setOnSyncChange(renderVideoSyncState);
+
+    // Render immediately from the local cache, then reconcile with the account
+    // and resume anything still rendering — including a render started on
+    // another device, which was previously invisible here.
+    (async function resumeInFlightGenerations() {
+        renderGallery();
+        const result = await window.VideoGenStore.syncFromCloud();
+        renderVideoSyncState({ synced: result.synced, error: result.synced ? null : null });
+        renderGallery();
         window.VideoGenStore.list()
             .filter(item => item.status === 'processing' || item.status === 'pending')
             .forEach(item => { if (item.taskId) pollSeedanceStatus(item.id, 0); });
-        renderGallery();
     })();
 
     consumeScriptHandoff();
 </script>
     <script src="/js/url-utils.js"></script>
-<script src="/js/supabase.min.js"></script>
-<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/social-posts-store.js"></script>
 <script src="/js/mission-store.js"></script>
 <script src="/js/mission-bar.js"></script>

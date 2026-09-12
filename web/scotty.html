@@ -10,6 +10,8 @@
     <script src="./js/marked.min.js"></script>
     <script src="/js/supabase.min.js"></script>
     <script src="/js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -900,6 +902,53 @@
         }
 
         /* Audit report modal */
+        /* ── Review inbox: work Carol has handed to Scotty ────────────────── */
+        .review-topbar-btn {
+            display: none; align-items: center; gap: 7px;
+            background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
+            color: #c4b5fd; border-radius: 9px; padding: 6px 12px;
+            font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .review-topbar-btn:hover { background: rgba(124,58,237,0.25); }
+        .review-modal { max-width: 780px !important; }
+        .review-item {
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 12px; background: var(--card-bg);
+        }
+        .review-item-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .review-item-title { font-size: 13.5px; font-weight: 700; color: var(--text); flex: 1; }
+        .review-agent-tag {
+            font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+            padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06);
+            color: var(--text2); white-space: nowrap;
+        }
+        .review-snapshot {
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 13px; margin-bottom: 10px; max-height: 260px; overflow-y: auto;
+        }
+        .review-snapshot pre {
+            margin: 0; white-space: pre-wrap; word-break: break-word;
+            font-family: inherit; font-size: 12.5px; line-height: 1.6; color: var(--text2);
+        }
+        .review-verdict { border-radius: 8px; padding: 10px 13px; margin-bottom: 10px; font-size: 12.5px; line-height: 1.6; }
+        .review-verdict.approve { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.3);  color: #86efac; }
+        .review-verdict.revise  { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fcd34d; }
+        .review-verdict.reject  { background: rgba(248,113,113,0.1);border: 1px solid rgba(248,113,113,0.3);color: #fca5a5; }
+        .review-verdict-label { font-weight: 800; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+        .review-actions { display: flex; gap: 8px; align-items: center; }
+        .review-btn {
+            border-radius: 7px; padding: 6px 13px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit; border: 1px solid var(--border-h);
+            background: transparent; color: var(--text2);
+        }
+        .review-btn:hover { color: var(--text); border-color: var(--text3); }
+        .review-btn.approve { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.4); color: #86efac; }
+        .review-btn.reject  { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.35); color: #fca5a5; }
+        .review-btn:disabled { opacity: 0.5; cursor: default; }
+        .review-decided { font-size: 12px; font-weight: 700; }
+        .review-open-link { font-size: 11.5px; color: var(--cyan); text-decoration: none; margin-left: auto; }
+        .review-empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
         .audit-modal-overlay {
             display: none;
             position: fixed;
@@ -1582,7 +1631,6 @@
             font-size: 12px;
             line-height: 1.7;
             color: #94a3b8;
-            white-space: pre-wrap;
             max-height: 320px;
             overflow-y: auto;
         }
@@ -1593,6 +1641,40 @@
             font-size: 12px;
             margin: 8px 0 4px;
         }
+
+        /* Real markdown structure (marked.parse output) for research/task
+           results — was previously all flattened to <br>-joined plain text,
+           so lists/tables/links had no visible structure at all. Shared by
+           .task-result (mission tasks) and .auto-step-result (automation
+           steps) — both render the same marked.parse() HTML. */
+        .task-result p, .auto-step-result p { margin: 0 0 10px; }
+        .task-result p:last-child, .auto-step-result p:last-child { margin-bottom: 0; }
+        .task-result ul, .task-result ol, .auto-step-result ul, .auto-step-result ol {
+            margin: 0 0 10px; padding-left: 20px;
+        }
+        .task-result li, .auto-step-result li { margin-bottom: 4px; }
+        .task-result li > ul, .task-result li > ol, .auto-step-result li > ul, .auto-step-result li > ol {
+            margin-top: 4px; margin-bottom: 0;
+        }
+        .task-result a, .auto-step-result a { color: #a78bfa; }
+        .task-result code, .auto-step-result code {
+            background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11.5px;
+        }
+        .task-result pre, .auto-step-result pre {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; overflow-x: auto;
+        }
+        .task-result pre code, .auto-step-result pre code { background: none; padding: 0; }
+        .task-result blockquote, .auto-step-result blockquote {
+            border-left: 2px solid rgba(167,139,250,0.4); margin: 0 0 10px; padding-left: 12px; color: #a1a1aa;
+        }
+        .task-result table, .auto-step-result table {
+            width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 11.5px;
+        }
+        .task-result th, .task-result td, .auto-step-result th, .auto-step-result td {
+            border: 1px solid rgba(255,255,255,0.1); padding: 6px 8px; text-align: left;
+        }
+        .task-result th, .auto-step-result th { color: #e2e8f0; background: rgba(255,255,255,0.04); }
         /* ── Live progress lines while a mission/automation plan is being
                generated (see generateMissionPlan()/assessAndPlanAutomation()'s
                onProgress callbacks in scotty-orchestrator.js) ─── */
@@ -2105,6 +2187,9 @@
                 </div>
             </div>
             <div class="topbar-right">
+                <button class="review-topbar-btn" id="reviewInboxBtn" title="Work Carol has sent you to review">
+                    🧑‍⚖️ <span id="reviewInboxCount">0</span> to review
+                </button>
                 <div class="chip-claude">Powered by Claude</div>
                 <a href="/hub.html" class="topbar-hub-link">
                     🏠 <span>Agent Hub</span>
@@ -2262,6 +2347,24 @@
 </div>
 
 <!-- ════════════════════════════════════════
+     REVIEW INBOX — work Carol has handed to Scotty
+════════════════════════════════════════ -->
+<div class="audit-modal-overlay" id="reviewModalOverlay">
+    <div class="audit-modal review-modal">
+        <div class="audit-modal-header">
+            <span class="audit-modal-title">🧑‍⚖️ Scotty's review queue</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="review-btn" id="btnReviewAll">Review all</button>
+                <button class="audit-modal-close" id="btnReviewModalClose">✕</button>
+            </div>
+        </div>
+        <div class="audit-modal-body" id="reviewModalBody">
+            <!-- Populated by ReviewInbox -->
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
      QUICK START MODAL
 ════════════════════════════════════════ -->
 <div class="qs-overlay" id="qsOverlay" role="dialog" aria-modal="true" aria-labelledby="qsTitle">
@@ -2337,6 +2440,7 @@ const AGENT_DIRECTORY = [
     { key: 'compliance',  name: 'Compliance Guard',        emoji: '🛡️', url: '/agents/compliance-agent.html',       tags: ['compliance','legal','brand safety','review','puntt'] },
     { key: 'compliance-automation', name: 'Compliance Automation', emoji: '🔐', url: '/agents/compliance-automation.html', tags: ['soc 2','iso 27001','audit','security questionnaire','vendor risk','trust center'] },
     { key: 'deck',        name: 'Deck Maker',              emoji: '📽️', url: '/agents/deck-agent.html',             tags: ['deck','presentation','slide','pitch','investor','tome'] },
+    { key: 'carol',       name: 'Carol',                   emoji: '🗂️', url: '/agents/carol-agent.html',            tags: ['status','priorit','overview','briefing','what needs attention','chief of staff'] },
 ];
 
 const SCOTTY_SYSTEM_PROMPT_TEMPLATE = `You are Scotty, the AI CMO of {{companyName}}. You are a strategic thinker who routes marketing tasks to the right specialist agents. You always think UPSTREAM first — understanding WHY before executing WHAT.
@@ -2363,6 +2467,7 @@ Available specialist agents and when to use them:
 - CRO Lab (/agents/cro-agent.html): conversion optimization, testing
 - Compliance Guard (/agents/compliance-agent.html): brand safety, legal review
 - Deck Maker (/agents/deck-agent.html): presentations, pitch decks
+- Carol (/agents/carol-agent.html): my Chief of Staff — she has no generative work of her own, never assign her a task; recommend her only when the user wants a single prioritized status overview across everything already found/flagged/queued by the other agents
 
 Always respond with:
 1. Strategic context (why this matters now, 2-3 sentences)
@@ -2962,7 +3067,18 @@ class ScottyChat {
                 onError:  (err) => {
                     console.error('Scotty AI Error:', err);
                     const errorMsg = err.message || err.error || 'Unknown error';
-                    bubble.innerHTML = `⚠️ <strong>AI Connection Error:</strong><br>${errorMsg}<br><br>` +
+                    // err.code / err.upstream, when present, are the machine-readable
+                    // reason the server gave — showing them turns "session expired"
+                    // (which could mean five different things server-side) into
+                    // something that can be diagnosed from the screen alone.
+                    const detailBits = [];
+                    if (err.code) detailBits.push(`code: ${err.code}`);
+                    if (err.httpStatus) detailBits.push(`http: ${err.httpStatus}`);
+                    if (err.upstream) detailBits.push(`upstream: ${err.upstream}`);
+                    const detail = detailBits.length
+                        ? `<br><small style="opacity:.7">${this._escapeHtml(detailBits.join(' · '))}</small>`
+                        : '';
+                    bubble.innerHTML = `⚠️ <strong>AI Connection Error:</strong><br>${this._escapeHtml(errorMsg)}${detail}<br><br>` +
                         `<small>Check <a href="/api/health" target="_blank">/api/health</a> for diagnostics</small>`;
                     this._finaliseResponse(text, '');
                 }
@@ -3000,9 +3116,63 @@ class ScottyChat {
 
     /* ── ORCHESTRATION METHODS ────────────────────────────────────────────── */
 
+    /**
+     * Claim one Agent Mission from the account's monthly allowance.
+     *
+     * Called before generateMissionPlan() — the expensive part — mirroring
+     * the credit gate in api/generate-ad-image.js: check the allowance
+     * before spending, refuse with an upgrade path when it's gone.
+     *
+     * Returns true when the mission may proceed. A metering system that is
+     * unconfigured, unreachable or erroring lets the work through: a broken
+     * meter is an operator problem and must never look like a billing wall
+     * to a paying customer.
+     */
+    async _claimMissionAllowance() {
+        try {
+            const client = window.Supabase?.getClient?.();
+            const sessionRes = client ? await client.auth.getSession() : null;
+            const token = sessionRes?.data?.session?.access_token;
+            if (!token) return true; // signed out / local mode — nothing to meter against
+
+            const res = await fetch('/api/mission-usage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ action: 'consume' }),
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (res.status === 402) {
+                const { bubble } = this._createScottyBubble();
+                bubble.innerHTML =
+                    `<p>🛑 <strong>You're out of Agent Missions for this month.</strong></p>` +
+                    `<p>${this._escapeHtml(data.message || '')}</p>` +
+                    `<p><a href="${this._escapeHtml(data.upgradeUrl || '/billing.html')}" ` +
+                    `style="color:#c4b5fd;font-weight:700;">See plans and upgrade →</a></p>` +
+                    `<p style="font-size:12px;opacity:.7;">Individual agents still work — this limit is on full multi-agent missions.</p>`;
+                InfoPanel.logActivity('🛑', `Mission blocked — ${data.used}/${data.limit} used this month`);
+                this.isWaiting = false;
+                this.btnSend.disabled = false;
+                return false;
+            }
+
+            if (data && data.metered && typeof data.remaining === 'number') {
+                InfoPanel.logActivity('🎟️',
+                    `Mission ${data.used} of ${data.limit} this month${data.provisionalAllowance ? ' (provisional allowance)' : ''}`);
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Scotty] mission metering unavailable, proceeding:', e.message);
+            return true;
+        }
+    }
+
     async _runOrchestration(userGoal) {
         this.isWaiting = true;
         this.btnSend.disabled = true;
+
+        // Gate before the expensive planning call, not after.
+        if (!(await this._claimMissionAllowance())) return;
 
         const contextBundle = this._getContextBundle();
         const orch = window.ScottyOrchestrator;
@@ -3503,6 +3673,15 @@ class ScottyChat {
         const autoRun = sorted.filter(a => !orch || orch.classifyAutomation(a) === 'autonomous');
         const needsApproval = sorted.filter(a => orch && orch.classifyAutomation(a) === 'requires_approval');
 
+        // Previously these lived only in this function's local `needsApproval`
+        // array — refresh the tab (or just navigate away) and an item awaiting
+        // approval vanished with no record anywhere. Persist them the moment
+        // they're identified, independent of whether this came from a full
+        // mission or a single-agent dispatch follow-up.
+        if (needsApproval.length && window.MissionStore) {
+            window.MissionStore.addPendingApprovals(needsApproval, this._activeMission ? this._activeMission.id : null);
+        }
+
         const impactColor = { High: '#10b981', Medium: '#f59e0b', Low: '#94a3b8' };
 
         containerEl.innerHTML = `
@@ -3526,6 +3705,7 @@ class ScottyChat {
                             </div>
                             <div class="auto-approval-desc">${this._escapeHtml(a.description || '')}</div>
                             <button class="mission-report-btn primary" id="autoApprovalRun${i}">▶ Run this</button>
+                            <button class="mission-report-btn" id="autoApprovalDismiss${i}">✕ Not now</button>
                             <div class="auto-step-result" id="autoApprovalResult${i}"></div>
                         </div>`).join('')}
                 </div>
@@ -3550,8 +3730,15 @@ class ScottyChat {
         // runs in isolation, on click only, never as part of the auto-loop.
         needsApproval.forEach((a, i) => {
             const btn = containerEl.querySelector(`#autoApprovalRun${i}`);
-            if (!btn) return;
-            btn.addEventListener('click', () => this._runSingleApprovedAutomation(a, i, contextBundle, containerEl), { once: true });
+            if (btn) btn.addEventListener('click', () => this._runSingleApprovedAutomation(a, i, contextBundle, containerEl), { once: true });
+
+            const dismissBtn = containerEl.querySelector(`#autoApprovalDismiss${i}`);
+            if (dismissBtn) dismissBtn.addEventListener('click', () => {
+                if (a._persistedApprovalId && window.MissionStore) window.MissionStore.resolveApproval(a._persistedApprovalId, 'dismissed');
+                if (btn) btn.disabled = true;
+                dismissBtn.disabled = true;
+                dismissBtn.textContent = '✓ Dismissed';
+            }, { once: true });
         });
 
         if (!autoRun.length) return;
@@ -3590,6 +3777,9 @@ class ScottyChat {
                 onError: (err) => { throw err; },
             });
             if (btn) { btn.textContent = '✓ Done'; }
+            if (auto._persistedApprovalId && window.MissionStore) {
+                window.MissionStore.resolveApproval(auto._persistedApprovalId, 'approved');
+            }
             InfoPanel.logActivity('✅', `Approved action complete: ${auto.title}`);
             if (window.AgentHistory) {
                 window.AgentHistory.save({
@@ -3919,7 +4109,20 @@ class ScottyChat {
         return report;
     }
 
+    // Was a hand-rolled regex converter that never handled real markdown
+    // structure — bullet/numbered lists, tables, links all just fell through
+    // to a flat <br>-joined blob of text. That's what every mission task's
+    // "research output" was rendered with (this is called on every streamed
+    // chunk for task/automation results), so a research step that came back
+    // as a bulleted list of findings displayed as one run-on paragraph —
+    // not remotely "ready to use" on any platform. Delegates to the same
+    // marked.parse() the main chat bubble already uses (_renderMarkdown),
+    // so task/automation results get real HTML structure too, with the
+    // regex version kept only as a fallback if marked failed to load.
     _renderMarkdownSimple(text) {
+        if (window.marked) {
+            try { return window.marked.parse(text, { breaks: true, gfm: true }); } catch (e) { /* fall through */ }
+        }
         const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return esc
             .replace(/^#{1,3} (.+)$/gm, '<strong style="color:#c4b5fd">$1</strong>')
@@ -4234,6 +4437,251 @@ class ScottyChat {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   REVIEW INBOX — work Carol has handed to Scotty
+
+   Scotty is the Head the owner is supposed to be able to trust, so this is
+   where a pile of flagged work gets an actual opinion attached to it rather
+   than being passed straight through to the owner. Two rules hold it honest:
+
+   1. Scotty reviews the SNAPSHOT that was queued — the real post body, the
+      real outreach email — not a title. A verdict on a title is theatre.
+   2. Scotty's verdict is a recommendation, never the decision. The owner
+      approves or rejects, and only then is anything written back to the
+      originating record.
+════════════════════════════════════════════════════════════════ */
+
+const ReviewInbox = (() => {
+    let items = [];
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    function refreshBadge() {
+        const btn = document.getElementById('reviewInboxBtn');
+        const count = document.getElementById('reviewInboxCount');
+        if (!btn || !window.ReviewQueue) return;
+        const n = window.ReviewQueue.pendingCount();
+        btn.style.display = n ? 'flex' : 'none';
+        if (count) count.textContent = n;
+    }
+
+    function open() {
+        document.getElementById('reviewModalOverlay')?.classList.add('visible');
+        render();
+    }
+
+    function close() {
+        document.getElementById('reviewModalOverlay')?.classList.remove('visible');
+    }
+
+    function verdictBlock(it) {
+        if (!it.verdict) return '';
+        const label = { approve: 'Scotty says: ship it', revise: 'Scotty says: needs changes', reject: 'Scotty says: do not send' }[it.verdict]
+            || 'Scotty’s view';
+        return `<div class="review-verdict ${esc(it.verdict)}">
+            <span class="review-verdict-label">${esc(label)}</span>
+            ${esc(it.reasoning || '')}
+        </div>`;
+    }
+
+    function actionsBlock(it) {
+        if (it.status === 'approved' || it.status === 'rejected' || it.status === 'dismissed') {
+            const txt = { approved: '✅ Approved', rejected: '🚫 Rejected', dismissed: '— Dismissed' }[it.status];
+            // An approved email draft was hand off to Pat, not left in Email
+            // Engine — point the link at where it actually went.
+            const wentToPat = it.status === 'approved' && it.sourceRef?.store === 'agent_history' && it.agentKey === 'email';
+            const linkHref = wentToPat ? '/agents/email-delivery-agent.html' : it.link;
+            const linkText = wentToPat ? 'Open in Pat →' : 'Open in agent →';
+            return `<div class="review-actions"><span class="review-decided">${txt}</span>
+                ${linkHref ? `<a class="review-open-link" href="${esc(linkHref)}">${linkText}</a>` : ''}</div>`;
+        }
+        return `<div class="review-actions">
+            <button class="review-btn" onclick="ReviewInbox.reviewOne('${esc(it.id)}')" ${it.verdict ? '' : ''}>
+                ${it.verdict ? 'Re-review' : 'Ask Scotty'}
+            </button>
+            <button class="review-btn approve" onclick="ReviewInbox.decide('${esc(it.id)}','approved')">Approve</button>
+            <button class="review-btn reject" onclick="ReviewInbox.decide('${esc(it.id)}','rejected')">Reject</button>
+            ${it.link ? `<a class="review-open-link" href="${esc(it.link)}">Open in agent →</a>` : ''}
+        </div>`;
+    }
+
+    function render() {
+        const body = document.getElementById('reviewModalBody');
+        if (!body || !window.ReviewQueue) return;
+        items = window.ReviewQueue.list();
+
+        const open_ = items.filter(i => i.status === 'pending' || i.status === 'reviewed');
+        const done  = items.filter(i => i.status !== 'pending' && i.status !== 'reviewed');
+
+        if (!items.length) {
+            body.innerHTML = `<div class="review-empty">
+                Nothing waiting on you.<br><br>
+                Carol collects what every agent has flagged — send a section over from
+                <a href="/agents/carol-agent.html" style="color:var(--cyan);">Carol's briefing</a> and it lands here.
+            </div>`;
+            return;
+        }
+
+        const card = (it) => `<div class="review-item" id="rev-${esc(it.id)}">
+            <div class="review-item-head">
+                <div class="review-item-title">${esc(it.title)}</div>
+                <span class="review-agent-tag">${esc(it.agentKey || 'agent')}</span>
+            </div>
+            ${it.snapshot
+                ? `<div class="review-snapshot"><pre>${esc(it.snapshot)}</pre></div>`
+                : `<div class="review-snapshot"><pre>(No content was captured for this item — Scotty can only judge the summary above.)</pre></div>`}
+            ${verdictBlock(it)}
+            ${actionsBlock(it)}
+        </div>`;
+
+        body.innerHTML =
+            (open_.length ? open_.map(card).join('') : '') +
+            (done.length ? `<div style="margin:18px 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);">Decided</div>${done.map(card).join('')}` : '');
+    }
+
+    /** Build the prompt Scotty judges one item against. */
+    function reviewPrompt(it) {
+        return `You are Scotty, the head of this marketing department, reviewing work before it goes out. ` +
+            `The owner trusts your judgement, so be specific and honest — if it is fine, say so plainly and do not invent problems.\n\n` +
+            `ITEM TYPE: ${it.agentKey || 'unknown agent'} / ${it.type || 'task'}\n` +
+            `TITLE: ${it.title}\n\n` +
+            `THE ACTUAL CONTENT:\n${it.snapshot || '(none captured)'}\n\n` +
+            `Reply in exactly this format and nothing else:\n` +
+            `VERDICT: approve | revise | reject\n` +
+            `REASON: two or three sentences. If revise or reject, say precisely what to change.`;
+    }
+
+    function parseVerdict(text) {
+        const v = (text.match(/VERDICT:\s*(approve|revise|reject)/i) || [])[1];
+        const r = (text.match(/REASON:\s*([\s\S]+)/i) || [])[1];
+        return {
+            verdict: v ? v.toLowerCase() : null,
+            reasoning: (r || text || '').trim().slice(0, 600),
+        };
+    }
+
+    async function reviewOne(id) {
+        const it = window.ReviewQueue.get(id);
+        if (!it) return;
+        const el = document.getElementById('rev-' + id);
+        const btn = el?.querySelector('.review-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Reviewing…'; }
+
+        try {
+            if (!window.ClaudeService || typeof window.ClaudeService.callAgent !== 'function') {
+                throw new Error('Scotty’s AI connection is unavailable, so this could not be reviewed.');
+            }
+            const text = await window.ClaudeService.callAgent({
+                systemPrompt: 'You are Scotty, a marketing department head with 30+ years of experience. You are reviewing a specific piece of work before it goes out.',
+                messages: [{ role: 'user', content: reviewPrompt(it) }],
+                maxTokens: 500,
+            });
+            const parsed = parseVerdict(text);
+            if (!parsed.verdict) throw new Error('Could not read a verdict from the response.');
+            window.ReviewQueue.setVerdict(id, parsed);
+            InfoPanel.logActivity('🧑‍⚖️', `Reviewed: ${it.title.slice(0, 40)} — ${parsed.verdict}`);
+        } catch (e) {
+            // Never fabricate a verdict. An unreviewed item stays unreviewed.
+            window.ReviewQueue.setVerdict(id, {
+                verdict: 'revise',
+                reasoning: 'Not reviewed — ' + (e.message || 'the review could not be completed') +
+                    ' This is a system message, not Scotty’s judgement of the work.',
+            });
+        }
+        render();
+        refreshBadge();
+    }
+
+    async function reviewAll() {
+        const btn = document.getElementById('btnReviewAll');
+        const pending = window.ReviewQueue.list().filter(i => i.status === 'pending');
+        if (!pending.length) return;
+        if (btn) { btn.disabled = true; }
+        for (let i = 0; i < pending.length; i++) {
+            if (btn) btn.textContent = `Reviewing ${i + 1}/${pending.length}…`;
+            await reviewOne(pending[i].id);
+        }
+        if (btn) { btn.disabled = false; btn.textContent = 'Review all'; }
+    }
+
+    /**
+     * An approved Email Engine draft is content already generated — the exact
+     * shape web/agents/email-agent.html's own "Send to Pat" button builds from
+     * the same AgentHistory record (see its sendToPat()) — so approving it
+     * here can hand off straight to Pat instead of making the owner re-open
+     * Email Engine only to click the button it already has.
+     */
+    function handoffEmailDraftToPat(it) {
+        if (!window.PatHandoff?.sendDraft) return false;
+        const rawText = (it.payload && it.payload.content) || it.snapshot || '';
+        if (!rawText.trim()) return false;
+
+        const subjectMatch = rawText.match(/\*\*Subject(?:\s*A)?:?\*\*\s*(.+)/i) || rawText.match(/subject:\s*(.+)/i);
+        const guessedSubject = subjectMatch ? subjectMatch[1].replace(/[*_]/g, '').trim() : '';
+        const topic = (it.payload && it.payload.topic) || '';
+
+        window.PatHandoff.sendDraft({
+            campaignName: topic ? `${topic} — Email Sequence` : (it.title || 'Email Sequence'),
+            subject: guessedSubject || topic || it.title || 'Email Sequence',
+            html: typeof marked !== 'undefined' ? marked.parse(rawText) : `<pre>${esc(rawText)}</pre>`,
+            text: rawText,
+        });
+        return true;
+    }
+
+    /**
+     * The owner's decision — and the part that makes it mean something:
+     * write it back to the record it came from.
+     */
+    async function decide(id, decision) {
+        const it = window.ReviewQueue.decide(id, decision);
+        if (!it) return;
+
+        let sentToPat = false;
+        try {
+            if (it.sourceRef?.store === 'social_posts' && window.SocialPostsStore?.updateStatus) {
+                await window.SocialPostsStore.updateStatus(
+                    it.sourceRef.id,
+                    decision === 'approved' ? 'approved' : 'rejected',
+                    it.reasoning ? `Scotty review: ${it.reasoning}` : 'Reviewed via Scotty'
+                );
+            } else if (it.sourceRef?.store === 'pending_approvals' && window.MissionStore?.resolveApproval) {
+                window.MissionStore.resolveApproval(it.sourceRef.id, decision === 'approved' ? 'approved' : 'dismissed');
+            } else if (it.sourceRef?.store === 'agent_history' && it.agentKey === 'email' && decision === 'approved') {
+                sentToPat = handoffEmailDraftToPat(it);
+            }
+        } catch (e) {
+            console.warn('[ReviewInbox] could not write decision back to source:', e.message);
+        }
+
+        InfoPanel.logActivity(decision === 'approved' ? '✅' : '🚫',
+            `${decision === 'approved' ? 'Approved' : 'Rejected'}: ${it.title.slice(0, 40)}`);
+        if (sentToPat) InfoPanel.logActivity('📬', `Sent to Pat for sending: ${it.title.slice(0, 40)}`);
+        render();
+        refreshBadge();
+    }
+
+    function init() {
+        document.getElementById('reviewInboxBtn')?.addEventListener('click', open);
+        document.getElementById('btnReviewModalClose')?.addEventListener('click', close);
+        document.getElementById('btnReviewAll')?.addEventListener('click', reviewAll);
+        document.getElementById('reviewModalOverlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'reviewModalOverlay') close();
+        });
+        window.addEventListener('review-queue:changed', refreshBadge);
+        refreshBadge();
+
+        // Carol links here with ?review=1 after sending a section over.
+        if (new URLSearchParams(location.search).get('review') === '1') open();
+    }
+
+    return { init, open, close, render, reviewOne, reviewAll, decide, refreshBadge };
+})();
+window.ReviewInbox = ReviewInbox;
+
+/* ════════════════════════════════════════════════════════════════
    INFO PANEL — Mission Control
    Manages background activity log, question detection, agent roster.
 ════════════════════════════════════════════════════════════════ */
@@ -4450,8 +4898,14 @@ const QuickStart = (() => {
             });
         }
 
-        // Auto-open on first visit (no quick-start done yet)
-        if (!isDone()) {
+        // Auto-open on first visit (no quick-start done yet) — but never on
+        // top of something the user explicitly came here to do. Arriving from
+        // Carol's "send to Scotty" link (?review=1), or from another agent's
+        // handoff (?goal=/?mission=1), means there is already a task on
+        // screen; opening a modal over it hides the thing they clicked for.
+        const arrivedWithIntent = ['review', 'goal', 'mission']
+            .some(k => new URLSearchParams(location.search).get(k));
+        if (!isDone() && !arrivedWithIntent) {
             setTimeout(open, 800);
         }
 
@@ -4583,6 +5037,53 @@ const AgentAudit = (() => {
         if (!localStorage.getItem(DISMISS_KEY_PREFIX + run.id)) {
             InfoPanel.logActivity('🛰️', `New agent audit ready — ${run.flagged_count ?? 0} of ${run.agent_count ?? 0} agents flagged for review`);
         }
+
+        // Bridge the AI Model Health finding (if this run flagged one) into
+        // Scotty's review/approval flow. Detection-only, same as every other
+        // finding here — there is nothing to auto-apply, so ReviewInbox.decide()
+        // just records the owner's verdict with no special write-back (its
+        // sourceRef.store won't match any of the known stores there, which is
+        // exactly the correct, safe behavior for this finding type).
+        await queueModelHealthFinding(sb, run.id);
+    }
+
+    async function queueModelHealthFinding(sb, runId) {
+        if (!window.ReviewQueue) return; // review-queue.js loads later in the page; init() runs on DOMContentLoaded, after it has executed
+        try {
+            const { data: finding, error } = await sb
+                .from('agent_audit_findings')
+                .select('*')
+                .eq('run_id', runId)
+                .eq('agent_key', 'platform-model-health')
+                .limit(1)
+                .maybeSingle();
+            if (error || !finding) return;
+            if (finding.up_to_date) return;
+            const gaps = Array.isArray(finding.gaps) ? finding.gaps : [];
+            const recs = Array.isArray(finding.recommendations) ? finding.recommendations : [];
+            if (!gaps.length && !recs.length) return;
+
+            // Join the gaps and recommendation texts into one readable block,
+            // exactly as data — never paraphrased or invented.
+            const lines = [];
+            if (finding.summary) lines.push(finding.summary);
+            if (gaps.length) lines.push('Gaps:', ...gaps.map(g => `- ${g}`));
+            if (recs.length) lines.push('Recommendations:', ...recs.map(r => `- [${r.impact || 'medium'}] ${r.text}`));
+
+            // ReviewQueue.send() already dedupes on `${sourceRef.store}:${sourceRef.id}`
+            // against still-open items, so calling this on every init() (every
+            // page load) does not re-queue the same finding twice.
+            window.ReviewQueue.send([{
+                source: 'platform-model-health',
+                type: 'needs_approval',
+                title: 'AI Model Health: action needed',
+                preview: lines.join('\n'),
+                payload: finding,
+                sourceRef: { store: 'agent_audit_findings', id: finding.id },
+                link: null,
+                priority: 'high',
+            }]);
+        } catch (e) { /* best-effort — never block the audit card on this */ }
     }
 
     return { init };
@@ -4594,22 +5095,40 @@ window.addEventListener('DOMContentLoaded', () => {
     InfoPanel.init();
     QuickStart.init();
     AgentAudit.init();
+    ReviewInbox.init();
 
     // A goal handed off from another agent page (e.g. Lift's "Turn into a
-    // Mission" on a CRO test idea) — prefilled, not auto-sent, so the user
-    // still explicitly reviews/starts it themselves.
-    const goal = new URLSearchParams(window.location.search).get('goal');
+    // Mission" on a CRO test idea, or AI Visibility Finder's "Fix this with
+    // Scotty"). Default is prefilled-not-sent, so the user still explicitly
+    // reviews/starts it themselves. &mission=1 skips straight to mission
+    // planning instead — used when the goal was built programmatically from
+    // real data (not free-typed), so there's nothing to review-before-typing
+    // and gating it behind isOrchestrationIntent()'s keyword match would
+    // just be an unreliable extra step for a goal string that was never
+    // guaranteed to contain one of those keywords in the first place.
+    const params = new URLSearchParams(window.location.search);
+    const goal = params.get('goal');
+    const autoMission = params.get('mission') === '1';
     if (goal && window.scottyChat.inputEl) {
-        window.scottyChat.inputEl.value = goal;
-        window.scottyChat.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        window.scottyChat.inputEl.focus();
         window.history.replaceState({}, '', '/scotty.html');
+        if (autoMission) {
+            window.scottyChat._appendUserMessage(goal);
+            window.scottyChat._runOrchestration(goal);
+        } else {
+            window.scottyChat.inputEl.value = goal;
+            window.scottyChat.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            window.scottyChat.inputEl.focus();
+        }
     }
 });
 </script>
 
 <script src="/js/pat-handoff.js"></script>
 <script src="/js/mission-store.js"></script>
+<!-- Review inbox: the queue itself, plus the store an approved social post
+     is written back to (without it, "approved" would stop at the queue). -->
+<script src="/js/review-queue.js"></script>
+<script src="/js/social-posts-store.js"></script>
 <script src="/js/mission-bar.js"></script>
 </body>
 </html>

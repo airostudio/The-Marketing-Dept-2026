@@ -8,6 +8,9 @@
  * Non-streaming: JSON    → { "text": "..." }
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
@@ -23,10 +26,15 @@ function describeEmptyOpenAIResponse(finishReason) {
   return 'OpenAI returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/openai', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Free inference on the owner's OpenAI key for anyone with the URL, unless
+  // we know who is asking.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -52,7 +60,13 @@ module.exports = async function handler(req, res) {
   const body = {
     model,
     messages: openaiMessages,
-    max_tokens: 4096,
+    // OpenAI renamed this parameter for its current model line — sending
+    // the old max_tokens key gets rejected outright with "Unsupported
+    // parameter" rather than silently working, which is exactly what broke
+    // every caller of this endpoint (default model gpt-5.6-luna requires
+    // the new name; max_completion_tokens is what OpenAI's current chat
+    // completions API expects across the board).
+    max_completion_tokens: 4096,
     temperature: 0.7,
   };
 
@@ -144,4 +158,4 @@ module.exports = async function handler(req, res) {
 
   res.write('data: [DONE]\n\n');
   res.end();
-};
+});

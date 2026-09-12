@@ -13,34 +13,30 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const { searchProvider } = require('./_lib/nancy-providers.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 5;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-search-competitors', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'seo-search-competitors', max: 5, windowMs: 60 * 1000, auth })) return;
 
   const { profile } = req.body || {};
   if (!profile || !profile.industry) {
@@ -65,4 +61,4 @@ Find 5-8 REAL businesses/websites that compete for search traffic in this space 
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message || 'Competitor content research failed unexpectedly.' });
   }
-};
+});

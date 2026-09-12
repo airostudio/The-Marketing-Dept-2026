@@ -1,0 +1,4187 @@
+-- ═══════════════════════════════════════════════════════════════════════
+-- Audema — Full Database Install (idempotent, safe to re-run)
+-- ═══════════════════════════════════════════════════════════════════════
+-- Run this ONCE in: Supabase Dashboard → SQL Editor → New query → Run.
+--
+-- GENERATED FILE — do not edit by hand.
+--   Edit the source file, then: python3 scripts/build-install-all.py
+--
+-- Every CREATE TABLE/INDEX uses IF NOT EXISTS; every CREATE POLICY and
+-- CREATE TRIGGER has a matching DROP ... IF EXISTS patched in ahead of it.
+-- Running this against a database that already has some or all of these
+-- objects will not raise "already exists" — it redefines them and moves on.
+--
+-- It drops no table and deletes no data. It creates missing
+-- tables/columns/indexes and replaces policy/trigger/function definitions.
+--
+-- Source files, in dependency order (each remains the source of truth):
+--
+--   database/supabase-schema.sql
+--   database/admin-setup.sql
+--   supabase-business-brain.sql
+--   supabase-intelligence-profiles.sql
+--   supabase-social-posts.sql
+--   supabase-credits.sql
+--   supabase-audience.sql
+--   supabase-audience-consent.sql
+--   supabase-ab-testing.sql
+--   supabase-agent-audits.sql
+--   supabase-competitor-watch.sql
+--   supabase-analytics-brain.sql
+--   supabase-nancy.sql
+--   supabase-seo-pipeline.sql
+--   supabase-billing.sql
+--   supabase-grants.sql
+--   supabase-mission-usage.sql
+--   supabase-support.sql
+--   supabase-email-events.sql
+--   supabase-email-engine.sql
+--   supabase-email-suppression.sql
+--   supabase-competitive-roster.sql
+--   supabase-video-gallery.sql
+--   supabase-cro-backlog.sql
+--   supabase-system-failures.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: database/supabase-schema.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- THE MARKETING DEPARTMENT 2026 - SUPABASE DATABASE SCHEMA
+-- ═══════════════════════════════════════════════════════════════════════════════
+--
+-- This SQL file sets up the complete database schema for the application.
+-- Run this in your Supabase SQL Editor (Dashboard > SQL Editor > New Query)
+--
+-- Prerequisites:
+-- 1. Create a new Supabase project at https://app.supabase.com
+-- 2. Go to SQL Editor and paste this entire file
+-- 3. Click "Run" to execute
+-- 4. Copy your project URL and anon key from Settings > API
+-- 5. Add them to web/js/config.js
+--
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- USER PROFILES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT UNIQUE,
+    firstname TEXT,
+    lastname TEXT,
+    avatar_url TEXT,
+    -- Canonical plan enum (superseded/re-asserted by supabase-intelligence-profiles.sql
+    -- if that migration has also been run, but kept correct here too so a
+    -- fresh install from this file alone gets the real tier names).
+    plan TEXT DEFAULT 'free' CHECK (plan IN (
+        'free',
+        'start', 'growth', 'scale', 'autonomous', 'enterprise',
+        'agency_starter', 'agency_growth', 'agency_pro', 'agency_enterprise'
+    )),
+    company TEXT,
+    website TEXT,
+    timezone TEXT DEFAULT 'UTC',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Automatically create profile on user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, firstname, lastname, company)
+    VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'firstname', NEW.raw_user_meta_data->>'first_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'lastname', NEW.raw_user_meta_data->>'last_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'org', NEW.raw_user_meta_data->>'company', '')
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- PROJECTS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    industry TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
+    settings JSONB DEFAULT '{}',
+    health_score INTEGER DEFAULT 0,
+    last_audit_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- AUDITS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS audits (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('full', 'quick', 'scheduled', 'manual')),
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+    score INTEGER,
+    summary JSONB DEFAULT '{}',
+    metrics JSONB DEFAULT '{}',
+    pages_crawled INTEGER DEFAULT 0,
+    issues_found INTEGER DEFAULT 0,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audits_project_id ON audits(project_id);
+CREATE INDEX IF NOT EXISTS idx_audits_status ON audits(status);
+CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits(created_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- AUDIT ISSUES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS audit_issues (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    audit_id UUID NOT NULL REFERENCES audits(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK (severity IN ('critical', 'high', 'medium', 'low', 'info')),
+    title TEXT NOT NULL,
+    description TEXT,
+    url TEXT,
+    recommendation TEXT,
+    status TEXT DEFAULT 'open' CHECK (status IN ('open', 'fixed', 'ignored')),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_issues_audit_id ON audit_issues(audit_id);
+CREATE INDEX IF NOT EXISTS idx_audit_issues_severity ON audit_issues(severity);
+CREATE INDEX IF NOT EXISTS idx_audit_issues_status ON audit_issues(status);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- KEYWORDS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS keywords (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    keyword TEXT NOT NULL,
+    search_volume INTEGER,
+    difficulty INTEGER,
+    cpc DECIMAL(10, 2),
+    current_position INTEGER,
+    previous_position INTEGER,
+    best_position INTEGER,
+    target_url TEXT,
+    tags TEXT[],
+    status TEXT DEFAULT 'tracking' CHECK (status IN ('tracking', 'paused', 'archived')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(project_id, keyword)
+);
+
+CREATE INDEX IF NOT EXISTS idx_keywords_project_id ON keywords(project_id);
+CREATE INDEX IF NOT EXISTS idx_keywords_keyword ON keywords(keyword);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- KEYWORD RANKINGS (Historical tracking)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS keyword_rankings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    keyword_id UUID NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
+    position INTEGER,
+    url TEXT,
+    search_engine TEXT DEFAULT 'google',
+    device TEXT DEFAULT 'desktop' CHECK (device IN ('desktop', 'mobile', 'tablet')),
+    location TEXT,
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_keyword_id ON keyword_rankings(keyword_id);
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_recorded_at ON keyword_rankings(recorded_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- COMPETITORS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS competitors (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    metrics JSONB DEFAULT '{}',
+    last_analyzed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(project_id, url)
+);
+
+CREATE INDEX IF NOT EXISTS idx_competitors_project_id ON competitors(project_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- BACKLINKS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS backlinks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    source_url TEXT NOT NULL,
+    target_url TEXT NOT NULL,
+    anchor_text TEXT,
+    rel TEXT,
+    domain_authority INTEGER,
+    page_authority INTEGER,
+    spam_score INTEGER,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'lost', 'broken')),
+    first_seen_at TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ,
+    discovered_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(source_url, target_url)
+);
+
+CREATE INDEX IF NOT EXISTS idx_backlinks_project_id ON backlinks(project_id);
+CREATE INDEX IF NOT EXISTS idx_backlinks_status ON backlinks(status);
+CREATE INDEX IF NOT EXISTS idx_backlinks_discovered_at ON backlinks(discovered_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- ALERTS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK (severity IN ('critical', 'high', 'medium', 'low', 'info')),
+    title TEXT NOT NULL,
+    message TEXT,
+    data JSONB DEFAULT '{}',
+    read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_project_id ON alerts(project_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(read);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- USER SETTINGS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    settings JSONB DEFAULT '{
+        "notifications": {
+            "email": true,
+            "browser": true,
+            "digest": "daily"
+        },
+        "dashboard": {
+            "theme": "light",
+            "defaultView": "overview"
+        },
+        "seo": {
+            "defaultSearchEngine": "google",
+            "defaultLocation": "us",
+            "defaultDevice": "desktop"
+        }
+    }',
+    api_keys JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Enable RLS on all tables
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE keywords ENABLE ROW LEVEL SECURITY;
+ALTER TABLE keyword_rankings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE backlinks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+
+-- Profiles: Users can only see/edit their own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+CREATE POLICY "Users can view own profile" ON profiles
+    FOR SELECT USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+CREATE POLICY "Users can update own profile" ON profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+-- Projects: Users can only access their own projects
+DROP POLICY IF EXISTS "Users can view own projects" ON projects;
+CREATE POLICY "Users can view own projects" ON projects
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create projects" ON projects;
+CREATE POLICY "Users can create projects" ON projects
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
+CREATE POLICY "Users can update own projects" ON projects
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
+CREATE POLICY "Users can delete own projects" ON projects
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Audits: Users can access audits for their projects
+DROP POLICY IF EXISTS "Users can view project audits" ON audits;
+CREATE POLICY "Users can view project audits" ON audits
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = audits.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can create project audits" ON audits;
+CREATE POLICY "Users can create project audits" ON audits
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = audits.project_id AND projects.user_id = auth.uid())
+    );
+
+-- Audit Issues: Users can access issues for their audits
+DROP POLICY IF EXISTS "Users can view audit issues" ON audit_issues;
+CREATE POLICY "Users can view audit issues" ON audit_issues
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM audits
+            JOIN projects ON projects.id = audits.project_id
+            WHERE audits.id = audit_issues.audit_id AND projects.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can create audit issues" ON audit_issues;
+CREATE POLICY "Users can create audit issues" ON audit_issues
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM audits
+            JOIN projects ON projects.id = audits.project_id
+            WHERE audits.id = audit_issues.audit_id AND projects.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can update audit issues" ON audit_issues;
+CREATE POLICY "Users can update audit issues" ON audit_issues
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM audits
+            JOIN projects ON projects.id = audits.project_id
+            WHERE audits.id = audit_issues.audit_id AND projects.user_id = auth.uid()
+        )
+    );
+
+-- Keywords: Users can access keywords for their projects
+DROP POLICY IF EXISTS "Users can view project keywords" ON keywords;
+CREATE POLICY "Users can view project keywords" ON keywords
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can create project keywords" ON keywords;
+CREATE POLICY "Users can create project keywords" ON keywords
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can update project keywords" ON keywords;
+CREATE POLICY "Users can update project keywords" ON keywords
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can delete project keywords" ON keywords;
+CREATE POLICY "Users can delete project keywords" ON keywords
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = keywords.project_id AND projects.user_id = auth.uid())
+    );
+
+-- Keyword Rankings: Users can access rankings for their keywords
+DROP POLICY IF EXISTS "Users can view keyword rankings" ON keyword_rankings;
+CREATE POLICY "Users can view keyword rankings" ON keyword_rankings
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM keywords
+            JOIN projects ON projects.id = keywords.project_id
+            WHERE keywords.id = keyword_rankings.keyword_id AND projects.user_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can create keyword rankings" ON keyword_rankings;
+CREATE POLICY "Users can create keyword rankings" ON keyword_rankings
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM keywords
+            JOIN projects ON projects.id = keywords.project_id
+            WHERE keywords.id = keyword_rankings.keyword_id AND projects.user_id = auth.uid()
+        )
+    );
+
+-- Competitors: Users can access competitors for their projects
+DROP POLICY IF EXISTS "Users can view project competitors" ON competitors;
+CREATE POLICY "Users can view project competitors" ON competitors
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can create project competitors" ON competitors;
+CREATE POLICY "Users can create project competitors" ON competitors
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can delete project competitors" ON competitors;
+CREATE POLICY "Users can delete project competitors" ON competitors
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = competitors.project_id AND projects.user_id = auth.uid())
+    );
+
+-- Backlinks: Users can access backlinks for their projects
+DROP POLICY IF EXISTS "Users can view project backlinks" ON backlinks;
+CREATE POLICY "Users can view project backlinks" ON backlinks
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = backlinks.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can create project backlinks" ON backlinks;
+CREATE POLICY "Users can create project backlinks" ON backlinks
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = backlinks.project_id AND projects.user_id = auth.uid())
+    );
+
+-- Alerts: Users can access alerts for their projects
+DROP POLICY IF EXISTS "Users can view project alerts" ON alerts;
+CREATE POLICY "Users can view project alerts" ON alerts
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can create project alerts" ON alerts;
+CREATE POLICY "Users can create project alerts" ON alerts
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
+    );
+
+DROP POLICY IF EXISTS "Users can update project alerts" ON alerts;
+CREATE POLICY "Users can update project alerts" ON alerts
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM projects WHERE projects.id = alerts.project_id AND projects.user_id = auth.uid())
+    );
+
+-- User Settings: Users can only access their own settings
+DROP POLICY IF EXISTS "Users can view own settings" ON user_settings;
+CREATE POLICY "Users can view own settings" ON user_settings
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own settings" ON user_settings;
+CREATE POLICY "Users can create own settings" ON user_settings
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own settings" ON user_settings;
+CREATE POLICY "Users can update own settings" ON user_settings
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- MARKETING DATA STORE
+-- Generic key-value store for all marketing services (replaces localStorage)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS marketing_store (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    service TEXT NOT NULL,         -- e.g. 'cmo', 'content', 'social', 'paid-media', 'email', 'analytics', 'brand', 'product-marketing'
+    key TEXT NOT NULL,             -- e.g. 'campaigns', 'calendar', 'posts', 'settings'
+    data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, project_id, service, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketing_store_user ON marketing_store(user_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_project ON marketing_store(project_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_service ON marketing_store(service);
+CREATE INDEX IF NOT EXISTS idx_marketing_store_lookup ON marketing_store(user_id, service, key);
+
+-- RLS for marketing_store
+ALTER TABLE marketing_store ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own marketing data" ON marketing_store;
+CREATE POLICY "Users can view own marketing data" ON marketing_store
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own marketing data" ON marketing_store;
+CREATE POLICY "Users can create own marketing data" ON marketing_store
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own marketing data" ON marketing_store;
+CREATE POLICY "Users can update own marketing data" ON marketing_store
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own marketing data" ON marketing_store;
+CREATE POLICY "Users can delete own marketing data" ON marketing_store
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- MARKETING CAMPAIGNS (cross-department)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('content', 'social', 'paid', 'email', 'cross-channel', 'brand', 'product-launch')),
+    status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'planned', 'active', 'paused', 'completed', 'archived')),
+    channel TEXT,                  -- primary channel
+    channels TEXT[],               -- all channels involved
+    budget DECIMAL(12, 2),
+    spend DECIMAL(12, 2) DEFAULT 0,
+    start_date DATE,
+    end_date DATE,
+    goals JSONB DEFAULT '{}',
+    metrics JSONB DEFAULT '{}',
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaigns_user ON marketing_campaigns(user_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_project ON marketing_campaigns(project_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON marketing_campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_type ON marketing_campaigns(type);
+
+ALTER TABLE marketing_campaigns ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own campaigns" ON marketing_campaigns;
+CREATE POLICY "Users can view own campaigns" ON marketing_campaigns
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own campaigns" ON marketing_campaigns;
+CREATE POLICY "Users can create own campaigns" ON marketing_campaigns
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own campaigns" ON marketing_campaigns;
+CREATE POLICY "Users can update own campaigns" ON marketing_campaigns
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own campaigns" ON marketing_campaigns;
+CREATE POLICY "Users can delete own campaigns" ON marketing_campaigns
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- CONTENT ITEMS (content strategy)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS content_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    campaign_id UUID REFERENCES marketing_campaigns(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('blog', 'article', 'video', 'social', 'email', 'landing-page', 'whitepaper', 'case-study', 'infographic', 'other')),
+    status TEXT DEFAULT 'idea' CHECK (status IN ('idea', 'planned', 'in-progress', 'review', 'approved', 'published', 'archived')),
+    author TEXT,
+    content TEXT,
+    brief JSONB DEFAULT '{}',
+    seo_data JSONB DEFAULT '{}',    -- target keywords, meta, etc.
+    metrics JSONB DEFAULT '{}',     -- views, shares, conversions
+    publish_date DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_user ON content_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_content_project ON content_items(project_id);
+CREATE INDEX IF NOT EXISTS idx_content_status ON content_items(status);
+CREATE INDEX IF NOT EXISTS idx_content_type ON content_items(type);
+
+ALTER TABLE content_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own content" ON content_items;
+CREATE POLICY "Users can view own content" ON content_items
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can create own content" ON content_items;
+CREATE POLICY "Users can create own content" ON content_items
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own content" ON content_items;
+CREATE POLICY "Users can update own content" ON content_items
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own content" ON content_items;
+CREATE POLICY "Users can delete own content" ON content_items
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- HELPER FUNCTIONS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Function to update 'updated_at' timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply updated_at triggers
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+CREATE TRIGGER update_profiles_updated_at
+    BEFORE UPDATE ON profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
+CREATE TRIGGER update_projects_updated_at
+    BEFORE UPDATE ON projects
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_keywords_updated_at ON keywords;
+CREATE TRIGGER update_keywords_updated_at
+    BEFORE UPDATE ON keywords
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_competitors_updated_at ON competitors;
+CREATE TRIGGER update_competitors_updated_at
+    BEFORE UPDATE ON competitors
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
+CREATE TRIGGER update_user_settings_updated_at
+    BEFORE UPDATE ON user_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- DONE!
+-- ═══════════════════════════════════════════════════════════════════════════════
+--
+-- Next steps:
+-- 1. Go to Settings > API in your Supabase dashboard
+-- 2. Copy the "Project URL" and "anon public" key
+-- 3. Add them to web/js/config.js:
+--
+--    window.APP_CONFIG = {
+--        SUPABASE_URL: 'https://your-project.supabase.co',
+--        SUPABASE_ANON_KEY: 'your-anon-key-here',
+--        ...
+--    };
+--
+-- 4. Users can now sign up and their data will persist across devices!
+--
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: database/admin-setup.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- ADMIN USER MANAGEMENT SETUP
+-- ═══════════════════════════════════════════════════════════════════════════════
+--
+-- This script adds admin role support to the Marketing Department 2026 platform.
+-- Run this AFTER running supabase-schema.sql
+--
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Step 1: Add role column to profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin', 'super_admin'));
+
+-- Step 2: Create index for role-based queries
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- Step 3: Admin status lives entirely in the `role` column above — it is
+-- independent of `plan` (an admin can be on any billing tier, including
+-- free, since admin access isn't a purchased plan). The canonical plan enum
+-- is defined in supabase-intelligence-profiles.sql; re-assert it here too so
+-- this script still works if run standalone/out of order.
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
+
+-- Step 4: Create admin RLS policies
+-- Admin users can view all profiles
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+CREATE POLICY "Admins can view all profiles" ON profiles
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+    );
+
+-- Admin users can update any profile
+DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
+CREATE POLICY "Admins can update any profile" ON profiles
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+    );
+
+-- Admin users can delete any profile (except other admins)
+DROP POLICY IF EXISTS "Admins can delete non-admin profiles" ON profiles;
+CREATE POLICY "Admins can delete non-admin profiles" ON profiles
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role IN ('admin', 'super_admin')
+        )
+        AND role = 'user'  -- Can only delete regular users
+    );
+
+-- Step 5: Admin access to all projects
+DROP POLICY IF EXISTS "Admins can view all projects" ON projects;
+CREATE POLICY "Admins can view all projects" ON projects
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+    );
+
+DROP POLICY IF EXISTS "Admins can update all projects" ON projects;
+CREATE POLICY "Admins can update all projects" ON projects
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+    );
+
+-- Step 6: Create admin activity log table
+CREATE TABLE IF NOT EXISTS admin_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- SET NULL, not CASCADE. An audit row's whole job is to outlive the
+    -- thing it describes: deleting an administrator must not delete the
+    -- record of what that administrator did, which is precisely the history
+    -- anyone investigating would come looking for.
+    admin_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- Denormalised on purpose. Once the account is gone the id points at
+    -- nothing, and "some deleted user changed a plan" answers no question.
+    admin_email TEXT,
+    action TEXT NOT NULL,  -- e.g. 'user_created', 'user_deleted', 'role_granted'
+    target_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    target_email TEXT,
+    details JSONB DEFAULT '{}',
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Existing installs: the table shipped with CASCADE on admin_id and no email
+-- columns. These bring it into line without touching a recorded row.
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS admin_email  TEXT;
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS target_email TEXT;
+ALTER TABLE admin_activity_log ALTER COLUMN admin_id DROP NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'admin_activity_log_admin_id_fkey'
+       AND table_name = 'admin_activity_log'
+  ) THEN
+    ALTER TABLE admin_activity_log DROP CONSTRAINT admin_activity_log_admin_id_fkey;
+    ALTER TABLE admin_activity_log
+      ADD CONSTRAINT admin_activity_log_admin_id_fkey
+      FOREIGN KEY (admin_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_admin_log_admin ON admin_activity_log(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admin_log_target ON admin_activity_log(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_log_created ON admin_activity_log(created_at DESC);
+
+-- RLS for admin activity log
+ALTER TABLE admin_activity_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins can view activity log" ON admin_activity_log;
+CREATE POLICY "Admins can view activity log" ON admin_activity_log
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+    );
+
+-- There is deliberately NO insert policy here any more, and none for UPDATE
+-- or DELETE either.
+--
+-- The one that stood here let any admin insert rows through the anon key.
+-- That is the wrong shape for an audit log: it allowed an administrator to
+-- write entries by hand — manufacturing a record of something that never
+-- happened, or padding the log around something that did. Writes come from
+-- the server on the service-role key, which bypasses RLS, so removing this
+-- costs nothing and closes the forgery route.
+--
+-- RLS denies whatever has no policy, so the table is now append-only from
+-- the server and read-only to every client: admins can read it, nobody can
+-- edit or erase it.
+
+-- Step 7: Function to promote user to admin
+CREATE OR REPLACE FUNCTION promote_to_admin(user_email TEXT, admin_role TEXT DEFAULT 'admin')
+RETURNS JSONB AS $$
+DECLARE
+    target_user_id UUID;
+    result JSONB;
+BEGIN
+    -- Validate admin_role
+    IF admin_role NOT IN ('admin', 'super_admin') THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Invalid admin role. Use admin or super_admin.');
+    END IF;
+
+    -- Find user by email
+    SELECT id INTO target_user_id
+    FROM auth.users
+    WHERE email = user_email
+    LIMIT 1;
+
+    IF target_user_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
+    END IF;
+
+    -- Update profile to admin (role only — plan/billing is untouched)
+    UPDATE profiles
+    SET
+        role = admin_role,
+        updated_at = NOW()
+    WHERE id = target_user_id;
+
+    -- Log the action
+    INSERT INTO admin_activity_log (admin_id, admin_email, action, target_user_id, target_email, details)
+    VALUES (
+        auth.uid(),
+        (SELECT email FROM profiles WHERE id = auth.uid()),
+        'user_promoted_to_admin',
+        target_user_id,
+        user_email,
+        jsonb_build_object('new_role', admin_role, 'email', user_email)
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'User promoted to ' || admin_role,
+        'user_id', target_user_id,
+        'email', user_email
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Step 8: Function to demote admin to user
+CREATE OR REPLACE FUNCTION demote_to_user(user_email TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    target_user_id UUID;
+    result JSONB;
+BEGIN
+    -- Find user by email
+    SELECT id INTO target_user_id
+    FROM auth.users
+    WHERE email = user_email
+    LIMIT 1;
+
+    IF target_user_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
+    END IF;
+
+    -- Update profile to user (role only — plan/billing is untouched)
+    UPDATE profiles
+    SET
+        role = 'user',
+        updated_at = NOW()
+    WHERE id = target_user_id;
+
+    -- Log the action
+    INSERT INTO admin_activity_log (admin_id, action, target_user_id, details)
+    VALUES (
+        auth.uid(),
+        'user_demoted_from_admin',
+        target_user_id,
+        jsonb_build_object('email', user_email)
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'User demoted to regular user',
+        'user_id', target_user_id,
+        'email', user_email
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- FIRST ADMIN USER CREATION
+-- ═══════════════════════════════════════════════════════════════════════════════
+--
+-- IMPORTANT: After running this schema, you need to:
+--
+-- 1. Register a user account through the normal signup process
+-- 2. Then run ONE of these commands to make that user an admin:
+--
+--    For regular admin:
+--    UPDATE profiles SET role = 'admin'
+--    WHERE email = 'your-email@example.com';
+--
+--    For super admin:
+--    UPDATE profiles SET role = 'super_admin'
+--    WHERE email = 'your-email@example.com';
+--
+-- 3. After that, you can use the admin dashboard to manage other users
+--
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- DONE! Your admin system is now configured.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-business-brain.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Aduma Business Brain — Per-Project Cloud Sync + Version History
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Fixes: BusinessBrain data previously lived only in localStorage (key
+-- 'intel_business_brain'), was NOT scoped per-project (one shared brain for
+-- every project), and had zero version history. This schema makes Business
+-- Brain a first-class per-project, cloud-synced, versioned record.
+
+-- ── Current brain state (one row per project) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS business_brain (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id        UUID        NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  data              JSONB       NOT NULL DEFAULT '{}',
+  confidence_score  INTEGER     DEFAULT 0,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (project_id)
+);
+
+-- ── Append-only snapshot history (last 20 kept per project, pruned by app) ─
+CREATE TABLE IF NOT EXISTS business_brain_history (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id        UUID        NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  data              JSONB       NOT NULL,
+  confidence_score  INTEGER     DEFAULT 0,
+  label             TEXT,                 -- e.g. 'Autosave', 'Autofill overwrite', 'Manual snapshot'
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Indexes ─────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_brain_project          ON business_brain         (project_id);
+CREATE INDEX IF NOT EXISTS idx_brain_user             ON business_brain         (user_id);
+CREATE INDEX IF NOT EXISTS idx_brain_history_project   ON business_brain_history (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_brain_history_user      ON business_brain_history (user_id);
+
+-- ── Row-Level Security ────────────────────────────────────────────────────
+ALTER TABLE business_brain         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE business_brain_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own brain" ON business_brain;
+CREATE POLICY "Users manage own brain"
+  ON business_brain FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users manage own brain history" ON business_brain_history;
+CREATE POLICY "Users manage own brain history"
+  ON business_brain_history FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ── updated_at trigger ────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION update_business_brain_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS business_brain_updated_at ON business_brain;
+CREATE TRIGGER business_brain_updated_at
+  BEFORE UPDATE ON business_brain
+  FOR EACH ROW EXECUTE FUNCTION update_business_brain_updated_at();
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-intelligence-profiles.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Intelligence Profiles — multi-business Intelligence Layer
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-business-brain.sql has already been run.
+--
+-- One "intelligence profile" = one business's complete Intelligence Layer
+-- (Business Brain, and later radar/pulse). Users switch profiles to work on
+-- different businesses. Plan limits (see get_intel_profile_limit below):
+-- start/growth/scale/autonomous=1, enterprise=admin-configured,
+-- agency_starter=5, agency_growth=15, agency_pro=50, agency_enterprise=admin-configured.
+
+-- ── Extend account plans ───────────────────────────────────────────────────
+-- Canonical plan enum, matching Audema's real published pricing tiers.
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
+
+-- Admin-set profile allowance for enterprise accounts (NULL = not set → 1)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS intel_profile_limit INTEGER;
+
+-- ── Intelligence profiles ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS intelligence_profiles (
+  id            UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  owner_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  business_name TEXT        DEFAULT '',
+  notes         TEXT        DEFAULT '',
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Shared access: members can be granted a role on a profile ("with the
+-- right access, change the intelligence profile")
+CREATE TABLE IF NOT EXISTS intelligence_profile_members (
+  profile_id UUID NOT NULL REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role       TEXT NOT NULL DEFAULT 'editor' CHECK (role IN ('owner','editor','viewer')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (profile_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_intel_profiles_owner  ON intelligence_profiles (owner_id);
+CREATE INDEX IF NOT EXISTS idx_intel_members_user    ON intelligence_profile_members (user_id);
+
+-- ── Link Business Brain data to profiles ───────────────────────────────────
+-- business_brain was project-scoped; profile scoping supersedes it (project
+-- scoping remains as a fallback for accounts that haven't run this migration).
+ALTER TABLE business_brain         ALTER COLUMN project_id DROP NOT NULL;
+ALTER TABLE business_brain_history ALTER COLUMN project_id DROP NOT NULL;
+ALTER TABLE business_brain
+  ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+ALTER TABLE business_brain_history
+  ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+
+-- One current-state row per profile
+CREATE UNIQUE INDEX IF NOT EXISTS uq_brain_per_profile
+  ON business_brain (intel_profile_id) WHERE intel_profile_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_brain_history_profile
+  ON business_brain_history (intel_profile_id, created_at DESC);
+
+-- ── Plan limit resolution + enforcement ────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_intel_profile_limit(uid UUID)
+RETURNS INTEGER AS $$
+  SELECT CASE plan
+    WHEN 'agency_starter'    THEN 5
+    WHEN 'agency_growth'     THEN 15
+    WHEN 'agency_pro'        THEN 50
+    WHEN 'agency_enterprise' THEN COALESCE(intel_profile_limit, 999999)
+    WHEN 'enterprise'        THEN COALESCE(intel_profile_limit, 1)
+    ELSE 1  -- free / start / growth / scale / autonomous: single-business plans
+  END
+  FROM profiles WHERE id = uid;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION enforce_intel_profile_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  current_count INTEGER;
+  allowed       INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO current_count FROM intelligence_profiles WHERE owner_id = NEW.owner_id;
+  allowed := COALESCE(get_intel_profile_limit(NEW.owner_id), 1);
+  IF current_count >= allowed THEN
+    RAISE EXCEPTION 'Intelligence profile limit reached (% of % used). Upgrade your plan to add more profiles.', current_count, allowed;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_intel_profile_limit ON intelligence_profiles;
+CREATE TRIGGER trg_intel_profile_limit
+  BEFORE INSERT ON intelligence_profiles
+  FOR EACH ROW EXECUTE FUNCTION enforce_intel_profile_limit();
+
+-- ── updated_at trigger ──────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_intel_profile()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_intel_profile_touch ON intelligence_profiles;
+CREATE TRIGGER trg_intel_profile_touch
+  BEFORE UPDATE ON intelligence_profiles
+  FOR EACH ROW EXECUTE FUNCTION touch_intel_profile();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE intelligence_profiles        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE intelligence_profile_members ENABLE ROW LEVEL SECURITY;
+
+-- Cross-table lookups inside these policies MUST go through SECURITY DEFINER
+-- functions. Referencing intelligence_profile_members directly from an
+-- intelligence_profiles policy (and vice-versa) makes each policy trigger the
+-- other's evaluation, which Postgres aborts with "infinite recursion detected
+-- in policy for relation intelligence_profiles" — blocking every profile read,
+-- so no profile can be created or activated and nothing can sync to the cloud.
+-- SECURITY DEFINER functions bypass RLS on the tables they read, breaking the
+-- cycle. search_path is pinned to stop search_path hijacking.
+
+CREATE OR REPLACE FUNCTION is_intel_profile_owner(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profiles WHERE id = pid AND owner_id = uid);
+$$;
+
+CREATE OR REPLACE FUNCTION is_intel_profile_member(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profile_members WHERE profile_id = pid AND user_id = uid);
+$$;
+
+CREATE OR REPLACE FUNCTION can_edit_intel_profile(pid UUID, uid UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM intelligence_profiles WHERE id = pid AND owner_id = uid)
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members
+                 WHERE profile_id = pid AND user_id = uid AND role IN ('owner','editor'));
+$$;
+
+GRANT EXECUTE ON FUNCTION is_intel_profile_owner(UUID, UUID)  TO authenticated;
+GRANT EXECUTE ON FUNCTION is_intel_profile_member(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION can_edit_intel_profile(UUID, UUID)  TO authenticated;
+
+-- Owner: full control. Members: read the profile record.
+DROP POLICY IF EXISTS "ip_owner_all"    ON intelligence_profiles;
+CREATE POLICY "ip_owner_all" ON intelligence_profiles
+  FOR ALL USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
+
+DROP POLICY IF EXISTS "ip_member_read" ON intelligence_profiles;
+CREATE POLICY "ip_member_read" ON intelligence_profiles
+  FOR SELECT USING (is_intel_profile_member(id, auth.uid()));
+
+-- Membership rows: profile owner manages; users see their own memberships.
+DROP POLICY IF EXISTS "ipm_owner_manage" ON intelligence_profile_members;
+CREATE POLICY "ipm_owner_manage" ON intelligence_profile_members
+  FOR ALL USING (is_intel_profile_owner(profile_id, auth.uid()))
+  WITH CHECK (is_intel_profile_owner(profile_id, auth.uid()));
+
+DROP POLICY IF EXISTS "ipm_self_read" ON intelligence_profile_members;
+CREATE POLICY "ipm_self_read" ON intelligence_profile_members
+  FOR SELECT USING (user_id = auth.uid());
+
+-- ── Extend brain policies for profile members ──────────────────────────────
+-- Existing policies allow auth.uid() = user_id (the writer). Add access for
+-- profile owner + editors so shared profiles work.
+DROP POLICY IF EXISTS "brain_profile_access" ON business_brain;
+CREATE POLICY "brain_profile_access" ON business_brain
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  );
+
+DROP POLICY IF EXISTS "brain_history_profile_access" ON business_brain_history;
+CREATE POLICY "brain_history_profile_access" ON business_brain_history
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND can_edit_intel_profile(intel_profile_id, auth.uid())
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-social-posts.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Social Posts — per-post data model for Social Studio (PULSE)
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-business-brain.sql and supabase-intelligence-profiles.sql
+-- have already been run (this table uses the same dual project/profile scope).
+--
+-- Fixes the core architectural gap found in the social-agent audit: organic
+-- posts and ad concepts were generated as one big markdown blob with no
+-- per-post data model, so there was no way to approve/reject/regenerate a
+-- single post, no real calendar (just a CSV with fabricated dates), and no
+-- queue a future publish integration could consume. This table is that
+-- missing per-post record — one row per generated post/ad variant, carrying
+-- its own review status, optional scheduled time, optional rendered image,
+-- and a publish_status a real platform-publish adapter can update later.
+
+-- ── Social posts ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS social_posts (
+  id                    UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id               UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id            UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id      UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  batch_id              UUID        NOT NULL, -- groups posts generated together in one request
+  source                TEXT        NOT NULL DEFAULT 'organic' CHECK (source IN ('organic', 'ad')),
+  platform              TEXT        NOT NULL, -- 'LinkedIn' | 'Instagram' | 'Meta/Facebook' | 'TikTok' | 'Twitter/X' | 'Google Search' | ...
+  angle_type            TEXT,       -- for ad concepts: 'pain-point' | 'offer' | 'proof' | 'urgency' | 'comparison' | 'aspirational'; null for organic
+
+  hook                  TEXT,
+  headline              TEXT        NOT NULL,
+  body                  TEXT        NOT NULL DEFAULT '',
+  cta                   TEXT,
+  hashtags              TEXT[]      DEFAULT '{}',
+  proof_point            TEXT,
+  urgency_line           TEXT,
+  visual_direction       TEXT,
+
+  image_url             TEXT,       -- rendered/uploaded creative for this post
+  image_render_status    TEXT        DEFAULT 'none' CHECK (image_render_status IN ('none', 'pending', 'rendered', 'failed')),
+
+  status                TEXT        NOT NULL DEFAULT 'pending_review'
+                                    CHECK (status IN ('pending_review', 'approved', 'rejected', 'scheduled', 'published', 'archived')),
+  review_note            TEXT,       -- why it was rejected / regen instructions used
+
+  scheduled_at           TIMESTAMPTZ,
+  publish_status         TEXT        DEFAULT 'not_connected'
+                                    CHECK (publish_status IN ('not_connected', 'queued', 'publishing', 'published', 'failed')),
+  publish_platform_post_id TEXT,     -- the ID/URL the real platform API returns once published
+  publish_error          TEXT,
+  published_at           TIMESTAMPTZ,
+
+  metadata               JSONB       DEFAULT '{}', -- scores, framework used, regen lineage, campaign objective, etc.
+
+  created_at             TIMESTAMPTZ DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_posts_user       ON social_posts (user_id);
+CREATE INDEX IF NOT EXISTS idx_social_posts_project    ON social_posts (project_id);
+CREATE INDEX IF NOT EXISTS idx_social_posts_profile    ON social_posts (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_social_posts_batch      ON social_posts (batch_id);
+CREATE INDEX IF NOT EXISTS idx_social_posts_status     ON social_posts (status);
+CREATE INDEX IF NOT EXISTS idx_social_posts_scheduled  ON social_posts (scheduled_at) WHERE scheduled_at IS NOT NULL;
+
+-- ── updated_at trigger ────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_social_post()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_social_post_touch ON social_posts;
+CREATE TRIGGER trg_social_post_touch
+  BEFORE UPDATE ON social_posts
+  FOR EACH ROW EXECUTE FUNCTION touch_social_post();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE social_posts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "social_posts_owner_all" ON social_posts;
+CREATE POLICY "social_posts_owner_all" ON social_posts
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Intelligence-profile editors/owners (shared access) can also manage posts
+-- scoped to that profile, mirroring the business_brain sharing model.
+DROP POLICY IF EXISTS "social_posts_profile_access" ON social_posts;
+CREATE POLICY "social_posts_profile_access" ON social_posts
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-credits.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Credit Balances — quota metering for paid AI generation.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql already run.
+--
+-- Starts metering api/generate-ad-image.js (real per-call OpenAI image
+-- cost). Scoped per intelligence profile/site — the same dual project/
+-- profile model as social_posts and business_brain — so a whole team
+-- sharing a site shares one balance rather than each login getting its own.
+-- New scopes default to 20,000 credits; generation pauses at 0 and the
+-- caller is shown an upgrade prompt instead of a silent/opaque failure.
+
+CREATE TABLE IF NOT EXISTS credit_balances (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  credits_total     INTEGER     NOT NULL DEFAULT 20000,
+  credits_used      INTEGER     NOT NULL DEFAULT 0,
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT credit_balances_scope_check CHECK (project_id IS NOT NULL OR intel_profile_id IS NOT NULL),
+  CONSTRAINT credit_balances_used_nonneg CHECK (credits_used >= 0)
+);
+
+-- One balance row per scope.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_balances_profile ON credit_balances (intel_profile_id) WHERE intel_profile_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_balances_project ON credit_balances (project_id) WHERE project_id IS NOT NULL;
+
+-- ── updated_at trigger ──────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_credit_balance()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_credit_balance_touch ON credit_balances;
+CREATE TRIGGER trg_credit_balance_touch
+  BEFORE UPDATE ON credit_balances
+  FOR EACH ROW EXECUTE FUNCTION touch_credit_balance();
+
+-- ── Atomic reserve and refund ───────────────────────────────────────────────
+--
+-- api/generate-ad-image.js used to read the balance, compare it in JavaScript,
+-- call OpenAI, and then write back `credits_used + cost` as an absolute value.
+-- Two things went wrong with that under any real concurrency:
+--
+--   * Lost update. Two calls that both read credits_used = X both write
+--     X + 100, so the second image is free. The write is an absolute value,
+--     so it overwrites rather than accumulates.
+--   * A gate held open for two minutes. The check happened before the OpenAI
+--     call and the deduction after it, and that call can take 120 seconds. An
+--     account with 100 credits left could start twenty generations inside that
+--     window, and every one of them would pass a check against the same
+--     pre-spend balance. Twenty images bought, one image charged.
+--
+-- consume_credits() closes both: it compares and deducts in a single UPDATE,
+-- so the row lock serialises concurrent callers and the second one re-reads
+-- what the first one wrote. The endpoint calls it BEFORE spending money and
+-- calls refund_credits() if the generation then fails, so an unlucky customer
+-- is not billed for an image they never received.
+--
+-- Returns (allowed, used_after, total). On refusal used_after is the unchanged
+-- current value, so the caller can report an accurate remaining figure.
+CREATE OR REPLACE FUNCTION consume_credits(pid UUID, ipid UUID, cost INTEGER)
+RETURNS TABLE (allowed BOOLEAN, used_after INTEGER, total INTEGER) AS $$
+DECLARE
+  new_used  INTEGER;
+  new_total INTEGER;
+  cur_used  INTEGER;
+  cur_total INTEGER;
+BEGIN
+  UPDATE credit_balances b
+     SET credits_used = b.credits_used + cost
+   WHERE (
+           (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+        OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+         )
+     AND b.credits_used + cost <= b.credits_total
+  RETURNING b.credits_used, b.credits_total INTO new_used, new_total;
+
+  IF new_used IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, new_used, new_total;
+    RETURN;
+  END IF;
+
+  SELECT b.credits_used, b.credits_total INTO cur_used, cur_total
+    FROM credit_balances b
+   WHERE (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+      OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+   LIMIT 1;
+
+  -- No row matched at all: the scope has no balance, which is a different
+  -- thing from a spent one. Refuse rather than report a zero balance that
+  -- was never issued.
+
+  RETURN QUERY SELECT FALSE, COALESCE(cur_used, 0), COALESCE(cur_total, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Give back credits reserved for a generation that then failed. Clamped at
+-- zero so a double refund cannot manufacture credits.
+CREATE OR REPLACE FUNCTION refund_credits(pid UUID, ipid UUID, cost INTEGER)
+RETURNS INTEGER AS $$
+DECLARE
+  new_used INTEGER;
+BEGIN
+  UPDATE credit_balances b
+     SET credits_used = GREATEST(0, b.credits_used - cost)
+   WHERE (ipid IS NOT NULL AND b.intel_profile_id = ipid)
+      OR (ipid IS NULL AND pid IS NOT NULL AND b.project_id = pid)
+  RETURNING b.credits_used INTO new_used;
+  RETURN COALESCE(new_used, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+-- Deductions and inserts always happen server-side via SUPABASE_SERVICE_
+-- ROLE_KEY (which bypasses RLS) — api/generate-ad-image.js is the only
+-- writer. The only policy needed here is read access, so the UI can show a
+-- live "X credits remaining" meter without round-tripping the metered API.
+ALTER TABLE credit_balances ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "credit_balances_scope_read" ON credit_balances;
+CREATE POLICY "credit_balances_scope_read" ON credit_balances
+  FOR SELECT USING (
+    (intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
+    ))
+    OR (project_id IS NOT NULL AND EXISTS (SELECT 1 FROM projects pr WHERE pr.id = project_id AND pr.user_id = auth.uid()))
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-audience.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Audience — persistent contact database + segments for campaign sending
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-business-brain.sql and supabase-intelligence-profiles.sql
+-- have already been run (this uses the same dual project/profile scope + the
+-- intelligence_profile_members sharing model as supabase-social-posts.sql).
+--
+-- Fixes the gap in the Pat (Email Delivery) agent: recipients previously had
+-- to be pasted or imported fresh for every single campaign, with no memory of
+-- who had already been contacted, who unsubscribed, or how to group people
+-- into a reusable audience. This schema is that missing persistent layer:
+-- one row per contact, reusable segments (dynamic tag-rules or a manually
+-- curated static list), and a send log so a segment always excludes anyone
+-- who has opted out or bounced.
+
+-- ── Contacts ─────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS contacts (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  email             TEXT        NOT NULL,
+  first_name        TEXT,
+  last_name         TEXT,
+  company           TEXT,
+  custom_fields     JSONB       NOT NULL DEFAULT '{}', -- arbitrary merge-tag values, e.g. {"city":"Melbourne"}
+  tags              TEXT[]      NOT NULL DEFAULT '{}',
+
+  status            TEXT        NOT NULL DEFAULT 'subscribed'
+                                CHECK (status IN ('subscribed', 'unsubscribed', 'bounced', 'complained')),
+  status_changed_at TIMESTAMPTZ,
+
+  source            TEXT        DEFAULT 'manual', -- 'manual' | 'csv_import' | 'paste' | agent key that created it
+  notes             TEXT,
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+
+  -- One contact per email per account — segments filter this single pool
+  -- rather than fragmenting the audience across projects/profiles.
+  UNIQUE (user_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_contacts_user     ON contacts (user_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_project  ON contacts (project_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_profile  ON contacts (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_status   ON contacts (status);
+CREATE INDEX IF NOT EXISTS idx_contacts_tags     ON contacts USING GIN (tags);
+CREATE INDEX IF NOT EXISTS idx_contacts_email    ON contacts (lower(email));
+
+-- ── Segments — reusable recipient groups ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS segments (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  name              TEXT        NOT NULL,
+  description       TEXT,
+
+  -- 'dynamic': membership computed at send time from filter_rules
+  -- 'static':  membership is exactly the rows in segment_members
+  member_mode       TEXT        NOT NULL DEFAULT 'dynamic' CHECK (member_mode IN ('dynamic', 'static')),
+
+  -- Dynamic filter shape: { "tagsAny": ["vip"], "tagsAll": [], "status": "subscribed" }
+  -- status defaults to 'subscribed' (excluding unsubscribed/bounced/complained)
+  -- whenever the key is omitted — enforced in application code, not just here.
+  filter_rules      JSONB       NOT NULL DEFAULT '{}',
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_segments_user     ON segments (user_id);
+CREATE INDEX IF NOT EXISTS idx_segments_project  ON segments (project_id);
+CREATE INDEX IF NOT EXISTS idx_segments_profile  ON segments (intel_profile_id);
+
+-- ── Static segment membership ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS segment_members (
+  segment_id  UUID        NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+  contact_id  UUID        NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  added_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (segment_id, contact_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_segment_members_contact ON segment_members (contact_id);
+
+-- ── Campaign send log — one row per recipient per campaign send ────────────
+-- campaign_id is an opaque client-generated id (Pat's collateCampaign()), not
+-- a foreign key — campaigns themselves are ephemeral/composed client-side.
+CREATE TABLE IF NOT EXISTS campaign_sends (
+  id             UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  contact_id     UUID        REFERENCES contacts(id) ON DELETE SET NULL,
+
+  campaign_id    TEXT        NOT NULL,
+  campaign_name  TEXT,
+  segment_id     UUID        REFERENCES segments(id) ON DELETE SET NULL,
+
+  email          TEXT        NOT NULL,
+  subject        TEXT,
+  status         TEXT        NOT NULL CHECK (status IN ('sent', 'failed', 'rejected')),
+  provider_id    TEXT,       -- Resend email id, when sent
+  error          TEXT,
+
+  sent_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_user     ON campaign_sends (user_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_contact  ON campaign_sends (contact_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_campaign ON campaign_sends (campaign_id);
+
+-- ── updated_at triggers ────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_contact()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_contact_touch ON contacts;
+CREATE TRIGGER trg_contact_touch
+  BEFORE UPDATE ON contacts
+  FOR EACH ROW EXECUTE FUNCTION touch_contact();
+
+CREATE OR REPLACE FUNCTION touch_segment()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_segment_touch ON segments;
+CREATE TRIGGER trg_segment_touch
+  BEFORE UPDATE ON segments
+  FOR EACH ROW EXECUTE FUNCTION touch_segment();
+
+-- Keep status_changed_at honest whenever status actually changes.
+CREATE OR REPLACE FUNCTION touch_contact_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    NEW.status_changed_at = NOW();
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_contact_status_touch ON contacts;
+CREATE TRIGGER trg_contact_status_touch
+  BEFORE UPDATE ON contacts
+  FOR EACH ROW EXECUTE FUNCTION touch_contact_status();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE contacts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE segments        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE segment_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_sends  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "contacts_owner_all" ON contacts;
+CREATE POLICY "contacts_owner_all" ON contacts
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "contacts_profile_access" ON contacts;
+CREATE POLICY "contacts_profile_access" ON contacts
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+DROP POLICY IF EXISTS "segments_owner_all" ON segments;
+CREATE POLICY "segments_owner_all" ON segments
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "segments_profile_access" ON segments;
+CREATE POLICY "segments_profile_access" ON segments
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+DROP POLICY IF EXISTS "segment_members_owner_all" ON segment_members;
+CREATE POLICY "segment_members_owner_all" ON segment_members
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM segments s WHERE s.id = segment_id AND s.user_id = auth.uid())
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM segments s WHERE s.id = segment_id AND s.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "segment_members_profile_access" ON segment_members;
+CREATE POLICY "segment_members_profile_access" ON segment_members
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM segments s
+      WHERE s.id = segment_id AND s.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = s.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = s.intel_profile_id AND m.user_id = auth.uid()
+                     AND m.role IN ('owner', 'editor'))
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "campaign_sends_owner_all" ON campaign_sends;
+CREATE POLICY "campaign_sends_owner_all" ON campaign_sends
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-audience-consent.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Audience — consent tracking (additive to supabase-audience.sql)
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-audience.sql already run.
+--
+-- Fixes a gap from the 2026 Agent Audit: contacts had a `source` field
+-- ('manual'/'paste'/'csv_import') but no record of the actual lawful basis
+-- for holding someone's email — a "how did we get permission to email this
+-- person" field, not just "how did the row get typed in." This is what
+-- Beeker's import flow now asks for and records per contact.
+
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS consent_source TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS consent_timestamp TIMESTAMPTZ;
+
+COMMENT ON COLUMN contacts.consent_source IS
+  'Lawful basis / how this contact agreed to receive marketing email — e.g. "Website signup form", "Event/conference opt-in", "Existing customer", "Imported from CRM (consent verified there)". Distinct from `source`, which just tracks how the row entered this system (manual/paste/csv_import).';
+COMMENT ON COLUMN contacts.consent_timestamp IS
+  'When consent was given, if known. Defaults to import time when the importer does not supply an earlier date.';
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-ab-testing.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Aduma A/B Testing Schema
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Or via: supabase db push
+
+-- ── Experiments ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS experiments (
+  id                UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  name              TEXT        NOT NULL,
+  description       TEXT        DEFAULT '',
+  status            TEXT        DEFAULT 'draft'
+                                CHECK (status IN ('draft','active','paused','finished')),
+  type              TEXT        DEFAULT 'ab'
+                                CHECK (type IN ('ab','multivariate','split-url')),
+  primary_goal_id   UUID,
+  winner_variant_id UUID,
+  start_date        TIMESTAMPTZ,
+  end_date          TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  user_id           UUID        REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+-- ── Variants ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS variants (
+  id                  UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  experiment_id       UUID        NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  name                TEXT        NOT NULL,
+  description         TEXT        DEFAULT '',
+  is_control          BOOLEAN     DEFAULT FALSE,
+  traffic_allocation  DECIMAL(5,2) DEFAULT 50.00,
+  redirect_url        TEXT,
+  changes             JSONB       DEFAULT '[]',
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Goals ─────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS goals (
+  id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  experiment_id UUID        NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  type          TEXT        DEFAULT 'click'
+                            CHECK (type IN ('click','pageview','custom','revenue')),
+  selector      TEXT,
+  url_pattern   TEXT,
+  is_primary    BOOLEAN     DEFAULT FALSE,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Visitors (unique per experiment) ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS visitors (
+  id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  experiment_id UUID        NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  variant_id    UUID        NOT NULL REFERENCES variants(id)    ON DELETE CASCADE,
+  visitor_id    TEXT        NOT NULL,
+  first_seen    TIMESTAMPTZ DEFAULT NOW(),
+  last_seen     TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (experiment_id, visitor_id)
+);
+
+-- ── Conversions ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS conversions (
+  id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  experiment_id UUID        NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  variant_id    UUID        NOT NULL REFERENCES variants(id)    ON DELETE CASCADE,
+  goal_id       UUID        NOT NULL REFERENCES goals(id)       ON DELETE CASCADE,
+  visitor_id    TEXT        NOT NULL,
+  revenue       DECIMAL(10,2),
+  metadata      JSONB       DEFAULT '{}',
+  converted_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Indexes ───────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_variants_experiment   ON variants    (experiment_id);
+CREATE INDEX IF NOT EXISTS idx_goals_experiment      ON goals       (experiment_id);
+CREATE INDEX IF NOT EXISTS idx_visitors_experiment   ON visitors    (experiment_id);
+CREATE INDEX IF NOT EXISTS idx_visitors_id           ON visitors    (visitor_id);
+CREATE INDEX IF NOT EXISTS idx_conversions_exp       ON conversions (experiment_id);
+CREATE INDEX IF NOT EXISTS idx_conversions_variant   ON conversions (variant_id);
+CREATE INDEX IF NOT EXISTS idx_conversions_visitor   ON conversions (visitor_id);
+
+-- ── Row-Level Security ────────────────────────────────────────────────────
+ALTER TABLE experiments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE variants    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goals       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE visitors    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversions ENABLE ROW LEVEL SECURITY;
+
+-- Service role bypasses RLS — that is how api/ab-track.js writes tracking
+-- rows and how the MCP server reads them. Nothing here needs to be reachable
+-- with the anon key, which is published in every browser that loads the app.
+--
+-- ── What these policies replaced, and why ─────────────────────────────────
+--
+-- The first version of this file carried four policies that evaluated to
+-- TRUE for every role, including `anon`:
+--
+--   "Anyone can write visitors"    ON visitors    FOR INSERT WITH CHECK (TRUE)
+--   "Anyone can write conversions" ON conversions FOR INSERT WITH CHECK (TRUE)
+--   "Service can read visitors"    ON visitors    FOR SELECT USING (TRUE)
+--   "Service can read conversions" ON conversions FOR SELECT USING (TRUE)
+--
+-- The names say "service", but a policy with no role list applies to every
+-- role. Since the anon key ships to the browser, those two SELECT policies
+-- made every visitor and conversion row in the database — experiment_id,
+-- variant_id, visitor_id, revenue, metadata, across every customer —
+-- readable by anyone who opened the app and copied the key out of it. The
+-- two INSERT policies let the same stranger fabricate visits and conversions
+-- against any experiment id, which is the cheapest possible way to flip
+-- which variant a customer declares the winner of.
+--
+-- Neither INSERT policy was ever needed: the tracking snippet POSTs to
+-- api/ab-track.js, which holds SUPABASE_SERVICE_ROLE_KEY and bypasses RLS.
+--
+-- The ownership policies also carried `OR user_id IS NULL`. experiments.user_id
+-- is ON DELETE SET NULL, so deleting a user turned their experiments into
+-- rows every other tenant could read AND write — and because a FOR ALL policy
+-- with no WITH CHECK reuses its USING expression as the write check, any
+-- signed-in user could also create an experiment with user_id NULL and share
+-- it with the whole database. Both halves are gone.
+--
+-- Existing rows with user_id IS NULL become invisible to end users after this
+-- migration. That is the intended direction: they are currently visible to
+-- *everyone*, and they remain reachable with the service-role key for
+-- reassignment.
+
+DROP POLICY IF EXISTS "Users see own experiments"   ON experiments;
+DROP POLICY IF EXISTS "Users see own variants"      ON variants;
+DROP POLICY IF EXISTS "Users see own goals"         ON goals;
+DROP POLICY IF EXISTS "Anyone can write visitors"   ON visitors;
+DROP POLICY IF EXISTS "Anyone can write conversions" ON conversions;
+DROP POLICY IF EXISTS "Service can read visitors"   ON visitors;
+DROP POLICY IF EXISTS "Service can read conversions" ON conversions;
+DROP POLICY IF EXISTS "Owners read own visitors"    ON visitors;
+DROP POLICY IF EXISTS "Owners read own conversions" ON conversions;
+
+CREATE POLICY "Users see own experiments"
+  ON experiments FOR ALL
+  USING      (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users see own variants" ON variants;
+CREATE POLICY "Users see own variants"
+  ON variants FOR ALL
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Users see own goals" ON goals;
+CREATE POLICY "Users see own goals"
+  ON goals FOR ALL
+  USING      (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()))
+  WITH CHECK (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+-- Results belong to whoever owns the experiment. web/js/experiments-store.js
+-- reads these two tables straight from the browser (getResults()), always
+-- filtered by experiment_id, so scoping by owner keeps that working and
+-- stops it returning anybody else's rows.
+DROP POLICY IF EXISTS "Owners read own visitors" ON visitors;
+CREATE POLICY "Owners read own visitors"
+  ON visitors FOR SELECT
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Owners read own conversions" ON conversions;
+CREATE POLICY "Owners read own conversions"
+  ON conversions FOR SELECT
+  USING (experiment_id IN (SELECT id FROM experiments WHERE user_id = auth.uid()));
+
+-- No INSERT/UPDATE/DELETE policy on visitors or conversions at all. Tracking
+-- rows are written only by api/ab-track.js with the service-role key; with
+-- RLS enabled and no permissive policy, every other role is refused.
+
+-- ── One conversion per visitor per goal ───────────────────────────────────
+-- A real visitor completing a goal is one event. Without this, a single
+-- fabricated visitor_id can be replayed against the conversions endpoint
+-- until a variant "wins" — the constraint makes repeat submissions collide
+-- in the database rather than accumulate as results.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conversions_visitor_goal
+  ON conversions (experiment_id, visitor_id, goal_id);
+
+-- ── Updated_at trigger ────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS experiments_updated_at ON experiments;
+CREATE TRIGGER experiments_updated_at
+  BEFORE UPDATE ON experiments
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-agent-audits.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Agent Audits — bi-monthly "stay current" research runs.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Not tenant-scoped like most other tables here — this data is about the
+-- PLATFORM'S OWN agents (Rex, Pat, Beeker, Pulse, etc.), not any client's
+-- business, so every signed-in user can read the same shared audit history.
+-- Only api/cron-agent-audit.js (service-role key) writes to it.
+
+CREATE TABLE IF NOT EXISTS agent_audit_runs (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status           TEXT        NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'partial', 'failed')),
+  agent_count      INTEGER     NOT NULL DEFAULT 0,
+  flagged_count    INTEGER     NOT NULL DEFAULT 0,
+  overall_summary  TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS agent_audit_findings (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_id            UUID        NOT NULL REFERENCES agent_audit_runs(id) ON DELETE CASCADE,
+  agent_key         TEXT        NOT NULL, -- matches AGENT_META keys in scotty.html, e.g. 'seo', 'social', 'linkedin'
+  agent_label       TEXT        NOT NULL, -- human display name, e.g. "SEO Intelligence (Rex)"
+  up_to_date        BOOLEAN     NOT NULL DEFAULT true,
+  summary           TEXT,
+  gaps              JSONB       DEFAULT '[]',   -- string[]
+  recommendations   JSONB       DEFAULT '[]',   -- [{text, impact: 'high'|'medium'|'low'}]
+  security_notes    JSONB       DEFAULT '[]',   -- string[]
+  sources           JSONB       DEFAULT '[]',   -- [{title, url}]
+  error             TEXT,                        -- set if this agent's research call failed — findings above are empty/partial in that case
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_audit_findings_run     ON agent_audit_findings (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_audit_findings_agent   ON agent_audit_findings (agent_key);
+CREATE INDEX IF NOT EXISTS idx_agent_audit_runs_run_at      ON agent_audit_runs (run_at DESC);
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+-- Read-only for any signed-in user (this is meta-info about the product's
+-- own agents, not client data); writes only via the service-role key the
+-- cron job uses, which bypasses RLS entirely.
+ALTER TABLE agent_audit_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_audit_findings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "agent_audit_runs_read" ON agent_audit_runs;
+CREATE POLICY "agent_audit_runs_read" ON agent_audit_runs
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "agent_audit_findings_read" ON agent_audit_findings;
+CREATE POLICY "agent_audit_findings_read" ON agent_audit_findings
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-competitor-watch.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Competitor Watch — scheduled/background competitor monitoring for
+-- Scout (Competitive Intel).
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Fixes a gap flagged in the 2026 Agent Audit: Scout was fully on-demand —
+-- it could research a competitor when asked, but nothing tracked change
+-- over time (a real "site changed", "pricing changed" alert like Crayon or
+-- Klue). This is the persistent side of that: a user opts a competitor URL
+-- into tracking here, api/cron-competitor-watch.js checks it daily, and any
+-- detected change (title, meta description, or page content) gets recorded.
+
+CREATE TABLE IF NOT EXISTS competitor_watches (
+  id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name        TEXT        NOT NULL,
+  url         TEXT        NOT NULL,
+  active      BOOLEAN     NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, url)
+);
+
+CREATE TABLE IF NOT EXISTS competitor_snapshots (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  watch_id          UUID        NOT NULL REFERENCES competitor_watches(id) ON DELETE CASCADE,
+  title             TEXT,
+  meta_description  TEXT,
+  content_hash      TEXT,
+  fetched_at        TIMESTAMPTZ DEFAULT NOW(),
+  error             TEXT
+);
+
+CREATE TABLE IF NOT EXISTS competitor_changes (
+  id              UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  watch_id        UUID        NOT NULL REFERENCES competitor_watches(id) ON DELETE CASCADE,
+  change_type     TEXT        NOT NULL CHECK (change_type IN ('title', 'meta_description', 'content')),
+  previous_value  TEXT,
+  new_value       TEXT,
+  detected_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_competitor_watches_user       ON competitor_watches (user_id);
+CREATE INDEX IF NOT EXISTS idx_competitor_snapshots_watch    ON competitor_snapshots (watch_id, fetched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_competitor_changes_watch      ON competitor_changes (watch_id, detected_at DESC);
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE competitor_watches   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE competitor_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE competitor_changes   ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "competitor_watches_owner_all" ON competitor_watches;
+CREATE POLICY "competitor_watches_owner_all" ON competitor_watches
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "competitor_snapshots_owner_all" ON competitor_snapshots;
+CREATE POLICY "competitor_snapshots_owner_all" ON competitor_snapshots
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM competitor_watches w WHERE w.id = watch_id AND w.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "competitor_changes_owner_all" ON competitor_changes;
+CREATE POLICY "competitor_changes_owner_all" ON competitor_changes
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM competitor_watches w WHERE w.id = watch_id AND w.user_id = auth.uid())
+  );
+
+-- Writes to snapshots/changes happen only via the service-role key
+-- (api/cron-competitor-watch.js), which bypasses RLS entirely.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-analytics-brain.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Analytics Brain — Persisted Report History
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Report Builder generated a report and threw it away the moment you
+-- navigated off the page (or refreshed) — only a local, this-device-only
+-- copy existed via agent-history.js's localStorage cache. This table gives
+-- generated reports the same real, cross-device, versioned persistence
+-- pattern the rest of the app uses (nancy_content_weeks, business_brain,
+-- etc.) — same dual project/intel_profile scope model as ContactsStore.
+
+CREATE TABLE IF NOT EXISTS analytics_reports (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  report_type       TEXT        NOT NULL, -- 'monthly' | 'quarterly' | 'campaign' | 'exec' | 'board'
+  audience          TEXT,                 -- 'cmo' | 'ceo' | 'board' | 'team' | 'client'
+  title             TEXT        NOT NULL,
+  focus             TEXT,                 -- optional key-message input the user gave
+  source_data       TEXT,                 -- the raw metrics/data pasted in, kept for reference
+  content           TEXT        NOT NULL, -- the generated report (markdown)
+
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_reports_user    ON analytics_reports (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_reports_project ON analytics_reports (project_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_reports_profile ON analytics_reports (intel_profile_id);
+
+ALTER TABLE analytics_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "analytics_reports_owner_all" ON analytics_reports;
+CREATE POLICY "analytics_reports_owner_all" ON analytics_reports
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-nancy.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Nancy "Jam Fancy" — AI Instagram Content Research & Generation Platform
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Turns a business website + a photo into a researched, branded week of
+-- Instagram content. Schema mirrors the brand → research → content-week →
+-- posts pipeline described in the product spec.
+
+CREATE TABLE IF NOT EXISTS nancy_brands (
+  id                    UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id               UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  website_url           TEXT        NOT NULL,
+  business_name         TEXT,
+  business_category     TEXT,
+  industry              TEXT,
+  location              TEXT,
+  products_services     JSONB       DEFAULT '[]'::jsonb,
+  primary_offer         TEXT,
+  secondary_offers      JSONB       DEFAULT '[]'::jsonb,
+  target_customer       TEXT,
+  customer_problems     JSONB       DEFAULT '[]'::jsonb,
+  desired_outcomes      JSONB       DEFAULT '[]'::jsonb,
+  unique_value_prop     TEXT,
+  proof_points          JSONB       DEFAULT '[]'::jsonb,
+  brand_voice           JSONB       DEFAULT '[]'::jsonb,
+  common_phrases        JSONB       DEFAULT '[]'::jsonb,
+  founder_or_team       JSONB       DEFAULT '[]'::jsonb,
+  calls_to_action       JSONB       DEFAULT '[]'::jsonb,
+  important_topics      JSONB       DEFAULT '[]'::jsonb,
+  website_summary       TEXT,
+  -- Visual identity
+  screenshot_url        TEXT,
+  logo_url              TEXT,
+  colours               JSONB       DEFAULT '{}'::jsonb,  -- {primary, secondary[], accent[], background[], text[]}
+  fonts                 JSONB       DEFAULT '{}'::jsonb,  -- {heading, body}
+  visual_style           TEXT,
+  brand_personality     JSONB       DEFAULT '[]'::jsonb,
+  design_notes          TEXT,
+  -- Personalisation answers (Step 7), reused across weeks
+  personalization       JSONB       DEFAULT '{}'::jsonb,
+  status                TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','researching','ready','error')),
+  error                 TEXT,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nancy_research_runs (
+  id                       UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  brand_id                 UUID        NOT NULL REFERENCES nancy_brands(id) ON DELETE CASCADE,
+  category                 TEXT,
+  search_queries           JSONB       DEFAULT '[]'::jsonb,
+  what_everyone_says       JSONB       DEFAULT '[]'::jsonb,
+  what_customers_care_about JSONB      DEFAULT '[]'::jsonb,
+  where_opportunity_is     TEXT,
+  content_opportunities    JSONB       DEFAULT '[]'::jsonb,   -- content territories, Step 6
+  created_at               TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nancy_competitors (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  research_run_id   UUID        NOT NULL REFERENCES nancy_research_runs(id) ON DELETE CASCADE,
+  business_name     TEXT        NOT NULL,
+  website           TEXT        NOT NULL,
+  positioning       TEXT,
+  target_customer   TEXT,
+  main_offer        TEXT,
+  content_topics    JSONB       DEFAULT '[]'::jsonb,
+  tone              TEXT,
+  differentiators   JSONB       DEFAULT '[]'::jsonb,
+  notable_patterns  JSONB       DEFAULT '[]'::jsonb,
+  source_urls       JSONB       DEFAULT '[]'::jsonb,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nancy_source_documents (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  research_run_id   UUID        NOT NULL REFERENCES nancy_research_runs(id) ON DELETE CASCADE,
+  url               TEXT        NOT NULL,
+  title             TEXT,
+  extracted_content TEXT,
+  fetched_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nancy_user_photos (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  brand_id     UUID        REFERENCES nancy_brands(id) ON DELETE CASCADE,
+  storage_url  TEXT        NOT NULL,
+  metadata     JSONB       DEFAULT '{}'::jsonb,  -- {width, height, sizeBytes, mimeType}
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nancy_content_weeks (
+  id             UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  brand_id       UUID        NOT NULL REFERENCES nancy_brands(id) ON DELETE CASCADE,
+  research_run_id UUID       REFERENCES nancy_research_runs(id) ON DELETE SET NULL,
+  week_number    INTEGER     NOT NULL DEFAULT 1,
+  strategy       JSONB       DEFAULT '{}'::jsonb,  -- {rationale, dayMix[], sourcesUsed[]}
+  status         TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','generating','ready','error')),
+  error          TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (brand_id, week_number)
+);
+
+CREATE TABLE IF NOT EXISTS nancy_posts (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  content_week_id   UUID        NOT NULL REFERENCES nancy_content_weeks(id) ON DELETE CASCADE,
+  day               INTEGER     NOT NULL CHECK (day BETWEEN 1 AND 7),
+  objective         TEXT,
+  content_pillar    TEXT,
+  format            TEXT,
+  hook              TEXT,
+  slide_headline    TEXT,
+  slide_copy        TEXT,
+  caption           TEXT,
+  cta               TEXT,
+  visual_direction  TEXT,
+  uses_user_photo   BOOLEAN     DEFAULT false,
+  research_basis    TEXT,
+  hashtags          JSONB       DEFAULT '[]'::jsonb,
+  design_data       JSONB       DEFAULT '{}'::jsonb,   -- design-system JSON used to render this asset
+  rendered_svg      TEXT,                              -- the rendered creative (SVG source — see render-social-image.js rationale)
+  rendered_asset_url TEXT,                              -- hosted copy if R2/Supabase Storage configured
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (content_week_id, day)
+);
+
+CREATE TABLE IF NOT EXISTS nancy_generation_jobs (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  content_week_id  UUID        REFERENCES nancy_content_weeks(id) ON DELETE CASCADE,
+  brand_id         UUID        REFERENCES nancy_brands(id) ON DELETE CASCADE,
+  stage            TEXT        NOT NULL, -- e.g. 'website_analysis','brand_extraction','research','strategy','content_plan','rendering'
+  status           TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','done','error')),
+  error            TEXT,
+  started_at       TIMESTAMPTZ DEFAULT NOW(),
+  completed_at     TIMESTAMPTZ
+);
+
+-- ── Indexes ──────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_nancy_brands_user            ON nancy_brands (user_id);
+CREATE INDEX IF NOT EXISTS idx_nancy_research_runs_brand    ON nancy_research_runs (brand_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_nancy_competitors_run        ON nancy_competitors (research_run_id);
+CREATE INDEX IF NOT EXISTS idx_nancy_source_documents_run   ON nancy_source_documents (research_run_id);
+CREATE INDEX IF NOT EXISTS idx_nancy_user_photos_user       ON nancy_user_photos (user_id);
+CREATE INDEX IF NOT EXISTS idx_nancy_content_weeks_brand    ON nancy_content_weeks (brand_id, week_number DESC);
+CREATE INDEX IF NOT EXISTS idx_nancy_posts_week             ON nancy_posts (content_week_id, day);
+CREATE INDEX IF NOT EXISTS idx_nancy_generation_jobs_week   ON nancy_generation_jobs (content_week_id, started_at DESC);
+
+-- ── updated_at triggers ───────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION nancy_touch_updated_at() RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_nancy_brands_touch ON nancy_brands;
+CREATE TRIGGER trg_nancy_brands_touch BEFORE UPDATE ON nancy_brands
+  FOR EACH ROW EXECUTE FUNCTION nancy_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_nancy_posts_touch ON nancy_posts;
+CREATE TRIGGER trg_nancy_posts_touch BEFORE UPDATE ON nancy_posts
+  FOR EACH ROW EXECUTE FUNCTION nancy_touch_updated_at();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE nancy_brands            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_research_runs     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_competitors       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_source_documents  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_user_photos       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_content_weeks     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_posts             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nancy_generation_jobs   ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "nancy_brands_owner_all" ON nancy_brands;
+CREATE POLICY "nancy_brands_owner_all" ON nancy_brands
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "nancy_research_runs_owner_all" ON nancy_research_runs;
+CREATE POLICY "nancy_research_runs_owner_all" ON nancy_research_runs
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM nancy_brands b WHERE b.id = brand_id AND b.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "nancy_competitors_owner_all" ON nancy_competitors;
+CREATE POLICY "nancy_competitors_owner_all" ON nancy_competitors
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM nancy_research_runs r
+      JOIN nancy_brands b ON b.id = r.brand_id
+      WHERE r.id = research_run_id AND b.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "nancy_source_documents_owner_all" ON nancy_source_documents;
+CREATE POLICY "nancy_source_documents_owner_all" ON nancy_source_documents
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM nancy_research_runs r
+      JOIN nancy_brands b ON b.id = r.brand_id
+      WHERE r.id = research_run_id AND b.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "nancy_user_photos_owner_all" ON nancy_user_photos;
+CREATE POLICY "nancy_user_photos_owner_all" ON nancy_user_photos
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "nancy_content_weeks_owner_all" ON nancy_content_weeks;
+CREATE POLICY "nancy_content_weeks_owner_all" ON nancy_content_weeks
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM nancy_brands b WHERE b.id = brand_id AND b.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "nancy_posts_owner_all" ON nancy_posts;
+CREATE POLICY "nancy_posts_owner_all" ON nancy_posts
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM nancy_content_weeks w
+      JOIN nancy_brands b ON b.id = w.brand_id
+      WHERE w.id = content_week_id AND b.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "nancy_generation_jobs_owner_all" ON nancy_generation_jobs;
+CREATE POLICY "nancy_generation_jobs_owner_all" ON nancy_generation_jobs
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM nancy_brands b WHERE b.id = brand_id AND b.user_id = auth.uid())
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-seo-pipeline.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- SEO Pipeline — Competitor/Product Analysis, Daily Plan, Topic Research,
+-- Article Writer, Backlink Prospecting + Human-Reviewed Outreach
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- Same dual project/intel_profile scope model as ContactsStore/AnalyticsStore
+-- (see supabase-audience.sql, supabase-analytics-brain.sql). One "run" ties
+-- the whole pipeline together: analyze the business + competitors once, then
+-- generate a rolling daily task list, topics, articles and backlink
+-- prospects against that run.
+
+CREATE TABLE IF NOT EXISTS seo_runs (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  website_url       TEXT        NOT NULL,
+  business_summary  TEXT,
+  products_services JSONB       DEFAULT '[]'::jsonb,
+  target_customer   TEXT,
+  existing_topics    JSONB      DEFAULT '[]'::jsonb, -- topics already covered on-site, so new plans don't duplicate
+  competitors       JSONB       DEFAULT '[]'::jsonb, -- [{name, url, content_focus, notable_gaps}]
+
+  status            TEXT        NOT NULL DEFAULT 'ready' CHECK (status IN ('analyzing','ready','error')),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_topics (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_id            UUID        NOT NULL REFERENCES seo_runs(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  topic             TEXT        NOT NULL,
+  target_keyword    TEXT,
+  search_volume      INTEGER,    -- NULL when not real (see data_source)
+  difficulty        INTEGER,    -- NULL when not real
+  data_source       TEXT        NOT NULL DEFAULT 'estimate' CHECK (data_source IN ('real','estimate')), -- real = DataForSEO/SEMrush; estimate = AI, always labeled as such in the UI
+  rationale         TEXT,       -- why this topic — content gap vs a competitor, ICP pain point, etc.
+  content_pillar    TEXT,
+  status            TEXT        NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','written','skipped')),
+
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_daily_tasks (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_id            UUID        NOT NULL REFERENCES seo_runs(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  day_number        INTEGER     NOT NULL, -- 1-based, relative to the plan start — not a calendar date, so "today's tasks" is derived client-side from when the run started
+  task_type         TEXT        NOT NULL CHECK (task_type IN ('write_article','technical_fix','backlink_outreach','keyword_research','other')),
+  title             TEXT        NOT NULL,
+  description       TEXT,
+  topic_id          UUID        REFERENCES seo_topics(id) ON DELETE SET NULL,
+  status            TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','done','skipped')),
+
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_articles (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_id            UUID        NOT NULL REFERENCES seo_runs(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  topic_id          UUID        REFERENCES seo_topics(id) ON DELETE SET NULL,
+
+  title             TEXT        NOT NULL,
+  meta_description  TEXT,
+  slug              TEXT,
+  target_keyword    TEXT,
+  body_markdown     TEXT        NOT NULL,
+  schema_markup     JSONB,      -- suggested JSON-LD (Article/FAQ), for the user to paste in on publish
+  word_count        INTEGER,
+  status            TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','downloaded','published_elsewhere')),
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Backlink prospecting + HUMAN-REVIEWED outreach — nothing here ever sends
+-- itself. status only reaches 'sent' via a user clicking send in the UI,
+-- through the same Resend-backed api/send-campaign.js + Pat review-gate
+-- already used for email campaigns elsewhere in this app.
+CREATE TABLE IF NOT EXISTS seo_backlink_prospects (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  run_id            UUID        NOT NULL REFERENCES seo_runs(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  domain            TEXT        NOT NULL,
+  page_url          TEXT,       -- the specific real page found, if any
+  contact_email     TEXT,
+  contact_name      TEXT,
+  relevance_reason  TEXT,       -- why this is a real, plausible link target
+  data_source       TEXT        NOT NULL DEFAULT 'estimate' CHECK (data_source IN ('real','estimate')), -- real = found via Ahrefs/Moz/DataForSEO backlink-gap data or a live crawl; estimate = AI-suggested target, not yet verified live
+
+  outreach_subject  TEXT,
+  outreach_body     TEXT,
+
+  status            TEXT        NOT NULL DEFAULT 'found' CHECK (status IN ('found','drafted','queued','sent','replied','link_acquired','declined')),
+  sent_at           TIMESTAMPTZ,
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_runs_user               ON seo_runs (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_seo_runs_project             ON seo_runs (project_id);
+CREATE INDEX IF NOT EXISTS idx_seo_runs_profile             ON seo_runs (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_seo_topics_run                ON seo_topics (run_id);
+CREATE INDEX IF NOT EXISTS idx_seo_daily_tasks_run            ON seo_daily_tasks (run_id, day_number);
+CREATE INDEX IF NOT EXISTS idx_seo_articles_run                ON seo_articles (run_id);
+CREATE INDEX IF NOT EXISTS idx_seo_backlink_prospects_run       ON seo_backlink_prospects (run_id, status);
+
+ALTER TABLE seo_runs                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seo_topics              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seo_daily_tasks         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seo_articles            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seo_backlink_prospects  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "seo_runs_owner_all" ON seo_runs;
+CREATE POLICY "seo_runs_owner_all" ON seo_runs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "seo_topics_owner_all" ON seo_topics;
+CREATE POLICY "seo_topics_owner_all" ON seo_topics FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "seo_daily_tasks_owner_all" ON seo_daily_tasks;
+CREATE POLICY "seo_daily_tasks_owner_all" ON seo_daily_tasks FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "seo_articles_owner_all" ON seo_articles;
+CREATE POLICY "seo_articles_owner_all" ON seo_articles FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "seo_backlink_prospects_owner_all" ON seo_backlink_prospects;
+CREATE POLICY "seo_backlink_prospects_owner_all" ON seo_backlink_prospects FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION update_seo_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS seo_runs_updated_at ON seo_runs;
+CREATE TRIGGER seo_runs_updated_at BEFORE UPDATE ON seo_runs FOR EACH ROW EXECUTE FUNCTION update_seo_updated_at();
+
+DROP TRIGGER IF EXISTS seo_articles_updated_at ON seo_articles;
+CREATE TRIGGER seo_articles_updated_at BEFORE UPDATE ON seo_articles FOR EACH ROW EXECUTE FUNCTION update_seo_updated_at();
+
+DROP TRIGGER IF EXISTS seo_backlink_prospects_updated_at ON seo_backlink_prospects;
+CREATE TRIGGER seo_backlink_prospects_updated_at BEFORE UPDATE ON seo_backlink_prospects FOR EACH ROW EXECUTE FUNCTION update_seo_updated_at();
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-billing.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Billing — Stripe subscription state on profiles + webhook audit log.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql already run (canonical plan enum).
+--
+-- Card capture happens on Stripe's own hosted Checkout + Customer Portal —
+-- this table only mirrors the subscription state Stripe already owns, kept
+-- in sync by api/stripe-webhook.js. Nothing here talks to Stripe directly.
+
+-- ── Stripe fields on profiles ───────────────────────────────────────────────
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_price_id        TEXT;
+-- Stripe's own subscription status vocabulary — mirrored verbatim so this
+-- column always matches what the Stripe Dashboard/API says, no translation.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT
+  CHECK (subscription_status IN (
+    'trialing','active','past_due','canceled','unpaid',
+    'incomplete','incomplete_expired','paused'
+  ));
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_stripe_customer
+  ON profiles (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+
+-- ── Billing event audit log ─────────────────────────────────────────────────
+-- Every Stripe webhook event this app has handled, for admin visibility
+-- (Phase 4's admin Billing page) and for debugging "why didn't my plan
+-- update" without having to go dig through the Stripe Dashboard.
+CREATE TABLE IF NOT EXISTS billing_events (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  stripe_event_id   TEXT        NOT NULL,
+  event_type        TEXT        NOT NULL,
+  payload           JSONB       NOT NULL DEFAULT '{}',
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Stripe recommends treating webhook delivery as at-least-once; this makes
+-- re-processing the same event a no-op instead of a duplicate log row.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_events_stripe_id ON billing_events (stripe_event_id);
+CREATE INDEX IF NOT EXISTS idx_billing_events_user ON billing_events (user_id, created_at DESC);
+
+ALTER TABLE billing_events ENABLE ROW LEVEL SECURITY;
+
+-- Written only by api/stripe-webhook.js via the service-role key (bypasses
+-- RLS). Users can read their own billing history; admins can read all of it.
+DROP POLICY IF EXISTS "billing_events_self_read" ON billing_events;
+CREATE POLICY "billing_events_self_read" ON billing_events
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "billing_events_admin_read" ON billing_events;
+CREATE POLICY "billing_events_admin_read" ON billing_events
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- ── Protect billing/role columns from direct client writes ─────────────────
+-- profiles has a broad "Users can update own profile" RLS policy (no column
+-- restriction) — without this trigger, any signed-in user could set their
+-- own plan/subscription_status straight through the Supabase client and grant
+-- themselves a paid plan for free, or make themselves an admin. Only the
+-- webhook (service_role, which bypasses RLS but NOT this trigger — it's
+-- allow-listed below) and an existing admin may change these columns.
+CREATE OR REPLACE FUNCTION protect_billing_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- service_role = server-side calls using SUPABASE_SERVICE_ROLE_KEY (the
+  -- Stripe webhook handler, admin API endpoints). auth.uid() IS NULL = a
+  -- direct SQL Editor / migration run, not a PostgREST request at all.
+  IF current_setting('role', true) = 'service_role' OR auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF (NEW.plan                    IS DISTINCT FROM OLD.plan
+      OR NEW.role                 IS DISTINCT FROM OLD.role
+      OR NEW.stripe_customer_id     IS DISTINCT FROM OLD.stripe_customer_id
+      OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
+      OR NEW.stripe_price_id        IS DISTINCT FROM OLD.stripe_price_id
+      OR NEW.subscription_status    IS DISTINCT FROM OLD.subscription_status
+      OR NEW.current_period_end     IS DISTINCT FROM OLD.current_period_end
+      OR NEW.intel_profile_limit    IS DISTINCT FROM OLD.intel_profile_limit)
+     AND NOT EXISTS (
+       SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','super_admin')
+     )
+  THEN
+    RAISE EXCEPTION 'Billing and role fields can only be changed by the billing system or an admin.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_billing_columns ON profiles;
+CREATE TRIGGER trg_protect_billing_columns
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION protect_billing_columns();
+
+-- DONE! profiles now carries real Stripe subscription state, every webhook
+-- event is logged to billing_events, and none of it is client-writable.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-grants.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Government Funding Room — non-dilutive funding pipeline + scorecards.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: database/admin-setup.sql already run (profiles.role).
+--
+-- This is Audema's OWN funding pipeline, not customer data — it tracks which
+-- government programs Audema is pursuing, what each was scored, and what has
+-- been won. It is therefore admin-only at the RLS level: an ordinary
+-- customer account must never be able to read the company's funding position.
+
+-- ── Opportunities ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS grant_opportunities (
+  id                  UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_by          UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+
+  name                TEXT        NOT NULL,
+  funder              TEXT,                    -- e.g. 'AusIndustry', 'Vic Gov DJSIR', 'City of Melbourne'
+  program             TEXT,                    -- the specific program/round
+  -- Which level of government / instrument this is. Mirrors the coverage the
+  -- funding specialist is engaged across.
+  level               TEXT        NOT NULL DEFAULT 'federal'
+                                  CHECK (level IN ('federal','state_vic','local','rd_tax_incentive',
+                                                   'emdg','commercialisation','research_partnership',
+                                                   'university','tender','international','other')),
+
+  amount_min          NUMERIC(12,2),
+  amount_max          NUMERIC(12,2),
+  matching_required   NUMERIC(12,2),           -- cash/in-kind we must contribute
+  currency            TEXT        NOT NULL DEFAULT 'AUD',
+
+  opens_at            DATE,
+  closes_at           DATE,
+
+  -- The 11 pipeline stages, plus a terminal state. Real pipelines need
+  -- somewhere for dead opportunities to go: without it, no-go decisions and
+  -- unsuccessful applications sit in the funnel forever, inflating both the
+  -- workload and the forecast.
+  stage               TEXT        NOT NULL DEFAULT 'discovered'
+                                  CHECK (stage IN ('discovered','eligibility_check','strategic_fit',
+                                                   'partners_required','go_no_go','application',
+                                                   'assessment','funded','milestones','acquittal',
+                                                   'next_round','not_proceeding')),
+
+  -- Scorecard: { eligibility: 8, alignment: 9, ... } scored 0-10 per criterion.
+  -- Stored as JSONB rather than 9 columns so the model can gain a criterion
+  -- without a migration; web/js/grant-scorecard.js is the source of truth for
+  -- the weights and bands.
+  scorecard           JSONB       NOT NULL DEFAULT '{}',
+  score_total         INTEGER,                 -- cached result of the weighted calculation
+  score_band          TEXT        CHECK (score_band IN ('apply','strategic','partner','decline')),
+
+  go_no_go_notes      TEXT,                    -- why we decided what we decided
+  partners            TEXT,                    -- research/council/industry partners required or secured
+  owner_name          TEXT,                    -- who internally owns this one
+  notes               TEXT,
+  source_url          TEXT,
+
+  -- Outcome, once known.
+  amount_awarded      NUMERIC(12,2),
+  decision_at         DATE,
+
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Discovery provenance (added with the multi-region grant sweep) ─────────
+-- Kept as ALTERs as well as being part of the CREATE above, so this file is
+-- correct whether it is being run for the first time or re-run against a
+-- database where grant_opportunities already exists.
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS region TEXT NOT NULL DEFAULT 'au';
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS source_key TEXT;   -- which adapter found it
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS external_id TEXT;  -- the publisher's own id, for dedupe
+ALTER TABLE grant_opportunities ADD COLUMN IF NOT EXISTS match_terms TEXT[] DEFAULT '{}';
+
+ALTER TABLE grant_opportunities DROP CONSTRAINT IF EXISTS grant_opportunities_region_check;
+ALTER TABLE grant_opportunities ADD CONSTRAINT grant_opportunities_region_check
+  CHECK (region IN ('au','uk','eu','us','other'));
+
+CREATE INDEX IF NOT EXISTS idx_grant_opps_stage  ON grant_opportunities (stage);
+CREATE INDEX IF NOT EXISTS idx_grant_opps_closes ON grant_opportunities (closes_at);
+CREATE INDEX IF NOT EXISTS idx_grant_opps_level  ON grant_opportunities (level);
+CREATE INDEX IF NOT EXISTS idx_grant_opps_region ON grant_opportunities (region);
+
+-- One row per opportunity per source. Makes the discovery sweep idempotent:
+-- re-running it can never duplicate an opportunity, and one already moved
+-- along the pipeline is never resurrected back to "discovered".
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grant_opps_source_external
+  ON grant_opportunities (source_key, external_id)
+  WHERE source_key IS NOT NULL AND external_id IS NOT NULL;
+
+-- ── updated_at ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_grant_opportunity()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_grant_opp_touch ON grant_opportunities;
+CREATE TRIGGER trg_grant_opp_touch
+  BEFORE UPDATE ON grant_opportunities
+  FOR EACH ROW EXECUTE FUNCTION touch_grant_opportunity();
+
+-- ── Row-Level Security: admins only ────────────────────────────────────────
+-- Deliberately NOT "the user who created it" — this is company-level
+-- financial information, and every admin needs the same complete view of it.
+ALTER TABLE grant_opportunities ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "grant_opps_admin_all" ON grant_opportunities;
+CREATE POLICY "grant_opps_admin_all" ON grant_opportunities
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- DONE! The Government Funding Room now has somewhere to keep its pipeline.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-mission-usage.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Agent Mission metering — the unit the pricing tiers are built on.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: database/supabase-schema.sql (profiles) already run.
+--
+-- Customers are not limited to a handful of agents; they have the whole
+-- department and are limited by how much work it performs. That work is
+-- counted here.
+--
+-- Scoped per ACCOUNT and per calendar month, not per site: the plan is bought
+-- by the account, and an agency's capacity is pooled across its client
+-- businesses ("agency users then purchase additional marketing capacity where
+-- necessary").
+
+CREATE TABLE IF NOT EXISTS mission_usage (
+  id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  period      TEXT        NOT NULL,          -- 'YYYY-MM', UTC
+  used        INTEGER     NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT mission_usage_used_nonneg CHECK (used >= 0)
+);
+
+-- One row per account per month. Makes the counter idempotent to create and
+-- lets the increment be a single atomic statement.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mission_usage_user_period
+  ON mission_usage (user_id, period);
+
+-- Admin-settable override, same shape as intel_profile_limit. Lets an
+-- Enterprise or negotiated account have an allowance that isn't in the code.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mission_limit INTEGER;
+
+-- ── updated_at ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_mission_usage()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_mission_usage_touch ON mission_usage;
+CREATE TRIGGER trg_mission_usage_touch
+  BEFORE UPDATE ON mission_usage
+  FOR EACH ROW EXECUTE FUNCTION touch_mission_usage();
+
+-- ── Atomic increment ───────────────────────────────────────────────────────
+-- Read-then-write from the API would let two missions started at the same
+-- moment both read the same count and both write count+1, so the second
+-- mission would be free. This does the whole thing in one statement.
+--
+-- Returns the new used value. SECURITY DEFINER so it can be called with the
+-- service-role key from the metering endpoint.
+CREATE OR REPLACE FUNCTION increment_mission_usage(uid UUID, p TEXT)
+RETURNS INTEGER AS $$
+DECLARE
+  new_used INTEGER;
+BEGIN
+  INSERT INTO mission_usage (user_id, period, used)
+  VALUES (uid, p, 1)
+  ON CONFLICT (user_id, period)
+  DO UPDATE SET used = mission_usage.used + 1
+  RETURNING used INTO new_used;
+  RETURN new_used;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Atomic check-and-consume ───────────────────────────────────────────────
+-- increment_mission_usage() above makes the *counter* correct, but it does not
+-- make the *gate* correct. The endpoint was reading the count, comparing it to
+-- the plan allowance, and then calling the increment — three steps, with the
+-- decision made on the value read in step one. An account on its last mission
+-- that fires ten at the same moment has all ten read used = limit - 1, all ten
+-- pass the comparison, and all ten increment: nine missions the plan did not
+-- include, and the counter honestly reports 69 of 60 used afterwards.
+--
+-- This does the comparison and the increment in one statement, so the row lock
+-- Postgres already takes for the UPDATE is what serialises the decision. The
+-- second concurrent caller re-reads the value the first one wrote.
+--
+-- lim IS NULL means an uncapped plan — always allowed, still counted.
+--
+-- Returns (allowed, used). `used` is the value after this call when allowed,
+-- and the unchanged current value when refused, so the caller can report
+-- "60 of 60" rather than having to read it again.
+CREATE OR REPLACE FUNCTION consume_mission_usage(uid UUID, p TEXT, lim INTEGER)
+RETURNS TABLE (allowed BOOLEAN, used INTEGER) AS $$
+DECLARE
+  new_used INTEGER;
+  cur_used INTEGER;
+BEGIN
+  -- Make sure the row exists so the UPDATE below has something to lock.
+  INSERT INTO mission_usage (user_id, period, used)
+  VALUES (uid, p, 0)
+  ON CONFLICT (user_id, period) DO NOTHING;
+
+  UPDATE mission_usage m
+     SET used = m.used + 1
+   WHERE m.user_id = uid
+     AND m.period  = p
+     AND (lim IS NULL OR m.used < lim)
+  RETURNING m.used INTO new_used;
+
+  IF new_used IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, new_used;
+    RETURN;
+  END IF;
+
+  -- The UPDATE matched nothing, which at this point can only mean the
+  -- allowance is spent. Report the count without changing it.
+  SELECT m.used INTO cur_used
+    FROM mission_usage m
+   WHERE m.user_id = uid AND m.period = p;
+
+  RETURN QUERY SELECT FALSE, COALESCE(cur_used, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ─────────────────────────────────────────────────────
+-- Written only by api/mission-usage.js with the service-role key. Users may
+-- read their own usage so the UI can show "12 of 60 missions used"; admins
+-- read all of it for the usage dashboard.
+ALTER TABLE mission_usage ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "mission_usage_self_read" ON mission_usage;
+CREATE POLICY "mission_usage_self_read" ON mission_usage
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "mission_usage_admin_read" ON mission_usage;
+CREATE POLICY "mission_usage_admin_read" ON mission_usage
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- Deliberately no INSERT/UPDATE policy: a client that could write this table
+-- could grant itself unlimited missions.
+
+-- DONE! Agent Missions are now countable per account per month.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-support.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema support tickets — the "Help & Support" link that has never gone
+-- anywhere.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: database/supabase-schema.sql (profiles) already run.
+--
+-- Two tables rather than one because a ticket and its conversation have
+-- different lifetimes: the ticket carries status and priority that change
+-- over time, the replies are append-only and must never be edited after the
+-- fact — a support thread that can be rewritten is not a record of anything.
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id            UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  subject       TEXT        NOT NULL,
+  category      TEXT        NOT NULL DEFAULT 'question',
+  status        TEXT        NOT NULL DEFAULT 'open',
+  priority      TEXT        NOT NULL DEFAULT 'normal',
+  -- Where the customer was when they hit the problem. Filled in by the form,
+  -- not typed by the customer, because "it broke on the page I was on" is the
+  -- single most useful thing a ticket can carry and the one people forget.
+  page_url      TEXT,
+  -- Plan at the time of writing. Stored on the ticket rather than joined from
+  -- profiles, because a ticket about a plan limit read differently after the
+  -- customer upgrades, and the join would silently rewrite the history.
+  plan_at_open  TEXT,
+  last_reply_at TIMESTAMPTZ DEFAULT NOW(),
+  last_reply_by TEXT        NOT NULL DEFAULT 'customer',
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT support_tickets_status_valid
+    CHECK (status IN ('open','pending','resolved','closed')),
+  CONSTRAINT support_tickets_priority_valid
+    CHECK (priority IN ('low','normal','high','urgent')),
+  CONSTRAINT support_tickets_category_valid
+    CHECK (category IN ('question','bug','billing','feature','account','other')),
+  CONSTRAINT support_tickets_last_reply_by_valid
+    CHECK (last_reply_by IN ('customer','support')),
+  CONSTRAINT support_tickets_subject_nonempty
+    CHECK (length(btrim(subject)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS support_ticket_replies (
+  id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  ticket_id   UUID        NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+  author_id   UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- Denormalised so the thread still reads correctly after an author's account
+  -- is deleted and author_id goes null.
+  author_role TEXT        NOT NULL DEFAULT 'customer',
+  body        TEXT        NOT NULL,
+  -- A note the customer never sees. Kept in the same table so the ordering of
+  -- the conversation and the notes about it cannot drift apart.
+  internal    BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT support_replies_role_valid CHECK (author_role IN ('customer','support')),
+  CONSTRAINT support_replies_body_nonempty CHECK (length(btrim(body)) > 0),
+  -- Only support can write an internal note. A customer-authored hidden
+  -- message would be a message nobody ever reads.
+  CONSTRAINT support_replies_internal_is_support
+    CHECK (internal = FALSE OR author_role = 'support')
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user    ON support_tickets (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status  ON support_tickets (status, last_reply_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_replies_ticket  ON support_ticket_replies (ticket_id, created_at);
+
+-- ── updated_at ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_support_ticket()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_support_tickets_touch ON support_tickets;
+CREATE TRIGGER trg_support_tickets_touch
+  BEFORE UPDATE ON support_tickets
+  FOR EACH ROW EXECUTE FUNCTION touch_support_ticket();
+
+-- ── Keep the queue ordered by real activity ────────────────────────────────
+-- The admin queue sorts by "who is waiting on us longest", which is only
+-- meaningful if last_reply_at moves when a reply is actually written. Doing it
+-- in a trigger rather than in the API means it cannot be forgotten by a caller.
+--
+-- Any customer reply puts the ticket back to 'open', whatever it was before.
+-- 'pending' means "waiting on the customer", and the moment they write back
+-- that stops being true: leaving it pending would drop the ticket out of the
+-- Open queue while the customer sits waiting for an answer. Resolved and
+-- closed reopen for the same reason — from their side the problem is still
+-- happening, and a ticket nobody is looking at is not a resolved one.
+CREATE OR REPLACE FUNCTION bump_support_ticket_on_reply()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.internal THEN RETURN NEW; END IF;   -- notes are not activity
+
+  UPDATE support_tickets
+     SET last_reply_at = NEW.created_at,
+         last_reply_by = NEW.author_role,
+         status = CASE
+           WHEN NEW.author_role = 'customer' THEN 'open'
+           WHEN NEW.author_role = 'support' AND status = 'open' THEN 'pending'
+           ELSE status
+         END
+   WHERE id = NEW.ticket_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_support_reply_bump ON support_ticket_replies;
+CREATE TRIGGER trg_support_reply_bump
+  AFTER INSERT ON support_ticket_replies
+  FOR EACH ROW EXECUTE FUNCTION bump_support_ticket_on_reply();
+
+-- ── Row-Level Security ─────────────────────────────────────────────────────
+-- All writes go through api/support-tickets.js with the service-role key,
+-- which does its own permission checks. These policies exist so that a direct
+-- browser read (or a future client-side read) cannot see another customer's
+-- tickets even if the endpoint were bypassed entirely.
+ALTER TABLE support_tickets        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE support_ticket_replies ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "support_tickets_self_read" ON support_tickets;
+CREATE POLICY "support_tickets_self_read" ON support_tickets
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "support_tickets_self_insert" ON support_tickets;
+CREATE POLICY "support_tickets_self_insert" ON support_tickets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "support_tickets_admin_all" ON support_tickets;
+CREATE POLICY "support_tickets_admin_all" ON support_tickets
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- Deliberately no self-UPDATE policy on support_tickets: a customer who could
+-- update their own row could set priority = 'urgent' on everything, and the
+-- queue order would stop meaning anything. Status is support's to set.
+
+-- Replies: a customer sees their own thread, minus the internal notes.
+DROP POLICY IF EXISTS "support_replies_self_read" ON support_ticket_replies;
+CREATE POLICY "support_replies_self_read" ON support_ticket_replies
+  FOR SELECT USING (
+    internal = FALSE
+    AND EXISTS (SELECT 1 FROM support_tickets t WHERE t.id = ticket_id AND t.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "support_replies_self_insert" ON support_ticket_replies;
+CREATE POLICY "support_replies_self_insert" ON support_ticket_replies
+  FOR INSERT WITH CHECK (
+    internal = FALSE
+    AND author_role = 'customer'
+    AND auth.uid() = author_id
+    AND EXISTS (SELECT 1 FROM support_tickets t WHERE t.id = ticket_id AND t.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "support_replies_admin_all" ON support_ticket_replies;
+CREATE POLICY "support_replies_admin_all" ON support_ticket_replies
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- No UPDATE or DELETE policy for customers on replies either: a support thread
+-- where either side can edit what was already said is not a record.
+
+-- DONE! Support tickets can now be raised, answered and tracked.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-email-events.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema email engagement events — what actually happened to each send.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: database/supabase-schema.sql (profiles) and supabase-audience.sql
+--           (contacts) already run.
+--
+-- Until now api/resend-webhook.js handled only bounces and complaints, so
+-- opens and clicks were never recorded anywhere. Every campaign therefore
+-- reported "0.0% open rate", which a customer reads as "nobody opened it"
+-- when the truth was that nothing was counted. api/send-campaign.js already
+-- tags every send with campaign_id and contact_id, so the attribution has
+-- been available all along — there was just nowhere to put the result.
+
+CREATE TABLE IF NOT EXISTS email_events (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id      UUID        REFERENCES auth.users(id) ON DELETE CASCADE,
+  campaign_id  TEXT,
+  contact_id   UUID,
+  -- Resend's own event vocabulary, minus the prefix.
+  event_type   TEXT        NOT NULL,
+  email_id     TEXT,
+  recipient    TEXT,
+  -- The clicked URL for a click event; null otherwise.
+  link_url     TEXT,
+  -- Resend's event timestamp, not our insert time: events can arrive late or
+  -- out of order, and "when it happened" is the useful axis.
+  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT email_events_type_valid CHECK (event_type IN
+    ('sent','delivered','delivery_delayed','opened','clicked','bounced','complained'))
+);
+
+-- One row per (email, event type, moment). Resend retries a webhook until it
+-- gets a 200, so the same open can legitimately arrive several times; without
+-- this a retry would inflate the open count. A genuine second open by the same
+-- person has a different occurred_at and is still counted, which is correct —
+-- "opens" is opens, not unique openers (see uniq_opens in the stats endpoint).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_email_events_dedupe
+  ON email_events (email_id, event_type, occurred_at)
+  WHERE email_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_email_events_campaign
+  ON email_events (campaign_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_email_events_user
+  ON email_events (user_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_events_contact
+  ON email_events (contact_id, occurred_at DESC);
+
+-- ── Per-campaign aggregate ─────────────────────────────────────────────────
+-- Counting in Postgres rather than shipping every event row to the browser to
+-- be tallied. A busy campaign is hundreds of thousands of rows.
+--
+-- Returns opens AND unique openers, because they answer different questions
+-- and a single "opens" figure gets read as whichever the reader assumed.
+CREATE OR REPLACE FUNCTION campaign_email_stats(cid TEXT, uid UUID)
+RETURNS TABLE (
+  sent BIGINT, delivered BIGINT, opened BIGINT, unique_opened BIGINT,
+  clicked BIGINT, unique_clicked BIGINT, bounced BIGINT, complained BIGINT,
+  first_event TIMESTAMPTZ, last_event TIMESTAMPTZ
+) AS $$
+  SELECT
+    COUNT(*) FILTER (WHERE event_type = 'sent'),
+    COUNT(*) FILTER (WHERE event_type = 'delivered'),
+    COUNT(*) FILTER (WHERE event_type = 'opened'),
+    COUNT(DISTINCT email_id) FILTER (WHERE event_type = 'opened'),
+    COUNT(*) FILTER (WHERE event_type = 'clicked'),
+    COUNT(DISTINCT email_id) FILTER (WHERE event_type = 'clicked'),
+    COUNT(*) FILTER (WHERE event_type = 'bounced'),
+    COUNT(*) FILTER (WHERE event_type = 'complained'),
+    MIN(occurred_at),
+    MAX(occurred_at)
+  FROM email_events
+  WHERE campaign_id = cid AND (uid IS NULL OR user_id = uid);
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ─────────────────────────────────────────────────────
+-- Written only by api/resend-webhook.js with the service-role key. Customers
+-- read their own events so the dashboard can show their own campaigns.
+ALTER TABLE email_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "email_events_self_read" ON email_events;
+CREATE POLICY "email_events_self_read" ON email_events
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "email_events_admin_read" ON email_events;
+CREATE POLICY "email_events_admin_read" ON email_events
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin','super_admin'))
+  );
+
+-- Deliberately no INSERT/UPDATE/DELETE policy: engagement figures a client
+-- could write are not engagement figures.
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- AFTER RUNNING THIS: open tracking must also be switched on at Resend.
+--
+--   Resend Dashboard → Domains → <your domain> → enable Open Tracking and
+--   Click Tracking, and Webhooks → your endpoint → subscribe to
+--   email.sent, email.delivered, email.opened, email.clicked,
+--   email.bounced, email.complained.
+--
+-- Without those, Resend never emits open or click events and this table stays
+-- empty. api/campaign-stats.js reports that state as "not tracked" rather than
+-- as a 0% open rate, so an unconfigured account is never told nobody opened
+-- its mail.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-email-engine.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Email Engine — split tests, automation flows, revenue attribution.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-audience.sql (contacts, campaign_sends) and
+--           supabase-email-events.sql (email_events) already run.
+--
+-- These are the three things the Email Marketing dashboard used to show with
+-- invented numbers — A/B results, automation flows and per-campaign revenue —
+-- and then, after that markup was removed, showed as "not set up" because
+-- nothing behind them existed. This is what makes them real.
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 1. A/B SPLIT TESTS
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS email_ab_tests (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  campaign_id  TEXT        NOT NULL,
+  name         TEXT        NOT NULL,
+  -- What is being varied. Kept explicit rather than inferred from the variant
+  -- rows, because "we tested the subject line" is the question a result has to
+  -- answer and it should not depend on diffing two blobs of HTML.
+  dimension    TEXT        NOT NULL DEFAULT 'subject',
+  -- The measure the winner is decided on. Declared BEFORE the send, so a test
+  -- cannot be re-read after the fact against whichever metric happened to win.
+  goal         TEXT        NOT NULL DEFAULT 'open',
+  status       TEXT        NOT NULL DEFAULT 'running',
+  winner_variant_id UUID,
+  decided_at   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT ab_dimension_valid CHECK (dimension IN ('subject','content','from_name','send_time')),
+  CONSTRAINT ab_goal_valid      CHECK (goal IN ('open','click')),
+  CONSTRAINT ab_status_valid    CHECK (status IN ('running','decided','cancelled'))
+);
+
+CREATE TABLE IF NOT EXISTS email_ab_variants (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  test_id      UUID        NOT NULL REFERENCES email_ab_tests(id) ON DELETE CASCADE,
+  -- 'A', 'B', 'C' — the label a person uses when talking about the result.
+  label        TEXT        NOT NULL,
+  subject      TEXT,
+  html         TEXT,
+  from_name    TEXT,
+  -- Share of recipients, 0-100. They must total 100; enforced below.
+  split_pct    INTEGER     NOT NULL DEFAULT 50,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT ab_split_range CHECK (split_pct > 0 AND split_pct <= 100)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ab_variant_label ON email_ab_variants (test_id, label);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_campaign ON email_ab_tests (campaign_id);
+
+-- A split that does not total 100 silently drops or double-assigns recipients,
+-- and the resulting rates would be computed against the wrong denominators.
+CREATE OR REPLACE FUNCTION check_ab_split_totals()
+RETURNS TRIGGER AS $$
+DECLARE
+  total INTEGER;
+  tid UUID;
+BEGIN
+  tid := COALESCE(NEW.test_id, OLD.test_id);
+  SELECT SUM(split_pct) INTO total FROM email_ab_variants WHERE test_id = tid;
+  -- Allow the intermediate states while variants are being inserted one at a
+  -- time; only a total ABOVE 100 is unambiguously wrong at every step.
+  IF total > 100 THEN
+    RAISE EXCEPTION 'Variant splits for test % total %%%, which is over 100%%', tid, total;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_ab_split_totals ON email_ab_variants;
+CREATE TRIGGER trg_ab_split_totals
+  AFTER INSERT OR UPDATE ON email_ab_variants
+  FOR EACH ROW EXECUTE FUNCTION check_ab_split_totals();
+
+-- Which variant each recipient actually received. Recorded at send time rather
+-- than recomputed later: the assignment must be the one that was really used,
+-- not one re-derived from a hash whose inputs may since have changed.
+CREATE TABLE IF NOT EXISTS email_ab_assignments (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  test_id      UUID        NOT NULL REFERENCES email_ab_tests(id) ON DELETE CASCADE,
+  variant_id   UUID        NOT NULL REFERENCES email_ab_variants(id) ON DELETE CASCADE,
+  contact_id   UUID,
+  email        TEXT        NOT NULL,
+  email_id     TEXT,       -- Resend's id, so events join back to the variant
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ab_assignment ON email_ab_assignments (test_id, email);
+CREATE INDEX IF NOT EXISTS idx_ab_assignment_email_id ON email_ab_assignments (email_id);
+
+-- ── Results ────────────────────────────────────────────────────────────────
+-- Joined from real events. A variant with no sends returns zeros and null
+-- rates rather than being omitted, so a broken split is visible rather than
+-- looking like a test with fewer arms than it has.
+CREATE OR REPLACE FUNCTION ab_test_results(tid UUID, uid UUID)
+RETURNS TABLE (
+  variant_id UUID, label TEXT, subject TEXT, split_pct INTEGER,
+  assigned BIGINT, delivered BIGINT, unique_opened BIGINT, unique_clicked BIGINT
+) AS $$
+  SELECT
+    v.id, v.label, v.subject, v.split_pct,
+    COUNT(DISTINCT a.id),
+    COUNT(DISTINCT e.email_id) FILTER (WHERE e.event_type = 'delivered'),
+    COUNT(DISTINCT e.email_id) FILTER (WHERE e.event_type = 'opened'),
+    COUNT(DISTINCT e.email_id) FILTER (WHERE e.event_type = 'clicked')
+  FROM email_ab_variants v
+  JOIN email_ab_tests t ON t.id = v.test_id
+  LEFT JOIN email_ab_assignments a ON a.variant_id = v.id
+  LEFT JOIN email_events e ON e.email_id = a.email_id
+  WHERE v.test_id = tid AND (uid IS NULL OR t.user_id = uid)
+  GROUP BY v.id, v.label, v.subject, v.split_pct
+  ORDER BY v.label;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 2. AUTOMATION FLOWS
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS email_flows (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name         TEXT        NOT NULL,
+  trigger_type TEXT        NOT NULL DEFAULT 'manual',
+  -- For trigger_type 'segment_entry': which segment.
+  segment_id   UUID,
+  status       TEXT        NOT NULL DEFAULT 'draft',
+  from_name    TEXT,
+  from_email   TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT flow_trigger_valid CHECK (trigger_type IN ('manual','contact_created','segment_entry')),
+  CONSTRAINT flow_status_valid  CHECK (status IN ('draft','active','paused')),
+  CONSTRAINT flow_name_nonempty CHECK (length(btrim(name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS email_flow_steps (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  flow_id      UUID        NOT NULL REFERENCES email_flows(id) ON DELETE CASCADE,
+  step_order   INTEGER     NOT NULL,
+  -- Hours to wait AFTER the previous step before this one sends. The first
+  -- step's delay is measured from enrolment.
+  delay_hours  INTEGER     NOT NULL DEFAULT 0,
+  subject      TEXT        NOT NULL,
+  html         TEXT        NOT NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT flow_step_delay_nonneg CHECK (delay_hours >= 0),
+  CONSTRAINT flow_step_subject_nonempty CHECK (length(btrim(subject)) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_flow_step_order ON email_flow_steps (flow_id, step_order);
+
+CREATE TABLE IF NOT EXISTS email_flow_enrolments (
+  id             UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  flow_id        UUID        NOT NULL REFERENCES email_flows(id) ON DELETE CASCADE,
+  user_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  contact_id     UUID,
+  email          TEXT        NOT NULL,
+  -- The step that will be sent NEXT, not the one last sent: the cron asks
+  -- "what is due", and storing the answer directly keeps that a lookup rather
+  -- than an inference.
+  next_step_order INTEGER    NOT NULL DEFAULT 1,
+  next_run_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status         TEXT        NOT NULL DEFAULT 'active',
+  -- Why it stopped, for a flow that ended early.
+  exit_reason    TEXT,
+  enrolled_at    TIMESTAMPTZ DEFAULT NOW(),
+  completed_at   TIMESTAMPTZ,
+
+  CONSTRAINT enrolment_status_valid CHECK (status IN ('active','completed','exited','failed'))
+);
+
+-- One live enrolment per contact per flow: re-enrolling someone who is already
+-- mid-sequence would send them the same series twice, overlapping.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_flow_enrolment_active
+  ON email_flow_enrolments (flow_id, email) WHERE status = 'active';
+
+-- The cron's only query: what is due now.
+CREATE INDEX IF NOT EXISTS idx_flow_enrolments_due
+  ON email_flow_enrolments (next_run_at) WHERE status = 'active';
+
+CREATE OR REPLACE FUNCTION touch_email_flow()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_email_flow_touch ON email_flows;
+CREATE TRIGGER trg_email_flow_touch
+  BEFORE UPDATE ON email_flows
+  FOR EACH ROW EXECUTE FUNCTION touch_email_flow();
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 3. REVENUE ATTRIBUTION
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- Per-campaign revenue was left blank because nothing linked an order back to
+-- a send. It cannot be inferred from email data alone — the order happens on
+-- the customer's own site — so this records orders reported to us and the
+-- attribution rule used, rather than producing a number with no provenance.
+
+CREATE TABLE IF NOT EXISTS email_conversions (
+  id            UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- The campaign credited, and how it was decided.
+  campaign_id   TEXT,
+  contact_id    UUID,
+  email         TEXT,
+  -- 'click' — the recipient clicked this campaign within the window;
+  -- 'open'  — they opened it and no click exists;
+  -- 'direct'— the caller named the campaign itself;
+  -- 'none'  — reported, but nothing links it to any campaign. Kept, so total
+  --           revenue is not quietly inflated into whichever campaign was
+  --           nearest.
+  attribution   TEXT        NOT NULL DEFAULT 'none',
+  amount_cents  BIGINT      NOT NULL,
+  currency      TEXT        NOT NULL DEFAULT 'AUD',
+  -- The caller's own order id, so a retried webhook cannot double-count.
+  external_id   TEXT,
+  occurred_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT conversion_attribution_valid CHECK (attribution IN ('click','open','direct','none')),
+  CONSTRAINT conversion_amount_nonneg CHECK (amount_cents >= 0),
+  CONSTRAINT conversion_currency_len CHECK (length(currency) = 3)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conversion_external
+  ON email_conversions (user_id, external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_conversions_campaign ON email_conversions (campaign_id);
+
+CREATE OR REPLACE FUNCTION campaign_revenue(cid TEXT, uid UUID)
+RETURNS TABLE (conversions BIGINT, revenue_cents BIGINT, currency TEXT) AS $$
+  SELECT COUNT(*), COALESCE(SUM(amount_cents), 0), MIN(currency)
+  FROM email_conversions
+  WHERE campaign_id = cid AND (uid IS NULL OR user_id = uid)
+    AND attribution <> 'none';
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ─────────────────────────────────────────────────────
+ALTER TABLE email_ab_tests        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_ab_variants     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_ab_assignments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_flows           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_flow_steps      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_flow_enrolments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_conversions     ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "ab_tests_owner_all" ON email_ab_tests;
+CREATE POLICY "ab_tests_owner_all" ON email_ab_tests
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "ab_variants_owner_all" ON email_ab_variants;
+CREATE POLICY "ab_variants_owner_all" ON email_ab_variants
+  FOR ALL USING (EXISTS (SELECT 1 FROM email_ab_tests t WHERE t.id = test_id AND t.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM email_ab_tests t WHERE t.id = test_id AND t.user_id = auth.uid()));
+
+-- Read-only to the owner: an assignment a client could rewrite is not a record
+-- of which variant was sent.
+DROP POLICY IF EXISTS "ab_assignments_owner_read" ON email_ab_assignments;
+CREATE POLICY "ab_assignments_owner_read" ON email_ab_assignments
+  FOR SELECT USING (EXISTS (SELECT 1 FROM email_ab_tests t WHERE t.id = test_id AND t.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "flows_owner_all" ON email_flows;
+CREATE POLICY "flows_owner_all" ON email_flows
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "flow_steps_owner_all" ON email_flow_steps;
+CREATE POLICY "flow_steps_owner_all" ON email_flow_steps
+  FOR ALL USING (EXISTS (SELECT 1 FROM email_flows f WHERE f.id = flow_id AND f.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM email_flows f WHERE f.id = flow_id AND f.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "flow_enrolments_owner_read" ON email_flow_enrolments;
+CREATE POLICY "flow_enrolments_owner_read" ON email_flow_enrolments
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Conversions are written only by api/track-conversion.js with the service
+-- key: revenue a client could insert from the browser is not revenue.
+DROP POLICY IF EXISTS "conversions_owner_read" ON email_conversions;
+CREATE POLICY "conversions_owner_read" ON email_conversions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- DONE! Split tests, automation flows and revenue attribution are now real.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-email-suppression.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema email suppression and per-account send quota.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-audience.sql (contacts) already run.
+--
+-- Two gaps the Email Delivery audit found, both in the one code path that
+-- actually calls Resend.
+--
+-- 1. Suppression was only ever enforced in the browser. api/send-campaign.js
+--    took the recipient list on trust and never checked whether any of those
+--    people had opted out. The client-side filter it relied on
+--    (resolveSegmentContacts) honours the segment's own filter_rules.status,
+--    so a segment configured to select unsubscribed contacts would hand them
+--    straight to the sender. Suppression belongs on the server, in the last
+--    place before the message leaves.
+--
+-- 2. Unsubscribe was keyed on contact_id. A recipient who had been pasted in
+--    ad hoc had no contact row, so clicking unsubscribe recorded nothing —
+--    while the confirmation page told them they would not be emailed again.
+--    Keying on the address instead means the promise holds for everyone,
+--    including people who are not in the CRM.
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- SUPPRESSION LIST
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- Lower-cased at write time by normalise_suppression_email() below. An
+  -- address that suppresses only in the casing it happened to arrive in is
+  -- not suppressed.
+  email       TEXT        NOT NULL,
+  reason      TEXT        NOT NULL DEFAULT 'unsubscribed',
+  -- Free text: which campaign or import this came from, for answering
+  -- "why is this person suppressed" months later.
+  source      TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT suppression_reason_valid
+    CHECK (reason IN ('unsubscribed','bounced','complained','manual'))
+);
+
+-- One suppression per address per account. A second unsubscribe from the same
+-- person is not an error and must not fail their request.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_email_suppressions
+  ON email_suppressions (user_id, email);
+
+CREATE INDEX IF NOT EXISTS idx_email_suppressions_email
+  ON email_suppressions (email);
+
+-- Case- and whitespace-insensitive by construction rather than by every
+-- caller remembering. "Alice@Example.com " and "alice@example.com" are the
+-- same person, and a suppression that missed that would mail them anyway.
+CREATE OR REPLACE FUNCTION normalise_suppression_email()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.email = lower(btrim(NEW.email));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_normalise_suppression ON email_suppressions;
+CREATE TRIGGER trg_normalise_suppression
+  BEFORE INSERT OR UPDATE ON email_suppressions
+  FOR EACH ROW EXECUTE FUNCTION normalise_suppression_email();
+
+/**
+ * Which of these addresses must NOT be sent to.
+ *
+ * Answers in one round trip for a whole batch. Checking per recipient would
+ * be a query per address, and a send of 500 would either be slow enough to
+ * hit the function timeout or get skipped under load — and a suppression
+ * check that gets skipped under load is not a suppression check.
+ *
+ * Covers both the suppression list and contacts whose status says they are
+ * not sendable, because either is sufficient reason to withhold a message and
+ * the two can legitimately disagree (a contact marked bounced by the webhook
+ * may never have been added to the suppression list, and vice versa).
+ */
+CREATE OR REPLACE FUNCTION suppressed_emails(uid UUID, addresses TEXT[])
+RETURNS TABLE (email TEXT, reason TEXT) AS $$
+  SELECT s.email, s.reason
+    FROM email_suppressions s
+   WHERE s.user_id = uid
+     AND s.email = ANY (SELECT lower(btrim(a)) FROM unnest(addresses) AS a)
+  UNION
+  SELECT lower(btrim(c.email)), c.status
+    FROM contacts c
+   WHERE c.user_id = uid
+     AND c.status <> 'subscribed'
+     AND lower(btrim(c.email)) = ANY (SELECT lower(btrim(a)) FROM unnest(addresses) AS a);
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
+
+-- Keep the two in step: when the webhook or a manual edit marks a contact
+-- bounced or complained, that address is suppressed for every future send,
+-- including ad-hoc ones that never look at the contacts table.
+CREATE OR REPLACE FUNCTION sync_contact_suppression()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status IN ('unsubscribed','bounced','complained') THEN
+    INSERT INTO email_suppressions (user_id, email, reason, source)
+    VALUES (NEW.user_id, NEW.email, NEW.status, 'contact status change')
+    ON CONFLICT (user_id, email) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_contact_suppression ON contacts;
+CREATE TRIGGER trg_contact_suppression
+  AFTER INSERT OR UPDATE OF status ON contacts
+  FOR EACH ROW EXECUTE FUNCTION sync_contact_suppression();
+
+-- Backfill: anyone already opted out must be on the list from the moment this
+-- migration runs, not only from their next status change.
+INSERT INTO email_suppressions (user_id, email, reason, source)
+SELECT user_id, lower(btrim(email)), status, 'backfill from contacts'
+  FROM contacts
+ WHERE status IN ('unsubscribed','bounced','complained')
+ON CONFLICT (user_id, email) DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PER-ACCOUNT DAILY SEND QUOTA
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- The limit was a module-level counter in api/send-campaign.js: shared by
+-- every customer on the deployment, and reset on every cold start. So one
+-- account's sending consumed everybody's budget, while each serverless
+-- instance kept its own tally and the real ceiling was whatever the current
+-- instance count happened to be. It was simultaneously too strict and too
+-- loose to be a safety rail.
+
+CREATE TABLE IF NOT EXISTS email_send_quota (
+  id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  day         DATE        NOT NULL,
+  sent        INTEGER     NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT send_quota_nonneg CHECK (sent >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_email_send_quota ON email_send_quota (user_id, day);
+
+-- Admin-settable override, same shape as mission_limit: an account with a
+-- warmed sending reputation should not be held to the starter ceiling.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS daily_send_limit INTEGER;
+
+/**
+ * Claim n sends against today's quota, atomically.
+ *
+ * Returns how many were actually granted, which may be fewer than asked for
+ * when the budget is nearly spent. Read-then-write from the API would let two
+ * concurrent sends both see the same remaining budget and both spend it.
+ */
+CREATE OR REPLACE FUNCTION claim_send_quota(uid UUID, want INTEGER, cap INTEGER)
+RETURNS INTEGER AS $$
+DECLARE
+  used INTEGER;
+  granted INTEGER;
+BEGIN
+  INSERT INTO email_send_quota (user_id, day, sent)
+  VALUES (uid, CURRENT_DATE, 0)
+  ON CONFLICT (user_id, day) DO NOTHING;
+
+  SELECT sent INTO used FROM email_send_quota
+   WHERE user_id = uid AND day = CURRENT_DATE FOR UPDATE;
+
+  granted := LEAST(want, GREATEST(cap - used, 0));
+
+  IF granted > 0 THEN
+    UPDATE email_send_quota SET sent = sent + granted, updated_at = NOW()
+     WHERE user_id = uid AND day = CURRENT_DATE;
+  END IF;
+
+  RETURN granted;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ─────────────────────────────────────────────────────
+ALTER TABLE email_suppressions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_send_quota   ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "suppressions_owner_read" ON email_suppressions;
+CREATE POLICY "suppressions_owner_read" ON email_suppressions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Adding a suppression from the browser is fine — that is "do not email this
+-- person", which is only ever safe. There is deliberately no DELETE policy:
+-- removing someone from a suppression list is re-subscribing them on their
+-- behalf, and that needs their action, not the sender's.
+DROP POLICY IF EXISTS "suppressions_owner_insert" ON email_suppressions;
+CREATE POLICY "suppressions_owner_insert" ON email_suppressions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "send_quota_owner_read" ON email_send_quota;
+CREATE POLICY "send_quota_owner_read" ON email_send_quota
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- No write policy on the quota: an account that could edit its own counter
+-- has no counter.
+
+-- DONE! Suppression is now enforceable server-side and quotas are per account.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-competitive-roster.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Competitive Roster — cloud persistence for Competitive Command.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- The competitor roster, market gaps and battlecards lived in localStorage
+-- only ('tmd_radar', 'tmd_ci_gaps', 'tmd_ci_battlecards'). That meant the
+-- competitive picture a team had built — positioning, threat levels, logged
+-- moves, gap scores, generated battlecards — existed on exactly one browser on
+-- one machine. Clearing site data destroyed it, a second device never saw it,
+-- and a colleague on the same account saw an empty page.
+--
+-- This is the same dual project/intel_profile scope model as ContactsStore and
+-- AnalyticsStore, and the same "client calls Supabase directly, RLS does the
+-- enforcing" pattern.
+--
+-- Distinct from competitor_watches (supabase-competitor-watch.sql): that is the
+-- opt-in "check this URL daily and alert me when it changes" list. This is the
+-- analyst's own working picture of the market.
+
+CREATE TABLE IF NOT EXISTS competitive_roster (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  -- 'competitor' | 'gap' | 'battlecard'
+  kind             TEXT        NOT NULL CHECK (kind IN ('competitor', 'gap', 'battlecard')),
+
+  -- The id the page generated ('c_1738…'). Kept as the identity so records
+  -- already referenced by other rows — a battlecard pointing at a competitor,
+  -- a move pointing at its parent — keep pointing at the right thing after the
+  -- migration from localStorage.
+  client_id        TEXT        NOT NULL,
+
+  -- The record as the page models it. The UI edits these objects wholesale
+  -- (drag a competitor on the positioning map, push a move onto its list), so
+  -- storing the shape it already uses keeps one source of truth rather than
+  -- two that can drift.
+  payload          JSONB       NOT NULL DEFAULT '{}'::jsonb,
+
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+
+  -- One row per record per scope. Re-saving the same competitor updates it
+  -- rather than accumulating duplicates on every edit.
+  UNIQUE (user_id, kind, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_competitive_roster_user
+  ON competitive_roster (user_id, kind);
+CREATE INDEX IF NOT EXISTS idx_competitive_roster_profile
+  ON competitive_roster (intel_profile_id, kind);
+CREATE INDEX IF NOT EXISTS idx_competitive_roster_project
+  ON competitive_roster (project_id, kind);
+
+-- ── updated_at ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_competitive_roster()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_competitive_roster_touch ON competitive_roster;
+CREATE TRIGGER trg_competitive_roster_touch
+  BEFORE UPDATE ON competitive_roster
+  FOR EACH ROW EXECUTE FUNCTION touch_competitive_roster();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE competitive_roster ENABLE ROW LEVEL SECURITY;
+
+-- Owner always has full access to their own rows.
+DROP POLICY IF EXISTS "competitive_roster_owner_all" ON competitive_roster;
+CREATE POLICY "competitive_roster_owner_all" ON competitive_roster
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- A teammate granted access to an intelligence profile can read the
+-- competitive picture built under it — the same sharing rule the rest of the
+-- profile-scoped data already follows.
+DROP POLICY IF EXISTS "competitive_roster_member_read" ON competitive_roster;
+CREATE POLICY "competitive_roster_member_read" ON competitive_roster
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM intelligence_profiles p
+        WHERE p.id = competitive_roster.intel_profile_id AND p.owner_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1 FROM intelligence_profile_members m
+        WHERE m.profile_id = competitive_roster.intel_profile_id AND m.user_id = auth.uid()
+      )
+    )
+  );
+
+-- Editors and owners of a shared profile can also change it; viewers cannot.
+DROP POLICY IF EXISTS "competitive_roster_member_write" ON competitive_roster;
+CREATE POLICY "competitive_roster_member_write" ON competitive_roster
+  FOR UPDATE USING (
+    intel_profile_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM intelligence_profile_members m
+      WHERE m.profile_id = competitive_roster.intel_profile_id
+        AND m.user_id = auth.uid()
+        AND m.role IN ('owner', 'editor')
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-video-gallery.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Video Gallery — cloud persistence for Reel's generated videos.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- The gallery lived in localStorage only ('reel_videos_v1'), so a customer's
+-- generated videos existed on one browser on one machine. Clearing site data
+-- destroyed the record, a second device never saw it, and a colleague on the
+-- same account got an empty gallery.
+--
+-- That mattered more here than for most local stores, because a row can be the
+-- only handle on work in progress: while Seedance renders, the task id lives
+-- in this record and nowhere else. Lose the record and a render the customer
+-- has already paid for becomes unreachable — there is no way to ask "is it
+-- done yet" without the task id.
+--
+-- Same dual project/intel_profile scope model and RLS pattern as
+-- competitive_roster, analytics_reports and contacts.
+
+CREATE TABLE IF NOT EXISTS video_generations (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  -- The id the page generated (crypto.randomUUID). Kept as the identity so a
+  -- record already referenced elsewhere — a social post's metadata.videoGenId
+  -- — keeps pointing at the right video after the lift from localStorage.
+  client_id        TEXT        NOT NULL,
+
+  prompt           TEXT        NOT NULL DEFAULT '',
+  mode             TEXT        NOT NULL DEFAULT 'text-to-video',
+  image_url        TEXT,
+  aspect_ratio     TEXT        NOT NULL DEFAULT '16:9',
+  duration         INTEGER     NOT NULL DEFAULT 5,
+  resolution       TEXT        NOT NULL DEFAULT '1080p',
+
+  -- The provider's task id. This is the handle on an in-flight render; without
+  -- it a generation in progress cannot be polled again from anywhere.
+  task_id          TEXT,
+  status           TEXT        NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'processing', 'succeeded', 'failed')),
+  video_url        TEXT,
+  thumbnail_url    TEXT,
+
+  -- 'permanent' once the file has been mirrored into our own storage,
+  -- 'temporary' while the only link is the generator's own expiring one. Kept
+  -- server-side so the warning survives a device change, not just a page load.
+  storage          TEXT        NOT NULL DEFAULT 'temporary'
+                     CHECK (storage IN ('temporary', 'permanent')),
+  storage_note     TEXT,
+
+  error            TEXT,
+  stopped_watching_at TIMESTAMPTZ,
+
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+
+  UNIQUE (user_id, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_generations_user
+  ON video_generations (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_video_generations_profile
+  ON video_generations (intel_profile_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_video_generations_project
+  ON video_generations (project_id, created_at DESC);
+-- Finding renders that are still in flight, from any device.
+CREATE INDEX IF NOT EXISTS idx_video_generations_inflight
+  ON video_generations (user_id, status) WHERE status IN ('pending', 'processing');
+
+-- ── updated_at ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_video_generations()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_video_generations_touch ON video_generations;
+CREATE TRIGGER trg_video_generations_touch
+  BEFORE UPDATE ON video_generations
+  FOR EACH ROW EXECUTE FUNCTION touch_video_generations();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE video_generations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "video_generations_owner_all" ON video_generations;
+CREATE POLICY "video_generations_owner_all" ON video_generations
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- A teammate on a shared intelligence profile can see the videos generated
+-- under it — the same sharing rule the rest of the profile-scoped data follows.
+DROP POLICY IF EXISTS "video_generations_member_read" ON video_generations;
+CREATE POLICY "video_generations_member_read" ON video_generations
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM intelligence_profiles p
+        WHERE p.id = video_generations.intel_profile_id AND p.owner_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1 FROM intelligence_profile_members m
+        WHERE m.profile_id = video_generations.intel_profile_id AND m.user_id = auth.uid()
+      )
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-cro-backlog.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema CRO Backlog — cloud persistence for CRO Lab's ICE-scored test list.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- The ICE backlog lived in localStorage only ('cro_ice_tests') while the
+-- experiments beside it were already cloud-backed — so the page had one half
+-- of its workflow shared across the team and the other half stranded on one
+-- browser. The backlog is the collaborative half: it is the prioritised list a
+-- team argues over and works down, and each row can be handed to Scotty as a
+-- mission, so it needs to be the same list for everyone looking at it.
+--
+-- Same dual project/intel_profile scope model and RLS pattern as
+-- competitive_roster, video_generations and analytics_reports.
+
+CREATE TABLE IF NOT EXISTS cro_backlog_tests (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  -- The id the page generated (Date.now()). Kept as the identity so a row
+  -- already dispatched to Scotty as a mission still resolves to the same test
+  -- after the lift out of localStorage.
+  client_id        TEXT        NOT NULL,
+
+  name             TEXT        NOT NULL,
+  -- ICE is scored 1-10 on each axis. Constrained here as well as in the UI:
+  -- a score outside that range silently changes every ranking on the page.
+  impact           INTEGER     NOT NULL DEFAULT 5 CHECK (impact     BETWEEN 1 AND 10),
+  confidence       INTEGER     NOT NULL DEFAULT 5 CHECK (confidence BETWEEN 1 AND 10),
+  ease             INTEGER     NOT NULL DEFAULT 5 CHECK (ease       BETWEEN 1 AND 10),
+
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+
+  UNIQUE (user_id, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cro_backlog_user
+  ON cro_backlog_tests (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_cro_backlog_profile
+  ON cro_backlog_tests (intel_profile_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_cro_backlog_project
+  ON cro_backlog_tests (project_id, created_at);
+
+-- ── updated_at ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_cro_backlog_tests()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_cro_backlog_touch ON cro_backlog_tests;
+CREATE TRIGGER trg_cro_backlog_touch
+  BEFORE UPDATE ON cro_backlog_tests
+  FOR EACH ROW EXECUTE FUNCTION touch_cro_backlog_tests();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE cro_backlog_tests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "cro_backlog_owner_all" ON cro_backlog_tests;
+CREATE POLICY "cro_backlog_owner_all" ON cro_backlog_tests
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- A teammate on a shared intelligence profile sees the same backlog — this is
+-- a list a team prioritises together, so a private copy per person would
+-- defeat the point.
+DROP POLICY IF EXISTS "cro_backlog_member_read" ON cro_backlog_tests;
+CREATE POLICY "cro_backlog_member_read" ON cro_backlog_tests
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM intelligence_profiles p
+        WHERE p.id = cro_backlog_tests.intel_profile_id AND p.owner_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1 FROM intelligence_profile_members m
+        WHERE m.profile_id = cro_backlog_tests.intel_profile_id AND m.user_id = auth.uid()
+      )
+    )
+  );
+
+-- Editors and owners can re-score and add; viewers read only.
+DROP POLICY IF EXISTS "cro_backlog_member_write" ON cro_backlog_tests;
+CREATE POLICY "cro_backlog_member_write" ON cro_backlog_tests
+  FOR UPDATE USING (
+    intel_profile_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM intelligence_profile_members m
+      WHERE m.profile_id = cro_backlog_tests.intel_profile_id
+        AND m.user_id = auth.uid()
+        AND m.role IN ('owner', 'editor')
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-system-failures.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema System Failures — every failure in the product, in one place, with
+-- someone told about it.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- ── Why this exists ─────────────────────────────────────────────────────────
+--
+-- This codebase has spent a lot of effort making failures HONEST: a PageSpeed
+-- scan that cannot run now shows no score and says what failed, instead of a
+-- fabricated 15/100. That is right for the customer, and it is only half the
+-- job — because the customer now sees a truthful "this did not work" and
+-- nobody who could fix it ever hears about it. An API key expires on a Tuesday
+-- and the product quietly degrades until someone complains.
+--
+-- So every failure is recorded here, grouped, counted, and surfaced to an
+-- administrator with what is known about repairing it.
+--
+-- ── Grouping ────────────────────────────────────────────────────────────────
+--
+-- Failures arrive in floods: one expired key is not one incident, it is every
+-- request until it is fixed. Rows are keyed by a FINGERPRINT — source, kind
+-- and a normalised message with ids, urls and numbers stripped — so a flood
+-- becomes one row with an occurrence count and a last_seen. That is what makes
+-- the list readable enough to act on, and what makes alerting possible without
+-- sending ten thousand emails.
+
+CREATE TABLE IF NOT EXISTS system_failures (
+  id             UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+
+  -- Stable across every occurrence of the same underlying problem.
+  fingerprint    TEXT        NOT NULL UNIQUE,
+
+  -- Where it happened: 'api/pagespeed', 'web/seo-pulse.html', 'cron-grant-watch'.
+  source         TEXT        NOT NULL,
+
+  -- What kind of thing broke. Deliberately coarse — this is for triage, and a
+  -- taxonomy nobody can remember gets filled in wrongly.
+  kind           TEXT        NOT NULL
+                             CHECK (kind IN (
+                               'config_missing',      -- an env var/key is not set
+                               'upstream_error',      -- a third party answered badly
+                               'upstream_timeout',    -- a third party did not answer
+                               'database_error',      -- our own storage refused
+                               'unhandled_exception', -- code threw where it should not
+                               'client_error',        -- something broke in the browser
+                               'integration_failure'  -- a connected account stopped working
+                             )),
+
+  severity       TEXT        NOT NULL DEFAULT 'error'
+                             CHECK (severity IN ('info', 'warning', 'error', 'critical')),
+
+  message        TEXT        NOT NULL,
+  -- Status codes, upstream name, a truncated stack — whatever helps diagnose.
+  -- Never request bodies or credentials; see api/_lib/report-failure.js.
+  detail         JSONB       DEFAULT '{}',
+
+  -- What is known about fixing it, written for whoever reads the console at
+  -- 9am. Null when the cause is not one we recognise.
+  remedy         TEXT,
+
+  -- Whether the system can repair this without a person. Set by the reporter
+  -- for causes with a known automatic recovery; see recovery_action.
+  self_healing   BOOLEAN     NOT NULL DEFAULT FALSE,
+  recovery_action TEXT,
+
+  occurrences    INTEGER     NOT NULL DEFAULT 1,
+  affected_users INTEGER     NOT NULL DEFAULT 0,
+  first_seen     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  status         TEXT        NOT NULL DEFAULT 'open'
+                             CHECK (status IN ('open', 'acknowledged', 'resolved')),
+  resolved_at    TIMESTAMPTZ,
+  resolved_by    UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  note           TEXT,
+
+  -- Alerting state. notified_at is the cooldown anchor: an incident that is
+  -- still happening should not send an email every thirty seconds.
+  notified_at    TIMESTAMPTZ,
+  notify_count   INTEGER     NOT NULL DEFAULT 0,
+
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- The console reads open incidents newest-first; the alerter reads by
+-- notified_at. Both want an index.
+CREATE INDEX IF NOT EXISTS idx_system_failures_open
+  ON system_failures (status, last_seen DESC);
+CREATE INDEX IF NOT EXISTS idx_system_failures_source
+  ON system_failures (source, last_seen DESC);
+CREATE INDEX IF NOT EXISTS idx_system_failures_notify
+  ON system_failures (status, severity, notified_at);
+
+-- ── Individual occurrences ──────────────────────────────────────────────────
+-- The grouped row says how often and how recently; this says who and exactly
+-- what, for the handful of cases where the group is not enough to diagnose.
+-- Capped by a retention sweep in the recorder, because this table grows with
+-- traffic and the grouped row is what actually gets read.
+CREATE TABLE IF NOT EXISTS system_failure_events (
+  id           UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  failure_id   UUID        NOT NULL REFERENCES system_failures(id) ON DELETE CASCADE,
+  user_id      UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  message      TEXT,
+  detail       JSONB       DEFAULT '{}',
+  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_failure_events_failure
+  ON system_failure_events (failure_id, occurred_at DESC);
+
+-- ── Recording one failure, atomically ───────────────────────────────────────
+--
+-- Same lesson as the metering counters elsewhere in this schema: a read, a
+-- comparison in JavaScript, and a write is three steps, and failures arrive
+-- concurrently by their nature — a broken upstream breaks for everybody at
+-- once. This is one statement, so a flood produces one row with a correct
+-- count rather than a race between many.
+--
+-- Returns the incident id and whether this call is what created it. The caller
+-- uses is_new to decide whether to alert, so that decision is made on a value
+-- the database produced rather than on a separate lookup that could race.
+CREATE OR REPLACE FUNCTION record_system_failure(
+  p_fingerprint     TEXT,
+  p_source          TEXT,
+  p_kind            TEXT,
+  p_severity        TEXT,
+  p_message         TEXT,
+  p_detail          JSONB   DEFAULT '{}',
+  p_remedy          TEXT    DEFAULT NULL,
+  p_self_healing    BOOLEAN DEFAULT FALSE,
+  p_recovery_action TEXT    DEFAULT NULL,
+  p_user_id         UUID    DEFAULT NULL
+)
+RETURNS TABLE (failure_id UUID, is_new BOOLEAN, occurrences INTEGER, alert_due BOOLEAN) AS $$
+DECLARE
+  v_id     UUID;
+  v_new    BOOLEAN := FALSE;
+  v_count  INTEGER;
+  v_status TEXT;
+  v_notified TIMESTAMPTZ;
+  v_sev    TEXT;
+BEGIN
+  INSERT INTO system_failures AS f (
+    fingerprint, source, kind, severity, message, detail,
+    remedy, self_healing, recovery_action, occurrences, first_seen, last_seen
+  )
+  VALUES (
+    p_fingerprint, p_source, p_kind, p_severity, p_message, COALESCE(p_detail, '{}'),
+    p_remedy, COALESCE(p_self_healing, FALSE), p_recovery_action, 1, NOW(), NOW()
+  )
+  ON CONFLICT (fingerprint) DO UPDATE SET
+    occurrences = f.occurrences + 1,
+    last_seen   = NOW(),
+    -- The newest occurrence's detail is the most useful one to keep.
+    message     = EXCLUDED.message,
+    detail      = EXCLUDED.detail,
+    -- Severity only ever climbs within an incident: a problem that was a
+    -- warning once and critical since is critical.
+    severity    = CASE
+                    WHEN EXCLUDED.severity = 'critical' THEN 'critical'
+                    WHEN f.severity = 'critical' THEN 'critical'
+                    WHEN EXCLUDED.severity = 'error' OR f.severity = 'error' THEN 'error'
+                    WHEN EXCLUDED.severity = 'warning' OR f.severity = 'warning' THEN 'warning'
+                    ELSE 'info'
+                  END,
+    -- A resolved incident that happens again is not resolved.
+    status      = CASE WHEN f.status = 'resolved' THEN 'open' ELSE f.status END,
+    resolved_at = CASE WHEN f.status = 'resolved' THEN NULL ELSE f.resolved_at END
+  RETURNING f.id, f.occurrences, f.status, f.notified_at, f.severity
+       INTO v_id, v_count, v_status, v_notified, v_sev;
+
+  v_new := (v_count = 1);
+
+  INSERT INTO system_failure_events (failure_id, user_id, message, detail)
+  VALUES (v_id, p_user_id, p_message, COALESCE(p_detail, '{}'));
+
+  -- How many distinct people have hit this. Cheap enough at these volumes and
+  -- it is the number that says whether an incident matters.
+  UPDATE system_failures
+     SET affected_users = (
+       SELECT COUNT(DISTINCT e.user_id) FROM system_failure_events e
+        WHERE e.failure_id = v_id AND e.user_id IS NOT NULL)
+   WHERE id = v_id;
+
+  RETURN QUERY SELECT
+    v_id,
+    v_new,
+    v_count,
+    -- Alert when it is new, or when it is still happening an hour after the
+    -- last alert. Acknowledged and resolved incidents stay quiet: somebody has
+    -- already seen them.
+    (v_status = 'open'
+     AND v_sev IN ('error', 'critical')
+     AND (v_notified IS NULL OR v_notified < NOW() - INTERVAL '1 hour'));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Mark that an alert went out. Separate from recording, because the alert can
+-- fail and must not then look like it was sent.
+CREATE OR REPLACE FUNCTION mark_failure_notified(p_failure_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE system_failures
+     SET notified_at = NOW(), notify_count = notify_count + 1
+   WHERE id = p_failure_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Retention ───────────────────────────────────────────────────────────────
+-- The grouped rows are small and worth keeping. The per-occurrence events grow
+-- with traffic, and beyond the most recent few per incident they answer no
+-- question anybody asks.
+CREATE OR REPLACE FUNCTION prune_failure_events(p_keep_per_incident INTEGER DEFAULT 50,
+                                                p_max_age_days INTEGER DEFAULT 30)
+RETURNS INTEGER AS $$
+DECLARE
+  removed INTEGER;
+BEGIN
+  WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY failure_id ORDER BY occurred_at DESC) AS rn,
+           occurred_at
+      FROM system_failure_events
+  )
+  DELETE FROM system_failure_events e
+   USING ranked r
+   WHERE e.id = r.id
+     AND (r.rn > p_keep_per_incident
+          OR r.occurred_at < NOW() - (p_max_age_days || ' days')::INTERVAL);
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  RETURN removed;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+-- Failure detail is operational information about the platform: which upstream
+-- is down, which key is unset, what a stack trace says. It is for
+-- administrators, not for customers, and never for the anonymous key.
+-- Everything is written by the service role through the functions above.
+ALTER TABLE system_failures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_failure_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "system_failures_admin_read" ON system_failures;
+CREATE POLICY "system_failures_admin_read" ON system_failures
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles p
+             WHERE p.id = auth.uid() AND p.role IN ('admin', 'super_admin'))
+  );
+
+DROP POLICY IF EXISTS "system_failure_events_admin_read" ON system_failure_events;
+CREATE POLICY "system_failure_events_admin_read" ON system_failure_events
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles p
+             WHERE p.id = auth.uid() AND p.role IN ('admin', 'super_admin'))
+  );
+
+-- Deliberately no INSERT/UPDATE/DELETE policy on either table. A client that
+-- could write here could bury an incident, or manufacture one — and the whole
+-- point of this table is that what it says happened, happened.
+
+-- DONE! Failures are now recorded, grouped, and alertable.

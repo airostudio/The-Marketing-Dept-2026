@@ -16,6 +16,128 @@ Your Audema application requires the following environment variable to be set in
 
 ---
 
+## Agent Mission metering — what makes the plan tiers real
+
+The Agent Mission is the unit the pricing is built on: customers aren't limited to a few agents, they have the whole department and are limited by how much work it performs. `api/mission-usage.js` enforces that, gating Scotty's multi-agent missions before the expensive planning call — the same shape as the AI-image credit gate.
+
+No new env vars. Uses `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`.
+
+### Setup
+
+1. Run `supabase-mission-usage.sql` in Supabase Dashboard → SQL Editor. It creates the `mission_usage` counter, an atomic `increment_mission_usage()` function, and adds a `profiles.mission_limit` override column.
+2. Nothing else. The gate activates automatically once the table exists.
+
+### ⚠️ The allowance numbers are placeholders
+
+The published pricing describes allowances qualitatively — Start gets "limited monthly Agent Missions", Growth a "substantially larger monthly Agent Mission allowance" — without stating figures. The defaults below are scaled to the price points so the mechanism is real and testable, but **they are a commercial decision, not a technical one**:
+
+| Plan | Monthly missions | Plan | Monthly missions |
+|------|-----------------|------|-----------------|
+| Free | 3 | Agency Starter | 100 |
+| Start | 20 | Agency Growth | 300 |
+| Growth | 60 | Agency Pro | 1,000 |
+| Scale | 150 | Agency Enterprise | uncapped |
+| Autonomous | 500 | Enterprise | uncapped |
+
+Change them in **one place**: `MISSION_ALLOWANCES` in `api/_lib/plan-limits.js`. Then set `PLACEHOLDER_ALLOWANCES = false` in the same file — until you do, the UI labels the allowance "provisional" rather than quoting it as settled policy.
+
+Per-account exceptions don't need a code change: `UPDATE profiles SET mission_limit = 250 WHERE email = '<customer>';` overrides the table for that account.
+
+### Behaviour worth knowing
+
+- **Scoped per account per calendar month (UTC)**, not per site. An agency's capacity is pooled across its client businesses, matching "agency users then purchase additional marketing capacity where necessary".
+- **A broken meter never blocks a paying customer.** If metering is unconfigured, unreachable, or the increment fails, the mission proceeds and the response says it wasn't counted. A broken meter is an operator problem; it must not look like a billing wall.
+- **Only full multi-agent missions are metered.** Individual agents keep working when the allowance is spent, and the block message says so.
+- **The count is server-side.** `MissionStore` is localStorage, which a customer can clear — fine for "what am I working on", useless as a billing record.
+- The increment is a single atomic upsert, so two missions started simultaneously can't both read the same count and both write count+1.
+
+---
+
+## Government Funding Room — multi-region grant discovery
+
+Admin-only (`/admin/grants.html`). Sweeps government funding sources across Australia, the UK, the EU and the US weekly and files genuinely relevant opportunities into the funding pipeline at stage *discovered*.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `CRON_SECRET` | Same bearer token the other cron jobs use | ✅ For the weekly sweep |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | To file discoveries | ✅ |
+
+### Setup
+
+1. Run `supabase-grants.sql` in Supabase Dashboard → SQL Editor. It is safe to re-run — the region/provenance columns are added by `ALTER ... IF NOT EXISTS` as well as being in the `CREATE TABLE`.
+2. The cron entry is already in `vercel.json` (`/api/cron-grant-watch`, Mondays 20:00 UTC).
+3. **Verify each source before trusting the feed** — see below.
+
+### ⚠️ The source adapters are unverified against live endpoints
+
+`api/_lib/grant-sources.js` was written against each publisher's documented contract, but **every government host was blocked by egress policy in the environment it was written in**, so none of the four adapters has ever made a real request. Their live response shapes are unconfirmed.
+
+They are built to fail loudly rather than quietly: each distinguishes "returned nothing" from "returned something unrecognised", and the second reports a sample of what actually arrived. But you should confirm them yourself on the first deploy:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<your-domain>/api/cron-grant-watch?dryRun=1"
+```
+
+`dryRun=1` fetches every source and reports what each returned — counts, one normalised example record, or the parse failure plus a slice of the payload — **without writing anything**. Add `&source=us_grants_gov` to check one at a time.
+
+| Source | Region | Mode | Confidence |
+|--------|--------|------|-----------|
+| `us_grants_gov` | US | Public JSON API (`api.grants.gov/v1/api/search2`) | Highest — documented, key-free, stable |
+| `eu_funding_tenders` | EU | Portal search API (`api.tech.ec.europa.eu`, public `SEDIA` key) | Medium — less formally documented |
+| `uk_gov_search` | UK | GOV.UK search API (`www.gov.uk/api/search.json`) | Medium — documented, but broad content search rather than a grants index, so expect noise and no close dates |
+| `au_business_gov` | AU | HTML scrape of `business.gov.au/grants-and-programs` | Lowest — no open API exists; a site redesign breaks it (and will report itself as broken) |
+
+### What it does and deliberately does not do
+
+- Only opportunities matching at least one relevance term (AI, SME, marketing, productivity, innovation, commercialisation, export, R&D, digital adoption…) are filed. The matched terms are stored on the row and shown in the UI, so a bad match is visible as a bad match.
+- Discoveries arrive **unscored**, at stage *discovered*. Discovery is not assessment — nothing is auto-scored, and nothing skips the Grant Readiness Scorecard.
+- A run inserts at most 40 new rows, and says so when it caps. Drowning the pipeline is the failure mode the scored pipeline exists to prevent.
+- Dedupe is on `(source_key, external_id)` with a unique index, so re-running is idempotent and an opportunity already moved along the pipeline is never resurrected.
+
+---
+
+## Billing — Stripe Checkout, Customer Portal, and webhook sync
+
+Turns the plan tiers on `/index.html#pricing` and `/billing.html` into a real paid product. Card capture happens entirely on Stripe's own hosted pages (Checkout for signing up, Customer Portal for managing an existing subscription) — this app never touches card data. `profiles.plan`/`subscription_status` are only ever written by `api/stripe-webhook.js` once Stripe confirms a payment; a `protect_billing_columns` trigger (`supabase-billing.sql`) blocks every other write path, including a signed-in user hitting the Supabase REST API directly.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `OWNER_EMAIL` | The email address that owns this deployment. That account is granted `super_admin` on its next sign-in, so the admin console needs no manual SQL to bootstrap. Comma-separate for more than one. The address must be confirmed in Supabase before the role is granted. | ✅ To reach /admin |
+| `STRIPE_SECRET_KEY` | Your Stripe secret key (`sk_test_...` / `sk_live_...`) | ✅ For billing |
+| `STRIPE_WEBHOOK_SECRET` | The `whsec_...` signing secret Stripe gives you when you add the webhook endpoint | ✅ For billing |
+| `STRIPE_PRICE_START_MONTHLY` / `STRIPE_PRICE_START_YEARLY` | Price IDs for the Start tier | ✅ For Start checkout |
+| `STRIPE_PRICE_GROWTH_MONTHLY` / `STRIPE_PRICE_GROWTH_YEARLY` | Price IDs for the Growth tier | ✅ For Growth checkout |
+| `STRIPE_PRICE_SCALE_MONTHLY` / `STRIPE_PRICE_SCALE_YEARLY` | Price IDs for the Scale tier | ✅ For Scale checkout |
+| `STRIPE_PRICE_AUTONOMOUS_MONTHLY` / `STRIPE_PRICE_AUTONOMOUS_YEARLY` | Price IDs for the Autonomous tier | ✅ For Autonomous checkout |
+| `STRIPE_PRICE_AGENCY_STARTER_MONTHLY` / `..._YEARLY` | Price IDs for Agency Starter | Optional (Agency tiers link to "Contact Sales" by default — set these only if you want self-serve Agency checkout too) |
+| `STRIPE_PRICE_AGENCY_GROWTH_MONTHLY` / `..._YEARLY` | Price IDs for Agency Growth | Optional |
+| `STRIPE_PRICE_AGENCY_PRO_MONTHLY` / `..._YEARLY` | Price IDs for Agency Pro | Optional |
+| `PUBLIC_APP_URL` | Same variable Pat's email links use — Checkout/Portal success/cancel/return URLs fall back to the request's own `Host` header if unset | Optional |
+
+`enterprise` and `agency_enterprise` are intentionally never sold through Checkout — both are custom-priced and sold off-platform (see `api/_lib/plans.js`); their buttons on the pricing pages are `mailto:` links, not checkout calls.
+
+### Setup
+
+1. Run `supabase-billing.sql` in Supabase Dashboard → SQL Editor (after `supabase-intelligence-profiles.sql`, which it depends on for the plan enum). This adds the Stripe columns to `profiles`, the `billing_events` audit table, and the trigger that keeps them server-write-only.
+2. In the Stripe Dashboard: create one Product per tier (Start/Growth/Scale/Autonomous, plus Agency tiers if you want self-serve there too), each with a monthly and a yearly Price. Copy each Price ID into the matching env var above.
+3. In the Stripe Dashboard: **Developers → Webhooks → Add endpoint** → URL `https://<your-domain>/api/stripe-webhook`, events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+4. Test end-to-end in Stripe test mode: sign up → visit `/billing.html` → pick a tier → complete Checkout with Stripe's `4242 4242 4242 4242` test card → confirm the webhook fires (Stripe Dashboard shows delivery attempts) → confirm `profiles.plan` updated → confirm `/billing.html` now shows "Manage Billing" opening the real Customer Portal.
+5. Set a user's plan manually if you ever need to bypass Stripe entirely (comps, manual invoicing): `UPDATE profiles SET plan = 'growth' WHERE email = '<customer>';` — run as the Postgres superuser in the SQL Editor (the `protect_billing_columns` trigger allows this because it isn't a PostgREST request, i.e. `auth.uid()` is null there).
+
+### What changed
+
+- **`supabase-billing.sql`** (new) — Stripe fields on `profiles`, `billing_events` audit table, `protect_billing_columns` trigger.
+- **`api/_lib/stripe-rest.js`** (new) — a small fetch-based Stripe REST client (no `stripe` npm package — this repo has zero npm dependencies, same reasoning as `api/_lib/supabase-rest.js`).
+- **`api/_lib/plans.js`** (new) — the one place mapping each self-serve plan name to its Stripe Price ID env vars.
+- **`api/stripe-checkout.js`** (new) — authenticated; creates/reuses a Stripe Customer, returns a Checkout Session URL for a given plan+interval.
+- **`api/stripe-webhook.js`** (new) — verifies Stripe's signature (same HMAC-SHA256 shape `api/resend-webhook.js` already uses for a different provider), applies `checkout.session.completed`/`customer.subscription.updated`/`customer.subscription.deleted` to `profiles`, logs every event to `billing_events`.
+- **`api/stripe-portal.js`** (new) — authenticated; returns a Stripe Customer Portal session URL.
+- **`web/billing.html`** (new) — current plan/status, tier grid with Checkout buttons, "Manage Billing" → Portal.
+- **`web/index.html`**'s `#pricing` section — replaced the old flat single-price card with the real Start/Growth/Scale/Autonomous/Enterprise tiers plus an Agency Edition section, both linking into `/billing.html`.
+
+---
+
 ## Pat — Email Delivery: Unsubscribe Compliance & Bounce Handling
 
 Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had no `List-Unsubscribe` header (a hard Gmail/Yahoo/Apple requirement for bulk senders since May 2026) and nothing ever closed the loop when a send bounced or was marked as spam, so `contacts.status` sat unused.
@@ -104,7 +226,11 @@ Reel's "AI Video Generator" panel (`web/agents/video-agent.html`) turns a text p
 
 **Provider note:** Seedance 2.0 ships through more than one host, and exact field names vary slightly per host. `api/generate-video.js` implements the Ark-style async task contract (`POST .../contents/generations/tasks` → task id, `GET .../contents/generations/tasks/{id}` → status + video URL), which is the pattern ByteDance's video models have used since Seedance 1.0. If you're on a different provider (fal.ai, Replicate, OpenRouter, etc.), point `SEEDANCE_API_BASE_URL`/`SEEDANCE_MODEL` at it and adjust the two small request/response-shaping blocks in `api/generate-video.js` to match — everything else (validation, the create→poll contract the client speaks) stays the same. Verify the exact contract against your provider's live docs before going to production; third-party API surfaces move fast.
 
-Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, Tavus avatar videos) keeps working either way.
+Without `ARK_API_KEY`/`SEEDANCE_API_KEY` set, the Generate Video button returns a clear "not configured" error instead of failing silently — the rest of Reel (Claude-powered scripts, the script-to-scene handoff) keeps working either way.
+
+**Set the R2 variables too if you use video.** The generator returns a signed link that expires within hours. With R2 configured, `api/generate-video.js` copies each finished video into your own bucket and hands back a durable URL. Without it, the video is still generated and downloadable, but the gallery and any social post scheduled around it carry a link that will die — the UI marks every such video "this link will expire" rather than letting it quietly rot into a broken player.
+
+There is no Tavus avatar-video integration. A client-side adapter for it existed but could never run: it required a paid Tavus key in browser config, and called `tavusapi.com` directly, which a browser blocks on CORS. It has been removed. Avatar video would need a server-side proxy in the shape of `api/generate-video.js`.
 
 ---
 
@@ -133,16 +259,17 @@ One intelligence profile = one business's complete Intelligence Layer (Business 
 
 | Plan | Profiles |
 |------|----------|
-| Free / Basic | 1 |
-| Pro / Professional | 3 |
-| Agency | 8 |
-| Enterprise | Admin-configured per account |
+| Free / Start / Growth / Scale / Autonomous | 1 |
+| Agency Starter | 5 |
+| Agency Growth | 15 |
+| Agency Pro | 50 |
+| Enterprise / Agency Enterprise | Admin-configured per account |
 
 ### Setup
 
 1. Run `supabase-business-brain.sql` first (if not already), then `supabase-intelligence-profiles.sql` in Supabase Dashboard → SQL Editor.
 2. No new env vars — uses the existing client-side Supabase auth.
-3. Set a user's plan in the `profiles` table (`plan` column: `basic` / `professional` / `agency` / `enterprise`).
+3. Set a user's plan in the `profiles` table (`plan` column: `free` / `start` / `growth` / `scale` / `autonomous` / `enterprise` / `agency_starter` / `agency_growth` / `agency_pro` / `agency_enterprise`).
 4. **Enterprise accounts**: an admin sets the custom allowance directly on the account row — `UPDATE profiles SET plan = 'enterprise', intel_profile_limit = <N> WHERE email = '<customer>';` — sized to what the customer pays for.
 
 ### How it works
@@ -544,3 +671,22 @@ No paid API required — it fetches the tracked page's HTML directly and extract
 **Last Updated**: March 15, 2026
 **Deployed by**: Claude (AI Assistant)
 **Session**: https://claude.ai/code
+
+## Failure alerts
+
+Failures across the whole product are recorded in `system_failures`, grouped by
+cause, and shown at `/admin/failures.html`. Two optional environment variables
+control who is emailed when one is new or still going an hour later:
+
+| Variable | Purpose |
+|---|---|
+| `FAILURE_ALERT_EMAILS` | Comma-separated addresses to alert instead of the admin accounts — an on-call alias or a ticketing inbox. Leave unset to email every account with the `admin` or `super_admin` role. |
+| `APP_URL` | Used for the "open the failures console" link in the alert. Defaults to `https://audema.com`. |
+
+Alerts are sent through the `RESEND_API_KEY` / `RESEND_FROM_EMAIL` already
+configured for outbound mail. Without those, incidents are still recorded and
+still visible in the console — the deployment log says plainly that no alert
+was sent, rather than a silent no-op looking like a delivered alert.
+
+Run `supabase-system-failures.sql` (or `supabase-install-all.sql`, which
+contains it) before this does anything.

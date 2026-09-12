@@ -1,3 +1,7 @@
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { safeFetchText } = require('./_lib/safe-fetch.js');
 /**
  * Business enrichment — Vercel serverless function.
  *
@@ -14,24 +18,7 @@ const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 5;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── Meta extraction from raw HTML ─────────────────────────────────────────────
 
@@ -80,15 +67,20 @@ function extractMeta(html) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/enrich-business', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-  }
+  // This endpoint spends the account's own third-party credits, so it has to
+  // know whose they are. It previously accepted anyone: a rate limit caps how
+  // fast the money goes, not whether the caller was entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'enrich-business', max: 5, windowMs: 60 * 1000, auth: auth })) return;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
@@ -118,17 +110,19 @@ module.exports = async function handler(req, res) {
   // ── Step 1: Fetch homepage meta tags ──────────────────────────────────────
   let meta = {};
   try {
-    const homeRes = await fetch(parsedUrl.href, {
+    // Through safe-fetch: the URL comes from the request body, so the
+    // address it resolves to — and the address any redirect points at —
+    // has to be checked, not just its protocol.
+    const homeRes = await safeFetchText(parsedUrl.href, {
+      timeoutMs: 10_000,
+      maxBytes: 50_000,   // only need <head>
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; AudemaBot/1.0; +https://aduma.io)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
-      signal: AbortSignal.timeout(10_000),
-      redirect: 'follow',
     });
-    if (homeRes.ok) {
-      const html = await homeRes.text();
-      meta = extractMeta(html.slice(0, 50_000)); // only need <head>
+    if (homeRes.status >= 200 && homeRes.status < 300) {
+      meta = extractMeta(homeRes.text);
     }
   } catch (err) {
     console.warn('[enrich-business] homepage fetch failed:', err.message);
@@ -250,4 +244,4 @@ Rules:
     console.error('[enrich-business] error:', err.message);
     return res.status(500).json({ error: 'Business enrichment failed', detail: err.message });
   }
-};
+});

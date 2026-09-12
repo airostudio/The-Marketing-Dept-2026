@@ -11,6 +11,8 @@
     <script src="../js/marked.min.js"></script>
     <script src="/js/supabase.min.js"></script>
     <script src="/js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="/js/intelligence-profiles.js"></script>
     <script src="/js/site-switcher.js"></script>
     <script src="/js/social-posts-store.js"></script>
@@ -386,9 +388,15 @@
                 <input class="field-input" id="adCompetitors" type="text" placeholder="e.g. HubSpot, Salesforce, Mailchimp">
             </div>
 
-            <!-- Convert A/B Experiment Data -->
-            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;">
-                <div style="font-weight:700;color:#10b981;margin-bottom:4px;">Convert A/B Data Loaded</div>
+            <!-- Convert A/B Experiment Data.
+                 Header text and panel colour are set by loadConvertData() to
+                 match what actually happened. They used to be hardcoded to the
+                 green "Convert A/B Data Loaded" success state, so a failed
+                 load — including "credentials not configured", where nothing
+                 was fetched at all — still rendered under a green banner
+                 announcing that the data had loaded. -->
+            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-size:12px;">
+                <div id="convertExperimentHeader" style="font-weight:700;margin-bottom:4px;"></div>
                 <div id="convertExperimentSummary" style="color:rgba(255,255,255,0.6);line-height:1.5;"></div>
             </div>
             <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
@@ -403,7 +411,7 @@
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
                 <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(var(--agent-color-rgb),0.3);">⬇ Buffer CSV</button>
-                <button class="btn-icon" onclick="copyOutput()">Copy</button>
+                <button class="btn-icon" onclick="copyOutput(this)">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
         </div>
@@ -561,7 +569,7 @@ async function runBusinessResearch() {
     try {
         const res = await fetch('/api/enrich-business', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ url }),
         });
         const data = await res.json();
@@ -598,6 +606,7 @@ async function runBusinessResearch() {
     } catch (err) {
         status.textContent = 'Research failed: ' + err.message;
         status.className = 'research-status error';
+        if (window.reportFailure) window.reportFailure('Social Studio research failed: ' + err.message, { where: 'social-agent.research' });
     } finally {
         goBtn.disabled = false;
         goBtn.textContent = 'Research';
@@ -636,6 +645,7 @@ function renderResearchIdeas(data) {
 let _reviewPosts    = [];   // current batch: normalized {id, platform, hook, headline, body, cta, hashtags, meta, status}
 let _reviewPlanNote = '';
 let _reviewCloudBacked = false; // true once persisted to SocialPostsStore (signed in)
+let _reviewSaveError = null;    // set when a save was attempted and failed, which is not the same as being signed out
 
 function normalizeAdVariant(v, i) {
     return {
@@ -682,6 +692,7 @@ function normalizeOrganicPost(p, i) {
 /** Persist a freshly-generated batch (best-effort — works signed-out too, just not saved). */
 async function persistReviewBatch(posts) {
     _reviewCloudBacked = false;
+    _reviewSaveError = null;
     if (!window.SocialPostsStore) return posts;
     try {
         const { posts: saved } = await window.SocialPostsStore.createBatch(posts.map(p => ({
@@ -695,7 +706,17 @@ async function persistReviewBatch(posts) {
         // Re-attach real DB ids/status to the normalized posts, preserving order
         return posts.map((p, i) => ({ ...p, id: saved[i]?.id || p.id, status: saved[i]?.status || p.status }));
     } catch (err) {
+        // This used to be a console warning and nothing else. The banner below
+        // keys off _reviewCloudBacked, so a signed-in customer whose save
+        // failed was told to "sign in to save this review queue" — our outage,
+        // reported as their auth state, on a page holding work they just paid
+        // an AI call to generate.
         console.warn('[SocialStudio] Could not save review queue to cloud:', err.message);
+        _reviewSaveError = err.message || 'unknown error';
+        if (window.reportFailure) {
+            window.reportFailure('Social Studio could not save the review queue: ' + _reviewSaveError,
+                { where: 'social-agent.persistReviewBatch', postCount: posts.length });
+        }
         return posts;
     }
 }
@@ -767,7 +788,10 @@ function renderReviewQueue() {
 
     let html = `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
     if (!_reviewCloudBacked) {
-        html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
+        html += _reviewSaveError
+            ? `<div class="review-signin-note">These posts could not be saved to your account: ${escHtmlCard(_reviewSaveError)}.
+                 They are kept in this browser only — a closed tab loses them. Regenerate or retry once the problem clears.</div>`
+            : `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
     }
     const creditsNote = _lastCreditsRemaining !== null
         ? `<span class="credits-meter${_lastCreditsRemaining < 500 ? ' low' : ''}">🎨 ${_lastCreditsRemaining.toLocaleString()} AI image credits left</span>`
@@ -780,14 +804,14 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
-            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
+            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${escHtmlCard(p.imageUrl)}" alt="Generated creative"></div>` : ''}
             ${p.imageUrl && p.imageIsAI ? `<div class="post-card-ai-disclosure">⚠️ AI-generated image — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
             ${p.outOfCredits ? `
                 <div class="credits-upsell">
                     <div class="credits-upsell-title">⚡ Out of AI image credits</div>
                     <div class="credits-upsell-body">${escHtmlCard(p.outOfCredits.message)}</div>
-                    <a class="credits-upsell-btn" href="${p.outOfCredits.upgradeUrl || '/index.html#pricing'}" target="_blank" rel="noopener">Upgrade for more credits →</a>
+                    <a class="credits-upsell-btn" href="${escHtmlCard(p.outOfCredits.upgradeUrl || '/index.html#pricing')}" target="_blank" rel="noopener">Upgrade for more credits →</a>
                 </div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
@@ -858,7 +882,7 @@ async function generateCardImage(id) {
     try {
         const res = await fetch('/api/generate-ad-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -914,7 +938,7 @@ async function generateCardImageQuick(id) {
     try {
         const res = await fetch('/api/render-social-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -957,7 +981,7 @@ async function regeneratePost(id) {
         let replacement;
         if (original.source === 'ad') {
             const res = await fetch('/api/generate-ads', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], objective: document.getElementById('adObjective')?.value || 'Conversions',
                     product: (document.getElementById('adProduct')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this variant distinctly different from: "${original.headline}"` : `\n\nMake this variant distinctly different from: "${original.headline}"`),
@@ -971,7 +995,7 @@ async function regeneratePost(id) {
             replacement = normalizeAdVariant(data.variants[0], idx);
         } else {
             const res = await fetch('/api/generate-social-posts', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], contentGoal: document.getElementById('contentGoal')?.value || 'Engagement',
                     topic: (document.getElementById('topic')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this distinctly different from: "${original.hook}"` : `\n\nMake this distinctly different from: "${original.hook}"`),
@@ -1030,26 +1054,94 @@ function getSelectedFrameworks() {
 /* Convert A/B experiment data (winning copy feeds new ad variants) */
 let _convertData = null;
 
+/** Escape text for safe interpolation into the panel's innerHTML. */
+function escapeConvertText(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/**
+ * Paint the Convert panel in one of four honest states. The panel must never
+ * claim data loaded unless experiments were actually returned.
+ * @param {'loaded'|'setup'|'error'|'empty'} state
+ */
+function setConvertPanelState(state, headerText, summaryHtml) {
+    const panel = document.getElementById('convertExperimentPanel');
+    const header = document.getElementById('convertExperimentHeader');
+    const summary = document.getElementById('convertExperimentSummary');
+
+    const NEUTRAL = { colour: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' };
+    const palette = {
+        loaded: { colour: '#10b981', bg: 'rgba(16,185,129,0.07)',  border: 'rgba(16,185,129,0.2)' },
+        empty:  NEUTRAL,
+        setup:  { colour: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.25)' },
+        error:  { colour: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.25)' },
+    }[state] || NEUTRAL;
+
+    header.textContent = headerText;
+    header.style.color = palette.colour;
+    summary.innerHTML = summaryHtml;
+    panel.style.background = palette.bg;
+    panel.style.border = `1px solid ${palette.border}`;
+    panel.style.display = 'block';
+}
+
 async function loadConvertData() {
     const btn = document.getElementById('loadConvertBtn');
-    const panel = document.getElementById('convertExperimentPanel');
-    const summary = document.getElementById('convertExperimentSummary');
     btn.disabled = true;
     btn.textContent = 'Loading experiments…';
     try {
-        const res = await fetch('/api/convert-experiments', { method: 'GET' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load experiments');
+        const res = await fetch('/api/convert-experiments', { method: 'GET', headers: await window.sendAuthHeaders() });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            // The endpoint returns setupUrl only for the "credentials not
+            // configured" case, which is a setup step rather than a failure —
+            // worth distinguishing so it doesn't read as something broken.
+            const err = new Error(data.error || `Failed to load experiments (HTTP ${res.status})`);
+            err.setupUrl = data.setupUrl;
+            throw err;
+        }
+
+        const experiments = data.experiments || [];
+        const winners = experiments.filter(e => e.winner).length;
+
+        if (experiments.length === 0) {
+            // Connected fine, but there is nothing to feed the ad variants.
+            _convertData = null;
+            setConvertPanelState('empty', 'Convert connected — no experiments yet',
+                'Convert.com returned no active or finished experiments in the last 90 days, so there are no winners to build on. New ad variants will be generated without A/B context.');
+            btn.textContent = 'Reload Convert Data';
+            return;
+        }
+
         _convertData = data;
-        const expCount = data.experiments?.length || 0;
-        const winners = data.experiments?.filter(e => e.winner).length || 0;
-        summary.innerHTML = `${expCount} experiments found · ${winners} with declared winners · Top performer: ${data.topPerformer || 'N/A'}`;
-        panel.style.display = 'block';
+        setConvertPanelState('loaded', 'Convert A/B Data Loaded',
+            `${experiments.length} experiment${experiments.length === 1 ? '' : 's'} found · ` +
+            `${winners} with declared winner${winners === 1 ? '' : 's'} · ` +
+            `Top performer: ${data.topPerformer || 'N/A'}` +
+            (winners === 0 ? '<br><span style="color:rgba(255,255,255,0.4);">No declared winners yet, so no winning copy will be fed into new variants.</span>' : ''));
         btn.textContent = 'Reload Convert Data';
+
     } catch (err) {
-        summary.innerHTML = `<span style="color:#ef4444;">${err.message}</span><br><span style="color:rgba(255,255,255,0.4);">Add CONVERT_API_KEY + CONVERT_API_SECRET in Vercel env vars.</span>`;
-        panel.style.display = 'block';
-        btn.textContent = 'Retry Convert Data';
+        // Nothing loaded — make sure stale data from an earlier successful
+        // load can't keep silently feeding the ad prompt after a failure.
+        _convertData = null;
+
+        if (err.setupUrl) {
+            setConvertPanelState('setup', 'Convert A/B not connected',
+                'Add <code>CONVERT_API_KEY</code> and <code>CONVERT_API_SECRET</code> in your Vercel environment variables, then reload. ' +
+                `<a href="${escapeConvertText(err.setupUrl)}" target="_blank" rel="noopener noreferrer" style="color:#f59e0b;text-decoration:underline;">Get your Convert API keys →</a>` +
+                '<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>');
+            btn.textContent = 'Retry Convert Data';
+        } else {
+            setConvertPanelState('error', "Couldn't load Convert A/B data",
+                `${escapeConvertText(err.message)}<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>`);
+            btn.textContent = 'Retry Convert Data';
+        }
     } finally {
         btn.disabled = false;
     }
@@ -1402,7 +1494,7 @@ class SocialAgent {
         try {
             const res  = await fetch('/api/generate-ads', {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body:    JSON.stringify(body),
             });
             const data = await res.json();
@@ -1422,7 +1514,8 @@ class SocialAgent {
                 });
             }
         } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${err.message}</div>`;
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
         } finally {
             runBtn.disabled    = false;
             runBtn.textContent = 'Generate Ad Variants';
@@ -1491,7 +1584,7 @@ class SocialAgent {
         try {
             const res = await fetch('/api/generate-social-posts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ platforms: [platform], contentGoal, topic, frequency, postCount, businessContext }),
             });
             const data = await res.json();
@@ -1506,7 +1599,8 @@ class SocialAgent {
                 window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: data.content, topic });
             }
         } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${err.message}</div>`;
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
         } finally {
             runBtn.disabled = false;
             runBtn.textContent = 'Create Content';
@@ -1537,14 +1631,19 @@ function renderPostsAsPlainText(posts) {
     }).join('\n\n---\n\n');
 }
 
-function copyOutput() {
+function copyOutput(btn) {
     const posts = nonRejected();
     if (!posts.length) { alert('Nothing to copy yet — generate some content first.'); return; }
     const text = renderPostsAsPlainText(posts);
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target; btn.textContent = 'Copied!'; btn.style.color = '#10b981';
-        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
-    });
+    // `event.target` inside the promise callback read window.event after
+    // dispatch had finished, so it was undefined and this threw — the copy
+    // succeeded and the customer saw an error. The button is passed in now.
+    navigator.clipboard.writeText(text).then(
+        () => { if (btn) { btn.textContent = 'Copied!'; btn.style.color = '#10b981';
+                           setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000); } },
+        () => { if (btn) { btn.textContent = 'Copy failed';
+                           setTimeout(() => { btn.textContent = 'Copy'; }, 2000); } }
+    );
 }
 
 function downloadOutput() {

@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/intelligence-profiles.js"></script>
 <script src="/js/site-switcher.js"></script>
@@ -169,7 +171,7 @@
     <button class="btn btn-ghost btn-sm" onclick="addCustomQuestion()" style="margin-bottom:16px;">+ Add your own question</button>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-ghost" onclick="showStep('step-setup')">← Back</button>
-      <button class="btn btn-primary" id="btn-check-visibility" style="flex:1;" onclick="checkVisibility()">Check my AI visibility →</button>
+      <button class="btn btn-primary" id="btn-check-visibility" style="flex:1;" onclick="runVisibilityCheck()">Check my AI visibility →</button>
     </div>
   </div>
 
@@ -195,6 +197,12 @@
       <div id="why-content"><div class="empty-state"><span class="spinner"></span> Analyzing your real results…</div></div>
     </div>
 
+    <div class="card" id="fix-card" style="display:none;border-color:rgba(168,85,247,0.4);background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.04));">
+      <div class="section-title">Turn this into action</div>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:14px;">A score isn't the finish line — this hands the real work off to Scotty, who plans out and runs the actual content, SEO, and citation work needed to get you showing up, ending with something ready to ship, not just more advice to read.</p>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;" onclick="fixWithScotty()">🚀 Fix my AI visibility with Scotty →</button>
+    </div>
+
     <div style="margin-top: 24px;">
       <div class="section-title">Every question, in full</div>
       <div id="full-results"></div>
@@ -214,6 +222,7 @@ const State = {
   profile: null,      // { businessSummary, productsServices, targetCustomer, industry, competitors, domain }
   questions: [],       // [{ _id, question, category, why, included }]
   results: [],          // [{ question, category, cited, domains, error }]
+  lastExplain: null,    // { summary, topDomains, recommendations } from /api/ai-visibility-explain, once loaded
 };
 
 const HISTORY_KEY = 'seo_ai_visibility_history';
@@ -222,7 +231,9 @@ function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&am
 function arr(x) { return Array.isArray(x) ? x : []; }
 
 async function postJSON(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // These endpoints spend the account's own Perplexity/Claude credits and
+  // now identify the caller. One helper carries the session for all of them.
+  const res = await fetch(url, { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) throw new Error(data.error || `Request to ${url} failed`);
   return data;
@@ -337,7 +348,13 @@ function addCustomQuestion() {
 // Perplexity's real API, not because /api/perplexity itself limits it.
 const CONCURRENCY = 3;
 
-async function checkVisibility() {
+// Named runVisibilityCheck, not checkVisibility — every DOM Element has a
+// native, built-in Element.prototype.checkVisibility() method (Chrome 105+).
+// An inline onclick="checkVisibility()" attribute is scoped through the
+// clicked element itself, so that bare identifier silently resolved to the
+// button's own inherited native method instead of this function — no error,
+// no console output, the button just visibly "did nothing".
+async function runVisibilityCheck() {
   const selected = State.questions.filter(q => q.included && q.question.trim());
   if (!selected.length) { alert('Select at least one question to check.'); return; }
 
@@ -364,7 +381,7 @@ async function checkVisibility() {
 async function runOneCheck(q) {
   try {
     const res = await fetch('/api/perplexity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: await window.sendAuthHeaders(),
       body: JSON.stringify({
         messages: [{ role: 'user', content: q.question }],
         systemPrompt: "Answer the user's question directly and concisely, citing your real sources.",
@@ -422,6 +439,11 @@ async function showResults() {
 
   saveToHistory(pct, citedCount, total);
 
+  // The score/citation data alone is enough to hand off to Scotty even if
+  // the AI-grounded "why" call below fails — don't make the whole next-step
+  // action depend on a second API call succeeding.
+  document.getElementById('fix-card').style.display = 'block';
+
   const whyEl = document.getElementById('why-content');
   try {
     const result = await postJSON('/api/ai-visibility-explain', {
@@ -429,6 +451,7 @@ async function showResults() {
       domain: State.profile.domain,
       results: State.results,
     });
+    State.lastExplain = result;
     whyEl.innerHTML = `
       <p style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:16px;">${escHtml(result.summary)}</p>
       ${result.topDomains?.length ? `
@@ -439,8 +462,33 @@ async function showResults() {
       <ul class="rec-list">${(result.recommendations || []).map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>
     `;
   } catch (err) {
+    State.lastExplain = null;
     whyEl.innerHTML = `<div class="empty-state">Could not generate the analysis: ${escHtml(err.message)} — the per-question results above are still real and accurate.</div>`;
   }
+}
+
+// ── Step 4 -> Scotty: hand the findings off as a mission instead of
+// leaving the user with a page of advice and no way to act on it ─────────
+function buildScottyVisibilityGoal() {
+  const domain = State.profile.domain;
+  const pct = document.getElementById('score-pct').textContent;
+  const citedCount = State.results.filter(r => r.cited).length;
+  const total = State.results.length;
+  const explain = State.lastExplain;
+  const winners = (explain?.topDomains || []).map(d => d.domain).slice(0, 3);
+  const recs = (explain?.recommendations || []).slice(0, 5);
+  const missedQuestions = State.results.filter(r => !r.cited && !r.error).map(r => r.question).slice(0, 5);
+
+  let goal = `Improve AI search visibility for ${domain} — real live searches show it's only cited in ${citedCount} of ${total} (${pct}) of the buyer questions AI assistants get asked about this business.`;
+  if (winners.length) goal += ` Competitors currently winning those citations instead: ${winners.join(', ')}.`;
+  if (missedQuestions.length) goal += ` Specific questions where ${domain} is not being cited: "${missedQuestions.join('"; "')}".`;
+  if (recs.length) goal += ` Recommended fixes from the analysis: ${recs.join('; ')}.`;
+  goal += ` Plan and produce the real content/SEO/citation work needed to close this gap — not more advice, actual deliverables ready to publish or send.`;
+  return goal;
+}
+
+function fixWithScotty() {
+  window.location.href = '/scotty.html?mission=1&goal=' + encodeURIComponent(buildScottyVisibilityGoal());
 }
 
 function saveToHistory(pct, citedCount, total) {

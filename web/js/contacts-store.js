@@ -141,6 +141,51 @@ window.ContactsStore = (function () {
    * @param {number} [opts.limit]
    * @param {number} [opts.offset]
    */
+  /**
+   * The or() filter for a free-text contact search.
+   *
+   * PostgREST's or() takes a comma-separated list of conditions in a string,
+   * so a comma, parenthesis or dot in the search term is grammar, not text.
+   * The old version stripped only % and _ (the LIKE wildcards), which meant a
+   * perfectly ordinary search — `Smith, John` or `Acme (UK)` — produced a
+   * malformed filter and the customer got an error instead of results.
+   *
+   * PostgREST accepts a double-quoted value with backslash escapes, which
+   * takes the term out of the grammar entirely.
+   */
+  function orSearch(term) {
+    const escaped = String(term)
+      .replace(/[%_]/g, '')          // LIKE wildcards: search them literally
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+    const like = `"%${escaped}%"`;
+    return ['email', 'first_name', 'last_name', 'company']
+      .map(col => `${col}.ilike.${like}`)
+      .join(',');
+  }
+
+  /**
+   * How many contacts match, ignoring limit/offset.
+   *
+   * The Audience Manager loads at most 200 rows. Without this it had no way to
+   * say so, and a customer with 3,000 contacts saw 200 and no indication that
+   * the other 2,800 existed.
+   */
+  async function countContacts(opts = {}) {
+    const client = await getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return 0;
+
+    let q = client.from('contacts').select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    if (opts.status) q = q.eq('status', opts.status);
+    if (opts.tag) q = q.contains('tags', [opts.tag]);
+    if (opts.search) q = q.or(orSearch(opts.search));
+
+    const { count, error } = await q;
+    if (error) throw new Error(error.message);
+    return count || 0;
+  }
+
   async function listContacts(opts = {}) {
     const client = await getSupabase();
     const userId = await getUserId();
@@ -149,10 +194,7 @@ window.ContactsStore = (function () {
     let q = client.from('contacts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (opts.status) q = q.eq('status', opts.status);
     if (opts.tag) q = q.contains('tags', [opts.tag]);
-    if (opts.search) {
-      const s = opts.search.replace(/[%_]/g, '');
-      q = q.or(`email.ilike.%${s}%,first_name.ilike.%${s}%,last_name.ilike.%${s}%,company.ilike.%${s}%`);
-    }
+    if (opts.search) q = q.or(orSearch(opts.search));
     if (opts.limit) q = q.limit(opts.limit);
     if (opts.offset) q = q.range(opts.offset, opts.offset + (opts.limit || 50) - 1);
 
@@ -279,7 +321,20 @@ window.ContactsStore = (function () {
 
     const rules = segment.filter_rules || {};
     let q = client.from('contacts').select('*').eq('user_id', userId);
-    q = q.eq('status', rules.status || SENDABLE);
+
+    // Always sendable, whatever the segment's rules say. This was
+    // `rules.status || SENDABLE`, so a segment saved with status
+    // 'unsubscribed' — which createSegment accepts, and which the owner can
+    // set directly on their own row under RLS — returned opted-out people,
+    // and toRecipients handed them straight to the sender. The static branch
+    // above always filtered to sendable; this one did not, and the asymmetry
+    // was invisible because the only UI that creates segments hardcodes
+    // 'subscribed'.
+    //
+    // The server checks this again before every send. Both guards are
+    // deliberate: this one keeps the counts and previews in the UI honest,
+    // and the server one is what actually cannot be gone around.
+    q = q.eq('status', SENDABLE);
     if (rules.tagsAny && rules.tagsAny.length) q = q.overlaps('tags', rules.tagsAny);
     if (rules.tagsAll && rules.tagsAll.length) q = q.contains('tags', rules.tagsAll);
 
@@ -337,9 +392,65 @@ window.ContactsStore = (function () {
     if (error) console.warn('[ContactsStore] failed to log campaign send:', error.message);
   }
 
+  /**
+   * The campaigns this account has actually sent, newest first.
+   *
+   * Every send is already written to campaign_sends by logCampaignSend, but
+   * nothing ever read them back — so the Email Marketing dashboard showed a
+   * hardcoded table of invented campaigns instead. This groups the real rows
+   * into one entry per campaign.
+   *
+   * Engagement (opens, clicks) is deliberately NOT included: it lives in
+   * email_events and is fetched per campaign from /api/campaign-stats, which
+   * can distinguish "nobody opened it" from "opens are not being tracked".
+   * Returning a 0 here would erase that distinction.
+   */
+  async function listCampaigns() {
+    const client = await getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return { available: false, reason: 'not_signed_in', campaigns: [] };
+
+    const { data, error } = await client
+      .from('campaign_sends')
+      .select('campaign_id,campaign_name,subject,segment_id,status,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (error) {
+      return { available: false, reason: error.message, campaigns: [] };
+    }
+
+    const byId = new Map();
+    (data || []).forEach(row => {
+      const id = row.campaign_id || '(untitled)';
+      let c = byId.get(id);
+      if (!c) {
+        c = {
+          campaignId: id,
+          name: row.campaign_name || row.subject || 'Untitled campaign',
+          subject: row.subject || null,
+          segmentId: row.segment_id || null,
+          sent: 0, failed: 0, rejected: 0,
+          sentAt: row.created_at,
+        };
+        byId.set(id, c);
+      }
+      if (row.status === 'sent') c.sent++;
+      else if (row.status === 'rejected') c.rejected++;
+      else c.failed++;
+      // Rows arrive newest-first, so the oldest row seen last is the start.
+      if (row.created_at && row.created_at < c.sentAt) c.sentAt = row.created_at;
+    });
+
+    return { available: true, campaigns: [...byId.values()] };
+  }
+
   return {
+    listCampaigns,
     upsertContacts,
     listContacts,
+    countContacts,
     updateContact,
     unsubscribeContact,
     deleteContact,

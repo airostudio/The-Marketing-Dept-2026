@@ -437,8 +437,8 @@
             <span class="panel-title">Generated Content</span>
             <div style="display:flex;gap:8px;">
                 <button class="btn-icon" id="wpBtn" onclick="showWpModal()" style="display:none;color:#818cf8;border-color:rgba(var(--agent-color-rgb),0.3);">⬆ WordPress</button>
-                <button class="btn-icon" onclick="copyOutput()">Copy</button>
-                <button class="btn-icon" onclick="downloadOutput()">Download</button>
+                <button class="btn-icon" onclick="copyOutput(this)">Copy</button>
+                <button class="btn-icon" onclick="downloadOutput(this)">Download</button>
             </div>
         </div>
         <div class="output-area rendered" id="output">
@@ -476,6 +476,8 @@
 </div>
 
 <script src="../js/agent-characters.js"></script>
+<script src="../js/send-auth.js"></script>
+<script src="../js/failure-reporter.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
@@ -597,20 +599,32 @@ Generic AI-drafted content with no real insight underperforms in 2026 — both w
         return competitiveInstructions;
     }
 
-    _showStrategyWarning(completionScore) {
-        if (completionScore < 30) {
-            const outputEl = document.getElementById('output');
-            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
-                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
-                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
-                    Content Studio will generate content, but it won't be strategically differentiated from competitors.<br><br>
-                    <strong>Why this matters:</strong> Generic AI content is easy. Content that positions you ahead of competitors requires upstream intelligence.<br><br>
-                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (10 min)</a> for strategic, context-aware content.
-                </div>
-            </div>`;
-            return true;
-        }
-        return false;
+    /**
+     * Say, above the form, that the output will be generic.
+     *
+     * This used to take over the output pane and set a permanent localStorage
+     * flag, then call run() again 4.5 seconds later — which overwrote the
+     * warning with the generation. So the customer had four and a half seconds
+     * to read it, and clicking either link abandoned the run. Worse, the flag
+     * meant it appeared exactly once ever: from the second generation onward,
+     * an unconfigured account got generic content with nothing saying why.
+     *
+     * It is a standing condition, so it gets a standing banner, and the
+     * generation is no longer interrupted to show it.
+     */
+    _showStrategyWarning() {
+        if (document.getElementById('cs-strategy-warning')) return;
+        const form = document.getElementById('runBtn')?.closest('.panel');
+        if (!form) return;
+        const el = document.createElement('div');
+        el.id = 'cs-strategy-warning';
+        el.style.cssText = 'padding:14px 16px;margin-bottom:14px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);border-radius:10px;color:#fbbf24;font-size:13px;line-height:1.6;';
+        el.innerHTML = `
+            <strong>Intelligence Layer not configured — this content will be generic.</strong><br>
+            <span style="color:rgba(255,255,255,0.7);">Content Studio can still write for you, but without your ICP, positioning and
+            competitor profiles it cannot differentiate you from anyone else.
+            <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">Configure BusinessBrain</a> (about 10 minutes).</span>`;
+        form.parentNode.insertBefore(el, form);
     }
 
     async run() {
@@ -629,12 +643,10 @@ Generic AI-drafted content with no real insight underperforms in 2026 — both w
         if (this.intelligenceEngine) {
             contextBundle = this.intelligenceEngine.getContextBundle();
 
-            // Show warning if Intelligence Layer not configured (first-time only check)
-            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('content_studio_warning_shown')) {
-                localStorage.setItem('content_studio_warning_shown', 'true');
-                this._showStrategyWarning(contextBundle.completionScore);
-                setTimeout(() => this.run(), 4500); // Re-run after warning
-                return;
+            // A standing banner above the form, not a takeover of the output
+            // pane followed by a delayed re-entry into run().
+            if (contextBundle && contextBundle.completionScore < 30) {
+                this._showStrategyWarning();
             }
         }
 
@@ -661,6 +673,34 @@ Deliver the complete piece ready to publish. Include a compelling headline/title
         if (this.claudeService && this.claudeService.streamResponse) {
             let fullResponse = '';
             outputEl.innerHTML = '';
+
+            // streamResponse does not reject. It catches everything and hands
+            // it to onError, so the try/catch below caught nothing — and this
+            // call passed no onError. A bad API key, a 500, a dropped
+            // connection: the output stayed blank and the button stayed
+            // disabled reading "Generating..." forever, with no way back
+            // except reloading the page.
+            const fail = (message) => {
+                if (runBtn.disabled === false) return;   // already finished
+                clearTimeout(timeoutId);
+                runBtn.disabled = false;
+                runBtn.textContent = 'Generate Content';
+                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
+                    <strong>Content generation failed:</strong> ${escapeContentHtml(message)}<br><br>
+                    <small style="opacity:0.7;">Your brief is still in the form — press Generate Content to try again.</small>
+                </div>`;
+                if (window.reportFailure) {
+                    window.reportFailure(`Content Studio generation failed: ${message}`,
+                        { where: 'content-studio-agent.run', contentType });
+                }
+            };
+
+            // And a backstop, because a stream that simply stops sending
+            // never calls onError either.
+            const timeoutId = setTimeout(() => {
+                fail('the request timed out after 90 seconds. The AI API may be unreachable or overloaded.');
+            }, 90000);
+
             try {
                 await this.claudeService.streamResponse({
                     systemPrompt,
@@ -670,11 +710,22 @@ Deliver the complete piece ready to publish. Include a compelling headline/title
                         outputEl.innerHTML = marked.parse(fullResponse);
                         outputEl.scrollTop = outputEl.scrollHeight;
                     },
-                    onDone: () => { this.lastMarkdown = fullResponse; runBtn.disabled = false; runBtn.textContent = 'Generate Content'; if (window.AgentHistory && fullResponse.trim()) window.AgentHistory.save({ agentKey: 'content-studio', taskType: contentType, content: fullResponse, topic }); }
+                    onDone: () => {
+                        clearTimeout(timeoutId);
+                        this.lastMarkdown = fullResponse;
+                        runBtn.disabled = false;
+                        runBtn.textContent = 'Generate Content';
+                        if (!fullResponse.trim()) {
+                            outputEl.innerHTML = `<div style="color:#f97316;padding:16px;">The API returned an empty response. Try again, or check the Vercel function logs.</div>`;
+                            if (window.reportFailure) window.reportFailure('Content Studio: empty response from the AI API', { where: 'content-studio-agent.run', contentType });
+                            return;
+                        }
+                        if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'content-studio', taskType: contentType, content: fullResponse, topic });
+                    },
+                    onError: (e) => fail((e && e.message) || 'unknown error'),
                 });
             } catch (e) {
-                outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
-                runBtn.disabled = false; runBtn.textContent = 'Generate Content';
+                fail((e && e.message) || 'unknown error');
             }
         } else {
             outputEl.innerHTML = `<div style="padding:20px;color:rgba(255,255,255,0.6);">
@@ -689,17 +740,56 @@ Deliver the complete piece ready to publish. Include a compelling headline/title
 
 const agent = new ContentStudioAgent();
 
-function copyOutput() {
-    const text = document.getElementById('output').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target;
-        btn.textContent = 'Copied!';
-        btn.style.color = '#10b981';
-        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
-    });
+/** An API error message can carry anything the upstream service returned. */
+function escapeContentHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function downloadOutput() {
+function copyOutput(btn) {
+    // Two bugs lived here.
+    //
+    // The button read `event.target` inside the clipboard promise's callback.
+    // `window.event` only exists while an event is being dispatched, so by the
+    // time the promise resolved it was undefined and this threw — the text was
+    // on the clipboard and the customer saw an error instead of "Copied!".
+    // The button is passed in now, which does not depend on a deprecated
+    // global at all.
+    //
+    // And there was no check for having anything to copy. On first run the
+    // output area holds its placeholder, so Copy put "Your content will appear
+    // here…" on the clipboard and reported success.
+    const out = document.getElementById('output');
+    if (!out || out.querySelector('.output-empty')) {
+        flashButton(btn, 'Nothing to copy yet');
+        return;
+    }
+    navigator.clipboard.writeText(out.innerText).then(
+        () => flashButton(btn, 'Copied!', '#10b981'),
+        () => flashButton(btn, 'Copy failed')
+    );
+}
+
+/** Say what happened on the button itself, then put it back. */
+function flashButton(btn, message, colour) {
+    if (!btn) return;
+    const original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = message;
+    if (colour) btn.style.color = colour;
+    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
+}
+
+function downloadOutput(btn) {
+    // Same first-run problem as Copy: this happily wrote the placeholder text
+    // to a .txt file and handed it to the customer as their content.
+    const out = document.getElementById('output');
+    if (!out || out.querySelector('.output-empty')) {
+        flashButton(btn, 'Nothing to download yet');
+        return;
+    }
+
     const text = document.getElementById('output').innerText;
     const type = document.getElementById('contentType').value.replace(/\s+/g, '-').toLowerCase();
     const blob = new Blob([text], { type: 'text/plain' });

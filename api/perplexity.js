@@ -11,6 +11,9 @@
  * Non-streaming: JSON    → { "text": "...", "citations": [...] }
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
 
 /**
@@ -25,10 +28,14 @@ function describeEmptyPerplexityResponse(finishReason) {
   return 'Perplexity returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/perplexity', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Free web-search inference on the owner's Perplexity key otherwise.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
@@ -148,4 +155,4 @@ module.exports = async function handler(req, res) {
 
   res.write('data: [DONE]\n\n');
   res.end();
-};
+});

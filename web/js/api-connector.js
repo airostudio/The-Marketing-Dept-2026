@@ -93,6 +93,96 @@
     }
   }
 
+  // ---- Server-side credential capability ------------------------------------
+  //
+  // /api/integration proxies Ahrefs, Semrush and DataForSEO using credentials
+  // held in server environment variables — which is the only correct place for
+  // them. But every isAvailable() below decided whether a provider was usable
+  // by looking for those same credentials in window config, where they must
+  // never appear. So in any correctly configured deployment the check was
+  // false, the working proxy was never called, and the UI told customers "no
+  // ranking provider is connected" on accounts that were paying for one.
+  //
+  // The browser cannot know what the server holds, so it asks. The probe
+  // returns booleans only and is cached for the page's lifetime; isAvailable()
+  // stays synchronous, reading the cached answer, so no caller has to change.
+
+  var serverCaps = null;          // null = not asked yet
+  var serverCapsPromise = null;
+  var SERVER_CAPS_KEY = 'audema-integration-caps';
+
+  try {
+    var cached = sessionStorage.getItem(SERVER_CAPS_KEY);
+    if (cached) serverCaps = JSON.parse(cached);
+  } catch (e) { /* private mode, or storage disabled — just re-probe */ }
+
+  function refreshServerCapabilities() {
+    if (serverCapsPromise) return serverCapsPromise;
+    // The probe says which paid credentials this deployment holds, so it is
+    // answered only for a signed-in caller. Before the session exists it
+    // returns 401, which is handled below as "ask again later" rather than
+    // being cached as "nothing is configured".
+    var headersReady = (typeof window.sendAuthHeaders === 'function')
+      ? window.sendAuthHeaders()
+      : Promise.resolve({});
+    serverCapsPromise = headersReady
+      .then(function(headers) { return fetch('/api/integration', { method: 'GET', headers: headers }); })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        // A refused or failed probe is not an answer. Caching {} here would
+        // record "no provider is configured" on an account that is paying for
+        // one, purely because the probe raced the session restore.
+        if (!data || !data.configured) {
+          serverCapsPromise = null;
+          return null;
+        }
+        serverCaps = data.configured;
+        try { sessionStorage.setItem(SERVER_CAPS_KEY, JSON.stringify(serverCaps)); } catch (e) {}
+        return serverCaps;
+      })
+      .catch(function() {
+        // A failed probe is not evidence that nothing is configured, so it is
+        // NOT cached as {} — the next call tries again.
+        serverCapsPromise = null;
+        return null;
+      });
+    return serverCapsPromise;
+  }
+
+  /** True only once the server has confirmed it holds this credential. */
+  function serverHasCredential(service) {
+    if (serverCaps === null) {
+      refreshServerCapabilities();   // warm it for the next call
+      return false;
+    }
+    return !!serverCaps[service];
+  }
+
+  // Probe once at load so the first isAvailable() of the page has an answer.
+  refreshServerCapabilities();
+
+  /**
+   * Every call into /api/integration, carrying the caller's session.
+   *
+   * The proxy holds the account's Ahrefs, Semrush, DataForSEO, Mailchimp and
+   * Resend credentials, so it now refuses callers it cannot identify — two of
+   * those services can read audience lists and send mail. These six call sites
+   * sit inside plain promise chains rather than async functions, so the header
+   * lookup is folded in here instead of being awaited at each one.
+   */
+  function integrationFetch(payload) {
+    var headersReady = (typeof window.sendAuthHeaders === 'function')
+      ? window.sendAuthHeaders()
+      : Promise.resolve({ 'Content-Type': 'application/json' });
+    return headersReady.then(function(headers) {
+      return fetchWithRetry('/api/integration', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+    });
+  }
+
   // ---- Fetch with retry + exponential backoff ----
 
   function wait(ms) {
@@ -715,11 +805,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'mailchimp', endpoint: endpoint, params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
           });
@@ -769,11 +855,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'resend', endpoint: endpoint, params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl);
             return data;
           });
@@ -824,7 +906,11 @@
       }
 
       function isAvailable() {
-        return !!getApiToken();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return !!getApiToken() || serverHasCredential('ahrefs');
       }
 
       function ahrefsFetch(endpoint, params, cacheKeyStr, ttl) {
@@ -832,11 +918,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'ahrefs', endpoint: endpoint || '/', params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -890,7 +972,11 @@
       }
 
       function isAvailable() {
-        return !!getApiKey();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return !!getApiKey() || serverHasCredential('semrush');
       }
 
       function semrushFetch(params, cacheKeyStr, ttl) {
@@ -898,11 +984,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' })
-          }).then(function(data) {
+          return integrationFetch({ service: 'semrush', endpoint: '/', params: params || {}, method: 'GET' }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -949,7 +1031,11 @@
       }
 
       function isAvailable() {
-        return apiEnabled('seo.dataforseo') && !!getLogin() && !!getPassword();
+        // A credential held server-side in an env var is the correct
+        // setup and the only one a deployment should use; a client-side
+        // value stays supported for a self-serve key entered in the
+        // project wizard. Either makes the provider usable.
+        return (!!getLogin() && !!getPassword()) || serverHasCredential('dataforseo');
       }
 
       function authHeader() {
@@ -961,11 +1047,7 @@
           var cached = cacheGet(NS, cacheKeyStr);
           if (cached) return Promise.resolve(cached);
 
-          return fetchWithRetry('/api/integration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body })
-          }).then(function(data) {
+          return integrationFetch({ service: 'dataforseo', endpoint: endpoint, method: 'POST', body: body }).then(function(data) {
             cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
             return data;
           });
@@ -975,7 +1057,9 @@
       function getSerpResults(keyword) {
         return dfsFetch('/serp/google/organic/live/advanced', [{
           keyword: keyword,
-          location_code: 2840,
+          // Market comes from the project, not a hardcoded United States.
+          location_code: (window.ApiConnector && window.ApiConnector.DataForSEO
+            ? window.ApiConnector.DataForSEO.resolveMarket().code : 2840),
           language_code: 'en',
           device: 'desktop',
           os: 'windows',
@@ -987,7 +1071,8 @@
         var items = Array.isArray(keywords) ? keywords : [keywords];
         return dfsFetch('/keywords_data/google_ads/search_volume/live', [{
           keywords: items,
-          location_code: 2840,
+          location_code: (window.ApiConnector && window.ApiConnector.DataForSEO
+            ? window.ApiConnector.DataForSEO.resolveMarket().code : 2840),
           language_code: 'en'
         }], 'kwdata_' + items.join('_'));
       }
@@ -1012,7 +1097,9 @@
 
   var DataForSEO = (function() {
     var NS = 'dfs';
-    var BASE = 'https://api.dataforseo.com/v3';
+    // No BASE here on purpose: every call goes through /api/integration, which
+    // owns the upstream URL and the credentials. A base URL in this file is
+    // what let two calls slip out of the browser directly.
 
     function getLogin() {
       return getConfig('dataforseo.login') || getConfig('seo.dataforseo.login');
@@ -1023,35 +1110,180 @@
     }
 
     function isAvailable() {
-      return (apiEnabled('dataforseo') || apiEnabled('seo.dataforseo')) && !!getLogin() && !!getPassword();
+      // A credential held server-side in an env var is the correct
+      // setup and the only one a deployment should use; a client-side
+      // value stays supported for a self-serve key entered in the
+      // project wizard. Either makes the provider usable.
+      return (!!getLogin() && !!getPassword()) || serverHasCredential('dataforseo');
     }
 
-    function authHeader() {
-      return 'Basic ' + btoa(getLogin() + ':' + getPassword());
-    }
-
-    function dfsFetch(endpoint, body, cacheKeyStr, ttl) {
+    // Through /api/integration, exactly like SEOTools.dataforseo already did.
+    //
+    // This module used to POST to api.dataforseo.com straight from the browser
+    // with `Basic btoa(login + ':' + password)`. That needed the credentials in
+    // page config — where a paid API secret must never be — and would have been
+    // blocked by CORS anyway. The proxy holds the credentials server-side and
+    // is the only transport that works.
+    function dfsFetch(endpoint, body, cacheKeyStr, ttl, method) {
       return safeCall('DataForSEO', function() {
-        var cached = cacheGet(NS, cacheKeyStr);
+        var cached = cacheKeyStr ? cacheGet(NS, cacheKeyStr) : null;
         if (cached) return Promise.resolve(cached);
 
-        return fetchWithRetry(BASE + endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(body)
-        }).then(function(data) {
-          cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
+        return integrationFetch({
+            service: 'dataforseo',
+            endpoint: endpoint,
+            method: method || 'POST',
+            body: body
+          }).then(function(data) {
+          if (cacheKeyStr) cacheSet(NS, cacheKeyStr, data, ttl || 30 * 60 * 1000);
           return data;
         });
       });
     }
 
-    function getRankings(keywords, location) {
+    // ---- Response shaping ---------------------------------------------------
+    //
+    // DataForSEO answers with an envelope — { tasks: [ { result: [ ... ] } ] }
+    // — but every caller in this app expects a flat array of plain objects.
+    // These functions were returning the envelope untouched, so callers ran
+    // `Array.isArray(response)` against an object, got false, and concluded the
+    // provider had returned nothing. The credentials could have been perfect
+    // and the result would still have read as "no data".
+
+    function firstResult(raw) {
+      if (!raw || !Array.isArray(raw.tasks)) return [];
+      var out = [];
+      raw.tasks.forEach(function(task) {
+        if (task && Array.isArray(task.result)) out = out.concat(task.result);
+      });
+      return out;
+    }
+
+    function normaliseHost(value) {
+      if (!value) return '';
+      var s = String(value).trim().toLowerCase();
+      s = s.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      return s.split('/')[0];
+    }
+
+    /** The site whose rankings we are asking about. */
+    function getTargetDomain(explicit) {
+      if (explicit) return normaliseHost(explicit);
+      try {
+        var settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+        if (settings.websiteUrl) return normaliseHost(settings.websiteUrl);
+      } catch (e) { /* fall through */ }
+      return normaliseHost(getProjectIntegrationValue('site', ['websiteUrl', 'domain', 'url']));
+    }
+
+    // ---- Which market a keyword is measured in -------------------------------
+    //
+    // Every DataForSEO call used to pin location_code 2840, the United States.
+    // A position and a search volume are both properties of a specific market:
+    // an Australian business ranking #3 in Australia can be nowhere in the US
+    // results, and US volume for "removalists" says nothing about demand in
+    // Melbourne. So the figures were not merely imprecise, they described a
+    // country the customer does not sell in.
+    //
+    // DataForSEO's location codes; these are the markets this product actually
+    // serves. Anything else can be passed through explicitly as a number.
+    var LOCATIONS = {
+      AU: { code: 2036, label: 'Australia',      language: 'en' },
+      NZ: { code: 2554, label: 'New Zealand',    language: 'en' },
+      GB: { code: 2826, label: 'United Kingdom', language: 'en' },
+      US: { code: 2840, label: 'United States',  language: 'en' },
+      CA: { code: 2124, label: 'Canada',         language: 'en' },
+      IE: { code: 2372, label: 'Ireland',        language: 'en' },
+      SG: { code: 2702, label: 'Singapore',      language: 'en' },
+      ZA: { code: 2710, label: 'South Africa',   language: 'en' },
+    };
+
+    // A country-code TLD is a strong statement about who a site sells to, and
+    // it is the only signal available without asking. It is a fallback, not a
+    // substitute for the setting — resolveMarket() reports which was used so
+    // the UI can say "measured in Australia (from your .com.au domain)".
+    var TLD_MARKETS = {
+      'com.au': 'AU', 'au': 'AU', 'co.nz': 'NZ', 'nz': 'NZ',
+      'co.uk': 'GB', 'org.uk': 'GB', 'uk': 'GB',
+      'ca': 'CA', 'ie': 'IE', 'sg': 'SG', 'co.za': 'ZA',
+    };
+
+    function marketFromDomain(domain) {
+      if (!domain) return null;
+      var parts = String(domain).toLowerCase().split('.');
+      if (parts.length >= 3) {
+        var two = parts.slice(-2).join('.');
+        if (TLD_MARKETS[two]) return TLD_MARKETS[two];
+      }
+      var last = parts[parts.length - 1];
+      return TLD_MARKETS[last] || null;
+    }
+
+    /**
+     * The market to search in: { code, label, source }.
+     *
+     * source says where the choice came from, so a figure can be labelled
+     * honestly rather than silently attributed to a country nobody picked.
+     */
+    function resolveMarket(explicit, domain) {
+      if (typeof explicit === 'number') {
+        var known = Object.keys(LOCATIONS).find(function (k) { return LOCATIONS[k].code === explicit; });
+        return { code: explicit, label: known ? LOCATIONS[known].label : ('location ' + explicit), source: 'explicit' };
+      }
+      if (typeof explicit === 'string' && LOCATIONS[explicit.toUpperCase()]) {
+        var m = LOCATIONS[explicit.toUpperCase()];
+        return { code: m.code, label: m.label, source: 'explicit' };
+      }
+
+      var configured = getConfig('seo.market');
+      try {
+        var settings = JSON.parse(localStorage.getItem('seo-dashboard-settings') || '{}');
+        configured = settings.market || configured;
+      } catch (e) { /* fall through */ }
+      if (configured && LOCATIONS[String(configured).toUpperCase()]) {
+        var c = LOCATIONS[String(configured).toUpperCase()];
+        return { code: c.code, label: c.label, source: 'setting' };
+      }
+
+      var guessed = marketFromDomain(domain || getTargetDomain());
+      if (guessed) {
+        return { code: LOCATIONS[guessed].code, label: LOCATIONS[guessed].label, source: 'domain' };
+      }
+
+      // No setting and no country-code TLD. US is DataForSEO's own default and
+      // the largest English index, but the caller is told it was a fallback so
+      // the UI can prompt for the real market instead of quietly assuming one.
+      return { code: LOCATIONS.US.code, label: LOCATIONS.US.label, source: 'fallback' };
+    }
+
+    /**
+     * Where the customer's own site ranks for each keyword.
+     *
+     * A SERP is a list of everybody's results. "Your position" only exists
+     * relative to a domain, and this function had no domain to compare
+     * against — it returned the whole search results page and left the caller
+     * to imagine a position from it. The target now comes from the argument or
+     * the configured project site, and without one the call refuses rather
+     * than returning something that cannot mean what the caller wants.
+     *
+     * Resolves to [{ keyword, position, url, checked }]. position is null when
+     * the site is genuinely absent from the results — checked stays true, so
+     * "we looked and you are not there" is distinguishable from "we did not
+     * look".
+     */
+    function getRankings(keywords, options) {
+      options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      var locationCode = location || 2840; // default US
+      var target = getTargetDomain(options.domain);
+      var market = resolveMarket(options.location, target);
+      var locationCode = market.code;
+
+      if (!target) {
+        return Promise.reject(new Error(
+          'No website is set for this project, so there is no domain to measure ' +
+          'rankings against. Add your site under project settings first.'));
+      }
+
       var tasks = items.map(function(kw) {
         return {
           keyword: kw,
@@ -1062,25 +1294,103 @@
           depth: 100
         };
       });
+
       return dfsFetch(
         '/serp/google/organic/live/advanced',
         tasks,
-        'rankings_' + items.join('|') + '_' + locationCode
-      );
+        'rankings_' + items.join('|') + '_' + locationCode + '_' + target
+      ).then(function(raw) {
+        return firstResult(raw).map(function(page) {
+          var hit = null;
+          (page.items || []).forEach(function(item) {
+            if (hit) return;
+            if (item.type !== 'organic') return;
+            if (normaliseHost(item.domain || item.url) !== target) return;
+            hit = item;
+          });
+          return {
+            keyword: page.keyword,
+            // rank_absolute counts every SERP feature; rank_group is the
+            // organic position a person would describe as "we're number 4".
+            position: hit ? (hit.rank_group || hit.rank_absolute || null) : null,
+            url: hit ? (hit.url || null) : null,
+            checked: true,
+            // A position is only true of the market it was measured in.
+            market: market.label,
+            marketSource: market.source
+          };
+        });
+      });
     }
 
-    function getKeywordMetrics(keywords) {
+    /**
+     * Search volume and keyword difficulty.
+     *
+     * These come from two different DataForSEO products and the code used to
+     * request only the first: Google Ads search_volume returns volume, cpc and
+     * competition, but it does not return keyword difficulty at all. So
+     * difficulty would have stayed empty no matter how well the credentials
+     * were configured. The Labs bulk_keyword_difficulty endpoint supplies it,
+     * and the two are merged here.
+     *
+     * Resolves to [{ keyword, search_volume, cpc, competition, keyword_difficulty }].
+     * A field stays null when its endpoint had nothing for that keyword —
+     * never 0, which would read as a measurement.
+     */
+    function getKeywordMetrics(keywords, options) {
+      options = (typeof options === 'object' && options) || {};
       var items = Array.isArray(keywords) ? keywords : [keywords];
-      return dfsFetch(
+      var market = resolveMarket(options.location, options.domain);
+      var locationCode = market.code;
+
+      var volumes = dfsFetch(
         '/keywords_data/google_ads/search_volume/live',
-        [{
-          keywords: items,
-          location_code: 2840,
-          language_code: 'en',
-          sort_by: 'search_volume'
-        }],
-        'kw_metrics_' + items.join('|')
+        [{ keywords: items, location_code: locationCode, language_code: 'en', sort_by: 'search_volume' }],
+        'kw_volume_' + items.join('|') + '_' + locationCode
       );
+
+      // Difficulty is a separate product and a separate subscription. If it is
+      // not on the account this call fails on its own without taking the
+      // volume figures down with it.
+      var difficulty = dfsFetch(
+        '/dataforseo_labs/google/bulk_keyword_difficulty/live',
+        [{ keywords: items, location_code: locationCode, language_code: 'en' }],
+        'kw_diff_' + items.join('|') + '_' + locationCode
+      ).catch(function() { return null; });
+
+      return Promise.all([volumes, difficulty]).then(function(pair) {
+        var byKeyword = {};
+
+        firstResult(pair[0]).forEach(function(r) {
+          if (!r || !r.keyword) return;
+          byKeyword[r.keyword.toLowerCase()] = {
+            keyword: r.keyword,
+            search_volume: typeof r.search_volume === 'number' ? r.search_volume : null,
+            cpc: typeof r.cpc === 'number' ? r.cpc : null,
+            competition: r.competition != null ? r.competition : null,
+            keyword_difficulty: null,
+            // Volume is demand in one country, not in general.
+            market: market.label,
+            marketSource: market.source
+          };
+        });
+
+        firstResult(pair[1]).forEach(function(r) {
+          if (!r || !r.keyword) return;
+          var key = r.keyword.toLowerCase();
+          if (!byKeyword[key]) {
+            byKeyword[key] = {
+              keyword: r.keyword, search_volume: null, cpc: null,
+              competition: null, keyword_difficulty: null,
+              market: market.label, marketSource: market.source
+            };
+          }
+          var kd = r.keyword_difficulty;
+          byKeyword[key].keyword_difficulty = typeof kd === 'number' ? kd : null;
+        });
+
+        return Object.keys(byKeyword).map(function(k) { return byKeyword[k]; });
+      });
     }
 
     function getBacklinks(target) {
@@ -1118,15 +1428,11 @@
           }
           var taskId = taskResponse.tasks[0].id;
 
-          // Step 2: Poll for results (simplified — single check after delay)
+          // Step 2: Poll for results (simplified — single check after delay).
+          // Through the proxy like every other call: this was the second place
+          // reaching api.dataforseo.com directly with browser-held credentials.
           return wait(15000).then(function() {
-            return fetchWithRetry(BASE + '/on_page/summary/' + taskId, {
-              method: 'GET',
-              headers: {
-                'Authorization': authHeader(),
-                'Content-Type': 'application/json'
-              }
-            });
+            return dfsFetch('/on_page/summary/' + taskId, undefined, null, 0, 'GET');
           }).then(function(data) {
             cacheSet(NS, 'onpage_' + url, data, 60 * 60 * 1000);
             return data;
@@ -1137,6 +1443,8 @@
 
     return {
       isAvailable: isAvailable,
+      resolveMarket: resolveMarket,
+      markets: LOCATIONS,
       getRankings: getRankings,
       getKeywordMetrics: getKeywordMetrics,
       getBacklinks: getBacklinks,
@@ -1145,103 +1453,19 @@
   })();
 
   // ---------------------------------------------------------------------------
-  // 9. AI Video Generation — Tavus, HeyGen, Synthesia
+  // 9. AI Video Generation — Seedance 2.0 (server-proxied)
   // ---------------------------------------------------------------------------
 
   var VideoGeneration = (function() {
-    // ----- Tavus API (AI-generated personalized videos) -----
-    var TavusAPI = (function() {
-      var NS = 'tavus';
-
-      function isAvailable() {
-        return apiEnabled('video.tavus');
-      }
-
-      function authHeader() {
-        var apiKey = getConfig('video.tavus.apiKey');
-        if (!apiKey) throw new Error('Tavus API key not configured');
-        return 'Bearer ' + apiKey;
-      }
-
-      function tavusFetch(endpoint, body, cacheKey, ttl) {
-        return safeCall('Tavus.' + endpoint, function() {
-          if (cacheKey) {
-            var cached = cacheGet(NS, cacheKey);
-            if (cached) return Promise.resolve(cached);
-          }
-
-          var url = 'https://tavusapi.com/v2' + endpoint;
-          return fetchWithRetry(url, {
-            method: 'POST',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', ''),
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(data) {
-            if (cacheKey && ttl) {
-              cacheSet(NS, cacheKey, data, ttl);
-            }
-            return data;
-          });
-        });
-      }
-
-      function createVideo(options) {
-        var scriptContent = options.script || '';
-        var avatarId = options.avatar_id || null;
-        var voiceId = options.voice_id || null;
-        var backgroundUrl = options.background_url || null;
-
-        return tavusFetch('/videos', {
-          script: scriptContent,
-          avatar_id: avatarId,
-          voice_id: voiceId,
-          background_source_url: backgroundUrl
-        });
-      }
-
-      function getVideoStatus(videoId) {
-        return safeCall('Tavus.getVideoStatus', function() {
-          var url = 'https://tavusapi.com/v2/videos/' + videoId;
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', '')
-            }
-          });
-        });
-      }
-
-      function listAvatars() {
-        return safeCall('Tavus.listAvatars', function() {
-          var cached = cacheGet(NS, 'avatars_list');
-          if (cached) return Promise.resolve(cached);
-
-          var url = 'https://tavusapi.com/v2/avatars';
-          return fetchWithRetry(url, {
-            method: 'GET',
-            headers: {
-              'x-api-key': authHeader().replace('Bearer ', '')
-            }
-          }).then(function(data) {
-            cacheSet(NS, 'avatars_list', data, 24 * 60 * 60 * 1000); // 24 hour cache
-            return data;
-          });
-        });
-      }
-
-      return {
-        isAvailable: isAvailable,
-        createVideo: createVideo,
-        getVideoStatus: getVideoStatus,
-        listAvatars: listAvatars
-      };
-    })();
+    // The TavusAPI adapter that lived here required video.tavus.apiKey in
+    // browser config — a paid API secret in a page — and called tavusapi.com
+    // directly from the browser, which CORS blocks. It could never have run.
+    // If avatar video is wanted, it needs a server-side proxy like
+    // api/generate-video.js, not a client adapter.
 
     // ----- Seedance 2.0 (prompt-driven AI video generation) -----
-    // Unlike Tavus above, this never touches the provider directly from the
-    // browser — the API key lives server-side only (SEEDANCE_API_KEY), and
+    // This never touches the provider directly from the browser — the API key
+    // lives server-side only (SEEDANCE_API_KEY), and
     // the client talks to /api/generate-video, which proxies to Seedance.
     var SeedanceAPI = (function() {
       function isAvailable() {
@@ -1255,28 +1479,36 @@
       // errors down to a bare `null`, which would hide specific messages
       // like "SEEDANCE_API_KEY is not configured" from the user. Callers
       // catch the rejected promise directly and show err.message instead.
+      // Video generation is billed per clip on the account's Ark/Seedance
+      // key, so the endpoint now identifies the caller; both calls carry the
+      // session through this one helper.
+      function videoFetch(payload) {
+        var headersReady = (typeof window.sendAuthHeaders === 'function')
+          ? window.sendAuthHeaders()
+          : Promise.resolve({ 'Content-Type': 'application/json' });
+        return headersReady.then(function(headers) {
+          return fetchWithRetry('/api/generate-video', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+          });
+        });
+      }
+
       function createVideo(options) {
-        return fetchWithRetry('/api/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'create',
-            prompt: options.prompt,
-            mode: options.mode || 'text-to-video',
-            imageUrl: options.imageUrl || null,
-            aspectRatio: options.aspectRatio || '16:9',
-            duration: options.duration || 5,
-            resolution: options.resolution || '1080p'
-          })
+        return videoFetch({
+          action: 'create',
+          prompt: options.prompt,
+          mode: options.mode || 'text-to-video',
+          imageUrl: options.imageUrl || null,
+          aspectRatio: options.aspectRatio || '16:9',
+          duration: options.duration || 5,
+          resolution: options.resolution || '1080p'
         });
       }
 
       function getVideoStatus(taskId) {
-        return fetchWithRetry('/api/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'status', taskId: taskId })
-        });
+        return videoFetch({ action: 'status', taskId: taskId });
       }
 
       return {
@@ -1287,7 +1519,6 @@
     })();
 
     return {
-      tavus: TavusAPI,
       seedance: SeedanceAPI
     };
   })();
@@ -1311,7 +1542,7 @@
     if (SEOTools.semrush.isAvailable()) integrations.push('SEOTools.semrush');
     if (SEOTools.dataforseo.isAvailable()) integrations.push('SEOTools.dataforseo');
     if (DataForSEO.isAvailable()) integrations.push('DataForSEO');
-    if (VideoGeneration.tavus.isAvailable()) integrations.push('VideoGeneration.tavus');
+    if (VideoGeneration.seedance.isAvailable()) integrations.push('VideoGeneration.seedance');
 
     return integrations;
   }

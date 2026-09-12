@@ -423,6 +423,14 @@
 <script src="../js/agent-history.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<!-- sendAuthHeaders() reads the session through window.Supabase. Without
+     these two the object does not exist, the token is never attached, and
+     every authenticated call returns no_token — to a signed-in customer. -->
+<script src="../js/supabase.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/send-auth.js"></script>
+<script src="../js/failure-reporter.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/gemini-service.js"></script>
 <script>
@@ -563,6 +571,13 @@ Slide 9: NEXT STEPS — what the audience should do next, CTA, where to learn mo
     })();
 
     // Intelligence Layer Builders
+    /** An API error message can carry anything the upstream service returned. */
+    function escDeckHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     function buildValuePropContext() {
         if (!window.IntelligenceEngine?.brain) return '';
         const data = window.IntelligenceEngine.brain.load();
@@ -799,6 +814,25 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: the promise below never settles, the finally
+        // never runs, and the button stays disabled reading "Building..."
+        // until the page is reloaded. This deck is a two-phase call, so the
+        // budget is longer than a single-shot agent's.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '📊';
+            document.getElementById('btnText').textContent = 'Build Deck Structure';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The deck build timed out after 180 seconds. The AI API may be unreachable or overloaded — press Build Deck Structure to try again.</div>';
+            if (window.reportFailure) {
+                window.reportFailure('Deck Maker build timed out after 180s', { where: 'deck-agent.run' });
+            }
+            releaseButton();
+        }, 180000);
+
         try {
             if (window.GeminiService) {
                 // Phase 1: Generate deck structure via streaming
@@ -863,18 +897,23 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
                         }
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escDeckHtml(err.message)}</div>`;
+                        if (window.reportFailure) {
+                            window.reportFailure('Deck Maker generation failed: ' + err.message, { where: 'deck-agent.run' });
+                        }
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Gemini or Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered deck generation.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escDeckHtml(e.message)}</div>`;
+            if (window.reportFailure) {
+                window.reportFailure('Deck Maker generation failed: ' + e.message, { where: 'deck-agent.run' });
+            }
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '📊';
-            document.getElementById('btnText').textContent = 'Build Deck Structure';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 
@@ -1071,7 +1110,12 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     function renderSlidePreview(slides, design) {
         const section = document.getElementById('slidePreviewSection');
         if (!section || !slides.length) return;
-        const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // Escapes quotes as well as &<>: this is used inside attributes as
+        // well as between tags, and a " in the value ended the attribute.
+        // See web/js/escape-html.js.
+        const esc = s => String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
         // Pull colours directly from the (already normalised) design object
         const bgHex     = design.colors.background || 'FFFFFF';
@@ -1172,14 +1216,25 @@ CRITICAL: Every [TYPE: ...] tag must appear on its own line immediately after th
     }
 
     function copyOutput() {
+        // On first run there is no output at all: `outputBody` is only created
+        // when a generation starts, so the old `if (!body) return;` made Copy a
+        // button that did nothing and said nothing. Tell the customer why
+        // instead, and never put a placeholder on the clipboard.
+        const btn = document.getElementById('copyBtn');
         const body = document.getElementById('outputBody');
-        if (!body) return;
-        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { flashCopy(btn, 'Nothing to copy yet'); return; }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopy(btn, 'Copied!', true),
+            () => flashCopy(btn, 'Copy failed')
+        );
+    }
+
+    function flashCopy(btn, message, ok) {
+        if (!btn) return;
+        btn.textContent = message;
+        if (ok) btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
     // ============================================
@@ -1555,7 +1610,7 @@ No headers, no commentary, no other text.`;
         try {
             const r = await fetch('/api/unsplash', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ query, count: 1 })
             });
             if (!r.ok) return null;
@@ -2599,6 +2654,10 @@ No headers, no commentary, no other text.`;
         } catch (error) {
             console.error('PowerPoint generation error:', error);
             alert(`Error generating PowerPoint: ${error.message}`);
+            if (window.reportFailure) {
+                window.reportFailure('Deck Maker PowerPoint export failed: ' + error.message,
+                    { where: 'deck-agent.downloadPowerPoint' });
+            }
             btn.innerHTML = originalText;
             btn.disabled = false;
         }

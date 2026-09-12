@@ -32,26 +32,15 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
+
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX    = 8;
-const rateBuckets       = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── Platform specs (character limits + visual guidance) ────────────────────
 const PLATFORM_SPECS = {
@@ -322,15 +311,18 @@ function getObjectiveStrategy(objective) {
   return strategies[objective] || strategies['Conversions'];
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-ads', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Each call is a Claude completion billed to the account.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'generate-ads', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth })) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
@@ -368,11 +360,7 @@ module.exports = async function handler(req, res) {
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model:      'claude-sonnet-4-6',
         max_tokens: 8000,
@@ -415,4 +403,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }
-};
+});

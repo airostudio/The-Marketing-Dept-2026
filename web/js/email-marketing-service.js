@@ -745,17 +745,41 @@
             totalBounces += c.stats.bounces || 0;
             totalSpam += c.stats.spam || 0;
         });
-        var bounceRate = totalSent ? ((totalBounces / totalSent) * 100).toFixed(2) : '0.00';
-        var spamRate = totalSent ? ((totalSpam / totalSent) * 100).toFixed(3) : '0.000';
-        var inboxPlacement = totalSent
-            ? (100 - parseFloat(bounceRate) - parseFloat(spamRate)).toFixed(1)
-            : '100.0';
+        // Nothing sent means nothing measured. This used to return
+        // inboxPlacement 100.0 and healthStatus 'healthy' in exactly that
+        // case — a brand-new account that had never sent an email was told
+        // its deliverability was perfect, which is the strongest possible
+        // claim made from no evidence at all.
+        if (!totalSent) {
+            return {
+                measured: false,
+                reason: 'No campaigns have been sent from this account, so there are no ' +
+                        'delivery events to measure.',
+                totalSent: 0,
+                bounceRate: null,
+                spamRate: null,
+                acceptedRate: null,
+                healthStatus: null
+            };
+        }
+
+        var bounceRate = parseFloat(((totalBounces / totalSent) * 100).toFixed(2));
+        var spamRate = parseFloat(((totalSpam / totalSent) * 100).toFixed(3));
+
         return {
+            measured: true,
             totalSent: totalSent,
-            bounceRate: parseFloat(bounceRate),
-            spamRate: parseFloat(spamRate),
-            inboxPlacement: parseFloat(inboxPlacement),
-            healthStatus: parseFloat(bounceRate) < 2 && parseFloat(spamRate) < 0.1 ? 'healthy' : 'needs-attention'
+            bounceRate: bounceRate,
+            spamRate: spamRate,
+
+            // Renamed from inboxPlacement, which it never was. Inbox placement
+            // means "landed in the inbox rather than the spam folder" and can
+            // only be established by seed testing — a message delivered
+            // straight to spam is accepted by the receiving server and counts
+            // here as a success. Calling that inbox placement overstates it.
+            acceptedRate: parseFloat((100 - bounceRate - spamRate).toFixed(1)),
+
+            healthStatus: bounceRate < 2 && spamRate < 0.1 ? 'healthy' : 'needs-attention'
         };
     }
 

@@ -38,6 +38,9 @@
 
 'use strict';
 
+const { sbRest } = require('./_lib/supabase-rest.js');
+const { recordAdminAction, ACTIONS } = require('./_lib/audit-log.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
 async function getCallerFromToken(supabaseUrl, serviceKey, accessToken) {
   const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${accessToken}` },
@@ -107,7 +110,7 @@ async function deleteUser(supabaseUrl, serviceKey, userId) {
   }
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/admin-users', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -141,6 +144,23 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'Only a super_admin can create another super_admin.' });
       }
       const user = await createUser(supabaseUrl, serviceKey, { email, password, firstname, lastname, role, plan });
+      // After the account exists, never before: a record of a creation that
+      // then failed is worse than no record. Note what was set, not the
+      // password it was set with.
+      await recordAdminAction({
+        req, adminId: caller.id, adminEmail: caller.email,
+        action: ACTIONS.USER_CREATED,
+        targetUserId: user && user.id, targetEmail: email,
+        details: { role, plan, firstname, lastname },
+      });
+      if (role === 'admin' || role === 'super_admin') {
+        await recordAdminAction({
+          req, adminId: caller.id, adminEmail: caller.email,
+          action: ACTIONS.ROLE_GRANTED,
+          targetUserId: user && user.id, targetEmail: email,
+          details: { role, grantedAtCreation: true },
+        });
+      }
       return res.json({ success: true, user });
     }
 
@@ -148,7 +168,22 @@ module.exports = async function handler(req, res) {
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ error: 'userId is required' });
       if (userId === caller.id) return res.status(400).json({ error: "You can't delete your own account from here." });
+      // Read the email before the account goes, or the audit row records a
+      // uuid that now resolves to nothing.
+      let targetEmail = null;
+      try {
+        const before = await sbRest(supabaseUrl, serviceKey, 'GET',
+          `/profiles?id=eq.${encodeURIComponent(userId)}&select=email&limit=1`);
+        targetEmail = (before.ok && before.data && before.data[0] && before.data[0].email) || null;
+      } catch (e) { /* the delete still proceeds; the row just carries no email */ }
+
       await deleteUser(supabaseUrl, serviceKey, userId);
+      await recordAdminAction({
+        req, adminId: caller.id, adminEmail: caller.email,
+        action: ACTIONS.USER_DELETED,
+        targetUserId: userId, targetEmail,
+        details: {},
+      });
       return res.json({ success: true });
     }
 
@@ -156,4 +191,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }
-};
+});

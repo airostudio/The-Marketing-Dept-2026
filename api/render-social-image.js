@@ -31,6 +31,9 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
 
 const PLATFORM_SIZES = {
@@ -242,12 +245,16 @@ function buildSvg(concept, layout, fonts) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<svg width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" xmlns="http://www.w3.org/2000/svg">\n  ${backgroundSvg(layout.width, layout.height, concept.colours)}\n  ${textElements}\n</svg>`;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/render-social-image', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Spends the account's own API credits, so it has to know whose they are.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const {
     headline, subheadline = '', cta = '', proofPoint = '', urgencyLine = '',
@@ -293,4 +300,4 @@ module.exports = async function handler(req, res) {
     platformSize,
     notes: hostedUrl ? layout.notes : [...layout.notes, 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured (or upload failed) — hostedUrl is unavailable, so Instagram/TikTok publishing will reject this image. The data URI still renders fine everywhere else.'],
   });
-};
+});

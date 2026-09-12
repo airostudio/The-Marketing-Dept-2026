@@ -333,6 +333,18 @@
                 <div class="admin-header">
                     <h1>User Management</h1>
                     <p>Manage user accounts, roles, and permissions</p>
+                    <p style="margin-top:10px;">
+                        <a href="/admin/dashboard.html" style="color:#a78bfa;font-weight:600;text-decoration:none;margin-right:14px;">📊 Admin Overview →</a>
+                        <a href="/admin/activity.html" style="color:#a78bfa;font-weight:600;text-decoration:none;margin-right:14px;">🗒️ Admin Activity →</a>
+                        <a href="/admin/support.html" style="color:#67e8f9;font-weight:600;text-decoration:none;margin-right:14px;">💬 Support Queue →</a>
+                        <a href="/admin/failures.html" style="color:#fca5a5;font-weight:600;text-decoration:none;margin-right:14px;">⚠️ System Failures →</a>
+                        <a href="/admin/grants.html" style="color:#eab308;font-weight:600;text-decoration:none;">
+                            🏛️ Government Funding Room →
+                        </a>
+                        <span style="color:#64748b;font-size:13px;">
+                            Audema's own non-dilutive funding pipeline and grant readiness scoring
+                        </span>
+                    </p>
                 </div>
 
                 <div class="users-table">
@@ -455,6 +467,7 @@
         </div>
     </div>
 
+    <script src="/js/escape-html.js"></script>
     <script src="../js/supabase.min.js"></script>
     <script src="/js/config.js"></script>
     <script src="/js/supabase-client.js"></script>
@@ -536,6 +549,28 @@
             }
         }
 
+        /**
+         * Escape text for insertion into HTML.
+         *
+         * This page is the highest-value XSS target in the product, and the
+         * text it renders is chosen by the people it is rendering. A name and
+         * an email address are whatever someone typed at signup, and they are
+         * shown here to an administrator whose session can read, re-role and
+         * delete every account through api/admin-users.js. A name of
+         * <img src=x onerror=...> was script execution in that session — an
+         * ordinary user escalating to admin by filling in a form.
+         *
+         * The implementation is /js/escape-html.js. The local definition below
+         * is a fallback for the case where that file fails to load: escaping
+         * that silently stops happening because a script 404'd is worse than
+         * no escaping at all, because nothing looks wrong.
+         */
+        const escapeHtml = window.escapeHtml || function (value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        };
+
         // Render user row
         function renderUserRow(user) {
             const tbody = document.getElementById('usersTableBody');
@@ -546,33 +581,33 @@
             row.innerHTML = `
                 <td>
                     <div class="user-info">
-                        <div class="user-avatar">${initials || 'U'}</div>
+                        <div class="user-avatar">${escapeHtml(initials || 'U')}</div>
                         <div class="user-details">
-                            <span class="user-name">${user.firstname || ''} ${user.lastname || ''}</span>
-                            <span class="user-email">${user.email}</span>
+                            <span class="user-name">${escapeHtml(user.firstname || '')} ${escapeHtml(user.lastname || '')}</span>
+                            <span class="user-email">${escapeHtml(user.email)}</span>
                         </div>
                     </div>
                 </td>
                 <td>
-                    <span class="badge badge-${user.role || 'user'}">
-                        ${(user.role || 'user').replace('_', ' ').toUpperCase()}
+                    <span class="badge badge-${escapeHtml(user.role || 'user')}">
+                        ${escapeHtml((user.role || 'user').replace('_', ' ').toUpperCase())}
                     </span>
                 </td>
                 <td>
-                    <span class="badge badge-${user.plan || 'free'}">
-                        ${(user.plan || 'free').toUpperCase()}
+                    <span class="badge badge-${escapeHtml(user.plan || 'free')}">
+                        ${escapeHtml((user.plan || 'free').toUpperCase())}
                     </span>
                 </td>
-                <td>${createdDate}</td>
+                <td>${escapeHtml(createdDate)}</td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn-icon" onclick='editUser(${JSON.stringify(user)})' title="Edit user">
+                        <button class="btn-icon" data-action="edit" title="Edit user">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                         </button>
-                        <button class="btn-icon danger" onclick='deleteUser("${user.id || user.email}", "${user.email}")' title="Delete user">
+                        <button class="btn-icon danger" data-action="delete" title="Delete user">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"/>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -581,6 +616,23 @@
                     </div>
                 </td>
             `;
+
+            // The buttons used to carry onclick='editUser(${JSON.stringify(user)})'
+            // and onclick='deleteUser("${user.email}", ...)'. Both put
+            // attacker-chosen text inside a single-quoted HTML attribute, so a
+            // single apostrophe in any field — a name like O'Brien, or a
+            // deliberate one — ended the attribute and let the rest of the
+            // field be read as more attributes on the button.
+            //
+            // Escaping would have worked, but there is no reason to serialise
+            // a user record into the DOM and parse it back at all: the object
+            // is right here. The handlers close over it instead, so nothing
+            // about this user is ever re-parsed as markup or as code.
+            row.querySelector('[data-action="edit"]')
+               .addEventListener('click', () => editUser(user));
+            row.querySelector('[data-action="delete"]')
+               .addEventListener('click', () => deleteUser(user.id || user.email, user.email));
+
             tbody.appendChild(row);
         }
 

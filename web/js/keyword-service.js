@@ -24,6 +24,77 @@
         ]
     };
 
+    /**
+     * Is this a real, reported search position?
+     *
+     * A tracked keyword carries position === null until a ranking provider
+     * actually reports one. Comparing that null against a number silently
+     * coerces it to 0, so `null <= 3` is true and an unranked keyword reads as
+     * a number-one result. Every position comparison in this file and in the
+     * pages that render it goes through here so the coercion cannot come back.
+     */
+    function isRanked(position) {
+        return typeof position === 'number' && isFinite(position) && position > 0;
+    }
+
+    /**
+     * The DataForSEO module that actually has ranking and metric methods.
+     *
+     * There are two DataForSEO objects on ApiConnector and they are not the
+     * same shape. ApiConnector.SEOTools.dataforseo exposes only isAvailable,
+     * getSerpResults and getKeywordData; getRankings and getKeywordMetrics
+     * live on the top-level ApiConnector.DataForSEO. This file called them on
+     * the SEOTools one, so with credentials configured it would have thrown
+     * "getRankings is not a function" — and without them isAvailable() was
+     * false, so it never got that far and the broken call was never reached.
+     * One bug hid the other.
+     *
+     * Returns null when no module can do the job, so callers can say "no
+     * provider" rather than crash.
+     */
+    function rankingProvider() {
+        const conn = window.ApiConnector;
+        if (!conn) return null;
+        const candidates = [conn.DataForSEO, conn.SEOTools && conn.SEOTools.dataforseo];
+        for (const m of candidates) {
+            if (m && typeof m.isAvailable === 'function' && m.isAvailable()
+                  && typeof m.getRankings === 'function') {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * First real number among the candidates, else null.
+     *
+     * Deliberately not `a || b || fallback`: DataForSEO legitimately returns 0
+     * for a keyword with no measurable search volume, and `||` would discard
+     * that real zero and fall through to the previous value — so a keyword
+     * would keep showing a stale volume the provider had just contradicted.
+     * A missing field is null; a measured 0 is 0.
+     */
+    function pickNumber(...candidates) {
+        for (const c of candidates) {
+            if (typeof c === 'number' && isFinite(c)) return c;
+        }
+        return null;
+    }
+
+    /** The module that can return search volume / difficulty, or null. */
+    function metricsProvider() {
+        const conn = window.ApiConnector;
+        if (!conn) return null;
+        const candidates = [conn.DataForSEO, conn.SEOTools && conn.SEOTools.dataforseo];
+        for (const m of candidates) {
+            if (m && typeof m.isAvailable === 'function' && m.isAvailable()
+                  && typeof m.getKeywordMetrics === 'function') {
+                return m;
+            }
+        }
+        return null;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // KEYWORD EXTRACTION & ANALYSIS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -388,12 +459,18 @@
 
             this.saveTrackedKeywords([...current, ...uniqueNew]);
 
-            // Asynchronously fetch real metrics from API
-            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable() && uniqueNew.length > 0) {
+            // Asynchronously fetch real metrics from whichever module can
+            // actually supply them (see rankingProvider/metricsProvider — the
+            // two DataForSEO objects on ApiConnector expose different methods).
+            const metricsApi = metricsProvider();
+            const rankingApi = rankingProvider();
+            if ((metricsApi || rankingApi) && uniqueNew.length > 0) {
                 const kwStrings = uniqueNew.map(function(k) { return k.keyword; });
                 Promise.all([
-                    window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(kwStrings).catch(function() { return null; }),
-                    window.ApiConnector.SEOTools.dataforseo.getRankings(kwStrings).catch(function() { return null; })
+                    metricsApi ? metricsApi.getKeywordMetrics(kwStrings).catch(function() { return null; })
+                               : Promise.resolve(null),
+                    rankingApi ? rankingApi.getRankings(kwStrings).catch(function() { return null; })
+                               : Promise.resolve(null)
                 ]).then(function(apiResults) {
                     const metrics = apiResults[0];
                     const rankings = apiResults[1];
@@ -404,8 +481,15 @@
                             const ranking = rankings && rankings.find(function(r) { return r.keyword === k.keyword; });
                             if (metric || ranking) {
                                 return Object.assign({}, k, {
-                                    searchVolume: (metric && (metric.searchVolume || metric.search_volume)) || k.searchVolume,
-                                    difficulty: (metric && (metric.difficulty || metric.keyword_difficulty)) || k.difficulty,
+                                    // pickNumber, not ||: a provider-reported
+                                    // volume of 0 is a real answer and must not
+                                    // fall through to the previous value.
+                                    searchVolume: metric
+                                        ? pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume)
+                                        : k.searchVolume,
+                                    difficulty: metric
+                                        ? pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty)
+                                        : k.difficulty,
                                     cpc: (metric && metric.cpc) || k.cpc,
                                     position: (ranking && ranking.position) || k.position,
                                     lastUpdated: new Date().toISOString()
@@ -450,39 +534,119 @@
         },
 
         /**
-         * Simulate position update (for demo/testing)
+         * Refresh tracked positions from the ranking provider.
+         *
+         * This was `simulateRankingUpdate()`, and it was two dead ends in one.
+         * It was synchronous, so the caller repainted the table and reported
+         * success before the provider had answered — a real update never showed
+         * on the click that asked for it. And when no provider was configured it
+         * did nothing at all and returned the keywords unchanged, so the button
+         * was indistinguishable from a button that was not wired up.
+         *
+         * Now async, and it always resolves to a description of what happened:
+         *   { ok, updated, checked, reason }
+         * so the page can say "12 positions updated", "no ranking provider is
+         * connected", or the provider's own error, rather than nothing.
          */
-        simulateRankingUpdate() {
+        async refreshRankings() {
             const keywords = this.getTrackedKeywords();
-            // Try real API data asynchronously when available
-            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable()) {
-                const self = this;
-                const keywordStrings = keywords.map(k => k.keyword);
-                window.ApiConnector.SEOTools.dataforseo.getRankings(keywordStrings)
-                    .then(function(rankings) {
-                        if (rankings && rankings.length > 0) {
-                            const current = self.getTrackedKeywords();
-                            const updated = current.map(function(k) {
-                                const ranking = rankings.find(function(r) { return r.keyword === k.keyword; });
-                                if (ranking && ranking.position) {
-                                    return Object.assign({}, k, {
-                                        previousPosition: k.position,
-                                        position: ranking.position,
-                                        trend: ranking.position < k.position ? 'up' : ranking.position > k.position ? 'down' : 'stable',
-                                        lastUpdated: new Date().toISOString()
-                                    });
-                                }
-                                return k;
-                            });
-                            self.saveTrackedKeywords(updated);
-                        }
-                    })
-                    .catch(function(e) {
-                        console.warn('DataForSEO rankings update failed:', e);
-                    });
+            if (!keywords.length) {
+                return { ok: false, updated: 0, checked: 0, reason: 'no_keywords' };
             }
-            // Return current keywords unchanged (no simulated random changes)
-            return keywords;
+
+            const provider = rankingProvider();
+            if (!provider) {
+                return { ok: false, updated: 0, checked: keywords.length, reason: 'no_provider' };
+            }
+
+            const names = keywords.map(k => k.keyword);
+            let rankings, metrics = null;
+            try {
+                // Volume and difficulty are fetched alongside the positions, so
+                // one refresh fills every column the table shows rather than
+                // leaving two of them permanently blank.
+                const metricsApi = metricsProvider();
+                const [r, m] = await Promise.all([
+                    provider.getRankings(names),
+                    metricsApi ? metricsApi.getKeywordMetrics(names).catch(() => null) : Promise.resolve(null),
+                ]);
+                rankings = r;
+                metrics = m;
+            } catch (e) {
+                return {
+                    ok: false, updated: 0, checked: keywords.length,
+                    reason: 'provider_error', detail: e.message,
+                };
+            }
+
+            if (!Array.isArray(rankings) || rankings.length === 0) {
+                return { ok: true, updated: 0, checked: keywords.length, reason: 'no_results' };
+            }
+
+            let updatedCount = 0;
+            const current = this.getTrackedKeywords();
+            const next = current.map(k => {
+                const ranking = rankings.find(r => r.keyword === k.keyword);
+                const metric = Array.isArray(metrics)
+                    ? metrics.find(m => m.keyword === k.keyword) : null;
+                if (!ranking || !ranking.position) {
+                    const patch = {};
+
+                    // "We searched and your site was not in the results" is a
+                    // real finding — the keyword has dropped out, or never
+                    // ranked. Recording it as unranked is the truth; leaving a
+                    // stale position would keep showing a ranking the provider
+                    // has just told us is gone. `checked` separates that from
+                    // "this keyword was not in the response at all".
+                    if (ranking && ranking.checked && isRanked(k.position)) {
+                        patch.previousPosition = k.position;
+                        patch.position = null;
+                        patch.trend = 'lost';
+                        updatedCount++;
+                    }
+
+                    // Metrics can arrive for a keyword that has no position yet.
+                    if (metric) {
+                        patch.searchVolume = pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume);
+                        patch.difficulty = pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty);
+                    }
+
+                    if (!Object.keys(patch).length) return k;
+                    patch.lastUpdated = new Date().toISOString();
+                    return Object.assign({}, k, patch);
+                }
+                updatedCount++;
+                return Object.assign({}, k, {
+                    previousPosition: k.position,
+                    position: ranking.position,
+                    searchVolume: metric
+                        ? pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume)
+                        : k.searchVolume,
+                    difficulty: metric
+                        ? pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty)
+                        : k.difficulty,
+                    // The first real ranking for a keyword has nothing to
+                    // compare against. Comparing to a null previous position
+                    // made `5 > null` true, so every keyword's first ever
+                    // result was reported as a decline.
+                    trend: !isRanked(k.position) ? 'new'
+                        : ranking.position < k.position ? 'up'
+                        : ranking.position > k.position ? 'down' : 'stable',
+                    lastUpdated: new Date().toISOString(),
+                });
+            });
+
+            this.saveTrackedKeywords(next);
+
+            // The market travels with the result. A position measured in the
+            // United States is not a fact about an Australian business, and
+            // the page needs to be able to say which country it describes.
+            const sample = rankings.find(r => r && r.market) || {};
+            return {
+                ok: true, updated: updatedCount, checked: current.length, reason: null,
+                market: sample.market || null,
+                marketSource: sample.marketSource || null,
+            };
         },
 
         /**
@@ -491,35 +655,61 @@
         getStats() {
             const keywords = this.getTrackedKeywords();
             const total = keywords.length;
-            const top3 = keywords.filter(k => k.position <= 3).length;
-            const top10 = keywords.filter(k => k.position <= 10).length;
-            const top20 = keywords.filter(k => k.position <= 20).length;
-            const improved = keywords.filter(k => k.previousPosition && k.position < k.previousPosition).length;
-            const declined = keywords.filter(k => k.previousPosition && k.position > k.previousPosition).length;
 
-            const avgPosition = total > 0
-                ? keywords.reduce((sum, k) => sum + k.position, 0) / total
-                : 0;
+            // A tracked keyword has position === null until a ranking provider
+            // actually reports where it sits. Every count below used to be
+            // written as `k.position <= 3`, and in JavaScript `null <= 3` is
+            // true — so a keyword nobody had ever looked up was counted as
+            // ranking in the top 3, the top 10 AND the top 20 at once. Adding
+            // twenty untracked keywords reported "20 in the top 3".
+            //
+            // Ranked keywords are counted here; unranked ones are reported
+            // separately as `unranked` so the page can say how much of the list
+            // has no data behind it rather than quietly folding it into a win.
+            const ranked = keywords.filter(k => isRanked(k.position));
+            const unranked = total - ranked.length;
 
-            const estTraffic = keywords.reduce((sum, k) => {
+            const top3  = ranked.filter(k => k.position <= 3).length;
+            const top10 = ranked.filter(k => k.position <= 10).length;
+            const top20 = ranked.filter(k => k.position <= 20).length;
+
+            // A move is only a move between two known positions.
+            const improved = keywords.filter(k =>
+                isRanked(k.position) && isRanked(k.previousPosition) && k.position < k.previousPosition).length;
+            const declined = keywords.filter(k =>
+                isRanked(k.position) && isRanked(k.previousPosition) && k.position > k.previousPosition).length;
+
+            // Averaging over every tracked keyword used to add null as 0, which
+            // pulled the average toward "position 0" — i.e. an unranked keyword
+            // made the average look BETTER than it was. Averaged over the ranked
+            // ones only, and null when none of them are ranked, because there is
+            // no average position of nothing.
+            const avgPosition = ranked.length
+                ? (ranked.reduce((sum, k) => sum + k.position, 0) / ranked.length).toFixed(1)
+                : null;
+
+            const estTraffic = ranked.reduce((sum, k) => {
                 return sum + this.estimateTrafficFromPosition(k.position, k.searchVolume);
             }, 0);
 
             return {
                 total,
+                ranked: ranked.length,
+                unranked,
                 top3,
                 top10,
                 top20,
                 improved,
                 declined,
-                avgPosition: avgPosition.toFixed(1),
+                avgPosition,
                 estTraffic: Math.round(estTraffic),
                 distribution: {
                     '1-3': top3,
                     '4-10': top10 - top3,
                     '11-20': top20 - top10,
-                    '21-50': keywords.filter(k => k.position > 20 && k.position <= 50).length,
-                    '50+': keywords.filter(k => k.position > 50).length
+                    '21-50': ranked.filter(k => k.position > 20 && k.position <= 50).length,
+                    '50+': ranked.filter(k => k.position > 50).length,
+                    'Not ranked': unranked
                 }
             };
         },
@@ -528,8 +718,11 @@
          * Get biggest gainers and decliners
          */
         getMovers() {
+            // Both ends of the move have to be real positions. `!== null` let
+            // undefined through, and `undefined - 5` is NaN — which sorts
+            // unpredictably and shows as a blank change in the table.
             const keywords = this.getTrackedKeywords()
-                .filter(k => k.previousPosition !== null);
+                .filter(k => isRanked(k.position) && isRanked(k.previousPosition));
 
             const withChange = keywords.map(k => ({
                 ...k,
@@ -568,12 +761,24 @@
             return 0;
         },
 
+        /**
+         * Keyword difficulty, or null when nobody has measured it.
+         *
+         * This used to return `90 - (words * 15)` — a word count, rescaled.
+         * It never looked at a search result, a competing page, or a domain;
+         * a three-word phrase scored 45 whether it was "buy cheap insurance"
+         * or "purple weasel taxidermy". That number was then rendered in the
+         * keyword table beside a coloured difficulty bar, and written into
+         * Quick Wins as the sentence "Low difficulty (30)", which asserts a
+         * competitive analysis that had not happened.
+         *
+         * Real difficulty comes from a ranking provider (DataForSEO supplies
+         * it as keyword_difficulty and it is stored on the keyword when a
+         * refresh runs). Without one there is no honest number, so the callers
+         * get null and render it as "not measured".
+         */
         estimateDifficulty(keyword) {
-            // Deterministic estimate based on keyword characteristics (no random data)
-            const words = keyword.split(' ').length;
-            // Shorter keywords are typically more competitive
-            const baseDifficulty = Math.max(10, 90 - (words * 15));
-            return Math.min(95, Math.max(5, baseDifficulty));
+            return null;
         },
 
         estimateCPC(keyword) {
@@ -604,6 +809,12 @@
                 1: 0.316, 2: 0.158, 3: 0.109, 4: 0.078, 5: 0.059,
                 6: 0.046, 7: 0.037, 8: 0.030, 9: 0.025, 10: 0.021
             };
+
+            // Without a position there is no CTR to apply. This used to fall
+            // through `null <= 10` into `ctrByPosition[null] || 0.021`, crediting
+            // an unranked keyword with the click-through rate of a tenth-place
+            // result — traffic invented for a page that may not rank at all.
+            if (!isRanked(position) || !isFinite(searchVolume) || searchVolume <= 0) return 0;
 
             if (position <= 10) {
                 return searchVolume * (ctrByPosition[position] || 0.021);
@@ -637,16 +848,23 @@
                 ? seedKeywords
                 : seedKeywords.split(',').map(k => k.trim()).filter(k => k);
 
-            // Try real API data from DataForSEO
-            if (window.ApiConnector?.SEOTools?.dataforseo?.isAvailable()) {
+            // Try real API data from whichever module actually exposes
+            // getKeywordMetrics — SEOTools.dataforseo does not have it, so this
+            // call named a function that was never there.
+            const metricsApi = metricsProvider();
+            if (metricsApi) {
                 try {
-                    const apiResults = await window.ApiConnector.SEOTools.dataforseo.getKeywordMetrics(seeds);
+                    const apiResults = await metricsApi.getKeywordMetrics(seeds);
                     if (apiResults && apiResults.length > 0) {
                         const mapped = apiResults.map(r => ({
                             keyword: r.keyword,
                             type: r.type || 'api',
-                            searchVolume: r.searchVolume || r.search_volume || 0,
-                            difficulty: r.difficulty || r.keyword_difficulty || 0,
+                            // pickNumber: a provider-reported 0 is a measurement,
+                            // and `|| 0` would coerce a missing field to the same
+                            // thing, making "no data" indistinguishable from
+                            // "measured as zero".
+                            searchVolume: pickNumber(r.searchVolume, r.search_volume),
+                            difficulty: pickNumber(r.difficulty, r.keyword_difficulty),
                             cpc: r.cpc || '0.00',
                             intent: r.intent || this.determineSearchIntent(r.keyword, r.type || 'api'),
                             trend: r.trend || 'stable',
@@ -851,9 +1069,15 @@
         getQuickWins() {
             const tracked = KeywordTracker.getTrackedKeywords();
 
-            // Quick wins: Low difficulty, high volume, not in top 10
+            // Quick wins: Low difficulty, high volume, not in top 10.
+            // All three inputs must be real. `k.difficulty < 40` was true for
+            // null, and `k.position > 10` false for null, so the filter's
+            // behaviour depended on JavaScript's coercion rules rather than on
+            // whether anything had been measured.
             return tracked
-                .filter(k => k.difficulty < 40 && k.searchVolume > 500 && k.position > 10)
+                .filter(k => typeof k.difficulty === 'number' && k.difficulty < 40
+                          && typeof k.searchVolume === 'number' && k.searchVolume > 500
+                          && isRanked(k.position) && k.position > 10)
                 .sort((a, b) => {
                     const scoreA = (b.searchVolume / 1000) * (100 - a.difficulty);
                     const scoreB = (a.searchVolume / 1000) * (100 - b.difficulty);
@@ -874,7 +1098,7 @@
             const tracked = KeywordTracker.getTrackedKeywords();
 
             return tracked
-                .filter(k => k.position >= 11 && k.position <= 20)
+                .filter(k => isRanked(k.position) && k.position >= 11 && k.position <= 20)
                 .sort((a, b) => a.position - b.position)
                 .map(k => ({
                     ...k,

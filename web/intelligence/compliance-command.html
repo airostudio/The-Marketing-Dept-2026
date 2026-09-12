@@ -597,13 +597,20 @@
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Open Risks</div>
-          <div class="kpi-val amber" id="kpi-risks">2</div>
-          <div class="kpi-sub">3 total in register</div>
+          <div class="kpi-val amber" id="kpi-risks">0</div>
+          <!-- "3 total in register" was static and never updated, so it kept
+               claiming a register size that had nothing to do with the one
+               below it. -->
+          <div class="kpi-sub" id="kpi-risks-sub">0 total in register</div>
         </div>
-        <div class="kpi-card">
+        <!-- "Days to Audit: 87 · Target: Q4 2026" was hardcoded. No audit date
+             had been set by anyone, and the number never changed or counted
+             down. It is now whatever date the customer actually sets. -->
+        <div class="kpi-card" id="auditDateCard" style="cursor:pointer" onclick="setAuditDate()"
+             title="Click to set your target audit date">
           <div class="kpi-label">Days to Audit</div>
-          <div class="kpi-val" style="color:var(--purple-light)">87</div>
-          <div class="kpi-sub">Target: Q4 2026</div>
+          <div class="kpi-val" style="color:var(--purple-light)" id="kpi-audit-days">&mdash;</div>
+          <div class="kpi-sub" id="kpi-audit-sub">Click to set a target date</div>
         </div>
       </div>
 
@@ -613,54 +620,28 @@
       </div>
 
       <div class="section-title">Continuous Monitoring</div>
+      <!--
+        Six rows used to sit here as static markup, asserting that automated
+        checks had run and passed: "Access Control Review · 2 mins ago · PASS",
+        "Vulnerability Scan · 1 hour ago · PASS", "MFA Enforcement · 100% of
+        accounts · 12 hours ago · PASS", "Backup Verification · All replicas
+        confirmed". None of it ran. Nothing in this product monitors any of
+        those controls, and no check had happened minutes, hours or ever ago.
+
+        A fabricated live security dashboard is the most dangerous thing this
+        page could show — it is precisely what somebody screenshots for a
+        customer security questionnaire. It says what it is instead.
+      -->
       <div class="monitor-list">
-        <div class="monitor-item">
-          <div class="mon-dot pass"></div>
-          <div class="mon-body">
-            <div class="mon-name">Access Control Review</div>
-            <div class="mon-meta">Automated check &middot; 2 mins ago</div>
-          </div>
-          <span class="mon-badge pass">PASS</span>
-        </div>
-        <div class="monitor-item">
-          <div class="mon-dot pass"></div>
-          <div class="mon-body">
-            <div class="mon-name">Vulnerability Scan</div>
-            <div class="mon-meta">Automated &middot; 1 hour ago</div>
-          </div>
-          <span class="mon-badge pass">PASS</span>
-        </div>
-        <div class="monitor-item">
-          <div class="mon-dot warn"></div>
-          <div class="mon-body">
-            <div class="mon-name">Employee Training Completion</div>
-            <div class="mon-meta">87% complete &middot; 3 hours ago</div>
-          </div>
-          <span class="mon-badge warn">WARNING</span>
-        </div>
-        <div class="monitor-item">
-          <div class="mon-dot pass"></div>
-          <div class="mon-body">
-            <div class="mon-name">Backup Verification</div>
-            <div class="mon-meta">All replicas confirmed &middot; 6 hours ago</div>
-          </div>
-          <span class="mon-badge pass">PASS</span>
-        </div>
-        <div class="monitor-item">
-          <div class="mon-dot pass"></div>
-          <div class="mon-body">
-            <div class="mon-name">MFA Enforcement</div>
-            <div class="mon-meta">100% of accounts &middot; 12 hours ago</div>
-          </div>
-          <span class="mon-badge pass">PASS</span>
-        </div>
-        <div class="monitor-item">
-          <div class="mon-dot sched"></div>
-          <div class="mon-body">
-            <div class="mon-name">Penetration Test</div>
-            <div class="mon-meta">Due in 14 days</div>
-          </div>
-          <span class="mon-badge sched">SCHEDULED</span>
+        <div class="empty-state" style="padding:22px 16px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.75;">
+          <div style="font-size:22px;margin-bottom:8px;">&#x1F50C;</div>
+          <strong style="color:var(--text2);display:block;margin-bottom:6px;">Continuous monitoring is not connected</strong>
+          Automated control checks &mdash; access reviews, vulnerability scans, MFA coverage,
+          backup verification &mdash; need an agent or an integration reading from your actual
+          infrastructure. Audema does not run them, and will not show a result it did not
+          observe.<br><br>
+          Use the Evidence Tracker above to record what you have collected, and the
+          AI Automation Plan tab to design how to automate the collection.
         </div>
       </div>
     </div>
@@ -878,6 +859,8 @@
 
 <script src="/js/marked.min.js"></script>
 <script src="/js/intelligence-engine.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/agent-history.js"></script>
 <script>
@@ -886,57 +869,57 @@
 // ─────────────────────────────────────────
 const EVIDENCE_ITEMS = [
   // SOC 2
-  { id: 'soc2-01', fw: 'soc2', name: 'Access Control Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'soc2-02', fw: 'soc2', name: 'User Access Review', category: 'Access Control', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'soc2-03', fw: 'soc2', name: 'MFA Enforcement Screenshot', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-04', fw: 'soc2', name: 'Encryption at Rest Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-05', fw: 'soc2', name: 'Encryption in Transit Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-06', fw: 'soc2', name: 'Vulnerability Scan Report', category: 'Security Monitoring', method: 'Automated', owner: 'Security', freq: 'Monthly', defaultStatus: 'pending' },
-  { id: 'soc2-07', fw: 'soc2', name: 'Penetration Test Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'soc2-08', fw: 'soc2', name: 'Incident Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'soc2-09', fw: 'soc2', name: 'Incident Response Test', category: 'Incident Response', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'soc2-10', fw: 'soc2', name: 'Business Continuity Plan', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'soc2-11', fw: 'soc2', name: 'BCP Test Results', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'soc2-12', fw: 'soc2', name: 'Employee Security Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'soc2-13', fw: 'soc2', name: 'Background Check Records', category: 'HR & Training', method: 'Manual', owner: 'HR', freq: 'Per Hire', defaultStatus: 'collected' },
-  { id: 'soc2-14', fw: 'soc2', name: 'Vendor Risk Assessment', category: 'Vendor Management', method: 'Manual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'soc2-15', fw: 'soc2', name: 'Change Management Log', category: 'Change Management', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-16', fw: 'soc2', name: 'System Monitoring Logs', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-17', fw: 'soc2', name: 'Backup Verification Report', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'soc2-18', fw: 'soc2', name: 'Data Classification Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'soc2-19', fw: 'soc2', name: 'Asset Inventory', category: 'Change Management', method: 'Manual', owner: 'Engineering', freq: 'Quarterly', defaultStatus: 'pending' },
-  { id: 'soc2-20', fw: 'soc2', name: 'Security Awareness Training Completion', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', defaultStatus: 'collected' },
+  { id: 'soc2-01', fw: 'soc2', name: 'Access Control Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-02', fw: 'soc2', name: 'User Access Review', category: 'Access Control', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', priority: 'standard' },
+  { id: 'soc2-03', fw: 'soc2', name: 'MFA Enforcement Screenshot', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-04', fw: 'soc2', name: 'Encryption at Rest Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-05', fw: 'soc2', name: 'Encryption in Transit Config', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-06', fw: 'soc2', name: 'Vulnerability Scan Report', category: 'Security Monitoring', method: 'Automated', owner: 'Security', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-07', fw: 'soc2', name: 'Penetration Test Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', priority: 'high' },
+  { id: 'soc2-08', fw: 'soc2', name: 'Incident Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-09', fw: 'soc2', name: 'Incident Response Test', category: 'Incident Response', method: 'Annual', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-10', fw: 'soc2', name: 'Business Continuity Plan', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-11', fw: 'soc2', name: 'BCP Test Results', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', priority: 'high' },
+  { id: 'soc2-12', fw: 'soc2', name: 'Employee Security Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', priority: 'standard' },
+  { id: 'soc2-13', fw: 'soc2', name: 'Background Check Records', category: 'HR & Training', method: 'Manual', owner: 'HR', freq: 'Per Hire', priority: 'standard' },
+  { id: 'soc2-14', fw: 'soc2', name: 'Vendor Risk Assessment', category: 'Vendor Management', method: 'Manual', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-15', fw: 'soc2', name: 'Change Management Log', category: 'Change Management', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-16', fw: 'soc2', name: 'System Monitoring Logs', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-17', fw: 'soc2', name: 'Backup Verification Report', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'soc2-18', fw: 'soc2', name: 'Data Classification Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'soc2-19', fw: 'soc2', name: 'Asset Inventory', category: 'Change Management', method: 'Manual', owner: 'Engineering', freq: 'Quarterly', priority: 'standard' },
+  { id: 'soc2-20', fw: 'soc2', name: 'Security Awareness Training Completion', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Quarterly', priority: 'standard' },
   // ISO 27001
-  { id: 'iso-01', fw: 'iso27001', name: 'Information Security Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-02', fw: 'iso27001', name: 'Risk Assessment Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-03', fw: 'iso27001', name: 'Statement of Applicability', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-04', fw: 'iso27001', name: 'Internal Audit Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'iso-05', fw: 'iso27001', name: 'Supplier Security Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-06', fw: 'iso27001', name: 'Physical Security Controls', category: 'Security Monitoring', method: 'Manual', owner: 'Operations', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-07', fw: 'iso27001', name: 'Cryptography Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-08', fw: 'iso27001', name: 'Network Security Controls', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'iso-09', fw: 'iso27001', name: 'Mobile Device Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'iso-10', fw: 'iso27001', name: 'Business Continuity Controls', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'iso-11', fw: 'iso27001', name: 'Incident Management Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'iso-12', fw: 'iso27001', name: 'Compliance Monitoring Records', category: 'Security Monitoring', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', defaultStatus: 'pending' },
+  { id: 'iso-01', fw: 'iso27001', name: 'Information Security Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-02', fw: 'iso27001', name: 'Risk Assessment Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-03', fw: 'iso27001', name: 'Statement of Applicability', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-04', fw: 'iso27001', name: 'Internal Audit Report', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', priority: 'high' },
+  { id: 'iso-05', fw: 'iso27001', name: 'Supplier Security Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-06', fw: 'iso27001', name: 'Physical Security Controls', category: 'Security Monitoring', method: 'Manual', owner: 'Operations', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-07', fw: 'iso27001', name: 'Cryptography Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-08', fw: 'iso27001', name: 'Network Security Controls', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'iso-09', fw: 'iso27001', name: 'Mobile Device Policy', category: 'Access Control', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'high' },
+  { id: 'iso-10', fw: 'iso27001', name: 'Business Continuity Controls', category: 'Incident Response', method: 'Annual', owner: 'Operations', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-11', fw: 'iso27001', name: 'Incident Management Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'iso-12', fw: 'iso27001', name: 'Compliance Monitoring Records', category: 'Security Monitoring', method: 'Quarterly', owner: 'Security', freq: 'Quarterly', priority: 'standard' },
   // GDPR
-  { id: 'gdpr-01', fw: 'gdpr', name: 'Data Processing Register (ROPA)', category: 'Access Control', method: 'Manual', owner: 'Legal', freq: 'Quarterly', defaultStatus: 'collected' },
-  { id: 'gdpr-02', fw: 'gdpr', name: 'Privacy Notice / Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'gdpr-03', fw: 'gdpr', name: 'Data Subject Request Procedures', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'gdpr-04', fw: 'gdpr', name: 'Data Breach Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'gdpr-05', fw: 'gdpr', name: 'DPA Agreements with Processors', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'gdpr-06', fw: 'gdpr', name: 'Cookie Consent Records', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'gdpr-07', fw: 'gdpr', name: 'DPIA for High-Risk Processing', category: 'Security Monitoring', method: 'Annual', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'gdpr-08', fw: 'gdpr', name: 'Data Retention Schedule', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'pending' },
+  { id: 'gdpr-01', fw: 'gdpr', name: 'Data Processing Register (ROPA)', category: 'Access Control', method: 'Manual', owner: 'Legal', freq: 'Quarterly', priority: 'standard' },
+  { id: 'gdpr-02', fw: 'gdpr', name: 'Privacy Notice / Policy', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'gdpr-03', fw: 'gdpr', name: 'Data Subject Request Procedures', category: 'Incident Response', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'gdpr-04', fw: 'gdpr', name: 'Data Breach Response Plan', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'high' },
+  { id: 'gdpr-05', fw: 'gdpr', name: 'DPA Agreements with Processors', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'gdpr-06', fw: 'gdpr', name: 'Cookie Consent Records', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'gdpr-07', fw: 'gdpr', name: 'DPIA for High-Risk Processing', category: 'Security Monitoring', method: 'Annual', owner: 'Legal', freq: 'Annual', priority: 'high' },
+  { id: 'gdpr-08', fw: 'gdpr', name: 'Data Retention Schedule', category: 'Access Control', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'standard' },
   // HIPAA
-  { id: 'hipaa-01', fw: 'hipaa', name: 'HIPAA Security Risk Analysis', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'hipaa-02', fw: 'hipaa', name: 'Business Associate Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', defaultStatus: 'collected' },
-  { id: 'hipaa-03', fw: 'hipaa', name: 'PHI Access Audit Logs', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'hipaa-04', fw: 'hipaa', name: 'Workforce Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'hipaa-05', fw: 'hipaa', name: 'Sanction Policy', category: 'HR & Training', method: 'Policy', owner: 'Legal', freq: 'Annual', defaultStatus: 'missing' },
-  { id: 'hipaa-06', fw: 'hipaa', name: 'Emergency Access Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', defaultStatus: 'pending' },
-  { id: 'hipaa-07', fw: 'hipaa', name: 'Transmission Security Evidence', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', defaultStatus: 'collected' },
-  { id: 'hipaa-08', fw: 'hipaa', name: 'PHI Disposal Records', category: 'Change Management', method: 'Manual', owner: 'Operations', freq: 'Quarterly', defaultStatus: 'missing' },
+  { id: 'hipaa-01', fw: 'hipaa', name: 'HIPAA Security Risk Analysis', category: 'Security Monitoring', method: 'Annual', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'hipaa-02', fw: 'hipaa', name: 'Business Associate Agreements', category: 'Vendor Management', method: 'Manual', owner: 'Legal', freq: 'Annual', priority: 'standard' },
+  { id: 'hipaa-03', fw: 'hipaa', name: 'PHI Access Audit Logs', category: 'Access Control', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'hipaa-04', fw: 'hipaa', name: 'Workforce Training Records', category: 'HR & Training', method: 'Automated', owner: 'HR', freq: 'Annual', priority: 'standard' },
+  { id: 'hipaa-05', fw: 'hipaa', name: 'Sanction Policy', category: 'HR & Training', method: 'Policy', owner: 'Legal', freq: 'Annual', priority: 'high' },
+  { id: 'hipaa-06', fw: 'hipaa', name: 'Emergency Access Procedures', category: 'Incident Response', method: 'Policy', owner: 'Security', freq: 'Annual', priority: 'standard' },
+  { id: 'hipaa-07', fw: 'hipaa', name: 'Transmission Security Evidence', category: 'Security Monitoring', method: 'Automated', owner: 'Engineering', freq: 'Monthly', priority: 'standard' },
+  { id: 'hipaa-08', fw: 'hipaa', name: 'PHI Disposal Records', category: 'Change Management', method: 'Manual', owner: 'Operations', freq: 'Quarterly', priority: 'high' },
 ];
 
 const FW_CONFIG = {
@@ -946,46 +929,55 @@ const FW_CONFIG = {
   hipaa:    { label: 'HIPAA',    count:  8 },
 };
 
-const DEFAULT_RISKS = [
-  { id: 'r1', desc: 'Single admin account without MFA', category: 'Technical',    severity: 'Critical', likelihood: 'High',   owner: 'Engineering', status: 'Open',       date: '2026-04-12' },
-  { id: 'r2', desc: 'Vendor SOC 2 reports not collected annually', category: 'Third-party', severity: 'High',     likelihood: 'Medium', owner: 'Security',    status: 'Mitigating', date: '2026-04-20' },
-  { id: 'r3', desc: 'Employee offboarding access revocation delay', category: 'Human',       severity: 'Medium',   likelihood: 'Low',    owner: 'HR',          status: 'Open',       date: '2026-05-01' },
-];
+// The risk register used to be seeded with three invented risks — "Single
+// admin account without MFA", assigned to Engineering, dated 2026-04-12 —
+// which appeared in every new account as though someone had assessed them.
+// A risk register is a record of findings; inventing entries in it is the
+// same error as inventing the evidence below, and starts the customer's
+// compliance history with three things that never happened.
+const DEFAULT_RISKS = [];
 
 // ─────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────
 const LS_EVIDENCE = 'tmd_compliance_evidence';
+const LS_EV_DATES = 'tmd_compliance_evidence_dates';
 const LS_RISKS    = 'tmd_compliance_risks';
 
 function loadEvidence() {
   try { return JSON.parse(localStorage.getItem(LS_EVIDENCE) || '{}'); } catch { return {}; }
 }
 function saveEvidence(state) { localStorage.setItem(LS_EVIDENCE, JSON.stringify(state)); }
+function loadEvidenceDates() {
+  try { return JSON.parse(localStorage.getItem(LS_EV_DATES) || '{}'); } catch { return {}; }
+}
+function saveEvidenceDates(d) { localStorage.setItem(LS_EV_DATES, JSON.stringify(d)); }
 function loadRisks() {
   try {
     const r = JSON.parse(localStorage.getItem(LS_RISKS));
-    return Array.isArray(r) ? r : DEFAULT_RISKS;
-  } catch { return DEFAULT_RISKS; }
+    return Array.isArray(r) ? r : [];
+  } catch { return []; }
 }
 function saveRisks(risks) { localStorage.setItem(LS_RISKS, JSON.stringify(risks)); }
 
 let evidenceState = loadEvidence();
+let evidenceDates = loadEvidenceDates();
 let risks = loadRisks();
 let activeFramework = 'soc2';
 let activeEvidenceFilter = 'all';
 
-// Seed defaults if first visit
-(function seedDefaults() {
-  let changed = false;
-  EVIDENCE_ITEMS.forEach(item => {
-    if (evidenceState[item.id] === undefined) {
-      evidenceState[item.id] = item.defaultStatus === 'collected';
-      changed = true;
-    }
-  });
-  if (changed) saveEvidence(evidenceState);
-})();
+// Nothing is pre-collected.
+//
+// This used to mark 27 of the 48 evidence items as already collected on a
+// customer's very first visit, which drove an overall readiness score of 56%,
+// per-framework "On Track" badges, and a collection date for each one. None of
+// it had happened: nobody had gathered an Access Control Policy, an MFA
+// enforcement screenshot or training records. In a compliance tool that is the
+// most dangerous thing the product could assert — it is exactly the number
+// someone carries into a security questionnaire or an auditor conversation.
+//
+// evidenceState is now empty until the customer ticks something, and each tick
+// records when they actually did it.
 
 // ─────────────────────────────────────────
 //  SCORE CALCULATIONS
@@ -1077,6 +1069,45 @@ function updateKPIs() {
   document.getElementById('kpi-evidence').textContent = collected;
   const openRisks = risks.filter(r => r.status === 'Open').length;
   document.getElementById('kpi-risks').textContent = openRisks;
+  const sub = document.getElementById('kpi-risks-sub');
+  if (sub) sub.textContent = risks.length + ' total in register';
+  updateAuditCountdown();
+}
+
+const LS_AUDIT_DATE = 'tmd_compliance_audit_date';
+
+/** Days remaining to the target audit date the customer set, or nothing. */
+function updateAuditCountdown() {
+  const valEl = document.getElementById('kpi-audit-days');
+  const subEl = document.getElementById('kpi-audit-sub');
+  if (!valEl || !subEl) return;
+  let target = null;
+  try { target = localStorage.getItem(LS_AUDIT_DATE); } catch { /* ignore */ }
+  if (!target) {
+    valEl.innerHTML = '&mdash;';
+    subEl.textContent = 'Click to set a target date';
+    return;
+  }
+  const days = Math.ceil((new Date(target + 'T00:00:00') - new Date()) / 86400000);
+  valEl.textContent = days >= 0 ? days : 'Passed';
+  subEl.textContent = 'Target: ' + target;
+}
+
+function setAuditDate() {
+  let current = '';
+  try { current = localStorage.getItem(LS_AUDIT_DATE) || ''; } catch { /* ignore */ }
+  const entered = prompt('Target audit date (YYYY-MM-DD). Leave blank to clear.', current);
+  if (entered === null) return;
+  const trimmed = entered.trim();
+  if (trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    alert('Please enter the date as YYYY-MM-DD.');
+    return;
+  }
+  try {
+    if (trimmed) localStorage.setItem(LS_AUDIT_DATE, trimmed);
+    else localStorage.removeItem(LS_AUDIT_DATE);
+  } catch { /* ignore */ }
+  updateAuditCountdown();
 }
 
 // ─────────────────────────────────────────
@@ -1096,10 +1127,19 @@ function renderEvidence() {
 
   list.innerHTML = items.map(item => {
     const checked = evidenceState[item.id];
-    const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
-    const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
+    // "Missing" vs "Pending" was driven by defaultStatus, which also decided
+    // whether the item started ticked. Nothing is pre-ticked now, so this is
+    // simply "not collected yet" — with the high-priority ones called out as
+    // the gaps auditors ask about first, which is a judgement about the
+    // control, not a claim about this customer.
+    const statusLabel = checked ? 'Collected' : (item.priority === 'high' ? 'Priority gap' : 'Not collected');
+    const statusClass = checked ? 'collected' : (item.priority === 'high' ? 'missing' : 'pending');
     const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
-    const lastUpdated = checked ? '2026-05-' + String(Math.floor(Math.random()*28+1)).padStart(2,'0') : '—';
+    // The date used to be Math.random() over May 2026 — a different fabricated
+    // date on every re-render, for evidence that had never been collected.
+    // It is now the moment the customer actually ticked the box.
+    const collectedAt = evidenceDates[item.id];
+    const lastUpdated = (checked && collectedAt) ? collectedAt.slice(0, 10) : '—';
     return `
       <div class="ev-card ${checked ? 'collected' : ''}" id="evcard-${item.id}">
         <input type="checkbox" class="ev-checkbox" ${checked ? 'checked' : ''}
@@ -1113,7 +1153,7 @@ function renderEvidence() {
         </div>
         <div class="ev-right">
           <span class="ev-status ${statusClass}" id="evstatus-${item.id}">${statusLabel}</span>
-          <span class="ev-date">${checked ? lastUpdated : '—'}</span>
+          <span class="ev-date" id="evdate-${item.id}" title="${checked && collectedAt ? 'Marked collected ' + collectedAt : ''}">${lastUpdated}</span>
         </div>
       </div>`;
   }).join('');
@@ -1121,6 +1161,11 @@ function renderEvidence() {
 
 function toggleEvidence(id, checked) {
   evidenceState[id] = checked;
+  // Record when this was actually marked collected; clear it when unticked,
+  // so a date never outlives the claim it belongs to.
+  if (checked) { evidenceDates[id] = new Date().toISOString(); }
+  else { delete evidenceDates[id]; }
+  saveEvidenceDates(evidenceDates);
   saveEvidence(evidenceState);
   // Update card class
   const card = document.getElementById('evcard-' + id);
@@ -1130,8 +1175,21 @@ function toggleEvidence(id, checked) {
     else { card.classList.remove('collected'); }
   }
   if (statusEl) {
-    statusEl.className = 'ev-status ' + (checked ? 'collected' : 'pending');
-    statusEl.textContent = checked ? 'Collected' : 'Pending';
+    // The un-ticked label depends on the control's priority, the same as in
+    // renderEvidence — this used to say "Pending" for everything, so an item
+    // flagged as a priority gap silently lost that flag the moment someone
+    // ticked and un-ticked it.
+    const item = EVIDENCE_ITEMS.find(i => i.id === id);
+    const highPriority = item && item.priority === 'high';
+    statusEl.className = 'ev-status ' + (checked ? 'collected' : (highPriority ? 'missing' : 'pending'));
+    statusEl.textContent = checked ? 'Collected' : (highPriority ? 'Priority gap' : 'Not collected');
+  }
+  // Show the recorded date immediately rather than waiting for a re-render.
+  const dateEl = document.getElementById('evdate-' + id);
+  if (dateEl) {
+    const at = evidenceDates[id];
+    dateEl.textContent = at ? at.slice(0, 10) : '—';
+    dateEl.title = at ? 'Marked collected ' + at : '';
   }
   updateScoreRing();
   updateFrameworkCards();
@@ -1170,8 +1228,13 @@ function filterEvidenceByFramework(fw) {
   const items = EVIDENCE_ITEMS.filter(i => i.fw === fw);
   list.innerHTML = items.map(item => {
     const checked = evidenceState[item.id];
-    const statusLabel = checked ? 'Collected' : (item.defaultStatus === 'missing' ? 'Missing' : 'Pending');
-    const statusClass = checked ? 'collected' : (item.defaultStatus === 'missing' ? 'missing' : 'pending');
+    // "Missing" vs "Pending" was driven by defaultStatus, which also decided
+    // whether the item started ticked. Nothing is pre-ticked now, so this is
+    // simply "not collected yet" — with the high-priority ones called out as
+    // the gaps auditors ask about first, which is a judgement about the
+    // control, not a claim about this customer.
+    const statusLabel = checked ? 'Collected' : (item.priority === 'high' ? 'Priority gap' : 'Not collected');
+    const statusClass = checked ? 'collected' : (item.priority === 'high' ? 'missing' : 'pending');
     const methodClass = { 'Automated': 'ev-tag-auto', 'Manual': 'ev-tag-manual', 'Quarterly': 'ev-tag-quarterly', 'Annual': 'ev-tag-annual', 'Policy': 'ev-tag-policy' }[item.method] || 'ev-tag-manual';
     return `
       <div class="ev-card ${checked ? 'collected' : ''}" id="evcard-${item.id}">
@@ -1317,7 +1380,10 @@ async function runContentReview() {
         },
       });
     } else {
-      output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI reviews.</p>';
+      // The Anthropic key is held server-side; there is nothing for the
+      // customer to add in Settings, and telling them there is sends them
+      // looking for a setting that does not exist.
+      output.innerHTML = '<p style="color:var(--text3)">The AI service failed to load. Reload the page and try again.</p>';
     }
   } catch (e) {
     output.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
@@ -1396,7 +1462,9 @@ Be specific, technical, and actionable. Include real tool names, API endpoints, 
         },
       });
     } else {
-      output.innerHTML = '<p style="color:var(--text3)">ClaudeService not available. Connect your API key in Settings to enable AI-generated plans.</p>';
+      // Same as the review panel: the key is server-side, so there is nothing
+      // to add in Settings.
+      output.innerHTML = '<p style="color:var(--text3)">The AI service failed to load. Reload the page and try again.</p>';
     }
   } catch (e) {
     output.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
@@ -1416,7 +1484,7 @@ function init() {
   renderFwHealthGrid();
   updateKPIs();
   // Risks seeded if empty
-  if (!localStorage.getItem(LS_RISKS)) saveRisks(DEFAULT_RISKS);
+  // No seeding: an empty register is the truth for a new account.
   renderRisks();
 }
 

@@ -25,25 +25,17 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const { parseTarget, htmlToText } = require('./_lib/nancy-crawl.js');
+const { safeFetchText } = require('./_lib/safe-fetch.js');
 const { searchProvider } = require('./_lib/nancy-providers.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 15;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 const CANDIDATE_PATHS = ['/contact', '/contact-us', '/about', '/about-us', ''];
 const PAGE_TIMEOUT_MS = 8000;
@@ -94,15 +86,18 @@ function pickBestEmail(candidates, siteHostname) {
 
 async function fetchRawHtml(url) {
   try {
-    const res = await fetch(url, {
-      method: 'GET', redirect: 'follow',
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+    // Through safe-fetch: this walks a domain the caller supplied, so the
+    // target and every redirect it follows have to be checked, not just the
+    // shape of the string.
+    const r = await safeFetchText(url, {
+      timeoutMs: PAGE_TIMEOUT_MS,
+      maxBytes: 400_000,
       headers: { 'User-Agent': 'NancyJamFancy/1.0 (+content research bot)', 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
     });
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
+    if (r.status < 200 || r.status >= 300) return null;
+    const ct = r.headers.get('content-type') || '';
     if (!ct.includes('text/html') && !ct.includes('text/plain')) return null;
-    return (await res.text()).slice(0, 400_000);
+    return r.text;
   } catch {
     return null;
   }
@@ -141,15 +136,20 @@ async function searchForEmail(domain) {
   return pickBestEmail(found, domain.replace(/^www\./, ''));
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-backlink-find-email', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'seo-backlink-find-email', max: 15, windowMs: 60 * 1000, auth })) return;
 
   const { domain } = req.body || {};
   if (!domain || !String(domain).trim()) return res.status(400).json({ error: 'domain is required' });
@@ -171,4 +171,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.json({ success: true, email: null, contact_name: null, data_source: 'not_found' });
-};
+});

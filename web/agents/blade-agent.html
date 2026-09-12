@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/contacts-store.js"></script>
 <script src="/js/site-switcher.js"></script>
@@ -111,6 +113,8 @@
   .badge-modern { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: #34d399; }
   .badge-unreachable { background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
   .badge-checking { background: rgba(148,163,184,0.1); border: 1px solid var(--border); color: var(--text3); }
+  /* Our check broke — a different thing from a verdict about their site. */
+  .badge-checkfailed { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); color: #f59e0b; }
   .badge-newbiz { background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; margin-left: 4px; }
   .status-reasons { font-size: 11px; color: var(--text3); margin-top: 3px; max-width: 220px; }
 </style>
@@ -343,7 +347,7 @@
   async function fetchCities(input) {
     try {
       var res = await fetch('/api/blade-cities-autocomplete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: await window.sendAuthHeaders(),
         body: JSON.stringify({ input: input, countryCode: state.country ? state.country.code : null }),
       });
       var data = await res.json();
@@ -409,7 +413,7 @@
 
     try {
       var res = await fetch('/api/blade-places-search', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           sector: state.sector,
           city: state.city ? state.city.description : '',
@@ -457,8 +461,16 @@
 
   function emailCell(r) {
     if (r._emailLoading) return '<span class="email-pending"><span class="spinner"></span></span>';
-    if (r.email && r.emailSource === 'real') return '<span class="email-real">' + r.email + '</span>';
-    if (r.email && r.emailSource === 'estimate') return '<span class="email-estimate">' + r.email + ' <span title="Inferred via search, not confirmed on-site">≈</span></span>';
+    // The address is scraped off a third-party website by the enrichment
+    // endpoint. It was interpolated raw into innerHTML here while every other
+    // cell on this row was escaped, so a page under someone else's control
+    // could put script into this table.
+    if (r.email && r.emailSource === 'real') return '<span class="email-real">' + escapeHtml(r.email) + '</span>';
+    if (r.email && r.emailSource === 'estimate') return '<span class="email-estimate">' + escapeHtml(r.email) + ' <span title="Inferred via search, not confirmed on-site">≈</span></span>';
+    // "The lookup failed" and "this business has no published email" are
+    // different answers. Reporting the first as the second tells the customer
+    // something about their prospect that we never actually found out.
+    if (r._emailError) return '<span class="email-none" title="' + escapeAttr(r._emailError) + '">lookup failed</span>';
     if (r._emailChecked) return '<span class="email-none">not found</span>';
     return '<span class="email-pending">—</span>';
   }
@@ -484,6 +496,7 @@
     else if (r.siteStatus === 'no_website') badge = '<span class="badge badge-nosite">No website</span>';
     else if (r.siteStatus === 'outdated') badge = '<span class="badge badge-outdated">Outdated</span>';
     else if (r.siteStatus === 'unreachable') badge = '<span class="badge badge-unreachable">Unreachable</span>';
+    else if (r.siteStatus === 'check_failed') badge = '<span class="badge badge-checkfailed">Check failed</span>';
     else if (r.siteStatus === 'modern') badge = '<span class="badge badge-modern">Modern</span>';
     else badge = '<span class="badge badge-checking">Not checked</span>';
 
@@ -542,7 +555,11 @@
 
   async function enrichEmails() {
     if (state.enriching) return;
-    var targets = state.results.filter(function (r) { return r.website && !r._emailChecked && !r._emailLoading; });
+    // As with the website check, a failed lookup is retried rather than left
+    // permanently marked as answered.
+    var targets = state.results.filter(function (r) {
+      return r.website && !r._emailLoading && (!r._emailChecked || r._emailError);
+    });
     if (!targets.length) return;
     state.enriching = true;
     $('btn-enrich').disabled = true;
@@ -560,14 +577,23 @@
         renderResults();
         try {
           var res = await fetch('/api/seo-backlink-find-email', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ domain: r.website }),
           });
+          if (!res.ok) throw new Error('lookup returned ' + res.status);
           var data = await res.json();
           r.email = (data && data.email) || null;
           r.emailSource = data && data.data_source;
+          r._emailError = null;
         } catch (e) {
+          // This used to set r.email = null, which the table rendered as
+          // "not found" — our outage presented as a fact about their prospect.
           r.email = null;
+          r._emailError = (e && e.message) || 'lookup failed';
+          if (window.reportFailure) {
+            window.reportFailure('Blade contact-email lookup failed: ' + r._emailError,
+              { where: 'blade-agent.enrichEmails', domain: r.website });
+          }
         }
         r._emailLoading = false;
         r._emailChecked = true;
@@ -596,7 +622,11 @@
 
   async function checkWebsites() {
     if (state.checkingSites) return;
-    var targets = state.results.filter(function (r) { return r.website && r.siteStatus == null && !r._siteLoading; });
+    // A row whose check failed is retried on the next press — it holds no
+    // verdict, only the news that we could not get one.
+    var targets = state.results.filter(function (r) {
+      return r.website && !r._siteLoading && (r.siteStatus == null || r.siteStatus === 'check_failed');
+    });
     if (!targets.length) return;
     state.checkingSites = true;
     $('btn-check-sites').disabled = true;
@@ -614,15 +644,24 @@
         renderResults();
         try {
           var res = await fetch('/api/blade-website-check', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ website: r.website }),
           });
+          if (!res.ok) throw new Error('check returned ' + res.status);
           var data = await res.json();
           r.siteStatus = (data && data.status) || 'unreachable';
           r.siteReasons = (data && data.reasons) || [];
         } catch (e) {
-          r.siteStatus = 'unreachable';
-          r.siteReasons = [];
+          // "Unreachable" is a verdict about the prospect's website. When our
+          // own check is what failed, saying that is a measurement we did not
+          // make — and it is the verdict the "Outdated / Unreachable" filter
+          // sells the whole lead list on.
+          r.siteStatus = 'check_failed';
+          r.siteReasons = [(e && e.message) || 'the check could not be completed'];
+          if (window.reportFailure) {
+            window.reportFailure('Blade website check failed: ' + r.siteReasons[0],
+              { where: 'blade-agent.checkWebsites', website: r.website });
+          }
         }
         r._siteLoading = false;
         done++;
@@ -751,7 +790,9 @@
     var rows = state.results.filter(matchesFilters).map(function (r) {
       return [
         r.name, r.address, r.phone, r.website,
-        r.siteStatus === 'no_website' ? 'No website' : (r.siteStatus || 'Not checked'),
+        r.siteStatus === 'no_website' ? 'No website'
+          : r.siteStatus === 'check_failed' ? 'Check failed'
+          : (r.siteStatus || 'Not checked'),
         (r.siteReasons || []).join('; '), isNewBusiness(r) ? 'Yes' : 'No',
         r.email || '', r.emailSource || '',
         r.rating != null ? r.rating : '', r.reviewCount != null ? r.reviewCount : '',

@@ -912,6 +912,8 @@
 </div>
 
 <script src="/js/marked.min.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/gemini-service.js"></script>
 <script src="/js/supabase.min.js"></script>
@@ -1258,6 +1260,7 @@
             audienceContacts = await window.ContactsStore.listContacts({ limit: 2000 });
         } catch (err) {
             body.innerHTML = `<p style="color:var(--text2);font-size:13px;padding:12px 0;">Couldn't load contacts: ${escHtmlAn(err.message)}</p>`;
+            if (window.reportFailure) window.reportFailure('Analytics Brain could not load contacts: ' + err.message, { where: 'analytics-agent.loadContacts' });
             return;
         }
         if (!audienceContacts.length) {
@@ -1391,10 +1394,13 @@ Be specific to the real data given — do not generate a generic persona templat
                     outBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text;
                     if (window.AgentHistory) window.AgentHistory.save({ agentKey: 'analytics', taskType: 'Real Segment Persona', content: text });
                 },
-                onError: (err) => { outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}</div>`; },
+                onError: (err) => {
+                    outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${escHtmlAn(err.message)}</div>`;
+                    if (window.reportFailure) window.reportFailure('Analytics Brain segment persona failed: ' + err.message, { where: 'analytics-agent.segmentPersona' });
+                },
             });
         } catch (err) {
-            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}</div>`;
+            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${escHtmlAn(err.message)}</div>`;
         }
     }
 
@@ -1420,6 +1426,7 @@ Be specific to the real data given — do not generate a generic persona templat
             loadReportHistory();
         } catch (err) {
             alert('Could not save report: ' + err.message);
+            if (window.reportFailure) window.reportFailure('Analytics Brain could not save a report: ' + err.message, { where: 'analytics-agent.saveCurrentReport' });
             btn.disabled = false;
         }
     }
@@ -1823,11 +1830,11 @@ Format with clear sections, use the data provided, and write in a confident narr
                     }
                 },
                 onError: (err) => {
-                    outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
+                    outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${escHtmlAn(err.message)}. Please check your API configuration.</div>`;
                 },
             });
         } catch (err) {
-            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${err.message}. Please check your API configuration.</div>`;
+            outBody.innerHTML = `<div style="color:#ef4444;padding:20px;">Error: ${escHtmlAn(err.message)}. Please check your API configuration.</div>`;
         }
     }
 
@@ -1843,7 +1850,22 @@ Format with clear sections, use the data provided, and write in a confident narr
             let settled = false;
             let hadError = false;
             let chunksReceived = false;
-            const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+            // onError covers a stream that fails. It does not cover a stream
+            // that simply stops sending — nothing rejects, nothing settles,
+            // and every caller of this function awaits it forever with its
+            // button disabled. Every setTimeout on this page before this one
+            // was a button-label flash, not a backstop. This is the choke
+            // point all of them go through, so it belongs here.
+            const settle = (outcome) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(stallTimer);
+                resolve(outcome);
+            };
+            const stallTimer = setTimeout(() => {
+                settle({ ok: false, chunksReceived,
+                         err: new Error('the request timed out after 120 seconds — the AI API may be unreachable or overloaded') });
+            }, 120000);
             Promise.resolve(service.streamResponse({
                 systemPrompt,
                 messages,

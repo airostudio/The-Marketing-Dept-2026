@@ -15,32 +15,26 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/seo-keyword-volumes', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // DataForSEO bills per keyword looked up, on the account's subscription.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'seo-keyword-volumes', max: 8, windowMs: 60 * 1000, auth })) return;
 
   const { keywords = [] } = req.body || {};
   if (!Array.isArray(keywords) || !keywords.length) return res.status(400).json({ error: 'keywords array is required' });
@@ -78,4 +72,4 @@ module.exports = async function handler(req, res) {
     console.warn('[seo-keyword-volumes] DataForSEO lookup failed, callers should stay with estimates:', err.message);
     return res.json({ success: true, volumes: {}, configured: true, error: isTimeout ? 'DataForSEO request timed out' : err.message });
   }
-};
+});
