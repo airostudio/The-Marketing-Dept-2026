@@ -488,6 +488,40 @@ require.cache[safeFetchPath] = {
     /data URI/i.test(r.body.run.calibration_result.servedCheck.reason || ''));
   await call(control, { runId: r.body.run.id, action: 'cancel' }, { headers: { 'x-builtwith-token': freshToken } });
 
+  console.log('\n──── a supplied targetUrl is served-checked instead of the generator\'s own imageUrl ────');
+  fakeDb = makeFakeDb();
+  let checkedUrls = [];
+  mockupImpl = async (req, res) => {
+    res.status(200).json({ success: true, imageUrl: 'https://cdn.example.com/mockups/two.png', hosted: true, mimeType: 'image/png', creditsUsed: 50, creditsRemaining: 100, disclaimer: 'x', notes: [] });
+  };
+  safeFetchImpl = async (url) => { checkedUrls.push(url); return { status: 200 }; };
+  r = await call(create, Object.assign({}, validConfig, {
+    calibration: { enabled: true, businessName: 'Target Co', targetUrl: 'https://real-client-site.example.com/' },
+  }), { headers: { 'x-builtwith-token': freshToken } });
+  check('a run with targetUrl is created successfully', r.status === 200 && r.body.success === true);
+  check('the served-check hit the SUPPLIED targetUrl, not the generator\'s own imageUrl',
+    checkedUrls.length === 1 && checkedUrls[0] === 'https://real-client-site.example.com/');
+  check('servedCheck.checkedUrl reports which URL was actually verified',
+    r.body.run.calibration_result.servedCheck.checkedUrl === 'https://real-client-site.example.com/');
+  await call(control, { runId: r.body.run.id, action: 'cancel' }, { headers: { 'x-builtwith-token': freshToken } });
+
+  console.log('\n──── an invalid targetUrl is rejected before any real HTTP check is attempted ────');
+  fakeDb = makeFakeDb();
+  checkedUrls = [];
+  mockupImpl = async (req, res) => {
+    res.status(200).json({ success: true, imageUrl: 'https://cdn.example.com/mockups/three.png', hosted: true, mimeType: 'image/png', creditsUsed: 50, creditsRemaining: 100, disclaimer: 'x', notes: [] });
+  };
+  safeFetchImpl = async (url) => { checkedUrls.push(url); return { status: 200 }; };
+  r = await call(create, Object.assign({}, validConfig, {
+    calibration: { enabled: true, businessName: 'Bad URL Co', targetUrl: 'not a url' },
+  }), { headers: { 'x-builtwith-token': freshToken } });
+  check('a malformed targetUrl still lets the run succeed (only the served-check is skipped, not the whole calibration)', r.status === 200 && r.body.success === true);
+  check('safeFetch was never called for a malformed targetUrl', checkedUrls.length === 0);
+  check('servedCheck.applicable is false with a plain-language reason naming the bad value',
+    r.body.run.calibration_result.servedCheck.applicable === false &&
+    /not a valid/i.test(r.body.run.calibration_result.servedCheck.reason || ''));
+  await call(control, { runId: r.body.run.id, action: 'cancel' }, { headers: { 'x-builtwith-token': freshToken } });
+
   console.log('\n──── a FAILED calibration refuses to start the run by default, and requires an explicit override ────');
   fakeDb = makeFakeDb();
   mockupImpl = async (req, res) => res.status(502).json({ error: 'Gemini returned a safety block for this prompt.' });

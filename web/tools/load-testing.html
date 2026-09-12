@@ -297,6 +297,15 @@
                                     <label for="cal-usd-per-credit">Your $/credit rate (optional)</label>
                                     <input type="number" id="cal-usd-per-credit" min="0" step="0.0001" placeholder="e.g. 0.004">
                                 </div>
+                                <div>
+                                    <label for="cal-target-url">Target URL to verify (optional)</label>
+                                    <input type="url" id="cal-target-url" placeholder="https://example.com — a real site to check">
+                                </div>
+                            </div>
+                            <div class="cal-hint" style="font-size:12px;color:var(--text2,#94a3b8);margin-top:6px;">
+                                Leave blank to check the generated mockup image's own URL. Provide a real website URL
+                                instead to verify that specific site serves successfully — this is a single real HTTP
+                                request, made once, never repeated for the rest of the run.
                             </div>
                             <div class="cal-checkbox-row">
                                 <input type="checkbox" id="cal-ack">
@@ -592,6 +601,7 @@ async function startTest() {
             businessName,
             industry: document.getElementById('cal-industry').value.trim(),
             usdPerCredit: usdPerCreditRaw === '' ? null : Number(usdPerCreditRaw),
+            targetUrl: document.getElementById('cal-target-url').value.trim(),
         };
     }
 
@@ -734,7 +744,8 @@ function renderCalibrationPanel(run) {
     if (!served.applicable) {
         servedLine = `<div class="cal-row"><span>Served check</span><span>not applicable — ${esc(served.reason || 'n/a')}</span></div>`;
     } else {
-        servedLine = `<div class="cal-row"><span>Served check</span><span>${served.ok ? 'OK' : 'FAILED'} — HTTP ${esc(served.status ?? '—')} in ${fmtDuration(served.latencyMs)}</span></div>`;
+        const urlNote = served.checkedUrl ? ` (${esc(served.checkedUrl)})` : '';
+        servedLine = `<div class="cal-row"><span>Served check${urlNote}</span><span>${served.ok ? 'OK' : 'FAILED'} — HTTP ${esc(served.status ?? '—')} in ${fmtDuration(served.latencyMs)}</span></div>`;
     }
     let usdLine = '';
     if (c.usdPerCredit != null && Number.isFinite(Number(cal.realCreditsUsed))) {

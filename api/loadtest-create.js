@@ -93,6 +93,7 @@ module.exports = withFailureReporting('api/loadtest-create', async function hand
     calibrationResult = await runCalibration(req, {
       businessName,
       industry: calibrationRequest.industry ? String(calibrationRequest.industry).trim() : '',
+      targetUrl: calibrationRequest.targetUrl ? String(calibrationRequest.targetUrl).trim() : '',
     });
 
     if (!calibrationResult.success) {

@@ -136,6 +136,48 @@ function buildFakeReqRes(originalReq, body) {
 }
 
 /**
+ * A user-supplied URL to serve-check must look like an actual http(s) URL
+ * before it's worth handing to safeFetch at all — this is a shape check
+ * only. safeFetch (api/_lib/safe-fetch.js) is what actually keeps a
+ * malicious/internal target from being reached (DNS resolution + private/
+ * reserved-range blocking on every hop, manual redirect re-validation) —
+ * this function does not duplicate that, it just rejects obvious garbage
+ * early with a clear error instead of a confusing safeFetch failure.
+ */
+function isPlausibleHttpUrl(u) {
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** One real GET via the SSRF-hardened fetcher, timed and reported honestly either way. */
+async function checkUrlServes(url) {
+  const fetchStartedAt = Date.now();
+  try {
+    const r = await safeFetch(url, { method: 'GET', timeoutMs: 10000 });
+    return {
+      applicable: true,
+      checkedUrl: url,
+      ok: r.status >= 200 && r.status < 300,
+      status: r.status,
+      latencyMs: Date.now() - fetchStartedAt,
+    };
+  } catch (err) {
+    return {
+      applicable: true,
+      checkedUrl: url,
+      ok: false,
+      status: null,
+      latencyMs: Date.now() - fetchStartedAt,
+      reason: (err && err.message) || 'The served-check request failed.',
+    };
+  }
+}
+
+/**
  * Run the ONE real calibration call for a new load test, and the ONE real
  * served-check that follows it. Never throws — every failure mode (the
  * generator call itself failing, or the served-check failing) is reported
@@ -146,11 +188,17 @@ function buildFakeReqRes(originalReq, body) {
  *   only to forward its Authorization header (see header comment above).
  * @param {string} businessName
  * @param {string} [industry]
+ * @param {string} [targetUrl] — when given, the served-check verifies THIS
+ *   URL instead of the generator's own returned imageUrl. Lets an operator
+ *   ask "can the actual website I care about serve right now" rather than
+ *   only "did the mockup image we just generated load" — the mockup image
+ *   is still generated either way (that's what produces the real latency/
+ *   cost being calibrated), targetUrl only changes what gets served-checked.
  * @returns {Promise<object>} the calibration_result shape stored on the run:
  *   { success, realLatencyMs, realCreditsUsed, failureCategory,
- *     failureMessage, servedCheck: {applicable, ok, status, latencyMs, reason} }
+ *     failureMessage, servedCheck: {applicable, ok, status, latencyMs, reason, checkedUrl} }
  */
-async function runCalibration(originalReq, { businessName, industry }) {
+async function runCalibration(originalReq, { businessName, industry, targetUrl }) {
   const mockupHandler = require('../generate-website-mockup.js');
 
   const requestBody = {
@@ -173,7 +221,7 @@ async function runCalibration(originalReq, { businessName, industry }) {
       realCreditsUsed: null,
       failureCategory: CALIBRATION_FAILURE_CATEGORY,
       failureMessage: (err && err.message) || 'The calibration call threw unexpectedly.',
-      servedCheck: { applicable: false, reason: 'The calibration call failed before an image was produced.' },
+      servedCheck: { applicable: false, checkedUrl: null, reason: 'The calibration call failed before an image was produced.' },
     };
   }
   const realLatencyMs = Date.now() - startedAt; // measured here, never trusted from the response body
@@ -186,38 +234,40 @@ async function runCalibration(originalReq, { businessName, industry }) {
       realCreditsUsed: null,
       failureCategory: CALIBRATION_FAILURE_CATEGORY,
       failureMessage: (body && body.error) || `The calibration call failed (HTTP ${status}).`,
-      servedCheck: { applicable: false, reason: 'The calibration call failed before an image was produced.' },
+      servedCheck: { applicable: false, checkedUrl: null, reason: 'The calibration call failed before an image was produced.' },
     };
   }
 
   const realCreditsUsed = Number.isFinite(body.creditsUsed) ? body.creditsUsed : null;
 
   // ── The one real served-check, via the SSRF-hardened fetch primitive ────
+  // Defaults to the mockup generator's own output; an operator-supplied
+  // targetUrl checks that real website instead — the generation still runs
+  // either way, since that's what produces the latency/cost being
+  // calibrated, but "did the built mockup image load" and "does the actual
+  // site I run load" are different questions, and only the second one is
+  // useful when there's a real URL to ask it about.
   let servedCheck;
-  if (typeof body.imageUrl === 'string' && body.imageUrl.startsWith('data:')) {
+  const trimmedTargetUrl = typeof targetUrl === 'string' ? targetUrl.trim() : '';
+
+  if (trimmedTargetUrl) {
+    if (!isPlausibleHttpUrl(trimmedTargetUrl)) {
+      servedCheck = {
+        applicable: false,
+        checkedUrl: trimmedTargetUrl,
+        reason: `"${trimmedTargetUrl}" is not a valid http(s) URL — no served-check was attempted.`,
+      };
+    } else {
+      servedCheck = await checkUrlServes(trimmedTargetUrl);
+    }
+  } else if (typeof body.imageUrl === 'string' && body.imageUrl.startsWith('data:')) {
     servedCheck = {
       applicable: false,
-      reason: 'R2 not configured — result was an inline data URI, nothing to fetch',
+      checkedUrl: null,
+      reason: 'R2 not configured — result was an inline data URI, nothing to fetch, and no targetUrl was supplied',
     };
   } else {
-    const fetchStartedAt = Date.now();
-    try {
-      const r = await safeFetch(body.imageUrl, { method: 'GET', timeoutMs: 10000 });
-      servedCheck = {
-        applicable: true,
-        ok: r.status >= 200 && r.status < 300,
-        status: r.status,
-        latencyMs: Date.now() - fetchStartedAt,
-      };
-    } catch (err) {
-      servedCheck = {
-        applicable: true,
-        ok: false,
-        status: null,
-        latencyMs: Date.now() - fetchStartedAt,
-        reason: (err && err.message) || 'The served-check request failed.',
-      };
-    }
+    servedCheck = await checkUrlServes(body.imageUrl);
   }
 
   return {
