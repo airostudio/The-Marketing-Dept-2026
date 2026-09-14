@@ -72,6 +72,37 @@ for (const h of HELPERS) {
   broken.slice(0, 8).forEach(b => console.log('        ' + b));
 }
 
+console.log('\n──── a page that loads a script calling sendAuthHeaders() internally also loads the SDK ────');
+
+/* The check above only catches a page that calls sendAuthHeaders() in its own
+ * inline script. content-studio-agent.html (and three sibling agent pages)
+ * never do that — they load claude-service.js, which calls it internally —
+ * so the page's own source never mentions the helper and the check above
+ * silently passed while window.Supabase did not exist at runtime. That sent
+ * every request out with no Authorization header and the customer saw
+ * "Sign in to use this." while actually signed in. Same root cause, one
+ * level removed, so it needs its own check rather than a smarter regex on
+ * the one above: a page can depend on the SDK through a script it loads
+ * without ever typing the call itself. */
+const INDIRECT_CALLERS = fs.readdirSync(path.join(REPO, 'web/js'))
+  .filter(f => f.endsWith('.js') && f !== 'send-auth.js')
+  .filter(f => /\bsendAuthHeaders\s*\(/.test(read(path.join('web/js', f))));
+
+const indirectlyBroken = [];
+for (const p of PAGES) {
+  const s = read(p);
+  const usesIndirectCaller = INDIRECT_CALLERS.some(f => s.includes(f));
+  if (!usesIndirectCaller) continue;
+  const missing = ['supabase.min.js', 'supabase-client.js'].filter(dep => !s.includes(dep));
+  if (missing.length) {
+    const via = INDIRECT_CALLERS.filter(f => s.includes(f));
+    indirectlyBroken.push(`${p} (missing ${missing.join(', ')} — pulled in via ${via.join(', ')})`);
+  }
+}
+check('every page loading a script that calls sendAuthHeaders() internally also loads the Supabase SDK',
+  indirectlyBroken.length === 0);
+indirectlyBroken.slice(0, 8).forEach(b => console.log('        ' + b));
+
 console.log('\n──── and loads them in an order where the dependency exists ────');
 
 /* supabase-client.js calls loadConfig() at script-evaluation time and reads
