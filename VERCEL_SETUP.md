@@ -660,6 +660,32 @@ No paid API required — it fetches the tracked page's HTML directly and extract
 
 ---
 
+## Load Testing Agent — Simulated Traffic / Capacity Testing (Tools menu)
+
+`api/cron-loadtest-tick.js` is a discrete-event simulation of concurrent site-generation traffic — virtual users, ramp/spike patterns, queue depth, latency percentiles, cost — used to stress-test capacity assumptions without ever calling a real AI provider for the bulk of the run (see that file's header for the exact safety boundary, and `api/_lib/loadtest-calibration.js` for the one optional real call it can make to calibrate against). It's entirely state in Supabase, advanced one step per invocation, because a Vercel function cannot hold a multi-day process open.
+
+**This means the whole feature is only as alive as its cron job.** If a run shows "running" but every stat stays frozen, this is not the simulation failing — it means `cron-loadtest-tick` isn't actually ticking. `web/tools/load-testing.html`'s dashboard detects this itself (comparing `last_tick_at` against now) and shows a warning banner naming the same causes as below, but if you're diagnosing from the Vercel side directly, check in this order:
+
+1. **Preview vs. Production.** Vercel Cron only fires against the **Production** deployment — never a Preview URL. If you're testing on a preview link (a branch deploy, a PR deploy), the tick will never run no matter how correctly everything else is configured. Test this feature on the actual production domain.
+2. **`CRON_SECRET` is set** for all environments in Vercel — same bearer token every other cron job in this project already uses. `cron-loadtest-tick.js` refuses to run without it (returns 500) and rejects any request whose `Authorization` header doesn't match (401) — both are visible in that function's logs.
+3. **The cron job is registered.** Project Settings → Cron Jobs in the Vercel dashboard should list `/api/cron-loadtest-tick` at `* * * * *`. If it's missing, the deployment that added it to `vercel.json` may not have reached Production yet — redeploy.
+4. **Plan limits.** This project defines six cron jobs total (see `vercel.json`); Vercel's Hobby plan caps both the number of cron jobs and how frequently they can run (daily minimum) — a Pro plan or higher is needed for a 1-minute schedule to actually run every minute. Check Function Logs for `cron-loadtest-tick` for outright errors either way.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above — the cron job reads/writes run state with the service-role key | ✅ Yes |
+| `CRON_SECRET` | Already used by every other cron job in this project — same bearer token gates this endpoint too | ✅ Yes |
+| `BUILTWITH_TOOL_PASSWORD` / `BUILTWITH_TOOL_SECRET` | Same password gate as the BuiltWith research tool — the Load Testing Agent lives behind it in the Tools menu | ✅ Yes |
+
+### Setup
+
+1. Run `supabase-load-testing.sql` in Supabase Dashboard → SQL Editor. Creates `load_test_runs`, `load_test_jobs`, `load_test_snapshots`. Safe to re-run (every statement is `IF NOT EXISTS`) — re-run it if a run ever fails to create with a Postgrest error naming a missing column, since this file has grown a couple of `ALTER TABLE` additions since it was first written.
+2. No new env vars beyond `CRON_SECRET` and the BuiltWith-tool password gate, both already configured above.
+3. The Vercel Cron entry fires every minute (`* * * * *`) — see the four diagnostic steps above if it doesn't appear to be running.
+4. Open the Load Testing Agent from the Tools page (`/tools.html`), behind the same password as BuiltWith research.
+
+---
+
 ## Additional Resources
 
 - [Vercel Environment Variables Docs](https://vercel.com/docs/concepts/projects/environment-variables)

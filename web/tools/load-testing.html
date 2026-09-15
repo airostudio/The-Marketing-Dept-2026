@@ -336,6 +336,7 @@
                 </div>
                 <div class="card-body">
                     <div class="banner info" id="run-config-line"></div>
+                    <div class="banner warn" id="stale-tick-warning" style="display:none;"></div>
 
                     <div class="cal-panel" id="cal-panel"></div>
 
@@ -732,6 +733,37 @@ function renderRun(run) {
         isCredits ? 'Simulated volume × the one real measured cost, in credits' : 'Synthetic — never billed anywhere';
 
     renderCalibrationPanel(run);
+    renderStaleTickWarning(run);
+}
+
+/**
+ * The whole simulation is state in Supabase, advanced only by a Vercel Cron
+ * job hitting /api/cron-loadtest-tick once a minute (see that file's header).
+ * There is no other engine running it — if that cron stops firing, a
+ * "running" test just sits there with every counter frozen and no error
+ * anywhere, which reads as "this must be fake" rather than "the tick isn't
+ * running." last_tick_at is the one signal that distinguishes them: it's set
+ * to the run's start time on creation and updated by every successful tick,
+ * so a run that's actually progressing always has a recent one.
+ */
+function renderStaleTickWarning(run) {
+    const el = document.getElementById('stale-tick-warning');
+    const isActive = run.status === 'running' || run.status === 'paused';
+    const lastTick = run.last_tick_at ? new Date(run.last_tick_at) : null;
+    if (!isActive || !lastTick) { el.style.display = 'none'; return; }
+
+    const staleMs = Date.now() - lastTick.getTime();
+    const STALE_THRESHOLD_MS = 3 * 60 * 1000; // ticks every 1 min — allow a couple of misses before flagging
+    if (staleMs <= STALE_THRESHOLD_MS) { el.style.display = 'none'; return; }
+
+    const mins = Math.floor(staleMs / 60000);
+    el.style.display = '';
+    el.innerHTML = `<strong>No progress in ${mins} minute${mins === 1 ? '' : 's'} — this is not the simulation itself failing, it means the background tick isn't running.</strong><br>` +
+        'Every number on this page is advanced by a Vercel Cron job hitting <code>/api/cron-loadtest-tick</code> once a minute — nothing runs in the background otherwise, by design (Vercel functions cannot hold a multi-day process open). It has not reported in. Most likely causes, in order:<br>' +
+        '1. You are viewing a Preview deployment — Vercel Cron only fires against the Production deployment.<br>' +
+        '2. <code>CRON_SECRET</code> is not set (or does not match) in this Vercel project\'s environment variables.<br>' +
+        '3. The cron job is not registered — check Project Settings → Cron Jobs in the Vercel dashboard for <code>cron-loadtest-tick</code>, and its Function Logs for 401/500 responses.<br>' +
+        '4. Your Vercel plan\'s cron limit is exceeded by this project\'s other scheduled jobs (Hobby plans cap both job count and frequency).';
 }
 
 function fmtCredits(n) { return n == null ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} credits`; }
