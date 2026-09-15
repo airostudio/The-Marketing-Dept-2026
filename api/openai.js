@@ -67,7 +67,12 @@ module.exports = withFailureReporting('api/openai', async function handler(req, 
     // the new name; max_completion_tokens is what OpenAI's current chat
     // completions API expects across the board).
     max_completion_tokens: 4096,
-    temperature: 0.7,
+    // gpt-5.6-luna (and OpenAI's other current reasoning-family models)
+    // reject any non-default temperature outright: "Unsupported value:
+    // 'temperature' does not support 0.7 with this model. Only the default
+    // (1) value is supported." Omitting the field entirely gets the
+    // default on every model — there is no value to send here that both
+    // customizes it and works everywhere.
   };
 
   const headers = {
