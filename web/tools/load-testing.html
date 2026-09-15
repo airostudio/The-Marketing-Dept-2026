@@ -961,6 +961,13 @@ function renderHistory(history) {
         const requested = Number(r.jobs_requested_total || 0);
         const succeeded = Number(r.jobs_succeeded_total || 0);
         const pct = requested > 0 ? (succeeded / requested * 100).toFixed(1) + '%' : '—';
+        // A calibrated run REUSES total_cost_usd to hold CREDITS, not dollars
+        // (see loadtest-create.js / loadtest-engine.js's validateConfig) — the
+        // live dashboard (renderRun) already branches on this; History did
+        // not, so a calibrated run's real credit spend showed with a "$" in
+        // front of it, e.g. "$2050.00" for what was actually 2050 credits.
+        const isCredits = c.costUnit === 'credits';
+        const costDisplay = isCredits ? fmtCredits(r.total_cost_usd) : fmtUsd(r.total_cost_usd);
         return `<tr>
             <td class="mono">${esc(r.started_at ? new Date(r.started_at).toLocaleString() : '—')}</td>
             <td><span class="pill pill-${esc(r.status)}">${esc(r.status)}</span></td>
@@ -968,7 +975,7 @@ function renderHistory(history) {
             <td>${esc(c.durationDays)}d</td>
             <td>${fmtNum(requested)}</td>
             <td>${pct}</td>
-            <td>${fmtUsd(r.total_cost_usd)}</td>
+            <td>${esc(costDisplay)}</td>
             <td><button class="link-btn" onclick="viewRun('${esc(r.id)}')">View</button></td>
         </tr>`;
     }).join('');
