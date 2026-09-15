@@ -54,7 +54,7 @@
 
 'use strict';
 
-const { withFailureReporting } = require('./_lib/report-failure.js');
+const { withFailureReporting, reportFailureAsync } = require('./_lib/report-failure.js');
 const { sbRest } = require('./_lib/supabase-rest.js');
 const engine = require('./_lib/loadtest-engine.js');
 
@@ -79,6 +79,19 @@ const JOB_RETENTION_MS = 2 * 60 * 60 * 1000;
 module.exports = withFailureReporting('api/cron-loadtest-tick', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
+    // This runs once a minute — if CRON_SECRET is missing, every single tick
+    // dies here with nothing else in the codebase ever noticing (a bare 500
+    // with no console output and no system_failures row, indistinguishable
+    // from the outside from any other misconfiguration). Log and record it
+    // explicitly so this shows up in Vercel's function logs and the admin
+    // failures console instead of only in a customer's confused bug report.
+    console.error('[cron-loadtest-tick] CRON_SECRET is not configured — every tick is failing.');
+    reportFailureAsync({
+      source: 'api/cron-loadtest-tick',
+      message: 'CRON_SECRET is not configured. The Load Testing Agent tick has not run at all — every invocation dies here before checking auth. Set CRON_SECRET in Vercel for all environments and redeploy.',
+      severity: 'critical',
+      kind: 'configuration',
+    });
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated load-test tick.' });
   }
   if (req.headers['authorization'] !== `Bearer ${cronSecret}`) {
@@ -88,6 +101,13 @@ module.exports = withFailureReporting('api/cron-loadtest-tick', async function h
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
+    console.error('[cron-loadtest-tick] SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured — every tick is failing.');
+    reportFailureAsync({
+      source: 'api/cron-loadtest-tick',
+      message: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured. The Load Testing Agent tick has not run at all.',
+      severity: 'critical',
+      kind: 'configuration',
+    });
     return res.status(500).json({ error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.' });
   }
 
