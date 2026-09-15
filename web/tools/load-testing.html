@@ -120,6 +120,16 @@
         .cal-row { display: flex; justify-content: space-between; gap: 12px; }
         .cal-row span:last-child { font-weight: 600; }
         .cal-estimate { color: var(--text2); font-style: italic; }
+        .activity-panel { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+        .activity-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+        .activity-panel-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text2); margin: 0; }
+        .activity-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block; margin-right: 6px; animation: activity-pulse 1.8s ease-in-out infinite; }
+        @keyframes activity-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+        #activity-log { max-height: 220px; overflow-y: auto; padding: 10px 14px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11.5px; line-height: 1.9; background: rgba(0,0,0,0.15); }
+        .activity-row { color: var(--text2); white-space: pre-wrap; }
+        .activity-row.warn { color: #fca5a5; }
+        .activity-row.muted { color: var(--text2); font-style: italic; }
+        .activity-row.milestone { color: #67e8f9; }
 
         /* ── Dashboard ────────────────────────────────────────────────── */
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
@@ -338,6 +348,14 @@
                     <div class="banner info" id="run-config-line"></div>
                     <div class="banner warn" id="stale-tick-warning" style="display:none;"></div>
 
+                    <div class="activity-panel">
+                        <div class="activity-panel-header">
+                            <h3><span class="activity-live-dot" id="activity-live-dot"></span>Live Activity</h3>
+                            <span class="status-line" id="activity-updated" style="margin:0;"></span>
+                        </div>
+                        <div id="activity-log"></div>
+                    </div>
+
                     <div class="cal-panel" id="cal-panel"></div>
 
                     <div class="stat-grid">
@@ -413,6 +431,8 @@ let ACCESS_TOKEN = null;
 let POLL_TIMER = null;
 let CHARTS = {};
 let CURRENT_RUN = null;
+const ACTIVITY_STATE = { runId: null, lastSnapshotAtMs: null, lastCumulative: null, completionLogged: false };
+const MAX_ACTIVITY_LINES = 200;
 
 function showGate(errorMsg) {
     document.getElementById('gate').style.display = '';
@@ -766,6 +786,94 @@ function renderStaleTickWarning(run) {
         '4. Your Vercel plan\'s cron limit is exceeded by this project\'s other scheduled jobs (Hobby plans cap both job count and frequency).';
 }
 
+/**
+ * A live, scrolling log of what the background tick has actually done —
+ * built purely by diffing consecutive snapshot rows client-side (no new
+ * endpoint needed; /api/loadtest-status already returns up to 500 recent
+ * snapshots). Exists so "is anything happening?" has a visible, updating
+ * answer instead of only a handful of stat tiles that redraw silently, and
+ * so a genuinely stuck run (see renderStaleTickWarning above) shows as an
+ * activity feed that stopped moving rather than one more static number.
+ */
+function resetActivityLogIfNewRun(runId) {
+    if (ACTIVITY_STATE.runId === runId) return;
+    ACTIVITY_STATE.runId = runId;
+    ACTIVITY_STATE.lastSnapshotAtMs = null;
+    ACTIVITY_STATE.lastCumulative = null;
+    ACTIVITY_STATE.completionLogged = false;
+    const log = document.getElementById('activity-log');
+    if (log) log.innerHTML = '';
+}
+
+function activityLine(text, cls) {
+    const log = document.getElementById('activity-log');
+    if (!log) return;
+    const row = document.createElement('div');
+    row.className = 'activity-row' + (cls ? ' ' + cls : '');
+    row.textContent = text;
+    log.appendChild(row);
+    while (log.children.length > MAX_ACTIVITY_LINES) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+}
+
+function appendActivityFromSnapshots(run, snapshots) {
+    resetActivityLogIfNewRun(run.id);
+    const log = document.getElementById('activity-log');
+    if (!log) return;
+
+    const dot = document.getElementById('activity-live-dot');
+    const isActive = run.status === 'running' || run.status === 'paused';
+    if (dot) dot.style.background = isActive ? '#10b981' : '#6b7280';
+    if (dot) dot.style.animationPlayState = isActive ? 'running' : 'paused';
+
+    if (!snapshots.length) {
+        if (!log.children.length) activityLine('Waiting for the first tick (runs every ~1 minute once started)…', 'muted');
+        return;
+    }
+
+    // First render for this run: seed with just the current state, not the
+    // whole history replayed as if it just happened.
+    let startIndex = snapshots.length - 1;
+    if (ACTIVITY_STATE.lastSnapshotAtMs != null) {
+        startIndex = snapshots.findIndex(s => new Date(s.snapshot_at).getTime() > ACTIVITY_STATE.lastSnapshotAtMs);
+        if (startIndex === -1) return; // nothing new since the last render
+    }
+
+    for (let i = Math.max(0, startIndex); i < snapshots.length; i++) {
+        const s = snapshots[i];
+        const prev = ACTIVITY_STATE.lastCumulative || {
+            requested: i > 0 ? Number(snapshots[i - 1].jobs_requested_total) : Number(s.jobs_requested_total),
+            succeeded: i > 0 ? Number(snapshots[i - 1].jobs_succeeded_total) : Number(s.jobs_succeeded_total),
+            failed: i > 0 ? Number(snapshots[i - 1].jobs_failed_total) : Number(s.jobs_failed_total),
+        };
+        const newArrivals = Math.max(0, Number(s.jobs_requested_total) - prev.requested);
+        const newSucceeded = Math.max(0, Number(s.jobs_succeeded_total) - prev.succeeded);
+        const newFailed = Math.max(0, Number(s.jobs_failed_total) - prev.failed);
+        const time = new Date(s.snapshot_at).toLocaleTimeString();
+
+        let text = `${time} — ${fmtNum(s.concurrent_vus)} active users, ${fmtNum(s.concurrent_builds)} building, queue ${fmtNum(s.queue_depth)}`;
+        text += (newArrivals || newSucceeded || newFailed)
+            ? ` · +${newArrivals} requested, +${newSucceeded} succeeded${newFailed ? `, +${newFailed} failed` : ''}`
+            : ' · idle tick — no new arrivals';
+        activityLine(text, newFailed > 0 ? 'warn' : '');
+
+        ACTIVITY_STATE.lastCumulative = {
+            requested: Number(s.jobs_requested_total),
+            succeeded: Number(s.jobs_succeeded_total),
+            failed: Number(s.jobs_failed_total),
+        };
+    }
+    ACTIVITY_STATE.lastSnapshotAtMs = new Date(snapshots[snapshots.length - 1].snapshot_at).getTime();
+
+    const updatedEl = document.getElementById('activity-updated');
+    if (updatedEl) updatedEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    if ((run.status === 'completed' || run.status === 'cancelled') && !ACTIVITY_STATE.completionLogged) {
+        ACTIVITY_STATE.completionLogged = true;
+        activityLine(`Run ${run.status} at ${new Date().toLocaleTimeString()}.`, 'milestone');
+    }
+}
+
 function fmtCredits(n) { return n == null ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} credits`; }
 
 function renderCalibrationPanel(run) {
@@ -883,6 +991,7 @@ async function refreshStatus(runId) {
             renderRun(data.run);
             renderPercentilesFromSnapshots(data.snapshots || []);
             renderCharts(data.snapshots || []);
+            appendActivityFromSnapshots(data.run, data.snapshots || []);
             showDashboard();
             dashStatus.className = 'status-line';
             dashStatus.textContent = 'Last updated ' + new Date().toLocaleTimeString();
