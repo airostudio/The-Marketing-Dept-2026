@@ -898,12 +898,23 @@ Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - For campaign goals: prioritise content → ads → email → social
+- Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
+  THIS specific goal this week (e.g. "Short-form video", "Carousels & images", "Email sequence",
+  "Paid boosts", "LinkedIn posts") — pick names that make sense for the goal, not a fixed list.
+  Each gets a 0-100 "focus" score for how much to lean into it. These are independent
+  recommendations, not shares of a pie — several can score high at once, and they need not sum
+  to 100. This is your judgment call as a strategist, not a measurement — do not present it as
+  analytics.
 
 Respond ONLY with valid JSON — no markdown fences, no commentary:
 {
   "missionTitle": "15 words max",
   "missionSummary": "2 sentences: what will be produced and the business impact",
-  "agentKeys": ["sales", "email"]
+  "agentKeys": ["sales", "email"],
+  "channelMix": [
+    { "channel": "Short-form video", "focus": 86 },
+    { "channel": "Email sequence", "focus": 60 }
+  ]
 }`;
 
     report({ stage: 'selecting' });
@@ -949,7 +960,17 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       report({ stage: 'task_done', agentKey, index: i, total: agentKeys.length, taskName: taskData.taskName });
     }
 
-    return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks };
+    // Never trust the shape blindly — a channel name is free text and a focus
+    // score is a number Claude wrote, both need the same defensive filtering
+    // every other AI-produced field in this file gets before it reaches the UI.
+    const channelMix = Array.isArray(selection.channelMix)
+      ? selection.channelMix
+          .filter(c => c && typeof c.channel === 'string' && c.channel.trim() && Number.isFinite(Number(c.focus)))
+          .map(c => ({ channel: c.channel.trim().slice(0, 40), focus: Math.max(0, Math.min(100, Math.round(Number(c.focus)))) }))
+          .slice(0, 5)
+      : [];
+
+    return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks, channelMix };
   }
 
   /**
