@@ -229,6 +229,29 @@ const API  = 'api/generate-video.js';
   check('Supabase loads before the store needs it',
     read(PAGE).indexOf('supabase-client.js') < read(PAGE).indexOf('video-gen-store.js'));
 
+  /* ── 5. A "model does not exist" failure explains the real fix ────────── */
+  // Reported live: Ark's own accurate-but-unguided error left the customer
+  // with no idea that Ark requires a provisioned Endpoint ID rather than a
+  // bare model name — a fact VERCEL_SETUP.md already documented but the
+  // error itself never mentioned.
+  console.log('\n──── a "model does not exist" failure explains the real fix ────');
+
+  const modelMissing = await callCreate({
+    upstreamStatus: 404,
+    upstreamBody: { error: { message: 'The model or endpoint seedance-2-0 does not exist or you do not have access to it.' } },
+  });
+  check('the original Ark error is preserved, not replaced', /does not exist/.test(modelMissing.body.error));
+  check('the fix is spelled out: provision a real Endpoint ID', /Endpoint ID/.test(modelMissing.body.error));
+  check('names the exact env var to set', /SEEDANCE_MODEL/.test(modelMissing.body.error));
+  check('points at where in the Ark console to find it', /Model Inference/.test(modelMissing.body.error));
+
+  const otherFailure = await callCreate({
+    upstreamStatus: 429,
+    upstreamBody: { error: { message: 'Rate limit exceeded' } },
+  });
+  check('an unrelated upstream failure is passed through unchanged, not rewritten with irrelevant advice',
+    otherFailure.body.error === 'Rate limit exceeded');
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));
@@ -286,6 +309,43 @@ async function callStatus({ r2, arkStatus = 'succeeded' }) {
     method: 'POST',
     headers: { authorization: 'Bearer t', host: 'app.test', 'x-forwarded-for': '10.3.0.1' },
     body: { action: 'status', taskId: 'task-1' },
+  }, res);
+  return { status, body: body || {} };
+}
+
+/** Runs the real handler's create action against a fake Ark that returns the given failure. */
+async function callCreate({ upstreamStatus, upstreamBody }) {
+  const helperPath = path.join(REPO, 'api/_lib/supabase-rest.js');
+  require.cache[helperPath] = {
+    id: helperPath, filename: helperPath, loaded: true,
+    exports: { sbRest: async () => ({ ok: true, status: 200, data: [{ id: 'user-1', plan: 'growth', role: 'user' }] }) },
+  };
+  delete require.cache[path.join(REPO, 'api/generate-video.js')];
+
+  global.fetch = async (url) => {
+    if (String(url).includes('/auth/v1/user')) {
+      return { ok: true, json: async () => ({ id: 'user-1' }) };
+    }
+    if (String(url).includes('/contents/generations/tasks')) {
+      return { ok: upstreamStatus < 400, status: upstreamStatus, json: async () => upstreamBody };
+    }
+    throw new Error('unexpected fetch to ' + url);
+  };
+
+  process.env.SUPABASE_URL = 'https://x.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'k';
+  process.env.ARK_API_KEY = 'test-key';
+
+  const handler = require(path.join(REPO, 'api/generate-video.js'));
+  let status = 200, body = null;
+  const res = {
+    setHeader() {}, status(c) { status = c; return this; },
+    json(o) { body = o; return this; }, end() { return this; },
+  };
+  await handler({
+    method: 'POST',
+    headers: { authorization: 'Bearer t', host: 'app.test', 'x-forwarded-for': '10.3.0.2' },
+    body: { action: 'create', prompt: 'A dog running on a beach' },
   }, res);
   return { status, body: body || {} };
 }

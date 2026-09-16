@@ -82,6 +82,26 @@ function normalizeStatus(arkStatus) {
   return 'processing';
 }
 
+/**
+ * Ark's own "model or endpoint ... does not exist or you do not have
+ * access to it" is accurate but leaves the operator to independently
+ * discover that Ark requires provisioning a real Endpoint (ep-xxxxxxxx) for
+ * a model before calling it — DEFAULT_MODEL's bare "seedance-2-0" 404s on
+ * most Ark accounts for exactly this reason, and VERCEL_SETUP.md already
+ * documents the fix (set SEEDANCE_MODEL to that Endpoint ID). Surfacing the
+ * same guidance directly in the error means the person who hits this
+ * doesn't have to already know to go find that one line in the setup docs.
+ */
+function describeCreateFailure(upstreamMessage, modelUsed) {
+  if (/does not exist|do not have access|invalid model|model not found/i.test(upstreamMessage)) {
+    return `${upstreamMessage} — Ark requires a provisioned Endpoint ID for this, not a bare model name ` +
+      `("${modelUsed}" won't work on most accounts). In your BytePlus/Volcengine Ark console, go to ` +
+      `Model Inference → Endpoints, create (or copy) the endpoint for your video model, and set its ID ` +
+      `(looks like ep-20240611094208-xxxxx) as the SEEDANCE_MODEL environment variable in Vercel, then redeploy.`;
+  }
+  return upstreamMessage;
+}
+
 module.exports = withFailureReporting('api/generate-video', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -151,7 +171,8 @@ module.exports = withFailureReporting('api/generate-video', async function handl
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        return res.status(r.status).json({ error: data.error?.message || data.message || `Seedance API error (${r.status})` });
+        const upstreamMessage = data.error?.message || data.message || `Seedance API error (${r.status})`;
+        return res.status(r.status).json({ error: describeCreateFailure(upstreamMessage, model) });
       }
       const taskId = data.id || data.task_id;
       if (!taskId) {
