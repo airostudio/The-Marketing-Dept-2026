@@ -149,6 +149,7 @@
             background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.22); border-radius: 8px;
         }
         .review-signin-note a { color: #f59e0b; font-weight: 600; }
+        .ad-gen-progress-errors { font-size: 12px; color: #ef4444; margin-top: 6px; line-height: 1.6; }
         .post-card {
             background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px;
             padding: 14px 16px; margin-bottom: 12px; transition: opacity 0.2s, transform 0.2s;
@@ -655,6 +656,27 @@ let _reviewPlanNote = '';
 let _reviewCloudBacked = false; // true once persisted to SocialPostsStore (signed in)
 let _reviewSaveError = null;    // set when a save was attempted and failed, which is not the same as being signed out
 
+// Set while runAds() is generating platforms one at a time — a single request
+// asking Claude for every platform's variants at once was what actually caused
+// the "times out most of the time" reports: the fewer platforms/variants in one
+// call, the less likely it is to blow the 55s upstream budget. Sequential calls
+// also mean an early platform's cards render immediately instead of the whole
+// batch waiting on the slowest (or a failed) one.
+let _adGenProgress = null; // { done, total, currentPlatform, errors: [{platform, message}] }
+
+function renderGenProgressBanner() {
+    if (!_adGenProgress) return '';
+    const { done, total, currentPlatform, errors } = _adGenProgress;
+    const finished = done >= total;
+    let html = finished
+        ? `<div class="typing-indicator" style="padding:10px 0;">Generated ${total - errors.length} of ${total} platform(s).</div>`
+        : `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Generating ${escHtmlCard(currentPlatform)} (${done + 1} of ${total})…</div>`;
+    if (errors.length) {
+        html += `<div class="ad-gen-progress-errors">${errors.map(e => `⚠️ ${escHtmlCard(e.platform)}: ${escHtmlCard(e.message)}`).join('<br>')}</div>`;
+    }
+    return html;
+}
+
 function normalizeAdVariant(v, i) {
     return {
         id: `local_${Date.now()}_${i}`,
@@ -783,8 +805,9 @@ function renderReviewQueue() {
     saveReviewDraftToLocalStorage();
 
     const outputEl = document.getElementById('output');
+    const progressHtml = renderGenProgressBanner();
     if (!_reviewPosts.length) {
-        outputEl.innerHTML = `<div class="output-empty">${studioMode === 'ads'
+        outputEl.innerHTML = progressHtml || `<div class="output-empty">${studioMode === 'ads'
             ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
             : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.'}</div>`;
         return;
@@ -794,7 +817,8 @@ function renderReviewQueue() {
     const rejectedCount = _reviewPosts.filter(p => p.status === 'rejected').length;
     const pendingCount  = _reviewPosts.length - approvedCount - rejectedCount;
 
-    let html = `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
+    let html = progressHtml;
+    if (_reviewPlanNote) html += `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
     if (!_reviewCloudBacked) {
         html += _reviewSaveError
             ? `<div class="review-signin-note">These posts could not be saved to your account: ${escHtmlCard(_reviewSaveError)}.
@@ -1614,9 +1638,22 @@ class SocialAgent {
 
         runBtn.disabled = true;
         runBtn.textContent = 'Generating…';
-        outputEl.innerHTML = tipHtml + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
 
-        const body = { platforms, objective, product, audience, models: frameworks, tone, budget, competitors, variants };
+        // One platform's variants per request, run sequentially, rendered as each
+        // succeeds — asking Claude for every platform in a single call was what
+        // actually caused the "times out most of the time" reports: the bigger
+        // the combined output (platforms × variants), the more likely a single
+        // request blows the 55s upstream budget. Smaller per-platform calls are
+        // each far less likely to time out, and a slow or failed platform no
+        // longer holds up the ones that already finished.
+        _reviewPosts = [];
+        _reviewPlanNote = '';
+        _reviewCloudBacked = false;
+        _reviewSaveError = null;
+        _adGenProgress = { done: 0, total: platforms.length, currentPlatform: platforms[0], errors: [] };
+        outputEl.innerHTML = tipHtml + renderGenProgressBanner();
+
+        const baseBody = { objective, product, audience, models: frameworks, tone, budget, competitors, variants };
 
         // Inject BusinessBrain intelligence so ad copy uses real company context
         let bizContext = '';
@@ -1637,7 +1674,7 @@ class SocialAgent {
         bizContext += this.buildResearchedContext();
         bizContext = bizContext.trim().slice(0, 1400);
         if (bizContext) {
-            body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
+            baseBody.product = baseBody.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
         }
 
         // Inject Convert A/B experiment winners as context if loaded
@@ -1646,38 +1683,63 @@ class SocialAgent {
                 .filter(e => e.winner)
                 .map(e => `"${e.winnerVariant?.name}" beat control by ${e.winnerVariant?.uplift} (${e.name})`)
                 .slice(0, 5).join('; ');
-            if (winners) body.product = body.product + `\n\nConvert A/B Winners: ${winners}`;
+            if (winners) baseBody.product = baseBody.product + `\n\nConvert A/B Winners: ${winners}`;
         }
 
-        try {
-            const res  = await fetch('/api/generate-ads', {
-                method:  'POST',
-                headers: await window.sendAuthHeaders(),
-                body:    JSON.stringify(body),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const notesByPlatform = [];
+        const contentParts = [];
+        let variantIndex = 0;
 
-            _reviewPlanNote = data.campaignStrategyNote || '';
-            _reviewPosts = await persistReviewBatch(data.variants.map(normalizeAdVariant));
+        for (const platform of platforms) {
+            _adGenProgress.currentPlatform = platform;
             renderReviewQueue();
-            outputEl.scrollTop = 0;
 
-            if (window.AgentHistory && data.content?.trim()) {
-                window.AgentHistory.save({
-                    agentKey: 'ads',
-                    taskType: platforms.join('+') + ' Ad Variants',
-                    content: data.content,
-                    topic: product.slice(0, 60),
+            try {
+                const res  = await fetch('/api/generate-ads', {
+                    method:  'POST',
+                    headers: await window.sendAuthHeaders(),
+                    body:    JSON.stringify({ ...baseBody, platforms: [platform] }),
                 });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+                if (data.campaignStrategyNote) notesByPlatform.push(`**${platform}:** ${data.campaignStrategyNote}`);
+                if (data.content?.trim()) contentParts.push(data.content);
+
+                const normalized = data.variants.map((v, i) => normalizeAdVariant(v, variantIndex + i));
+                variantIndex += normalized.length;
+                const persisted = await persistReviewBatch(normalized);
+                _reviewPosts = _reviewPosts.concat(persisted);
+            } catch (err) {
+                _adGenProgress.errors.push({ platform, message: err.message });
+                if (window.reportFailure) {
+                    window.reportFailure(`Social Studio ad generation failed for ${platform}: ` + err.message,
+                        { where: 'social-agent.runAds', platform });
+                }
             }
-        } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${escHtmlCard(err.message)}</div>`;
-            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
-        } finally {
-            runBtn.disabled    = false;
-            runBtn.textContent = 'Generate Ad Variants';
+
+            _adGenProgress.done++;
+            _reviewPlanNote = notesByPlatform.join('\n\n');
+            renderReviewQueue();
         }
+
+        // Keep the banner around only if something actually needs flagging —
+        // a clean run has nothing left to say once every card is on screen.
+        _adGenProgress = _adGenProgress.errors.length ? _adGenProgress : null;
+        renderReviewQueue();
+        outputEl.scrollTop = 0;
+
+        if (window.AgentHistory && contentParts.length) {
+            window.AgentHistory.save({
+                agentKey: 'ads',
+                taskType: platforms.join('+') + ' Ad Variants',
+                content: contentParts.join('\n\n---\n\n'),
+                topic: product.slice(0, 60),
+            });
+        }
+
+        runBtn.disabled    = false;
+        runBtn.textContent = 'Generate Ad Variants';
     }
 
     /** Concatenate just the BusinessBrain context blocks (no platform/output-format
