@@ -280,7 +280,7 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
       } },
       DataForSEO: {
         isAvailable: () => true,
-        getRankings: async () => [{ keyword: 'k', position: 4 }],
+        getRankings: async () => [{ keyword: 'k', position: 4, checked: true, topCompetitors: [{ position: 1, domain: 'rival.com', title: 'Rival', url: 'https://rival.com' }] }],
         getKeywordMetrics: async () => [{ keyword: 'k', search_volume: 2400, keyword_difficulty: 38 }],
       },
     };
@@ -293,6 +293,22 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
     resolves.row.searchVolume === 2400);
   check('and difficulty arrives from the provider, not from a word count',
     resolves.row.difficulty === 38);
+  check('the real top-3 competitors are persisted onto the tracked keyword',
+    Array.isArray(resolves.row.topCompetitors) && resolves.row.topCompetitors[0].domain === 'rival.com');
+
+  // The most useful case for topCompetitors is exactly the one where we have
+  // no position of our own — it still has to persist, not get dropped
+  // because there's no ranking-improvement branch to carry it through.
+  const unrankedWithCompetitors = await page.evaluate(async () => {
+    const T = window.KeywordService.KeywordTracker;
+    T.saveTrackedKeywords([{ keyword: 'k', position: null, searchVolume: 0, difficulty: null }]);
+    window.ApiConnector.DataForSEO.getRankings =
+      async () => [{ keyword: 'k', position: null, checked: true, topCompetitors: [{ position: 1, domain: 'leader.com' }] }];
+    await T.refreshRankings();
+    return T.getTrackedKeywords()[0];
+  });
+  check('a keyword with no position of our own still keeps who is really at #1',
+    Array.isArray(unrankedWithCompetitors.topCompetitors) && unrankedWithCompetitors.topCompetitors[0].domain === 'leader.com');
 
   // A provider-reported zero is a real answer and must not be discarded.
   const zero = await page.evaluate(async () => {
@@ -386,6 +402,21 @@ const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
     blue && blue.position !== 1);
   check('a keyword we do not rank for reads as unranked, having been checked',
     red && red.position === null && red.checked === true);
+
+  // "Where should we be ranking" only has an honest answer if it names who
+  // actually holds those spots — the same live SERP call already fetches
+  // every organic result, so the real top 3 come along for free instead of
+  // being thrown away like every position past the target's own hit.
+  console.log('\n──── who actually holds the top 3 (no predicted target rank invented) ────');
+  check('the real #1 for "blue widgets" is surfaced, not our own position',
+    blue && Array.isArray(blue.topCompetitors) && blue.topCompetitors.length === 1 &&
+    blue.topCompetitors[0].domain === 'rival.com' && blue.topCompetitors[0].position === 1);
+  check('a paid ad result is never counted as an organic top-3 competitor',
+    blue && !blue.topCompetitors.some(c => c.domain === 'ads.example'));
+  check('our own domain is excluded from its own competitor list even if we were in the top 3',
+    blue && !blue.topCompetitors.some(c => c.domain === 'www.acme.com'));
+  check('a keyword we do not rank for still reports who is really at #1',
+    red && Array.isArray(red.topCompetitors) && red.topCompetitors.length === 1 && red.topCompetitors[0].domain === 'rival.com');
 
   const m = shaped.metrics[0];
   check('search volume is unwrapped from its envelope', m && m.search_volume === 1900);

@@ -1302,12 +1302,25 @@
       ).then(function(raw) {
         return firstResult(raw).map(function(page) {
           var hit = null;
+          // "Where we should be ranking" only has an honest answer if it names
+          // who is actually there — a predicted target position would be a
+          // guess with the same shape as the difficulty-score and PageSpeed
+          // fabrications already found and removed from this module. This SERP
+          // call is already paid for and already fetches every organic result
+          // (depth: 100), so the real top 3 come along for free instead of
+          // being thrown away like every position past the target's own hit.
+          var topCompetitors = [];
           (page.items || []).forEach(function(item) {
-            if (hit) return;
             if (item.type !== 'organic') return;
-            if (normaliseHost(item.domain || item.url) !== target) return;
-            hit = item;
+            var host = normaliseHost(item.domain || item.url);
+            if (host === target) { if (!hit) hit = item; return; }
+            var pos = item.rank_group || item.rank_absolute;
+            if (pos && pos <= 3) {
+              topCompetitors.push({ position: pos, domain: host, title: item.title || null, url: item.url || null });
+            }
           });
+          topCompetitors.sort(function(a, b) { return a.position - b.position; });
+
           return {
             keyword: page.keyword,
             // rank_absolute counts every SERP feature; rank_group is the
@@ -1317,7 +1330,13 @@
             checked: true,
             // A position is only true of the market it was measured in.
             market: market.label,
-            marketSource: market.source
+            marketSource: market.source,
+            // The real domains/titles occupying positions 1-3 in this same
+            // SERP, excluding the target itself when it happens to be one of
+            // them. Empty when DataForSEO returned fewer than 3 organic
+            // results for this query (rare, but possible for a very narrow
+            // local/long-tail term) — an honest empty list, not padded.
+            topCompetitors: topCompetitors
           };
         });
       });

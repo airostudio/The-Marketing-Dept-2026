@@ -611,6 +611,11 @@
                         patch.difficulty = pickNumber(metric.difficulty, metric.keyword_difficulty, k.difficulty);
                     }
 
+                    // Who actually holds the top 3 spots is exactly the useful
+                    // thing to know for a keyword we don't rank for at all —
+                    // more so than for one we already rank in the top 3 of.
+                    if (ranking && ranking.checked) patch.topCompetitors = ranking.topCompetitors || [];
+
                     if (!Object.keys(patch).length) return k;
                     patch.lastUpdated = new Date().toISOString();
                     return Object.assign({}, k, patch);
@@ -619,6 +624,7 @@
                 return Object.assign({}, k, {
                     previousPosition: k.position,
                     position: ranking.position,
+                    topCompetitors: ranking.topCompetitors || [],
                     searchVolume: metric
                         ? pickNumber(metric.searchVolume, metric.search_volume, k.searchVolume)
                         : k.searchVolume,
