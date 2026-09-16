@@ -16,6 +16,7 @@
     <script src="/js/intelligence-profiles.js"></script>
     <script src="/js/site-switcher.js"></script>
     <script src="/js/social-posts-store.js"></script>
+    <script src="/js/brand-kit-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -881,6 +882,24 @@ function getCreditScope() {
 
 let _lastCreditsRemaining = null;
 
+// Fetched once per page load, not once per generation — the kit rarely
+// changes mid-session and every card's Generate click would otherwise cost
+// its own round trip. A stale cache just means a logo/color update made
+// during this same session shows up next reload, not a wrong or unsafe value.
+let _brandKitCache = null;
+async function getBrandForGeneration() {
+    if (_brandKitCache) return _brandKitCache;
+    if (!window.BrandKitStore) return {};
+    try {
+        const kit = await window.BrandKitStore.getBrandKit();
+        _brandKitCache = (kit && !kit.error) ? { colours: kit.colours || {}, fonts: kit.fonts || {}, logoUrl: kit.logo_url || null } : {};
+    } catch (err) {
+        console.warn('[SocialStudio] Could not load brand kit:', err.message);
+        _brandKitCache = {};
+    }
+    return _brandKitCache;
+}
+
 /** Generate a real, finished AI ad creative (PNG/JPEG/WEBP) for one card via /api/generate-ad-image. */
 async function generateCardImage(id) {
     const post = findReviewPost(id);
@@ -892,6 +911,7 @@ async function generateCardImage(id) {
     renderReviewQueue();
 
     try {
+        const brand = await getBrandForGeneration();
         const res = await fetch('/api/generate-ad-image', {
             method: 'POST',
             headers: await window.sendAuthHeaders(),
@@ -906,6 +926,7 @@ async function generateCardImage(id) {
                 product: document.getElementById('adProduct')?.value || '',
                 audience: document.getElementById('adAudience')?.value || '',
                 format: 'png',
+                brand: brand.colours && Object.keys(brand.colours).length ? { colours: brand.colours } : undefined,
                 ...getCreditScope(),
             }),
         });
@@ -948,6 +969,8 @@ async function generateCardImageQuick(id) {
     renderReviewQueue();
 
     try {
+        const brand = await getBrandForGeneration();
+        const hasBrand = (brand.colours && Object.keys(brand.colours).length) || (brand.fonts && Object.keys(brand.fonts).length);
         const res = await fetch('/api/render-social-image', {
             method: 'POST',
             headers: await window.sendAuthHeaders(),
@@ -959,6 +982,7 @@ async function generateCardImageQuick(id) {
                 urgencyLine: post.urgencyLine || '',
                 platform: post.platform,
                 visualDirection: post.visualDirection || '',
+                brand: hasBrand ? { colours: brand.colours, fonts: brand.fonts } : undefined,
             }),
         });
         const data = await res.json();

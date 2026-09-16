@@ -277,6 +277,62 @@
                     </div>
                 </div>
 
+                <!-- Brand Kit — the account's own uploaded staples, used by every ad/creative generator -->
+                <div class="brand-section" id="brandKitSection">
+                    <div class="brand-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+                        Your Brand Kit
+                    </div>
+                    <div style="font-size:0.8125rem;color:var(--color-text-secondary);margin-bottom:18px;line-height:1.6;">
+                        Upload your real logo, brand colors, and fonts once — Social Studio's AI ad images and quick-template
+                        creatives pull from this so every generated ad stays visually consistent, instead of each generation
+                        inventing its own look. Applies to the currently selected business.
+                    </div>
+                    <div id="brandKitSignedOutNote" style="display:none;font-size:0.8125rem;color:var(--color-text-secondary);padding:12px 16px;background:var(--color-bg-tertiary);border-radius:8px;"></div>
+
+                    <div id="brandKitBody" style="display:none;">
+                        <div class="guideline-subsection">
+                            <h4>Logo</h4>
+                            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                                <div id="brandKitLogoPreviewWrap" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--color-border);background:var(--color-bg-tertiary);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                                    <img id="brandKitLogoPreview" style="display:none;max-width:100%;max-height:100%;object-fit:contain;" alt="Your logo">
+                                    <span id="brandKitLogoPlaceholder" style="font-size:0.75rem;color:var(--color-text-secondary);">No logo yet</span>
+                                </div>
+                                <div>
+                                    <input type="file" id="brandKitLogoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+                                    <button type="button" class="btn btn-secondary" id="brandKitLogoBtn" onclick="document.getElementById('brandKitLogoInput').click()">Upload Logo</button>
+                                    <div style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:6px;">PNG, JPG, WEBP or SVG — up to 5MB</div>
+                                    <div id="brandKitLogoStatus" style="font-size:0.8125rem;margin-top:6px;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="guideline-subsection">
+                            <h4>Brand Colors</h4>
+                            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Primary</label><input type="color" id="brandKitColorPrimary" value="#6366f1" style="width:56px;height:36px;border-radius:6px;border:1px solid var(--color-border);cursor:pointer;"></div>
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Secondary</label><input type="color" id="brandKitColorSecondary" value="#8b5cf6" style="width:56px;height:36px;border-radius:6px;border:1px solid var(--color-border);cursor:pointer;"></div>
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Accent</label><input type="color" id="brandKitColorAccent" value="#22c55e" style="width:56px;height:36px;border-radius:6px;border:1px solid var(--color-border);cursor:pointer;"></div>
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Background</label><input type="color" id="brandKitColorBackground" value="#ffffff" style="width:56px;height:36px;border-radius:6px;border:1px solid var(--color-border);cursor:pointer;"></div>
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Text</label><input type="color" id="brandKitColorText" value="#18181b" style="width:56px;height:36px;border-radius:6px;border:1px solid var(--color-border);cursor:pointer;"></div>
+                            </div>
+                        </div>
+
+                        <div class="guideline-subsection">
+                            <h4>Fonts</h4>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Heading font</label><input type="text" id="brandKitFontHeading" placeholder="e.g. Inter" style="padding:8px 12px;border-radius:6px;border:1px solid var(--color-border);background:var(--color-bg-primary);color:var(--color-text-primary);width:180px;"></div>
+                                <div><label style="font-size:0.75rem;color:var(--color-text-secondary);display:block;margin-bottom:4px;">Body font</label><input type="text" id="brandKitFontBody" placeholder="e.g. Inter" style="padding:8px 12px;border-radius:6px;border:1px solid var(--color-border);background:var(--color-bg-primary);color:var(--color-text-primary);width:180px;"></div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <button type="button" class="btn btn-primary" id="brandKitSaveBtn" onclick="saveBrandKitFields()">Save Brand Kit</button>
+                            <span id="brandKitSaveStatus" style="font-size:0.8125rem;color:var(--color-text-secondary);"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Brand Guidelines -->
                 <div class="brand-section" id="brandGuidelinesSection">
                     <div class="brand-section-title">
@@ -482,6 +538,7 @@
     <script src="/js/api-connector.js"></script>
     <script src="/js/ai-service.js"></script>
     <script src="/js/brand-service.js"></script>
+    <script src="/js/brand-kit-store.js"></script>
     <script>
     (function () {
         'use strict';
@@ -671,6 +728,120 @@
             drawPositioningMap();
         }
 
+        /* ── Brand Kit (real, uploaded staples — see web/js/brand-kit-store.js) ── */
+
+        function fileToDataUri(file) {
+            return new Promise(function (resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function () { resolve(reader.result); };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function applyBrandKitToForm(kit) {
+            var preview = document.getElementById('brandKitLogoPreview');
+            var placeholder = document.getElementById('brandKitLogoPlaceholder');
+            if (kit.logo_url) {
+                preview.src = kit.logo_url;
+                preview.style.display = '';
+                placeholder.style.display = 'none';
+            } else {
+                preview.style.display = 'none';
+                placeholder.style.display = '';
+            }
+            var c = kit.colours || {};
+            if (c.primary) document.getElementById('brandKitColorPrimary').value = c.primary;
+            if (c.secondary) document.getElementById('brandKitColorSecondary').value = c.secondary;
+            if (c.accent) document.getElementById('brandKitColorAccent').value = c.accent;
+            if (c.background) document.getElementById('brandKitColorBackground').value = c.background;
+            if (c.text) document.getElementById('brandKitColorText').value = c.text;
+            var f = kit.fonts || {};
+            document.getElementById('brandKitFontHeading').value = f.heading || '';
+            document.getElementById('brandKitFontBody').value = f.body || '';
+        }
+
+        async function initBrandKit() {
+            if (!window.BrandKitStore) return;
+            var scope = window.BrandKitStore.getScope();
+            var signedOutNote = document.getElementById('brandKitSignedOutNote');
+            var body = document.getElementById('brandKitBody');
+            if (!scope) {
+                signedOutNote.style.display = '';
+                signedOutNote.textContent = 'Select a business (top of the app) to set up its brand kit.';
+                body.style.display = 'none';
+                return;
+            }
+
+            var kit = await window.BrandKitStore.getBrandKit();
+            if (kit.error) {
+                signedOutNote.style.display = '';
+                signedOutNote.textContent = 'Could not load your brand kit: ' + kit.error;
+                body.style.display = 'none';
+                return;
+            }
+            signedOutNote.style.display = 'none';
+            body.style.display = '';
+            applyBrandKitToForm(kit);
+
+            document.getElementById('brandKitLogoInput').addEventListener('change', async function (e) {
+                var file = e.target.files && e.target.files[0];
+                if (!file) return;
+                var statusEl = document.getElementById('brandKitLogoStatus');
+                var btn = document.getElementById('brandKitLogoBtn');
+                btn.disabled = true;
+                statusEl.style.color = 'var(--color-text-secondary)';
+                statusEl.textContent = 'Uploading…';
+                try {
+                    var dataUri = await fileToDataUri(file);
+                    var logoUrl = await window.BrandKitStore.uploadLogo(dataUri, file.name);
+                    document.getElementById('brandKitLogoPreview').src = logoUrl;
+                    document.getElementById('brandKitLogoPreview').style.display = '';
+                    document.getElementById('brandKitLogoPlaceholder').style.display = 'none';
+                    statusEl.style.color = '#22c55e';
+                    statusEl.textContent = 'Logo saved — every new ad will use it.';
+                } catch (err) {
+                    statusEl.style.color = '#ef4444';
+                    statusEl.textContent = err.message;
+                    if (window.reportFailure) window.reportFailure('Brand kit logo upload failed: ' + err.message, { where: 'brand.initBrandKit' });
+                } finally {
+                    btn.disabled = false;
+                    e.target.value = '';
+                }
+            });
+        }
+
+        async function saveBrandKitFields() {
+            var statusEl = document.getElementById('brandKitSaveStatus');
+            var btn = document.getElementById('brandKitSaveBtn');
+            btn.disabled = true;
+            statusEl.style.color = 'var(--color-text-secondary)';
+            statusEl.textContent = 'Saving…';
+            try {
+                await window.BrandKitStore.saveBrandKit({
+                    colours: {
+                        primary: document.getElementById('brandKitColorPrimary').value,
+                        secondary: document.getElementById('brandKitColorSecondary').value,
+                        accent: document.getElementById('brandKitColorAccent').value,
+                        background: document.getElementById('brandKitColorBackground').value,
+                        text: document.getElementById('brandKitColorText').value,
+                    },
+                    fonts: {
+                        heading: document.getElementById('brandKitFontHeading').value.trim(),
+                        body: document.getElementById('brandKitFontBody').value.trim(),
+                    },
+                });
+                statusEl.style.color = '#22c55e';
+                statusEl.textContent = 'Saved.';
+            } catch (err) {
+                statusEl.style.color = '#ef4444';
+                statusEl.textContent = err.message;
+                if (window.reportFailure) window.reportFailure('Brand kit save failed: ' + err.message, { where: 'brand.saveBrandKitFields' });
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         /* ── Refresh button ── */
         function initRefresh() {
             var btn = document.getElementById('refreshBrandBtn');
@@ -695,6 +866,7 @@
             initRefresh();
             initExport();
             await loadBrandData();
+            await initBrandKit();
         }
 
         if (document.readyState === 'loading') {

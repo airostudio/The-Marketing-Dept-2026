@@ -22,6 +22,7 @@
 --   supabase-intelligence-profiles.sql
 --   supabase-social-posts.sql
 --   supabase-credits.sql
+--   supabase-brand-kit.sql
 --   supabase-audience.sql
 --   supabase-audience-consent.sql
 --   supabase-ab-testing.sql
@@ -1256,6 +1257,11 @@ CREATE TABLE IF NOT EXISTS social_posts (
 
   image_url             TEXT,       -- rendered/uploaded creative for this post
   image_render_status    TEXT        DEFAULT 'none' CHECK (image_render_status IN ('none', 'pending', 'rendered', 'failed')),
+  video_url             TEXT,       -- AI-generated Reel/short video for this post (api/generate-video.js) — record-
+                                    -- keeping only; api/publish-social-post.js does not upload video to any
+                                    -- platform yet, only image_url, so a video post still needs manual upload today
+
+
 
   status                TEXT        NOT NULL DEFAULT 'pending_review'
                                     CHECK (status IN ('pending_review', 'approved', 'rejected', 'scheduled', 'published', 'archived')),
@@ -1312,6 +1318,11 @@ CREATE POLICY "social_posts_profile_access" ON social_posts
                    AND m.role IN ('owner', 'editor'))
     )
   );
+
+-- ── video_url (added after this table's initial launch) ─────────────────────
+-- AI-generated Reel/short video per post (Social Studio's "Generate Reel"
+-- action, api/generate-video.js). Safe to re-run on an already-deployed table.
+ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS video_url TEXT;
 
 
 -- ═══════════════════════════════════════════════════════════════════════
@@ -1449,6 +1460,122 @@ CREATE POLICY "credit_balances_scope_read" ON credit_balances
       OR EXISTS (SELECT 1 FROM intelligence_profile_members m WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
     ))
     OR (project_id IS NOT NULL AND EXISTS (SELECT 1 FROM projects pr WHERE pr.id = project_id AND pr.user_id = auth.uid()))
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-brand-kit.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Brand Kit — the account's own visual "staples" (logo, colors, fonts)
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql already run.
+--
+-- Every ad/creative generation surface (Social Studio's AI ad images and
+-- quick-template creatives, and anything built on the same pattern later)
+-- was left to invent its own look per generation — a free-text
+-- "visualDirection" field was the only lever, so two ads for the same
+-- business could come back with entirely different colors and no logo at
+-- all. This table is the single, account-wide source of truth for the
+-- handful of things that should be IDENTICAL across every generated asset:
+-- the logo file, the brand's real hex colors, and its font names.
+--
+-- Deliberately does NOT duplicate text BusinessBrain already owns (company
+-- name, tagline, positioning, contact info — see supabase-business-brain.sql)
+-- — this table owns only the visual identity fields nothing else in the
+-- schema has anywhere: logo_url, colours, fonts. Reading both at generation
+-- time (not merging them into one table) keeps one source of truth per field
+-- instead of two places that can drift out of sync.
+--
+-- Scoped exactly like credit_balances/social_posts — the same dual project/
+-- intelligence-profile model — so a whole team sharing a business shares one
+-- brand kit rather than each login inventing its own. NOT the same table as
+-- nancy_brands (which is a per-website RESEARCH record Nancy builds from
+-- crawling a URL, keyed by user_id with no project/profile scoping, and can
+-- have many rows per user for many researched sites — a different concept
+-- from "this account's one canonical brand kit").
+
+CREATE TABLE IF NOT EXISTS brand_kits (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id        UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  logo_url          TEXT,       -- hosted (R2) URL — never a data: URI, so it can be reused in prompts/requests
+  colours           JSONB       NOT NULL DEFAULT '{}'::jsonb,
+                                -- {primary, secondary: [], accent: [], background: [], text: []} — all hex strings
+  fonts             JSONB       NOT NULL DEFAULT '{}'::jsonb,
+                                -- {heading, body} — font family names, not files (Google Fonts names or similar)
+
+  updated_by        UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT brand_kits_scope_check CHECK (project_id IS NOT NULL OR intel_profile_id IS NOT NULL)
+);
+
+-- One brand kit per scope — same "at most one row per business" shape as credit_balances.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_brand_kits_profile ON brand_kits (intel_profile_id) WHERE intel_profile_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_brand_kits_project ON brand_kits (project_id) WHERE project_id IS NOT NULL;
+
+-- ── updated_at trigger ──────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_brand_kit()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_brand_kit_touch ON brand_kits;
+CREATE TRIGGER trg_brand_kit_touch
+  BEFORE UPDATE ON brand_kits
+  FOR EACH ROW EXECUTE FUNCTION touch_brand_kit();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+-- Same sharing model as social_posts: a project's owner, or an
+-- intelligence-profile's owner/editor, can read and write; a viewer can only
+-- read. Nothing here is per-user-only, since the whole point is one shared
+-- kit for everyone working on the same business.
+ALTER TABLE brand_kits ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "brand_kits_project_owner_all" ON brand_kits;
+CREATE POLICY "brand_kits_project_owner_all" ON brand_kits
+  FOR ALL USING (
+    project_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM projects p WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    project_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM projects p WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "brand_kits_profile_read" ON brand_kits;
+CREATE POLICY "brand_kits_profile_read" ON brand_kits
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "brand_kits_profile_write" ON brand_kits;
+CREATE POLICY "brand_kits_profile_write" ON brand_kits
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
   );
 
 
@@ -1913,6 +2040,11 @@ CREATE TABLE IF NOT EXISTS agent_audit_findings (
   id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
   run_id            UUID        NOT NULL REFERENCES agent_audit_runs(id) ON DELETE CASCADE,
   agent_key         TEXT        NOT NULL, -- matches AGENT_META keys in scotty.html, e.g. 'seo', 'social', 'linkedin'
+                                            -- EXCEPT 'platform-model-health', a reserved pseudo-agent-key (see
+                                            -- api/cron-agent-audit.js MODEL_REGISTRY/auditModelHealth) for the
+                                            -- AI Model Health check — it audits the Claude/OpenAI/Gemini model
+                                            -- DEPENDENCIES themselves, not a specialist agent, so it deliberately
+                                            -- does not match anything in AGENT_META.
   agent_label       TEXT        NOT NULL, -- human display name, e.g. "SEO Intelligence (Rex)"
   up_to_date        BOOLEAN     NOT NULL DEFAULT true,
   summary           TEXT,

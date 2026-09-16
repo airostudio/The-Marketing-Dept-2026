@@ -194,6 +194,27 @@ Metering only activates when both a site/profile scope *and* `SUPABASE_URL`/`SUP
 
 ---
 
+## Brand Kit — the account's own logo/colors/fonts, shared across every generated ad
+
+Before this, every ad/creative generation call was left to invent its own look — a free-text "visual direction" field was the only lever, so two ads for the same business could come back with different colors and no logo at all. `api/brand-kit-upload-logo.js` plus the "Your Brand Kit" panel at the top of `web/marketing/brand.html` fixes that: upload the account's real logo once, set its hex colors and font names once, and Social Studio's AI ad images (`api/generate-ad-image.js`) and quick-template creatives (`api/render-social-image.js`) both pull from it automatically on every generation from then on.
+
+Deliberately a NEW table (`brand_kits`), not a repurposing of `nancy_brands` (Nancy's own per-website research record, keyed differently and used for a different purpose) or BusinessBrain (which stays the source of truth for text — company name, tagline, positioning; this table owns only the visual fields nothing else in the schema had anywhere).
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_PUBLIC_BASE_URL` | Same Cloudflare R2 credentials as everything else that stores a generated asset (see "Hosted storage" below) — the logo needs a real public URL, not a `data:` URI, to be reusable in later generation requests | ✅ For logo upload |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above | ✅ Yes |
+
+### Setup
+
+1. Run `supabase-brand-kit.sql` in Supabase Dashboard → SQL Editor (or re-run `supabase-install-all.sql`, which now includes it). Creates `brand_kits` — one row per business (intelligence profile or project, same dual-scope model as `credit_balances`/`social_posts`), RLS-protected the same way as `social_posts` (owner/editor can write, viewer can read).
+2. Configure R2 if it isn't already (see below) — without it, the logo upload button returns a clear "R2 storage is not configured" error rather than failing silently; colors and fonts still save fine either way (they're a direct, RLS-protected write, not a file upload).
+3. On `web/marketing/brand.html`, select a business at the top of the app, then use the new "Your Brand Kit" panel to upload a logo and set colors/fonts.
+
+**Scope so far:** wired into the two Social Studio image endpoints only (`generate-ad-image.js`, `render-social-image.js`). `api/generate-video.js` has no brand/logo parameter at all yet — video is a separate, larger lift (real compositing, not just a prompt field). `api/generate-website-mockup.js` deliberately does NOT use this — that endpoint builds outreach mockups for a *prospect's* business, not the account's own, and explicitly avoids using the account's real branding for that reason.
+
+---
+
 ## Hosted storage — Cloudflare R2
 
 Ad creative that needs a real public URL (Instagram/TikTok publishing, mainly) uploads to Cloudflare R2 when configured, falling back to Supabase Storage otherwise — purely additive, nothing breaks if you only have one or neither set up.

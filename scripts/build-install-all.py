@@ -42,6 +42,7 @@ SOURCES = [
     'supabase-intelligence-profiles.sql',
     'supabase-social-posts.sql',
     'supabase-credits.sql',
+    'supabase-brand-kit.sql',
     'supabase-audience.sql',
     'supabase-audience-consent.sql',
     'supabase-ab-testing.sql',
