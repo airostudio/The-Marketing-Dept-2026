@@ -209,9 +209,15 @@ Deliberately a NEW table (`brand_kits`), not a repurposing of `nancy_brands` (Na
 
 1. Run `supabase-brand-kit.sql` in Supabase Dashboard → SQL Editor (or re-run `supabase-install-all.sql`, which now includes it). Creates `brand_kits` — one row per business (intelligence profile or project, same dual-scope model as `credit_balances`/`social_posts`), RLS-protected the same way as `social_posts` (owner/editor can write, viewer can read).
 2. Configure R2 if it isn't already (see below) — without it, the logo upload button returns a clear "R2 storage is not configured" error rather than failing silently; colors and fonts still save fine either way (they're a direct, RLS-protected write, not a file upload).
-3. On `web/marketing/brand.html`, select a business at the top of the app, then use the new "Your Brand Kit" panel to upload a logo and set colors/fonts.
+3. On `web/marketing/brand.html`, select a business at the top of the app, then use the new "Your Brand Kit" panel to upload a logo and set colors/fonts — or use "Detect from website" (below) to pre-fill most of it automatically.
 
 **Scope so far:** wired into the two Social Studio image endpoints only (`generate-ad-image.js`, `render-social-image.js`). `api/generate-video.js` has no brand/logo parameter at all yet — video is a separate, larger lift (real compositing, not just a prompt field). `api/generate-website-mockup.js` deliberately does NOT use this — that endpoint builds outreach mockups for a *prospect's* business, not the account's own, and explicitly avoids using the account's real branding for that reason.
+
+### Auto-detect from a website URL
+
+`api/brand-kit-auto-detect.js` + the "Detect from website" control in the Brand Kit panel: paste the business's own site and it proposes a logo, primary/secondary/accent colors, and heading/body font names, pulled directly from the page's own markup and CSS — no AI call, the same deterministic regex extraction Nancy already uses (`api/_lib/nancy-colours.js`) plus a new `api/_lib/logo-detect.js` (checks, in order: an `<img>` naming "logo" in its class/id/alt/src, then `og:image`, then `apple-touch-icon`, then a favicon link or `/favicon.ico`). A found logo is re-hosted to R2 so it doesn't depend on the original site staying up. Nothing is auto-saved — the result fills in the form fields for review, and the existing "Save Brand Kit" button still has to be clicked. Anything it couldn't find (no declared colors, no font names) comes back as an honest warning, never a guessed value.
+
+Uses the same R2/Supabase env vars as the rest of the Brand Kit above — no separate configuration needed. Note: `intelligence_profiles` has no stored website URL column today (only the legacy `projects.url` does), so this asks for the URL directly rather than assuming one is already on file; `brand_kits.website_url` remembers it afterward so detection can be re-run later without retyping it.
 
 ---
 

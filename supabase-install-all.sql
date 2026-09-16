@@ -1480,6 +1480,13 @@ CREATE POLICY "credit_balances_scope_read" ON credit_balances
 -- handful of things that should be IDENTICAL across every generated asset:
 -- the logo file, the brand's real hex colors, and its font names.
 --
+-- website_url lets the Brand Kit auto-detect logo/colors/fonts from the
+-- business's own site (api/brand-kit-auto-detect.js) and be re-run later
+-- without retyping it. It exists here, not on intelligence_profiles or
+-- projects, because intelligence_profiles has no website column at all
+-- today and this keeps the field wherever the rest of the visual identity
+-- already lives — one place, not three.
+--
 -- Deliberately does NOT duplicate text BusinessBrain already owns (company
 -- name, tagline, positioning, contact info — see supabase-business-brain.sql)
 -- — this table owns only the visual identity fields nothing else in the
@@ -1501,6 +1508,7 @@ CREATE TABLE IF NOT EXISTS brand_kits (
   intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
 
   logo_url          TEXT,       -- hosted (R2) URL — never a data: URI, so it can be reused in prompts/requests
+  website_url       TEXT,       -- the business's own site, so auto-detect can be re-run later without retyping it
   colours           JSONB       NOT NULL DEFAULT '{}'::jsonb,
                                 -- {primary, secondary: [], accent: [], background: [], text: []} — all hex strings
   fonts             JSONB       NOT NULL DEFAULT '{}'::jsonb,
@@ -1512,6 +1520,10 @@ CREATE TABLE IF NOT EXISTS brand_kits (
 
   CONSTRAINT brand_kits_scope_check CHECK (project_id IS NOT NULL OR intel_profile_id IS NOT NULL)
 );
+
+-- Idempotent for a brand_kits table that already existed before website_url
+-- was added — CREATE TABLE IF NOT EXISTS above is a no-op on a second run.
+ALTER TABLE brand_kits ADD COLUMN IF NOT EXISTS website_url TEXT;
 
 -- One brand kit per scope — same "at most one row per business" shape as credit_balances.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_brand_kits_profile ON brand_kits (intel_profile_id) WHERE intel_profile_id IS NOT NULL;

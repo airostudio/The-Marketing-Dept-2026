@@ -293,6 +293,20 @@
 
                     <div id="brandKitBody" style="display:none;">
                         <div class="guideline-subsection">
+                            <h4>Detect from website</h4>
+                            <div style="font-size:0.8125rem;color:var(--color-text-secondary);margin-bottom:10px;">
+                                Paste your site's URL and Audema will try to pull your logo, colors, and fonts
+                                straight from it — review what it finds below, then save.
+                            </div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                                <input type="url" id="brandKitDetectUrl" placeholder="https://yourbusiness.com" style="padding:8px 12px;border-radius:6px;border:1px solid var(--color-border);background:var(--color-bg-primary);color:var(--color-text-primary);width:260px;">
+                                <button type="button" class="btn btn-secondary" id="brandKitDetectBtn" onclick="detectBrandFromWebsite()">Detect</button>
+                                <span id="brandKitDetectStatus" style="font-size:0.8125rem;color:var(--color-text-secondary);"></span>
+                            </div>
+                            <div id="brandKitDetectWarnings" style="display:none;font-size:0.8125rem;color:var(--color-text-secondary);margin-top:8px;padding:10px 12px;background:var(--color-bg-tertiary);border-radius:8px;"></div>
+                        </div>
+
+                        <div class="guideline-subsection">
                             <h4>Logo</h4>
                             <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
                                 <div id="brandKitLogoPreviewWrap" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--color-border);background:var(--color-bg-tertiary);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
@@ -797,6 +811,11 @@
             });
         }
 
+        // Set when a detected logo has been shown for review but not yet saved —
+        // saveBrandKitFields() persists it only once the user actually clicks Save,
+        // consistent with every other AI/scrape-derived surface in this app.
+        var _pendingDetectedLogoUrl = null;
+
         function applyBrandKitToForm(kit) {
             var preview = document.getElementById('brandKitLogoPreview');
             var placeholder = document.getElementById('brandKitLogoPlaceholder');
@@ -817,6 +836,54 @@
             var f = kit.fonts || {};
             document.getElementById('brandKitFontHeading').value = f.heading || '';
             document.getElementById('brandKitFontBody').value = f.body || '';
+            var urlInput = document.getElementById('brandKitDetectUrl');
+            if (urlInput && !urlInput.value) {
+                urlInput.value = kit.website_url || (window.ProjectService && window.ProjectService.getCurrentProject && window.ProjectService.getCurrentProject().website) || '';
+            }
+        }
+
+        async function detectBrandFromWebsite() {
+            var input = document.getElementById('brandKitDetectUrl');
+            var btn = document.getElementById('brandKitDetectBtn');
+            var statusEl = document.getElementById('brandKitDetectStatus');
+            var warningsEl = document.getElementById('brandKitDetectWarnings');
+            var url = input.value.trim();
+            if (!url) { input.focus(); return; }
+            btn.disabled = true;
+            statusEl.style.color = 'var(--color-text-secondary)';
+            statusEl.textContent = 'Reading your site…';
+            warningsEl.style.display = 'none';
+            try {
+                var detected = await window.BrandKitStore.autoDetect(url);
+
+                if (detected.logoUrl) {
+                    _pendingDetectedLogoUrl = detected.logoUrl;
+                    document.getElementById('brandKitLogoPreview').src = detected.logoUrl;
+                    document.getElementById('brandKitLogoPreview').style.display = '';
+                    document.getElementById('brandKitLogoPlaceholder').style.display = 'none';
+                }
+                var c = detected.colours || {};
+                if (c.primary) document.getElementById('brandKitColorPrimary').value = c.primary;
+                if (c.secondary) document.getElementById('brandKitColorSecondary').value = c.secondary;
+                if (c.accent) document.getElementById('brandKitColorAccent').value = c.accent;
+                var f = detected.fonts || {};
+                if (f.heading) document.getElementById('brandKitFontHeading').value = f.heading;
+                if (f.body) document.getElementById('brandKitFontBody').value = f.body;
+                input.value = detected.websiteUrl || url;
+
+                statusEl.style.color = '#22c55e';
+                statusEl.textContent = 'Found it — review below, then click Save Brand Kit.';
+                if (detected.warnings && detected.warnings.length) {
+                    warningsEl.style.display = '';
+                    warningsEl.textContent = detected.warnings.join(' ');
+                }
+            } catch (err) {
+                statusEl.style.color = '#ef4444';
+                statusEl.textContent = err.message;
+                if (window.reportFailure) window.reportFailure('Brand kit auto-detect failed: ' + err.message, { where: 'brand.detectBrandFromWebsite' });
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         async function initBrandKit() {
@@ -876,7 +943,7 @@
             statusEl.style.color = 'var(--color-text-secondary)';
             statusEl.textContent = 'Saving…';
             try {
-                await window.BrandKitStore.saveBrandKit({
+                var fields = {
                     colours: {
                         primary: document.getElementById('brandKitColorPrimary').value,
                         secondary: document.getElementById('brandKitColorSecondary').value,
@@ -888,7 +955,13 @@
                         heading: document.getElementById('brandKitFontHeading').value.trim(),
                         body: document.getElementById('brandKitFontBody').value.trim(),
                     },
-                });
+                };
+                var urlInput = document.getElementById('brandKitDetectUrl');
+                if (urlInput && urlInput.value.trim()) fields.website_url = urlInput.value.trim();
+                if (_pendingDetectedLogoUrl) fields.logo_url = _pendingDetectedLogoUrl;
+
+                await window.BrandKitStore.saveBrandKit(fields);
+                _pendingDetectedLogoUrl = null;
                 statusEl.style.color = '#22c55e';
                 statusEl.textContent = 'Saved.';
             } catch (err) {

@@ -228,8 +228,8 @@ async function callUpload(handler, body) {
     check('and the combined installer is actually up to date with it', /CREATE TABLE IF NOT EXISTS brand_kits/.test(installAll));
 
     const store = fs.readFileSync(path.join(REPO, 'web/js/brand-kit-store.js'), 'utf8');
-    check('the client store never writes logo_url directly (only the server endpoint, which owns R2 access, does)',
-      !/\.update\(\s*\{[^}]*logo_url/.test(store));
+    check('saveBrandKit refuses a data: URI for logo_url (a real file upload must go through uploadLogo, which owns R2 access)',
+      /data:/i.test(store) && /uploadLogo\(\), not saveBrandKit/.test(store));
     check('getBrandKit degrades to an empty kit rather than throwing when there is no active scope',
       /scoped: false/.test(store));
   }

@@ -106,7 +106,7 @@ const WIDER = [
   'nancy-upload-photo', 'places', 'seo-analyze-site', 'seo-backlink-find-email',
   'seo-backlink-search', 'seo-backlink-structure', 'seo-keyword-research',
   'seo-outreach-draft', 'seo-search-competitors', 'seo-structure-competitors',
-  'seo-write-article', 'unsplash', 'brand-kit-upload-logo',
+  'seo-write-article', 'unsplash', 'brand-kit-upload-logo', 'brand-kit-auto-detect',
 ];
 const GET_ONLY = new Set(['pagespeed', 'check-url', 'convert-experiments']);
 
