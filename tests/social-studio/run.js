@@ -249,10 +249,16 @@ async function call(handler, body, opts) {
   // the customer had done, so it could never have helped.
   console.log('\n──── generate-social-posts has real timeout headroom, and honest advice when it still times out ────');
 
+  // Vercel rejects a per-file maxDuration override for a path its "api/*.js"
+  // glob already matches ("The pattern ... doesn't match any Serverless
+  // Functions") — the fix had to be a shared, app-wide bump instead of a
+  // targeted one.
   const vercelConfig = JSON.parse(read('vercel.json'));
-  const genPostsFn = vercelConfig.functions && vercelConfig.functions['api/generate-social-posts.js'];
-  check('this endpoint has its own maxDuration override, not just the app-wide 60s default',
-    genPostsFn && genPostsFn.maxDuration > 60);
+  const apiGlobFn = vercelConfig.functions && vercelConfig.functions['api/*.js'];
+  check('no per-file override exists for this path — Vercel rejects that alongside a matching glob',
+    !(vercelConfig.functions && vercelConfig.functions['api/generate-social-posts.js']));
+  check('the app-wide maxDuration was raised well past the old 60s default',
+    apiGlobFn && apiGlobFn.maxDuration > 60);
 
   const genPosts = read('api/generate-social-posts.js');
   const upstreamTimeoutMatch = genPosts.match(/UPSTREAM_TIMEOUT_MS\s*=\s*(\d+)/);
@@ -261,7 +267,7 @@ async function call(handler, body, opts) {
   check('the upstream timeout leaves this endpoint far more room than the old 55s',
     upstreamTimeoutMs >= 100000);
   check('the upstream timeout still stays safely under the function\'s own maxDuration',
-    genPostsFn && upstreamTimeoutMs < genPostsFn.maxDuration * 1000);
+    apiGlobFn && upstreamTimeoutMs < apiGlobFn.maxDuration * 1000);
 
   check('a small batch that still times out is told the truth (not "reduce it further")',
     /already small/.test(genPosts) && /unlikely to help/.test(genPosts));

@@ -226,18 +226,21 @@ module.exports = withFailureReporting('api/generate-social-posts', async functio
   // maxDuration (60s, see vercel.json) alongside request/response overhead.
   const maxTokens = Math.min(8000, 700 * count + 1200);
 
-  // This route gets its own maxDuration override (150s, see vercel.json) —
-  // higher than the app's normal 60s default. A batch as small as 5 posts
-  // was timing out at the old 55s ceiling on a slow/degraded model response,
-  // and reducing the batch size further doesn't help when 5 is already the
-  // low end of what's useful — the fix is more time, not a smaller request.
-  // A retry inside this same invocation would still blow past even this
-  // larger ceiling, so there's exactly one attempt. 145s leaves a little
-  // headroom for request parsing/response serialization while giving
-  // generation itself as much of the budget as possible — output for a full
-  // 20-post batch (~8000 tokens) needs real time to generate, and that time
-  // comes from token throughput, not from input size, so it isn't something
-  // caching the input can shrink.
+  // vercel.json's app-wide maxDuration is 150s (raised from 60s — Vercel
+  // rejects a per-file override for a path a glob already matches, so this
+  // had to be a shared bump rather than a targeted one; every other
+  // endpoint's own AbortSignal.timeout calls are unaffected since they
+  // self-limit well inside either ceiling). A batch as small as 5 posts was
+  // timing out at the old 55s upstream ceiling on a slow/degraded model
+  // response, and reducing the batch size further doesn't help when 5 is
+  // already the low end of what's useful — the fix is more time, not a
+  // smaller request. A retry inside this same invocation would still blow
+  // past even this larger ceiling, so there's exactly one attempt. 145s
+  // leaves a little headroom for request parsing/response serialization
+  // while giving generation itself as much of the budget as possible —
+  // output for a full 20-post batch (~8000 tokens) needs real time to
+  // generate, and that time comes from token throughput, not from input
+  // size, so it isn't something caching the input can shrink.
   const UPSTREAM_TIMEOUT_MS = 145000;
 
   function isTimeout(err) {
