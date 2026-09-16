@@ -226,14 +226,19 @@ module.exports = withFailureReporting('api/generate-social-posts', async functio
   // maxDuration (60s, see vercel.json) alongside request/response overhead.
   const maxTokens = Math.min(8000, 700 * count + 1200);
 
-  // The function's own maxDuration is 60s (vercel.json) — a retry inside this
-  // same invocation would blow straight past that ceiling, so there's exactly
-  // one attempt. 55s leaves a little headroom for request parsing/response
-  // serialization while giving generation itself as much of the 60s budget
-  // as possible — output for a full 20-post batch (~8000 tokens) needs real
-  // time to generate, and that time comes from token throughput, not from
-  // input size, so it isn't something caching the input can shrink.
-  const UPSTREAM_TIMEOUT_MS = 55000;
+  // This route gets its own maxDuration override (150s, see vercel.json) —
+  // higher than the app's normal 60s default. A batch as small as 5 posts
+  // was timing out at the old 55s ceiling on a slow/degraded model response,
+  // and reducing the batch size further doesn't help when 5 is already the
+  // low end of what's useful — the fix is more time, not a smaller request.
+  // A retry inside this same invocation would still blow past even this
+  // larger ceiling, so there's exactly one attempt. 145s leaves a little
+  // headroom for request parsing/response serialization while giving
+  // generation itself as much of the budget as possible — output for a full
+  // 20-post batch (~8000 tokens) needs real time to generate, and that time
+  // comes from token throughput, not from input size, so it isn't something
+  // caching the input can shrink.
+  const UPSTREAM_TIMEOUT_MS = 145000;
 
   function isTimeout(err) {
     return err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted due to timeout/i.test(err.message || '');
@@ -368,7 +373,8 @@ module.exports = withFailureReporting('api/generate-social-posts', async functio
 
   } catch (err) {
     if (isTimeout(err)) {
-      return res.status(504).json({ error: `Claude took too long generating ${count} posts. Try again, or generate a smaller batch (5-7 posts) if this keeps happening.` });
+      const smallerBatchAdvice = count > 7 ? ' Try again, or generate a smaller batch (5-7 posts) if this keeps happening.' : ' Try again — this batch size is already small, so a further reduction is unlikely to help; this usually means Claude is unusually slow to respond right now.';
+      return res.status(504).json({ error: `Claude took too long generating ${count} posts.${smallerBatchAdvice}` });
     }
     return res.status(502).json({ error: err.message });
   }

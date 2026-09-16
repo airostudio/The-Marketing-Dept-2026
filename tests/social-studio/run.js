@@ -242,6 +242,32 @@ async function call(handler, body, opts) {
     /graph\.facebook\.com/.test(pub) && /api\.linkedin\.com/.test(pub) &&
     /api\.twitter\.com/.test(pub) && /media_publish/.test(pub));
 
+  /* ── 6. Post generation has real headroom before it times out ─────────── */
+  // A batch as small as 5 posts (already the low end of what's useful) was
+  // timing out at the old blanket 55s/60s ceiling, and the error message's
+  // own advice — "generate a smaller batch (5-7 posts)" — was already what
+  // the customer had done, so it could never have helped.
+  console.log('\n──── generate-social-posts has real timeout headroom, and honest advice when it still times out ────');
+
+  const vercelConfig = JSON.parse(read('vercel.json'));
+  const genPostsFn = vercelConfig.functions && vercelConfig.functions['api/generate-social-posts.js'];
+  check('this endpoint has its own maxDuration override, not just the app-wide 60s default',
+    genPostsFn && genPostsFn.maxDuration > 60);
+
+  const genPosts = read('api/generate-social-posts.js');
+  const upstreamTimeoutMatch = genPosts.match(/UPSTREAM_TIMEOUT_MS\s*=\s*(\d+)/);
+  check('UPSTREAM_TIMEOUT_MS is actually defined', !!upstreamTimeoutMatch);
+  const upstreamTimeoutMs = upstreamTimeoutMatch ? Number(upstreamTimeoutMatch[1]) : 0;
+  check('the upstream timeout leaves this endpoint far more room than the old 55s',
+    upstreamTimeoutMs >= 100000);
+  check('the upstream timeout still stays safely under the function\'s own maxDuration',
+    genPostsFn && upstreamTimeoutMs < genPostsFn.maxDuration * 1000);
+
+  check('a small batch that still times out is told the truth (not "reduce it further")',
+    /already small/.test(genPosts) && /unlikely to help/.test(genPosts));
+  check('a genuinely large batch still gets the smaller-batch advice, since that one is real',
+    /count > 7/.test(genPosts) && /smaller batch \(5-7 posts\)/.test(genPosts));
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));
