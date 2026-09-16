@@ -35,7 +35,8 @@
         .health-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .health-ring-label .score { font-size: 2rem; font-weight: 800; color: var(--color-text-primary); }
         .health-ring-label .score-label { font-size: 0.75rem; color: var(--color-text-secondary); }
-        .health-trend-chart { flex: 1; min-height: 140px; background: var(--color-bg-tertiary); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); font-size: 0.875rem; }
+        .health-trend-chart { flex: 1; min-height: 140px; background: var(--color-bg-tertiary); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); font-size: 0.875rem; padding: 12px; }
+        .health-trend-chart canvas { width: 100%; height: 100%; }
 
         /* Guidelines */
         .guideline-subsection { margin-bottom: 20px; }
@@ -698,6 +699,60 @@
             });
         }
 
+        /* ── Health trend history (real points only — never fabricated) ── */
+        var HEALTH_HISTORY_KEY = 'audema_brand_health_history';
+        var HEALTH_HISTORY_MAX = 30;
+
+        function recordHealthHistoryPoint(score) {
+            if (typeof score !== 'number' || Number.isNaN(score)) return;
+            var history = [];
+            try { history = JSON.parse(localStorage.getItem(HEALTH_HISTORY_KEY) || '[]'); } catch (_) { history = []; }
+            if (!Array.isArray(history)) history = [];
+            var last = history[history.length - 1];
+            // Same calculatedAt as last point (still the cached value) — don't duplicate.
+            if (!last || last.score !== score) {
+                history.push({ score: score, at: new Date().toISOString() });
+                if (history.length > HEALTH_HISTORY_MAX) history = history.slice(-HEALTH_HISTORY_MAX);
+                try { localStorage.setItem(HEALTH_HISTORY_KEY, JSON.stringify(history)); } catch (_) { /* storage full/unavailable — trend just won't persist */ }
+            }
+            return history;
+        }
+
+        function renderHealthTrendChart() {
+            var wrap = document.getElementById('healthTrendChart');
+            if (!wrap) return;
+            var history = [];
+            try { history = JSON.parse(localStorage.getItem(HEALTH_HISTORY_KEY) || '[]'); } catch (_) { history = []; }
+            if (!Array.isArray(history) || history.length < 2) {
+                wrap.innerHTML = '<span>Not enough history yet — this chart fills in as your brand health score is checked over time.</span>';
+                return;
+            }
+            wrap.innerHTML = '<canvas id="healthTrendCanvas"></canvas>';
+            var canvas = document.getElementById('healthTrendCanvas');
+            var ctx = canvas.getContext('2d');
+            var w = canvas.width = canvas.offsetWidth || 320;
+            var h = canvas.height = canvas.offsetHeight || 116;
+            var pad = 12;
+            var scores = history.map(function (p) { return p.score; });
+            var min = Math.min.apply(null, scores), max = Math.max.apply(null, scores);
+            var range = max - min || 1;
+            ctx.strokeStyle = '#6366F1';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            history.forEach(function (p, i) {
+                var x = pad + (i / (history.length - 1)) * (w - pad * 2);
+                var y = h - pad - ((p.score - min) / range) * (h - pad * 2);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.fillStyle = '#6366F1';
+            history.forEach(function (p, i) {
+                var x = pad + (i / (history.length - 1)) * (w - pad * 2);
+                var y = h - pad - ((p.score - min) / range) * (h - pad * 2);
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+            });
+        }
+
         /* ── Load brand data ── */
         async function loadBrandData() {
             // Defaults / demo data
@@ -707,16 +762,17 @@
                 shareOfVoice: { value: '28%', unit: '', trend: 1.5 },
                 consistency: { value: '91', unit: '/100', trend: 3.1 }
             };
+            var liveScore = null;
 
             try {
-                if (window.BrandService && window.BrandService.getBrandHealth) {
-                    var health = await window.BrandService.getBrandHealth();
-                    if (health) {
+                if (window.BrandService && window.BrandService.getBrandHealthScore) {
+                    var health = await window.BrandService.getBrandHealthScore();
+                    if (health && !health.raw) {
                         if (health.awareness !== undefined) kpiData.awareness.value = health.awareness + '%';
                         if (health.sentiment !== undefined) kpiData.sentiment.value = (health.sentiment >= 0 ? '+' : '') + health.sentiment;
                         if (health.shareOfVoice !== undefined) kpiData.shareOfVoice.value = health.shareOfVoice + '%';
-                        if (health.consistency !== undefined) kpiData.consistency.value = health.consistency;
-                        if (health.overall !== undefined) setHealthScore(health.overall);
+                        if (health.loyalty !== undefined) kpiData.consistency.value = health.loyalty;
+                        if (typeof health.overall === 'number') liveScore = health.overall;
                     }
                 }
             } catch (err) {
@@ -724,7 +780,9 @@
             }
 
             renderKpis(kpiData);
-            setHealthScore(75);
+            setHealthScore(liveScore !== null ? liveScore : 75);
+            if (liveScore !== null) recordHealthHistoryPoint(liveScore);
+            renderHealthTrendChart();
             drawPositioningMap();
         }
 
