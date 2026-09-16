@@ -185,6 +185,13 @@
         .post-card-image-badge.template { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
         .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
         .post-card-ai-disclosure { font-size: 10.5px; color: #f59e0b; line-height: 1.5; margin: -4px 0 10px; }
+        .post-card-video-wrap { position: relative; margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .post-card-video-wrap video { display: block; width: 100%; height: auto; max-height: 420px; background: #000; }
+        .post-card-video-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; backdrop-filter: blur(6px); background: rgba(124,58,237,0.75); color: #fff; }
+        .post-card-video-status { font-size: 11.5px; color: #a78bfa; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .post-card-video-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
+        .post-card-btn.video:hover { border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+        .post-card-btn.download { background: rgba(255,255,255,0.03); }
         .post-card-quick-link { display: block; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: 'Inter', sans-serif; padding: 0; }
         .credits-upsell { margin-bottom: 10px; padding: 14px 16px; border-radius: 10px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); }
         .credits-upsell-title { font-weight: 700; color: #fbbf24; margin-bottom: 4px; font-size: 13px; }
@@ -804,9 +811,12 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
-            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${escHtmlCard(p.imageUrl)}" alt="Generated creative"></div>` : ''}
-            ${p.imageUrl && p.imageIsAI ? `<div class="post-card-ai-disclosure">⚠️ AI-generated image — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
+            ${p.videoUrl ? `<div class="post-card-video-wrap"><span class="post-card-video-badge">✨ AI Reel</span><video src="${escHtmlCard(p.videoUrl)}" controls playsinline></video></div>`
+                : (p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${escHtmlCard(p.imageUrl)}" alt="Generated creative"></div>` : '')}
+            ${(p.imageUrl && p.imageIsAI) || p.videoUrl ? `<div class="post-card-ai-disclosure">⚠️ AI-generated ${p.videoUrl ? 'video' : 'image'} — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
+            ${p._videoLoading ? `<div class="post-card-video-status"><span class="spinner" style="display:inline-block;width:12px;height:12px;"></span> ${escHtmlCard(p._videoStatusText || 'Rendering Reel…')}</div>` : ''}
+            ${p.videoError ? `<div class="post-card-video-error">Reel generation failed: ${escHtmlCard(p.videoError)}</div>` : ''}
             ${p.outOfCredits ? `
                 <div class="credits-upsell">
                     <div class="credits-upsell-title">⚡ Out of AI image credits</div>
@@ -822,6 +832,8 @@ function renderReviewQueue() {
                 <button class="post-card-btn reject" onclick="rejectPost('${p.id}')" ${p.status === 'rejected' ? 'disabled' : ''}>✕ Reject</button>
                 <button class="post-card-btn regen" onclick="regeneratePost('${p.id}')">↻ Regenerate</button>
                 <button class="post-card-btn image" onclick="generateCardImage('${p.id}')" ${p._imageLoading ? 'disabled' : ''}>${p._imageLoading ? '⏳ Generating…' : '✨ ' + (p.imageUrl ? 'Regenerate Image' : 'Generate Ad Image')}</button>
+                <button class="post-card-btn video" onclick="generateCardVideo('${p.id}')" ${p._videoLoading ? 'disabled' : ''}>${p._videoLoading ? '⏳ Rendering…' : '🎬 ' + (p.videoUrl ? 'Regenerate Reel' : 'Generate Reel')}</button>
+                ${(p.videoUrl || p.imageUrl) ? `<button class="post-card-btn download" onclick="downloadCardCreative('${p.id}')">⬇ Download</button>` : ''}
                 <button class="post-card-btn approve" onclick="approvePost('${p.id}')" ${p.status === 'approved' ? 'disabled' : ''}>✓ Approve</button>
             </div>
             ${!p._imageLoading ? `<button class="post-card-quick-link" onclick="generateCardImageQuick('${p.id}')">Use free quick template instead (instant, no AI, placeholder-quality)</button>` : ''}
@@ -965,6 +977,128 @@ async function generateCardImageQuick(id) {
         post.imageError = err.message;
     }
     renderReviewQueue();
+}
+
+const CARD_VIDEO_MAX_ATTEMPTS = 60; // ~5 minutes at 5s intervals — same budget as video-agent.html's own poller
+
+/** Condense a post's copy into a short scene-description prompt Seedance can act on. */
+function condenseCardCopyForVideoPrompt(post) {
+    const parts = [post.hook || post.headline, post.body, post.cta].filter(Boolean);
+    let t = parts.join('. ').replace(/\s+/g, ' ').trim();
+    if (t.length > 500) t = t.slice(0, 500).trim() + '...';
+    return t || 'A short, on-brand social video for this post.';
+}
+
+/**
+ * Generate a real AI Reel/short video for one card via /api/generate-video
+ * (Seedance 2.0) — same async create → poll → mirror-to-R2 pipeline
+ * video-agent.html already uses, wired into this grid instead of a separate
+ * page, so a batch of posts can include real video alongside images without
+ * leaving Social Studio. Costs whatever the account's Ark/Seedance key
+ * bills per clip — same as video-agent.html, no additional credit gate
+ * introduced here since none exists on that endpoint today.
+ */
+async function generateCardVideo(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+
+    post._videoLoading = true;
+    post._videoStatusText = 'Sending to Seedance 2.0…';
+    post.videoError = null;
+    renderReviewQueue();
+
+    // Reels/TikTok/Instagram-style vertical video for anything that isn't
+    // explicitly a landscape-native platform.
+    const aspectRatio = /twitter|x\b|facebook/i.test(post.platform || '') ? '16:9' : '9:16';
+
+    try {
+        const res = await fetch('/api/generate-video', {
+            method: 'POST',
+            headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({
+                action: 'create',
+                prompt: condenseCardCopyForVideoPrompt(post),
+                mode: 'text-to-video',
+                aspectRatio,
+                duration: 5,
+                resolution: '1080p',
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        if (!data.taskId) throw new Error('Seedance did not return a task id.');
+
+        post._videoStatusText = 'Rendering…';
+        renderReviewQueue();
+        pollCardVideoStatus(id, data.taskId, 0);
+    } catch (err) {
+        post._videoLoading = false;
+        post.videoError = err.message;
+        renderReviewQueue();
+    }
+}
+
+async function pollCardVideoStatus(id, taskId, attempts) {
+    const post = findReviewPost(id);
+    if (!post) return; // card was removed/rejected mid-render
+
+    if (attempts >= CARD_VIDEO_MAX_ATTEMPTS) {
+        post._videoLoading = false;
+        post.videoError = 'Timed out waiting for the video to finish rendering.';
+        renderReviewQueue();
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/generate-video', {
+            method: 'POST',
+            headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({ action: 'status', taskId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        if (data.status === 'succeeded') {
+            post._videoLoading = false;
+            post.videoUrl = data.videoUrl;
+            renderReviewQueue();
+            if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
+                try { await window.SocialPostsStore.updatePost(id, { video_url: data.videoUrl }); } catch (err) { console.warn(err.message); }
+            }
+            return;
+        }
+        if (data.status === 'failed') {
+            post._videoLoading = false;
+            post.videoError = data.error || 'Video generation failed.';
+            renderReviewQueue();
+            return;
+        }
+        // pending/processing — keep waiting
+        setTimeout(() => pollCardVideoStatus(id, taskId, attempts + 1), 5000);
+    } catch (err) {
+        post._videoLoading = false;
+        post.videoError = err.message;
+        renderReviewQueue();
+    }
+}
+
+/** Download this card's finished creative (video takes priority — a card only ever shows one at a time). */
+function downloadCardCreative(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+    const url = post.videoUrl || post.hostedImageUrl || post.imageUrl;
+    if (!url) return;
+    if (url.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(post.platform || 'post').replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${id}.png`;
+        a.click();
+        return;
+    }
+    // A remote (R2-hosted) URL — download opens in a new tab if the host
+    // doesn't send Content-Disposition, same accepted tradeoff already made
+    // for video-agent.html's own Download links.
+    window.open(url, '_blank', 'noopener');
 }
 
 /** Regenerate a single card: reject the old one, generate one replacement in its place. */
