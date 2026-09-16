@@ -71,11 +71,43 @@ async function publishFacebook(post) {
   return { success: true, status: 'published', platformPostId: data.id, url: data.id ? `https://facebook.com/${data.id}` : undefined };
 }
 
+// LinkedIn's own org-page URN shape — anything else is not something the
+// UGC Posts API will accept as `author` for an organization share.
+const LINKEDIN_ORG_URN_RE = /^urn:li:organization:\d+$/;
+
+/**
+ * LinkedIn's "Data Processing Exception ... [/author]" error is its generic
+ * catch-all for "the author field could not be resolved to something this
+ * token may post as" — it fires for a handful of different real causes and
+ * gives no hint which one, so this names each of them explicitly instead of
+ * leaving the customer to guess from LinkedIn's one opaque sentence.
+ */
+function describeLinkedInFailure(upstreamMessage, orgUrnRaw) {
+  if (!/\[\/author\]/.test(upstreamMessage || '')) return upstreamMessage;
+  const trimmed = String(orgUrnRaw || '').trim();
+  if (!LINKEDIN_ORG_URN_RE.test(trimmed)) {
+    return `${upstreamMessage} — LINKEDIN_ORGANIZATION_URN is set to "${orgUrnRaw}", which is not a valid organization URN. ` +
+      'It must be exactly "urn:li:organization:<numeric id>" — just the Company Page\'s numeric ID, no quotes, ' +
+      'extra text, or stray whitespace/newlines from copy-pasting.';
+  }
+  return `${upstreamMessage} — LINKEDIN_ORGANIZATION_URN ("${trimmed}") is correctly formatted, so this usually means either: ` +
+    '(1) that numeric ID is not a real Company Page LinkedIn recognises, (2) the member who authorized ' +
+    'LINKEDIN_ACCESS_TOKEN is not an admin of that Company Page, or (3) the token was not granted the ' +
+    'w_organization_social scope needed to post as an organization. Check the URN against the Page admin URL, ' +
+    'and re-run the OAuth authorization as a Page admin if needed.';
+}
+
 // ── LinkedIn UGC Post (organization share) ──────────────────────────────────
 async function publishLinkedIn(post) {
   const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
-  const orgUrn = process.env.LINKEDIN_ORGANIZATION_URN; // e.g. "urn:li:organization:12345678"
-  if (!accessToken || !orgUrn) return missingEnvResult(['LINKEDIN_ACCESS_TOKEN', 'LINKEDIN_ORGANIZATION_URN']);
+  const orgUrnRaw = process.env.LINKEDIN_ORGANIZATION_URN; // e.g. "urn:li:organization:12345678"
+  if (!accessToken || !orgUrnRaw) return missingEnvResult(['LINKEDIN_ACCESS_TOKEN', 'LINKEDIN_ORGANIZATION_URN']);
+
+  // Trimmed before it ever reaches LinkedIn — a trailing newline/space from
+  // copy-pasting the env var value is exactly the kind of thing that reads
+  // as a syntactically-present URN here but fails LinkedIn's own field
+  // validation with no useful detail on which character was the problem.
+  const orgUrn = orgUrnRaw.trim();
 
   const message = composeMessage(post);
   const body = {
@@ -101,7 +133,10 @@ async function publishLinkedIn(post) {
     signal: AbortSignal.timeout(20000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { success: false, status: 'failed', error: data.message || `LinkedIn API error ${res.status}` };
+  if (!res.ok) {
+    const upstreamMessage = data.message || `LinkedIn API error ${res.status}`;
+    return { success: false, status: 'failed', error: describeLinkedInFailure(upstreamMessage, orgUrnRaw) };
+  }
 
   const postId = res.headers.get('x-restli-id') || data.id;
   return { success: true, status: 'published', platformPostId: postId, url: postId ? `https://www.linkedin.com/feed/update/${postId}` : undefined };
