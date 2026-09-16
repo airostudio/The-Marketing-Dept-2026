@@ -2,7 +2,7 @@
  * api/publish-social-post.js — Publish-adapter architecture (Phase H)
  *
  * POST {
- *   platform:   string,           // 'LinkedIn' | 'Facebook' | 'Meta/Facebook' | 'Twitter/X' | 'Instagram' | 'TikTok' | ...
+ *   platform:   string,           // 'LinkedIn' | 'LinkedIn (Personal)' | 'Facebook' | 'Meta/Facebook' | 'Twitter/X' | 'Instagram' | 'TikTok' | ...
  *   headline?:  string,
  *   body:       string,           // the actual post copy to publish
  *   cta?:       string,
@@ -71,9 +71,12 @@ async function publishFacebook(post) {
   return { success: true, status: 'published', platformPostId: data.id, url: data.id ? `https://facebook.com/${data.id}` : undefined };
 }
 
-// LinkedIn's own org-page URN shape — anything else is not something the
-// UGC Posts API will accept as `author` for an organization share.
+// LinkedIn's own URN shapes — anything else is not something the UGC Posts
+// API will accept as `author`. A personal profile share uses urn:li:person:
+// with an opaque alphanumeric member id, not the numeric id an organization
+// URN carries.
 const LINKEDIN_ORG_URN_RE = /^urn:li:organization:\d+$/;
+const LINKEDIN_PERSON_URN_RE = /^urn:li:person:[\w-]+$/;
 
 /**
  * LinkedIn's "Data Processing Exception ... [/author]" error is its generic
@@ -81,37 +84,46 @@ const LINKEDIN_ORG_URN_RE = /^urn:li:organization:\d+$/;
  * token may post as" — it fires for a handful of different real causes and
  * gives no hint which one, so this names each of them explicitly instead of
  * leaving the customer to guess from LinkedIn's one opaque sentence.
+ *
+ * @param {'organization'|'person'} authorType
  */
-function describeLinkedInFailure(upstreamMessage, orgUrnRaw) {
+function describeLinkedInFailure(upstreamMessage, authorUrnRaw, authorType) {
   if (!/\[\/author\]/.test(upstreamMessage || '')) return upstreamMessage;
-  const trimmed = String(orgUrnRaw || '').trim();
-  if (!LINKEDIN_ORG_URN_RE.test(trimmed)) {
-    return `${upstreamMessage} — LINKEDIN_ORGANIZATION_URN is set to "${orgUrnRaw}", which is not a valid organization URN. ` +
-      'It must be exactly "urn:li:organization:<numeric id>" — just the Company Page\'s numeric ID, no quotes, ' +
-      'extra text, or stray whitespace/newlines from copy-pasting.';
+
+  const trimmed = String(authorUrnRaw || '').trim();
+  const isOrg = authorType === 'organization';
+  const envVar = isOrg ? 'LINKEDIN_ORGANIZATION_URN' : 'LINKEDIN_PERSON_URN';
+  const shape = isOrg ? 'urn:li:organization:<numeric id>' : 'urn:li:person:<member id>';
+  const re = isOrg ? LINKEDIN_ORG_URN_RE : LINKEDIN_PERSON_URN_RE;
+
+  if (!re.test(trimmed)) {
+    return `${upstreamMessage} — ${envVar} is set to "${authorUrnRaw}", which is not a valid ${authorType} URN. ` +
+      `It must be exactly "${shape}", no quotes, extra text, or stray whitespace/newlines from copy-pasting.`;
   }
-  return `${upstreamMessage} — LINKEDIN_ORGANIZATION_URN ("${trimmed}") is correctly formatted, so this usually means either: ` +
-    '(1) that numeric ID is not a real Company Page LinkedIn recognises, (2) the member who authorized ' +
-    'LINKEDIN_ACCESS_TOKEN is not an admin of that Company Page, or (3) the token was not granted the ' +
-    'w_organization_social scope needed to post as an organization. Check the URN against the Page admin URL, ' +
-    'and re-run the OAuth authorization as a Page admin if needed.';
+  const scope = isOrg ? 'w_organization_social' : 'w_member_social';
+  const grantedTo = isOrg ? 'the Company Page' : 'this specific member';
+  return `${upstreamMessage} — ${envVar} ("${trimmed}") is correctly formatted, so this usually means either: ` +
+    `(1) that id is not one LinkedIn recognises as ${grantedTo}, or (2) the token was not granted the ` +
+    `${scope} scope needed to post as ${authorType === 'organization' ? 'an organization' : 'this member'}. ` +
+    'Re-run the OAuth authorization with the right scope if needed.';
 }
 
-// ── LinkedIn UGC Post (organization share) ──────────────────────────────────
-async function publishLinkedIn(post) {
-  const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
-  const orgUrnRaw = process.env.LINKEDIN_ORGANIZATION_URN; // e.g. "urn:li:organization:12345678"
-  if (!accessToken || !orgUrnRaw) return missingEnvResult(['LINKEDIN_ACCESS_TOKEN', 'LINKEDIN_ORGANIZATION_URN']);
-
+/**
+ * Shared UGC Posts call — LinkedIn's org-page and personal-profile shares are
+ * the exact same API shape, differing only in which `author` URN/token pair
+ * is used and which scope that token needs (w_organization_social vs.
+ * w_member_social).
+ */
+async function postLinkedInUgc(post, { accessToken, authorUrnRaw, authorType }) {
   // Trimmed before it ever reaches LinkedIn — a trailing newline/space from
   // copy-pasting the env var value is exactly the kind of thing that reads
   // as a syntactically-present URN here but fails LinkedIn's own field
   // validation with no useful detail on which character was the problem.
-  const orgUrn = orgUrnRaw.trim();
+  const authorUrn = authorUrnRaw.trim();
 
   const message = composeMessage(post);
   const body = {
-    author: orgUrn,
+    author: authorUrn,
     lifecycleState: 'PUBLISHED',
     specificContent: {
       'com.linkedin.ugc.ShareContent': {
@@ -135,11 +147,35 @@ async function publishLinkedIn(post) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const upstreamMessage = data.message || `LinkedIn API error ${res.status}`;
-    return { success: false, status: 'failed', error: describeLinkedInFailure(upstreamMessage, orgUrnRaw) };
+    return { success: false, status: 'failed', error: describeLinkedInFailure(upstreamMessage, authorUrnRaw, authorType) };
   }
 
   const postId = res.headers.get('x-restli-id') || data.id;
   return { success: true, status: 'published', platformPostId: postId, url: postId ? `https://www.linkedin.com/feed/update/${postId}` : undefined };
+}
+
+// ── LinkedIn UGC Post — Company Page share ──────────────────────────────────
+async function publishLinkedIn(post) {
+  const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
+  const orgUrnRaw = process.env.LINKEDIN_ORGANIZATION_URN; // e.g. "urn:li:organization:12345678"
+  if (!accessToken || !orgUrnRaw) return missingEnvResult(['LINKEDIN_ACCESS_TOKEN', 'LINKEDIN_ORGANIZATION_URN']);
+  return postLinkedInUgc(post, { accessToken, authorUrnRaw: orgUrnRaw, authorType: 'organization' });
+}
+
+// ── LinkedIn UGC Post — personal profile share ──────────────────────────────
+// A separate token/URN pair, not a mode switch on the org one: LinkedIn issues
+// the org token to whichever member authorized the app, but that token can
+// only post as the org — posting as that member's own profile needs a token
+// authorized with w_member_social and that member's own urn:li:person: id.
+// This is exactly what a real pain-amplification campaign needs (see
+// VERCEL_SETUP.md's "Post from your personal profile as well as the company
+// page" note) — the founder posts the pain/recognition content personally,
+// the company page carries the product/credibility angle.
+async function publishLinkedInPersonal(post) {
+  const accessToken = process.env.LINKEDIN_PERSON_ACCESS_TOKEN;
+  const personUrnRaw = process.env.LINKEDIN_PERSON_URN; // e.g. "urn:li:person:AbCdEfGhIj"
+  if (!accessToken || !personUrnRaw) return missingEnvResult(['LINKEDIN_PERSON_ACCESS_TOKEN', 'LINKEDIN_PERSON_URN']);
+  return postLinkedInUgc(post, { accessToken, authorUrnRaw: personUrnRaw, authorType: 'person' });
 }
 
 // ── X (Twitter) v2 tweet creation ────────────────────────────────────────────
@@ -259,6 +295,7 @@ const ADAPTERS = {
   'Facebook': publishFacebook,
   'Meta/Facebook': publishFacebook,
   'LinkedIn': publishLinkedIn,
+  'LinkedIn (Personal)': publishLinkedInPersonal,
   'Twitter/X': publishTwitter,
   'Instagram': publishInstagram,
   'TikTok': publishTikTok,

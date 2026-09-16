@@ -642,28 +642,43 @@
             }
             el.innerHTML = posts.map(function(p) {
                 var when = p.scheduled_at ? new Date(p.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                // A pain-amplification LinkedIn campaign is meant to run from BOTH
+                // the founder's personal profile and the Company Page (see
+                // VERCEL_SETUP.md) — offer both publish targets for a LinkedIn post
+                // rather than only the org-page one every other platform gets.
+                var personalBtn = p.platform === 'LinkedIn'
+                    ? '<button class="btn btn-secondary" id="publish-personal-btn-' + p.id + '" onclick="publishScheduledPost(\'' + p.id + '\', true)" title="Post to your personal LinkedIn profile instead of the Company Page">Publish to Personal Profile</button>'
+                    : '';
                 return '<div class="approved-item" data-post-id="' + p.id + '">' +
                     '<div class="approved-body">' +
                     '<div class="approved-headline">' + escHtml(p.headline) + '</div>' +
                     '<div class="approved-meta">' + escHtml(p.platform) + ' &middot; ' + when + '</div>' +
                     '</div>' +
                     '<button class="btn btn-primary" id="publish-btn-' + p.id + '" onclick="publishScheduledPost(\'' + p.id + '\')">Publish Now</button>' +
+                    personalBtn +
                     '</div>';
             }).join('');
         }
 
-        async function publishScheduledPost(id) {
+        async function publishScheduledPost(id, asPersonal) {
             var post = _allPipelinePosts.find(function(p) { return p.id === id; });
             if (!post) return;
-            var btn = document.getElementById('publish-btn-' + id);
-            btn.disabled = true;
-            btn.textContent = 'Publishing…';
+            var btnId = asPersonal ? 'publish-personal-btn-' + id : 'publish-btn-' + id;
+            var btn = document.getElementById(btnId);
+            var originalLabel = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+
+            // The stored platform stays "LinkedIn" either way (that's the content's
+            // real platform for calendar/analytics purposes) — only the publish
+            // REQUEST's platform switches adapters, between the Company Page and
+            // personal-profile credentials in api/publish-social-post.js.
+            var publishPlatform = (asPersonal && post.platform === 'LinkedIn') ? 'LinkedIn (Personal)' : post.platform;
 
             try {
                 var res = await fetch('/api/publish-social-post', {
                     method: 'POST',
                     headers: await window.sendAuthHeaders(),
-                    body: JSON.stringify({ platform: post.platform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '' }),
+                    body: JSON.stringify({ platform: publishPlatform, headline: post.headline, body: post.body, cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '' }),
                 });
                 var result = await res.json();
 
@@ -686,13 +701,11 @@
                         try { await window.SocialPostsStore.updatePost(id, { publish_status: 'failed', publish_error: result.error || result.status }); } catch (e) { console.warn(e.message); }
                     }
                     alert((result.status === 'not_connected' ? 'Not connected: ' : result.status === 'not_supported' ? 'Not supported yet: ' : 'Publish failed: ') + (result.error || 'Unknown error'));
-                    btn.disabled = false;
-                    btn.textContent = 'Publish Now';
+                    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
                 }
             } catch (err) {
                 alert('Publish request failed: ' + err.message);
-                btn.disabled = false;
-                btn.textContent = 'Publish Now';
+                if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
             }
         }
 

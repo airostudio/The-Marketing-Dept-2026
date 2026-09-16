@@ -268,6 +268,7 @@
             <div class="mode-toggle" id="modeToggle">
                 <button type="button" class="mode-btn active" data-mode="organic" onclick="setStudioMode('organic')">📱 Organic Posts</button>
                 <button type="button" class="mode-btn" data-mode="ads" onclick="setStudioMode('ads')">🎯 Ad Campaign</button>
+                <button type="button" class="mode-btn" data-mode="sequence" onclick="setStudioMode('sequence')">📅 Campaign Sequence</button>
             </div>
 
             <!-- ── One-shot business research (native.no-style "just paste a URL") ── -->
@@ -411,6 +412,51 @@
             <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
             </div><!-- /adFields -->
 
+            <!-- ── Campaign Sequence mode fields ── a deliberate pain→solution
+                 narrative arc, not independent posts — see api/generate-campaign-sequence.js -->
+            <div id="sequenceFields" style="display:none;">
+            <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);margin-bottom:14px;line-height:1.6;">
+                Builds an ordered run of posts that recognises the problem first and introduces your product
+                only in the final post — the "pain-amplification" structure of a real organic-then-paid LinkedIn
+                campaign, instead of independent one-off variants.
+            </div>
+            <div class="field-group">
+                <label class="field-label">Platform</label>
+                <div class="platform-grid" id="sequencePlatformGrid">
+                    <div class="platform-btn active" data-value="LinkedIn">in LinkedIn</div>
+                    <div class="platform-btn" data-value="Instagram">📸 Instagram</div>
+                    <div class="platform-btn" data-value="Facebook">Facebook</div>
+                    <div class="platform-btn" data-value="Twitter/X">𝕏 Twitter/X</div>
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Core Pain Point / Insight</label>
+                <textarea class="field-textarea" id="sequencePainPoint" style="min-height:80px;" placeholder="What's the real frustration your audience has that they don't talk about openly? e.g. 'Business owners are embarrassed by their own outdated website.'"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Product / Offer <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— only appears in the final post</span></label>
+                <textarea class="field-textarea" id="sequenceProduct" style="min-height:70px;" placeholder="What you're building up to. Kept out of every post except the last."></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Target Audience</label>
+                <textarea class="field-textarea" id="sequenceAudience" style="min-height:60px;" placeholder="Who is this for? Role, industry, company size…"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Number of Posts</label>
+                    <select class="field-select" id="sequencePostCount">
+                        <option value="3">3 posts</option>
+                        <option value="5">5 posts</option>
+                        <option value="7" selected>7 posts (full arc)</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Start Date <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— Mon/Wed/Fri cadence</span></label>
+                    <input class="field-input" id="sequenceStartDate" type="date">
+                </div>
+            </div>
+            </div><!-- /sequenceFields -->
+
             <button class="btn-run" id="runBtn" onclick="agent.run()" style="margin-top:14px;">Create Content</button>
         </div>
     </div>
@@ -500,32 +546,51 @@
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
-// Platform selection (single)
+// Platform selection (single) — scoped per grid, since organic mode's
+// #platformGrid and Campaign Sequence mode's #sequencePlatformGrid are two
+// independent single-selects, not one shared selection across both panels.
 document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+        const grid = btn.closest('.platform-grid');
+        (grid ? grid.querySelectorAll('.platform-btn') : document.querySelectorAll('.platform-btn'))
+            .forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     });
 });
 
 function getSelectedPlatform() {
-    const active = document.querySelector('.platform-btn.active');
+    const active = document.querySelector('#platformGrid .platform-btn.active');
+    return active ? active.dataset.value : 'LinkedIn';
+}
+
+function getSelectedSequencePlatform() {
+    const active = document.querySelector('#sequencePlatformGrid .platform-btn.active');
     return active ? active.dataset.value : 'LinkedIn';
 }
 
 /* ── Studio mode: organic posts vs ad campaign ─────────────────────────── */
 let studioMode = 'organic';
 
+const MODE_EMPTY_TEXT = {
+    ads: 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.',
+    sequence: 'Your campaign sequence will appear here. Describe the pain point, product, and audience, then click Generate.',
+    organic: 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.',
+};
+const MODE_RUN_LABEL = {
+    ads: 'Generate Ad Variants',
+    sequence: 'Generate Campaign Sequence',
+    organic: 'Create Content',
+};
+
 function setStudioMode(mode) {
     const modeChanged = mode !== studioMode;
     studioMode = mode;
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    document.getElementById('organicFields').style.display = mode === 'organic' ? '' : 'none';
-    document.getElementById('adFields').style.display      = mode === 'ads' ? '' : 'none';
-    document.getElementById('runBtn').textContent          = mode === 'ads' ? 'Generate Ad Variants' : 'Create Content';
-    const emptyText = mode === 'ads'
-        ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
-        : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.';
+    document.getElementById('organicFields').style.display  = mode === 'organic' ? '' : 'none';
+    document.getElementById('adFields').style.display       = mode === 'ads' ? '' : 'none';
+    document.getElementById('sequenceFields').style.display = mode === 'sequence' ? '' : 'none';
+    document.getElementById('runBtn').textContent           = MODE_RUN_LABEL[mode] || MODE_RUN_LABEL.organic;
+    const emptyText = MODE_EMPTY_TEXT[mode] || MODE_EMPTY_TEXT.organic;
     if (modeChanged) {
         // Reset output to the mode-appropriate empty state so stale cross-mode output never lingers
         document.getElementById('output').innerHTML = `<div class="output-empty">${emptyText}</div>`;
@@ -537,11 +602,15 @@ function setStudioMode(mode) {
         const empty = document.querySelector('#output .output-empty');
         if (empty) empty.textContent = emptyText;
     }
-    if (mode === 'ads') {
+    if (mode !== 'organic') {
         const csvBtn = document.getElementById('csvBtn');
         if (csvBtn) csvBtn.style.display = 'none';
     }
     if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+    if (mode === 'sequence') {
+        const startInput = document.getElementById('sequenceStartDate');
+        if (startInput && !startInput.value) startInput.value = nextCadenceStartDate();
+    }
 }
 
 /* ── One-shot business research: native.no's "just paste a URL" onboarding ──
@@ -719,6 +788,57 @@ function normalizeOrganicPost(p, i) {
     };
 }
 
+/* ── Campaign Sequence: Mon/Wed/Fri cadence date math ────────────────────
+   Kept deliberately simple for v1 — a fixed 3x/week cadence, same rhythm as
+   the "Day / Post / Purpose" table a real pain-amplification campaign runs
+   on. A configurable cadence can come later if this fixed one proves too
+   rigid; nothing in generate-campaign-sequence.js's response depends on it,
+   since the server never sees or assigns dates — this is presentation only. */
+const SEQUENCE_CADENCE_WEEKDAYS = [1, 3, 5]; // Mon, Wed, Fri (Date#getDay(): 0=Sun)
+
+/** ISO yyyy-mm-dd for the next Monday from today (never today itself, even if today is Monday) — a safe default for a date input the user can still override. */
+function nextCadenceStartDate() {
+    const d = new Date();
+    const day = d.getDay();
+    const addDays = ((1 - day + 7) % 7) || 7;
+    d.setDate(d.getDate() + addDays);
+    return d.toISOString().slice(0, 10);
+}
+
+/** Walks forward from startDateStr (a yyyy-mm-dd date-input value), collecting `count` Mon/Wed/Fri dates, starting from the first cadence day on or after that date. */
+function computeSequenceDates(startDateStr, count) {
+    const start = startDateStr ? new Date(startDateStr + 'T09:00:00') : new Date(nextCadenceStartDate() + 'T09:00:00');
+    const dates = [];
+    const d = new Date(start);
+    while (dates.length < count) {
+        if (SEQUENCE_CADENCE_WEEKDAYS.includes(d.getDay())) dates.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+    }
+    return dates;
+}
+
+function normalizeSequencePost(v, i, scheduledAtDate, total) {
+    const when = scheduledAtDate ? scheduledAtDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+    return {
+        id: `local_${Date.now()}_${i}`,
+        source: 'organic',
+        platform: v.platform,
+        angleType: null,
+        hook: v.hook,
+        headline: v.title,
+        body: v.body,
+        cta: null,
+        hashtags: v.hashtags || [],
+        proofPoint: null,
+        urgencyLine: null,
+        visualDirection: null,
+        meta: `🎯 Stage ${v.sequencePosition} of ${total} — ${v.funnelStage}${when ? ' · ' + when : ''}\n${v.purpose || ''}`,
+        metadata: { funnelStage: v.funnelStage, sequencePosition: v.sequencePosition, sequenceTotal: total, purpose: v.purpose },
+        scheduledAt: scheduledAtDate ? scheduledAtDate.toISOString() : undefined,
+        status: 'pending_review',
+    };
+}
+
 /** Persist a freshly-generated batch (best-effort — works signed-out too, just not saved). */
 async function persistReviewBatch(posts) {
     _reviewCloudBacked = false;
@@ -729,7 +849,7 @@ async function persistReviewBatch(posts) {
             source: p.source, platform: p.platform, angleType: p.angleType, hook: p.hook,
             headline: p.headline, body: p.body, cta: p.cta, hashtags: p.hashtags,
             proofPoint: p.proofPoint, urgencyLine: p.urgencyLine, visualDirection: p.visualDirection,
-            metadata: p.metadata,
+            metadata: p.metadata, scheduledAt: p.scheduledAt,
         })));
         _reviewCloudBacked = true;
         clearReviewDraft(); // safely in the cloud now — the local backup copy is redundant
@@ -1601,7 +1721,72 @@ class SocialAgent {
 
     async run() {
         if (studioMode === 'ads') return this.runAds();
+        if (studioMode === 'sequence') return this.runSequence();
         return this.runOrganic();
+    }
+
+    /* Campaign Sequence mode — dedicated /api/generate-campaign-sequence endpoint:
+       a deliberate pain→solution narrative arc, not independent variants. */
+    async runSequence() {
+        const painPoint = document.getElementById('sequencePainPoint').value.trim();
+        const product   = document.getElementById('sequenceProduct').value.trim();
+        const audience  = document.getElementById('sequenceAudience').value.trim();
+        if (!painPoint || !product || !audience) {
+            alert('Please fill in the Pain Point, Product/Offer, and Target Audience fields.');
+            return;
+        }
+
+        const platform  = getSelectedSequencePlatform();
+        const postCount = parseInt(document.getElementById('sequencePostCount').value, 10) || 7;
+        const startDate = document.getElementById('sequenceStartDate').value || nextCadenceStartDate();
+        const tone      = Array.isArray(this.brandVoice) ? this.brandVoice.join(', ') : '';
+
+        const outputEl = document.getElementById('output');
+        const runBtn   = document.getElementById('runBtn');
+
+        let contextBundle = null;
+        if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
+        let bizContext = '';
+        if (contextBundle?.isReady && contextBundle.businessContext) bizContext += contextBundle.businessContext;
+        bizContext += this.buildResearchedContext();
+        bizContext = bizContext.trim().slice(0, 1400);
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Generating…';
+        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing the ${postCount}-post campaign arc for ${platform}…</div>`;
+
+        try {
+            const res = await fetch('/api/generate-campaign-sequence', {
+                method: 'POST',
+                headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ platform, painPoint, product, audience, postCount, tone, businessContext: bizContext }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            const dates = computeSequenceDates(startDate, data.posts.length);
+            const normalized = data.posts.map((p, i) => normalizeSequencePost(p, i, dates[i], data.posts.length));
+
+            _reviewPlanNote = data.campaignNote || '';
+            _reviewPosts = await persistReviewBatch(normalized);
+            renderReviewQueue();
+            outputEl.scrollTop = 0;
+
+            if (window.AgentHistory && data.content?.trim()) {
+                window.AgentHistory.save({
+                    agentKey: 'ads',
+                    taskType: platform + ' Campaign Sequence',
+                    content: data.content,
+                    topic: painPoint.slice(0, 60),
+                });
+            }
+        } catch (err) {
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio campaign sequence generation failed: ' + err.message, { where: 'social-agent.runSequence' });
+        } finally {
+            runBtn.disabled    = false;
+            runBtn.textContent = 'Generate Campaign Sequence';
+        }
     }
 
     /* Ad Campaign mode — dedicated /api/generate-ads endpoint with 8 advertising frameworks */

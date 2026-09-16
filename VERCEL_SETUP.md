@@ -221,6 +221,27 @@ Uses the same R2/Supabase env vars as the rest of the Brand Kit above — no sep
 
 ---
 
+## Campaign Sequence — organic pain-amplification arcs, and posting from a personal LinkedIn profile
+
+Every other content generator in this app (`generate-social-posts.js`, `generate-ads.js`) deliberately produces INDEPENDENT posts — `generate-social-posts.js` even has a hard rule that no two posts in a batch may share a hook structure, since the point there is variety. A real organic-then-paid LinkedIn campaign works the opposite way: a deliberate sequence that names the problem first, builds recognition and engagement over several posts, and only introduces the product in the final one — then a retargeting layer picks up whoever engaged. `api/generate-campaign-sequence.js` is the one place that narrative arc gets generated on purpose, available as the "📅 Campaign Sequence" mode in Social Studio (`web/agents/social-agent.html`).
+
+- **The arc**: a fixed 7-stage vocabulary (Pain → Agitate → Social Proof/Contrast → Cost of Inaction → Objection/Procrastination → Positioning → Solution). Requesting fewer posts (3 or 5) takes an evenly-spaced subset, always keeping the first (Pain) and last (Solution) stage. Every post before "Solution" is instructed not to mention the product/brand at all.
+- **Scheduling**: the UI computes a fixed Mon/Wed/Fri cadence client-side from a start date you pick (default: the next Monday) — the server has no opinion on dates, it only returns the ordered posts. Each post is saved to `social_posts` with `scheduled_at` already set (via `SocialPostsStore.createBatch`'s new `scheduledAt` field), landing straight in the "scheduled" queue on `web/marketing/social-media.html` instead of `pending_review`.
+- **No new env vars or schema** — reuses `ANTHROPIC_API_KEY`, `social_posts`' existing `scheduled_at`/`metadata` columns (funnel stage and sequence position are stored in `metadata`), and the same streamed-SSE + 145s-timeout request shape already fixed in `generate-social-posts.js`/`generate-ads.js`.
+
+### Posting from a personal LinkedIn profile as well as the Company Page
+
+A real pain-amplification campaign is meant to run from BOTH the founder's personal profile (for the pain/recognition posts — people engage with a person more than a brand) and the Company Page (for credibility/product posts). `api/publish-social-post.js` now has a second, real LinkedIn adapter for this:
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `LINKEDIN_PERSON_ACCESS_TOKEN` | A LinkedIn OAuth token authorized by the specific member who will post, with the `w_member_social` scope (not `w_organization_social` — that's the existing Company Page token above, a different grant even from the same LinkedIn app) | ✅ For personal-profile publishing |
+| `LINKEDIN_PERSON_URN` | That member's own URN, e.g. `urn:li:person:AbCdEfGhIj` — found via LinkedIn's `/v2/me` endpoint using their token, not the Company Page's numeric ID | ✅ For personal-profile publishing |
+
+On `web/marketing/social-media.html`'s scheduled-post queue, a LinkedIn post now shows two publish buttons: "Publish Now" (Company Page, existing) and "Publish to Personal Profile" (new) — both send the same post content, just through a different adapter/credential pair. Until these two env vars are set, the personal button honestly reports `not_connected` naming them, the same pattern as every other unconfigured platform.
+
+---
+
 ## Hosted storage — Cloudflare R2
 
 Ad creative that needs a real public URL (Instagram/TikTok publishing, mainly) uploads to Cloudflare R2 when configured, falling back to Supabase Storage otherwise — purely additive, nothing breaks if you only have one or neither set up.
