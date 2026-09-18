@@ -769,7 +769,16 @@ Deliver a complete CRO analysis following the 7-section framework in your system
         const test = twoProportionZTest(p1, p2, n);
         const z = test.measured ? test.z : 0;
         const pValue = test.measured ? test.pValue : 1;
-        const lift = ((p2 - p1) / p1 * 100).toFixed(1);
+        // A Control CR of 0% is a normal input for a brand-new page/test with
+        // no conversions yet — (p2-p1)/p1 divides by zero in that case, which
+        // used to render the literal string "Infinity%"/"NaN%" straight into
+        // the verdict. twoProportionZTest() already computes this safely
+        // (null when p1 is 0); reuse it instead of recomputing unguarded.
+        // test.lift is undefined (not null) when the test wasn't measured at
+        // all (e.g. both rates are 0%) — treat that the same as the null
+        // case rather than calling .toFixed() on undefined.
+        const lift = test.lift ?? null;
+        const liftText = lift === null ? 'N/A' : lift.toFixed(1);
         const significant = test.measured && test.significant;
 
         // Required sample size for MDE
@@ -778,9 +787,13 @@ Deliver a complete CRO analysis following the 7-section framework in your system
         const pBar = p1 + delta / 2;
         const reqN = Math.ceil(2 * Math.pow(z_alpha + z_beta, 2) * pBar * (1 - pBar) / Math.pow(delta, 2));
 
+        // Control CR of 0% (lift === null, "N/A") is meaningful going into
+        // the stat-sig math but not as a "+N/A% lift" phrase — the lift
+        // clause is only appended when there's a real percentage to show.
+        const liftClause = lift === null ? '' : (p2 > p1 ? ` (+${liftText}% lift)` : ` (${liftText}% lift)`);
         const verdictEl = document.getElementById('sigVerdict');
         verdictEl.textContent = significant
-            ? (p2 > p1 ? `✅ Statistically Significant — Variant WINS (+${lift}% lift)` : `❌ Statistically Significant — Variant LOSES (${lift}% lift)`)
+            ? (p2 > p1 ? `✅ Statistically Significant — Variant WINS${liftClause}` : `❌ Statistically Significant — Variant LOSES${liftClause}`)
             : `⏳ Not Yet Significant — need more data`;
         verdictEl.style.color = significant ? (p2 > p1 ? '#10b981' : '#ef4444') : '#f59e0b';
 
@@ -797,8 +810,8 @@ Deliver a complete CRO analysis following the 7-section framework in your system
             </div>
             <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
                 <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:3px;">Relative Lift</div>
-                <div style="font-size:18px;font-weight:800;color:${parseFloat(lift)>=0?'#10b981':'#ef4444'};">${parseFloat(lift) >= 0 ? '+' : ''}${lift}%</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);">vs control</div>
+                <div style="font-size:18px;font-weight:800;color:${lift === null ? 'rgba(255,255,255,0.4)' : (lift >= 0 ? '#10b981' : '#ef4444')};">${lift === null ? liftText : (lift >= 0 ? '+' : '') + liftText + '%'}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);">${lift === null ? 'control has 0% CR' : 'vs control'}</div>
             </div>`;
 
         document.getElementById('sampleSizeRec').innerHTML = `

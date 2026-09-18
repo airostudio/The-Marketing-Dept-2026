@@ -80,7 +80,16 @@ window.MissionStore = (function () {
   function updateStep(id, agentKey, patch) {
     const m = get(id) || getActive();
     if (!m || m.id !== id) return null;
-    const step = m.steps.find(s => s.agentKey === agentKey);
+    // A mission plan can genuinely select the same agent for two separate
+    // tasks (nothing constrains the planner to unique agents), and steps
+    // are keyed only by agentKey here — matching the FIRST step with that
+    // key meant a second task's own progress updates landed on the first
+    // task's already-finished step instead, so the second task never
+    // visibly completed in the mission bar even though it ran correctly.
+    // scotty.html always runs tasks strictly sequentially (one `await` per
+    // task, see its execution loop), so the step actually being worked on
+    // for a given agentKey is always the earliest one not yet finished.
+    const step = m.steps.find(s => s.agentKey === agentKey && s.status !== 'done' && s.status !== 'skipped');
     if (!step) return m;
     Object.assign(step, patch);
     if (patch.status === 'done' || patch.status === 'skipped') step.completedAt = new Date().toISOString();
