@@ -15,9 +15,14 @@
     <script src="../js/intelligence-engine.js"></script>
     <script src="../js/supabase.min.js"></script>
     <script src="../js/supabase-client.js"></script>
+<script src="/js/escape-html.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
     <script src="../js/intelligence-profiles.js"></script>
     <script src="../js/site-switcher.js"></script>
     <script src="../js/contacts-store.js"></script>
+    <script src="../js/agent-history.js"></script>
+    <script src="../js/review-queue.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -247,11 +252,47 @@
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* PROSPECT HUNTER */
+        .hunter-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+        .hunter-step { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--text2); background: none; transition: all 0.15s; }
+        .hunter-step:hover { color: var(--text); }
+        .hunter-step.active { border-color: var(--green); color: var(--green); background: rgba(var(--green-rgb),0.08); }
+        .hunter-panel { display: none; }
+        .hunter-panel.active { display: block; }
+        .hunter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .hunter-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+        .hunter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip-check { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--text2); background: none; transition: all 0.15s; }
+        .chip-check input { width: auto; margin: 0; accent-color: var(--green); cursor: pointer; }
+        .chip-check.checked { border-color: var(--green); color: var(--green); background: rgba(var(--green-rgb),0.08); }
+        .hunter-region-check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; }
+        .hunter-region-check input { width: auto; accent-color: var(--green); cursor: pointer; }
+
+        .hunter-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1200px; }
+        .hunter-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text2); font-weight: 600; cursor: pointer; white-space: nowrap; user-select: none; }
+        .hunter-table th:hover { color: var(--text); }
+        .hunter-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .hunter-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .cls-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .cls-exceptional { background: rgba(16,185,129,0.28); color: var(--green); }
+        .cls-high_priority { background: rgba(16,185,129,0.15); color: var(--green); }
+        .cls-strong_prospect { background: rgba(6,182,212,0.15); color: var(--cyan); }
+        .cls-potential_prospect { background: rgba(245,158,11,0.15); color: var(--orange); }
+        .cls-low_priority { background: rgba(255,255,255,0.08); color: var(--text2); }
+        .cls-do_not_contact { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .cls-unaudited { background: rgba(255,255,255,0.06); color: var(--text2); }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: #0d0d1a; border: 1px solid var(--border); border-radius: 14px; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 24px; }
+
         @media (max-width: 768px) {
             .discover-form { grid-template-columns: 1fr; }
             .discover-filters { grid-template-columns: 1fr 1fr; }
             .strat-grid, .outreach-layout { grid-template-columns: 1fr; }
             .compliance-grid, .lia-form, .detail-grid { grid-template-columns: 1fr; }
+            .hunter-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
@@ -279,6 +320,7 @@
     <button class="tab-btn" onclick="switchTab('outreach')">✉ Outreach</button>
     <button class="tab-btn" onclick="switchTab('strategy')">🎯 Strategy</button>
     <button class="tab-btn" onclick="switchTab('compliance')">⚖️ Compliance</button>
+    <button class="tab-btn" onclick="switchTab('hunter')">🎯 Prospect Hunter</button>
 </div>
 
 <!-- DISCOVER -->
@@ -625,6 +667,101 @@
     </div>
 </div>
 
+<!-- PROSPECT HUNTER -->
+<div id="tab-hunter" class="tab-panel">
+    <div class="section-title">Prospect Hunter</div>
+    <div class="section-sub">Search a region for real businesses on a target website platform, audit their site with the full lead-intelligence pipeline, and rank the results by opportunity score — no fabricated leads, no invented scores.</div>
+
+    <div class="card mt8">
+        <div class="card-body">
+            <div class="hunter-steps">
+                <div class="hunter-step active" id="hstep-btn-1" onclick="hunterGoStep(1)">1. Location</div>
+                <div class="hunter-step" id="hstep-btn-2" onclick="hunterGoStep(2)">2. Industry</div>
+                <div class="hunter-step" id="hstep-btn-3" onclick="hunterGoStep(3)">3. Platform &amp; Run</div>
+            </div>
+
+            <div class="hunter-panel active" id="hstep-1">
+                <div class="hunter-grid">
+                    <div><label>Country</label><input id="h-country" type="text" placeholder="e.g. United States"></div>
+                    <div><label>State / Province</label><input id="h-state" type="text" placeholder="e.g. Texas"></div>
+                    <div><label>City</label><input id="h-city" type="text" placeholder="e.g. Austin"></div>
+                    <div><label>Radius</label><input id="h-radius" type="number" min="1" value="25" placeholder="miles"></div>
+                </div>
+                <label class="hunter-region-check">
+                    <input type="checkbox" id="h-entire-region" onchange="hunterToggleRegion(this.checked)"> Search entire region (ignore city/radius)
+                </label>
+                <div class="hunter-nav"><span></span><button class="btn btn-primary" onclick="hunterGoStep(2)">Next: Industry →</button></div>
+            </div>
+
+            <div class="hunter-panel" id="hstep-2">
+                <label>Industries (select any number)</label>
+                <div class="hunter-chips" id="h-industry-chips"></div>
+                <div class="mt16"><label>Other / custom industry</label><input id="h-industry-other" type="text" placeholder="e.g. Veterinary clinics"></div>
+                <div class="hunter-nav">
+                    <button class="btn btn-ghost" onclick="hunterGoStep(1)">← Back</button>
+                    <button class="btn btn-primary" onclick="hunterGoStep(3)">Next: Platform →</button>
+                </div>
+            </div>
+
+            <div class="hunter-panel" id="hstep-3">
+                <label>Target Website Platform</label>
+                <div class="hunter-chips" id="h-platform-chips"></div>
+                <div class="hunter-grid mt16" style="grid-template-columns:1fr">
+                    <div style="max-width:220px"><label>How many qualified results?</label><input id="h-count" type="number" min="1" max="100" value="20"></div>
+                </div>
+                <div class="hunter-nav">
+                    <button class="btn btn-ghost" onclick="hunterGoStep(2)">← Back</button>
+                    <button class="btn btn-primary" id="h-run-btn" onclick="runHunterSearch()">🎯 Run Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="h-progress-area" class="mt16" style="display:none">
+        <div class="card">
+            <div class="card-header"><span class="card-title">🔄 Pipeline Progress</span></div>
+            <div class="card-body">
+                <div id="h-progress-text" class="stream-status">Starting…</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="h-results-area" class="mt20" style="display:none">
+        <div class="discover-meta">
+            <div class="prospect-count">Ranked <strong id="h-results-count">0</strong> qualified leads</div>
+        </div>
+        <div style="overflow-x:auto">
+            <table class="hunter-table" id="h-results-table">
+                <thead><tr>
+                    <th onclick="hunterSortBy('classification')">Priority</th>
+                    <th onclick="hunterSortBy('name')">Business</th>
+                    <th onclick="hunterSortBy('industry')">Industry</th>
+                    <th onclick="hunterSortBy('city')">Location</th>
+                    <th>Website</th>
+                    <th onclick="hunterSortBy('platform')">Platform</th>
+                    <th onclick="hunterSortBy('placesRating')">Rating</th>
+                    <th onclick="hunterSortBy('placesReviews')">Reviews</th>
+                    <th onclick="hunterSortBy('auditAvg')">Health</th>
+                    <th onclick="hunterSortBy('perf')">Perf</th>
+                    <th onclick="hunterSortBy('seo')">SEO</th>
+                    <th onclick="hunterSortBy('mobile')">Mobile</th>
+                    <th onclick="hunterSortBy('conversion')">Conversion</th>
+                    <th onclick="hunterSortBy('opportunityScore')">Opp. Score</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody id="h-results-tbody"></tbody>
+            </table>
+        </div>
+        <div id="h-skipped-area" class="mt16"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="h-modal-overlay" onclick="if(event.target===this) hunterCloseModal()">
+    <div class="modal-box" id="h-modal-box"></div>
+</div>
+
 <div class="copy-toast" id="copy-toast">Copied!</div>
 
 <script>
@@ -687,6 +824,7 @@ function switchTab(name) {
     event.currentTarget.classList.add('active');
     if (name === 'pipeline') renderPipe();
     if (name === 'outreach') populateProspectSelect();
+    if (name === 'hunter') renderHunterChips();
 }
 
 // ── JSON EXTRACTION ───────────────────────────────────────────────────────────
@@ -776,19 +914,23 @@ Rules:
         btn.innerHTML = '🔍 Search';
     };
     const fail = (e) => {
-        streamText.innerHTML = `<span style="color:#ef4444">Search error: ${e}</span>`;
+        // The message can come back from a remote service, and it went into
+        // innerHTML with no escaping.
+        streamText.innerHTML = `<span style="color:#ef4444">Search error: ${escHtml(e && e.message ? e.message : e)}</span>`;
         btn.disabled = false;
         btn.innerHTML = '🔍 Search';
     };
 
+    const cancelStall = stallGuard(120000, 'discovery search', (e) => fail(e.message));
     try {
         await window.PerplexityService.streamResponse({
             systemPrompt, messages: [{ role: 'user', content: userMsg }],
             onChunk(c) { fullText += c; streamText.textContent = `Receiving... ${fullText.length} chars`; },
             onCitations(citations) { if (citations?.length) renderCitations(citations); },
-            onDone: done, onError: fail
+            onDone: (t) => { cancelStall(); done(t); },
+            onError: (e) => { cancelStall(); fail(e && e.message ? e.message : e); },
         });
-    } catch(e) { fail(e.message); }
+    } catch(e) { cancelStall(); fail(e.message); }
 }
 
 function renderCitations(citations) {
@@ -818,8 +960,36 @@ function parseResults(text) {
     }
 }
 
+/**
+ * A stall backstop for a streamed call.
+ *
+ * onError covers a stream that fails. It does not cover one that simply stops
+ * sending: nothing rejects, the await never settles, the finally never runs,
+ * and the button stays disabled until the page is reloaded. Every setTimeout
+ * on this page before this one was a button-label flash or a rate-limit pause.
+ *
+ * Returns a cancel() to call once the stream has genuinely finished.
+ */
+function stallGuard(ms, where, onStall) {
+    const t = setTimeout(() => {
+        if (window.reportFailure) {
+            window.reportFailure('Sales Intelligence: ' + where + ' timed out after ' + Math.round(ms / 1000) + 's',
+                { where: 'sales-agent.' + where });
+        }
+        onStall(new Error('the request timed out after ' + Math.round(ms / 1000) + ' seconds — the AI API may be unreachable or overloaded'));
+    }, ms);
+    return () => clearTimeout(t);
+}
+
 function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Escapes quotes as well as &<> — this is used inside attributes
+    // (value="...", href="...") as well as between tags, and the
+    // textContent/innerHTML trick this replaced left quotes alone, so a
+    // " in the value ended the attribute and the rest was parsed as more
+    // attributes on the tag. See web/js/escape-html.js.
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function renderProspects() {
@@ -827,15 +997,34 @@ function renderProspects() {
     const scoreFilter = parseInt(document.getElementById('disc-score-filter').value) || 0;
     const sort = document.getElementById('disc-sort').value;
 
+    /**
+     * Did Claude actually return an opportunity score for this prospect?
+     *
+     * The field is optional in the model's output. Treating a missing score
+     * as a number is what produced a 5/10 ring for prospects nobody had
+     * assessed, and let them through score filters they were never measured
+     * against. A real 0 is a score; undefined and null are not.
+     */
+    const isScored = (v) => typeof v === 'number' && isFinite(v);
+
     let filtered = discoveredProspects
         .map((p, i) => ({...p, _idx: i}))
         .filter(p => {
             if (webFilter && p.websiteStatus !== webFilter) return false;
-            if (p.opportunityScore < scoreFilter) return false;
+            // `undefined < 7` is false, so an unscored prospect used to pass
+            // every score filter — "show me only 8+" listed prospects nobody
+            // had scored at all. An unscored prospect is excluded whenever a
+            // minimum is set, because it cannot be shown to meet one.
+            if (scoreFilter && !isScored(p.opportunityScore)) return false;
+            if (scoreFilter && p.opportunityScore < scoreFilter) return false;
             return true;
         });
 
-    if (sort === 'score') filtered.sort((a,b) => b.opportunityScore - a.opportunityScore);
+    // Unscored prospects sort last rather than producing NaN comparisons,
+    // which order unpredictably depending on the engine's sort.
+    if (sort === 'score') filtered.sort((a,b) =>
+        (isScored(b.opportunityScore) ? b.opportunityScore : -1) -
+        (isScored(a.opportunityScore) ? a.opportunityScore : -1));
     else if (sort === 'name') filtered.sort((a,b) => a.name.localeCompare(b.name));
     else if (sort === 'location') filtered.sort((a,b) => (a.city||'').localeCompare(b.city||''));
 
@@ -849,9 +1038,15 @@ function renderProspects() {
     }
 
     grid.innerHTML = filtered.map(p => {
-        const score = p.opportunityScore || 5;
-        const pct = (score / 10) * 100;
-        const sc = score >= 8 ? 'var(--green)' : score >= 6 ? 'var(--orange)' : 'var(--cyan)';
+        // `|| 5` put a 5/10 in the ring for every prospect Claude had not
+        // scored, and turned a real 0 into a 5. An unscored prospect now shows
+        // a dash in a neutral ring — the detail view already did this, so the
+        // card was the only place claiming a score that did not exist.
+        const scored = isScored(p.opportunityScore);
+        const score = scored ? p.opportunityScore : null;
+        const pct = scored ? (score / 10) * 100 : 0;
+        const sc = !scored ? 'rgba(255,255,255,0.12)'
+                 : score >= 8 ? 'var(--green)' : score >= 6 ? 'var(--orange)' : 'var(--cyan)';
         const tagClass = {no_website:'tag-no-site',facebook_only:'tag-fb-only',outdated:'tag-outdated',has_website:'tag-has-site'}[p.websiteStatus] || 'tag-no-site';
         const tagLabel = {no_website:'No Website',facebook_only:'Facebook Only',outdated:'Outdated Site',has_website:'Has Website'}[p.websiteStatus] || 'No Website';
 
@@ -869,21 +1064,28 @@ function renderProspects() {
                 const bg = GENERIC.some(g => b.split('@')[0].startsWith(g)) ? 0 : 1;
                 return ag - bg;
             });
+            // Scraped off the prospect's own website by the enrichment
+            // endpoint — remote content, and it was the one field on this card
+            // that went in unescaped.
             const emailsHtml = allEmails.slice(0,3).map(e =>
-                `<span class="enrichment-email">${e}</span>`
+                `<span class="enrichment-email">${escHtml(e)}</span>`
             ).join(' &nbsp;');
 
             // Merge all social sources
             const allSocials = {...(p.profileSocials||{}), ...(p.crawlSocials||{})};
-            const socialsHtml = Object.entries(allSocials).slice(0,4).map(([k,v]) =>
-                `<a href="${v}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:capitalize">${k}</a>`
-            ).join(' · ');
+            // Same: both the label and the URL come from the crawl, and the
+            // URL went straight into an href.
+            const socialsHtml = Object.entries(allSocials).slice(0,4).map(([k,v]) => {
+                const href = (window.safeUrl ? window.safeUrl(v) : v) || '#';
+                return `<a href="${escHtml(href)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;text-transform:capitalize">${escHtml(k)}</a>`;
+            }).join(' · ');
 
             enrichHtml = `<div class="enrichment-bar">
                 <strong>⚡ Enriched</strong>
                 ${p.placesRating ? `⭐ ${p.placesRating} (${p.placesReviews||0} reviews) &nbsp;` : ''}
                 ${emailsHtml || '<span class="enrichment-meta">No emails found</span>'}
                 ${socialsHtml ? `<br><span style="color:var(--text2)">Profiles:</span> ${socialsHtml}` : ''}
+                ${p.websiteStatusCorrected ? `<br><span style="color:var(--green);font-weight:600;">✓ Correction: actually has a website</span> <span style="color:var(--text2);font-size:11px;">— found via ${escHtml(p.websiteCorrectionSource||'research')}${p.websiteDataSource==='estimate'?' (unconfirmed, verify before pitching)':''}</span>` : ''}
             </div>`;
         }
 
@@ -891,8 +1093,9 @@ function renderProspects() {
         return `<div class="prospect-card${p.enriched?' enriched':''}" data-idx="${idx}">
             <div class="prospect-check" onclick="toggleProspect(this)">✓</div>
             <div class="prospect-top">
-                <div class="score-ring" style="background:conic-gradient(${sc} ${pct}%, rgba(255,255,255,0.06) ${pct}%)">
-                    <span>${score}</span>
+                <div class="score-ring" style="background:conic-gradient(${sc} ${pct}%, rgba(255,255,255,0.06) ${pct}%)"
+                     title="${scored ? 'Opportunity score ' + score + '/10, estimated by Claude from the business profile' : 'Not scored — Claude did not return an opportunity score for this prospect'}">
+                    <span${scored ? '' : ' style="color:var(--text3);font-weight:600;"'}>${scored ? score : '–'}</span>
                 </div>
                 <div class="prospect-info">
                     <div class="prospect-name">${escHtml(p.name)}</div>
@@ -959,6 +1162,19 @@ function quickOutreach(idx) {
 }
 
 // ── ENRICHMENT CHAIN: Google Places → Website Crawl → Perplexity → Hunter.io → Apollo ──
+// Corrects a wrong "no website"/"Facebook only" claim the moment real
+// research finds an actual site, instead of leaving outreach copy to state
+// something the enrichment pass itself just disproved. websiteStatusCorrected
+// is surfaced in the card UI so the correction is visible, not silent.
+function applyWebsiteCorrection(updates, prospect, website, dataSource, foundVia) {
+    if (prospect.websiteStatus === 'has_website') return; // nothing to correct
+    updates.website = website;
+    updates.websiteStatus = 'has_website';
+    updates.websiteStatusCorrected = true;
+    updates.websiteCorrectionSource = foundVia;
+    updates.websiteDataSource = dataSource; // 'real' (confirmed on Places/their own bio) | 'estimate' (inferred from a search citation)
+}
+
 async function enrichProspect(idx) {
     const p = discoveredProspects[idx];
     if (!p) return;
@@ -973,7 +1189,7 @@ async function enrichProspect(idx) {
         const locationHint = [p.city, p.country].filter(Boolean).join(' ');
         const r = await fetch('/api/places', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ query: `${p.name} ${locationHint}`.trim() })
         });
         if (r.ok) {
@@ -986,6 +1202,14 @@ async function enrichProspect(idx) {
                 if (d.formattedAddress) updates.placesAddress = d.formattedAddress;
                 if (d.mapsUrl) updates.mapsUrl = d.mapsUrl;
                 if (d.businessStatus) updates.businessStatus = d.businessStatus;
+                // A "no website" claim from discovery was never actually
+                // verified — it's an LLM guess from a single search pass.
+                // Correct it the moment real research (Google Places here)
+                // proves otherwise, instead of leaving a stale tag that
+                // outreach copy then reads as fact.
+                if (d.website && p.websiteStatus !== 'has_website') {
+                    applyWebsiteCorrection(updates, p, d.website, 'real', 'Google Places');
+                }
             }
         }
     } catch(e) { console.warn('Places lookup failed:', e.message); }
@@ -996,7 +1220,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/crawl', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ url: websiteUrl })
             });
             if (r.ok) {
@@ -1017,7 +1241,7 @@ async function enrichProspect(idx) {
     try {
         const r = await fetch('/api/profile-search', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ name: p.name, city: p.city, country: p.country })
         });
         if (r.ok) {
@@ -1034,6 +1258,13 @@ async function enrichProspect(idx) {
                     updates.crawlSocials = {...d.socials, ...updates.crawlSocials};
                 }
             }
+            // This is the actual "dig deeper" check: a live search that
+            // reads the business's Facebook/Instagram/LinkedIn bio for a
+            // website link, not just their social handle. Corrects a wrong
+            // "no website" claim from the initial discovery pass.
+            if (d.website && (updates.website || p.website) == null && p.websiteStatus !== 'has_website') {
+                applyWebsiteCorrection(updates, p, d.website, d.websiteSource || 'estimate', 'their social profile');
+            }
         }
     } catch(e) { console.warn('Profile search failed:', e.message); }
 
@@ -1048,7 +1279,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/crawl', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ url: socialUrl })
             });
             if (r.ok) {
@@ -1073,7 +1304,7 @@ async function enrichProspect(idx) {
         try {
             const r = await fetch('/api/hunter', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domain: websiteUrl })
             });
             if (r.ok) {
@@ -1093,12 +1324,12 @@ async function enrichProspect(idx) {
             const [orgRes, peopleRes] = await Promise.all([
                 fetch('/api/apollo-enrich', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ mode: 'organization', domain: websiteUrl }),
                 }),
                 fetch('/api/apollo-enrich', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ mode: 'people_search', domain: websiteUrl }),
                 }),
             ]);
@@ -1773,7 +2004,7 @@ async function sendFromPipeline(prospectId) {
     try {
         const res = await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ to, subject, html, text, prospectId: String(prospectId) }),
         });
         const data = await res.json();
@@ -1863,16 +2094,28 @@ Write compelling, personalised ${typeMap[type]} copy.`;
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'outreach copy', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await (window.OpenAIService || window.ClaudeService).streamResponse({
             systemPrompt, messages: [{ role: 'user', content: userMsg }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence outreach copy failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.outreach copy' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence outreach copy failed: ' + (e.message || e), { where: 'sales-agent.outreach copy' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
 }
@@ -1902,17 +2145,29 @@ async function runStrat() {
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'strategy', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await window.ClaudeService.streamResponse({
             systemPrompt: bbContext() + 'You are a B2B sales strategy expert with deep knowledge of EU, UK and US markets. Create detailed, actionable strategies compliant with GDPR, UK GDPR/PECR and CAN-SPAM. Use specific examples and templates.',
             messages: [{ role: 'user', content: `Create a ${typeMap[type]} for:\nTarget Market: ${market}\nOffer: ${offer}${volume?'\nCurrent Volume: '+volume:''}\n\nMake it specific and actionable, noting any regulatory considerations for the target market.` }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence strategy failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.strategy' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence strategy failed: ' + (e.message || e), { where: 'sales-agent.strategy' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
 }
@@ -1938,19 +2193,627 @@ async function genLIA() {
     if (genBtn) genBtn.disabled = true;
 
     let text = '';
+    const cancelStall = stallGuard(90000, 'LIA', (err) => {
+        output.textContent = 'Error: ' + err.message;
+        if (genBtn) genBtn.disabled = false;
+    });
     try {
         await window.ClaudeService.streamResponse({
             systemPrompt: 'You are a GDPR compliance expert. Generate formal Legitimate Interest Assessment documents that are legally sound.',
             messages: [{ role: 'user', content: `Generate a complete LIA document:\n\nOrganisation: ${org}\nPurpose: ${purpose}\nData Collected: ${data||'Business name, contact details'}\nSources: ${sources||'Public business directories'}\nAudience: ${audience||'B2B prospects'}\nDate: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}\n\nInclude: 1. Purpose Test, 2. Necessity Test, 3. Balancing Test, 4. Safeguards, 5. Conclusion. Format professionally.` }],
             onChunk(c) { text += c; output.textContent = text; },
-            onDone() { output.innerHTML = marked.parse(text); actions.style.display = 'flex'; if (genBtn) genBtn.disabled = false; },
-            onError(e) { output.textContent = 'Error: ' + e; if (genBtn) genBtn.disabled = false; }
+            onDone() { cancelStall(); output.innerHTML = marked.parse(text); actions.style.display = 'flex'; if (genBtn) genBtn.disabled = false; },
+            onError(e) {
+                cancelStall();
+                output.textContent = 'Error: ' + (e && e.message ? e.message : e);
+                if (window.reportFailure) window.reportFailure('Sales Intelligence LIA failed: ' + (e && e.message ? e.message : e), { where: 'sales-agent.LIA' });
+                if (genBtn) genBtn.disabled = false;
+            }
         });
     } catch (e) {
+        cancelStall();
         output.textContent = 'Error: ' + (e.message || e);
+        if (window.reportFailure) window.reportFailure('Sales Intelligence LIA failed: ' + (e.message || e), { where: 'sales-agent.LIA' });
     } finally {
+        cancelStall();
         if (genBtn) genBtn.disabled = false;
     }
+}
+
+// ── PROSPECT HUNTER ──────────────────────────────────────────────────────────
+// A guided search wizard that discovers real businesses (Perplexity, same
+// hard-stop-if-unavailable rule as runDiscover()), cheaply filters them by
+// detected website platform (api/tech-detect.js) BEFORE the expensive full
+// audit (api/sales-audit-lead.js), then ranks the survivors by real
+// opportunity score. Nothing here invents a business, a score, or a signal
+// the backend didn't actually return.
+
+const HUNTER_INDUSTRIES = ['Plumbers','Electricians','HVAC','Roofers','Builders','Landscapers','Painters','Pest control','Physiotherapists','Dentists','Accountants','Mortgage brokers','Real estate agencies','Property managers','Lawyers','Medical clinics','Cleaning businesses','Automotive businesses','Solar installers','Security companies','Fire protection'];
+const HUNTER_NAMED_PLATFORMS = ['Wix','GoDaddy Website Builder','Squarespace','WordPress','Shopify','Webflow'];
+const HUNTER_PLATFORMS = [...HUNTER_NAMED_PLATFORMS, 'Other', 'Unknown'];
+const HUNTER_DEFAULT_PLATFORMS = ['Wix','GoDaddy Website Builder']; // matches api/sales-audit-lead.js's TARGET_PLATFORMS
+const HUNTER_THROTTLE_MS = 400; // same pacing as enrichAll()'s rate-limit delay, for consistency
+
+let hunterSelectedIndustries = new Set();
+let hunterSelectedPlatforms = new Set(HUNTER_DEFAULT_PLATFORMS);
+let hunterResults = [];       // scored + audited leads from the current run
+let hunterSortedCache = [];   // last-rendered sort order, for detail-modal lookups by row index
+let hunterSkipped = [];       // [{name, website, reason}] — never silently dropped
+let hunterSortState = { key: 'opportunityScore', dir: 'desc' };
+let hunterRunning = false;
+
+function renderHunterChips() {
+    const indEl = document.getElementById('h-industry-chips');
+    if (indEl && !indEl.dataset.rendered) {
+        indEl.innerHTML = HUNTER_INDUSTRIES.map(ind => `
+            <label class="chip-check">
+                <input type="checkbox" onchange="hunterToggleIndustry('${escHtml(ind)}', this)"> ${escHtml(ind)}
+            </label>`).join('');
+        indEl.dataset.rendered = '1';
+    }
+    const platEl = document.getElementById('h-platform-chips');
+    if (platEl && !platEl.dataset.rendered) {
+        platEl.innerHTML = HUNTER_PLATFORMS.map(p => `
+            <label class="chip-check${hunterSelectedPlatforms.has(p) ? ' checked' : ''}">
+                <input type="checkbox" ${hunterSelectedPlatforms.has(p) ? 'checked' : ''} onchange="hunterTogglePlatform('${escHtml(p)}', this)"> ${escHtml(p)}
+            </label>`).join('');
+        platEl.dataset.rendered = '1';
+    }
+}
+
+function hunterToggleIndustry(name, cb) {
+    if (cb.checked) hunterSelectedIndustries.add(name); else hunterSelectedIndustries.delete(name);
+    cb.closest('.chip-check').classList.toggle('checked', cb.checked);
+}
+function hunterTogglePlatform(name, cb) {
+    if (cb.checked) hunterSelectedPlatforms.add(name); else hunterSelectedPlatforms.delete(name);
+    cb.closest('.chip-check').classList.toggle('checked', cb.checked);
+}
+function hunterToggleRegion(checked) {
+    ['h-city', 'h-radius'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = checked; });
+}
+
+function hunterGoStep(n) {
+    [1, 2, 3].forEach(i => {
+        document.getElementById('hstep-' + i)?.classList.toggle('active', i === n);
+        document.getElementById('hstep-btn-' + i)?.classList.toggle('active', i === n);
+    });
+}
+
+function hunterLocationLabel() {
+    const country = document.getElementById('h-country').value.trim();
+    const state = document.getElementById('h-state').value.trim();
+    const city = document.getElementById('h-city').value.trim();
+    const radius = document.getElementById('h-radius').value.trim();
+    const entireRegion = document.getElementById('h-entire-region').checked;
+    const parts = [];
+    if (!entireRegion && city) parts.push(city);
+    if (state) parts.push(state);
+    if (country) parts.push(country);
+    let label = parts.filter(Boolean).join(', ');
+    if (!entireRegion && city && radius) label += ` (within ${radius} miles of ${city})`;
+    return label;
+}
+
+function hunterIndustryLabel() {
+    const other = document.getElementById('h-industry-other').value.trim();
+    const list = [...hunterSelectedIndustries];
+    if (other) list.push(other);
+    return list;
+}
+
+function hunterProgress(text) {
+    const area = document.getElementById('h-progress-area');
+    const el = document.getElementById('h-progress-text');
+    if (area) area.style.display = 'block';
+    if (el) el.textContent = text;
+}
+
+function hunterAuditAvg(scores) {
+    if (!scores) return null;
+    const vals = Object.entries(scores).filter(([k, v]) => !k.startsWith('_') && typeof v === 'number').map(([, v]) => v);
+    if (!vals.length) return null;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+async function runHunterSearch() {
+    if (hunterRunning) return;
+    const location = hunterLocationLabel();
+    const industries = hunterIndustryLabel();
+    const platforms = [...hunterSelectedPlatforms];
+    const requestedCount = Math.max(1, Math.min(100, parseInt(document.getElementById('h-count').value) || 20));
+
+    if (!location) { alert('Please enter at least a country or city.'); return; }
+    if (!industries.length) { alert('Please select at least one industry (or enter a custom one).'); return; }
+    if (!platforms.length) { alert('Please select at least one target platform.'); return; }
+
+    // Discovery requires live web search — same hard-stop rule as runDiscover():
+    // Claude cannot search the web and would fabricate businesses.
+    if (!window.PerplexityService) {
+        hunterProgress('Live business discovery requires the Perplexity integration (PERPLEXITY_API_KEY). Without it, results would be AI-invented and unsafe to contact.');
+        return;
+    }
+
+    hunterRunning = true;
+    hunterResults = [];
+    hunterSkipped = [];
+    document.getElementById('h-results-area').style.display = 'none';
+    const runBtn = document.getElementById('h-run-btn');
+    if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span> Running…'; }
+
+    // Discover more candidates than requested since platform + audit filtering
+    // will remove most of them — capped so this can't ask for an unbounded count.
+    const discoverCount = Math.min(requestedCount * 4, 200);
+    hunterProgress(`Searching for up to ${discoverCount} candidate businesses in ${location}…`);
+
+    const systemPrompt = `You are a business research assistant. Your ONLY output is a raw JSON array — no explanation, no markdown, no code fences, no text before or after.
+
+Search public sources: Google Maps, Yelp, Yell.com, local business directories relevant to the target region.
+
+JSON schema per entry (use null for unknown fields):
+{"name":"string","industry":"string","city":"string","country":"string","phone":"string|null","email":"string|null","website":"string|null","description":"string"}
+
+Rules:
+- REAL businesses only — no fabrication
+- Only include businesses that have their OWN website (a real URL you found) — skip businesses with no website or Facebook-only presence entirely
+- Start your response with [ and end with ]`;
+
+    const userMsg = `Find up to ${discoverCount} REAL businesses with their own website, matching industries: ${industries.join(', ')}. Location: ${location}. Output the JSON array only.`;
+
+    let fullText = '';
+    try {
+        await new Promise((resolve, reject) => {
+            const cancelStall = stallGuard(120000, 'prospect hunter discovery', (e) => reject(e));
+            window.PerplexityService.streamResponse({
+                systemPrompt, messages: [{ role: 'user', content: userMsg }],
+                onChunk(c) { fullText += c; hunterProgress(`Receiving candidates… ${fullText.length} chars`); },
+                onDone: () => { cancelStall(); resolve(); },
+                onError: (e) => { cancelStall(); reject(e); },
+            });
+        });
+    } catch (e) {
+        hunterProgress(`Search error: ${e && e.message ? e.message : e}`);
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    const candidates = extractJSON(fullText) || [];
+    if (!candidates.length) {
+        hunterProgress('Could not parse any candidates from the search response. Try a broader location or different industries.');
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    const withSite = candidates.filter(c => c.website);
+    candidates.filter(c => !c.website).forEach(c => hunterSkipped.push({ name: c.name, website: null, reason: 'No website found — not applicable to a platform migration pitch' }));
+
+    // Step 1 — cheap platform check on every candidate with a site, BEFORE the
+    // expensive audit call. Only platform-matched candidates proceed.
+    const platformMatched = [];
+    for (let i = 0; i < withSite.length; i++) {
+        const c = withSite[i];
+        hunterProgress(`Checking platform: ${i + 1}/${withSite.length}…`);
+        try {
+            const r = await fetch('/api/tech-detect', {
+                method: 'POST', headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ url: c.website }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.success) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: (d && d.error) || 'Platform check failed — could not be audited' });
+                continue;
+            }
+            if (!d.available) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: d.reason || 'Could not verify the platform for this site' });
+                continue;
+            }
+            const platformCats = new Set(['website-builder', 'cms', 'ecommerce']);
+            const hits = (d.technologies || []).filter(t => platformCats.has(t.category));
+            const detected = hits[0] ? hits[0].name : null;
+            // Match: an exact named platform the wizard selected, OR a
+            // detected-but-unlisted platform when "Other" is selected, OR no
+            // platform detected at all when "Unknown" is selected.
+            const isMatch = detected
+                ? (platforms.includes(detected) || (!HUNTER_NAMED_PLATFORMS.includes(detected) && platforms.includes('Other')))
+                : platforms.includes('Unknown');
+            if (isMatch) platformMatched.push({ ...c, _platform: detected });
+        } catch (e) {
+            hunterSkipped.push({ name: c.name, website: c.website, reason: 'Platform check failed: ' + (e.message || e) });
+        }
+        await new Promise(r => setTimeout(r, HUNTER_THROTTLE_MS));
+    }
+
+    if (!platformMatched.length) {
+        hunterProgress(`Checked ${withSite.length} candidate site(s) — none matched the selected platform filter.`);
+        renderHunterResults();
+        renderHunterSkipped();
+        document.getElementById('h-results-area').style.display = 'block';
+        hunterRunning = false;
+        if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+        return;
+    }
+
+    // Step 2 — full audit only on platform-matched candidates.
+    for (let i = 0; i < platformMatched.length; i++) {
+        const c = platformMatched[i];
+        hunterProgress(`Auditing: ${i + 1}/${platformMatched.length}…`);
+        try {
+            const r = await fetch('/api/sales-audit-lead', {
+                method: 'POST', headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ url: c.website, industry: c.industry || null }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.success) {
+                hunterSkipped.push({ name: c.name, website: c.website, reason: (d && d.error) || 'Audit failed — could not be audited' });
+                continue;
+            }
+            hunterResults.push({
+                name: c.name, industry: c.industry || null, city: c.city || null, country: c.country || null,
+                phone: c.phone || null, email: c.email || null, website: d.url,
+                platform: d.technologyCheck?.available ? d.platform : null,
+                isTargetPlatform: d.isTargetPlatform,
+                technologyAvailable: !!d.technologyCheck?.available,
+                technologies: d.technologies || [],
+                auditScores: d.audit?.scores || null,
+                auditProblems: d.audit?.problems || [],
+                opportunityScore: typeof d.opportunity?.score === 'number' ? d.opportunity.score : null,
+                opportunityBreakdown: d.opportunity?.breakdown || [],
+                opportunityClassification: d.opportunity?.classification || null,
+                lastAuditedAt: d.checkedAt || new Date().toISOString(),
+                // Best-effort palette extracted from the audited homepage's
+                // own CSS (api/_lib/website-audit.js) — null, never guessed,
+                // when the site declared no usable colour signal. Feeds the
+                // "Generate Website Mockup" action's default palette.
+                brandColors: Array.isArray(d.brandColors) ? d.brandColors : null,
+            });
+        } catch (e) {
+            hunterSkipped.push({ name: c.name, website: c.website, reason: 'Audit failed: ' + (e.message || e) });
+        }
+        await new Promise(r => setTimeout(r, HUNTER_THROTTLE_MS));
+    }
+
+    // Rank successfully-scored candidates by opportunity score, keep top N.
+    hunterResults.sort((a, b) => (b.opportunityScore ?? -1) - (a.opportunityScore ?? -1));
+    hunterResults = hunterResults.slice(0, requestedCount);
+
+    // Persist into the shared pipeline store — merge onto an existing
+    // prospect by name+city (Store.add()'s own dedupe), then layer the
+    // Hunter-specific fields on with updByName().
+    hunterResults.forEach(p => {
+        Store.add({ name: p.name, industry: p.industry, city: p.city, country: p.country, phone: p.phone, email: p.email, website: p.website, websiteStatus: 'has_website' });
+        Store.updByName(p.name, p.city, {
+            platform: p.platform, isTargetPlatform: p.isTargetPlatform, technologies: p.technologies,
+            auditScores: p.auditScores, auditProblems: p.auditProblems,
+            opportunityScore: p.opportunityScore, opportunityBreakdown: p.opportunityBreakdown,
+            opportunityClassification: p.opportunityClassification, lastAuditedAt: p.lastAuditedAt,
+            brandColors: p.brandColors,
+        });
+    });
+
+    hunterProgress(`Done. ${hunterResults.length} qualified lead(s) ranked and saved to Pipeline${hunterSkipped.length ? `, ${hunterSkipped.length} could not be audited or matched (see below)` : ''}.`);
+    renderHunterResults();
+    renderHunterSkipped();
+    document.getElementById('h-results-area').style.display = 'block';
+    hunterRunning = false;
+    if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '🎯 Run Search'; }
+}
+
+function hunterSortBy(key) {
+    if (hunterSortState.key === key) hunterSortState.dir = hunterSortState.dir === 'asc' ? 'desc' : 'asc';
+    else { hunterSortState.key = key; hunterSortState.dir = 'desc'; }
+    renderHunterResults();
+}
+
+function hunterSortValue(p, key) {
+    switch (key) {
+        case 'classification':
+        case 'opportunityScore': return p.opportunityScore ?? -1;
+        case 'name': return (p.name || '').toLowerCase();
+        case 'industry': return (p.industry || '').toLowerCase();
+        case 'city': return (p.city || '').toLowerCase();
+        case 'platform': return (p.platform || '').toLowerCase();
+        case 'placesRating': return p.placesRating ?? -1;
+        case 'placesReviews': return p.placesReviews ?? -1;
+        case 'auditAvg': return hunterAuditAvg(p.auditScores) ?? -1;
+        case 'perf': return p.auditScores?.performance ?? -1;
+        case 'seo': return p.auditScores?.seo ?? -1;
+        case 'mobile': return p.auditScores?.mobile ?? -1;
+        case 'conversion': return p.auditScores?.conversion ?? -1;
+        default: return 0;
+    }
+}
+
+const HUNTER_CLASS_LABELS = { exceptional: 'Exceptional', high_priority: 'High Priority', strong_prospect: 'Strong Prospect', potential_prospect: 'Potential', low_priority: 'Low Priority', do_not_contact: 'Do Not Contact' };
+
+function renderHunterResults() {
+    const tbody = document.getElementById('h-results-tbody');
+    if (!tbody) return;
+    const sorted = [...hunterResults].sort((a, b) => {
+        const va = hunterSortValue(a, hunterSortState.key), vb = hunterSortValue(b, hunterSortState.key);
+        if (va < vb) return hunterSortState.dir === 'asc' ? -1 : 1;
+        if (va > vb) return hunterSortState.dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    hunterSortedCache = sorted;
+    document.getElementById('h-results-count').textContent = sorted.length;
+    if (!sorted.length) {
+        tbody.innerHTML = `<tr><td colspan="17" style="text-align:center;padding:30px;color:var(--text2)">No qualified leads yet — run a search above.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = sorted.map((p, i) => {
+        const classLabel = HUNTER_CLASS_LABELS[p.opportunityClassification] || 'Unaudited';
+        const clsClass = p.opportunityClassification ? `cls-${p.opportunityClassification}` : 'cls-unaudited';
+        const avg = hunterAuditAvg(p.auditScores);
+        return `<tr>
+            <td><span class="cls-badge ${clsClass}">${escHtml(classLabel)}</span></td>
+            <td style="font-weight:600">${escHtml(p.name)}</td>
+            <td>${escHtml(p.industry || '—')}</td>
+            <td>${escHtml([p.city, p.country].filter(Boolean).join(', ') || '—')}</td>
+            <td>${p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--cyan)">${escHtml(p.website.replace(/^https?:\/\//, ''))}</a>` : '—'}</td>
+            <td>${escHtml(p.platform || 'Could not verify')}</td>
+            <td>${typeof p.placesRating === 'number' ? `⭐ ${p.placesRating}` : '—'}</td>
+            <td>${p.placesReviews ?? '—'}</td>
+            <td>${avg != null ? avg : '—'}</td>
+            <td>${p.auditScores?.performance ?? '—'}</td>
+            <td>${p.auditScores?.seo ?? '—'}</td>
+            <td>${p.auditScores?.mobile ?? '—'}</td>
+            <td>${p.auditScores?.conversion ?? '—'}</td>
+            <td style="font-weight:700">${p.opportunityScore ?? '—'}</td>
+            <td>${p.email ? `<span style="color:var(--green)">${escHtml(p.email)}</span>` : (p.phone ? escHtml(p.phone) : '—')}</td>
+            <td><span class="tag tag-industry">New</span></td>
+            <td><button class="btn btn-sm btn-ghost" onclick="hunterOpenDetail(${i})">View Details</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderHunterSkipped() {
+    const el = document.getElementById('h-skipped-area');
+    if (!el) return;
+    if (!hunterSkipped.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="card">
+        <div class="card-header"><span class="card-title">⚠ ${hunterSkipped.length} could not be audited or matched</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto">
+            ${hunterSkipped.map(s => `<div style="font-size:12px;color:var(--text2)"><strong style="color:var(--text)">${escHtml(s.name || 'Unnamed')}</strong>${s.website ? ' — ' + escHtml(s.website) : ''}: ${escHtml(s.reason)}</div>`).join('')}
+        </div>
+    </div>`;
+}
+
+// i -> { imageUrl, disclaimer } for a lead whose "Generate Website Mockup"
+// call has succeeded — cleared whenever that lead's detail modal is reopened,
+// so a stale mockup from a previous open can never be inserted into a fresh
+// draft.
+let hunterMockups = {};
+const MOCKUP_DISCLAIMER = "AI-generated concept — an illustrative example only, not built from this business's actual content or logo.";
+
+function hunterOpenDetail(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    delete hunterMockups[i];
+    const box = document.getElementById('h-modal-box');
+    const avg = hunterAuditAvg(p.auditScores);
+    const problemsHtml = (p.auditProblems || []).length
+        ? p.auditProblems.map(pr => `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                <span style="font-weight:600">${escHtml(pr.issue || 'Issue')}</span>
+                <span class="tag ${pr.severity === 'high' ? 'tag-no-site' : pr.severity === 'medium' ? 'tag-fb-only' : 'tag-has-site'}" style="text-transform:uppercase">${escHtml(pr.severity || '')}</span>
+            </div>
+            ${pr.evidence ? `<div style="font-size:12px;color:var(--text2);margin-top:4px">Evidence: ${escHtml(pr.evidence)}</div>` : ''}
+            ${pr.recommendation ? `<div style="font-size:12px;color:var(--green);margin-top:4px">→ ${escHtml(pr.recommendation)}</div>` : ''}
+        </div>`).join('')
+        : '<div style="color:var(--text2);font-size:12px">No specific problems recorded.</div>';
+    const breakdownHtml = (p.opportunityBreakdown || []).length
+        ? p.opportunityBreakdown.map(b => `<div style="font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><strong style="color:${b.points >= 0 ? 'var(--green)' : '#ef4444'}">${b.points >= 0 ? '+' : ''}${b.points}</strong> — ${escHtml(b.factor)}: <span style="color:var(--text2)">${escHtml(b.reason)}</span></div>`).join('')
+        : '<div style="color:var(--text2);font-size:12px">No breakdown available.</div>';
+
+    box.innerHTML = `
+        <div class="row-between" style="margin-bottom:14px">
+            <div>
+                <div style="font-size:18px;font-weight:700">${escHtml(p.name)}</div>
+                <div style="font-size:12px;color:var(--text2)">${escHtml([p.city, p.country].filter(Boolean).join(', '))} · ${escHtml(p.industry || '')}</div>
+            </div>
+            <button class="qs-close" onclick="hunterCloseModal()" style="font-size:20px">✕</button>
+        </div>
+        <div class="detail-grid" style="margin-bottom:16px">
+            <div class="detail-item"><label>Website</label><p>${p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--cyan)">${escHtml(p.website)}</a>` : '—'}</p></div>
+            <div class="detail-item"><label>Platform</label><p>${escHtml(p.technologyAvailable ? (p.platform || 'No matching platform detected') : 'Could not verify')}</p></div>
+            <div class="detail-item"><label>Phone</label><p>${p.phone ? escHtml(p.phone) : '—'}</p></div>
+            <div class="detail-item"><label>Email</label><p>${p.email ? escHtml(p.email) : '—'}</p></div>
+            <div class="detail-item"><label>Website Health (avg)</label><p>${avg != null ? avg + '/100' : '—'}</p></div>
+            <div class="detail-item"><label>Opportunity Score</label><p>${p.opportunityScore ?? '—'}/100${p.opportunityClassification ? ` (${escHtml(HUNTER_CLASS_LABELS[p.opportunityClassification] || p.opportunityClassification)})` : ''}</p></div>
+        </div>
+        <div style="margin-bottom:16px">
+            <label>Audit Problems</label>
+            <div style="margin-top:6px">${problemsHtml}</div>
+        </div>
+        <div style="margin-bottom:16px">
+            <label>Why This Score — Breakdown</label>
+            <div style="margin-top:6px">${breakdownHtml}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="hunterGenerateOutreach(${i})">✉ Generate Outreach</button>
+            <button id="h-mockup-btn-${i}" class="btn btn-ghost" onclick="hunterGenerateMockup(${i})">🎨 Generate Website Mockup</button>
+        </div>
+        <div id="h-mockup-area-${i}" class="mt16"></div>
+        <div id="h-outreach-area-${i}" class="mt16"></div>
+    `;
+    document.getElementById('h-modal-overlay').classList.add('open');
+}
+
+function hunterCloseModal() {
+    document.getElementById('h-modal-overlay').classList.remove('open');
+}
+
+/**
+ * Builds an outreach draft from plain-JS template logic (not an LLM call) —
+ * given the hard "never fabricate a signal" constraint, this is the safer
+ * default: it can only ever reference fields that are actually present on
+ * the audited lead, and simply omits anything that's null.
+ */
+function hunterBuildOutreachDraft(p) {
+    const subject = `${p.name} — Website Health Score ${p.opportunityScore != null ? p.opportunityScore + '/100' : 'Review'}`;
+    const lines = [`Subject: ${subject}`, '', `Hi ${p.name} team,`, ''];
+
+    let intro = `I came across ${p.name}'s website${p.website ? ` (${p.website})` : ''}`;
+    if (p.city || p.country) intro += ` while researching ${p.industry ? p.industry.toLowerCase() + ' ' : ''}businesses in ${[p.city, p.country].filter(Boolean).join(', ')}`;
+    intro += '.';
+    lines.push(intro, '');
+
+    if (typeof p.placesRating === 'number') {
+        lines.push(`I noticed you have a ${p.placesRating}★ rating${p.placesReviews ? ` from ${p.placesReviews} reviews` : ''} — clearly a well-regarded business.`, '');
+    }
+
+    const problems = (p.auditProblems || []).slice().sort((a, b) => (a.severity === 'high' ? 0 : 1) - (b.severity === 'high' ? 0 : 1)).slice(0, 3);
+    if (problems.length) {
+        lines.push('While reviewing your site, I found a few concrete things that could be costing you business:');
+        problems.forEach(pr => lines.push(`- ${pr.issue}${pr.recommendation ? ` — ${pr.recommendation}` : ''}`));
+        lines.push('');
+    }
+
+    if (p.isTargetPlatform && p.platform) {
+        lines.push(`Your site is currently built on ${p.platform}. We specialise in migrating ${p.platform} sites to a faster, better-converting setup without losing your existing content.`, '');
+    }
+
+    lines.push('Would you be open to a quick 15-minute call to see if we can help with any of this?', '', 'Best,');
+    return { subject, text: lines.join('\n') };
+}
+
+/**
+ * "🎨 Generate Website Mockup" — calls api/generate-website-mockup.js
+ * (Gemini) for a quick, generic "what a new site could look like" concept
+ * image, to include as a visual teaser in this lead's outreach. Slow (a
+ * real external image-gen call), so the button shows a loading state; on
+ * failure this renders the real error from the endpoint (credits exhausted,
+ * provider unavailable, etc.) — never a fabricated "mockup generated" state.
+ */
+async function hunterGenerateMockup(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const area = document.getElementById('h-mockup-area-' + i);
+    const btn = document.getElementById('h-mockup-btn-' + i);
+    if (!area) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '🎨 Generating… (up to a minute)'; }
+    area.innerHTML = '<div class="qs-status" style="opacity:.8">Generating an AI concept mockup with Gemini — this can take up to a minute…</div>';
+
+    try {
+        const r = await fetch('/api/generate-website-mockup', {
+            method: 'POST', headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({
+                businessName: p.name,
+                industry: p.industry || undefined,
+                brandColors: (Array.isArray(p.brandColors) && p.brandColors.length) ? p.brandColors : undefined,
+                tagline: p.description || undefined,
+            }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.success) {
+            area.innerHTML = `<div class="qs-status err">${escHtml(d.message || d.error || 'Could not generate a mockup.')}</div>`;
+            return;
+        }
+        const disclaimer = d.disclaimer || MOCKUP_DISCLAIMER;
+        hunterMockups[i] = { imageUrl: d.imageUrl, disclaimer };
+        area.innerHTML = `
+            <img src="${escHtml(d.imageUrl)}" alt="Website concept preview" style="max-width:100%;border-radius:8px;margin-top:8px;display:block">
+            <div style="font-size:11px;color:var(--text2);margin-top:6px;font-style:italic">${escHtml(disclaimer)}</div>
+            <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="hunterInsertMockupIntoDraft(${i})">➕ Insert into outreach draft</button>
+        `;
+    } catch (e) {
+        area.innerHTML = `<div class="qs-status err">${escHtml('Mockup generation failed: ' + (e.message || e))}</div>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '🎨 Generate Website Mockup'; }
+    }
+}
+
+/**
+ * Appends the last successfully-generated mockup for this lead into the SAME
+ * textarea hunterGenerateOutreach() populates from hunterBuildOutreachDraft()
+ * — not a separate draft path. hunterSendForApproval() below recognises the
+ * <img> line and passes it through as real markup instead of escaping it, so
+ * the teaser actually renders as an image once approved and sent.
+ */
+function hunterInsertMockupIntoDraft(i) {
+    const mock = hunterMockups[i];
+    if (!mock) return;
+    const bodyEl = document.getElementById('h-out-body-' + i);
+    if (!bodyEl) { showToast('Generate the outreach draft first, then insert the mockup.'); return; }
+    const block = `<img src="${mock.imageUrl}" style="max-width:100%;margin:16px 0" alt="Website concept preview">\n\n${mock.disclaimer}`;
+    bodyEl.value = bodyEl.value.replace(/\s+$/, '') + '\n\n' + block;
+    showToast('Mockup inserted into draft');
+}
+
+function hunterGenerateOutreach(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const { subject, text } = hunterBuildOutreachDraft(p);
+    const area = document.getElementById('h-outreach-area-' + i);
+    if (!area) return;
+    area.innerHTML = `
+        <label>Subject</label>
+        <input id="h-out-subj-${i}" type="text" value="${escHtml(subject)}" style="margin-bottom:10px">
+        <label>Draft (editable)</label>
+        <textarea id="h-out-body-${i}" rows="12">${escHtml(text)}</textarea>
+        <div id="h-out-status-${i}" class="qs-status"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" onclick="hunterSendForApproval(${i})">📬 Send for Approval</button>
+        </div>
+    `;
+}
+
+/**
+ * Queues the draft into the same Carol→Scotty→Pat approval chain the rest of
+ * the app uses (web/js/review-queue.js), and ALSO saves it to AgentHistory
+ * with agentKey:'email' — the exact shape web/scotty.html's ReviewInbox.decide()
+ * checks for (`sourceRef.store === 'agent_history' && it.agentKey === 'email'`)
+ * before it hands an approved draft straight to Pat via PatHandoff.sendDraft().
+ */
+async function hunterSendForApproval(i) {
+    const p = hunterSortedCache[i];
+    if (!p) return;
+    const subjEl = document.getElementById('h-out-subj-' + i);
+    const bodyEl = document.getElementById('h-out-body-' + i);
+    const statusEl = document.getElementById('h-out-status-' + i);
+    const subject = subjEl?.value?.trim();
+    const text = bodyEl?.value?.trim();
+    if (!subject || !text) { if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Subject and draft are required.'; } return; }
+
+    if (!window.AgentHistory || !window.ReviewQueue) {
+        if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Review Queue is unavailable — reload the page and try again.'; }
+        return;
+    }
+
+    const fullContent = text.startsWith('Subject:') ? text : `Subject: ${subject}\n\n${text}`;
+    const entry = window.AgentHistory.save({ agentKey: 'email', taskType: 'Prospect Outreach', content: fullContent, topic: p.name });
+    if (!entry) { if (statusEl) { statusEl.className = 'qs-status err'; statusEl.textContent = 'Could not save draft.'; } return; }
+
+    // A paragraph that is exactly the mockup <img> tag hunterInsertMockupIntoDraft()
+    // appended is passed through as real markup rather than escaped — the whole
+    // point of the mockup teaser is that it actually renders as an image in the
+    // sent email, not as visible tag text.
+    const html = text.split('\n\n').map(para => {
+        const trimmed = para.trim();
+        if (trimmed.startsWith('<img ')) return trimmed;
+        return `<p style="margin:0 0 12px">${escHtml(para).replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    const result = window.ReviewQueue.send([{
+        source: 'email',
+        type: 'needs_approval',
+        title: `Outreach: ${p.name}`,
+        preview: fullContent,
+        payload: { campaignName: `${p.name} — Prospect Outreach`, subject, html, text: fullContent, topic: p.name, content: fullContent },
+        sourceRef: { store: 'agent_history', id: entry.id },
+        link: '/agents/sales-agent.html',
+        priority: 'high',
+    }], { section: 'Prospect Hunter' });
+
+    if (statusEl) {
+        statusEl.className = 'qs-status ok';
+        statusEl.textContent = result.added ? '✓ Sent to Scotty for review — approving it there hands it to Pat automatically.' : 'Already queued for review.';
+    }
+
+    const stored = Store.load().find(x => x.name === p.name && x.city === p.city);
+    if (stored) logActivity(stored.id, 'note', `Outreach draft sent for approval: ${subject}`);
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
@@ -1981,6 +2844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPipe();
     populateProspectSelect();
     prefillOfferFields();
+    renderHunterChips();
 
     ['disc-web-filter','disc-score-filter','disc-sort'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {

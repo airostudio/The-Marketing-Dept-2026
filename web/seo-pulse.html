@@ -494,6 +494,36 @@
             overflow: hidden;
         }
 
+        /* Shown in place of the score when the scan could not run. Deliberately
+           not styled like a bad score — it is not a result at all. */
+        .unmeasured-panel {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-left: 4px solid #f59e0b;
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            line-height: 1.65;
+        }
+        .unmeasured-panel h3 { margin: 0 0 10px; font-size: 19px; }
+        .unmeasured-panel p { margin: 0 0 12px; }
+        .unmeasured-panel p:last-child { margin-bottom: 0; }
+        .unmeasured-panel code {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 0.9em;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(148, 163, 184, 0.16);
+        }
+        .unmeasured-panel .unmeasured-reason {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 12.5px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            background: rgba(148, 163, 184, 0.12);
+            word-break: break-word;
+        }
+
         .score-card::before {
             content: '';
             position: absolute;
@@ -636,6 +666,71 @@
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
             margin-bottom: 24px;
+        }
+
+        /* ── Percentage dials ──────────────────────────────────────────────
+           One dial per real Lighthouse category score. The arc length IS the
+           number — a dial that does not track its value is decoration. */
+        .dial-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 20px 14px 18px;
+            text-align: center;
+        }
+        .dial { position: relative; width: 104px; height: 104px; margin: 0 auto 12px; }
+        .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .dial-track { fill: none; stroke: rgba(148,163,184,0.16); stroke-width: 9; }
+        .dial-fill {
+            fill: none; stroke-width: 9; stroke-linecap: round;
+            transition: stroke-dashoffset 900ms cubic-bezier(.22,.9,.3,1);
+        }
+        .dial-centre {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .dial-pct { font-size: 25px; font-weight: 800; line-height: 1; }
+        .dial-unit { font-size: 12px; font-weight: 700; opacity: .55; margin-left: 1px; }
+        .dial-name {
+            font-size: 12.5px; font-weight: 700; letter-spacing: .2px;
+            color: var(--color-text-secondary);
+        }
+        .dial-detail {
+            font-size: 11.5px; color: var(--color-text-tertiary);
+            margin-top: 4px; line-height: 1.45; min-height: 1.4em;
+        }
+        .dial-good { stroke: #22c55e; } .dial-pct-good { color: #22c55e; }
+        .dial-mid  { stroke: #f59e0b; } .dial-pct-mid  { color: #f59e0b; }
+        .dial-poor { stroke: #ef4444; } .dial-pct-poor { color: #ef4444; }
+        /* Not measured: a grey ring at zero fill, never a red one — an absent
+           measurement is not a bad score. */
+        .dial-none { stroke: rgba(148,163,184,0.3); }
+        .dial-pct-none { color: var(--color-text-tertiary); font-size: 20px; }
+
+        .dial-section-title {
+            font-size: 12px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .6px; color: var(--color-text-tertiary);
+            margin: 4px 0 12px;
+        }
+        .checks-bar {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 14px;
+            padding: 16px 20px; margin-bottom: 24px;
+        }
+        .checks-head {
+            display: flex; justify-content: space-between; align-items: baseline;
+            gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+        }
+        .checks-count { font-size: 15px; font-weight: 700; }
+        .checks-note { font-size: 12px; color: var(--color-text-tertiary); }
+        .checks-track {
+            height: 8px; border-radius: 4px; overflow: hidden;
+            background: rgba(148,163,184,0.16);
+        }
+        .checks-fill {
+            height: 100%; border-radius: 4px; background: #22c55e;
+            transition: width 900ms cubic-bezier(.22,.9,.3,1);
         }
 
         .metric-card {
@@ -1085,7 +1180,7 @@
                     Check Pulse
                 </button>
             </div>
-            <p class="input-hint">Free instant analysis - No account required</p>
+            <p class="input-hint" id="inputHint">Free instant analysis - No account required</p>
         </section>
 
         <!-- Features -->
@@ -1198,6 +1293,9 @@
                 </defs>
             </svg>
 
+            <!-- Shown instead of the score when nothing could be measured -->
+            <div class="unmeasured-panel" id="unmeasuredPanel" style="display:none;"></div>
+
             <!-- Score Card -->
             <div class="score-card">
                 <div class="score-header">
@@ -1267,7 +1365,14 @@
         </section>
     </main>
 
+    <!-- sendAuthHeaders() reads the session through window.Supabase. Without
+         these two the object does not exist, the token is never attached, and
+         every authenticated call returns no_token — to a signed-in customer. -->
+    <script src="/js/supabase.min.js"></script>
     <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="/js/seo-fix-guide.js"></script>
     <script>
     (function() {
@@ -1296,7 +1401,7 @@
         const scoreRingFill = document.getElementById('scoreRingFill');
         const scoreBadge = document.getElementById('scoreBadge');
         const scoreBadgeText = document.getElementById('scoreBadgeText');
-        const metricsGrid = document.getElementById('metricsGrid');
+        let metricsGrid = document.getElementById('metricsGrid');
         const issuesCounts = document.getElementById('issuesCounts');
         const issuesList = document.getElementById('issuesList');
 
@@ -1361,17 +1466,37 @@
             }
         }
 
+        // Say what is wrong in the hint line under the input, then put the
+        // original hint back once the visitor starts typing again.
+        let hintTimer = null;
+        function hintProblem(message) {
+            const hint = document.getElementById('inputHint');
+            if (!hint) return;
+            if (!hint.dataset.original) hint.dataset.original = hint.textContent;
+            hint.textContent = message;
+            hint.style.color = 'var(--color-danger, #ef4444)';
+            urlInput.focus();
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(function () {
+                hint.textContent = hint.dataset.original;
+                hint.style.color = '';
+            }, 5000);
+        }
+
         // Start Scan
         function startScan() {
             let url = urlInput.value.trim();
-            if (!url) return;
+            // The first thing a brand-new visitor does is press the button to
+            // see what it does. An empty or malformed URL used to return here
+            // silently, which is indistinguishable from a broken button.
+            if (!url) { hintProblem('Enter a website URL first — for example https://example.com'); return; }
 
             // Add protocol if missing
             if (!url.startsWith('http')) {
                 url = 'https://' + url;
             }
 
-            if (!isValidUrl(url)) return;
+            if (!isValidUrl(url)) { hintProblem('That does not look like a website address. Try https://example.com'); return; }
             if (isScanning) return;
 
             isScanning = true;
@@ -1458,18 +1583,42 @@
                 setCheckActive('content');
                 scanningStatus.textContent = 'Running PageSpeed Insights analysis...';
 
-                const apiKey = window.APP_CONFIG?.GOOGLE?.API_KEY || '';
-                const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices${apiKey ? '&key=' + apiKey : ''}`;
-
+                // Through /api/pagespeed, the same server-side proxy the rest of
+                // the SEO tools use. This page used to call googleapis.com
+                // straight from the browser with window.APP_CONFIG.GOOGLE.API_KEY,
+                // which is deliberately empty (the key lives in a Vercel env var
+                // and must never be shipped to a page) — so every request went
+                // out unauthenticated and Google rate-limits those hard.
                 let pageSpeedData = null;
+                let pageSpeedError = null;
                 try {
-                    const response = await fetch(apiUrl);
+                    const response = await fetch(
+                        `/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`,
+                        { headers: await window.sendAuthHeaders() });
                     if (response.ok) {
                         pageSpeedData = await response.json();
                         analysisResults.rawData.pageSpeed = pageSpeedData;
+                    } else {
+                        const body = await response.json().catch(() => null);
+                        pageSpeedError = (body && body.error) ||
+                            `PageSpeed returned HTTP ${response.status}.`;
                     }
                 } catch (e) {
-                    console.warn('PageSpeed API error:', e);
+                    pageSpeedError = e.message || 'The PageSpeed request could not be sent.';
+                }
+                if (!pageSpeedData && !pageSpeedError) {
+                    pageSpeedError = 'PageSpeed returned nothing usable.';
+                }
+                analysisResults.pageSpeedError = pageSpeedError;
+
+                // The customer already sees the truth: no score, and what
+                // failed. That is the right thing to show them and it tells
+                // nobody who could fix it — an expired key degrades the scan
+                // for every customer until somebody complains. This is the
+                // other half.
+                if (pageSpeedError && typeof window.reportFailure === 'function') {
+                    window.reportFailure(`PageSpeed scan failed: ${pageSpeedError}`,
+                        { where: 'seo-pulse-scan', target: url });
                 }
 
                 // Extract metrics from PageSpeed if available
@@ -1478,16 +1627,79 @@
                     const categories = lh.categories || {};
                     const audits = lh.audits || {};
 
-                    // Get real scores (0-100)
-                    analysisResults.metrics.performance = Math.round((categories.performance?.score || 0) * 100);
-                    analysisResults.metrics.seo = Math.round((categories.seo?.score || 0) * 100);
+                    // Get real scores (0-100).
+                    //
+                    // `?.score || 0` turned a category Google did not return into
+                    // a hard 0, which renders as a red 0% dial — the page saying
+                    // the site failed a check nobody ran. It also collapsed a
+                    // genuine score of 0 into the same value as "absent". Null
+                    // means unscored and renders as n/a.
+                    const cat = (key) => {
+                        const v = categories[key]?.score;
+                        return typeof v === 'number' && isFinite(v) ? Math.round(v * 100) : null;
+                    };
+                    analysisResults.metrics.performance = cat('performance');
+                    analysisResults.metrics.seo = cat('seo');
                     // Lighthouse/PageSpeed has no distinct "mobile-friendliness" category
                     // to measure separately from performance/seo/accessibility/best-practices
                     // (Google retired the standalone Mobile-Friendly Test) — strategy=mobile
                     // above just means "simulate a mobile device" for all of these categories.
                     // This used to be stored/labeled as "Mobile" even though it's really the
                     // Accessibility score; renamed so the number matches what it actually is.
-                    analysisResults.metrics.accessibility = Math.round((categories.accessibility?.score || 0) * 100);
+                    analysisResults.metrics.accessibility = cat('accessibility');
+
+                    // Best Practices was already being requested from the API and then
+                    // thrown away. It is a real Lighthouse category score — HTTPS usage,
+                    // console errors, deprecated APIs, image aspect ratios — and it costs
+                    // nothing extra to show.
+                    analysisResults.metrics.bestPractices = cat('best-practices');
+
+                    // ── Core Web Vitals, with both the score and the measurement ──────
+                    //
+                    // Lighthouse gives each vital a 0–1 score AND the value it measured.
+                    // Only the raw values were being used, and only to decide whether to
+                    // raise an issue. A dial needs the score; a person needs the value.
+                    // "38% — LCP 4.6s" says what is wrong and how wrong in one line,
+                    // where either number alone says half of it.
+                    const vital = (id, format) => {
+                        const a = audits[id];
+                        if (!a || typeof a.score !== 'number') return null;
+                        return {
+                            score: Math.round(a.score * 100),
+                            display: a.displayValue || (typeof a.numericValue === 'number'
+                                ? format(a.numericValue) : null),
+                            title: a.title || id,
+                        };
+                    };
+                    const secs = (ms) => (ms / 1000).toFixed(1) + 's';
+                    analysisResults.vitals = {
+                        lcp: vital('largest-contentful-paint', secs),
+                        cls: vital('cumulative-layout-shift', (v) => v.toFixed(2)),
+                        tbt: vital('total-blocking-time', (ms) => Math.round(ms) + 'ms'),
+                        fcp: vital('first-contentful-paint', secs),
+                        si:  vital('speed-index', secs),
+                    };
+
+                    // ── How much of the audit actually passed ─────────────────────────
+                    //
+                    // Lighthouse runs dozens of individual checks. Counting the ones that
+                    // passed is a real ratio and the most concrete thing an express check
+                    // can report: "44 of 61 checks passed" is a fact, where a single
+                    // composite score is a judgement.
+                    //
+                    // Informative and manual audits are excluded: they have no pass/fail
+                    // to count, and including them would make the denominator meaningless.
+                    let passed = 0, applicable = 0;
+                    Object.values(audits).forEach(a => {
+                        if (!a || typeof a.score !== 'number') return;
+                        if (a.scoreDisplayMode && ['informative', 'manual', 'notApplicable']
+                            .includes(a.scoreDisplayMode)) return;
+                        applicable++;
+                        if (a.score >= 0.9) passed++;
+                    });
+                    analysisResults.checks = applicable > 0
+                        ? { passed, applicable, pct: Math.round((passed / applicable) * 100) }
+                        : null;
 
                     // Extract real issues from failed audits
 
@@ -1636,13 +1848,18 @@
                     }
                 }
 
-                updateProgress('meta', 'Meta tags analyzed');
+                // These four lines used to run unconditionally, so the scan said
+                // "Meta tags analyzed / Performance checked / Content analyzed"
+                // in the exact run where PageSpeed had returned nothing and none
+                // of it had been looked at.
+                const psOk = !!pageSpeedData;
+                updateProgress('meta', psOk ? 'Meta tags analyzed' : 'Meta tags not checked');
                 await sleep(100);
-                updateProgress('performance', 'Performance checked');
+                updateProgress('performance', psOk ? 'Performance checked' : 'Performance not measured');
                 await sleep(100);
-                updateProgress('mobile', 'Mobile friendliness checked');
+                updateProgress('mobile', psOk ? 'Mobile friendliness checked' : 'Mobile not measured');
                 await sleep(100);
-                updateProgress('content', 'Content analyzed');
+                updateProgress('content', psOk ? 'Content analyzed' : 'Content not analysed');
 
                 // 3. Check for sitemap
                 setCheckActive('links');
@@ -1656,7 +1873,8 @@
                     // probe the project wizard uses (real HTTP status, no CORS opacity)
                     // makes this check actually check something.
                     const sitemapUrl = new URL('/sitemap.xml', url).href;
-                    const checkResp = await fetch(`/api/check-url?url=${encodeURIComponent(sitemapUrl)}`);
+                    const checkResp = await fetch(`/api/check-url?url=${encodeURIComponent(sitemapUrl)}`,
+                        { headers: await window.sendAuthHeaders() });
                     const checkData = await checkResp.json();
                     if (!checkData.reachable) {
                         analysisResults.issues.push({
@@ -1676,22 +1894,48 @@
                 updateProgress('links', 'Link analysis complete');
 
                 // Calculate overall score
+                //
+                // Three of the four inputs (performance, seo, accessibility) come
+                // only from PageSpeed. When PageSpeed fails they are all still 0,
+                // and the weighted sum for an HTTPS site lands on exactly 15 —
+                // clamped to a floor of 10, so the page reported a confident
+                // "15/100" with an empty issue list. That reads as "your site is
+                // among the worst we have seen and we found nothing to fix",
+                // when the truth is that nothing was measured at all.
+                //
+                // There is no honest number to show in that case, so no number is
+                // shown. The score is null and the results view says why.
                 const { metrics, issues } = analysisResults;
-                let score = Math.round(
-                    (metrics.performance * 0.3) +
-                    (metrics.seo * 0.35) +
-                    (metrics.accessibility * 0.2) +
-                    (metrics.security * 0.15)
-                );
 
-                // Adjust for critical issues
-                const criticalCount = issues.filter(i => i.severity === 'critical').length;
-                const warningCount = issues.filter(i => i.severity === 'warning').length;
-                score -= criticalCount * 5;
-                score -= warningCount * 2;
-                score = Math.max(10, Math.min(100, score));
+                if (!pageSpeedData) {
+                    analysisResults.score = null;
+                    analysisResults.measured = false;
+                } else {
+                    // Weight only the categories that were actually scored, and
+                    // renormalise. Multiplying a null by its weight contributes
+                    // 0, which would penalise a site for a measurement Google
+                    // simply did not return.
+                    const parts = [
+                        [metrics.performance,   0.30],
+                        [metrics.seo,           0.35],
+                        [metrics.accessibility, 0.20],
+                        [metrics.security,      0.15],
+                    ].filter(([v]) => typeof v === 'number' && isFinite(v));
+                    const weight = parts.reduce((s2, [, w]) => s2 + w, 0);
+                    let score = weight > 0
+                        ? Math.round(parts.reduce((s2, [v, w]) => s2 + v * w, 0) / weight)
+                        : 0;
 
-                analysisResults.score = score;
+                    // Adjust for critical issues
+                    const criticalCount = issues.filter(i => i.severity === 'critical').length;
+                    const warningCount = issues.filter(i => i.severity === 'warning').length;
+                    score -= criticalCount * 5;
+                    score -= warningCount * 2;
+                    score = Math.max(10, Math.min(100, score));
+
+                    analysisResults.score = score;
+                    analysisResults.measured = true;
+                }
 
                 // Final status
                 scanningStatus.textContent = 'Analysis complete!';
@@ -1737,6 +1981,16 @@
             resultFavicon.textContent = results.domain.charAt(0).toUpperCase();
             resultUrl.textContent = results.domain;
 
+            // When PageSpeed didn't answer there is no score, and nothing here
+            // may imply otherwise: no ring, no metric bars, and an issue list
+            // that says it is empty because nothing ran — not because the site
+            // is clean.
+            if (results.measured === false) {
+                showUnmeasured(results.pageSpeedError);
+                return;
+            }
+            clearUnmeasured();
+
             // Animate score
             animateScore(results.score);
 
@@ -1744,10 +1998,56 @@
             updateScoreBadge(results.score);
 
             // Update metrics
-            updateMetrics(results.metrics);
+            updateMetrics(results.metrics, results);
 
             // Update issues
             updateIssues(results.issues);
+        }
+
+        /**
+         * Replace the score ring and metrics with a plain statement that the
+         * scan could not be run, and why.
+         *
+         * The one thing that IS known without PageSpeed is whether the URL was
+         * served over HTTPS, so that stays — labelled as the only check that
+         * completed, rather than dressed up as a partial score.
+         */
+        function showUnmeasured(reason) {
+            const panel = document.getElementById('unmeasuredPanel');
+            const scoreCard = document.querySelector('.score-card');
+            const grid = document.getElementById('metricsGrid');
+
+            if (scoreCard) scoreCard.style.display = 'none';
+            if (grid) grid.style.display = 'none';
+
+            if (panel) {
+                panel.style.display = 'block';
+                panel.innerHTML =
+                    '<h3>We could not scan this site</h3>' +
+                    '<p>The PageSpeed Insights analysis did not complete, so there is no ' +
+                    'score to show. This is not a result about your site — nothing was ' +
+                    'measured.</p>' +
+                    '<p class="unmeasured-reason">' + escapeHtml(reason || 'No reason reported.') + '</p>' +
+                    '<p>Google rate-limits this analysis. Waiting a minute and scanning ' +
+                    'again usually works. If it keeps failing, check that ' +
+                    '<code>GOOGLE_PAGESPEED_API_KEY</code> is set in the deployment ' +
+                    'environment.</p>';
+            }
+
+            // Anything already rendered from a previous scan must go, or the old
+            // score sits on screen next to the "we could not scan" message.
+            if (issuesList) issuesList.innerHTML = '';
+            const issuesCountEl = document.getElementById('issuesCount');
+            if (issuesCountEl) issuesCountEl.textContent = '';
+        }
+
+        function clearUnmeasured() {
+            const panel = document.getElementById('unmeasuredPanel');
+            const scoreCard = document.querySelector('.score-card');
+            const grid = document.getElementById('metricsGrid');
+            if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+            if (scoreCard) scoreCard.style.display = '';
+            if (grid) grid.style.display = '';
         }
 
         // Animate Score
@@ -1808,33 +2108,124 @@
             }
         }
 
-        // Update Metrics
-        function updateMetrics(metrics) {
-            const metricConfigs = [
-                { key: 'performance', label: 'Performance', icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' },
-                { key: 'seo', label: 'SEO Score', icon: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>' },
-                { key: 'accessibility', label: 'Accessibility', icon: '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>' },
-                { key: 'security', label: 'Security', icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' }
-            ];
+        // ── Results: percentage dials ────────────────────────────────────
+        //
+        // This was four flat cards showing a bare number. The page now draws a
+        // dial per real Lighthouse category, plus one per Core Web Vital with
+        // the measurement beside it, plus the proportion of individual
+        // Lighthouse checks that passed.
+        //
+        // Every dial here is a measurement Google returned. Nothing is
+        // computed to fill a gap in the layout: a category the API did not
+        // score renders a grey ring reading "n/a", never a red one, because an
+        // absent measurement is not a bad score.
 
-            metricsGrid.innerHTML = metricConfigs.map(config => {
-                const value = metrics[config.key];
-                let statusClass = 'success';
-                if (value < 50) statusClass = 'error';
-                else if (value < 70) statusClass = 'warning';
+        const DIAL_CIRCUMFERENCE = 2 * Math.PI * 45;   // r=45 in the 100x100 viewBox
 
-                return `
-                    <div class="metric-card">
-                        <div class="metric-icon ${statusClass}">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                ${config.icon}
-                            </svg>
+        function band(pct) {
+            if (pct === null) return 'none';
+            return pct >= 90 ? 'good' : pct >= 50 ? 'mid' : 'poor';
+        }
+
+        /**
+         * One dial. `pct` null means not measured.
+         * `detail` carries the measured value, e.g. "LCP 2.4s" — the score says
+         * how bad, the value says what.
+         */
+        function dial(name, pct, detail, help) {
+            const b = band(pct);
+            const offset = pct === null
+                ? DIAL_CIRCUMFERENCE
+                : DIAL_CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, pct)) / 100);
+            return `
+                <div class="dial-card"${help ? ` title="${escapeHtml(help)}"` : ''}>
+                    <div class="dial">
+                        <svg viewBox="0 0 100 100" role="img"
+                             aria-label="${escapeHtml(name)}: ${pct === null ? 'not measured' : pct + ' out of 100'}">
+                            <circle class="dial-track" cx="50" cy="50" r="45"/>
+                            <circle class="dial-fill dial-${b}" cx="50" cy="50" r="45"
+                                    stroke-dasharray="${DIAL_CIRCUMFERENCE.toFixed(2)}"
+                                    stroke-dashoffset="${offset.toFixed(2)}"/>
+                        </svg>
+                        <div class="dial-centre">
+                            <div class="dial-pct dial-pct-${b}">${
+                                pct === null ? 'n/a' : pct + '<span class="dial-unit">%</span>'
+                            }</div>
                         </div>
-                        <div class="metric-value">${value}</div>
-                        <div class="metric-label">${config.label}</div>
                     </div>
-                `;
-            }).join('');
+                    <div class="dial-name">${escapeHtml(name)}</div>
+                    <div class="dial-detail">${detail ? escapeHtml(detail) : ''}</div>
+                </div>`;
+        }
+
+        function updateMetrics(metrics, results) {
+            const num = (v) => (typeof v === 'number' && isFinite(v)) ? v : null;
+            const vitals = (results && results.vitals) || {};
+            const checks = results && results.checks;
+
+            const categoryDials = [
+                dial('Performance', num(metrics.performance), 'Speed and responsiveness',
+                     'Google Lighthouse performance category, measured on a simulated mobile device.'),
+                dial('SEO', num(metrics.seo), 'Crawlability and on-page basics',
+                     'Google Lighthouse SEO category: titles, descriptions, crawlability, link text.'),
+                dial('Accessibility', num(metrics.accessibility), 'Usable with assistive tech',
+                     'Google Lighthouse accessibility category: contrast, labels, roles, alt text.'),
+                dial('Best Practices', num(metrics.bestPractices), 'Modern, safe web practices',
+                     'Google Lighthouse best-practices category: HTTPS, console errors, deprecated APIs.'),
+            ].join('');
+
+            const vitalDials = [
+                ['Largest Contentful Paint', vitals.lcp, 'When the main content finished loading.'],
+                ['Cumulative Layout Shift', vitals.cls, 'How much the page jumps around while loading.'],
+                ['Total Blocking Time', vitals.tbt, 'How long the page was unresponsive to input.'],
+                ['First Contentful Paint', vitals.fcp, 'When the first content appeared.'],
+            ].filter(([, v]) => v)
+             .map(([label, v, help]) => dial(label, v.score, v.display || '', help))
+             .join('');
+
+            let html = '';
+
+            if (checks) {
+                // The most concrete thing an express check can say. A composite
+                // score is a judgement; "44 of 61 checks passed" is a count.
+                html += `
+                    <div class="checks-bar">
+                        <div class="checks-head">
+                            <span class="checks-count">${checks.passed} of ${checks.applicable} checks passed</span>
+                            <span class="checks-note">${checks.pct}% — Google Lighthouse ran these on your page just now</span>
+                        </div>
+                        <div class="checks-track">
+                            <div class="checks-fill" style="width:${checks.pct}%"></div>
+                        </div>
+                    </div>`;
+            }
+
+            html += `<div class="dial-section-title">Category scores</div>
+                     <div class="metrics-grid">${categoryDials}</div>`;
+
+            if (vitalDials) {
+                html += `<div class="dial-section-title">Core Web Vitals — what Google measured</div>
+                         <div class="metrics-grid">${vitalDials}</div>`;
+            }
+
+            // HTTPS is a yes or a no. Rendering it as a 0% or 100% dial would
+            // dress a binary fact as a measurement and let it drag a dial grid
+            // around, so it is stated as what it is.
+            html += `
+                <div class="checks-bar" style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:18px;">${results && results.isHttps ? '🔒' : '⚠️'}</span>
+                    <div>
+                        <div class="checks-count">${results && results.isHttps
+                            ? 'Served over HTTPS' : 'Not served over HTTPS'}</div>
+                        <div class="checks-note">${results && results.isHttps
+                            ? 'The connection to this site is encrypted.'
+                            : 'Browsers mark unencrypted sites as "Not secure", and Google treats HTTPS as a ranking signal.'}</div>
+                    </div>
+                </div>`;
+
+            metricsGrid.outerHTML = `<div id="metricsGrid">${html}</div>`;
+            // outerHTML replaces the node, so re-bind for the next render.
+            metricsGrid = document.getElementById('metricsGrid');
         }
 
         // Update Issues
@@ -1974,6 +2365,13 @@
         // Utilities
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // The unmeasured panel prints an error string that originates from
+        // Google's API response, so it goes through here before reaching innerHTML.
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
         }
 
     })();

@@ -82,12 +82,15 @@ CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- Users can only see and update their own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON profiles
     FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can insert own profile" ON profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
 
@@ -108,6 +111,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- Enable RLS
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own settings" ON user_settings;
 CREATE POLICY "Users can manage own settings" ON user_settings
     FOR ALL USING (auth.uid() = user_id);
 
@@ -181,6 +185,7 @@ CREATE INDEX IF NOT EXISTS idx_projects_is_active ON projects(is_active);
 -- Enable RLS
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own projects" ON projects;
 CREATE POLICY "Users can manage own projects" ON projects
     FOR ALL USING (auth.uid() = user_id);
 
@@ -206,6 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_competitors_project_id ON competitors(project_id)
 -- Enable RLS
 ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage competitors in own projects" ON competitors;
 CREATE POLICY "Users can manage competitors in own projects" ON competitors
     FOR ALL USING (
         EXISTS (
@@ -262,6 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits(created_at DESC);
 -- Enable RLS
 ALTER TABLE audits ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage audits in own projects" ON audits;
 CREATE POLICY "Users can manage audits in own projects" ON audits
     FOR ALL USING (
         EXISTS (
@@ -308,6 +315,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_issues_is_fixed ON audit_issues(is_fixed);
 -- Enable RLS
 ALTER TABLE audit_issues ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view issues in own projects" ON audit_issues;
 CREATE POLICY "Users can view issues in own projects" ON audit_issues
     FOR ALL USING (
         EXISTS (
@@ -363,6 +371,7 @@ CREATE INDEX IF NOT EXISTS idx_keywords_current_position ON keywords(current_pos
 -- Enable RLS
 ALTER TABLE keywords ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage keywords in own projects" ON keywords;
 CREATE POLICY "Users can manage keywords in own projects" ON keywords
     FOR ALL USING (
         EXISTS (
@@ -406,6 +415,7 @@ CREATE INDEX IF NOT EXISTS idx_keyword_rankings_recorded_at ON keyword_rankings(
 -- Enable RLS
 ALTER TABLE keyword_rankings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view rankings in own projects" ON keyword_rankings;
 CREATE POLICY "Users can view rankings in own projects" ON keyword_rankings
     FOR ALL USING (
         EXISTS (
@@ -465,6 +475,7 @@ CREATE INDEX IF NOT EXISTS idx_backlinks_domain_authority ON backlinks(domain_au
 -- Enable RLS
 ALTER TABLE backlinks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage backlinks in own projects" ON backlinks;
 CREATE POLICY "Users can manage backlinks in own projects" ON backlinks
     FOR ALL USING (
         EXISTS (
@@ -519,6 +530,7 @@ CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
 -- Enable RLS
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage alerts in own projects" ON alerts;
 CREATE POLICY "Users can manage alerts in own projects" ON alerts
     FOR ALL USING (
         EXISTS (
@@ -584,6 +596,7 @@ CREATE INDEX IF NOT EXISTS idx_page_metrics_crawled_at ON page_metrics(crawled_a
 -- Enable RLS
 ALTER TABLE page_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view page metrics in own projects" ON page_metrics;
 CREATE POLICY "Users can view page metrics in own projects" ON page_metrics
     FOR ALL USING (
         EXISTS (
@@ -634,6 +647,7 @@ CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
 -- Enable RLS
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage reports in own projects" ON reports;
 CREATE POLICY "Users can manage reports in own projects" ON reports
     FOR ALL USING (
         EXISTS (
@@ -657,26 +671,31 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at trigger to tables
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
 CREATE TRIGGER update_user_settings_updated_at
     BEFORE UPDATE ON user_settings
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at
     BEFORE UPDATE ON projects
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_competitors_updated_at ON competitors;
 CREATE TRIGGER update_competitors_updated_at
     BEFORE UPDATE ON competitors
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_keywords_updated_at ON keywords;
 CREATE TRIGGER update_keywords_updated_at
     BEFORE UPDATE ON keywords
     FOR EACH ROW
@@ -738,23 +757,28 @@ VALUES ('reports', 'reports', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for avatars
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage;
 CREATE POLICY "Avatar images are publicly accessible"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'avatars');
 
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage;
 CREATE POLICY "Users can upload their own avatar"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage;
 CREATE POLICY "Users can update their own avatar"
 ON storage.objects FOR UPDATE
 USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 -- Storage policies for reports
+DROP POLICY IF EXISTS "Users can access their own reports" ON storage;
 CREATE POLICY "Users can access their own reports"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'reports' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+DROP POLICY IF EXISTS "Users can upload reports" ON storage;
 CREATE POLICY "Users can upload reports"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'reports' AND auth.uid()::text = (storage.foldername(name))[1]);

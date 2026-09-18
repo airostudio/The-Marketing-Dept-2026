@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS agent_audit_findings (
   id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
   run_id            UUID        NOT NULL REFERENCES agent_audit_runs(id) ON DELETE CASCADE,
   agent_key         TEXT        NOT NULL, -- matches AGENT_META keys in scotty.html, e.g. 'seo', 'social', 'linkedin'
+                                            -- EXCEPT 'platform-model-health', a reserved pseudo-agent-key (see
+                                            -- api/cron-agent-audit.js MODEL_REGISTRY/auditModelHealth) for the
+                                            -- AI Model Health check — it audits the Claude/OpenAI/Gemini model
+                                            -- DEPENDENCIES themselves, not a specialist agent, so it deliberately
+                                            -- does not match anything in AGENT_META.
   agent_label       TEXT        NOT NULL, -- human display name, e.g. "SEO Intelligence (Rex)"
   up_to_date        BOOLEAN     NOT NULL DEFAULT true,
   summary           TEXT,

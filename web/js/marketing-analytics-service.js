@@ -134,36 +134,105 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SIMULATED DATA LAYER
+    // MEASUREMENT LAYER
+    //
+    // Every number in this module has to come from somewhere real. Google
+    // Analytics is the only source of channel/traffic/conversion figures here,
+    // so when it is not connected the honest answer is "not measured" — not a
+    // demo table, and not zeros either. Zeros are their own kind of lie: a
+    // dashboard that says "0 conversions, 0% ROI" is telling the customer
+    // their marketing failed, when in fact nothing was ever counted.
+    //
+    // Every reader below therefore returns { measured, reason, ... } and
+    // callers render the reason rather than a number.
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /** Uniform "we have no measurement" answer, with the reason the UI shows. */
+    function unmeasured(reason, extra) {
+        return Object.assign({ measured: false, reason: reason }, extra || {});
+    }
+
+    const GA_NOT_CONNECTED =
+        'Google Analytics is not connected, so there is nothing to report yet. ' +
+        'Connect GA4 in Settings to see your real traffic, channels and conversions.';
+
+    function gaAvailable() {
+        try { return !!window.ApiConnector?.GoogleAnalytics?.isAvailable?.(); }
+        catch { return false; }
+    }
+
     /**
-     * Generate empty channel metrics when Google Analytics is not configured.
-     * PRODUCTION-READY: Returns zeros instead of fake data.
-     * @param {string} dateRange - 'last-7d' | 'last-30d' | 'last-90d' | 'last-12m'
-     * @returns {Object} Channel metrics keyed by channel name (all zeros).
+     * GA4's runReport returns { dimensionHeaders, metricHeaders, rows:[{dimensionValues,metricValues}] }.
+     * Nothing used to map it, so even a successful call produced an object no
+     * caller could read. This turns one report into { <dimension>: {metric: n} }.
      */
-    function generateChannelData(dateRange) {
-        const storedKey = 'channel-data-' + dateRange;
-        const stored = load(storedKey, null);
-        if (stored) return stored;
-
-        warn('Google Analytics not configured - returning empty state. Configure GA4 in Settings to see real web insights.');
-
-        // Return zeros instead of demo/fake data
-        const result = {};
-        for (const ch of CHANNELS) {
-            result[ch] = {
-                traffic:     0,
-                leads:       0,
-                conversions: 0,
-                revenue:     0,
-                spend:       0,
-                cac:         0,
-                roi:         null
-            };
+    function mapGaRows(report) {
+        const out = {};
+        if (!report || !Array.isArray(report.rows)) return out;
+        const metricNames = (report.metricHeaders || []).map(h => h.name);
+        for (const row of report.rows) {
+            const key = row.dimensionValues?.[0]?.value;
+            if (!key) continue;
+            const entry = {};
+            (row.metricValues || []).forEach((mv, i) => {
+                const n = Number(mv.value);
+                entry[metricNames[i] || ('metric' + i)] = isFinite(n) ? n : null;
+            });
+            out[key] = entry;
         }
-        return result;
+        return out;
+    }
+
+    // GA4's own channel-group names, mapped onto the labels this module uses.
+    const GA_CHANNEL_MAP = {
+        'Organic Search': 'SEO', 'Paid Search': 'Paid', 'Paid Shopping': 'Paid',
+        'Paid Social': 'Paid', 'Display': 'Paid', 'Paid Video': 'Paid',
+        'Organic Social': 'Social', 'Organic Video': 'Social',
+        'Email': 'Email', 'Direct': 'Direct', 'Referral': 'Referral',
+    };
+
+    function emptyChannelRow() {
+        return { traffic: 0, leads: null, conversions: 0, revenue: 0, spend: null, cac: null, roi: null };
+    }
+
+    /**
+     * Real per-channel figures from GA4, or an explicit non-answer.
+     *
+     * Note what GA4 can and cannot tell us. Sessions and conversions are real.
+     * Ad SPEND is not in GA4 at all, so leads/spend/CAC/ROI stay null rather
+     * than being derived from a number we do not have — an ROI computed
+     * against an unknown spend is not an ROI.
+     */
+    async function readChannels(dateRange) {
+        if (!gaAvailable()) return unmeasured(GA_NOT_CONNECTED);
+        let report;
+        try {
+            report = await window.ApiConnector.GoogleAnalytics.getChannelPerformance(gaDateRange(dateRange));
+        } catch (e) {
+            warn('GA4 channel report failed:', e.message);
+            return unmeasured('Google Analytics did not answer: ' + e.message);
+        }
+        if (!report || !Array.isArray(report.rows)) {
+            return unmeasured('Google Analytics returned no rows for this period.');
+        }
+
+        const raw = mapGaRows(report);
+        const channels = {};
+        for (const ch of CHANNELS) channels[ch] = emptyChannelRow();
+        for (const [gaName, metrics] of Object.entries(raw)) {
+            const ch = GA_CHANNEL_MAP[gaName];
+            if (!ch) continue;                       // an unmapped group is dropped, not guessed at
+            channels[ch].traffic     += metrics.sessions    || 0;
+            channels[ch].conversions += metrics.conversions || 0;
+            channels[ch].revenue     += metrics.totalRevenue || 0;
+        }
+        return { measured: true, channels, dateRange };
+    }
+
+    /** Translates this module's range labels into GA4's own date syntax. */
+    function gaDateRange(range) {
+        const days = { 'last-7d': 7, 'last-30d': 30, 'last-90d': 90, 'last-12m': 365 }[range] || 30;
+        return { startDate: days + 'daysAgo', endDate: 'today' };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -173,106 +242,132 @@
     /**
      * Aggregate overview metrics across every channel.
      * @param {string} [dateRange='last-30d'] - Date range filter.
-     * @returns {Object} Totals for traffic, leads, conversions, revenue, CAC, LTV, ROI.
+     * @returns {Promise<Object>} { measured, reason } or real totals.
      */
-    function getOverviewMetrics(dateRange = 'last-30d') {
+    async function getOverviewMetrics(dateRange = 'last-30d') {
         log('Fetching overview metrics for', dateRange);
-        if (window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
-            try {
-                const gaData = window.ApiConnector.GoogleAnalytics.getDashboardData(dateRange);
-                if (gaData) {
-                    store('overview-' + dateRange, gaData);
-                    return gaData;
-                }
-            } catch (e) {
-                warn('GA4 dashboard fetch failed, using local data:', e.message);
-            }
-        }
-        const data = generateChannelData(dateRange);
-        const totals = { traffic: 0, leads: 0, conversions: 0, revenue: 0, spend: 0 };
+        const read = await readChannels(dateRange);
+        if (!read.measured) return read;
+
+        const totals = { traffic: 0, conversions: 0, revenue: 0 };
         for (const ch of CHANNELS) {
-            totals.traffic     += data[ch].traffic;
-            totals.leads       += data[ch].leads;
-            totals.conversions += data[ch].conversions;
-            totals.revenue     += data[ch].revenue;
-            totals.spend       += data[ch].spend;
+            totals.traffic     += read.channels[ch].traffic;
+            totals.conversions += read.channels[ch].conversions;
+            totals.revenue     += read.channels[ch].revenue;
         }
-        totals.cac = totals.conversions > 0 ? +(totals.spend / totals.conversions).toFixed(2) : 0;
-        totals.ltv = totals.conversions > 0 ? +(totals.revenue / totals.conversions * 3.2).toFixed(2) : 0;
-        totals.roi = totals.spend > 0 ? +(((totals.revenue - totals.spend) / totals.spend) * 100).toFixed(1) : 0;
+        // Ad spend lives in the ad platforms, not GA4. Without it there is no
+        // CAC and no ROI — the old code divided by a spend of 0 and reported
+        // the result as a percentage.
+        totals.spend = null;
+        totals.cac   = null;
+        totals.roi   = null;
+        // LTV was revenue-per-conversion multiplied by a hardcoded 3.2. There
+        // is no repeat-purchase data behind that number, so it is not reported.
+        totals.ltv   = null;
+        totals.avgOrderValue = totals.conversions > 0
+            ? +(totals.revenue / totals.conversions).toFixed(2)
+            : null;
+        totals.measured  = true;
         totals.dateRange = dateRange;
         const project = getProjectContext();
         if (project) totals.projectId = project.id;
+        store('overview-' + dateRange, totals);
         return totals;
     }
 
     /**
      * Performance breakdown by individual channel.
      * @param {string} [dateRange='last-30d'] - Date range filter.
-     * @returns {Object} Per-channel metric objects.
+     * @returns {Promise<Object>} { measured, reason } or per-channel metrics.
      */
-    function getChannelBreakdown(dateRange = 'last-30d') {
+    async function getChannelBreakdown(dateRange = 'last-30d') {
         log('Building channel breakdown for', dateRange);
-        if (window.ApiConnector?.GoogleAnalytics?.isAvailable()) {
-            try {
-                const gaChannels = window.ApiConnector.GoogleAnalytics.getChannelPerformance(dateRange);
-                if (gaChannels) {
-                    store('channel-breakdown-' + dateRange, gaChannels);
-                    return gaChannels;
-                }
-            } catch (e) {
-                warn('GA4 channel performance fetch failed, using local data:', e.message);
-            }
-        }
-        return generateChannelData(dateRange);
+        const read = await readChannels(dateRange);
+        if (!read.measured) return read;
+        store('channel-breakdown-' + dateRange, read.channels);
+        return { measured: true, channels: read.channels, dateRange };
     }
 
     /**
-     * Historical trend data points for one channel.
+     * Historical trend points for one channel, from GA4's date dimension.
+     *
+     * This used to return a flat invented series — traffic 3000, leads 90,
+     * conversions 18, revenue 9000 on every single point, dated backwards from
+     * today — which was then charted as the customer's performance history and
+     * fed into the anomaly detector and the forecaster.
+     *
      * @param {string} channel - Channel name.
      * @param {string} [period='weekly'] - 'daily' | 'weekly' | 'monthly'.
-     * @returns {Array<Object>} Array of { date, traffic, leads, conversions, revenue }.
+     * @returns {Promise<Object>} { measured, reason } or { measured, points }.
      */
-    function getChannelTrends(channel, period = 'weekly') {
-        log('Computing trends for', channel, period);
-        const storedKey = 'channel-trends-' + channel + '-' + period;
-        const stored = load(storedKey, null);
-        if (stored) return stored;
+    async function getChannelTrends(channel, period = 'weekly') {
+        log('Fetching trends for', channel, period);
+        if (!gaAvailable()) return unmeasured(GA_NOT_CONNECTED);
 
-        const points = { daily: 30, weekly: 12, monthly: 12 }[period] || 12;
-        const stepDays = { daily: 1, weekly: 7, monthly: 30 }[period] || 7;
-        const trends = [];
-        for (let i = points; i > 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i * stepDays);
-            trends.push({
-                date: d.toISOString().slice(0, 10),
-                traffic:     Math.round(3000 * 1.0),
-                leads:       Math.round(90 * 1.0),
-                conversions: Math.round(18 * 1.0),
-                revenue:     Math.round(9000 * 1.0)
+        const days = { daily: 30, weekly: 84, monthly: 365 }[period] || 84;
+        let report;
+        try {
+            report = await window.ApiConnector.GoogleAnalytics.getReport({
+                dateRange: { startDate: days + 'daysAgo', endDate: 'today' },
+                metrics: ['sessions', 'conversions', 'totalRevenue'],
+                dimensions: ['date', 'sessionDefaultChannelGroup'],
             });
+        } catch (e) {
+            return unmeasured('Google Analytics did not answer: ' + e.message);
         }
-        return trends;
+        if (!report || !Array.isArray(report.rows) || !report.rows.length) {
+            return unmeasured('Google Analytics returned no data for this period.');
+        }
+
+        const metricNames = (report.metricHeaders || []).map(h => h.name);
+        const byDate = new Map();
+        for (const row of report.rows) {
+            const date  = row.dimensionValues?.[0]?.value;
+            const group = row.dimensionValues?.[1]?.value;
+            if (!date) continue;
+            if (channel && GA_CHANNEL_MAP[group] !== channel) continue;
+            const point = byDate.get(date) || { date: isoDate(date), traffic: 0, conversions: 0, revenue: 0 };
+            (row.metricValues || []).forEach((mv, i) => {
+                const n = Number(mv.value) || 0;
+                if (metricNames[i] === 'sessions')     point.traffic     += n;
+                if (metricNames[i] === 'conversions')  point.conversions += n;
+                if (metricNames[i] === 'totalRevenue') point.revenue     += n;
+            });
+            byDate.set(date, point);
+        }
+        const points = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+        if (!points.length) {
+            return unmeasured('No ' + (channel || 'channel') + ' traffic recorded in this period.');
+        }
+        return { measured: true, channel, period, points };
+    }
+
+    /** GA4 returns dates as YYYYMMDD. */
+    function isoDate(ga) {
+        return /^\d{8}$/.test(ga) ? ga.slice(0, 4) + '-' + ga.slice(4, 6) + '-' + ga.slice(6) : ga;
     }
 
     /**
      * Compare selected channels on a specific metric.
      * @param {string[]} channels - Channel names to compare.
-     * @param {string} metric - Metric key (traffic, leads, conversions, revenue, roi).
+     * @param {string} metric - Metric key.
      * @param {string} [dateRange='last-30d'] - Date range filter.
-     * @returns {Object} Keyed by channel with the metric value and rank.
+     * @returns {Promise<Object>} { measured, reason } or ranked results.
      */
-    function compareChannels(channels, metric, dateRange = 'last-30d') {
+    async function compareChannels(channels, metric, dateRange = 'last-30d') {
         log('Comparing channels on', metric);
-        const data = generateChannelData(dateRange);
+        const read = await readChannels(dateRange);
+        if (!read.measured) return read;
+        const data = read.channels;
         const selected = (channels || CHANNELS).filter(c => data[c]);
-        const sorted = selected.sort((a, b) => (data[b][metric] || 0) - (data[a][metric] || 0));
+        // A channel whose metric was never measured (spend, CAC, ROI) cannot be
+        // ranked against one that was, so it is reported separately.
+        const measurable = selected.filter(c => typeof data[c][metric] === 'number');
+        const unrankable = selected.filter(c => typeof data[c][metric] !== 'number');
+        const sorted = measurable.sort((a, b) => data[b][metric] - data[a][metric]);
         const result = {};
-        sorted.forEach((ch, idx) => {
-            result[ch] = { value: data[ch][metric], rank: idx + 1 };
-        });
-        return result;
+        sorted.forEach((ch, idx) => { result[ch] = { value: data[ch][metric], rank: idx + 1 }; });
+        return { measured: true, metric, dateRange, ranked: result, notMeasured: unrankable };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -280,80 +375,141 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Run an attribution report using the specified model.
-     * @param {string} [model='last-touch'] - Attribution model name.
-     * @param {string} [dateRange='last-30d'] - Date range filter.
-     * @returns {Object} Attribution credit per channel.
+     * Attribution weights per model, applied to a real touch SEQUENCE.
+     * The index is the touch's position in that customer's own path — which is
+     * what attribution means. The previous version indexed a fixed weight table
+     * by the channel's position in the CHANNELS array, so "first-touch" gave
+     * 100% of the credit to whichever channel happened to be listed first (SEO)
+     * and "last-touch" gave it to whichever was last (Referral), for every
+     * account, regardless of what anyone actually did.
      */
-    function getAttributionReport(model = 'last-touch', dateRange = 'last-30d') {
-        log('Running attribution model:', model);
-        if (ATTRIBUTION_MODELS.indexOf(model) === -1) {
-            warn('Unknown attribution model:', model, '- falling back to last-touch');
-            model = 'last-touch';
+    function weightsFor(model, n) {
+        if (n <= 0) return [];
+        if (n === 1) return [1];
+        switch (model) {
+            case 'first-touch': return Array.from({ length: n }, (_, i) => (i === 0 ? 1 : 0));
+            case 'last-touch':  return Array.from({ length: n }, (_, i) => (i === n - 1 ? 1 : 0));
+            case 'linear':      return Array.from({ length: n }, () => 1 / n);
+            case 'time-decay': {
+                // Half-life of one touch: the closer to conversion, the more credit.
+                const raw = Array.from({ length: n }, (_, i) => Math.pow(2, i));
+                const sum = raw.reduce((a, b) => a + b, 0);
+                return raw.map(v => v / sum);
+            }
+            case 'position-based': {
+                if (n === 2) return [0.5, 0.5];
+                const middle = 0.2 / (n - 2);
+                return Array.from({ length: n }, (_, i) =>
+                    i === 0 || i === n - 1 ? 0.4 : middle);
+            }
+            default:            return Array.from({ length: n }, () => 1 / n);
         }
-        const weights = {
-            'first-touch':    [1, 0, 0, 0, 0, 0],
-            'last-touch':     [0, 0, 0, 0, 0, 1],
-            'linear':         [1/6, 1/6, 1/6, 1/6, 1/6, 1/6],
-            'time-decay':     [0.05, 0.08, 0.12, 0.15, 0.25, 0.35],
-            'position-based': [0.30, 0.08, 0.08, 0.08, 0.08, 0.38],
-            'data-driven':    [0.18, 0.12, 0.15, 0.14, 0.20, 0.21]
-        };
-        const data = generateChannelData(dateRange);
-        const totalConversions = CHANNELS.reduce((s, c) => s + data[c].conversions, 0);
-        const w = weights[model];
-        const attribution = {};
-        CHANNELS.forEach((ch, i) => {
-            const credit = +(totalConversions * w[i % w.length]).toFixed(1);
-            attribution[ch] = {
-                credit: credit,
-                percentage: +((credit / totalConversions) * 100).toFixed(1),
-                revenue: Math.round(data[ch].revenue * w[i % w.length] * CHANNELS.length)
-            };
-        });
-        return { model, dateRange, totalConversions, attribution };
     }
 
     /**
-     * Top conversion path sequences users take before converting.
+     * Real multi-touch attribution over real conversion paths.
+     *
+     * @param {Array<{path: string[], revenue?: number}>} paths - One entry per conversion.
+     * @param {string} [model='linear'] - Attribution model.
+     * @returns {Object} { measured, model, totalConversions, attribution }
+     */
+    function computeAttribution(paths, model = 'linear') {
+        if (!Array.isArray(paths) || !paths.length) {
+            return unmeasured(
+                'Attribution needs the touchpoint sequence behind each conversion — which channels a ' +
+                'customer saw, in order, before converting. Nothing in this account records that yet.');
+        }
+        if (ATTRIBUTION_MODELS.indexOf(model) === -1) {
+            warn('Unknown attribution model:', model, '- falling back to linear');
+            model = 'linear';
+        }
+        const credit = {};
+        let totalRevenue = 0;
+        for (const entry of paths) {
+            const touches = (entry.path || []).filter(Boolean);
+            if (!touches.length) continue;
+            const w = weightsFor(model, touches.length);
+            const revenue = Number(entry.revenue) || 0;
+            totalRevenue += revenue;
+            touches.forEach((ch, i) => {
+                credit[ch] = credit[ch] || { credit: 0, revenue: 0 };
+                credit[ch].credit  += w[i];
+                credit[ch].revenue += revenue * w[i];
+            });
+        }
+        const totalCredit = Object.values(credit).reduce((s2, c) => s2 + c.credit, 0);
+        const attribution = {};
+        for (const [ch, c] of Object.entries(credit)) {
+            attribution[ch] = {
+                credit: +c.credit.toFixed(2),
+                // Guarded: the old version divided by a conversion count that
+                // was zero whenever nothing was measured, and rendered NaN%.
+                percentage: totalCredit > 0 ? +((c.credit / totalCredit) * 100).toFixed(1) : null,
+                revenue: Math.round(c.revenue),
+            };
+        }
+        return {
+            measured: true, model,
+            totalConversions: paths.length,
+            totalRevenue: Math.round(totalRevenue),
+            attribution,
+        };
+    }
+
+    /**
+     * Run an attribution report over this account's stored conversion paths.
+     * @param {string} [model='linear'] - Attribution model name.
+     * @returns {Object} { measured, reason } or a real attribution report.
+     */
+    function getAttributionReport(model = 'linear') {
+        log('Running attribution model:', model);
+        return computeAttribution(getConversionPaths(), model);
+    }
+
+    /**
+     * Conversion path sequences recorded for this account.
+     *
+     * This used to return ten invented paths ("SEO → Email → Direct, 142
+     * conversions, $285 average") which were charted as the customer's own
+     * behaviour. Nothing in the product records multi-touch paths yet, so the
+     * honest answer is an empty list until something does; anything stored by
+     * a real integration is returned as-is.
+     *
      * @param {number} [limit=10] - Maximum paths to return.
-     * @returns {Array<Object>} Ordered conversion paths with counts.
+     * @returns {Array<Object>} Recorded conversion paths — empty when none.
      */
     function getConversionPaths(limit = 10) {
-        log('Fetching top', limit, 'conversion paths');
         const stored = load('conversion-paths', null);
-        if (stored) return stored.slice(0, limit);
-
-        const paths = [
-            { path: ['SEO', 'Email', 'Direct'],            conversions: 142, avgValue: 285 },
-            { path: ['Paid', 'Referral', 'Direct'],        conversions: 118, avgValue: 340 },
-            { path: ['Social', 'SEO', 'Email'],            conversions: 97,  avgValue: 210 },
-            { path: ['SEO', 'Paid', 'Email', 'Direct'],    conversions: 85,  avgValue: 420 },
-            { path: ['Direct'],                             conversions: 78,  avgValue: 190 },
-            { path: ['Email', 'Direct'],                    conversions: 72,  avgValue: 310 },
-            { path: ['Paid', 'Email'],                      conversions: 65,  avgValue: 275 },
-            { path: ['Social', 'Paid', 'SEO', 'Direct'],   conversions: 54,  avgValue: 510 },
-            { path: ['Referral', 'Email', 'Direct'],        conversions: 48,  avgValue: 260 },
-            { path: ['SEO', 'Social', 'Email', 'Direct'],  conversions: 41,  avgValue: 390 }
-        ];
-        return paths.slice(0, limit);
+        if (Array.isArray(stored)) return stored.slice(0, limit);
+        return [];
     }
 
     /**
-     * Identify channels that frequently assist conversions without being the closer.
-     * @returns {Array<Object>} Assist metrics per channel sorted by assist ratio.
+     * Channels that assist conversions without closing them.
+     * Derived from the same real paths; without them there is nothing to derive.
+     * @returns {Object} { measured, reason } or per-channel assist metrics.
      */
     function getAssistConversions() {
         log('Computing assist conversions');
-        const stored = load('assist-conversions', null);
-        if (stored) return stored;
-
-        return CHANNELS.map(ch => ({
-            channel: ch,
-            assists: 0,
-            closes: 0,
-            assistRatio: 0
-        })).sort((a, b) => b.assistRatio - a.assistRatio);
+        const paths = getConversionPaths(1000);
+        if (!paths.length) {
+            return unmeasured(
+                'Assist analysis needs recorded touchpoint paths. None are recorded for this account yet.');
+        }
+        const stats = {};
+        for (const entry of paths) {
+            const touches = (entry.path || []).filter(Boolean);
+            touches.forEach((ch, i) => {
+                stats[ch] = stats[ch] || { channel: ch, assists: 0, closes: 0 };
+                if (i === touches.length - 1) stats[ch].closes++;
+                else stats[ch].assists++;
+            });
+        }
+        const rows = Object.values(stats).map(s2 => ({
+            ...s2,
+            assistRatio: s2.closes > 0 ? +(s2.assists / s2.closes).toFixed(2) : null,
+        })).sort((a, b) => (b.assistRatio ?? -1) - (a.assistRatio ?? -1));
+        return { measured: true, channels: rows };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -361,65 +517,107 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Full marketing funnel metrics from awareness through loyalty.
-     * @returns {Array<Object>} Stage objects with visitor counts and conversion rates.
+     * Full marketing funnel metrics.
+     *
+     * The stage counts were hardcoded — [50000, 28000, 14000, 7200, 3600,
+     * 2100] — with conversion rates computed off them to one decimal place and
+     * then handed to Claude to explain the drop-offs. Every customer saw the
+     * same funnel and read AI advice about a business that did not exist.
+     *
+     * GA4 gives us two real stages: sessions (awareness) and conversions
+     * (purchase). The middle of the funnel needs event tracking this product
+     * does not configure, so those stages are reported as unmeasured rather
+     * than interpolated.
+     *
+     * @returns {Promise<Object>} { measured, reason } or real funnel stages.
      */
-    function getFunnelMetrics() {
+    async function getFunnelMetrics() {
         log('Building funnel metrics');
-        const visitors = [50000, 28000, 14000, 7200, 3600, 2100];
-        return FUNNEL_STAGES.map((stage, i) => ({
-            stage,
-            visitors: visitors[i],
-            conversionRate: i > 0 ? +((visitors[i] / visitors[i - 1]) * 100).toFixed(1) : 100,
-            overallRate: +((visitors[i] / visitors[0]) * 100).toFixed(2)
-        }));
+        const overview = await getOverviewMetrics('last-30d');
+        if (!overview.measured) return overview;
+
+        const stages = [
+            { stage: 'awareness',     visitors: overview.traffic,     measured: true },
+            { stage: 'interest',      visitors: null, measured: false, reason: 'Needs an engagement event in GA4.' },
+            { stage: 'consideration', visitors: null, measured: false, reason: 'Needs a consideration event in GA4.' },
+            { stage: 'intent',        visitors: null, measured: false, reason: 'Needs an add-to-cart or enquiry event in GA4.' },
+            { stage: 'purchase',      visitors: overview.conversions, measured: true },
+            { stage: 'loyalty',       visitors: null, measured: false, reason: 'Needs a repeat-purchase event in GA4.' },
+        ];
+
+        // Overall rate is only computable between two stages we actually have.
+        const top = stages[0].visitors;
+        for (const st of stages) {
+            st.overallRate = (st.measured && top > 0)
+                ? +((st.visitors / top) * 100).toFixed(2)
+                : null;
+        }
+        return { measured: true, stages, unmeasuredStages: stages.filter(s2 => !s2.measured).length };
     }
 
     /**
-     * Identify where users drop off and get AI analysis of probable causes.
-     * @returns {Promise<Array<Object>>} Drop-off data with AI-generated explanations.
+     * Where users drop off, with AI analysis of probable causes.
+     * @returns {Promise<Object>} { measured, reason } or drop-offs with causes.
      */
     async function getFunnelDropoffs() {
         log('Analysing funnel drop-offs');
-        const funnel = getFunnelMetrics();
+        const funnel = await getFunnelMetrics();
+        if (!funnel.measured) return funnel;
+
+        // Only between stages we measured — a drop-off computed against an
+        // interpolated stage is a drop-off we invented.
+        const known = funnel.stages.filter(s2 => s2.measured);
         const dropoffs = [];
-        for (let i = 1; i < funnel.length; i++) {
-            const lost = funnel[i - 1].visitors - funnel[i].visitors;
+        for (let i = 1; i < known.length; i++) {
+            const lost = known[i - 1].visitors - known[i].visitors;
             dropoffs.push({
-                from: funnel[i - 1].stage,
-                to: funnel[i].stage,
+                from: known[i - 1].stage,
+                to: known[i].stage,
                 lost,
-                dropRate: +((lost / funnel[i - 1].visitors) * 100).toFixed(1)
+                dropRate: known[i - 1].visitors > 0
+                    ? +((lost / known[i - 1].visitors) * 100).toFixed(1)
+                    : null,
             });
         }
-        const prompt = 'Analyse these marketing funnel drop-offs and explain likely causes for each in 1 sentence. Return JSON array of { "from", "to", "cause" }:\n' + JSON.stringify(dropoffs);
+        if (!dropoffs.length) return unmeasured('Not enough measured funnel stages to compare.');
+
+        const prompt = 'Analyse these marketing funnel drop-offs and explain likely causes for each in 1 sentence. ' +
+            'Only the stages listed are measured; do not speculate about stages that are not present. ' +
+            'Return JSON array of { "from", "to", "cause" }:\n' + JSON.stringify(dropoffs);
         const text = await askAI(prompt);
         const causes = parseAIJson(text, []);
         dropoffs.forEach((d, idx) => {
-            d.aiCause = causes[idx]?.cause || 'Insufficient data for analysis.';
+            // No filler sentence: either the model explained it or it did not.
+            d.aiCause = causes[idx]?.cause || null;
         });
-        return dropoffs;
+        return { measured: true, dropoffs, unmeasuredStages: funnel.unmeasuredStages };
     }
 
     /**
      * Conversion rate for a specific funnel stage or the entire funnel.
      * @param {string} [stage] - Funnel stage name. Omit for all stages.
-     * @returns {Object|Array|null} Stage metrics, full funnel array, or null.
+     * @returns {Promise<Object|Array|null>} Stage metrics, full funnel, or null.
      */
-    function getConversionRates(stage) {
-        const funnel = getFunnelMetrics();
+    async function getConversionRates(stage) {
+        const funnel = await getFunnelMetrics();
+        if (!funnel.measured) return funnel;
         if (!stage) return funnel;
-        return funnel.find(s => s.stage === stage) || null;
+        return funnel.stages.find(s2 => s2.stage === stage) || null;
     }
 
     /**
-     * AI-powered recommendations for improving funnel conversion rates.
-     * @returns {Promise<Object>} Structured optimization recommendations per stage.
+     * AI recommendations for improving funnel conversion rates.
+     * @returns {Promise<Object>} Structured optimization recommendations.
      */
     async function optimizeFunnel() {
         log('Generating funnel optimizations');
-        const funnel = getFunnelMetrics();
-        const prompt = 'Given this marketing funnel data, provide 3 concrete optimisation recommendations per stage to improve conversion rates. Return JSON: { "recommendations": [{ "stage", "actions": ["..."], "expectedLift": "..." }] }.\n' + JSON.stringify(funnel);
+        const funnel = await getFunnelMetrics();
+        if (!funnel.measured) return funnel;
+        const prompt = 'Given this marketing funnel data, provide 3 concrete optimisation recommendations per ' +
+            'MEASURED stage to improve conversion rates. Stages marked measured:false have no data — do not ' +
+            'invent numbers for them; you may recommend tracking them. ' +
+            'Return JSON: { "recommendations": [{ "stage", "actions": ["..."], "expectedLift": "..." }] }.\n' +
+            JSON.stringify(funnel.stages);
         const text = await askAI(prompt);
         return parseAIJson(text, { recommendations: [] });
     }
@@ -463,98 +661,112 @@
 
     /**
      * Cohort analysis for retention or revenue over time.
+     *
+     * Cohorts need per-customer first-seen dates and repeat activity. Nothing
+     * in this product stores that, so the grid of zeros this used to build was
+     * a shaped answer to a question never asked — and a zero retention rate
+     * reads as "every customer churned", which is a claim, not a blank.
+     *
      * @param {string} [cohortType='monthly'] - 'weekly' | 'monthly' | 'quarterly'.
      * @param {string} [metric='retention'] - 'retention' | 'revenue'.
-     * @returns {Array<Object>} Cohort rows with period columns.
+     * @returns {Object} { measured, reason } or stored cohorts.
      */
     function getCohortAnalysis(cohortType = 'monthly', metric = 'retention') {
         log('Running cohort analysis:', cohortType, metric);
-        const storedKey = 'cohort-' + cohortType + '-' + metric;
-        const stored = load(storedKey, null);
-        if (stored) return stored;
-
-        const periods = { weekly: 8, monthly: 6, quarterly: 4 }[cohortType] || 6;
-        const cohorts = [];
-        for (let c = 0; c < periods; c++) {
-            const d = new Date();
-            d.setMonth(d.getMonth() - (periods - 1 - c));
-            const row = {
-                cohort: d.toISOString().slice(0, 7),
-                size: 0,
-                periods: []
-            };
-            for (let p = 0; p <= periods - 1 - c; p++) {
-                row.periods.push(0);
-            }
-            cohorts.push(row);
-        }
-        return cohorts;
+        const stored = load('cohort-' + cohortType + '-' + metric, null);
+        if (Array.isArray(stored) && stored.length) return { measured: true, cohorts: stored };
+        return unmeasured(
+            'Cohort analysis needs per-customer first-purchase dates and repeat activity. ' +
+            'Connect a source that records them to see retention cohorts.');
     }
 
     /**
-     * Calculate customer lifetime value with predictions by channel and segment.
-     * @returns {Object} LTV metrics including overall, byChannel, and distribution.
+     * Customer lifetime value.
+     *
+     * The old version returned a fixed avgLTV of $1,240, a median of $860, a
+     * 12-month projection of $1,680 and a five-bucket distribution — the same
+     * figures for every account, none of them derived from anything.
+     *
+     * Real LTV needs repeat-purchase history per customer. GA4 gives revenue
+     * and conversions for a window, which yields average order value — a real
+     * number, and a different one. It is reported as what it is.
+     *
+     * @returns {Promise<Object>} { measured, reason } or real value metrics.
      */
-    function getCustomerLifetimeValue() {
-        log('Calculating customer LTV');
-        const stored = load('customer-ltv', null);
-        if (stored) return stored;
-
-        const byChannel = {};
-        CHANNELS.forEach(ch => {
-            byChannel[ch] = {
-                avgLTV: 0,
-                retentionRate: 0
-            };
-        });
+    async function getCustomerLifetimeValue() {
+        log('Calculating customer value');
+        const overview = await getOverviewMetrics('last-30d');
+        if (!overview.measured) return overview;
+        if (!overview.conversions) {
+            return unmeasured('No conversions were recorded in the last 30 days, so there is no order value to average.');
+        }
         return {
-            overall: { avgLTV: 1240, medianLTV: 860, projectedLTV_12m: 1680 },
-            byChannel,
-            distribution: [
-                { range: '$0-$100',     pct: 35 },
-                { range: '$100-$500',   pct: 28 },
-                { range: '$500-$1000',  pct: 18 },
-                { range: '$1000-$5000', pct: 14 },
-                { range: '$5000+',      pct: 5 }
-            ]
+            measured: true,
+            avgOrderValue: overview.avgOrderValue,
+            conversions: overview.conversions,
+            revenue: overview.revenue,
+            window: 'last-30d',
+            // Named explicitly so no caller mistakes this for lifetime value.
+            lifetimeValue: null,
+            lifetimeValueReason:
+                'Lifetime value needs repeat-purchase history per customer, which is not recorded yet. ' +
+                'The figure above is average order value over the last 30 days.',
         };
     }
 
     /**
-     * AI-powered churn risk prediction across customer segments.
-     * @returns {Promise<Object>} Churn risk analysis with segments and recommendations.
+     * AI churn risk analysis.
+     *
+     * The fallback used to invent an overall churn rate of 5.2% and three
+     * segments with risk scores of 89, 72 and 54 — precise-looking numbers
+     * about customers the product has never seen.
+     *
+     * @returns {Promise<Object>} { measured, reason } or AI analysis.
      */
     async function getChurnPrediction() {
         log('Running churn prediction');
-        const prompt = 'Analyse typical SaaS/ecommerce customer churn patterns. Return JSON: { "overallChurnRate", "segments": [{ "name", "riskLevel", "riskScore", "signals", "recommendation" }] }.';
+        const prompt = 'Describe the churn-risk signals a marketing team should watch for, and how to act on each. ' +
+            'Do NOT invent rates or scores for this business — no data about it has been provided. ' +
+            'Return JSON: { "signals": [{ "name", "whyItMatters", "howToDetect", "recommendation" }] }.';
         const text = await askAI(prompt);
-        return parseAIJson(text, {
-            overallChurnRate: 5.2,
-            segments: [
-                { name: 'Inactive 30d+',   riskLevel: 'critical', riskScore: 89, signals: ['No login 30+ days', 'Support tickets unresolved'],        recommendation: 'Trigger win-back email sequence.' },
-                { name: 'Declining Usage',  riskLevel: 'high',     riskScore: 72, signals: ['50% drop in feature usage', 'Cancelled add-ons'],         recommendation: 'Assign CSM for proactive outreach.' },
-                { name: 'Price Sensitive',  riskLevel: 'medium',   riskScore: 54, signals: ['Viewed pricing page 3x', 'Competitor comparison searches'], recommendation: 'Offer annual discount incentive.' }
-            ]
-        });
+        const parsed = parseAIJson(text, null);
+        if (!parsed) return unmeasured('Churn guidance is unavailable right now.');
+        return {
+            measured: false,
+            isGuidance: true,
+            reason: 'These are general churn signals to watch for, not a measurement of your customers — ' +
+                    'churn scoring needs per-customer activity history, which is not connected yet.',
+            ...parsed,
+        };
     }
 
     /**
-     * AI-generated customer journey map data for visualisation.
-     * @returns {Promise<Object>} Journey stages with touchpoints, emotions, and opportunities.
+     * AI customer journey map.
+     * Marked as guidance, because nothing here observes this account's customers.
+     * @returns {Promise<Object>} Journey stages, flagged as illustrative.
      */
     async function getCustomerJourneyMap() {
         log('Generating customer journey map');
-        const prompt = 'Create a detailed customer journey map for a digital marketing platform. Return JSON: { "stages": [{ "name", "touchpoints": [...], "emotion", "painPoints": [...], "opportunities": [...] }] }.';
+        const intel = getBusinessContext();
+        const prompt = 'Create a customer journey map' + (intel ? ' for this business:\n' + intel : ' for a digital marketing platform') +
+            '. Return JSON: { "stages": [{ "name", "touchpoints": [...], "emotion", "painPoints": [...], "opportunities": [...] }] }.';
         const text = await askAI(prompt);
-        return parseAIJson(text, {
-            stages: FUNNEL_STAGES.map(s => ({
-                name: s,
-                touchpoints: ['Website', 'Email'],
-                emotion: 'neutral',
-                painPoints: ['Friction in navigation'],
-                opportunities: ['Personalisation']
-            }))
-        });
+        const parsed = parseAIJson(text, null);
+        if (!parsed) return unmeasured('Journey map is unavailable right now.');
+        return {
+            measured: false,
+            isGuidance: true,
+            reason: 'A suggested journey map based on your business profile — not observed behaviour from your analytics.',
+            ...parsed,
+        };
+    }
+
+    /** Business context from the Intelligence Layer, when one has been built. */
+    function getBusinessContext() {
+        try {
+            const intel = window.IntelligenceEngine?.extractStructuredContext?.();
+            return intel ? JSON.stringify(intel).slice(0, 4000) : '';
+        } catch { return ''; }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -562,99 +774,157 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Auto-generate AI insights from all available marketing data.
+     * AI insights from real measured metrics.
      * @param {string} [dateRange='last-30d'] - Analysis window.
-     * @returns {Promise<Object>} Categorised insights with timestamps.
+     * @returns {Promise<Object>} { measured, reason } or categorised insights.
      */
     async function generateInsights(dateRange = 'last-30d') {
         log('Generating AI insights for', dateRange);
-        const overview = getOverviewMetrics(dateRange);
-        const prompt = 'As a senior marketing analyst, review these metrics and generate 5 actionable insights. Categorise each as growth, risk, or opportunity. Return JSON: { "insights": [{ "category", "title", "detail", "impact", "action" }] }.\nMetrics: ' + JSON.stringify(overview);
+        const overview = await getOverviewMetrics(dateRange);
+        if (!overview.measured) return overview;
+
+        const prompt = 'As a senior marketing analyst, review these metrics and generate up to 5 actionable insights. ' +
+            'Fields that are null were NOT measured — say so if it limits the analysis, and never estimate them. ' +
+            'Categorise each insight as growth, risk, or opportunity. ' +
+            'Return JSON: { "insights": [{ "category", "title", "detail", "impact", "action" }] }.\nMetrics: ' +
+            JSON.stringify(overview);
         const text = await askAI(prompt);
         const result = parseAIJson(text, { insights: [] });
+        result.measured = true;
         result.generatedAt = new Date().toISOString();
         store('latest-insights', result);
         return result;
     }
 
     /**
-     * Detect anomalies in a specific metric using statistical deviation analysis.
-     * @param {string} metric - Metric to analyse (traffic, conversions, revenue, etc.).
-     * @param {string} [dateRange='last-30d'] - Date range to check.
-     * @returns {Promise<Object>} Detected anomalies with AI explanations.
+     * Statistical anomaly detection over a real trend series.
+     *
+     * This used to run over the invented flat series, where every value was
+     * identical — so the standard deviation was 0, every deviation was 0/0 =
+     * NaN, `Math.abs(NaN) > 2` was false, and the function always returned
+     * "No significant anomalies detected." A confident all-clear derived from
+     * nothing at all.
+     *
+     * @param {string} metric - 'traffic' | 'conversions' | 'revenue'.
+     * @param {string} [channel] - Optional channel filter.
+     * @returns {Promise<Object>} { measured, reason } or detected anomalies.
      */
-    async function detectAnomalies(metric, dateRange = 'last-30d') {
+    async function detectAnomalies(metric, channel) {
         log('Detecting anomalies for', metric);
-        const trends = getChannelTrends('SEO', 'daily');
-        const values = trends.map(t => t[metric] || t.traffic);
-        const avg = values.reduce((s, v) => s + v, 0) / values.length;
-        const stdDev = Math.sqrt(values.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / values.length);
+        const trend = await getChannelTrends(channel || null, 'daily');
+        if (!trend.measured) return trend;
+
+        const values = trend.points.map(t => t[metric]).filter(v => typeof v === 'number');
+        // Below this there is no distribution to speak of, and a "2 standard
+        // deviations" claim over four points is not a finding.
+        if (values.length < 14) {
+            return unmeasured('Anomaly detection needs at least 14 days of data; this account has ' +
+                values.length + '.');
+        }
+        const avg = values.reduce((s2, v) => s2 + v, 0) / values.length;
+        const stdDev = Math.sqrt(values.reduce((s2, v) => s2 + Math.pow(v - avg, 2), 0) / values.length);
+        if (!(stdDev > 0)) {
+            return { measured: true, metric, anomalies: [],
+                     note: 'Every day in this period had the same value, so there is no variation to flag.' };
+        }
         const anomalies = [];
-        trends.forEach((t, i) => {
-            const deviation = +((values[i] - avg) / stdDev).toFixed(2);
+        trend.points.forEach((t, i) => {
+            if (typeof t[metric] !== 'number') return;
+            const deviation = +((t[metric] - avg) / stdDev).toFixed(2);
             if (Math.abs(deviation) > 2) {
-                anomalies.push({ date: t.date, value: values[i], deviation, type: deviation > 0 ? 'spike' : 'drop' });
+                anomalies.push({ date: t.date, value: t[metric], deviation, type: deviation > 0 ? 'spike' : 'drop' });
             }
         });
-        if (anomalies.length > 0) {
-            const prompt = 'Explain these marketing metric anomalies in ' + metric + ': ' + JSON.stringify(anomalies) + '. Return JSON: { "explanations": [{ "date", "likelyCause", "recommendation" }] }.';
-            const text = await askAI(prompt);
-            const parsed = parseAIJson(text, { explanations: [] });
-            return { metric, dateRange, anomalies, aiExplanations: parsed.explanations };
+        if (!anomalies.length) {
+            return { measured: true, metric, anomalies: [], note: 'No day deviated more than 2 standard deviations from the mean.' };
         }
-        return { metric, dateRange, anomalies: [], message: 'No significant anomalies detected.' };
+        const prompt = 'Explain these marketing metric anomalies in ' + metric + ': ' + JSON.stringify(anomalies) +
+            '. Return JSON: { "explanations": [{ "date", "likelyCause", "recommendation" }] }.';
+        const text = await askAI(prompt);
+        const parsed = parseAIJson(text, { explanations: [] });
+        return { measured: true, metric, anomalies, aiExplanations: parsed.explanations };
     }
 
     /**
-     * AI predictive forecast for a marketing metric with trend analysis.
+     * Predictive forecast for a metric, from real history.
      * @param {string} metric - Metric to forecast.
      * @param {number} [periodsAhead=4] - Number of future periods to predict.
-     * @returns {Promise<Object>} Historical data with AI forecast and growth analysis.
+     * @returns {Promise<Object>} { measured, reason } or forecast.
      */
     async function generateForecast(metric, periodsAhead = 4) {
         log('Forecasting', metric, 'for', periodsAhead, 'periods ahead');
-        const history = getChannelTrends('SEO', 'weekly').map(t => ({
-            date: t.date,
-            value: t[metric] || t.traffic
-        }));
-        const prompt = 'Given this weekly ' + metric + ' data, forecast the next ' + periodsAhead + ' periods. Apply trend and seasonality analysis. Return JSON: { "forecast": [{ "date", "predicted", "confidence_low", "confidence_high" }], "trend": "up|down|flat", "growthRate": "..." }.\nHistory: ' + JSON.stringify(history.slice(-8));
+        const trend = await getChannelTrends(null, 'weekly');
+        if (!trend.measured) return trend;
+
+        const history = trend.points
+            .map(t => ({ date: t.date, value: t[metric] }))
+            .filter(h => typeof h.value === 'number');
+        // Forecasting off two or three points is guessing with extra steps.
+        if (history.length < 8) {
+            return unmeasured('A forecast needs at least 8 periods of history; this account has ' +
+                history.length + '.');
+        }
+        const prompt = 'Given this ' + metric + ' history, forecast the next ' + periodsAhead + ' periods. ' +
+            'Apply trend and seasonality analysis. Return JSON: { "forecast": [{ "date", "predicted", ' +
+            '"confidence_low", "confidence_high" }], "trend": "up|down|flat", "growthRate": "..." }.\nHistory: ' +
+            JSON.stringify(history.slice(-26));
         const text = await askAI(prompt);
-        const ai = parseAIJson(text, { forecast: [], trend: 'flat', growthRate: '0%' });
-        return { metric, history, generatedAt: new Date().toISOString(), ...ai };
+        const ai = parseAIJson(text, null);
+        if (!ai) return unmeasured('The forecast could not be generated right now.');
+        return { measured: true, metric, history, generatedAt: new Date().toISOString(), ...ai };
     }
 
     /**
-     * AI-prioritised actionable recommendations across all channels.
-     * @returns {Promise<Array<Object>>} Prioritised recommendation list with impact and effort.
+     * AI-prioritised recommendations across all channels.
+     * @returns {Promise<Object>} { measured, reason } or recommendations.
      */
     async function getActionableRecommendations() {
         log('Generating actionable recommendations');
-        const overview = getOverviewMetrics('last-30d');
-        const funnel = getFunnelMetrics();
-        const prompt = 'As a CMO advisor, review these marketing metrics and funnel data. Provide 7 prioritised recommendations. Return JSON array of { "priority", "category", "title", "description", "expectedImpact", "effort", "channel" }.\nOverview: ' + JSON.stringify(overview) + '\nFunnel: ' + JSON.stringify(funnel);
+        const overview = await getOverviewMetrics('last-30d');
+        if (!overview.measured) return overview;
+        const funnel = await getFunnelMetrics();
+        const prompt = 'As a CMO advisor, review these marketing metrics and funnel data. Provide up to 7 ' +
+            'prioritised recommendations. Null fields and stages marked measured:false were NOT measured — ' +
+            'do not invent values for them. Return JSON: { "recommendations": [{ "priority", "category", ' +
+            '"title", "description", "expectedImpact", "effort", "channel" }] }.\nOverview: ' +
+            JSON.stringify(overview) + '\nFunnel: ' + JSON.stringify(funnel.stages || []);
         const text = await askAI(prompt);
-        const recs = parseAIJson(text, []);
+        const parsed = parseAIJson(text, { recommendations: [] });
+        const recs = parsed.recommendations || parsed;
         store('recommendations', recs);
-        return recs;
+        return { measured: true, recommendations: recs };
     }
 
     /**
-     * AI weekly marketing performance digest comparing current vs previous period.
-     * @returns {Promise<Object>} Structured weekly digest with scorecard.
+     * Weekly performance digest comparing the last 7 days against a
+     * seven-day-equivalent of the last 30.
+     * @returns {Promise<Object>} { measured, reason } or the digest.
      */
     async function generateWeeklyDigest() {
         log('Generating weekly digest');
-        const metrics = getOverviewMetrics('last-7d');
-        const prevMetrics = getOverviewMetrics('last-30d');
-        const prompt = 'Create a weekly marketing digest comparing this week vs monthly averages. Include highlights, concerns, and next-week focus areas. Return JSON: { "summary", "highlights": [...], "concerns": [...], "focusAreas": [...], "scorecard": { "overall": 0-100 } }.\nThis week: ' + JSON.stringify(metrics) + '\nMonthly avg: ' + JSON.stringify(prevMetrics);
+        const metrics = await getOverviewMetrics('last-7d');
+        if (!metrics.measured) return metrics;
+
+        // last-30d is a 30-day TOTAL, not a weekly average — comparing a week
+        // against it directly made every week look like a collapse.
+        const monthly = await getOverviewMetrics('last-30d');
+        const prevMetrics = monthly.measured ? {
+            traffic:     Math.round(monthly.traffic / 30 * 7),
+            conversions: Math.round(monthly.conversions / 30 * 7),
+            revenue:     Math.round(monthly.revenue / 30 * 7),
+            note: 'Thirty-day totals scaled to a seven-day equivalent.',
+        } : monthly;
+
+        const prompt = 'Create a weekly marketing digest comparing this week against the seven-day-equivalent ' +
+            'baseline. Null fields were NOT measured — do not estimate them. Return JSON: { "summary", ' +
+            '"highlights": [...], "concerns": [...], "focusAreas": [...] }.\nThis week: ' +
+            JSON.stringify(metrics) + '\nBaseline: ' + JSON.stringify(prevMetrics);
         const text = await askAI(prompt);
-        const digest = parseAIJson(text, {
-            summary: 'Weekly digest unavailable.',
-            highlights: [],
-            concerns: [],
-            focusAreas: [],
-            scorecard: { overall: 72 }
-        });
+        // The old fallback returned a scorecard of 72/100 whenever the model
+        // failed to answer — a grade for a week nobody had graded.
+        const digest = parseAIJson(text, null);
+        if (!digest) return unmeasured('The weekly digest could not be generated right now.');
+        digest.measured = true;
         digest.generatedAt = new Date().toISOString();
         store('weekly-digest', digest);
         return digest;
@@ -677,18 +947,18 @@
             warn('Unknown report type:', type, '- defaulting to monthly-review');
             type = 'monthly-review';
         }
-        const overview = getOverviewMetrics(dateRange);
-        const channels = getChannelBreakdown(dateRange);
-        const funnel = getFunnelMetrics();
+        const overview = await getOverviewMetrics(dateRange);
+        if (!overview.measured) return overview;
+        const channels = await getChannelBreakdown(dateRange);
+        const funnel = await getFunnelMetrics();
         const allSections = sections || ['summary', 'channels', 'funnel', 'recommendations'];
-        const prompt = 'Generate a ' + type + ' marketing report. Include executive summary, channel performance, funnel analysis, and strategic recommendations. Sections: ' + allSections.join(', ') + '. Return JSON: { "title", "type", "sections": [{ "heading", "content", "data" }], "executiveSummary" }.\nData: ' + JSON.stringify({ overview, channels, funnel });
+        const prompt = 'Generate a ' + type + ' marketing report. Include executive summary, channel performance, funnel analysis, and strategic recommendations. Sections: ' + allSections.join(', ') + '. Return JSON: { "title", "type", "sections": [{ "heading", "content", "data" }], "executiveSummary" }.\nData: ' + JSON.stringify({ overview, channels: channels.channels || null, funnel: funnel.stages || null }) +
+            '\n\nAny null value or measured:false stage was NOT measured. Say so plainly in the report ' +
+            'rather than estimating it — a report that invents a number is worse than one that names a gap.';
         const text = await askAI(prompt);
-        const report = parseAIJson(text, {
-            title: type + ' Report',
-            type,
-            sections: [],
-            executiveSummary: 'Report generation pending.'
-        });
+        const report = parseAIJson(text, null);
+        if (!report) return unmeasured('The report could not be generated right now.');
+        report.measured = true;
         report.id = 'rpt-' + Date.now();
         report.dateRange = dateRange;
         report.generatedAt = new Date().toISOString();
@@ -800,19 +1070,22 @@
             warn('Goal not found:', goalId);
             return null;
         }
-        const overview = getOverviewMetrics('last-30d');
-        const current = overview[goal.metric] || 0;
-        const pct = Math.min(+((current / goal.target) * 100).toFixed(1), 100);
+        const overview = await getOverviewMetrics('last-30d');
+        if (!overview.measured) return { goal, measured: false, reason: overview.reason };
+        const current = typeof overview[goal.metric] === 'number' ? overview[goal.metric] : null;
+        if (current === null) {
+            return { goal, measured: false,
+                     reason: '"' + goal.metric + '" is not measured by the connected sources, so progress ' +
+                             'toward this goal cannot be calculated.' };
+        }
+        const pct = goal.target > 0 ? Math.min(+((current / goal.target) * 100).toFixed(1), 100) : null;
         const daysLeft = Math.max(0, Math.round((new Date(goal.deadline) - new Date()) / 86400000));
         const prompt = 'A marketing goal targets ' + goal.target + ' ' + goal.metric + ' by ' + goal.deadline + '. Current value is ' + current + ' (' + pct + '% complete) with ' + daysLeft + ' days remaining. Will they hit the goal? Return JSON: { "onTrack": true/false, "projectedValue", "confidence", "suggestion" }.';
         const text = await askAI(prompt);
-        const projection = parseAIJson(text, {
-            onTrack: pct >= 50,
-            projectedValue: current * 1.3,
-            confidence: 'medium',
-            suggestion: 'Increase investment in top-performing channels.'
-        });
-        return { goal, current, percentage: pct, daysRemaining: daysLeft, projection };
+        // The fallback projected current * 1.3 — an invented 30% growth rate
+        // presented to the customer as a forecast of their own goal.
+        const projection = parseAIJson(text, null);
+        return { goal, measured: true, current, percentage: pct, daysRemaining: daysLeft, projection };
     }
 
     /**
@@ -828,11 +1101,74 @@
             warn('Goal not found:', goalId);
             return null;
         }
-        const overview = getOverviewMetrics('last-30d');
-        const gap = Math.max(0, goal.target - (overview[goal.metric] || 0));
+        const overview = await getOverviewMetrics('last-30d');
+        if (!overview.measured) return { goal, measured: false, reason: overview.reason };
+        const currentValue = typeof overview[goal.metric] === 'number' ? overview[goal.metric] : null;
+        if (currentValue === null) {
+            return { goal, measured: false,
+                     reason: '"' + goal.metric + '" is not measured by the connected sources.' };
+        }
+        const gap = Math.max(0, goal.target - currentValue);
         const prompt = 'A marketer needs to close a gap of ' + gap + ' in ' + goal.metric + ' by ' + goal.deadline + ' (channel: ' + goal.channel + '). Provide 5 specific tactical recommendations. Return JSON: { "recommendations": [{ "action", "channel", "expectedImpact", "timeframe", "difficulty" }] }.';
         const text = await askAI(prompt);
         return parseAIJson(text, { recommendations: [] });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DASHBOARD FACADE
+    //
+    // web/marketing/analytics.html has always called getDashboardData() and
+    // getAIInsights(). Neither existed, so its only data path threw a
+    // TypeError on every load, was swallowed by a catch, and the page fell
+    // through to its placeholder render. Nothing a customer saw there had ever
+    // touched their account.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Everything the dashboard needs, in one call.
+     * @param {string} [dateRange='last-30d']
+     * @returns {Promise<Object>} { measured, reason } plus whatever IS measured.
+     */
+    async function getDashboardData(dateRange = 'last-30d') {
+        log('Building dashboard payload for', dateRange);
+        const overview = await getOverviewMetrics(dateRange);
+        if (!overview.measured) {
+            return { measured: false, reason: overview.reason, dateRange };
+        }
+        const [breakdown, funnel] = await Promise.all([
+            getChannelBreakdown(dateRange),
+            getFunnelMetrics(),
+        ]);
+        return {
+            measured: true,
+            dateRange,
+            kpis: {
+                conversions:   { value: overview.conversions, measured: true },
+                revenue:       { value: overview.revenue, measured: true },
+                traffic:       { value: overview.traffic, measured: true },
+                avgOrderValue: { value: overview.avgOrderValue, measured: overview.avgOrderValue !== null },
+                // Named honestly: these need ad spend and repeat-purchase data
+                // that no connected source provides.
+                roi: { value: null, measured: false, reason: 'Needs ad spend, which Google Analytics does not hold.' },
+                ltv: { value: null, measured: false, reason: 'Needs repeat-purchase history per customer.' },
+            },
+            channels: breakdown.measured ? breakdown.channels : null,
+            channelsReason: breakdown.measured ? null : breakdown.reason,
+            funnel: funnel.measured ? funnel.stages : null,
+            funnelReason: funnel.measured ? null : funnel.reason,
+            attribution: getAttributionReport('linear'),
+            goals: getGoals(),
+        };
+    }
+
+    /**
+     * Insights for the dashboard's "AI Insights" panel.
+     * @returns {Promise<Object>} { measured, reason } or { measured, insights }.
+     */
+    async function getAIInsights(dateRange = 'last-30d') {
+        const result = await generateInsights(dateRange);
+        if (!result.measured) return result;
+        return { measured: true, insights: result.insights || [], generatedAt: result.generatedAt };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -840,6 +1176,10 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     window.MarketingAnalyticsService = {
+        // 0. Dashboard facade
+        getDashboardData,
+        getAIInsights,
+
         // 1. Cross-Channel Dashboard
         getOverviewMetrics,
         getChannelBreakdown,
@@ -848,6 +1188,7 @@
 
         // 2. Attribution Modeling
         getAttributionReport,
+        computeAttribution,
         getConversionPaths,
         getAssistConversions,
 

@@ -21,54 +21,43 @@
  * to send; that decision is made by Scotty QA review on the client before this is
  * ever called.
  *
- * Enforces the same 50 emails/day budget as api/send-email.js (shared in-memory
- * counter — both endpoints protect the same sending domain's deliverability) plus a
- * per-request batch cap so one call can't blow through the whole daily budget.
+ * Authenticated: the caller's own Supabase access token identifies the sending
+ * account. Without that this was an open relay — any caller could send any
+ * content to any address through the account's Resend key, from its verified
+ * domain, with Allow-Origin: * so a page anywhere could do it from a browser.
+ *
+ * Every recipient is checked against the account's suppression list here, in
+ * the only code path that reaches Resend. The previous gate was client-side
+ * and depended on how a segment happened to be configured.
+ *
+ * The daily budget is per account and persisted (email_send_quota), claimed
+ * before sending so concurrent sends cannot both spend the last of it. It used
+ * to be one in-memory counter shared by every customer on the deployment and
+ * reset on every cold start.
  *
  * Required env vars:
  *   RESEND_API_KEY      — Resend API key (re_...)
  *   RESEND_FROM_EMAIL   — verified sender address, e.g. hello@yourdomain.com
  *   RESEND_FROM_NAME    — (optional) sender display name, defaults to "Audema"
+ *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — to identify the caller and read
+ *                         the suppression list and quota
  */
 
 'use strict';
 
 const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscribe-token.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
+  require('./_lib/send-guard.js');
 
-const DAILY_SEND_LIMIT   = 50;
 const MAX_BATCH_SIZE     = 25;
 const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX     = 3;         // campaign sends are heavier than single sends
 
-const rateBuckets   = new Map();
-let dailySendCount  = 0;
-let dailyWindowDate = new Date().toDateString();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
-
-function resetDailyWindowIfNeeded() {
-  const today = new Date().toDateString();
-  if (today !== dailyWindowDate) {
-    dailySendCount  = 0;
-    dailyWindowDate = today;
-  }
-}
 
 function sanitizeTagValue(val) {
   return String(val).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 256) || 'unknown';
@@ -85,16 +74,39 @@ function applyMergeFields(template, mergeFields) {
   });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/send-campaign', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip))
-    return res.status(429).json({ error: 'Too many campaign sends. Slow down.' });
+  // Who is sending. This endpoint used to accept anyone: it took a subject, a
+  // body and a recipient list from any caller and sent them through the
+  // account's Resend key from its verified domain, with Allow-Origin: * so a
+  // page anywhere could invoke it from a browser. That is an open relay on a
+  // domain with earned deliverability.
+  const auth = await authenticateSender(req);
+  if (auth.error) {
+    const message = {
+      server_unconfigured: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.',
+      no_token: 'Sign in to send a campaign.',
+      invalid_token: 'Your session has expired. Sign in again.',
+      auth_unreachable: 'Could not verify your session. Nothing was sent.',
+    }[auth.error] || 'Not authorised.';
+    return res.status(auth.error === 'server_unconfigured' ? 500 : 401).json({ error: message });
+  }
+  const { userId, profile } = auth;
+
+  // Keyed on the sender, and therefore placed after authentication.
+  // Sending mail from the account's verified domain is the most
+  // valuable thing here to abuse, and an address is the wrong unit to
+  // meter it by: a shared office is charged as one sender, while one
+  // account can spread a burst across as many addresses as it can
+  // reach. The daily ceiling that actually protects deliverability is
+  // claimQuota() below, which is database-backed; this only stops one
+  // account hammering one instance.
+  if (rateLimited(req, res, { name: 'send-campaign', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth: { userId } })) return;
 
   const proto   = req.headers['x-forwarded-proto'] || 'https';
   const baseUrl = process.env.PUBLIC_APP_URL || `${proto}://${req.headers.host}`;
@@ -130,13 +142,45 @@ module.exports = async function handler(req, res) {
     }
   });
 
-  resetDailyWindowIfNeeded();
-  const remainingBudget = DAILY_SEND_LIMIT - dailySendCount;
-  if (remainingBudget <= 0)
-    return res.status(429).json({ error: `Daily send limit of ${DAILY_SEND_LIMIT} reached. Resets at midnight.` });
+  // Nobody who has opted out, whatever the caller sent us. This is the only
+  // code path that reaches Resend, so it is the only place a suppression
+  // check cannot be gone around — the previous gate was client-side, in a
+  // function whose behaviour depends on how a segment was configured.
+  const supp = await filterSuppressed(userId, validRecipients);
+  if (!supp.ok) {
+    return res.status(supp.code === 'not_installed' ? 503 : 500)
+      .json({ error: supp.error, code: supp.code });
+  }
+  const sendable = supp.allowed;
+  const skippedSuppressed = supp.suppressed.map(s => ({
+    to: s.to, error: `Suppressed (${s.reason}) — this address has opted out or is undeliverable`,
+  }));
 
-  const toSend = validRecipients.slice(0, remainingBudget);
-  const skippedBudget = validRecipients.slice(remainingBudget).map(r => ({ to: r.to, error: 'Daily send limit reached' }));
+  if (!sendable.length) {
+    return res.status(200).json({
+      sent: 0, failed: 0,
+      suppressed: skippedSuppressed.length,
+      results: [...rejected, ...skippedSuppressed],
+      note: 'Every recipient on this list has opted out or is undeliverable. Nothing was sent.',
+    });
+  }
+
+  // Per account, persisted. This was a module-level counter shared by every
+  // customer on the deployment and reset on every cold start, so one account
+  // consumed everyone's budget while each instance kept its own tally.
+  const quota = await claimQuota(userId, sendable.length, profile);
+  if (!quota.ok) {
+    return res.status(quota.code === 'not_installed' ? 503 : 500)
+      .json({ error: quota.error, code: quota.code });
+  }
+  if (quota.granted <= 0) {
+    return res.status(429).json({
+      error: `Daily send limit of ${quota.cap} reached for this account. Resets at midnight UTC.`,
+    });
+  }
+
+  const toSend = sendable.slice(0, quota.granted);
+  const skippedBudget = sendable.slice(quota.granted).map(r => ({ to: r.to, error: 'Daily send limit reached' }));
 
   const results = [];
   let missingMailingAddress = false;
@@ -209,7 +253,6 @@ module.exports = async function handler(req, res) {
       const data = await upstream.json().catch(() => ({}));
 
       if (upstream.ok) {
-        dailySendCount++;
         results.push({ to, success: true, id: data.id });
       } else {
         const errMsg = data.message || data.name || `Resend error ${upstream.status}`;
@@ -221,6 +264,11 @@ module.exports = async function handler(req, res) {
   }
 
   const sentCount = results.filter(r => r.success).length;
+
+  // Quota is claimed before sending so two concurrent sends cannot both spend
+  // the last of it. Anything claimed and not actually sent goes back, or a
+  // provider outage would silently eat the day's allowance.
+  await releaseQuota(userId, quota.granted - sentCount);
 
   const warnings = [];
   if (!unsubscribeConfigured()) {
@@ -235,10 +283,10 @@ module.exports = async function handler(req, res) {
     campaignId: campaignId || null,
     sent:       sentCount,
     failed:     results.length - sentCount,
-    rejected:   [...rejected, ...skippedBudget],
+    rejected:   [...rejected, ...skippedBudget, ...skippedSuppressed],
     results,
-    dailySent:  dailySendCount,
-    dailyLimit: DAILY_SEND_LIMIT,
+    suppressed: skippedSuppressed.length,
+    dailyLimit: quota.cap,
     ...(warnings.length ? { warnings } : {}),
   });
-};
+});

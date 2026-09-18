@@ -117,10 +117,10 @@
                             <thead>
                                 <tr>
                                     <th>Domain</th>
-                                    <th>DA</th>
-                                    <th>Est. Traffic</th>
-                                    <th>Keywords</th>
-                                    <th>Industry</th>
+                                    <th>Authority</th>
+                                    <th>Backlinks</th>
+                                    <th>Ref. domains</th>
+                                    <th>Source</th>
                                     <th>Gap Analysis</th>
                                 </tr>
                             </thead>
@@ -192,13 +192,13 @@
             </div>
             <div class="modal-body">
                 <div class="search-section">
-                    <label for="businessSearch" class="search-label">Search for a business</label>
+                    <label for="businessSearch" class="search-label">Competitor website</label>
                     <div class="search-input-wrapper">
                         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"/>
                             <path d="m21 21-4.35-4.35"/>
                         </svg>
-                        <input type="text" id="businessSearch" class="search-input" placeholder="Enter business name (e.g., Nike, Shopify, HubSpot)" autocomplete="off">
+                        <input type="text" id="businessSearch" class="search-input" placeholder="competitor.com.au" autocomplete="off">
                         <div class="search-spinner" id="searchSpinner">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/>
@@ -226,22 +226,22 @@
                         <div class="selected-domain">
                             <div class="domain-icon" id="selectedIcon">N</div>
                             <div class="domain-info">
-                                <strong id="selectedDomain">nike.com</strong>
-                                <span id="selectedIndustry">Apparel & Footwear</span>
+                                <strong id="selectedDomain"></strong>
+                                <span id="selectedIndustry"></span>
                             </div>
                         </div>
                         <div class="selected-metrics">
                             <div class="metric">
-                                <span class="metric-label">Domain Authority</span>
-                                <span class="metric-value" id="selectedDA">92</span>
+                                <span class="metric-label">Authority</span>
+                                <span class="metric-value" id="selectedDA">&mdash;</span>
                             </div>
                             <div class="metric">
-                                <span class="metric-label">Est. Traffic</span>
-                                <span class="metric-value" id="selectedTraffic">45.2M</span>
+                                <span class="metric-label">Backlinks</span>
+                                <span class="metric-value" id="selectedTraffic">&mdash;</span>
                             </div>
                             <div class="metric">
-                                <span class="metric-label">Keywords</span>
-                                <span class="metric-value" id="selectedKeywords">1.2M</span>
+                                <span class="metric-label">Ref. domains</span>
+                                <span class="metric-value" id="selectedKeywords">&mdash;</span>
                             </div>
                         </div>
                     </div>
@@ -268,6 +268,8 @@
     <script src="../js/supabase.min.js"></script>
     <script src="../js/config.js"></script>
     <script src="../js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/project-service.js"></script>
     <script src="../js/marketing-store.js"></script>
@@ -703,77 +705,88 @@
 
     <script>
     (function() {
-        // Business domain database (simulated - in production this would be an API)
-        const businessDatabase = {
-            'nike': { domain: 'nike.com', industry: 'Apparel & Footwear', da: 92, traffic: '45.2M', keywords: '1.2M' },
-            'adidas': { domain: 'adidas.com', industry: 'Apparel & Footwear', da: 89, traffic: '32.1M', keywords: '980K' },
-            'puma': { domain: 'puma.com', industry: 'Apparel & Footwear', da: 82, traffic: '12.4M', keywords: '420K' },
-            'reebok': { domain: 'reebok.com', industry: 'Apparel & Footwear', da: 78, traffic: '8.9M', keywords: '310K' },
-            'shopify': { domain: 'shopify.com', industry: 'E-commerce Platform', da: 93, traffic: '89.5M', keywords: '2.1M' },
-            'woocommerce': { domain: 'woocommerce.com', industry: 'E-commerce Platform', da: 85, traffic: '15.2M', keywords: '890K' },
-            'bigcommerce': { domain: 'bigcommerce.com', industry: 'E-commerce Platform', da: 81, traffic: '4.8M', keywords: '245K' },
-            'hubspot': { domain: 'hubspot.com', industry: 'Marketing Software', da: 93, traffic: '42.1M', keywords: '1.8M' },
-            'salesforce': { domain: 'salesforce.com', industry: 'CRM Software', da: 94, traffic: '65.3M', keywords: '2.4M' },
-            'mailchimp': { domain: 'mailchimp.com', industry: 'Email Marketing', da: 91, traffic: '28.7M', keywords: '920K' },
-            'constant contact': { domain: 'constantcontact.com', industry: 'Email Marketing', da: 84, traffic: '9.2M', keywords: '380K' },
-            'amazon': { domain: 'amazon.com', industry: 'E-commerce', da: 96, traffic: '2.4B', keywords: '45M' },
-            'ebay': { domain: 'ebay.com', industry: 'E-commerce', da: 94, traffic: '890M', keywords: '18M' },
-            'walmart': { domain: 'walmart.com', industry: 'Retail', da: 92, traffic: '420M', keywords: '8.5M' },
-            'target': { domain: 'target.com', industry: 'Retail', da: 89, traffic: '180M', keywords: '4.2M' },
-            'stripe': { domain: 'stripe.com', industry: 'Payment Processing', da: 91, traffic: '18.5M', keywords: '560K' },
-            'paypal': { domain: 'paypal.com', industry: 'Payment Processing', da: 93, traffic: '125M', keywords: '2.8M' },
-            'square': { domain: 'squareup.com', industry: 'Payment Processing', da: 87, traffic: '12.1M', keywords: '420K' },
-            'zoom': { domain: 'zoom.us', industry: 'Video Conferencing', da: 91, traffic: '95M', keywords: '1.5M' },
-            'slack': { domain: 'slack.com', industry: 'Team Communication', da: 92, traffic: '45M', keywords: '890K' },
-            'notion': { domain: 'notion.so', industry: 'Productivity', da: 88, traffic: '32M', keywords: '620K' },
-            'asana': { domain: 'asana.com', industry: 'Project Management', da: 86, traffic: '18M', keywords: '450K' },
-            'trello': { domain: 'trello.com', industry: 'Project Management', da: 89, traffic: '28M', keywords: '580K' },
-            'monday': { domain: 'monday.com', industry: 'Project Management', da: 84, traffic: '15M', keywords: '380K' },
-            'canva': { domain: 'canva.com', industry: 'Design Tools', da: 93, traffic: '180M', keywords: '3.2M' },
-            'figma': { domain: 'figma.com', industry: 'Design Tools', da: 88, traffic: '25M', keywords: '420K' },
-            'adobe': { domain: 'adobe.com', industry: 'Creative Software', da: 96, traffic: '290M', keywords: '5.8M' },
-            'dropbox': { domain: 'dropbox.com', industry: 'Cloud Storage', da: 93, traffic: '85M', keywords: '1.2M' },
-            'google drive': { domain: 'google.com/drive', industry: 'Cloud Storage', da: 98, traffic: '1.2B', keywords: '8M' },
-            'microsoft': { domain: 'microsoft.com', industry: 'Technology', da: 97, traffic: '1.8B', keywords: '12M' },
-            'apple': { domain: 'apple.com', industry: 'Technology', da: 97, traffic: '890M', keywords: '6.5M' },
-            'netflix': { domain: 'netflix.com', industry: 'Streaming', da: 94, traffic: '420M', keywords: '2.8M' },
-            'spotify': { domain: 'spotify.com', industry: 'Music Streaming', da: 93, traffic: '320M', keywords: '1.9M' },
-            'airbnb': { domain: 'airbnb.com', industry: 'Travel & Hospitality', da: 93, traffic: '210M', keywords: '4.2M' },
-            'booking': { domain: 'booking.com', industry: 'Travel & Hospitality', da: 94, traffic: '380M', keywords: '6.8M' },
-            'expedia': { domain: 'expedia.com', industry: 'Travel & Hospitality', da: 91, traffic: '145M', keywords: '3.2M' },
-            'uber': { domain: 'uber.com', industry: 'Transportation', da: 92, traffic: '125M', keywords: '1.8M' },
-            'lyft': { domain: 'lyft.com', industry: 'Transportation', da: 85, traffic: '32M', keywords: '420K' },
-            'doordash': { domain: 'doordash.com', industry: 'Food Delivery', da: 87, traffic: '65M', keywords: '890K' },
-            'grubhub': { domain: 'grubhub.com', industry: 'Food Delivery', da: 83, traffic: '28M', keywords: '520K' },
-            'instacart': { domain: 'instacart.com', industry: 'Grocery Delivery', da: 85, traffic: '42M', keywords: '680K' },
-            'linkedin': { domain: 'linkedin.com', industry: 'Professional Network', da: 98, traffic: '1.5B', keywords: '15M' },
-            'twitter': { domain: 'twitter.com', industry: 'Social Media', da: 97, traffic: '2.1B', keywords: '18M' },
-            'facebook': { domain: 'facebook.com', industry: 'Social Media', da: 98, traffic: '3.2B', keywords: '25M' },
-            'instagram': { domain: 'instagram.com', industry: 'Social Media', da: 97, traffic: '2.8B', keywords: '12M' },
-            'tiktok': { domain: 'tiktok.com', industry: 'Social Media', da: 94, traffic: '1.8B', keywords: '8M' },
-            'pinterest': { domain: 'pinterest.com', industry: 'Social Media', da: 94, traffic: '890M', keywords: '5.2M' },
-            'reddit': { domain: 'reddit.com', industry: 'Social Media', da: 96, traffic: '1.2B', keywords: '9.5M' },
-            'wordpress': { domain: 'wordpress.com', industry: 'CMS', da: 95, traffic: '420M', keywords: '4.8M' },
-            'wix': { domain: 'wix.com', industry: 'Website Builder', da: 93, traffic: '180M', keywords: '2.1M' },
-            'squarespace': { domain: 'squarespace.com', industry: 'Website Builder', da: 89, traffic: '45M', keywords: '890K' },
-            'godaddy': { domain: 'godaddy.com', industry: 'Domain & Hosting', da: 93, traffic: '125M', keywords: '1.8M' },
-            'bluehost': { domain: 'bluehost.com', industry: 'Web Hosting', da: 87, traffic: '18M', keywords: '420K' },
-            'siteground': { domain: 'siteground.com', industry: 'Web Hosting', da: 84, traffic: '12M', keywords: '320K' },
-            'cloudflare': { domain: 'cloudflare.com', industry: 'CDN & Security', da: 91, traffic: '32M', keywords: '680K' },
-            'zendesk': { domain: 'zendesk.com', industry: 'Customer Support', da: 90, traffic: '25M', keywords: '580K' },
-            'intercom': { domain: 'intercom.com', industry: 'Customer Support', da: 87, traffic: '12M', keywords: '320K' },
-            'freshdesk': { domain: 'freshworks.com', industry: 'Customer Support', da: 84, traffic: '8M', keywords: '245K' },
-            'twilio': { domain: 'twilio.com', industry: 'Communication APIs', da: 89, traffic: '18M', keywords: '420K' },
-            'sendgrid': { domain: 'sendgrid.com', industry: 'Email API', da: 85, traffic: '9M', keywords: '280K' },
-            'datadog': { domain: 'datadoghq.com', industry: 'Monitoring', da: 86, traffic: '8M', keywords: '320K' },
-            'newrelic': { domain: 'newrelic.com', industry: 'Monitoring', da: 85, traffic: '6M', keywords: '245K' },
-            'github': { domain: 'github.com', industry: 'Developer Tools', da: 97, traffic: '890M', keywords: '8.5M' },
-            'gitlab': { domain: 'gitlab.com', industry: 'Developer Tools', da: 91, traffic: '45M', keywords: '920K' },
-            'bitbucket': { domain: 'bitbucket.org', industry: 'Developer Tools', da: 90, traffic: '32M', keywords: '580K' },
-            'atlassian': { domain: 'atlassian.com', industry: 'Software Tools', da: 92, traffic: '65M', keywords: '1.2M' },
-            'jira': { domain: 'atlassian.com/jira', industry: 'Project Management', da: 92, traffic: '42M', keywords: '680K' },
-            'confluence': { domain: 'atlassian.com/confluence', industry: 'Documentation', da: 92, traffic: '28M', keywords: '420K' }
-        };
+        // ═══════════════════════════════════════════════════════════════════
+        // COMPETITOR LOOKUP
+        //
+        // This used to search a hardcoded list of 75 famous global brands
+        // ("nike", "shopify", "hubspot"…) each carrying invented DA, traffic
+        // and keyword figures. Two things were wrong with that, and the first
+        // was worse than the second:
+        //
+        //   1. A customer could only add a competitor if it happened to be one
+        //      of those 75. A Brisbane roof restorer looking for the firm
+        //      across town got "No businesses found for …" and the page's only
+        //      action failed. That is nearly every real customer.
+        //
+        //   2. The DA/traffic/keyword numbers shown next to each result, in
+        //      the selection panel, and then in the tracked-competitors table
+        //      were invented constants presented as measurements.
+        //
+        // Now: any domain can be entered, and its metrics come from
+        // /api/domain-metrics (Ahrefs → Moz → DataForSEO, whichever this
+        // deployment holds). When none is configured the endpoint says so and
+        // the competitor is still added — tracked, with its metrics marked as
+        // not available rather than filled in.
+        // ═══════════════════════════════════════════════════════════════════
+
+        /** Accepts "acme.com", "https://www.acme.com/pricing", "Acme". */
+        function normaliseDomain(input) {
+            let v = String(input || '').trim().toLowerCase();
+            if (!v) return null;
+            v = v.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').replace(/\s+/g, '');
+            // A domain needs a dot and a plausible TLD; anything else is a name,
+            // not something we can look up.
+            return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(v) ? v : null;
+        }
+
+        /**
+         * Real metrics for a domain, or an explicit "not available".
+         * Never invents a figure: a missing provider is reported as missing.
+         */
+        async function fetchDomainMetrics(domain) {
+            try {
+                const headers = (typeof window.sendAuthHeaders === 'function')
+                    ? await window.sendAuthHeaders()
+                    : { 'Content-Type': 'application/json' };
+                const r = await fetch('/api/domain-metrics', {
+                    method: 'POST', headers, body: JSON.stringify({ domain }),
+                    signal: AbortSignal.timeout(15000),
+                });
+                if (!r.ok) {
+                    return { measured: false, reason: r.status === 401
+                        ? 'Sign in to look up domain metrics.'
+                        : 'The metrics service returned an error (HTTP ' + r.status + ').' };
+                }
+                const data = await r.json();
+                if (!data.provider || data.provider === 'none') {
+                    return { measured: false, reason: data.message ||
+                        'No SEO data provider is connected, so authority and backlink figures are unavailable.' };
+                }
+                return {
+                    measured: true,
+                    provider: data.provider,
+                    domainRating: typeof data.domainRating === 'number' ? data.domainRating : null,
+                    backlinks: data.backlinks ?? null,
+                    refDomains: data.refDomains ?? null,
+                    spamScore: data.spamScore ?? null,
+                };
+            } catch (e) {
+                return { measured: false, reason: 'Could not reach the metrics service: ' + e.message };
+            }
+        }
+
+        function fmtCount(n) {
+            if (typeof n !== 'number' || !isFinite(n)) return '—';
+            if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return String(n);
+        }
+
+        function escapeHtmlCi(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
 
         // Elements
         const modal = document.getElementById('addCompetitorModal');
@@ -833,103 +846,96 @@
 
             searchSpinner.classList.add('active');
 
-            // Simulate API delay
-            searchTimeout = setTimeout(() => {
-                const results = searchBusinesses(query);
-                displayResults(results, query);
-                searchSpinner.classList.remove('active');
-            }, 400);
+            // Longer debounce than the old local-array search: each keystroke
+            // that fires now costs a real API lookup.
+            searchTimeout = setTimeout(async () => {
+                try { await runLookup(query); }
+                finally { searchSpinner.classList.remove('active'); }
+            }, 700);
         });
 
-        // Search businesses
-        function searchBusinesses(query) {
-            const results = [];
+        // Look up whatever the customer typed. One domain, real metrics.
+        let pendingLookup = 0;
+        async function runLookup(query) {
+            const seq = ++pendingLookup;
+            const domain = normaliseDomain(query);
 
-            for (const [name, data] of Object.entries(businessDatabase)) {
-                if (name.includes(query) || data.domain.includes(query) || data.industry.toLowerCase().includes(query)) {
-                    results.push({ name, ...data });
-                }
-            }
-
-            // Sort by DA (highest first)
-            results.sort((a, b) => b.da - a.da);
-
-            return results.slice(0, 5);
-        }
-
-        // Display search results
-        function displayResults(results, query) {
-            if (results.length === 0) {
+            if (!domain) {
                 searchResults.innerHTML = `
                     <div class="no-results">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                         </svg>
-                        <p>No businesses found for "${query}"</p>
-                        <p style="font-size: 12px; margin-top: 8px;">Try searching for a different business name</p>
-                    </div>
-                `;
+                        <p>Enter your competitor's website</p>
+                        <p style="font-size:12px;margin-top:8px;">Any domain works &mdash; e.g. <strong>competitor.com.au</strong>. We'll look up their real authority and backlink figures.</p>
+                    </div>`;
                 return;
             }
 
-            let html = '<div class="search-results-header">Search Results</div>';
+            searchResults.innerHTML = `
+                <div class="search-results-header">Looking up ${escapeHtmlCi(domain)}…</div>`;
+            const metrics = await fetchDomainMetrics(domain);
+            if (seq !== pendingLookup) return;   // a newer keystroke won
 
-            results.forEach(result => {
-                const initial = result.domain.charAt(0).toUpperCase();
-                html += `
-                    <div class="result-item" data-domain="${result.domain}" data-name="${result.name}">
-                        <div class="result-icon">${initial}</div>
-                        <div class="result-info">
-                            <div class="result-domain">${result.domain}</div>
-                            <div class="result-meta">${result.industry}</div>
-                        </div>
-                        <div class="result-metrics">
-                            <div class="result-metric">
-                                <div class="result-metric-value">${result.da}</div>
-                                <div class="result-metric-label">DA</div>
-                            </div>
-                            <div class="result-metric">
-                                <div class="result-metric-value">${result.traffic}</div>
-                                <div class="result-metric-label">Traffic</div>
-                            </div>
-                        </div>
+            const drCell = metrics.measured && metrics.domainRating !== null
+                ? `<div class="result-metric">
+                       <div class="result-metric-value">${metrics.domainRating}</div>
+                       <div class="result-metric-label">Authority</div>
+                   </div>`
+                : '';
+            const refCell = metrics.measured && metrics.refDomains !== null
+                ? `<div class="result-metric">
+                       <div class="result-metric-value">${fmtCount(metrics.refDomains)}</div>
+                       <div class="result-metric-label">Ref. domains</div>
+                   </div>`
+                : '';
+
+            searchResults.innerHTML = `
+                <div class="search-results-header">${metrics.measured
+                    ? 'Live metrics via ' + escapeHtmlCi(metrics.provider)
+                    : 'Ready to track'}</div>
+                <div class="result-item" data-domain="${escapeHtmlCi(domain)}">
+                    <div class="result-icon">${escapeHtmlCi(domain.charAt(0).toUpperCase())}</div>
+                    <div class="result-info">
+                        <div class="result-domain">${escapeHtmlCi(domain)}</div>
+                        <div class="result-meta">${metrics.measured
+                            ? 'Authority and backlink data available'
+                            : escapeHtmlCi(metrics.reason)}</div>
                     </div>
-                `;
-            });
+                    <div class="result-metrics">${drCell}${refCell}</div>
+                </div>`;
 
-            searchResults.innerHTML = html;
-
-            // Add click listeners to results
-            searchResults.querySelectorAll('.result-item').forEach(item => {
-                item.addEventListener('click', () => selectCompetitor(item.dataset.name));
-            });
+            searchResults.querySelector('.result-item')
+                .addEventListener('click', () => selectCompetitor(domain, metrics));
         }
 
         // Select competitor
-        function selectCompetitor(name) {
-            const business = businessDatabase[name];
-            if (!business) return;
+        function selectCompetitor(domain, metrics) {
+            selectedBusiness = { domain, name: domain, metrics };
 
-            selectedBusiness = { name, ...business };
+            document.getElementById('selectedIcon').textContent = domain.charAt(0).toUpperCase();
+            document.getElementById('selectedDomain').textContent = domain;
+            // No invented industry label. The lookup returns authority and
+            // backlink data; it does not classify the business.
+            document.getElementById('selectedIndustry').textContent = metrics.measured
+                ? 'Live metrics via ' + metrics.provider
+                : metrics.reason;
 
-            // Update selected display
-            document.getElementById('selectedIcon').textContent = business.domain.charAt(0).toUpperCase();
-            document.getElementById('selectedDomain').textContent = business.domain;
-            document.getElementById('selectedIndustry').textContent = business.industry;
-            document.getElementById('selectedDA').textContent = business.da;
-            document.getElementById('selectedTraffic').textContent = business.traffic;
-            document.getElementById('selectedKeywords').textContent = business.keywords;
+            const setMetric = (id, value, label) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = value;
+                const labelEl = el.parentElement?.querySelector('.metric-label');
+                if (labelEl && label) labelEl.textContent = label;
+            };
+            setMetric('selectedDA',
+                (metrics.measured && metrics.domainRating !== null) ? metrics.domainRating : '—', 'Authority');
+            setMetric('selectedTraffic', metrics.measured ? fmtCount(metrics.backlinks) : '—', 'Backlinks');
+            setMetric('selectedKeywords', metrics.measured ? fmtCount(metrics.refDomains) : '—', 'Ref. domains');
 
-            // Hide search results, show selection
             searchResults.innerHTML = '';
             selectedCompetitor.style.display = 'block';
             confirmBtn.disabled = false;
-
-            // Mark as selected
-            searchResults.querySelectorAll('.result-item').forEach(item => {
-                item.classList.toggle('selected', item.dataset.name === name);
-            });
         }
 
         // Clear selection
@@ -955,7 +961,7 @@
             closeModal();
 
             // Show success notification
-            showNotification(`Added ${selectedBusiness.domain} to competitors`);
+            showNotification('Added ' + selectedBusiness.domain + ' to competitors');
         });
 
         // Show/hide empty state vs table based on competitor count
@@ -986,20 +992,29 @@
             if (!tbody) return;
             const initial = business.domain.charAt(0).toUpperCase();
 
+            // A competitor with no provider connected is still a competitor
+            // worth tracking — the row shows a dash and the reason on hover,
+            // rather than a number nobody measured.
+            const m = business.metrics || {};
+            const dr = (m.measured && typeof m.domainRating === 'number') ? m.domainRating : null;
+            const reason = m.measured ? ('Live via ' + m.provider) : (m.reason || 'Not measured');
+
             const newRow = document.createElement('tr');
             newRow.dataset.domain = business.domain;
             newRow.innerHTML = `
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div class="competitor-icon">${initial}</div>
-                        <strong>${business.domain}</strong>
+                        <div class="competitor-icon">${escapeHtmlCi(initial)}</div>
+                        <strong>${escapeHtmlCi(business.domain)}</strong>
                     </div>
                 </td>
-                <td><span class="da-badge ${business.da >= 80 ? 'high' : 'medium'}">${business.da}</span></td>
-                <td>${business.traffic || '—'}</td>
-                <td>${business.keywords || '—'}</td>
-                <td style="font-size:12px;color:var(--color-text-secondary);">${business.industry || '—'}</td>
-                <td><span class="gap-badge" title="Connect keyword API (Semrush/Ahrefs) to analyze gaps">API Required</span></td>
+                <td>${dr === null
+                    ? `<span style="color:var(--color-text-secondary);" title="${escapeHtmlCi(reason)}">&mdash;</span>`
+                    : `<span class="da-badge ${dr >= 80 ? 'high' : 'medium'}" title="${escapeHtmlCi(reason)}">${dr}</span>`}</td>
+                <td title="${escapeHtmlCi(reason)}">${m.measured ? fmtCount(m.backlinks) : '&mdash;'}</td>
+                <td title="${escapeHtmlCi(reason)}">${m.measured ? fmtCount(m.refDomains) : '&mdash;'}</td>
+                <td style="font-size:12px;color:var(--color-text-secondary);">${escapeHtmlCi(reason)}</td>
+                <td><span class="gap-badge" title="Connect a keyword API (Semrush/Ahrefs/DataForSEO) to analyse keyword gaps">API Required</span></td>
             `;
             newRow.style.animation = 'fadeIn 0.3s ease-out';
             tbody.appendChild(newRow);
@@ -1018,11 +1033,11 @@
                 if (!competitors.find(c => c.domain === business.domain)) {
                     competitors.push({
                         domain: business.domain,
-                        name: business.name,
-                        industry: business.industry,
-                        da: business.da,
-                        traffic: business.traffic,
-                        keywords: business.keywords,
+                        name: business.name || business.domain,
+                        // The whole measurement, including whether there was
+                        // one — so a reload does not silently promote an
+                        // unmeasured competitor into a measured-looking row.
+                        metrics: business.metrics || { measured: false, reason: 'Not measured' },
                         addedAt: new Date().toISOString()
                     });
 

@@ -336,6 +336,9 @@
 <script src="../js/marked.min.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/escape-html.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/competitor-watch-store.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -471,7 +474,7 @@
         try {
             const r = await fetch('/api/scout-data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domains }),
                 signal: AbortSignal.timeout(25000),
             });
@@ -521,7 +524,7 @@
         try {
             const r = await fetch('/api/domain-metrics', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domain: 'example.com' }),
                 signal: AbortSignal.timeout(5000)
             });
@@ -737,6 +740,23 @@ For each competitor, sales-ready format:
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Analyze" forever. Every setTimeout on this page was a
+        // button-label flash; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🔭';
+            document.getElementById('btnText').textContent = 'Analyze';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 120 seconds. The AI API may be unreachable or overloaded — press Analyze to try again.</div>';
+            if (window.reportFailure) window.reportFailure('Competitive Intelligence timed out after 120s', { where: 'competitive-agent.html.run' });
+            releaseButton();
+        }, 120000);
+
         try {
             const primary = window.PerplexityService || window.ClaudeService;
             if (primary) {
@@ -749,7 +769,21 @@ For each competitor, sales-ready format:
                     let settled = false;
                     let hadError = false;
                     let chunksReceived = false;
-                    const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+                    // A stream that stops sending never calls onError, so
+                    // without this the promise never settles and the run never
+                    // reaches its own error handling. The outer stallTimer
+                    // frees the button; this frees the flow, so a late chunk
+                    // cannot overwrite the timeout message afterwards.
+                    const settle = (outcome) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(attemptTimer);
+                        resolve(outcome);
+                    };
+                    const attemptTimer = setTimeout(() => {
+                        settle({ ok: false, chunksReceived,
+                                 err: new Error('the request timed out after 110 seconds') });
+                    }, 110000);
                     Promise.resolve(service.streamResponse({
                         systemPrompt: sysPrompt,
                         messages: [{ role: 'user', content: userPrompt }],
@@ -789,7 +823,14 @@ For each competitor, sales-ready format:
                 } else {
                     outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(outcome.text) : outcome.text;
                     if (storedCitations && storedCitations.length) {
-                        const citList = storedCitations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
+                        // These URLs come back from Perplexity's live web search
+                        // — remote content, and they went into an href and the
+                        // link text with no escaping at all. safeUrl also keeps a
+                        // javascript: URL out of the href.
+                        const citList = storedCitations.map((c, i) => {
+                            const href = (window.safeUrl ? window.safeUrl(c) : c) || '#';
+                            return `<li><a href="${escHtmlWatch(href)}" target="_blank" rel="noopener">[${i+1}] ${escHtmlWatch(c)}</a></li>`;
+                        }).join('');
                         const el = document.createElement('div');
                         el.className = 'citations-block';
                         el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
@@ -801,23 +842,34 @@ For each competitor, sales-ready format:
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlWatch(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Competitive Intelligence generation failed: ' + e.message, { where: 'competitive-agent.run' });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '🔭';
-            document.getElementById('btnText').textContent = 'Analyze';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 
     function copyOutput() {
+        // On first run there is no output at all: `outputBody` is only created
+        // when a generation starts, so the old `if (!body) return;` made Copy a
+        // button that did nothing and said nothing. Tell the customer why
+        // instead, and never put a placeholder on the clipboard.
+        const btn = document.getElementById('copyBtn');
         const body = document.getElementById('outputBody');
-        if (!body) return;
-        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { flashCopy(btn, 'Nothing to copy yet'); return; }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopy(btn, 'Copied!', true),
+            () => flashCopy(btn, 'Copy failed')
+        );
+    }
+
+    function flashCopy(btn, message, ok) {
+        if (!btn) return;
+        btn.textContent = message;
+        if (ok) btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
     // Scout's analysis was previously a dead end — the report only ever
@@ -862,9 +914,14 @@ For each competitor, sales-ready format:
 
     // ── MONITORED COMPETITORS ────────────────────────────────────────────
     function escHtmlWatch(s) {
-        const d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
+        // Escapes quotes as well as &<> — this is used inside attributes
+        // (value="...", href="...") as well as between tags, and the
+        // textContent/innerHTML trick this replaced left quotes alone, so a
+        // " in the value ended the attribute and the rest was parsed as more
+        // attributes on the tag. See web/js/escape-html.js.
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function fmtWhen(iso) {

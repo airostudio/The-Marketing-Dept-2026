@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System failures | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1080px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+
+  select, textarea { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  textarea { width:100%; min-height:80px; resize:vertical; line-height:1.6; margin-bottom:11px; }
+  select:focus, textarea:focus { outline:none; border-color:var(--purple); }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:9px 16px;
+           font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button:disabled { opacity:.55; cursor:default; }
+
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+
+  /* Counters across the top: the shape of the morning at a glance. */
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .tile { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .tile .n { font-size:26px; font-weight:800; line-height:1.1; }
+  .tile .l { font-size:11.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-top:4px; }
+  .tile.crit .n { color:#fca5a5; }
+  .tile.err  .n { color:#fcd34d; }
+  .tile.ok   .n { color:#86efac; }
+
+  .pill { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+          letter-spacing:0.4px; padding:2px 9px; border-radius:999px; }
+  .pill.critical { background:rgba(239,68,68,0.18);  color:#fca5a5; }
+  .pill.error    { background:rgba(245,158,11,0.16); color:#fcd34d; }
+  .pill.warning  { background:rgba(6,182,212,0.16);  color:#67e8f9; }
+  .pill.info     { background:rgba(148,163,184,0.15); color:var(--text3); }
+  .pill.open         { background:rgba(239,68,68,0.14); color:#fca5a5; }
+  .pill.acknowledged { background:rgba(245,158,11,0.14); color:#fcd34d; }
+  .pill.resolved     { background:rgba(34,197,94,0.15); color:#86efac; }
+  .pill.healing      { background:rgba(34,197,94,0.12); color:#86efac; }
+
+  .inc { border:1px solid var(--border); border-radius:11px; padding:14px 16px; margin-bottom:10px;
+         background:var(--panel2); cursor:pointer; }
+  .inc:hover { border-color:var(--purple); }
+  .inc-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .inc-src { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--cyan); }
+  .inc-msg { font-size:13.5px; font-weight:600; margin:5px 0 6px; line-height:1.45; }
+  .inc-meta { font-size:11.5px; color:var(--text3); }
+  .remedy { background:rgba(6,182,212,0.07); border-left:3px solid var(--cyan);
+            padding:10px 13px; border-radius:0 8px 8px 0; margin-top:10px; font-size:12.5px;
+            color:#a5f3fc; line-height:1.6; }
+  .healing-note { background:rgba(34,197,94,0.07); border-left:3px solid var(--green);
+            padding:10px 13px; border-radius:0 8px 8px 0; margin-top:10px; font-size:12.5px;
+            color:#bbf7d0; line-height:1.6; }
+  pre { background:#0a0a14; border:1px solid var(--border); border-radius:9px; padding:12px;
+        overflow-x:auto; font-size:11.5px; line-height:1.5; color:var(--text2); margin:8px 0 0; }
+  .ev { border-top:1px solid var(--border); padding:9px 0; font-size:12px; color:var(--text2); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/activity.html" class="nav-link">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link active">Failures</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>System failures</h1>
+  <p class="sub">
+    Everything that broke, grouped by cause rather than by occurrence — one expired
+    key is one row here, not ten thousand. Worst first. Anything with a repair
+    written under it is something a person can act on now.
+  </p>
+
+  <div id="msg"></div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card" id="list-card">
+    <div class="filters">
+      <label for="status-filter" style="font-size:12px;font-weight:700;color:var(--text2);">Show</label>
+      <select id="status-filter">
+        <option value="open">Open</option>
+        <option value="acknowledged">Acknowledged</option>
+        <option value="resolved">Resolved</option>
+        <option value="all">Everything</option>
+      </select>
+      <button class="ghost" id="btn-refresh">Refresh</button>
+    </div>
+    <div id="list"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="card" id="detail-card" style="display:none;">
+    <h2 id="detail-heading">Incident</h2>
+    <div id="detail"></div>
+    <textarea id="note" placeholder="A note for whoever reads this next — what you found, what you changed."></textarea>
+    <button id="btn-ack">Acknowledge</button>
+    <button id="btn-resolve" style="margin-left:8px;">Mark resolved</button>
+    <button class="ghost" id="btn-back" style="margin-left:8px;">← All failures</button>
+    <p class="muted" style="margin-top:12px;">
+      Acknowledging stops the hourly alert without claiming it is fixed. Resolving
+      does both — and if the same failure happens again, it reopens itself rather
+      than staying quietly closed.
+    </p>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // The shared escaper, with a local fallback: escaping that silently stops
+  // because a script failed to load is worse than none, because nothing looks
+  // wrong. Everything rendered on this page — a failure message, a stack, a
+  // source path — originates outside it.
+  const esc = window.escapeHtml || function (v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  const KIND_LABELS = {
+    config_missing:      'Configuration missing',
+    upstream_error:      'Provider error',
+    upstream_timeout:    'Provider timeout',
+    database_error:      'Database',
+    unhandled_exception: 'Unhandled exception',
+    client_error:        'Browser',
+    integration_failure: 'Integration',
+  };
+
+  let token = null;
+  let openId = null;
+
+  const msg = (text, kind) => {
+    $('msg').innerHTML = text ? `<div class="msg ${esc(kind || 'info')}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  async function api(payload) {
+    const res = await fetch('/api/failures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `The failure log is unavailable (HTTP ${res.status}).`);
+      err.code = data && data.code;
+      throw err;
+    }
+    return data;
+  }
+
+  const when = iso => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
+  };
+
+  /** How long ago, in the units a person would actually say out loud. */
+  function ago(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const mins = (Date.now() - d.getTime()) / 60000;
+    if (mins < 1) return 'just now';
+    if (mins < 60) return Math.round(mins) + 'm ago';
+    if (mins < 48 * 60) return Math.round(mins / 60) + 'h ago';
+    return Math.round(mins / 1440) + 'd ago';
+  }
+
+  /* ── the counters ───────────────────────────────────────────────────── */
+  async function loadSummary() {
+    try {
+      const s = await api({ action: 'summary' });
+      $('tiles').innerHTML = `
+        <div class="tile crit"><div class="n">${esc(s.critical)}</div><div class="l">Critical</div></div>
+        <div class="tile err"><div class="n">${esc(s.errors)}</div><div class="l">Errors</div></div>
+        <div class="tile"><div class="n">${esc(s.needsAPerson)}</div><div class="l">Need a person</div></div>
+        <div class="tile ok"><div class="n">${esc(s.resolved)}</div><div class="l">Resolved</div></div>`;
+    } catch (e) {
+      $('tiles').innerHTML = '';
+    }
+  }
+
+  /* ── the list ───────────────────────────────────────────────────────── */
+  async function loadList() {
+    $('list').innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const status = $('status-filter').value;
+      const data = await api({ action: 'list', status: status === 'all' ? undefined : status });
+      const rows = data.failures || [];
+
+      if (!rows.length) {
+        $('list').innerHTML = status === 'open'
+          ? '<p class="muted">Nothing is failing. That is either good news or a sign nothing has been ' +
+            'exercised yet — the log only knows about what has actually run.</p>'
+          : '<p class="muted">Nothing here.</p>';
+        return;
+      }
+
+      $('list').innerHTML = rows.map(f => `
+        <div class="inc" data-id="${esc(f.id)}">
+          <div class="inc-top">
+            <div style="min-width:0;">
+              <div class="inc-src">${esc(f.source)}</div>
+              <div class="inc-msg">${esc(f.message)}</div>
+              <div class="inc-meta">
+                ${esc(KIND_LABELS[f.kind] || f.kind)}
+                · ${esc(f.occurrences)} occurrence${f.occurrences === 1 ? '' : 's'}
+                ${f.affected_users > 0 ? ` · ${esc(f.affected_users)} account${f.affected_users === 1 ? '' : 's'} affected` : ''}
+                · last ${esc(ago(f.last_seen))}
+              </div>
+            </div>
+            <div style="text-align:right;white-space:nowrap;">
+              <span class="pill ${esc(f.severity)}">${esc(f.severity)}</span><br>
+              <span class="pill ${esc(f.status)}" style="margin-top:5px;">${esc(f.status)}</span>
+              ${f.self_healing ? '<br><span class="pill healing" style="margin-top:5px;">self-healing</span>' : ''}
+            </div>
+          </div>
+          ${f.remedy ? `<div class="remedy"><strong>Repair:</strong> ${esc(f.remedy)}</div>` : ''}
+          ${f.self_healing && f.recovery_action
+            ? `<div class="healing-note"><strong>Expected to clear on its own.</strong> ${esc(f.recovery_action)}</div>` : ''}
+        </div>`).join('');
+
+      // Listeners rather than inline onclick: the id is data, and data does
+      // not belong inside an attribute that is parsed as code.
+      $('list').querySelectorAll('.inc').forEach(el => {
+        el.addEventListener('click', () => openIncident(el.getAttribute('data-id')));
+      });
+    } catch (e) {
+      $('list').innerHTML = e.code === 'not_installed'
+        ? `<p class="muted">${esc(e.message)}</p>`
+        : `<p class="muted">Could not load the failure log: ${esc(e.message)}</p>`;
+    }
+  }
+
+  /* ── one incident ───────────────────────────────────────────────────── */
+  async function openIncident(id) {
+    try {
+      const data = await api({ action: 'detail', id });
+      const f = data.failure;
+      openId = f.id;
+
+      $('detail-heading').textContent = f.source;
+      $('detail').innerHTML = `
+        <div class="inc-msg" style="margin-top:0;">${esc(f.message)}</div>
+        <div class="inc-meta" style="margin-bottom:12px;">
+          <span class="pill ${esc(f.severity)}">${esc(f.severity)}</span>
+          <span class="pill ${esc(f.status)}" style="margin-left:6px;">${esc(f.status)}</span>
+          ${f.self_healing ? '<span class="pill healing" style="margin-left:6px;">self-healing</span>' : ''}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <tr><td style="padding:4px 0;color:var(--text3);width:150px;">Kind</td><td>${esc(KIND_LABELS[f.kind] || f.kind)}</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">Occurrences</td><td>${esc(f.occurrences)}</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">Accounts affected</td><td>${esc(f.affected_users)}</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">First seen</td><td>${esc(when(f.first_seen))}</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">Last seen</td><td>${esc(when(f.last_seen))} (${esc(ago(f.last_seen))})</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">Alerts sent</td><td>${esc(f.notify_count || 0)}${f.notified_at ? ', last ' + esc(ago(f.notified_at)) : ''}</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text3);">Incident</td><td style="font-family:ui-monospace,monospace;font-size:11.5px;">${esc(f.fingerprint)}</td></tr>
+        </table>
+        ${f.remedy ? `<div class="remedy"><strong>Repair:</strong> ${esc(f.remedy)}</div>` : ''}
+        ${f.self_healing && f.recovery_action
+          ? `<div class="healing-note"><strong>Expected to clear on its own.</strong> ${esc(f.recovery_action)}</div>` : ''}
+        ${f.note ? `<p class="muted" style="margin-top:12px;"><strong>Note:</strong> ${esc(f.note)}</p>` : ''}
+        ${f.detail && Object.keys(f.detail).length
+          ? `<h2 style="margin-top:18px;">Detail</h2><pre>${esc(JSON.stringify(f.detail, null, 2))}</pre>` : ''}
+        <h2 style="margin-top:18px;">Recent occurrences</h2>
+        ${(data.events || []).length
+          ? data.events.map(ev => `
+              <div class="ev">
+                <span style="color:var(--text3);">${esc(when(ev.occurred_at))}</span>
+                ${ev.user_id ? ` · <span style="color:var(--text3);">account ${esc(String(ev.user_id).slice(0, 8))}</span>` : ''}
+                <div>${esc(ev.message)}</div>
+              </div>`).join('')
+          : '<p class="muted">No individual occurrences retained.</p>'}`;
+
+      $('note').value = f.note || '';
+      $('list-card').style.display = 'none';
+      $('detail-card').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  }
+
+  async function setStatus(status) {
+    if (!openId) return;
+    try {
+      await api({ action: 'update', id: openId, status, note: $('note').value });
+      msg(status === 'resolved'
+        ? 'Marked resolved. If it happens again it will reopen itself.'
+        : 'Acknowledged — the hourly alert stops, the incident stays open.', 'ok');
+      back();
+      await Promise.all([loadSummary(), loadList()]);
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  }
+
+  function back() {
+    openId = null;
+    $('detail-card').style.display = 'none';
+    $('list-card').style.display = 'block';
+  }
+
+  /* ── boot ───────────────────────────────────────────────────────────── */
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
+
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    // The page hides itself from a non-admin, but api/failures.js refuses them
+    // too — this check is convenience, not the security boundary.
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      $('gate').textContent = 'This page is for Audema admins.';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+
+    $('status-filter').addEventListener('change', loadList);
+    $('btn-refresh').addEventListener('click', () => Promise.all([loadSummary(), loadList()]));
+    $('btn-ack').addEventListener('click', () => setStatus('acknowledged'));
+    $('btn-resolve').addEventListener('click', () => setStatus('resolved'));
+    $('btn-back').addEventListener('click', back);
+
+    await Promise.all([loadSummary(), loadList()]);
+
+    const wanted = new URLSearchParams(location.search).get('incident');
+    if (wanted) openIncident(wanted);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

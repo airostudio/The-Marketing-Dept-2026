@@ -11,9 +11,12 @@
     <script src="../js/marked.min.js"></script>
     <script src="/js/supabase.min.js"></script>
     <script src="/js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="/js/intelligence-profiles.js"></script>
     <script src="/js/site-switcher.js"></script>
     <script src="/js/social-posts-store.js"></script>
+    <script src="/js/brand-kit-store.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -146,6 +149,7 @@
             background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.22); border-radius: 8px;
         }
         .review-signin-note a { color: #f59e0b; font-weight: 600; }
+        .ad-gen-progress-errors { font-size: 12px; color: #ef4444; margin-top: 6px; line-height: 1.6; }
         .post-card {
             background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px;
             padding: 14px 16px; margin-bottom: 12px; transition: opacity 0.2s, transform 0.2s;
@@ -183,6 +187,13 @@
         .post-card-image-badge.template { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
         .post-card-image-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
         .post-card-ai-disclosure { font-size: 10.5px; color: #f59e0b; line-height: 1.5; margin: -4px 0 10px; }
+        .post-card-video-wrap { position: relative; margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .post-card-video-wrap video { display: block; width: 100%; height: auto; max-height: 420px; background: #000; }
+        .post-card-video-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; backdrop-filter: blur(6px); background: rgba(124,58,237,0.75); color: #fff; }
+        .post-card-video-status { font-size: 11.5px; color: #a78bfa; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .post-card-video-error { font-size: 11.5px; color: #ef4444; margin-bottom: 8px; }
+        .post-card-btn.video:hover { border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+        .post-card-btn.download { background: rgba(255,255,255,0.03); }
         .post-card-quick-link { display: block; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: 'Inter', sans-serif; padding: 0; }
         .credits-upsell { margin-bottom: 10px; padding: 14px 16px; border-radius: 10px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); }
         .credits-upsell-title { font-weight: 700; color: #fbbf24; margin-bottom: 4px; font-size: 13px; }
@@ -257,6 +268,7 @@
             <div class="mode-toggle" id="modeToggle">
                 <button type="button" class="mode-btn active" data-mode="organic" onclick="setStudioMode('organic')">📱 Organic Posts</button>
                 <button type="button" class="mode-btn" data-mode="ads" onclick="setStudioMode('ads')">🎯 Ad Campaign</button>
+                <button type="button" class="mode-btn" data-mode="sequence" onclick="setStudioMode('sequence')">📅 Campaign Sequence</button>
             </div>
 
             <!-- ── One-shot business research (native.no-style "just paste a URL") ── -->
@@ -386,13 +398,64 @@
                 <input class="field-input" id="adCompetitors" type="text" placeholder="e.g. HubSpot, Salesforce, Mailchimp">
             </div>
 
-            <!-- Convert A/B Experiment Data -->
-            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:12px;">
-                <div style="font-weight:700;color:#10b981;margin-bottom:4px;">Convert A/B Data Loaded</div>
+            <!-- Convert A/B Experiment Data.
+                 Header text and panel colour are set by loadConvertData() to
+                 match what actually happened. They used to be hardcoded to the
+                 green "Convert A/B Data Loaded" success state, so a failed
+                 load — including "credentials not configured", where nothing
+                 was fetched at all — still rendered under a green banner
+                 announcing that the data had loaded. -->
+            <div id="convertExperimentPanel" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-size:12px;">
+                <div id="convertExperimentHeader" style="font-weight:700;margin-bottom:4px;"></div>
                 <div id="convertExperimentSummary" style="color:rgba(255,255,255,0.6);line-height:1.5;"></div>
             </div>
             <button class="btn-icon" style="width:100%;margin-top:8px;padding:7px;font-size:11px;" id="loadConvertBtn" onclick="loadConvertData()" type="button">Load Convert A/B Experiments</button>
             </div><!-- /adFields -->
+
+            <!-- ── Campaign Sequence mode fields ── a deliberate pain→solution
+                 narrative arc, not independent posts — see api/generate-campaign-sequence.js -->
+            <div id="sequenceFields" style="display:none;">
+            <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);margin-bottom:14px;line-height:1.6;">
+                Builds an ordered run of posts that recognises the problem first and introduces your product
+                only in the final post — the "pain-amplification" structure of a real organic-then-paid LinkedIn
+                campaign, instead of independent one-off variants.
+            </div>
+            <div class="field-group">
+                <label class="field-label">Platform</label>
+                <div class="platform-grid" id="sequencePlatformGrid">
+                    <div class="platform-btn active" data-value="LinkedIn">in LinkedIn</div>
+                    <div class="platform-btn" data-value="Instagram">📸 Instagram</div>
+                    <div class="platform-btn" data-value="Facebook">Facebook</div>
+                    <div class="platform-btn" data-value="Twitter/X">𝕏 Twitter/X</div>
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Core Pain Point / Insight</label>
+                <textarea class="field-textarea" id="sequencePainPoint" style="min-height:80px;" placeholder="What's the real frustration your audience has that they don't talk about openly? e.g. 'Business owners are embarrassed by their own outdated website.'"></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Product / Offer <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— only appears in the final post</span></label>
+                <textarea class="field-textarea" id="sequenceProduct" style="min-height:70px;" placeholder="What you're building up to. Kept out of every post except the last."></textarea>
+            </div>
+            <div class="field-group">
+                <label class="field-label">Target Audience</label>
+                <textarea class="field-textarea" id="sequenceAudience" style="min-height:60px;" placeholder="Who is this for? Role, industry, company size…"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="field-group">
+                    <label class="field-label">Number of Posts</label>
+                    <select class="field-select" id="sequencePostCount">
+                        <option value="3">3 posts</option>
+                        <option value="5">5 posts</option>
+                        <option value="7" selected>7 posts (full arc)</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Start Date <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,0.3);">— Mon/Wed/Fri cadence</span></label>
+                    <input class="field-input" id="sequenceStartDate" type="date">
+                </div>
+            </div>
+            </div><!-- /sequenceFields -->
 
             <button class="btn-run" id="runBtn" onclick="agent.run()" style="margin-top:14px;">Create Content</button>
         </div>
@@ -403,7 +466,7 @@
             <span class="panel-title">Content Output</span>
             <div style="display:flex;gap:8px;">
                 <button class="btn-icon" id="csvBtn" onclick="exportCalendarCSV()" style="display:none;color:#8b5cf6;border-color:rgba(var(--agent-color-rgb),0.3);">⬇ Buffer CSV</button>
-                <button class="btn-icon" onclick="copyOutput()">Copy</button>
+                <button class="btn-icon" onclick="copyOutput(this)">Copy</button>
                 <button class="btn-icon" onclick="downloadOutput()">Download</button>
             </div>
         </div>
@@ -483,32 +546,51 @@
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-history.js"></script>
 <script>
-// Platform selection (single)
+// Platform selection (single) — scoped per grid, since organic mode's
+// #platformGrid and Campaign Sequence mode's #sequencePlatformGrid are two
+// independent single-selects, not one shared selection across both panels.
 document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+        const grid = btn.closest('.platform-grid');
+        (grid ? grid.querySelectorAll('.platform-btn') : document.querySelectorAll('.platform-btn'))
+            .forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     });
 });
 
 function getSelectedPlatform() {
-    const active = document.querySelector('.platform-btn.active');
+    const active = document.querySelector('#platformGrid .platform-btn.active');
+    return active ? active.dataset.value : 'LinkedIn';
+}
+
+function getSelectedSequencePlatform() {
+    const active = document.querySelector('#sequencePlatformGrid .platform-btn.active');
     return active ? active.dataset.value : 'LinkedIn';
 }
 
 /* ── Studio mode: organic posts vs ad campaign ─────────────────────────── */
 let studioMode = 'organic';
 
+const MODE_EMPTY_TEXT = {
+    ads: 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.',
+    sequence: 'Your campaign sequence will appear here. Describe the pain point, product, and audience, then click Generate.',
+    organic: 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.',
+};
+const MODE_RUN_LABEL = {
+    ads: 'Generate Ad Variants',
+    sequence: 'Generate Campaign Sequence',
+    organic: 'Create Content',
+};
+
 function setStudioMode(mode) {
     const modeChanged = mode !== studioMode;
     studioMode = mode;
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    document.getElementById('organicFields').style.display = mode === 'organic' ? '' : 'none';
-    document.getElementById('adFields').style.display      = mode === 'ads' ? '' : 'none';
-    document.getElementById('runBtn').textContent          = mode === 'ads' ? 'Generate Ad Variants' : 'Create Content';
-    const emptyText = mode === 'ads'
-        ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
-        : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.';
+    document.getElementById('organicFields').style.display  = mode === 'organic' ? '' : 'none';
+    document.getElementById('adFields').style.display       = mode === 'ads' ? '' : 'none';
+    document.getElementById('sequenceFields').style.display = mode === 'sequence' ? '' : 'none';
+    document.getElementById('runBtn').textContent           = MODE_RUN_LABEL[mode] || MODE_RUN_LABEL.organic;
+    const emptyText = MODE_EMPTY_TEXT[mode] || MODE_EMPTY_TEXT.organic;
     if (modeChanged) {
         // Reset output to the mode-appropriate empty state so stale cross-mode output never lingers
         document.getElementById('output').innerHTML = `<div class="output-empty">${emptyText}</div>`;
@@ -520,11 +602,15 @@ function setStudioMode(mode) {
         const empty = document.querySelector('#output .output-empty');
         if (empty) empty.textContent = emptyText;
     }
-    if (mode === 'ads') {
+    if (mode !== 'organic') {
         const csvBtn = document.getElementById('csvBtn');
         if (csvBtn) csvBtn.style.display = 'none';
     }
     if (mode === 'ads' && typeof agent !== 'undefined') agent.loadAdBriefFromBrain();
+    if (mode === 'sequence') {
+        const startInput = document.getElementById('sequenceStartDate');
+        if (startInput && !startInput.value) startInput.value = nextCadenceStartDate();
+    }
 }
 
 /* ── One-shot business research: native.no's "just paste a URL" onboarding ──
@@ -561,7 +647,7 @@ async function runBusinessResearch() {
     try {
         const res = await fetch('/api/enrich-business', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ url }),
         });
         const data = await res.json();
@@ -598,6 +684,7 @@ async function runBusinessResearch() {
     } catch (err) {
         status.textContent = 'Research failed: ' + err.message;
         status.className = 'research-status error';
+        if (window.reportFailure) window.reportFailure('Social Studio research failed: ' + err.message, { where: 'social-agent.research' });
     } finally {
         goBtn.disabled = false;
         goBtn.textContent = 'Research';
@@ -636,6 +723,28 @@ function renderResearchIdeas(data) {
 let _reviewPosts    = [];   // current batch: normalized {id, platform, hook, headline, body, cta, hashtags, meta, status}
 let _reviewPlanNote = '';
 let _reviewCloudBacked = false; // true once persisted to SocialPostsStore (signed in)
+let _reviewSaveError = null;    // set when a save was attempted and failed, which is not the same as being signed out
+
+// Set while runAds() is generating platforms one at a time — a single request
+// asking Claude for every platform's variants at once was what actually caused
+// the "times out most of the time" reports: the fewer platforms/variants in one
+// call, the less likely it is to blow the 55s upstream budget. Sequential calls
+// also mean an early platform's cards render immediately instead of the whole
+// batch waiting on the slowest (or a failed) one.
+let _adGenProgress = null; // { done, total, currentPlatform, errors: [{platform, message}] }
+
+function renderGenProgressBanner() {
+    if (!_adGenProgress) return '';
+    const { done, total, currentPlatform, errors } = _adGenProgress;
+    const finished = done >= total;
+    let html = finished
+        ? `<div class="typing-indicator" style="padding:10px 0;">Generated ${total - errors.length} of ${total} platform(s).</div>`
+        : `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Generating ${escHtmlCard(currentPlatform)} (${done + 1} of ${total})…</div>`;
+    if (errors.length) {
+        html += `<div class="ad-gen-progress-errors">${errors.map(e => `⚠️ ${escHtmlCard(e.platform)}: ${escHtmlCard(e.message)}`).join('<br>')}</div>`;
+    }
+    return html;
+}
 
 function normalizeAdVariant(v, i) {
     return {
@@ -679,23 +788,85 @@ function normalizeOrganicPost(p, i) {
     };
 }
 
+/* ── Campaign Sequence: Mon/Wed/Fri cadence date math ────────────────────
+   Kept deliberately simple for v1 — a fixed 3x/week cadence, same rhythm as
+   the "Day / Post / Purpose" table a real pain-amplification campaign runs
+   on. A configurable cadence can come later if this fixed one proves too
+   rigid; nothing in generate-campaign-sequence.js's response depends on it,
+   since the server never sees or assigns dates — this is presentation only. */
+const SEQUENCE_CADENCE_WEEKDAYS = [1, 3, 5]; // Mon, Wed, Fri (Date#getDay(): 0=Sun)
+
+/** ISO yyyy-mm-dd for the next Monday from today (never today itself, even if today is Monday) — a safe default for a date input the user can still override. */
+function nextCadenceStartDate() {
+    const d = new Date();
+    const day = d.getDay();
+    const addDays = ((1 - day + 7) % 7) || 7;
+    d.setDate(d.getDate() + addDays);
+    return d.toISOString().slice(0, 10);
+}
+
+/** Walks forward from startDateStr (a yyyy-mm-dd date-input value), collecting `count` Mon/Wed/Fri dates, starting from the first cadence day on or after that date. */
+function computeSequenceDates(startDateStr, count) {
+    const start = startDateStr ? new Date(startDateStr + 'T09:00:00') : new Date(nextCadenceStartDate() + 'T09:00:00');
+    const dates = [];
+    const d = new Date(start);
+    while (dates.length < count) {
+        if (SEQUENCE_CADENCE_WEEKDAYS.includes(d.getDay())) dates.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+    }
+    return dates;
+}
+
+function normalizeSequencePost(v, i, scheduledAtDate, total) {
+    const when = scheduledAtDate ? scheduledAtDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+    return {
+        id: `local_${Date.now()}_${i}`,
+        source: 'organic',
+        platform: v.platform,
+        angleType: null,
+        hook: v.hook,
+        headline: v.title,
+        body: v.body,
+        cta: null,
+        hashtags: v.hashtags || [],
+        proofPoint: null,
+        urgencyLine: null,
+        visualDirection: null,
+        meta: `🎯 Stage ${v.sequencePosition} of ${total} — ${v.funnelStage}${when ? ' · ' + when : ''}\n${v.purpose || ''}`,
+        metadata: { funnelStage: v.funnelStage, sequencePosition: v.sequencePosition, sequenceTotal: total, purpose: v.purpose },
+        scheduledAt: scheduledAtDate ? scheduledAtDate.toISOString() : undefined,
+        status: 'pending_review',
+    };
+}
+
 /** Persist a freshly-generated batch (best-effort — works signed-out too, just not saved). */
 async function persistReviewBatch(posts) {
     _reviewCloudBacked = false;
+    _reviewSaveError = null;
     if (!window.SocialPostsStore) return posts;
     try {
         const { posts: saved } = await window.SocialPostsStore.createBatch(posts.map(p => ({
             source: p.source, platform: p.platform, angleType: p.angleType, hook: p.hook,
             headline: p.headline, body: p.body, cta: p.cta, hashtags: p.hashtags,
             proofPoint: p.proofPoint, urgencyLine: p.urgencyLine, visualDirection: p.visualDirection,
-            metadata: p.metadata,
+            metadata: p.metadata, scheduledAt: p.scheduledAt,
         })));
         _reviewCloudBacked = true;
         clearReviewDraft(); // safely in the cloud now — the local backup copy is redundant
         // Re-attach real DB ids/status to the normalized posts, preserving order
         return posts.map((p, i) => ({ ...p, id: saved[i]?.id || p.id, status: saved[i]?.status || p.status }));
     } catch (err) {
+        // This used to be a console warning and nothing else. The banner below
+        // keys off _reviewCloudBacked, so a signed-in customer whose save
+        // failed was told to "sign in to save this review queue" — our outage,
+        // reported as their auth state, on a page holding work they just paid
+        // an AI call to generate.
         console.warn('[SocialStudio] Could not save review queue to cloud:', err.message);
+        _reviewSaveError = err.message || 'unknown error';
+        if (window.reportFailure) {
+            window.reportFailure('Social Studio could not save the review queue: ' + _reviewSaveError,
+                { where: 'social-agent.persistReviewBatch', postCount: posts.length });
+        }
         return posts;
     }
 }
@@ -754,8 +925,9 @@ function renderReviewQueue() {
     saveReviewDraftToLocalStorage();
 
     const outputEl = document.getElementById('output');
+    const progressHtml = renderGenProgressBanner();
     if (!_reviewPosts.length) {
-        outputEl.innerHTML = `<div class="output-empty">${studioMode === 'ads'
+        outputEl.innerHTML = progressHtml || `<div class="output-empty">${studioMode === 'ads'
             ? 'Your ad variants will appear here. Pick platforms and frameworks, fill in the brief, then click Generate.'
             : 'Your social content will appear here. Select your platform, enter a topic, and click Create Content.'}</div>`;
         return;
@@ -765,9 +937,13 @@ function renderReviewQueue() {
     const rejectedCount = _reviewPosts.filter(p => p.status === 'rejected').length;
     const pendingCount  = _reviewPosts.length - approvedCount - rejectedCount;
 
-    let html = `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
+    let html = progressHtml;
+    if (_reviewPlanNote) html += `<div class="review-plan-note">${escHtmlCard(_reviewPlanNote)}</div>`;
     if (!_reviewCloudBacked) {
-        html += `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
+        html += _reviewSaveError
+            ? `<div class="review-signin-note">These posts could not be saved to your account: ${escHtmlCard(_reviewSaveError)}.
+                 They are kept in this browser only — a closed tab loses them. Regenerate or retry once the problem clears.</div>`
+            : `<div class="review-signin-note">Sign in to save this review queue and add approved posts to your content calendar. <a href="/index.html?openAuth=login">Sign in →</a></div>`;
     }
     const creditsNote = _lastCreditsRemaining !== null
         ? `<span class="credits-meter${_lastCreditsRemaining < 500 ? ' low' : ''}">🎨 ${_lastCreditsRemaining.toLocaleString()} AI image credits left</span>`
@@ -780,14 +956,17 @@ function renderReviewQueue() {
                 <span class="post-card-platform">${escHtmlCard(p.platform)}${p.angleType ? ' · ' + escHtmlCard(p.angleType) : ''}</span>
                 <span class="post-card-status ${p.status}">${p.status.replace('_', ' ')}</span>
             </div>
-            ${p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${p.imageUrl}" alt="Generated creative"></div>` : ''}
-            ${p.imageUrl && p.imageIsAI ? `<div class="post-card-ai-disclosure">⚠️ AI-generated image — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
+            ${p.videoUrl ? `<div class="post-card-video-wrap"><span class="post-card-video-badge">✨ AI Reel</span><video src="${escHtmlCard(p.videoUrl)}" controls playsinline></video></div>`
+                : (p.imageUrl ? `<div class="post-card-image-wrap"><span class="post-card-image-badge ${p.imageIsAI ? 'ai' : 'template'}">${p.imageIsAI ? '✨ AI Generated' : 'Quick Template'}</span><img src="${escHtmlCard(p.imageUrl)}" alt="Generated creative"></div>` : '')}
+            ${(p.imageUrl && p.imageIsAI) || p.videoUrl ? `<div class="post-card-ai-disclosure">⚠️ AI-generated ${p.videoUrl ? 'video' : 'image'} — declare this as AI content when you upload to Meta/TikTok; Meta may also auto-label it.</div>` : ''}
             ${p.imageError ? `<div class="post-card-image-error">Image generation failed: ${escHtmlCard(p.imageError)}</div>` : ''}
+            ${p._videoLoading ? `<div class="post-card-video-status"><span class="spinner" style="display:inline-block;width:12px;height:12px;"></span> ${escHtmlCard(p._videoStatusText || 'Rendering Reel…')}</div>` : ''}
+            ${p.videoError ? `<div class="post-card-video-error">Reel generation failed: ${escHtmlCard(p.videoError)}</div>` : ''}
             ${p.outOfCredits ? `
                 <div class="credits-upsell">
                     <div class="credits-upsell-title">⚡ Out of AI image credits</div>
                     <div class="credits-upsell-body">${escHtmlCard(p.outOfCredits.message)}</div>
-                    <a class="credits-upsell-btn" href="${p.outOfCredits.upgradeUrl || '/index.html#pricing'}" target="_blank" rel="noopener">Upgrade for more credits →</a>
+                    <a class="credits-upsell-btn" href="${escHtmlCard(p.outOfCredits.upgradeUrl || '/index.html#pricing')}" target="_blank" rel="noopener">Upgrade for more credits →</a>
                 </div>` : ''}
             <div class="post-card-hook">${escHtmlCard(p.hook || p.headline)}</div>
             <div class="post-card-text">${escHtmlCard(p.body)}</div>
@@ -798,6 +977,8 @@ function renderReviewQueue() {
                 <button class="post-card-btn reject" onclick="rejectPost('${p.id}')" ${p.status === 'rejected' ? 'disabled' : ''}>✕ Reject</button>
                 <button class="post-card-btn regen" onclick="regeneratePost('${p.id}')">↻ Regenerate</button>
                 <button class="post-card-btn image" onclick="generateCardImage('${p.id}')" ${p._imageLoading ? 'disabled' : ''}>${p._imageLoading ? '⏳ Generating…' : '✨ ' + (p.imageUrl ? 'Regenerate Image' : 'Generate Ad Image')}</button>
+                <button class="post-card-btn video" onclick="generateCardVideo('${p.id}')" ${p._videoLoading ? 'disabled' : ''}>${p._videoLoading ? '⏳ Rendering…' : '🎬 ' + (p.videoUrl ? 'Regenerate Reel' : 'Generate Reel')}</button>
+                ${(p.videoUrl || p.imageUrl) ? `<button class="post-card-btn download" onclick="downloadCardCreative('${p.id}')">⬇ Download</button>` : ''}
                 <button class="post-card-btn approve" onclick="approvePost('${p.id}')" ${p.status === 'approved' ? 'disabled' : ''}>✓ Approve</button>
             </div>
             ${!p._imageLoading ? `<button class="post-card-quick-link" onclick="generateCardImageQuick('${p.id}')">Use free quick template instead (instant, no AI, placeholder-quality)</button>` : ''}
@@ -845,6 +1026,24 @@ function getCreditScope() {
 
 let _lastCreditsRemaining = null;
 
+// Fetched once per page load, not once per generation — the kit rarely
+// changes mid-session and every card's Generate click would otherwise cost
+// its own round trip. A stale cache just means a logo/color update made
+// during this same session shows up next reload, not a wrong or unsafe value.
+let _brandKitCache = null;
+async function getBrandForGeneration() {
+    if (_brandKitCache) return _brandKitCache;
+    if (!window.BrandKitStore) return {};
+    try {
+        const kit = await window.BrandKitStore.getBrandKit();
+        _brandKitCache = (kit && !kit.error) ? { colours: kit.colours || {}, fonts: kit.fonts || {}, logoUrl: kit.logo_url || null } : {};
+    } catch (err) {
+        console.warn('[SocialStudio] Could not load brand kit:', err.message);
+        _brandKitCache = {};
+    }
+    return _brandKitCache;
+}
+
 /** Generate a real, finished AI ad creative (PNG/JPEG/WEBP) for one card via /api/generate-ad-image. */
 async function generateCardImage(id) {
     const post = findReviewPost(id);
@@ -856,9 +1055,10 @@ async function generateCardImage(id) {
     renderReviewQueue();
 
     try {
+        const brand = await getBrandForGeneration();
         const res = await fetch('/api/generate-ad-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -870,6 +1070,7 @@ async function generateCardImage(id) {
                 product: document.getElementById('adProduct')?.value || '',
                 audience: document.getElementById('adAudience')?.value || '',
                 format: 'png',
+                brand: brand.colours && Object.keys(brand.colours).length ? { colours: brand.colours } : undefined,
                 ...getCreditScope(),
             }),
         });
@@ -912,9 +1113,11 @@ async function generateCardImageQuick(id) {
     renderReviewQueue();
 
     try {
+        const brand = await getBrandForGeneration();
+        const hasBrand = (brand.colours && Object.keys(brand.colours).length) || (brand.fonts && Object.keys(brand.fonts).length);
         const res = await fetch('/api/render-social-image', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await window.sendAuthHeaders(),
             body: JSON.stringify({
                 headline: post.headline || post.hook,
                 subheadline: post.headline && post.hook && post.headline !== post.hook ? post.hook : (post.body || '').slice(0, 200),
@@ -923,6 +1126,7 @@ async function generateCardImageQuick(id) {
                 urgencyLine: post.urgencyLine || '',
                 platform: post.platform,
                 visualDirection: post.visualDirection || '',
+                brand: hasBrand ? { colours: brand.colours, fonts: brand.fonts } : undefined,
             }),
         });
         const data = await res.json();
@@ -943,6 +1147,128 @@ async function generateCardImageQuick(id) {
     renderReviewQueue();
 }
 
+const CARD_VIDEO_MAX_ATTEMPTS = 60; // ~5 minutes at 5s intervals — same budget as video-agent.html's own poller
+
+/** Condense a post's copy into a short scene-description prompt Seedance can act on. */
+function condenseCardCopyForVideoPrompt(post) {
+    const parts = [post.hook || post.headline, post.body, post.cta].filter(Boolean);
+    let t = parts.join('. ').replace(/\s+/g, ' ').trim();
+    if (t.length > 500) t = t.slice(0, 500).trim() + '...';
+    return t || 'A short, on-brand social video for this post.';
+}
+
+/**
+ * Generate a real AI Reel/short video for one card via /api/generate-video
+ * (Seedance 2.0) — same async create → poll → mirror-to-R2 pipeline
+ * video-agent.html already uses, wired into this grid instead of a separate
+ * page, so a batch of posts can include real video alongside images without
+ * leaving Social Studio. Costs whatever the account's Ark/Seedance key
+ * bills per clip — same as video-agent.html, no additional credit gate
+ * introduced here since none exists on that endpoint today.
+ */
+async function generateCardVideo(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+
+    post._videoLoading = true;
+    post._videoStatusText = 'Sending to Seedance 2.0…';
+    post.videoError = null;
+    renderReviewQueue();
+
+    // Reels/TikTok/Instagram-style vertical video for anything that isn't
+    // explicitly a landscape-native platform.
+    const aspectRatio = /twitter|x\b|facebook/i.test(post.platform || '') ? '16:9' : '9:16';
+
+    try {
+        const res = await fetch('/api/generate-video', {
+            method: 'POST',
+            headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({
+                action: 'create',
+                prompt: condenseCardCopyForVideoPrompt(post),
+                mode: 'text-to-video',
+                aspectRatio,
+                duration: 5,
+                resolution: '1080p',
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        if (!data.taskId) throw new Error('Seedance did not return a task id.');
+
+        post._videoStatusText = 'Rendering…';
+        renderReviewQueue();
+        pollCardVideoStatus(id, data.taskId, 0);
+    } catch (err) {
+        post._videoLoading = false;
+        post.videoError = err.message;
+        renderReviewQueue();
+    }
+}
+
+async function pollCardVideoStatus(id, taskId, attempts) {
+    const post = findReviewPost(id);
+    if (!post) return; // card was removed/rejected mid-render
+
+    if (attempts >= CARD_VIDEO_MAX_ATTEMPTS) {
+        post._videoLoading = false;
+        post.videoError = 'Timed out waiting for the video to finish rendering.';
+        renderReviewQueue();
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/generate-video', {
+            method: 'POST',
+            headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({ action: 'status', taskId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        if (data.status === 'succeeded') {
+            post._videoLoading = false;
+            post.videoUrl = data.videoUrl;
+            renderReviewQueue();
+            if (_reviewCloudBacked && window.SocialPostsStore && !String(id).startsWith('local_')) {
+                try { await window.SocialPostsStore.updatePost(id, { video_url: data.videoUrl }); } catch (err) { console.warn(err.message); }
+            }
+            return;
+        }
+        if (data.status === 'failed') {
+            post._videoLoading = false;
+            post.videoError = data.error || 'Video generation failed.';
+            renderReviewQueue();
+            return;
+        }
+        // pending/processing — keep waiting
+        setTimeout(() => pollCardVideoStatus(id, taskId, attempts + 1), 5000);
+    } catch (err) {
+        post._videoLoading = false;
+        post.videoError = err.message;
+        renderReviewQueue();
+    }
+}
+
+/** Download this card's finished creative (video takes priority — a card only ever shows one at a time). */
+function downloadCardCreative(id) {
+    const post = findReviewPost(id);
+    if (!post) return;
+    const url = post.videoUrl || post.hostedImageUrl || post.imageUrl;
+    if (!url) return;
+    if (url.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(post.platform || 'post').replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${id}.png`;
+        a.click();
+        return;
+    }
+    // A remote (R2-hosted) URL — download opens in a new tab if the host
+    // doesn't send Content-Disposition, same accepted tradeoff already made
+    // for video-agent.html's own Download links.
+    window.open(url, '_blank', 'noopener');
+}
+
 /** Regenerate a single card: reject the old one, generate one replacement in its place. */
 async function regeneratePost(id) {
     const idx = _reviewPosts.findIndex(p => p.id === id);
@@ -957,7 +1283,7 @@ async function regeneratePost(id) {
         let replacement;
         if (original.source === 'ad') {
             const res = await fetch('/api/generate-ads', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], objective: document.getElementById('adObjective')?.value || 'Conversions',
                     product: (document.getElementById('adProduct')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this variant distinctly different from: "${original.headline}"` : `\n\nMake this variant distinctly different from: "${original.headline}"`),
@@ -971,7 +1297,7 @@ async function regeneratePost(id) {
             replacement = normalizeAdVariant(data.variants[0], idx);
         } else {
             const res = await fetch('/api/generate-social-posts', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platforms: [original.platform], contentGoal: document.getElementById('contentGoal')?.value || 'Engagement',
                     topic: (document.getElementById('topic')?.value || '') + (instruction ? `\n\nRegeneration instruction: ${instruction}. Make this distinctly different from: "${original.hook}"` : `\n\nMake this distinctly different from: "${original.hook}"`),
@@ -1030,26 +1356,94 @@ function getSelectedFrameworks() {
 /* Convert A/B experiment data (winning copy feeds new ad variants) */
 let _convertData = null;
 
+/** Escape text for safe interpolation into the panel's innerHTML. */
+function escapeConvertText(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/**
+ * Paint the Convert panel in one of four honest states. The panel must never
+ * claim data loaded unless experiments were actually returned.
+ * @param {'loaded'|'setup'|'error'|'empty'} state
+ */
+function setConvertPanelState(state, headerText, summaryHtml) {
+    const panel = document.getElementById('convertExperimentPanel');
+    const header = document.getElementById('convertExperimentHeader');
+    const summary = document.getElementById('convertExperimentSummary');
+
+    const NEUTRAL = { colour: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' };
+    const palette = {
+        loaded: { colour: '#10b981', bg: 'rgba(16,185,129,0.07)',  border: 'rgba(16,185,129,0.2)' },
+        empty:  NEUTRAL,
+        setup:  { colour: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.25)' },
+        error:  { colour: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.25)' },
+    }[state] || NEUTRAL;
+
+    header.textContent = headerText;
+    header.style.color = palette.colour;
+    summary.innerHTML = summaryHtml;
+    panel.style.background = palette.bg;
+    panel.style.border = `1px solid ${palette.border}`;
+    panel.style.display = 'block';
+}
+
 async function loadConvertData() {
     const btn = document.getElementById('loadConvertBtn');
-    const panel = document.getElementById('convertExperimentPanel');
-    const summary = document.getElementById('convertExperimentSummary');
     btn.disabled = true;
     btn.textContent = 'Loading experiments…';
     try {
-        const res = await fetch('/api/convert-experiments', { method: 'GET' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load experiments');
+        const res = await fetch('/api/convert-experiments', { method: 'GET', headers: await window.sendAuthHeaders() });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            // The endpoint returns setupUrl only for the "credentials not
+            // configured" case, which is a setup step rather than a failure —
+            // worth distinguishing so it doesn't read as something broken.
+            const err = new Error(data.error || `Failed to load experiments (HTTP ${res.status})`);
+            err.setupUrl = data.setupUrl;
+            throw err;
+        }
+
+        const experiments = data.experiments || [];
+        const winners = experiments.filter(e => e.winner).length;
+
+        if (experiments.length === 0) {
+            // Connected fine, but there is nothing to feed the ad variants.
+            _convertData = null;
+            setConvertPanelState('empty', 'Convert connected — no experiments yet',
+                'Convert.com returned no active or finished experiments in the last 90 days, so there are no winners to build on. New ad variants will be generated without A/B context.');
+            btn.textContent = 'Reload Convert Data';
+            return;
+        }
+
         _convertData = data;
-        const expCount = data.experiments?.length || 0;
-        const winners = data.experiments?.filter(e => e.winner).length || 0;
-        summary.innerHTML = `${expCount} experiments found · ${winners} with declared winners · Top performer: ${data.topPerformer || 'N/A'}`;
-        panel.style.display = 'block';
+        setConvertPanelState('loaded', 'Convert A/B Data Loaded',
+            `${experiments.length} experiment${experiments.length === 1 ? '' : 's'} found · ` +
+            `${winners} with declared winner${winners === 1 ? '' : 's'} · ` +
+            `Top performer: ${data.topPerformer || 'N/A'}` +
+            (winners === 0 ? '<br><span style="color:rgba(255,255,255,0.4);">No declared winners yet, so no winning copy will be fed into new variants.</span>' : ''));
         btn.textContent = 'Reload Convert Data';
+
     } catch (err) {
-        summary.innerHTML = `<span style="color:#ef4444;">${err.message}</span><br><span style="color:rgba(255,255,255,0.4);">Add CONVERT_API_KEY + CONVERT_API_SECRET in Vercel env vars.</span>`;
-        panel.style.display = 'block';
-        btn.textContent = 'Retry Convert Data';
+        // Nothing loaded — make sure stale data from an earlier successful
+        // load can't keep silently feeding the ad prompt after a failure.
+        _convertData = null;
+
+        if (err.setupUrl) {
+            setConvertPanelState('setup', 'Convert A/B not connected',
+                'Add <code>CONVERT_API_KEY</code> and <code>CONVERT_API_SECRET</code> in your Vercel environment variables, then reload. ' +
+                `<a href="${escapeConvertText(err.setupUrl)}" target="_blank" rel="noopener noreferrer" style="color:#f59e0b;text-decoration:underline;">Get your Convert API keys →</a>` +
+                '<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>');
+            btn.textContent = 'Retry Convert Data';
+        } else {
+            setConvertPanelState('error', "Couldn't load Convert A/B data",
+                `${escapeConvertText(err.message)}<br><span style="color:rgba(255,255,255,0.4);">Ads will still generate — just without A/B winner context.</span>`);
+            btn.textContent = 'Retry Convert Data';
+        }
     } finally {
         btn.disabled = false;
     }
@@ -1327,7 +1721,72 @@ class SocialAgent {
 
     async run() {
         if (studioMode === 'ads') return this.runAds();
+        if (studioMode === 'sequence') return this.runSequence();
         return this.runOrganic();
+    }
+
+    /* Campaign Sequence mode — dedicated /api/generate-campaign-sequence endpoint:
+       a deliberate pain→solution narrative arc, not independent variants. */
+    async runSequence() {
+        const painPoint = document.getElementById('sequencePainPoint').value.trim();
+        const product   = document.getElementById('sequenceProduct').value.trim();
+        const audience  = document.getElementById('sequenceAudience').value.trim();
+        if (!painPoint || !product || !audience) {
+            alert('Please fill in the Pain Point, Product/Offer, and Target Audience fields.');
+            return;
+        }
+
+        const platform  = getSelectedSequencePlatform();
+        const postCount = parseInt(document.getElementById('sequencePostCount').value, 10) || 7;
+        const startDate = document.getElementById('sequenceStartDate').value || nextCadenceStartDate();
+        const tone      = Array.isArray(this.brandVoice) ? this.brandVoice.join(', ') : '';
+
+        const outputEl = document.getElementById('output');
+        const runBtn   = document.getElementById('runBtn');
+
+        let contextBundle = null;
+        if (this.intelligenceEngine) contextBundle = this.intelligenceEngine.getContextBundle();
+        let bizContext = '';
+        if (contextBundle?.isReady && contextBundle.businessContext) bizContext += contextBundle.businessContext;
+        bizContext += this.buildResearchedContext();
+        bizContext = bizContext.trim().slice(0, 1400);
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Generating…';
+        outputEl.innerHTML = `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing the ${postCount}-post campaign arc for ${platform}…</div>`;
+
+        try {
+            const res = await fetch('/api/generate-campaign-sequence', {
+                method: 'POST',
+                headers: await window.sendAuthHeaders(),
+                body: JSON.stringify({ platform, painPoint, product, audience, postCount, tone, businessContext: bizContext }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+            const dates = computeSequenceDates(startDate, data.posts.length);
+            const normalized = data.posts.map((p, i) => normalizeSequencePost(p, i, dates[i], data.posts.length));
+
+            _reviewPlanNote = data.campaignNote || '';
+            _reviewPosts = await persistReviewBatch(normalized);
+            renderReviewQueue();
+            outputEl.scrollTop = 0;
+
+            if (window.AgentHistory && data.content?.trim()) {
+                window.AgentHistory.save({
+                    agentKey: 'ads',
+                    taskType: platform + ' Campaign Sequence',
+                    content: data.content,
+                    topic: painPoint.slice(0, 60),
+                });
+            }
+        } catch (err) {
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio campaign sequence generation failed: ' + err.message, { where: 'social-agent.runSequence' });
+        } finally {
+            runBtn.disabled    = false;
+            runBtn.textContent = 'Generate Campaign Sequence';
+        }
     }
 
     /* Ad Campaign mode — dedicated /api/generate-ads endpoint with 8 advertising frameworks */
@@ -1364,9 +1823,22 @@ class SocialAgent {
 
         runBtn.disabled = true;
         runBtn.textContent = 'Generating…';
-        outputEl.innerHTML = tipHtml + `<div class="typing-indicator"><div class="dot-pulse"><span></span><span></span><span></span></div> Writing ${variants} variants for ${platforms.join(', ')} using ${frameworks.join(' + ')}…</div>`;
 
-        const body = { platforms, objective, product, audience, models: frameworks, tone, budget, competitors, variants };
+        // One platform's variants per request, run sequentially, rendered as each
+        // succeeds — asking Claude for every platform in a single call was what
+        // actually caused the "times out most of the time" reports: the bigger
+        // the combined output (platforms × variants), the more likely a single
+        // request blows the 55s upstream budget. Smaller per-platform calls are
+        // each far less likely to time out, and a slow or failed platform no
+        // longer holds up the ones that already finished.
+        _reviewPosts = [];
+        _reviewPlanNote = '';
+        _reviewCloudBacked = false;
+        _reviewSaveError = null;
+        _adGenProgress = { done: 0, total: platforms.length, currentPlatform: platforms[0], errors: [] };
+        outputEl.innerHTML = tipHtml + renderGenProgressBanner();
+
+        const baseBody = { objective, product, audience, models: frameworks, tone, budget, competitors, variants };
 
         // Inject BusinessBrain intelligence so ad copy uses real company context
         let bizContext = '';
@@ -1387,7 +1859,7 @@ class SocialAgent {
         bizContext += this.buildResearchedContext();
         bizContext = bizContext.trim().slice(0, 1400);
         if (bizContext) {
-            body.product = body.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
+            baseBody.product = baseBody.product + `\n\nBUSINESS CONTEXT (use for hooks, angles and voice):\n${bizContext}`;
         }
 
         // Inject Convert A/B experiment winners as context if loaded
@@ -1396,37 +1868,63 @@ class SocialAgent {
                 .filter(e => e.winner)
                 .map(e => `"${e.winnerVariant?.name}" beat control by ${e.winnerVariant?.uplift} (${e.name})`)
                 .slice(0, 5).join('; ');
-            if (winners) body.product = body.product + `\n\nConvert A/B Winners: ${winners}`;
+            if (winners) baseBody.product = baseBody.product + `\n\nConvert A/B Winners: ${winners}`;
         }
 
-        try {
-            const res  = await fetch('/api/generate-ads', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(body),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const notesByPlatform = [];
+        const contentParts = [];
+        let variantIndex = 0;
 
-            _reviewPlanNote = data.campaignStrategyNote || '';
-            _reviewPosts = await persistReviewBatch(data.variants.map(normalizeAdVariant));
+        for (const platform of platforms) {
+            _adGenProgress.currentPlatform = platform;
             renderReviewQueue();
-            outputEl.scrollTop = 0;
 
-            if (window.AgentHistory && data.content?.trim()) {
-                window.AgentHistory.save({
-                    agentKey: 'ads',
-                    taskType: platforms.join('+') + ' Ad Variants',
-                    content: data.content,
-                    topic: product.slice(0, 60),
+            try {
+                const res  = await fetch('/api/generate-ads', {
+                    method:  'POST',
+                    headers: await window.sendAuthHeaders(),
+                    body:    JSON.stringify({ ...baseBody, platforms: [platform] }),
                 });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+                if (data.campaignStrategyNote) notesByPlatform.push(`**${platform}:** ${data.campaignStrategyNote}`);
+                if (data.content?.trim()) contentParts.push(data.content);
+
+                const normalized = data.variants.map((v, i) => normalizeAdVariant(v, variantIndex + i));
+                variantIndex += normalized.length;
+                const persisted = await persistReviewBatch(normalized);
+                _reviewPosts = _reviewPosts.concat(persisted);
+            } catch (err) {
+                _adGenProgress.errors.push({ platform, message: err.message });
+                if (window.reportFailure) {
+                    window.reportFailure(`Social Studio ad generation failed for ${platform}: ` + err.message,
+                        { where: 'social-agent.runAds', platform });
+                }
             }
-        } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;font-size:13px;">Error: ${err.message}</div>`;
-        } finally {
-            runBtn.disabled    = false;
-            runBtn.textContent = 'Generate Ad Variants';
+
+            _adGenProgress.done++;
+            _reviewPlanNote = notesByPlatform.join('\n\n');
+            renderReviewQueue();
         }
+
+        // Keep the banner around only if something actually needs flagging —
+        // a clean run has nothing left to say once every card is on screen.
+        _adGenProgress = _adGenProgress.errors.length ? _adGenProgress : null;
+        renderReviewQueue();
+        outputEl.scrollTop = 0;
+
+        if (window.AgentHistory && contentParts.length) {
+            window.AgentHistory.save({
+                agentKey: 'ads',
+                taskType: platforms.join('+') + ' Ad Variants',
+                content: contentParts.join('\n\n---\n\n'),
+                topic: product.slice(0, 60),
+            });
+        }
+
+        runBtn.disabled    = false;
+        runBtn.textContent = 'Generate Ad Variants';
     }
 
     /** Concatenate just the BusinessBrain context blocks (no platform/output-format
@@ -1491,7 +1989,7 @@ class SocialAgent {
         try {
             const res = await fetch('/api/generate-social-posts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ platforms: [platform], contentGoal, topic, frequency, postCount, businessContext }),
             });
             const data = await res.json();
@@ -1506,7 +2004,8 @@ class SocialAgent {
                 window.AgentHistory.save({ agentKey: 'social', taskType: (platform || 'Social') + ' Content', content: data.content, topic });
             }
         } catch (err) {
-            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${err.message}</div>`;
+            outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${escHtmlCard(err.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Social Studio generation failed: ' + err.message, { where: 'social-agent.run' });
         } finally {
             runBtn.disabled = false;
             runBtn.textContent = 'Create Content';
@@ -1537,14 +2036,19 @@ function renderPostsAsPlainText(posts) {
     }).join('\n\n---\n\n');
 }
 
-function copyOutput() {
+function copyOutput(btn) {
     const posts = nonRejected();
     if (!posts.length) { alert('Nothing to copy yet — generate some content first.'); return; }
     const text = renderPostsAsPlainText(posts);
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target; btn.textContent = 'Copied!'; btn.style.color = '#10b981';
-        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
-    });
+    // `event.target` inside the promise callback read window.event after
+    // dispatch had finished, so it was undefined and this threw — the copy
+    // succeeded and the customer saw an error. The button is passed in now.
+    navigator.clipboard.writeText(text).then(
+        () => { if (btn) { btn.textContent = 'Copied!'; btn.style.color = '#10b981';
+                           setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000); } },
+        () => { if (btn) { btn.textContent = 'Copy failed';
+                           setTimeout(() => { btn.textContent = 'Copy'; }, 2000); } }
+    );
 }
 
 function downloadOutput() {

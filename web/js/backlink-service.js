@@ -52,7 +52,7 @@
             try {
                 const r = await fetch('/api/domain-metrics', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ domain })
                 });
                 if (r.ok) {

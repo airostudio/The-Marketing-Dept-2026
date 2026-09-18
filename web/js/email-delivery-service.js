@@ -195,7 +195,7 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
       const batch = batches[i];
       const res = await fetch('/api/send-campaign', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           subject:        campaign.subject,
           html:           campaign.html,

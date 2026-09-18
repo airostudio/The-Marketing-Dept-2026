@@ -247,9 +247,27 @@
             }
         }
 
+        let seedHintTimer = null;
+        function hintSeedsRequired() {
+            const input = document.getElementById('seedKeywords');
+            const hint = input.parentElement.parentElement.querySelector('.form-hint');
+            input.focus();
+            if (!hint) return;
+            if (!hint.dataset.original) hint.dataset.original = hint.textContent;
+            hint.textContent = 'Enter at least one seed keyword — for example "seo tools, marketing software".';
+            hint.style.color = 'var(--color-danger, #ef4444)';
+            clearTimeout(seedHintTimer);
+            seedHintTimer = setTimeout(function () {
+                hint.textContent = hint.dataset.original;
+                hint.style.color = '';
+            }, 5000);
+        }
+
         async function runResearch() {
             const input = document.getElementById('seedKeywords').value.trim();
-            if (!input) return;
+            // Pressing Research with nothing typed used to return silently,
+            // which reads as a broken button on a brand-new account.
+            if (!input) { hintSeedsRequired(); return; }
 
             // Show loading state
             document.getElementById('emptyState').style.display = 'none';
@@ -278,9 +296,12 @@
 
             // Update stats
             document.getElementById('keywordsFound').textContent = researchResults.length;
-            document.getElementById('lowCompetition').textContent = researchResults.filter(k => k.difficulty < 40).length;
+            // `k.difficulty < 40` is true for null and for undefined, so every
+            // keyword nobody had measured was counted as "low competition".
+            document.getElementById('lowCompetition').textContent =
+                researchResults.filter(k => hasDifficulty(k.difficulty) && k.difficulty < 40).length;
             document.getElementById('totalVolume').textContent = formatNumber(
-                researchResults.reduce((sum, k) => sum + k.searchVolume, 0)
+                researchResults.reduce((sum, k) => sum + (Number(k.searchVolume) || 0), 0)
             );
 
             document.getElementById('researchStats').style.display = 'grid';
@@ -318,12 +339,14 @@
                 row.innerHTML = `
                     <td><input type="checkbox" data-keyword="${escapeHtml(kw.keyword)}" ${isSelected ? 'checked' : ''}></td>
                     <td><strong>${escapeHtml(kw.keyword)}</strong></td>
-                    <td>${formatNumber(kw.searchVolume)}/mo</td>
+                    <td>${kw.searchVolume > 0 ? formatNumber(kw.searchVolume) + '/mo' : '<span style="color:var(--color-text-tertiary);">—</span>'}</td>
                     <td>
+                        ${hasDifficulty(kw.difficulty) ? `
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="threshold-bar" style="width: 50px;"><div class="threshold-fill" style="width: ${kw.difficulty}%; background: ${getDifficultyColor(kw.difficulty)};"></div></div>
                             <span>${kw.difficulty}</span>
-                        </div>
+                        </div>` : `
+                        <span style="color:var(--color-text-tertiary);" title="Keyword difficulty comes from a ranking data provider. None is connected, so this has not been measured.">—</span>`}
                     </td>
                     <td>$${kw.cpc}</td>
                     <td><span class="tag ${intentColors[kw.intent] || 'tag-gray'}">${kw.intent}</span></td>
@@ -383,6 +406,11 @@
             return num.toString();
         }
 
+        /** Difficulty is null unless a ranking provider measured it. */
+        function hasDifficulty(d) {
+            return typeof d === 'number' && isFinite(d) && d > 0;
+        }
+
         function getDifficultyColor(difficulty) {
             if (difficulty >= 70) return 'var(--color-error)';
             if (difficulty >= 40) return 'var(--color-warning)';
@@ -390,9 +418,14 @@
         }
 
         function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            // Escapes quotes as well as &<> — this is used inside attributes
+            // (value="...", href="...") as well as between tags, and the
+            // textContent/innerHTML trick this replaced left quotes alone, so a
+            // " in the value ended the attribute and the rest was parsed as more
+            // attributes on the tag. See web/js/escape-html.js.
+            return String(text == null ? '' : text)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
     })();
     </script>

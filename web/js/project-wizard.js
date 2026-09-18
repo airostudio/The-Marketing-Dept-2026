@@ -851,7 +851,7 @@
         try {
             const checkResp = await fetch(
                 `/api/check-url?url=${encodeURIComponent(normUrl)}`,
-                { signal: AbortSignal.timeout(20000) }
+                { headers: await window.sendAuthHeaders(), signal: AbortSignal.timeout(20000) }
             );
             if (!checkResp.ok) throw new Error('Check endpoint error');
             const check = await checkResp.json();

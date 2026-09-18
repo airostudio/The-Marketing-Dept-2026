@@ -25,11 +25,55 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+
 const DEFAULT_BASE_URL = 'https://ark.ap-southeast.bytepluses.com/api/v3';
 const DEFAULT_MODEL = 'seedance-2-0';
 
 const ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1', '4:3', '3:4']);
 const RESOLUTIONS = new Set(['720p', '1080p']);
+
+// Ark hands back a signed, time-limited URL — typically valid for hours, not
+// for the life of a marketing campaign. Storing only that URL meant a
+// customer's finished video quietly became a broken <video> tag and a dead
+// Download button, and a scheduled social post carried a link that would be
+// gone before it published. Mirroring the file into R2 (the same bucket the
+// screenshot and ad-image paths already use) makes it durable.
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;   // a 12s 1080p clip is far below this
+
+async function mirrorToR2(sourceUrl, taskId) {
+  if (!isR2Configured()) {
+    return { url: null, reason: 'R2 storage is not configured, so this video is only available from the ' +
+      'generator\'s own temporary link, which expires. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, ' +
+      'R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME and R2_PUBLIC_BASE_URL to keep generated videos.' };
+  }
+  try {
+    const r = await fetch(sourceUrl, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) return { url: null, reason: `Could not download the finished video (HTTP ${r.status}).` };
+
+    const declared = Number(r.headers.get('content-length') || 0);
+    if (declared && declared > MAX_VIDEO_BYTES) {
+      return { url: null, reason: 'The finished video is larger than this service stores.' };
+    }
+    const buffer = Buffer.from(await r.arrayBuffer());
+    if (buffer.length > MAX_VIDEO_BYTES) {
+      return { url: null, reason: 'The finished video is larger than this service stores.' };
+    }
+
+    const contentType = r.headers.get('content-type') || 'video/mp4';
+    const ext = contentType.includes('webm') ? 'webm' : 'mp4';
+    const key = `videos/${Date.now()}-${String(taskId).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}.${ext}`;
+    const url = await uploadToR2(key, buffer, contentType);
+    return url
+      ? { url, reason: null }
+      : { url: null, reason: 'The video was stored but R2_PUBLIC_BASE_URL is not set, so there is no ' +
+          'public link to it yet.' };
+  } catch (err) {
+    return { url: null, reason: 'Could not store the finished video: ' + err.message };
+  }
+}
 
 function normalizeStatus(arkStatus) {
   if (arkStatus === 'succeeded' || arkStatus === 'success' || arkStatus === 'completed') return 'succeeded';
@@ -38,10 +82,36 @@ function normalizeStatus(arkStatus) {
   return 'processing';
 }
 
-module.exports = async function handler(req, res) {
+/**
+ * Ark's own "model or endpoint ... does not exist or you do not have
+ * access to it" is accurate but leaves the operator to independently
+ * discover that Ark requires provisioning a real Endpoint (ep-xxxxxxxx) for
+ * a model before calling it — DEFAULT_MODEL's bare "seedance-2-0" 404s on
+ * most Ark accounts for exactly this reason, and VERCEL_SETUP.md already
+ * documents the fix (set SEEDANCE_MODEL to that Endpoint ID). Surfacing the
+ * same guidance directly in the error means the person who hits this
+ * doesn't have to already know to go find that one line in the setup docs.
+ */
+function describeCreateFailure(upstreamMessage, modelUsed) {
+  if (/does not exist|do not have access|invalid model|model not found/i.test(upstreamMessage)) {
+    return `${upstreamMessage} — Ark requires a provisioned Endpoint ID for this, not a bare model name ` +
+      `("${modelUsed}" won't work on most accounts). In your BytePlus/Volcengine Ark console, go to ` +
+      `Model Inference → Endpoints, create (or copy) the endpoint for your video model, and set its ID ` +
+      `(looks like ep-20240611094208-xxxxx) as the SEEDANCE_MODEL environment variable in Vercel, then redeploy.`;
+  }
+  return upstreamMessage;
+}
+
+module.exports = withFailureReporting('api/generate-video', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   // ARK_API_KEY is the key name BytePlus/Volcengine's own Ark console docs use;
   // SEEDANCE_API_KEY is kept as a fallback for non-Ark providers of Seedance 2.0.
@@ -101,7 +171,8 @@ module.exports = async function handler(req, res) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        return res.status(r.status).json({ error: data.error?.message || data.message || `Seedance API error (${r.status})` });
+        const upstreamMessage = data.error?.message || data.message || `Seedance API error (${r.status})`;
+        return res.status(r.status).json({ error: describeCreateFailure(upstreamMessage, model) });
       }
       const taskId = data.id || data.task_id;
       if (!taskId) {
@@ -131,14 +202,32 @@ module.exports = async function handler(req, res) {
       }
 
       const status = normalizeStatus(data.status);
-      const videoUrl = data.content?.video_url || data.content?.url || null;
+      const sourceUrl = data.content?.video_url || data.content?.url || null;
       const thumbnailUrl = data.content?.thumbnail_url || data.content?.cover_url || null;
+
+      if (status !== 'succeeded') {
+        return res.json({
+          status,
+          videoUrl: null,
+          thumbnailUrl,
+          error: status === 'failed' ? (data.error?.message || 'Video generation failed') : undefined,
+        });
+      }
+
+      // Copy it somewhere durable before handing back a link. The caller is
+      // told which URL it got and, when the copy did not happen, why — so a
+      // temporary link is never passed off as a permanent one.
+      const mirror = sourceUrl ? await mirrorToR2(sourceUrl, taskId) : { url: null, reason: 'No video URL was returned.' };
 
       return res.json({
         status,
-        videoUrl: status === 'succeeded' ? videoUrl : null,
+        videoUrl: mirror.url || sourceUrl,
         thumbnailUrl,
-        error: status === 'failed' ? (data.error?.message || 'Video generation failed') : undefined,
+        storage: mirror.url ? 'permanent' : 'temporary',
+        storageNote: mirror.reason,
+        // The provider's own link, kept so a customer can still fetch the file
+        // themselves while it lasts.
+        sourceUrl,
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -146,4 +235,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.status(400).json({ error: "action must be 'create' or 'status'" });
-};
+});

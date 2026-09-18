@@ -1,3 +1,7 @@
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 /**
  * Outreach draft — Vercel serverless function.
  *
@@ -17,36 +21,24 @@ const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/outreach-draft', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-  }
+  // This endpoint spends the account's own third-party credits, so it has to
+  // know whose they are. It previously accepted anyone: a rate limit caps how
+  // fast the money goes, not whether the caller was entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'outreach-draft', max: 10, windowMs: 60 * 1000, auth: auth })) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -134,11 +126,7 @@ Return ONLY this JSON object — no markdown fences, no extra text:
   try {
     const cRes = await fetch(CLAUDE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -184,4 +172,4 @@ Return ONLY this JSON object — no markdown fences, no extra text:
     console.error('[outreach-draft] error:', err.message);
     return res.status(500).json({ error: 'Outreach generation failed', detail: err.message });
   }
-};
+});

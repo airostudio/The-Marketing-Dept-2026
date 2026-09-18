@@ -226,8 +226,8 @@
         <div class="panel-header">
             <span class="panel-title">SEO Analysis</span>
             <div style="display:flex;gap:8px;">
-                <button class="btn-icon" onclick="copyOutput()">Copy</button>
-                <button class="btn-icon" onclick="downloadOutput()">Download</button>
+                <button class="btn-icon" onclick="copyOutput(this)">Copy</button>
+                <button class="btn-icon" onclick="downloadOutput(this)">Download</button>
             </div>
         </div>
         <div class="output-area" id="output">
@@ -263,6 +263,14 @@
 
 </div>
 
+<!-- sendAuthHeaders() reads the session through window.Supabase. Without
+     these two the object does not exist, the token is never attached, and
+     every authenticated call returns no_token — to a signed-in customer. -->
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/gemini-service.js"></script>
@@ -499,21 +507,30 @@ IMPORTANT: You do not have live keyword databases. Present all search volume and
         return competitorContext;
     }
 
-    _showSEOStrategyWarning(completionScore) {
-        if (completionScore < 30) {
-            const outputEl = document.getElementById('output');
-            outputEl.innerHTML = `<div style="padding:20px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);border-radius:10px;color:#fbbf24;">
-                <div style="font-weight:700;margin-bottom:8px;">⚠️ Intelligence Layer Not Configured</div>
-                <div style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.7);">
-                    SEO Intelligence will provide recommendations, but they'll be generic best practices—not competitive keyword gap analysis.<br><br>
-                    <strong>Why this matters for SEO:</strong> You can't outrank competitors without knowing what keywords they own and what gaps exist.<br><br>
-                    <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">→ Configure BusinessBrain (ICP search intent)</a><br>
-                    <a href="/intelligence/competitive-radar.html" style="color:#fbbf24;font-weight:600;">→ Configure CompetitiveRadar (keyword gaps)</a>
-                </div>
-            </div>`;
-            return true;
-        }
-        return false;
+    /**
+     * Say, above the form, that the analysis will be generic.
+     *
+     * This used to take over the output pane and set a permanent localStorage
+     * flag, then call run() again 5.5 seconds later — which overwrote the
+     * warning with the analysis. The customer had five and a half seconds to
+     * read it, and clicking either link abandoned the run. The flag also meant
+     * it appeared once ever: from the second analysis onward, an unconfigured
+     * account got generic best practices with nothing saying why.
+     */
+    _showSEOStrategyWarning() {
+        if (document.getElementById('seo-strategy-warning')) return;
+        const form = document.getElementById('runBtn')?.closest('.panel');
+        if (!form) return;
+        const el = document.createElement('div');
+        el.id = 'seo-strategy-warning';
+        el.style.cssText = 'padding:14px 16px;margin-bottom:14px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);border-radius:10px;color:#fbbf24;font-size:13px;line-height:1.6;';
+        el.innerHTML = `
+            <strong>Intelligence Layer not configured — this will be generic SEO advice.</strong><br>
+            <span style="color:rgba(255,255,255,0.7);">Without your ICP's search language and your competitors' profiles there is no
+            keyword gap to find, so the analysis falls back to best practices anyone could give you.
+            <a href="/intelligence/business-brain.html" style="color:#fbbf24;font-weight:600;">Configure BusinessBrain</a> ·
+            <a href="/intelligence/competitive-radar.html" style="color:#fbbf24;font-weight:600;">Configure CompetitiveRadar</a></span>`;
+        form.parentNode.insertBefore(el, form);
     }
 
     async run() {
@@ -530,6 +547,12 @@ IMPORTANT: You do not have live keyword databases. Present all search volume and
         const resetUI = (errMsg) => {
             runBtn.disabled = false;
             runBtn.textContent = 'Analyze';
+            // Every failure on the site should reach somebody who can fix it.
+            // A caught error shown to one customer is invisible otherwise.
+            if (errMsg && window.reportFailure) {
+                window.reportFailure('SEO analysis failed: ' + errMsg,
+                    { where: 'seo-agent.run', taskType });
+            }
             if (errMsg) outputEl.innerHTML = `<div style="color:#ef4444;padding:16px;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:rgba(239,68,68,0.08);">
                 <strong>Error:</strong> ${errMsg}<br><br>
                 <small style="opacity:0.7;">Open browser console (F12) for details. Check that the API is deployed and an AI API key (Gemini or Anthropic) is set in Vercel environment variables.</small>
@@ -541,12 +564,10 @@ IMPORTANT: You do not have live keyword databases. Present all search volume and
         if (this.intelligenceEngine) {
             contextBundle = this.intelligenceEngine.getContextBundle();
 
-            // Show warning if Intelligence Layer not configured (first-time only)
-            if (contextBundle && contextBundle.completionScore < 30 && !localStorage.getItem('seo_agent_warning_shown')) {
-                localStorage.setItem('seo_agent_warning_shown', 'true');
-                this._showSEOStrategyWarning(contextBundle.completionScore);
-                setTimeout(() => this.run(), 5500);
-                return;
+            // A standing banner above the form, not a takeover of the output
+            // pane followed by a delayed re-entry into run().
+            if (contextBundle && contextBundle.completionScore < 30) {
+                this._showSEOStrategyWarning();
             }
         }
 
@@ -653,9 +674,14 @@ function scoreClass(score) {
 }
 
 function escapeHtmlSEO(str) {
-    const d = document.createElement('div');
-    d.textContent = str || '';
-    return d.innerHTML;
+    // Escapes quotes as well as &<> — this is used inside attributes
+    // (value="...", href="...") as well as between tags, and the
+    // textContent/innerHTML trick this replaced left quotes alone, so a
+    // " in the value ended the attribute and the rest was parsed as more
+    // attributes on the tag. See web/js/escape-html.js.
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /** Pull the worst-scoring audits out of a PageSpeed category (score !== 1, has a real title). */
@@ -712,18 +738,36 @@ async function runGeoCitationCheck() {
                 });
             });
             const domains = (citations || []).map(c => { try { return new URL(c).hostname.replace(/^www\./, ''); } catch (e) { return c; } });
-            const cited = domains.some(d => d.includes(domain));
+            // `d.includes(domain)` counted a citation of notyourdomain.com, or
+            // of yourdomain.com.example.net, as a citation of you — and this
+            // number is the whole answer the panel gives. An exact host, or a
+            // real subdomain of it, and nothing else.
+            const cited = domains.some(d => d === domain || d.endsWith('.' + domain));
             results.push({ query, cited, domains: domains.slice(0, 6) });
         } catch (err) {
             results.push({ query, error: err.message });
+            if (window.reportFailure) {
+                window.reportFailure('SEO GEO citation check failed: ' + err.message,
+                    { where: 'seo-agent.runGeoCitationCheck' });
+            }
         }
     }
 
-    const citedCount = results.filter(r => r.cited).length;
-    const pct = results.length ? Math.round((citedCount / results.length) * 100) : 0;
+    // A query whose search failed was never asked, so it cannot count as one
+    // you were not cited in. It used to sit in the denominator and drag the
+    // percentage down — three failed lookups out of five reported "20% cited"
+    // when the real answer, over the two that ran, was 50%.
+    const answered = results.filter(r => !r.error);
+    const failed = results.length - answered.length;
+    const citedCount = answered.filter(r => r.cited).length;
+    const pct = answered.length ? Math.round((citedCount / answered.length) * 100) : null;
 
     resultsEl.innerHTML = `
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Cited in ${citedCount} of ${results.length} queries (${pct}%)</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${
+            answered.length
+              ? `Cited in ${citedCount} of ${answered.length} quer${answered.length === 1 ? 'y' : 'ies'} (${pct}%)`
+              : 'No query could be checked'
+        }${failed ? `<span style="font-weight:500;color:#f59e0b;"> · ${failed} search${failed === 1 ? '' : 'es'} failed and ${failed === 1 ? 'is' : 'are'} not counted</span>` : ''}</div>
         ${results.map(r => `
             <div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -738,7 +782,8 @@ async function runGeoCitationCheck() {
 
     try {
         const history = JSON.parse(localStorage.getItem(GEO_HISTORY_KEY) || '[]');
-        history.unshift({ at: new Date().toISOString(), domain, citedCount, total: results.length, pct });
+        // Record what was actually measured, not what was asked for.
+        history.unshift({ at: new Date().toISOString(), domain, citedCount, total: answered.length, failed, pct });
         localStorage.setItem(GEO_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
     } catch (e) { /* non-critical */ }
 
@@ -759,7 +804,8 @@ async function runExpressCheck() {
     resultsEl.innerHTML = `<div class="typing-indicator" style="padding:16px 0 0;"><div class="dot-pulse"><span></span><span></span><span></span></div> Running a live PageSpeed check on ${escapeHtmlSEO(url)}...</div>`;
 
     try {
-        const res = await fetch(`/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`);
+        const res = await fetch(`/api/pagespeed?url=${encodeURIComponent(url)}&strategy=mobile`,
+            { headers: await window.sendAuthHeaders() });
         const data = await res.json();
         if (!res.ok) {
             throw new Error(data.error?.message || data.error || `PageSpeed request failed (${res.status})`);
@@ -801,6 +847,10 @@ async function runExpressCheck() {
         `;
     } catch (err) {
         resultsEl.innerHTML = `<div style="color:#f87171;padding:16px 0 0;">❌ ${escapeHtmlSEO(err.message)}</div>`;
+        if (window.reportFailure) {
+            window.reportFailure('SEO Express Check failed: ' + err.message,
+                { where: 'seo-agent.runExpressCheck', target: url });
+        }
     } finally {
         btn.disabled = false;
         btn.textContent = 'Run Express Check';
@@ -825,16 +875,49 @@ function transferExpressCheckToForm() {
     }
 }
 
-function copyOutput() {
-    const text = document.getElementById('output').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target;
-        btn.textContent = 'Copied!'; btn.style.color = '#10b981';
-        setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
-    });
+function copyOutput(btn) {
+    // Two bugs lived here.
+    //
+    // The button read `event.target` inside the clipboard promise's callback.
+    // `window.event` only exists while an event is being dispatched, so by the
+    // time the promise resolved it was undefined and this threw — the text was
+    // on the clipboard and the customer saw an error instead of "Copied!".
+    // The button is passed in now, which does not depend on a deprecated
+    // global at all.
+    //
+    // And there was no check for having anything to copy. On first run the
+    // output area holds its placeholder, so Copy put "Your analysis will appear
+    // here…" on the clipboard and reported success.
+    const out = document.getElementById('output');
+    if (!out || out.querySelector('.output-empty')) {
+        flashButton(btn, 'Nothing to copy yet');
+        return;
+    }
+    navigator.clipboard.writeText(out.innerText).then(
+        () => flashButton(btn, 'Copied!', '#10b981'),
+        () => flashButton(btn, 'Copy failed')
+    );
 }
 
-function downloadOutput() {
+/** Say what happened on the button itself, then put it back. */
+function flashButton(btn, message, colour) {
+    if (!btn) return;
+    const original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = message;
+    if (colour) btn.style.color = colour;
+    setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 2000);
+}
+
+function downloadOutput(btn) {
+    // Same first-run problem as Copy: this happily wrote the placeholder text
+    // to a .txt file and handed it to the customer as their analysis.
+    const out = document.getElementById('output');
+    if (!out || out.querySelector('.output-empty')) {
+        flashButton(btn, 'Nothing to download yet');
+        return;
+    }
+
     const text = document.getElementById('output').innerText;
     const task = document.getElementById('taskType').value.replace(/\s+/g,'-').toLowerCase();
     const blob = new Blob([text], { type: 'text/plain' });
