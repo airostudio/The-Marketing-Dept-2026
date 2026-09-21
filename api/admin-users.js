@@ -16,13 +16,17 @@
  *     `profiles` row (what the dashboard used to do) leaves an orphaned
  *     auth account that can still log in with a missing/broken profile.
  *
- * Listing users and editing an existing user's role/plan are NOT handled
- * here — those already work correctly straight from the browser via RLS
- * ("Admins can view/update all profiles" policies in database/admin-
- * setup.sql), so there's no reason to route them through a privileged
- * server call.
+ * - update: changing another user's role/plan/name. The "Admins can
+ *   view/update all profiles" RLS policies in database/admin-setup.sql are
+ *   self-referencing (a policy on `profiles` that queries `profiles` again
+ *   inside its own USING clause to check the caller's role) — a well-known
+ *   Postgres footgun that surfaces as "infinite recursion detected in
+ *   policy for relation \"profiles\"" and made the old client-side edit
+ *   path in admin/users.html unreliable. Routing through the service key
+ *   here bypasses RLS entirely, the same way create/delete already do.
  *
  * POST { action: 'create', email, password, firstname?, lastname?, role?, plan? }
+ * POST { action: 'update', userId, firstname?, lastname?, role?, plan? }
  * POST { action: 'delete', userId }
  * Header: Authorization: Bearer <the caller's own Supabase access token>
  *   (from window.Supabase.Auth.getSession() — this is the same JWT the
@@ -96,6 +100,24 @@ async function createUser(supabaseUrl, serviceKey, { email, password, firstname,
   return { id: newUserId, email: createData.email };
 }
 
+async function updateUser(supabaseUrl, serviceKey, userId, { firstname, lastname, role, plan }) {
+  const patch = {};
+  if (firstname !== undefined) patch.firstname = firstname;
+  if (lastname !== undefined) patch.lastname = lastname;
+  if (role !== undefined) patch.role = role;
+  if (plan !== undefined) patch.plan = plan;
+  if (Object.keys(patch).length === 0) return;
+
+  const res = await sbRest(supabaseUrl, serviceKey, 'PATCH', `/profiles?id=eq.${encodeURIComponent(userId)}`, patch);
+  if (!res.ok) {
+    throw new Error((res.data && (res.data.message || res.data.msg)) || `Profile update failed (${res.status})`);
+  }
+  if (!res.data || !res.data.length) {
+    throw new Error('No such user.');
+  }
+  return res.data[0];
+}
+
 async function deleteUser(supabaseUrl, serviceKey, userId) {
   // profiles.id REFERENCES auth.users(id) ON DELETE CASCADE — deleting the
   // auth user takes the profile row with it in one call.
@@ -164,6 +186,48 @@ module.exports = withFailureReporting('api/admin-users', async function handler(
       return res.json({ success: true, user });
     }
 
+    if (action === 'update') {
+      const { userId, firstname, lastname, role, plan } = req.body;
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+      let targetBefore = null;
+      try {
+        const before = await sbRest(supabaseUrl, serviceKey, 'GET',
+          `/profiles?id=eq.${encodeURIComponent(userId)}&select=email,role,plan&limit=1`);
+        targetBefore = (before.ok && before.data && before.data[0]) || null;
+      } catch (e) { /* fall through — updateUser() below will 404 if the user truly doesn't exist */ }
+      if (!targetBefore) return res.status(404).json({ error: 'No such user.' });
+
+      if (role !== undefined && role !== targetBefore.role) {
+        if (role === 'super_admin' && callerRole !== 'super_admin') {
+          return res.status(403).json({ error: 'Only a super_admin can grant super_admin.' });
+        }
+        if (userId === caller.id) {
+          return res.status(400).json({ error: "You can't change your own role — ask another admin." });
+        }
+      }
+
+      const updated = await updateUser(supabaseUrl, serviceKey, userId, { firstname, lastname, role, plan });
+
+      if (role !== undefined && role !== targetBefore.role) {
+        await recordAdminAction({
+          req, adminId: caller.id, adminEmail: caller.email,
+          action: ACTIONS.ROLE_GRANTED,
+          targetUserId: userId, targetEmail: targetBefore.email,
+          details: { from: targetBefore.role, to: role },
+        });
+      }
+      if (plan !== undefined && plan !== targetBefore.plan) {
+        await recordAdminAction({
+          req, adminId: caller.id, adminEmail: caller.email,
+          action: ACTIONS.PLAN_CHANGED,
+          targetUserId: userId, targetEmail: targetBefore.email,
+          details: { from: targetBefore.plan, to: plan },
+        });
+      }
+      return res.json({ success: true, user: updated });
+    }
+
     if (action === 'delete') {
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ error: 'userId is required' });
@@ -187,7 +251,7 @@ module.exports = withFailureReporting('api/admin-users', async function handler(
       return res.json({ success: true });
     }
 
-    return res.status(400).json({ error: `Unknown action "${action}". Use 'create' or 'delete'.` });
+    return res.status(400).json({ error: `Unknown action "${action}". Use 'create', 'update' or 'delete'.` });
   } catch (err) {
     return res.status(502).json({ error: err.message });
   }

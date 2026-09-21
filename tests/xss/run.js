@@ -204,36 +204,35 @@ textContentTrick.forEach(e => console.log(`      ${e.file}:${e.line}  ${e.name}(
 console.log('\n──── the admin user list ────');
 
 const admin = code('web/admin/users.html');
-const row = admin.slice(admin.indexOf('function renderUserRow'),
-                        admin.indexOf('function openCreateUserModal'));
+const row = admin.slice(admin.indexOf('function renderList'),
+                        admin.indexOf('async function loadUsers'));
 
 check('the page uses the shared escaper, with a fallback if it fails to load',
-  /const escapeHtml = window\.escapeHtml \|\|/.test(admin));
+  /const esc = window\.escapeHtml \|\|/.test(admin));
 check('and loads it before the page script runs',
   read('web/admin/users.html').indexOf('/js/escape-html.js') <
-  read('web/admin/users.html').indexOf('function renderUserRow'));
+  read('web/admin/users.html').indexOf('function renderList'));
 check('it escapes quotes', /&quot;/.test(admin) && /&#39;/.test(admin));
 
-for (const field of ['user.email', 'user.firstname', 'user.lastname']) {
+for (const field of ['u.email', 'u.firstname', 'u.lastname']) {
   const bare = new RegExp('\\$\\{\\s*' + field.replace('.', '\\.') + '\\s*(\\|\\||\\})');
   check(`${field} is not interpolated bare`, !bare.test(row));
 }
-const unescaped = (row.match(/\$\{(?!escapeHtml\()[^}]*\}/g) || []);
+const unescaped = (row.match(/\$\{(?!esc\()[^}]*\}/g) || []);
 check('every single interpolation in the row goes through the escaper',
   unescaped.length === 0);
 unescaped.forEach(u => console.log(`      ${u.slice(0, 60)}`));
 
-// The action buttons put a user record inside a single-quoted attribute:
-// onclick='editUser(${JSON.stringify(user)})'. An apostrophe in any field —
-// O'Brien, or a deliberate one — ended the attribute.
+// The action buttons used to put a user record inside a single-quoted
+// attribute: onclick='editUser(${JSON.stringify(user)})'. An apostrophe in
+// any field — O'Brien, or a deliberate one — ended the attribute.
 check('no user object is serialised into an attribute',
-  !/JSON\.stringify\(user\)/.test(row));
+  !/JSON\.stringify\(u\)/.test(row));
 check('the row has no inline onclick at all',
   !/onclick=/.test(row));
-check('the buttons get listeners that close over the record instead',
+check('clicking a row opens it by id looked up in memory, not by re-parsing markup',
   /addEventListener\('click'/.test(row) &&
-  /editUser\(user\)/.test(row) &&
-  /deleteUser\(user\.id/.test(row));
+  /openUser\(el\.getAttribute\('data-id'\)\)/.test(row));
 
 /* ── 4. The escaper is available to new code ────────────────────────────── */
 console.log('\n──── a shared implementation for what comes next ────');
