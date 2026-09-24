@@ -99,7 +99,7 @@ const PAID = [
 // against an arbitrary URL on the caller's say-so.
 const WIDER = [
   'ai-visibility-explain', 'ai-visibility-questions', 'blade-cities-autocomplete',
-  'blade-places-search', 'blade-website-check', 'check-url', 'convert-experiments',
+  'blade-nearby-areas', 'blade-places-search', 'blade-website-check', 'check-url', 'convert-experiments',
   'crawl', 'fetch-page', 'gemini', 'generate-video', 'generate-website-mockup', 'nancy-analyze-website',
   'nancy-brand-identity', 'nancy-content-plan', 'nancy-screenshot',
   'nancy-search-competitors', 'nancy-strategy', 'nancy-structure-competitors',
