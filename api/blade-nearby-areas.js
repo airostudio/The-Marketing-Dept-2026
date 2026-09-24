@@ -32,7 +32,15 @@ const MILES_TO_METERS = 1609.344;
 const METRIC_RADIUS_METERS = 50000; // 50km — also Nearby Search's own max radius
 const IMPERIAL_RADIUS_METERS = Math.round(30 * MILES_TO_METERS); // 30mi ≈ 48,280m
 
-const NEARBY_TYPES = ['locality', 'sublocality', 'sublocality_level_1', 'administrative_area_level_3'];
+// Nearby Search's includedTypes only accepts the fixed vocabulary in Google's
+// Table A (place categories, not address-component types) — sublocality,
+// sublocality_level_1 and administrative_area_level_3 all 400 with
+// "Unsupported types" because they're Table B/geocoding types, not Table A.
+// locality IS in Table A and is what this needs anyway: in most of the
+// countries Blade targets (Australia included) Google tags ordinary suburbs
+// as locality too, not sublocality — sublocality mainly shows up for
+// neighborhoods inside a handful of huge US/Asian cities.
+const NEARBY_TYPES = ['locality'];
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
