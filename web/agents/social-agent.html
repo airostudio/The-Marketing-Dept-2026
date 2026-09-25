@@ -278,6 +278,7 @@
                     <input type="url" class="field-input" id="researchUrlInput" placeholder="https://yourcompany.com">
                     <button type="button" class="research-go-btn" id="researchGoBtn" onclick="runBusinessResearch()">Research</button>
                 </div>
+                <div id="linkfunnel-banner" style="display:none;font-size:12px;color:var(--text2,#888);margin-top:6px;"></div>
                 <div class="research-status" id="researchStatus"></div>
                 <div class="research-chips" id="researchChips" style="display:none;"></div>
             </div>
@@ -545,6 +546,7 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <script>
 // Platform selection (single) — scoped per grid, since organic mode's
 // #platformGrid and Campaign Sequence mode's #sequencePlatformGrid are two
@@ -625,6 +627,26 @@ function toggleResearchWidget() {
     const showing = row.style.display !== 'none';
     row.style.display = showing ? 'none' : 'flex';
     if (!showing) document.getElementById('researchUrlInput').focus();
+}
+
+/** A URL queued from Link Funnel — the research widget is collapsed by
+ *  default, so a waiting handoff opens it and prefills the URL. This still
+ *  requires an explicit click of "Research" (a real Perplexity + scrape
+ *  call), not an auto-run. */
+function renderLinkFunnelBanner() {
+    const banner = document.getElementById('linkfunnel-banner');
+    const q = window.LinkFunnelHandoff && window.LinkFunnelHandoff.peek('social-research');
+    if (!q) { banner.style.display = 'none'; return; }
+
+    document.getElementById('researchInputRow').style.display = 'flex';
+    document.getElementById('researchUrlInput').value = q.urls[q.index];
+    banner.style.display = 'block';
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const reportLabel = q.reportName ? ` from "${esc(q.reportName)}"` : '';
+    const btnStyle = 'padding:3px 9px;font-size:11px;border-radius:6px;border:1px solid var(--border,#333);background:transparent;color:inherit;cursor:pointer;';
+    banner.innerHTML = `📋 ${q.index + 1} of ${q.urls.length}${reportLabel} (Link Funnel)` +
+        (q.urls.length > 1 ? ` <button type="button" style="${btnStyle}" onclick="window.LinkFunnelHandoff.advance('social-research'); renderLinkFunnelBanner();">Skip to next ▸</button>` : '') +
+        ` <button type="button" style="${btnStyle}" onclick="window.LinkFunnelHandoff.clear('social-research'); renderLinkFunnelBanner();">Dismiss</button>`;
 }
 
 async function runBusinessResearch() {
@@ -2096,7 +2118,7 @@ function exportCalendarCSV() {
     a.download = `social-calendar-${Date.now()}.csv`; a.click();
 }
 
-document.addEventListener('DOMContentLoaded', () => { checkForReviewDraftOnLoad(); });
+document.addEventListener('DOMContentLoaded', () => { checkForReviewDraftOnLoad(); renderLinkFunnelBanner(); });
 </script>
     <script src="/js/url-utils.js"></script>
 <script src="/js/mission-store.js"></script>

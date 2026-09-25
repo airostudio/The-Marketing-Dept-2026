@@ -166,6 +166,7 @@
                 <input class="field-input" id="expressUrl" type="text" placeholder="https://yoursite.com">
                 <button class="btn-express" id="expressBtn" onclick="runExpressCheck()">Run Express Check</button>
             </div>
+            <div id="linkfunnel-banner-express" style="display:none;font-size:12px;color:var(--text2);margin-top:8px;"></div>
             <div id="expressResults"></div>
         </div>
     </div>
@@ -179,6 +180,7 @@
             <div class="field-group">
                 <label class="field-label">Your domain</label>
                 <input class="field-input" id="geoDomain" type="text" placeholder="yoursite.com">
+                <div id="linkfunnel-banner-citation" style="display:none;font-size:12px;color:var(--text2);margin-top:8px;"></div>
             </div>
             <div class="field-group">
                 <label class="field-label">Search queries to check — one per line (the questions your buyers actually ask an AI)</label>
@@ -278,6 +280,7 @@
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <script>
 class SEOAgent {
     constructor() {
@@ -924,6 +927,25 @@ function downloadOutput(btn) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `seo-${task}-${Date.now()}.txt`; a.click();
 }
+
+/** A URL/domain queued from Link Funnel for either the Express Site Check
+ *  (PageSpeed) or the AI Citation Check (Perplexity) — both real paid calls,
+ *  so this only prefills the field; the person still clicks the button. */
+function renderLinkFunnelBanner(targetKey, inputId, bannerId) {
+    const banner = document.getElementById(bannerId);
+    const q = window.LinkFunnelHandoff && window.LinkFunnelHandoff.peek(targetKey);
+    if (!q) { banner.style.display = 'none'; return; }
+
+    document.getElementById(inputId).value = q.urls[q.index];
+    banner.style.display = 'block';
+    const reportLabel = q.reportName ? ` from "${escapeHtmlSEO(q.reportName)}"` : '';
+    const btnStyle = 'padding:3px 9px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;';
+    banner.innerHTML = `📋 ${q.index + 1} of ${q.urls.length}${reportLabel} (Link Funnel)` +
+        (q.urls.length > 1 ? ` <button type="button" style="${btnStyle}" onclick="window.LinkFunnelHandoff.advance('${targetKey}'); renderLinkFunnelBanner('${targetKey}','${inputId}','${bannerId}');">Skip to next ▸</button>` : '') +
+        ` <button type="button" style="${btnStyle}" onclick="window.LinkFunnelHandoff.clear('${targetKey}'); renderLinkFunnelBanner('${targetKey}','${inputId}','${bannerId}');">Dismiss</button>`;
+}
+renderLinkFunnelBanner('seo-express', 'expressUrl', 'linkfunnel-banner-express');
+renderLinkFunnelBanner('seo-citation', 'geoDomain', 'linkfunnel-banner-citation');
 </script>
     <script src="/js/url-utils.js"></script>
 <script src="/js/mission-store.js"></script>

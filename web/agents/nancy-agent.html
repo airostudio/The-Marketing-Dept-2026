@@ -17,6 +17,7 @@
 <script src="/js/scotty-intake.js"></script>
 <script src="/js/nancy-store.js"></script>
 <script src="/js/social-posts-store.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -174,6 +175,7 @@
         <button class="btn btn-primary" type="submit" id="runBtn">Research My Brand</button>
       </form>
       <div class="err-note" id="url-err"></div>
+      <div id="linkfunnel-banner" style="display:none;font-size:12.5px;color:var(--text2);margin-top:12px;"></div>
     </div>
   </div>
 
@@ -1446,7 +1448,28 @@ async function buildAndDownloadZip() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-document.addEventListener('DOMContentLoaded', () => { checkForDraftOnLoad(); });
+/** A URL queued from Link Funnel (web/tools/link-funnel.html) — this pipeline
+ *  runs several real external calls per URL (crawl, screenshot, brand read,
+ *  competitor search), so this only prefills the field and lets the person
+ *  click "Research My Brand" themselves rather than auto-running the queue. */
+function renderLinkFunnelBanner() {
+  const banner = document.getElementById('linkfunnel-banner');
+  const q = window.LinkFunnelHandoff && window.LinkFunnelHandoff.peek('nancy');
+  if (!q) { banner.style.display = 'none'; return; }
+
+  document.getElementById('url-input').value = q.urls[q.index];
+  banner.style.display = 'block';
+  const reportLabel = q.reportName ? ` from "${escapeHtml(q.reportName)}"` : '';
+  banner.innerHTML = `📋 URL ${q.index + 1} of ${q.urls.length}${reportLabel} (Link Funnel)` +
+    (q.urls.length > 1 ? ' <button type="button" class="btn-ghost btn-sm" id="lf-next" style="margin-left:6px;">Skip to next ▸</button>' : '') +
+    ' <button type="button" class="btn-ghost btn-sm" id="lf-dismiss" style="margin-left:6px;">Dismiss</button>';
+
+  const nextBtn = document.getElementById('lf-next');
+  if (nextBtn) nextBtn.addEventListener('click', () => { window.LinkFunnelHandoff.advance('nancy'); renderLinkFunnelBanner(); });
+  document.getElementById('lf-dismiss').addEventListener('click', () => { window.LinkFunnelHandoff.clear('nancy'); renderLinkFunnelBanner(); });
+}
+
+document.addEventListener('DOMContentLoaded', () => { checkForDraftOnLoad(); renderLinkFunnelBanner(); });
 </script>
     <script src="/js/url-utils.js"></script>
     <script src="/js/mission-store.js"></script>

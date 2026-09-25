@@ -159,6 +159,19 @@
       <button class="ghost" id="btn-export-csv">⬇ Export CSV</button>
       <button class="ghost" id="btn-reset">Start over</button>
     </div>
+
+    <div class="actions-row" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+      <span class="muted" style="font-weight:700;">Send to another agent:</span>
+      <select id="handoff-status-filter">
+        <option value="">Every good URL</option>
+        <option value="modern">Only "modern" sites</option>
+        <option value="outdated">Only "outdated" sites</option>
+        <option value="unreachable">Only unreachable / check-failed</option>
+      </select>
+      <select id="handoff-target"></select>
+      <button class="ghost" id="btn-handoff-send">Send →</button>
+    </div>
+    <p class="muted" id="handoff-note" style="margin-top:6px;"></p>
   </div>
 
   <div class="card" id="saved-card">
@@ -177,6 +190,7 @@
 <script src="/js/send-auth.js"></script>
 <script src="/js/xlsx.core.min.js"></script>
 <script src="/js/link-reports-store.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <script>
 (function () {
   'use strict';
@@ -477,6 +491,34 @@
     $('btn-run-check').disabled = false;
     $('check-progress-wrap').style.display = 'none';
   }
+
+  /* ── Send to another agent ────────────────────────────────────────── */
+
+  if (window.LinkFunnelHandoff) {
+    $('handoff-target').innerHTML = Object.keys(window.LinkFunnelHandoff.TARGETS)
+      .map(key => `<option value="${esc(key)}">${esc(window.LinkFunnelHandoff.labelFor(key))}</option>`).join('');
+  }
+
+  function urlsMatchingFilter(filter) {
+    return state.good.filter(r => {
+      if (!filter) return true;
+      if (filter === 'unreachable') return r.status === 'unreachable' || r.status === 'check_failed';
+      return r.status === filter;
+    }).map(r => r.url);
+  }
+
+  $('btn-handoff-send').addEventListener('click', () => {
+    if (!window.LinkFunnelHandoff) { msg('Handoff is unavailable right now — try reloading the page.', 'error'); return; }
+    const target = $('handoff-target').value;
+    const filter = $('handoff-status-filter').value;
+    const urls = urlsMatchingFilter(filter);
+    if (!urls.length) { msg('No URLs match that filter yet — run the health check first if you filtered by status.', 'error'); return; }
+    try {
+      window.LinkFunnelHandoff.send(target, urls, { reportName: $('report-name').value.trim() || state.sourceFilename || 'Link Funnel' });
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  });
 
   /* ── Save / export / reset ────────────────────────────────────────── */
 

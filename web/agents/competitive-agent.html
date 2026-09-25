@@ -295,6 +295,7 @@
         </div>
         <div class="panel-body">
             <div id="watchSignInNote" style="display:none;font-size:12px;color:var(--text3);padding:12px 0;">Sign in to monitor competitors for changes. <a href="/index.html?openAuth=login" style="color:var(--accent);">Sign in →</a></div>
+            <div id="linkfunnel-import-banner" style="display:none;"></div>
             <div id="watchAddRow" style="display:flex;gap:10px;margin-bottom:14px;">
                 <input class="field-input" id="watchName" type="text" placeholder="Competitor name" style="flex:1;">
                 <input class="field-input" id="watchUrl" type="text" placeholder="https://competitor.com/pricing" style="flex:2;">
@@ -346,6 +347,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/perplexity-service.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
 
@@ -997,7 +999,49 @@ For each competitor, sales-ready format:
         catch (e) { alert('Could not remove: ' + e.message); }
     }
 
+    /** A batch of URLs queued from Link Funnel. Unlike Nancy/SEO/Social, this
+     *  is a cheap database insert per URL, not a paid API call — so instead
+     *  of stepping through one at a time, this offers a single "import all"
+     *  confirmation. */
+    function renderLinkFunnelImportBanner() {
+        const banner = document.getElementById('linkfunnel-import-banner');
+        const q = window.LinkFunnelHandoff && window.LinkFunnelHandoff.peek('competitive-watch');
+        if (!q) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+
+        const esc = window.escapeHtml || (s => String(s));
+        banner.style.cssText = 'display:block;background:rgba(124,58,237,0.08);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);';
+        const reportLabel = q.reportName ? ` from "${esc(q.reportName)}"` : '';
+        banner.innerHTML = `📋 ${q.urls.length} URL${q.urls.length === 1 ? '' : 's'} waiting${reportLabel} (Link Funnel) — add them all as monitored competitors?` +
+            `<div style="margin-top:8px;">` +
+            `<button type="button" class="btn-run" style="width:auto;padding:0 16px;margin-right:8px;" id="lf-import-all">Import all ${q.urls.length}</button>` +
+            `<button type="button" id="lf-import-dismiss" style="background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:8px 14px;cursor:pointer;">Dismiss</button>` +
+            `</div><div id="lf-import-progress" style="margin-top:8px;display:none;"></div>`;
+
+        document.getElementById('lf-import-dismiss').addEventListener('click', () => {
+            window.LinkFunnelHandoff.clear('competitive-watch');
+            renderLinkFunnelImportBanner();
+        });
+        document.getElementById('lf-import-all').addEventListener('click', async () => {
+            document.getElementById('lf-import-all').disabled = true;
+            const progress = document.getElementById('lf-import-progress');
+            progress.style.display = 'block';
+            let done = 0, failed = 0;
+            for (const url of q.urls) {
+                progress.textContent = `Adding ${done + 1} of ${q.urls.length}…`;
+                let name = '';
+                try { name = new URL(/^https?:\/\//i.test(url) ? url : 'https://' + url).hostname.replace(/^www\./, ''); } catch (e) { /* fall back to a blank name — addWatch still works */ }
+                try { await window.CompetitorWatchStore.addWatch({ name, url }); }
+                catch (e) { failed++; }
+                done++;
+            }
+            progress.textContent = `Added ${done - failed} of ${q.urls.length}${failed ? `, ${failed} failed` : ''}.`;
+            window.LinkFunnelHandoff.clear('competitive-watch');
+            await refreshWatchList();
+        });
+    }
+
     refreshWatchList();
+    renderLinkFunnelImportBanner();
 </script>
     <script src="/js/url-utils.js"></script>
 <script src="/js/mission-store.js"></script>
