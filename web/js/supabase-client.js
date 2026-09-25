@@ -405,6 +405,21 @@
                 }
                 lastConnectionCheck = Date.now();
             } catch (error) {
+                // The exact benign cross-tab lock contention documented at the
+                // top of this file (another tab's GoTrueClient already holds
+                // the refresh lock this instant) — self-resolving on its own
+                // next tick, not a real disconnection. Treating it as one used
+                // to call reconnect(), which creates a SECOND live
+                // GoTrueClient without ever tearing down this one (see
+                // reconnect() below) — one moment of harmless contention was
+                // turning into a permanent extra client, which then ran its
+                // own health check, which could hit the same contention and
+                // spawn a third, and so on for as long as the tab stayed open.
+                if (error?.isAcquireTimeout) {
+                    console.debug('[supabase-client] Health check hit benign lock contention — leaving the current client in place:', error.message);
+                    return;
+                }
+
                 console.warn('Supabase health check failed:', error);
                 setConnectionState(ConnectionState.ERROR, error.message);
 
@@ -421,6 +436,17 @@
         if (connectionState === ConnectionState.CONNECTING) return;
 
         console.log('Supabase: Attempting to reconnect...');
+        // Tear down the current client (health-check interval, retry timer,
+        // auth listener) before creating a new one. Without this, the old
+        // GoTrueClient instance was never released — just overwritten by a
+        // new supabase.createClient() call below — so it kept running its
+        // own auto-refresh timer and health check indefinitely, alongside
+        // the new one, both configured against the identical storage key.
+        // That standing multi-instance conflict is exactly what the Web
+        // Locks API rejects with "Acquiring an exclusive Navigator
+        // LockManager lock ... immediately failed", and it only gets worse
+        // the longer the tab stays open and reconnects further.
+        disconnect();
         loadConfig(); // Reload config in case it changed
         connectionRetryCount = 0;
         initInFlight = initSupabase(supabaseConfig.url, supabaseConfig.anonKey);
@@ -474,8 +500,11 @@
         localStorage.setItem('supabase-url', url);
         localStorage.setItem('supabase-anon-key', anonKey);
 
-        // Reinitialize client with new config
-        supabaseClient = null;
+        // Reinitialize client with new config — disconnect() first for the
+        // same reason as reconnect() above: overwriting supabaseClient
+        // without releasing the old GoTrueClient's own timer/listener leaves
+        // it running forever alongside the new one.
+        disconnect();
         connectionRetryCount = 0;
         initInFlight = initSupabase(url, anonKey);
         return initInFlight;

@@ -122,7 +122,15 @@
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
 
+                    // api/pagespeed.js requires an identified caller (Google's
+                    // PageSpeed quota is shared across every customer on this
+                    // deployment's key) — without this header every request
+                    // was rejected 401 by our own auth gate before it ever
+                    // reached Google, regardless of whether the user was
+                    // actually signed in.
+                    const headers = window.sendAuthHeaders ? await window.sendAuthHeaders() : {};
                     const response = await fetch(apiUrl, {
+                        headers,
                         signal: controller.signal
                     });
 
@@ -134,7 +142,14 @@
 
                         try {
                             const errorJson = JSON.parse(errorBody);
-                            if (errorJson.error?.message) {
+                            // Google's error shape is {error: {message}}; this
+                            // proxy's own auth/rate-limit rejections are
+                            // {error: "plain string"} — check both so a 401
+                            // from OUR gate reads as "Sign in to use this."
+                            // instead of a bare, uninformative status code.
+                            if (typeof errorJson.error === 'string') {
+                                errorMessage = errorJson.error;
+                            } else if (errorJson.error?.message) {
                                 errorMessage = errorJson.error.message;
                             }
                         } catch (e) {

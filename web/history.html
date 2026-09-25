@@ -221,7 +221,7 @@
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-actions">
-      <button class="btn-sm" onclick="copyModal()">📋 Copy</button>
+      <button class="btn-sm" onclick="copyModal(this)">📋 Copy</button>
       <button class="btn-sm" onclick="downloadModal()">⬇ Download</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
@@ -329,7 +329,7 @@
         <div class="entry-body">
           <div class="entry-actions">
             <button class="btn-sm" onclick="openModal('${e.id}')">⬆ View Full</button>
-            <button class="btn-sm" onclick="copyEntry('${e.id}')">📋 Copy</button>
+            <button class="btn-sm" onclick="copyEntry('${e.id}', this)">📋 Copy</button>
             <button class="btn-sm" onclick="downloadEntry('${e.id}')">⬇ Download</button>
             <button class="btn-sm danger" onclick="deleteEntry('${e.id}')">🗑 Delete</button>
           </div>
@@ -360,18 +360,20 @@
   function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); currentModalEntry = null; }
   function closeModalOnOverlay(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
 
-  function copyEntry(id) {
+  function copyEntry(id, btn) {
     const entry = allEntries.find(e => e.id === id);
     if (!entry) return;
-    navigator.clipboard.writeText(entry.content).then(() => {
-      const btn = event.target.closest('button');
-      if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000); }
-    });
+    // The button used to be read from window.event inside this callback,
+    // which is undefined by the time a promise resolves. Passed in instead.
+    navigator.clipboard.writeText(entry.content).then(
+      () => { if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000); } },
+      () => { if (btn) { const orig = btn.textContent; btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = orig; }, 2000); } }
+    );
   }
-  function copyModal() {
+  function copyModal(btn) {
     if (!currentModalEntry) return;
     navigator.clipboard.writeText(currentModalEntry.content).then(() => {
-      const btn = event.target;
+      if (!btn) return;
       const orig = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = orig; }, 2000);
     });
   }
@@ -394,7 +396,9 @@
   }
 
   function clearAll() {
-    if (!allEntries.length) return;
+    // On a brand-new account there is nothing to clear. Returning silently
+    // makes the button look broken; say so, the way Export All already does.
+    if (!allEntries.length) return alert('No reports to clear yet.');
     if (!confirm(`Delete all ${allEntries.length} reports? This cannot be undone.`)) return;
     if (window.AgentHistory) window.AgentHistory.clear();
     allEntries = [];

@@ -28,26 +28,14 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
+
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX    = 10;
-const rateBuckets       = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── Platform content strategy (native format + posting norms) ──────────────
 // Format bias reflects current (2025-2026) engagement-velocity data: carousels
@@ -198,15 +186,20 @@ function renderPostsAsMarkdown(planNote, posts) {
   return out;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-social-posts', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Spends the account's own API credits, so it has to know whose they are.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'generate-social-posts', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth: auth })) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
@@ -233,14 +226,22 @@ module.exports = async function handler(req, res) {
   // maxDuration (60s, see vercel.json) alongside request/response overhead.
   const maxTokens = Math.min(8000, 700 * count + 1200);
 
-  // The function's own maxDuration is 60s (vercel.json) — a retry inside this
-  // same invocation would blow straight past that ceiling, so there's exactly
-  // one attempt. 55s leaves a little headroom for request parsing/response
-  // serialization while giving generation itself as much of the 60s budget
-  // as possible — output for a full 20-post batch (~8000 tokens) needs real
-  // time to generate, and that time comes from token throughput, not from
-  // input size, so it isn't something caching the input can shrink.
-  const UPSTREAM_TIMEOUT_MS = 55000;
+  // vercel.json's app-wide maxDuration is 150s (raised from 60s — Vercel
+  // rejects a per-file override for a path a glob already matches, so this
+  // had to be a shared bump rather than a targeted one; every other
+  // endpoint's own AbortSignal.timeout calls are unaffected since they
+  // self-limit well inside either ceiling). A batch as small as 5 posts was
+  // timing out at the old 55s upstream ceiling on a slow/degraded model
+  // response, and reducing the batch size further doesn't help when 5 is
+  // already the low end of what's useful — the fix is more time, not a
+  // smaller request. A retry inside this same invocation would still blow
+  // past even this larger ceiling, so there's exactly one attempt. 145s
+  // leaves a little headroom for request parsing/response serialization
+  // while giving generation itself as much of the budget as possible —
+  // output for a full 20-post batch (~8000 tokens) needs real time to
+  // generate, and that time comes from token throughput, not from input
+  // size, so it isn't something caching the input can shrink.
+  const UPSTREAM_TIMEOUT_MS = 145000;
 
   function isTimeout(err) {
     return err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted due to timeout/i.test(err.message || '');
@@ -257,11 +258,7 @@ module.exports = async function handler(req, res) {
     // over the connection the whole time, so it isn't mistaken for hung.
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model:       'claude-sonnet-4-6',
         max_tokens:  maxTokens,
@@ -379,8 +376,9 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     if (isTimeout(err)) {
-      return res.status(504).json({ error: `Claude took too long generating ${count} posts. Try again, or generate a smaller batch (5-7 posts) if this keeps happening.` });
+      const smallerBatchAdvice = count > 7 ? ' Try again, or generate a smaller batch (5-7 posts) if this keeps happening.' : ' Try again — this batch size is already small, so a further reduction is unlikely to help; this usually means Claude is unusually slow to respond right now.';
+      return res.status(504).json({ error: `Claude took too long generating ${count} posts.${smallerBatchAdvice}` });
     }
     return res.status(502).json({ error: err.message });
   }
-};
+});

@@ -1,731 +1,486 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management | Admin Dashboard</title>
-    <meta name="robots" content="noindex, nofollow">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/main.css">
-    <style>
-        .admin-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            color: white;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Users | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1200px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
 
-        .admin-header h1 {
-            margin: 0 0 10px 0;
-            font-size: 28px;
-        }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
 
-        .admin-header p {
-            margin: 0;
-            opacity: 0.9;
-        }
+  input, select, textarea { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  input::placeholder { color:var(--text3); }
+  textarea { width:100%; min-height:80px; resize:vertical; line-height:1.6; margin-bottom:11px; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--purple); }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:9px 16px;
+           font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button.danger { background:transparent; border:1px solid rgba(239,68,68,0.4); color:#fca5a5; }
+  button.danger:hover { background:rgba(239,68,68,0.1); }
+  button:disabled { opacity:.55; cursor:default; }
 
-        .users-table {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .filters input[type="search"] { flex:1; min-width:200px; }
 
-        .table-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e5e7eb;
-        }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .tile { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .tile .n { font-size:26px; font-weight:800; line-height:1.1; }
+  .tile .l { font-size:11.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-top:4px; }
 
-        .table-header h2 {
-            margin: 0;
-            font-size: 20px;
-        }
+  .pill { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+          letter-spacing:0.4px; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .pill.role-user { background:rgba(148,163,184,0.15); color:var(--text3); }
+  .pill.role-admin { background:rgba(245,158,11,0.16); color:#fcd34d; }
+  .pill.role-super_admin { background:rgba(239,68,68,0.18); color:#fca5a5; }
+  .pill.plan { background:rgba(6,182,212,0.16); color:#67e8f9; }
 
-        .table-actions {
-            display: flex;
-            gap: 10px;
-        }
+  .row { display:flex; align-items:center; gap:14px; padding:13px 4px; border-top:1px solid var(--border);
+         cursor:pointer; border-radius:9px; }
+  .row:first-child { border-top:none; }
+  .row:hover { background:var(--panel2); }
+  .avatar { width:38px; height:38px; border-radius:50%; background:var(--grad); flex-shrink:0;
+            display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; }
+  .row-main { flex:1; min-width:0; }
+  .row-name { font-weight:700; font-size:13.5px; }
+  .row-email { font-size:12px; color:var(--text3); }
+  .row-tags { display:flex; gap:6px; flex-shrink:0; align-items:center; }
+  .row-date { font-size:11.5px; color:var(--text3); width:90px; text-align:right; flex-shrink:0; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .form-grid.full, .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-size:11.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.4px; }
+  .field input, .field select { width:100%; }
+  .field.span2 { grid-column:1 / -1; }
 
-        thead {
-            background: #f9fafb;
-        }
+  .detail-header { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .detail-header .avatar { width:52px; height:52px; font-size:17px; }
+  .detail-header h3 { margin:0; font-size:17px; }
+  .detail-header p { margin:2px 0 0; color:var(--text3); font-size:12.5px; }
 
-        th {
-            padding: 15px 20px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 13px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        td {
-            padding: 15px 20px;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        tbody tr:hover {
-            background: #f9fafb;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .user-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-name {
-            font-weight: 600;
-            color: #111827;
-        }
-
-        .user-email {
-            font-size: 13px;
-            color: #6b7280;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .badge-admin {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .badge-super-admin {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .badge-user {
-            background: #e0e7ff;
-            color: #3730a3;
-        }
-
-        .badge-free {
-            background: #f3f4f6;
-            color: #374151;
-        }
-
-        .badge-pro {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge-enterprise {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-icon {
-            padding: 8px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            border-radius: 6px;
-            color: #6b7280;
-            transition: all 0.2s;
-        }
-
-        .btn-icon:hover {
-            background: #f3f4f6;
-            color: #111827;
-        }
-
-        .btn-icon.danger:hover {
-            background: #fef2f2;
-            color: #dc2626;
-        }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: white;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        }
-
-        .modal-header {
-            padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-header h3 {
-            margin: 0;
-            font-size: 20px;
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .modal-footer {
-            padding: 20px 24px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .loading-spinner {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading-spinner.active {
-            display: block;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 20px;
-            opacity: 0.5;
-        }
-    </style>
+  .actions-row { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+</style>
 </head>
 <body>
-    <div class="dashboard-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <a href="/hub.html" class="sidebar-logo">
-                    <div class="logo-icon">
-                        <svg viewBox="0 0 40 40" fill="none">
-                            <rect width="40" height="40" rx="10" fill="url(#dash-logo)"/>
-                            <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                            <path d="M14.5 24H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                            <circle cx="20" cy="20" r="3" fill="white"/>
-                            <defs>
-                                <linearGradient id="dash-logo" x1="0" y1="0" x2="40" y2="40">
-                                    <stop stop-color="#6366F1"/>
-                                    <stop offset="1" stop-color="#8B5CF6"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                    </div>
-                    <span class="logo-text">Admin Panel</span>
-                </a>
-            </div>
 
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <span class="nav-section-title">Admin</span>
-                    <a href="users.html" class="nav-item active">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                        <span>User Management</span>
-                    </a>
-                    <a href="../dashboard.html" class="nav-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7" rx="1"/>
-                            <rect x="14" y="3" width="7" height="7" rx="1"/>
-                            <rect x="3" y="14" width="7" height="7" rx="1"/>
-                            <rect x="14" y="14" width="7" height="7" rx="1"/>
-                        </svg>
-                        <span>Back to Dashboard</span>
-                    </a>
-                </div>
-            </nav>
-        </aside>
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link active">Users</a>
+    <a href="/admin/activity.html" class="nav-link">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link">Failures</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="container" style="max-width: 1400px; padding: 40px;">
-                <div class="admin-header">
-                    <h1>User Management</h1>
-                    <p>Manage user accounts, roles, and permissions</p>
-                </div>
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Users</h1>
+  <p class="sub">Every account on the platform — who they are, what plan they're on, and what they can do here.</p>
 
-                <div class="users-table">
-                    <div class="table-header">
-                        <h2>All Users</h2>
-                        <div class="table-actions">
-                            <button class="btn btn-primary" onclick="openCreateUserModal()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19"/>
-                                    <line x1="5" y1="12" x2="19" y2="12"/>
-                                </svg>
-                                Create User
-                            </button>
-                            <button class="btn btn-outline" onclick="loadUsers()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 4 23 10 17 10"/>
-                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                                </svg>
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
+  <div id="msg"></div>
 
-                    <div class="loading-spinner" id="loadingSpinner">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="#e5e7eb" stroke-width="4"/>
-                            <circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="4" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round">
-                                <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/>
-                            </circle>
-                        </svg>
-                        <p>Loading users...</p>
-                    </div>
+  <div class="tiles" id="tiles"></div>
 
-                    <table id="usersTable">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Role</th>
-                                <th>Plan</th>
-                                <th>Created</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                            <!-- Users will be loaded here -->
-                        </tbody>
-                    </table>
+  <div class="card" id="list-card">
+    <div class="filters">
+      <input type="search" id="search" placeholder="Search by name or email…">
+      <select id="role-filter">
+        <option value="">Any role</option>
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+        <option value="super_admin">Super Admin</option>
+      </select>
+      <button class="ghost" id="btn-refresh">Refresh</button>
+      <button id="btn-new">+ New user</button>
+    </div>
+    <div id="list"><p class="muted">Loading…</p></div>
+  </div>
 
-                    <div class="empty-state" id="emptyState" style="display: none;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                        <h3>No users found</h3>
-                        <p>Create your first user to get started</p>
-                    </div>
-                </div>
-            </div>
-        </main>
+  <div class="card" id="detail-card" style="display:none;">
+    <button class="ghost" id="btn-back" style="margin-bottom:16px;">← All users</button>
+    <div class="detail-header">
+      <div class="avatar" id="detail-avatar">U</div>
+      <div>
+        <h3 id="detail-name">—</h3>
+        <p id="detail-email">—</p>
+      </div>
     </div>
 
-    <!-- Create/Edit User Modal -->
-    <div class="modal-overlay" id="userModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="modalTitle">Create New User</h3>
-            </div>
-            <div class="modal-body">
-                <form id="userForm">
-                    <input type="hidden" id="userId">
+    <div class="form-grid">
+      <div class="field"><label for="edit-firstname">First name</label><input id="edit-firstname"></div>
+      <div class="field"><label for="edit-lastname">Last name</label><input id="edit-lastname"></div>
+      <div class="field">
+        <label for="edit-role">Role</label>
+        <select id="edit-role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edit-plan">Plan</label>
+        <select id="edit-plan">
+          <option value="free">Free</option>
+          <option value="start">Start</option>
+          <option value="growth">Growth</option>
+          <option value="scale">Scale</option>
+          <option value="autonomous">Autonomous</option>
+          <option value="enterprise">Enterprise</option>
+          <option value="agency_starter">Agency Starter</option>
+          <option value="agency_growth">Agency Growth</option>
+          <option value="agency_pro">Agency Pro</option>
+          <option value="agency_enterprise">Agency Enterprise</option>
+        </select>
+      </div>
+      <div class="field span2"><label>Joined</label><input id="edit-joined" disabled></div>
+    </div>
 
-                    <div class="form-group">
-                        <label for="userEmail">Email Address *</label>
-                        <input type="email" id="userEmail" required placeholder="user@example.com">
-                    </div>
+    <div class="actions-row">
+      <button id="btn-save">Save changes</button>
+      <button class="danger" id="btn-delete">Delete user</button>
+    </div>
+    <p class="muted" style="margin-top:12px;">
+      Changes here go through a privileged server call and take effect immediately —
+      there's no separate "publish" step. Granting super_admin requires you to already be one.
+    </p>
+  </div>
 
-                    <div class="form-group" id="passwordGroup">
-                        <label for="userPassword">Password *</label>
-                        <input type="password" id="userPassword" required minlength="8" placeholder="At least 8 characters">
-                    </div>
+  <div class="card" id="new-card" style="display:none;">
+    <button class="ghost" id="btn-new-back" style="margin-bottom:16px;">← All users</button>
+    <h2 style="margin-top:0;">New user</h2>
+    <div class="form-grid">
+      <div class="field span2"><label for="new-email">Email *</label><input type="email" id="new-email" placeholder="user@example.com"></div>
+      <div class="field span2"><label for="new-password">Password *</label><input type="password" id="new-password" minlength="8" placeholder="At least 8 characters"></div>
+      <div class="field"><label for="new-firstname">First name</label><input id="new-firstname"></div>
+      <div class="field"><label for="new-lastname">Last name</label><input id="new-lastname"></div>
+      <div class="field">
+        <label for="new-role">Role</label>
+        <select id="new-role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="new-plan">Plan</label>
+        <select id="new-plan">
+          <option value="free">Free</option>
+          <option value="start">Start</option>
+          <option value="growth">Growth</option>
+          <option value="scale">Scale</option>
+          <option value="autonomous">Autonomous</option>
+          <option value="enterprise">Enterprise</option>
+          <option value="agency_starter">Agency Starter</option>
+          <option value="agency_growth">Agency Growth</option>
+          <option value="agency_pro">Agency Pro</option>
+          <option value="agency_enterprise">Agency Enterprise</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions-row">
+      <button id="btn-create">Create user</button>
+    </div>
+  </div>
+</div>
 
-                    <div class="form-group">
-                        <label for="userFirstname">First Name *</label>
-                        <input type="text" id="userFirstname" required placeholder="John">
-                    </div>
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
 
-                    <div class="form-group">
-                        <label for="userLastname">Last Name *</label>
-                        <input type="text" id="userLastname" required placeholder="Doe">
-                    </div>
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
 
-                    <div class="form-group">
-                        <label for="userRole">Role *</label>
-                        <select id="userRole" required>
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                            <option value="super_admin">Super Admin</option>
-                        </select>
-                    </div>
+  const $ = id => document.getElementById(id);
 
-                    <div class="form-group">
-                        <label for="userPlan">Plan *</label>
-                        <select id="userPlan" required>
-                            <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="enterprise">Enterprise</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveUser()">
-                    <span id="saveButtonText">Create User</span>
-                </button>
-            </div>
+  const esc = window.escapeHtml || function (v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  let token = null;
+  let me = null;
+  let allUsers = [];
+  let editingUser = null;
+
+  const msg = (text, kind) => {
+    $('msg').innerHTML = text ? `<div class="msg ${esc(kind || 'info')}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  async function api(payload) {
+    const res = await fetch('/api/admin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) {
+      throw new Error((data && data.error) || `Request failed (HTTP ${res.status}).`);
+    }
+    return data;
+  }
+
+  function initials(u) {
+    const a = (u.firstname || '').charAt(0);
+    const b = (u.lastname || '').charAt(0);
+    return (a + b).toUpperCase() || (u.email || 'U').charAt(0).toUpperCase();
+  }
+
+  function fullName(u) {
+    return [u.firstname, u.lastname].filter(Boolean).join(' ') || '(no name set)';
+  }
+
+  /* ── summary tiles ─────────────────────────────────────────────────── */
+  function renderTiles() {
+    const total = allUsers.length;
+    const admins = allUsers.filter(u => u.role === 'admin' || u.role === 'super_admin').length;
+    const byPlan = {};
+    allUsers.forEach(u => { byPlan[u.plan || 'free'] = (byPlan[u.plan || 'free'] || 0) + 1; });
+    const paid = total - (byPlan.free || 0);
+    $('tiles').innerHTML = `
+      <div class="tile"><div class="n">${esc(total)}</div><div class="l">Total users</div></div>
+      <div class="tile"><div class="n">${esc(admins)}</div><div class="l">Admins</div></div>
+      <div class="tile"><div class="n">${esc(paid)}</div><div class="l">On a paid plan</div></div>`;
+  }
+
+  /* ── list ──────────────────────────────────────────────────────────── */
+  function renderList() {
+    const q = ($('search').value || '').trim().toLowerCase();
+    const roleFilter = $('role-filter').value;
+    const rows = allUsers.filter(u => {
+      if (roleFilter && (u.role || 'user') !== roleFilter) return false;
+      if (!q) return true;
+      const hay = [u.firstname, u.lastname, u.email].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+
+    if (!rows.length) {
+      $('list').innerHTML = allUsers.length
+        ? '<p class="muted">No users match that search.</p>'
+        : '<p class="muted">No users found.</p>';
+      return;
+    }
+
+    $('list').innerHTML = rows.map(u => `
+      <div class="row" data-id="${esc(u.id)}">
+        <div class="avatar">${esc(initials(u))}</div>
+        <div class="row-main">
+          <div class="row-name">${esc(fullName(u))}</div>
+          <div class="row-email">${esc(u.email)}</div>
         </div>
-    </div>
+        <div class="row-tags">
+          <span class="pill role-${esc(u.role || 'user')}">${esc((u.role || 'user').replace('_', ' '))}</span>
+          <span class="pill plan">${esc((u.plan || 'free').replace('_', ' '))}</span>
+        </div>
+        <div class="row-date">${esc(u.created_at ? new Date(u.created_at).toLocaleDateString() : '')}</div>
+      </div>`).join('');
 
-    <script src="../js/supabase.min.js"></script>
-    <script src="/js/config.js"></script>
-    <script src="/js/supabase-client.js"></script>
-    <script src="/js/auth.js"></script>
-    <script>
-        let currentEditingUser = null;
+    $('list').querySelectorAll('.row').forEach(el => {
+      el.addEventListener('click', () => openUser(el.getAttribute('data-id')));
+    });
+  }
 
-        // Check if user is admin
-        async function checkAdminAccess() {
-            const user = await Auth.getUser();
-            if (!user) {
-                window.location.href = '../index.html';
-                return false;
-            }
+  async function loadUsers() {
+    $('list').innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const client = window.Supabase.getClient();
+      const { data, error } = await client.from('profiles').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      allUsers = data || [];
+      renderTiles();
+      renderList();
+    } catch (e) {
+      $('list').innerHTML = `<p class="muted">Could not load users: ${esc(e.message)}</p>`;
+    }
+  }
 
-            // Check if using Supabase or local storage
-            if (window.Supabase && window.Supabase.isConfigured()) {
-                const profile = await window.Supabase.DB.getProfile(user.id);
-                if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
-                    alert('Access denied. Admin privileges required.');
-                    window.location.href = '../dashboard.html';
-                    return false;
-                }
-            } else {
-                // Local mode - check if user has admin flag
-                if (!user.role || (user.role !== 'admin' && user.role !== 'super_admin')) {
-                    alert('Access denied. This feature requires Supabase configuration and admin privileges.');
-                    window.location.href = '../dashboard.html';
-                    return false;
-                }
-            }
+  /* ── detail / edit ─────────────────────────────────────────────────── */
+  function openUser(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
+    editingUser = u;
 
-            return true;
-        }
+    $('detail-avatar').textContent = initials(u);
+    $('detail-name').textContent = fullName(u);
+    $('detail-email').textContent = u.email || '';
+    $('edit-firstname').value = u.firstname || '';
+    $('edit-lastname').value = u.lastname || '';
+    $('edit-role').value = u.role || 'user';
+    $('edit-plan').value = u.plan || 'free';
+    $('edit-joined').value = u.created_at ? new Date(u.created_at).toLocaleString() : '—';
 
-        // Load all users
-        async function loadUsers() {
-            const loadingSpinner = document.getElementById('loadingSpinner');
-            const usersTableBody = document.getElementById('usersTableBody');
-            const emptyState = document.getElementById('emptyState');
+    $('btn-delete').style.display = (u.id === me.id) ? 'none' : 'inline-block';
 
-            loadingSpinner.classList.add('active');
-            usersTableBody.innerHTML = '';
-            emptyState.style.display = 'none';
+    $('list-card').style.display = 'none';
+    $('new-card').style.display = 'none';
+    $('detail-card').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-            try {
-                if (window.Supabase && window.Supabase.isConfigured()) {
-                    const client = window.Supabase.getClient();
-                    const { data: profiles, error } = await client
-                        .from('profiles')
-                        .select('*')
-                        .order('created_at', { ascending: false });
+  function backToList() {
+    editingUser = null;
+    $('detail-card').style.display = 'none';
+    $('new-card').style.display = 'none';
+    $('list-card').style.display = 'block';
+  }
 
-                    if (error) throw error;
+  async function saveUser() {
+    if (!editingUser) return;
+    const btn = $('btn-save');
+    btn.disabled = true;
+    try {
+      await api({
+        action: 'update',
+        userId: editingUser.id,
+        firstname: $('edit-firstname').value,
+        lastname: $('edit-lastname').value,
+        role: $('edit-role').value,
+        plan: $('edit-plan').value,
+      });
+      msg('User updated.', 'ok');
+      backToList();
+      await loadUsers();
+    } catch (e) {
+      msg(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
 
-                    if (!profiles || profiles.length === 0) {
-                        emptyState.style.display = 'block';
-                    } else {
-                        profiles.forEach(profile => {
-                            renderUserRow(profile);
-                        });
-                    }
-                } else {
-                    // Local mode
-                    const users = Auth.getStoredUsers();
-                    if (!users || users.length === 0) {
-                        emptyState.style.display = 'block';
-                    } else {
-                        users.forEach(user => {
-                            renderUserRow(user);
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load users:', error);
-                alert('Failed to load users: ' + error.message);
-            } finally {
-                loadingSpinner.classList.remove('active');
-            }
-        }
+  async function deleteUserNow() {
+    if (!editingUser) return;
+    if (!confirm(`Delete ${editingUser.email}? This removes their account entirely and can't be undone.`)) return;
+    const btn = $('btn-delete');
+    btn.disabled = true;
+    try {
+      await api({ action: 'delete', userId: editingUser.id });
+      msg('User deleted.', 'ok');
+      backToList();
+      await loadUsers();
+    } catch (e) {
+      msg(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
 
-        // Render user row
-        function renderUserRow(user) {
-            const tbody = document.getElementById('usersTableBody');
-            const initials = (user.firstname?.charAt(0) || '') + (user.lastname?.charAt(0) || '');
-            const createdDate = new Date(user.created_at || user.createdAt).toLocaleDateString();
+  /* ── create ────────────────────────────────────────────────────────── */
+  function openNew() {
+    ['new-email', 'new-password', 'new-firstname', 'new-lastname'].forEach(id => { $(id).value = ''; });
+    $('new-role').value = 'user';
+    $('new-plan').value = 'free';
+    $('list-card').style.display = 'none';
+    $('detail-card').style.display = 'none';
+    $('new-card').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>
-                    <div class="user-info">
-                        <div class="user-avatar">${initials || 'U'}</div>
-                        <div class="user-details">
-                            <span class="user-name">${user.firstname || ''} ${user.lastname || ''}</span>
-                            <span class="user-email">${user.email}</span>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="badge badge-${user.role || 'user'}">
-                        ${(user.role || 'user').replace('_', ' ').toUpperCase()}
-                    </span>
-                </td>
-                <td>
-                    <span class="badge badge-${user.plan || 'free'}">
-                        ${(user.plan || 'free').toUpperCase()}
-                    </span>
-                </td>
-                <td>${createdDate}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon" onclick='editUser(${JSON.stringify(user)})' title="Edit user">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                        </button>
-                        <button class="btn-icon danger" onclick='deleteUser("${user.id || user.email}", "${user.email}")' title="Delete user">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        }
+  async function createUser() {
+    const email = $('new-email').value.trim();
+    const password = $('new-password').value;
+    if (!email || !password) { msg('Email and password are required.', 'error'); return; }
+    if (password.length < 8) { msg('Password must be at least 8 characters.', 'error'); return; }
 
-        // Open create user modal
-        function openCreateUserModal() {
-            currentEditingUser = null;
-            document.getElementById('modalTitle').textContent = 'Create New User';
-            document.getElementById('saveButtonText').textContent = 'Create User';
-            document.getElementById('userForm').reset();
-            document.getElementById('userId').value = '';
-            document.getElementById('passwordGroup').style.display = 'block';
-            document.getElementById('userModal').classList.add('active');
-        }
+    const btn = $('btn-create');
+    btn.disabled = true;
+    try {
+      await api({
+        action: 'create',
+        email, password,
+        firstname: $('new-firstname').value,
+        lastname: $('new-lastname').value,
+        role: $('new-role').value,
+        plan: $('new-plan').value,
+      });
+      msg('User created.', 'ok');
+      backToList();
+      await loadUsers();
+    } catch (e) {
+      msg(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
 
-        // Edit user
-        function editUser(user) {
-            currentEditingUser = user;
-            document.getElementById('modalTitle').textContent = 'Edit User';
-            document.getElementById('saveButtonText').textContent = 'Update User';
-            document.getElementById('userId').value = user.id;
-            document.getElementById('userEmail').value = user.email;
-            document.getElementById('userFirstname').value = user.firstname || '';
-            document.getElementById('userLastname').value = user.lastname || '';
-            document.getElementById('userRole').value = user.role || 'user';
-            document.getElementById('userPlan').value = user.plan || 'free';
-            document.getElementById('passwordGroup').style.display = 'none';
-            document.getElementById('userModal').classList.add('active');
-        }
+  /* ── boot ──────────────────────────────────────────────────────────── */
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
 
-        // Close modal
-        function closeUserModal() {
-            document.getElementById('userModal').classList.remove('active');
-            currentEditingUser = null;
-        }
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      $('gate').textContent = 'This page is for Audema admins.';
+      return;
+    }
 
-        // Save user
-        async function saveUser() {
-            const form = document.getElementById('userForm');
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
+    me = { id: user.id, role: profile.role };
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
 
-            const userData = {
-                email: document.getElementById('userEmail').value,
-                firstname: document.getElementById('userFirstname').value,
-                lastname: document.getElementById('userLastname').value,
-                role: document.getElementById('userRole').value,
-                plan: document.getElementById('userPlan').value
-            };
+    $('search').addEventListener('input', renderList);
+    $('role-filter').addEventListener('change', renderList);
+    $('btn-refresh').addEventListener('click', loadUsers);
+    $('btn-new').addEventListener('click', openNew);
+    $('btn-new-back').addEventListener('click', backToList);
+    $('btn-back').addEventListener('click', backToList);
+    $('btn-save').addEventListener('click', saveUser);
+    $('btn-delete').addEventListener('click', deleteUserNow);
+    $('btn-create').addEventListener('click', createUser);
 
-            try {
-                if (currentEditingUser) {
-                    // Update existing user
-                    if (window.Supabase && window.Supabase.isConfigured()) {
-                        await window.Supabase.DB.updateProfile(currentEditingUser.id, userData);
-                    } else {
-                        // Local mode update
-                        const users = Auth.getStoredUsers();
-                        const index = users.findIndex(u => u.email === currentEditingUser.email);
-                        if (index !== -1) {
-                            users[index] = { ...users[index], ...userData };
-                            localStorage.setItem('seo_agent_users', JSON.stringify(users));
-                        }
-                    }
-                    alert('User updated successfully!');
-                } else {
-                    // Create new user
-                    const password = document.getElementById('userPassword').value;
+    await loadUsers();
+  }
 
-                    if (window.Supabase && window.Supabase.isConfigured()) {
-                        // Routed through /api/admin-users (service-role Auth Admin API) rather
-                        // than the client-side self-service signUp() call — signUp() operates
-                        // on OUR OWN browser session and would risk swapping this admin's
-                        // session over to the brand-new account, plus it leaves the account
-                        // unconfirmed if email confirmation is enabled. The server endpoint
-                        // creates a pre-confirmed account without touching our session at all.
-                        const session = await window.Supabase.Auth.getSession();
-                        if (!session) throw new Error('Your session has expired — please sign in again.');
-
-                        const res = await fetch('/api/admin-users', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                            body: JSON.stringify({ action: 'create', ...userData, password }),
-                        });
-                        const result = await res.json();
-                        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to create user');
-                    } else {
-                        // Local mode create
-                        await Auth.register({ ...userData, password });
-                    }
-                    alert('User created successfully!');
-                }
-
-                closeUserModal();
-                loadUsers();
-            } catch (error) {
-                console.error('Failed to save user:', error);
-                alert('Failed to save user: ' + error.message);
-            }
-        }
-
-        // Delete user
-        async function deleteUser(userId, email) {
-            if (!confirm(`Are you sure you want to delete user: ${email}?`)) {
-                return;
-            }
-
-            try {
-                if (window.Supabase && window.Supabase.isConfigured()) {
-                    // Routed through /api/admin-users so the actual auth.users account is
-                    // removed too — deleting only the profiles row (the old behavior) left
-                    // a live, loginable account with a missing profile behind.
-                    const session = await window.Supabase.Auth.getSession();
-                    if (!session) throw new Error('Your session has expired — please sign in again.');
-
-                    const res = await fetch('/api/admin-users', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                        body: JSON.stringify({ action: 'delete', userId }),
-                    });
-                    const result = await res.json();
-                    if (!res.ok || !result.success) throw new Error(result.error || 'Failed to delete user');
-                } else {
-                    // Local mode delete
-                    const users = Auth.getStoredUsers();
-                    const filtered = users.filter(u => u.email !== email);
-                    localStorage.setItem('seo_agent_users', JSON.stringify(filtered));
-                }
-
-                alert('User deleted successfully!');
-                loadUsers();
-            } catch (error) {
-                console.error('Failed to delete user:', error);
-                alert('Failed to delete user: ' + error.message);
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            const hasAccess = await checkAdminAccess();
-            if (hasAccess) {
-                loadUsers();
-            }
-        });
-    </script>
+  boot();
+})();
+</script>
 </body>
 </html>

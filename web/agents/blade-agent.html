@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/js/supabase.min.js"></script>
 <script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/intelligence-engine.js"></script>
 <script src="/js/contacts-store.js"></script>
 <script src="/js/site-switcher.js"></script>
@@ -69,6 +71,21 @@
   .picked-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; margin-top: 8px; }
   .picked-pill button { background: none; border: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0; }
 
+  .area-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+  .area-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .area-card-name { font-weight: 700; font-size: 13.5px; }
+  .area-card-name .pin { margin-right: 4px; }
+  .area-card-remove { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 15px; padding: 2px 4px; }
+  .area-card-remove:hover { color: var(--red); }
+  .surround-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--text2); cursor: pointer; user-select: none; }
+  .surround-toggle input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  .surround-status { font-size: 12px; color: var(--text3); margin-top: 8px; }
+  .suburb-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .suburb-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 11.5px; color: var(--text2); }
+  .suburb-chip button { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+  .suburb-chip button:hover { color: var(--red); }
+  .suburb-chip .dist { color: var(--text3); }
+
   .breadcrumb-trail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; font-size: 12.5px; color: var(--text3); }
   .breadcrumb-trail b { color: var(--text); }
 
@@ -111,6 +128,8 @@
   .badge-modern { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: #34d399; }
   .badge-unreachable { background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
   .badge-checking { background: rgba(148,163,184,0.1); border: 1px solid var(--border); color: var(--text3); }
+  /* Our check broke — a different thing from a verdict about their site. */
+  .badge-checkfailed { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); color: #f59e0b; }
   .badge-newbiz { background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; margin-left: 4px; }
   .status-reasons { font-size: 11px; color: var(--text3); margin-top: 3px; max-width: 220px; }
 </style>
@@ -149,11 +168,11 @@
     </div>
   </div>
 
-  <!-- STEP 2: City -->
+  <!-- STEP 2: Areas -->
   <div class="step" id="step-city">
     <div class="center">
-      <h1 class="headline">Now drill down to a city or town.</h1>
-      <p class="sub">Blade will search Google Maps inside this local area.</p>
+      <h1 class="headline">Now pick one or more areas.</h1>
+      <p class="sub">Add every city or town you want covered. For any of them, you can also pull in the surrounding suburbs and towns automatically.</p>
     </div>
     <div class="card">
       <div class="section-title">City / Town</div>
@@ -161,7 +180,7 @@
         <input class="field-input" id="in-city-search" placeholder="Start typing a city or town…" autocomplete="off">
         <div class="typeahead-list" id="city-list"></div>
       </div>
-      <div id="city-picked"></div>
+      <div id="areas-list"></div>
     </div>
     <div style="display:flex; justify-content:space-between;">
       <button class="btn btn-ghost" id="btn-city-back">← Back</button>
@@ -272,12 +291,21 @@
 
   var SECTOR_SUGGESTIONS = ['Coffee shops','Restaurants','Plumbers','Electricians','Dentists','Law firms','Real estate agents','Hair salons','Gyms & fitness studios','Accountants','Marketing agencies','Auto repair shops','Hotels','Estate agents','Physiotherapists'];
 
+  // The countries that still measure everyday distance in miles rather than
+  // km — mirrors api/blade-nearby-areas.js's own list, since the label shown
+  // here has to match what that endpoint actually searches.
+  var IMPERIAL_COUNTRIES = { US: 1, LR: 1, MM: 1 };
+  function radiusLabel() {
+    var imperial = state.country && IMPERIAL_COUNTRIES[state.country.code];
+    return imperial ? '30 miles' : '50 km';
+  }
+
   var state = {
     country: null,      // { name, code }
-    city: null,         // { description, placeId }
+    areas: [],          // [{ description, placeId, includeSurrounding, resolving, resolveError, suburbs: [{ placeId, name, distanceKm, included }] }]
     sector: '',
     results: [],
-    nextPageToken: null,
+    nextPageToken: null, // only meaningful when exactly one search point ran
     enriching: false,
     checkingSites: false,
     activeFilters: new Set(),
@@ -327,7 +355,8 @@
 
   $('btn-country-next').addEventListener('click', function () { goStep('step-city'); });
 
-  /* ─── Step 2: City ────────────────────────────────────────────────── */
+  /* ─── Step 2: Areas (one or more, each optionally expanded to its
+         surrounding suburbs/towns) ──────────────────────────────────── */
 
   var citySearch = $('in-city-search');
   var cityListEl = $('city-list');
@@ -343,13 +372,15 @@
   async function fetchCities(input) {
     try {
       var res = await fetch('/api/blade-cities-autocomplete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: await window.sendAuthHeaders(),
         body: JSON.stringify({ input: input, countryCode: state.country ? state.country.code : null }),
       });
       var data = await res.json();
-      var cities = (data && data.cities) || [];
+      // Areas already picked don't need to be offered again.
+      var picked = new Set(state.areas.map(function (a) { return a.placeId; }));
+      var cities = ((data && data.cities) || []).filter(function (c) { return !picked.has(c.placeId); });
       cityListEl.innerHTML = cities.map(function (c) {
-        return '<div class="typeahead-item" data-desc="' + c.description.replace(/"/g, '&quot;') + '">' + c.description + '</div>';
+        return '<div class="typeahead-item" data-desc="' + c.description.replace(/"/g, '&quot;') + '" data-place-id="' + c.placeId + '">' + c.description + '</div>';
       }).join('');
       cityListEl.classList.toggle('show', cities.length > 0);
     } catch (e) {
@@ -360,16 +391,92 @@
   cityListEl.addEventListener('click', function (e) {
     var item = e.target.closest('.typeahead-item');
     if (!item) return;
-    state.city = { description: item.dataset.desc };
-    citySearch.value = item.dataset.desc;
-    cityListEl.classList.remove('show');
-    $('city-picked').innerHTML = '<div class="picked-pill">📍 ' + item.dataset.desc + ' <button type="button" id="clear-city">✕</button></div>';
-    $('clear-city').addEventListener('click', function () {
-      state.city = null; citySearch.value = ''; $('city-picked').innerHTML = '';
-      $('btn-city-next').disabled = true;
+    state.areas.push({
+      description: item.dataset.desc, placeId: item.dataset.placeId,
+      includeSurrounding: false, resolving: false, resolveError: null, suburbs: null,
     });
+    citySearch.value = '';
+    cityListEl.classList.remove('show');
+    renderAreas();
     $('btn-city-next').disabled = false;
   });
+
+  function renderAreas() {
+    $('areas-list').innerHTML = state.areas.map(function (area, idx) {
+      var suburbsHtml = '';
+      if (area.resolving) {
+        suburbsHtml = '<div class="surround-status"><span class="spinner"></span> Finding suburbs and towns within ' + radiusLabel() + '…</div>';
+      } else if (area.resolveError) {
+        suburbsHtml = '<div class="surround-status" style="color:var(--red);">' + escapeHtml(area.resolveError) + '</div>';
+      } else if (area.suburbs) {
+        var includedCount = area.suburbs.filter(function (s) { return s.included; }).length;
+        suburbsHtml = '<div class="surround-status">' + (area.suburbs.length
+          ? includedCount + ' of ' + area.suburbs.length + ' nearby areas included — click one to drop it'
+          : 'No other suburbs or towns found within ' + radiusLabel() + '.') + '</div>' +
+          '<div class="suburb-chip-row">' + area.suburbs.map(function (s, sIdx) {
+            return '<span class="suburb-chip" data-area="' + idx + '" data-suburb="' + sIdx + '" style="' + (s.included ? '' : 'opacity:.4;text-decoration:line-through;') + 'cursor:pointer;">' +
+              escapeHtml(s.name) + ' <span class="dist">' + s.distanceKm + 'km</span></span>';
+          }).join('') + '</div>';
+      }
+      return '<div class="area-card">' +
+        '<div class="area-card-top">' +
+        '<span class="area-card-name"><span class="pin">📍</span>' + escapeHtml(area.description) + '</span>' +
+        '<button type="button" class="area-card-remove" data-remove-area="' + idx + '" title="Remove this area">✕</button>' +
+        '</div>' +
+        '<label class="surround-toggle"><input type="checkbox" data-toggle-surround="' + idx + '"' + (area.includeSurrounding ? ' checked' : '') + '> Include surrounding suburbs &amp; towns (up to ' + radiusLabel() + ')</label>' +
+        suburbsHtml +
+        '</div>';
+    }).join('');
+  }
+
+  $('areas-list').addEventListener('click', function (e) {
+    var removeBtn = e.target.closest('[data-remove-area]');
+    if (removeBtn) {
+      state.areas.splice(parseInt(removeBtn.dataset.removeArea, 10), 1);
+      renderAreas();
+      $('btn-city-next').disabled = state.areas.length === 0;
+      return;
+    }
+    var chip = e.target.closest('.suburb-chip');
+    if (chip) {
+      var area = state.areas[parseInt(chip.dataset.area, 10)];
+      var suburb = area && area.suburbs && area.suburbs[parseInt(chip.dataset.suburb, 10)];
+      if (suburb) { suburb.included = !suburb.included; renderAreas(); }
+    }
+  });
+
+  $('areas-list').addEventListener('change', function (e) {
+    var toggle = e.target.closest('[data-toggle-surround]');
+    if (!toggle) return;
+    var area = state.areas[parseInt(toggle.dataset.toggleSurround, 10)];
+    if (!area) return;
+    area.includeSurrounding = toggle.checked;
+    if (area.includeSurrounding && !area.suburbs && !area.resolving) resolveSurroundingAreas(area);
+    renderAreas();
+  });
+
+  async function resolveSurroundingAreas(area) {
+    area.resolving = true;
+    area.resolveError = null;
+    renderAreas();
+    try {
+      var res = await fetch('/api/blade-nearby-areas', {
+        method: 'POST', headers: await window.sendAuthHeaders(),
+        body: JSON.stringify({ placeId: area.placeId, countryCode: state.country ? state.country.code : null }),
+      });
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not look up nearby areas');
+      area.suburbs = (data.areas || []).map(function (a) {
+        return { placeId: a.placeId, name: a.name, distanceKm: a.distanceKm, included: true };
+      });
+    } catch (e) {
+      area.resolveError = e.message || 'Could not look up nearby areas.';
+      area.includeSurrounding = false;
+    } finally {
+      area.resolving = false;
+      renderAreas();
+    }
+  }
 
   $('btn-city-back').addEventListener('click', function () { goStep('step-country'); });
   $('btn-city-next').addEventListener('click', function () { goStep('step-sector'); });
@@ -394,59 +501,124 @@
 
   /* ─── Step 4: Results ─────────────────────────────────────────────── */
 
+  /** Every distinct place Blade should query: each picked area, plus each of
+   *  its included nearby suburbs/towns — deduplicated by placeId, since the
+   *  same suburb can turn up as "nearby" for two different picked areas. */
+  function searchPoints() {
+    var seen = new Set();
+    var points = [];
+    state.areas.forEach(function (area) {
+      if (!seen.has(area.placeId)) { seen.add(area.placeId); points.push({ description: area.description }); }
+      if (area.includeSurrounding && area.suburbs) {
+        area.suburbs.filter(function (s) { return s.included; }).forEach(function (s) {
+          if (seen.has(s.placeId)) return;
+          seen.add(s.placeId);
+          points.push({ description: s.name });
+        });
+      }
+    });
+    return points;
+  }
+
+  async function runOneSearch(point, pageToken) {
+    var res = await fetch('/api/blade-places-search', {
+      method: 'POST', headers: await window.sendAuthHeaders(),
+      body: JSON.stringify({
+        sector: state.sector,
+        city: point.description,
+        country: state.country ? state.country.name : '',
+        pageToken: pageToken || undefined,
+      }),
+    });
+    var data = await res.json();
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Search failed');
+    return data;
+  }
+
   async function runSearch(loadMore) {
     var errEl = $('sector-err');
     errEl.classList.remove('show');
-    if (!loadMore) {
-      state.sector = $('in-sector').value.trim();
-      state.results = [];
-      state.nextPageToken = null;
-    }
     var btn = loadMore ? $('btn-load-more') : $('btn-sector-run');
     var origLabel = btn.textContent;
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Searching Google Maps…';
 
-    try {
-      var res = await fetch('/api/blade-places-search', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sector: state.sector,
-          city: state.city ? state.city.description : '',
-          country: state.country ? state.country.name : '',
-          pageToken: loadMore ? state.nextPageToken : undefined,
-        }),
-      });
-      var data = await res.json();
-      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Search failed');
-
-      var existing = new Set(state.results.map(function (r) { return r.placeId; }));
-      (data.results || []).forEach(function (r) {
-        if (existing.has(r.placeId)) return;
-        r.siteStatus = r.website ? null : 'no_website'; // null = not checked yet
-        r.siteReasons = [];
-        state.results.push(r);
-      });
-      state.nextPageToken = data.nextPageToken || null;
-
-      renderTrail();
-      renderResults();
-      goStep('step-results');
-    } catch (e) {
-      if (!loadMore) {
-        errEl.textContent = e.message || 'Something went wrong running that search.';
+    // "Load more" only makes sense when the last run was a single point —
+    // Google's page tokens are per-query, so a multi-area run has no one
+    // token to resume.
+    if (loadMore && state.nextPageToken && state._lastSinglePoint) {
+      btn.innerHTML = '<span class="spinner"></span> Searching Google Maps…';
+      try {
+        var more = await runOneSearch(state._lastSinglePoint, state.nextPageToken);
+        mergeResults(more.results, state._lastSinglePoint.description);
+        state.nextPageToken = more.nextPageToken || null;
+        renderResults();
+      } catch (e) {
+        errEl.textContent = e.message || 'Something went wrong loading more results.';
         errEl.classList.add('show');
+      } finally {
+        btn.disabled = false; btn.textContent = origLabel;
       }
-    } finally {
-      btn.disabled = false;
-      btn.textContent = origLabel;
+      return;
     }
+
+    state.sector = $('in-sector').value.trim();
+    state.results = [];
+    state.nextPageToken = null;
+    var points = searchPoints();
+    state._lastSinglePoint = points.length === 1 ? points[0] : null;
+
+    var failed = [];
+    for (var i = 0; i < points.length; i++) {
+      btn.innerHTML = '<span class="spinner"></span> Searching ' + escapeHtml(points[i].description) +
+        (points.length > 1 ? ' (' + (i + 1) + ' of ' + points.length + ')' : '') + '…';
+      try {
+        var data = await runOneSearch(points[i]);
+        mergeResults(data.results, points[i].description);
+        if (points.length === 1) state.nextPageToken = data.nextPageToken || null;
+      } catch (e) {
+        failed.push(points[i].description + ': ' + (e.message || 'search failed'));
+      }
+    }
+
+    if (failed.length) {
+      errEl.textContent = state.results.length
+        ? 'Some areas could not be searched — ' + failed.join('; ')
+        : (failed[0] || 'Something went wrong running that search.');
+      errEl.classList.add('show');
+    }
+
+    renderTrail();
+    renderResults();
+    btn.disabled = false;
+    btn.textContent = origLabel;
+    if (state.results.length || !failed.length) goStep('step-results');
+  }
+
+  function mergeResults(results, fromDescription) {
+    var existing = new Set(state.results.map(function (r) { return r.placeId; }));
+    (results || []).forEach(function (r) {
+      if (existing.has(r.placeId)) return;
+      existing.add(r.placeId);
+      r.siteStatus = r.website ? null : 'no_website'; // null = not checked yet
+      r.siteReasons = [];
+      r.searchPoint = fromDescription;
+      state.results.push(r);
+    });
+  }
+
+  function areasSummary() {
+    if (!state.areas.length) return '';
+    var extra = state.areas.reduce(function (n, a) {
+      return n + (a.includeSurrounding && a.suburbs ? a.suburbs.filter(function (s) { return s.included; }).length : 0);
+    }, 0);
+    var base = state.areas.map(function (a) { return a.description; }).join(', ');
+    return base + (extra ? ' (+' + extra + ' nearby)' : '');
   }
 
   function renderTrail() {
     $('results-trail').innerHTML =
       '<span>🌍 <b>' + (state.country ? state.country.name : '') + '</b></span> ›' +
-      '<span>📍 <b>' + (state.city ? state.city.description : '') + '</b></span> ›' +
+      '<span>📍 <b>' + areasSummary() + '</b></span> ›' +
       '<span>🏷️ <b>' + state.sector + '</b></span>';
   }
 
@@ -457,8 +629,16 @@
 
   function emailCell(r) {
     if (r._emailLoading) return '<span class="email-pending"><span class="spinner"></span></span>';
-    if (r.email && r.emailSource === 'real') return '<span class="email-real">' + r.email + '</span>';
-    if (r.email && r.emailSource === 'estimate') return '<span class="email-estimate">' + r.email + ' <span title="Inferred via search, not confirmed on-site">≈</span></span>';
+    // The address is scraped off a third-party website by the enrichment
+    // endpoint. It was interpolated raw into innerHTML here while every other
+    // cell on this row was escaped, so a page under someone else's control
+    // could put script into this table.
+    if (r.email && r.emailSource === 'real') return '<span class="email-real">' + escapeHtml(r.email) + '</span>';
+    if (r.email && r.emailSource === 'estimate') return '<span class="email-estimate">' + escapeHtml(r.email) + ' <span title="Inferred via search, not confirmed on-site">≈</span></span>';
+    // "The lookup failed" and "this business has no published email" are
+    // different answers. Reporting the first as the second tells the customer
+    // something about their prospect that we never actually found out.
+    if (r._emailError) return '<span class="email-none" title="' + escapeAttr(r._emailError) + '">lookup failed</span>';
     if (r._emailChecked) return '<span class="email-none">not found</span>';
     return '<span class="email-pending">—</span>';
   }
@@ -484,6 +664,7 @@
     else if (r.siteStatus === 'no_website') badge = '<span class="badge badge-nosite">No website</span>';
     else if (r.siteStatus === 'outdated') badge = '<span class="badge badge-outdated">Outdated</span>';
     else if (r.siteStatus === 'unreachable') badge = '<span class="badge badge-unreachable">Unreachable</span>';
+    else if (r.siteStatus === 'check_failed') badge = '<span class="badge badge-checkfailed">Check failed</span>';
     else if (r.siteStatus === 'modern') badge = '<span class="badge badge-modern">Modern</span>';
     else badge = '<span class="badge badge-checking">Not checked</span>';
 
@@ -525,11 +706,11 @@
   $('btn-load-more').addEventListener('click', function () { runSearch(true); });
   $('btn-restart').addEventListener('click', function () {
     state = {
-      country: state.country, city: null, sector: '', results: [], nextPageToken: null,
+      country: state.country, areas: [], sector: '', results: [], nextPageToken: null,
       enriching: false, checkingSites: false, activeFilters: new Set(), newBizThreshold: state.newBizThreshold,
     };
     document.querySelectorAll('.filter-chip.active').forEach(function (c) { c.classList.remove('active'); });
-    $('city-picked').innerHTML = ''; citySearch.value = ''; $('btn-city-next').disabled = true;
+    renderAreas(); citySearch.value = ''; $('btn-city-next').disabled = true;
     $('in-sector').value = ''; $('btn-sector-run').disabled = true;
     goStep('step-city');
   });
@@ -542,7 +723,11 @@
 
   async function enrichEmails() {
     if (state.enriching) return;
-    var targets = state.results.filter(function (r) { return r.website && !r._emailChecked && !r._emailLoading; });
+    // As with the website check, a failed lookup is retried rather than left
+    // permanently marked as answered.
+    var targets = state.results.filter(function (r) {
+      return r.website && !r._emailLoading && (!r._emailChecked || r._emailError);
+    });
     if (!targets.length) return;
     state.enriching = true;
     $('btn-enrich').disabled = true;
@@ -560,14 +745,23 @@
         renderResults();
         try {
           var res = await fetch('/api/seo-backlink-find-email', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ domain: r.website }),
           });
+          if (!res.ok) throw new Error('lookup returned ' + res.status);
           var data = await res.json();
           r.email = (data && data.email) || null;
           r.emailSource = data && data.data_source;
+          r._emailError = null;
         } catch (e) {
+          // This used to set r.email = null, which the table rendered as
+          // "not found" — our outage presented as a fact about their prospect.
           r.email = null;
+          r._emailError = (e && e.message) || 'lookup failed';
+          if (window.reportFailure) {
+            window.reportFailure('Blade contact-email lookup failed: ' + r._emailError,
+              { where: 'blade-agent.enrichEmails', domain: r.website });
+          }
         }
         r._emailLoading = false;
         r._emailChecked = true;
@@ -596,7 +790,11 @@
 
   async function checkWebsites() {
     if (state.checkingSites) return;
-    var targets = state.results.filter(function (r) { return r.website && r.siteStatus == null && !r._siteLoading; });
+    // A row whose check failed is retried on the next press — it holds no
+    // verdict, only the news that we could not get one.
+    var targets = state.results.filter(function (r) {
+      return r.website && !r._siteLoading && (r.siteStatus == null || r.siteStatus === 'check_failed');
+    });
     if (!targets.length) return;
     state.checkingSites = true;
     $('btn-check-sites').disabled = true;
@@ -614,15 +812,24 @@
         renderResults();
         try {
           var res = await fetch('/api/blade-website-check', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: await window.sendAuthHeaders(),
             body: JSON.stringify({ website: r.website }),
           });
+          if (!res.ok) throw new Error('check returned ' + res.status);
           var data = await res.json();
           r.siteStatus = (data && data.status) || 'unreachable';
           r.siteReasons = (data && data.reasons) || [];
         } catch (e) {
-          r.siteStatus = 'unreachable';
-          r.siteReasons = [];
+          // "Unreachable" is a verdict about the prospect's website. When our
+          // own check is what failed, saying that is a measurement we did not
+          // make — and it is the verdict the "Outdated / Unreachable" filter
+          // sells the whole lead list on.
+          r.siteStatus = 'check_failed';
+          r.siteReasons = [(e && e.message) || 'the check could not be completed'];
+          if (window.reportFailure) {
+            window.reportFailure('Blade website check failed: ' + r.siteReasons[0],
+              { where: 'blade-agent.checkWebsites', website: r.website });
+          }
         }
         r._siteLoading = false;
         done++;
@@ -680,9 +887,9 @@
       return;
     }
 
-    const searchTag = ((state.sector || '') + '-' + (state.city ? state.city.description : ''))
+    const searchTag = ((state.sector || '') + '-' + areasSummary())
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const segmentName = 'Blade: ' + state.sector + ' in ' + (state.city ? state.city.description : '');
+    const segmentName = 'Blade: ' + state.sector + ' in ' + areasSummary();
 
     const rows = withEmail.map(function (r) {
       return {
@@ -692,7 +899,7 @@
         customFields: {
           address: r.address || '', phone: r.phone || '', website: r.website || '',
           rating: r.rating != null ? r.rating : '', mapsUrl: r.mapsUrl || '',
-          websiteStatus: r.siteStatus || '',
+          websiteStatus: r.siteStatus || '', searchArea: r.searchPoint || '',
         },
         source: 'blade-agent',
       };
@@ -747,15 +954,17 @@
   }
 
   function exportCsv() {
-    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Website Status', 'Website Issues', 'New Business', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'City', 'Country', 'Google Maps URL'];
+    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Website Status', 'Website Issues', 'New Business', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'Search Area', 'Country', 'Google Maps URL'];
     var rows = state.results.filter(matchesFilters).map(function (r) {
       return [
         r.name, r.address, r.phone, r.website,
-        r.siteStatus === 'no_website' ? 'No website' : (r.siteStatus || 'Not checked'),
+        r.siteStatus === 'no_website' ? 'No website'
+          : r.siteStatus === 'check_failed' ? 'Check failed'
+          : (r.siteStatus || 'Not checked'),
         (r.siteReasons || []).join('; '), isNewBusiness(r) ? 'Yes' : 'No',
         r.email || '', r.emailSource || '',
         r.rating != null ? r.rating : '', r.reviewCount != null ? r.reviewCount : '',
-        r.businessStatus || '', state.sector, state.city ? state.city.description : '',
+        r.businessStatus || '', state.sector, r.searchPoint || '',
         state.country ? state.country.name : '', r.mapsUrl || '',
       ].map(csvField).join(',');
     });
@@ -763,7 +972,7 @@
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    var slug = (state.sector + '-' + (state.city ? state.city.description : '')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    var slug = (state.sector + '-' + areasSummary()).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     a.href = url;
     a.download = 'blade-' + (slug || 'leads') + '.csv';
     document.body.appendChild(a);

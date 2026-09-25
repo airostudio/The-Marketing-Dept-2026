@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Overview | Audema</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --purple:#7c3aed; --cyan:#06b6d4; --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); }
+  .nav-left { display:flex; align-items:center; gap:10px; font-size:13px; }
+  .nav-logo { font-weight:800; text-decoration:none; color:var(--text); }
+  .nav-sep { color:var(--text3); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+
+  .wrap { max-width:1180px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:23px; margin:0 0 4px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:13px; padding:16px 18px; }
+  .card-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text3); font-weight:700; margin-bottom:6px; }
+  .card-value { font-size:25px; font-weight:800; }
+  .card-sub { font-size:11.5px; color:var(--text3); margin-top:5px; line-height:1.5; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; }
+  .chart-card { background:var(--panel); border:1px solid var(--border); border-radius:13px; padding:18px; }
+  .chart-card h2 { font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+                   color:var(--text2); margin:0 0 4px; }
+  .chart-note { font-size:11.5px; color:var(--text3); margin:0 0 14px; line-height:1.5; }
+  .chart-holder { position:relative; height:230px; }
+
+  .unavailable { background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3);
+                 color:#fcd34d; border-radius:9px; padding:12px 14px; font-size:12.5px; line-height:1.55; }
+  .empty-note { color:var(--text3); font-size:12.5px; text-align:center; padding:60px 12px; line-height:1.6; }
+  .banner { padding:11px 15px; border-radius:9px; font-size:12.5px; margin-bottom:18px; line-height:1.55; }
+  .banner.info { background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.25); color:#67e8f9; }
+  .gate { text-align:center; padding:80px 20px; color:var(--text3); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a href="/hub.html" class="nav-logo">Audema</a>
+    <span class="nav-sep">/</span><span style="color:var(--text2);">Admin</span>
+  </div>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link active">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/activity.html" class="nav-link">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link">Failures</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Admin overview</h1>
+  <p class="sub" id="generated">Loading…</p>
+
+  <div id="banners"></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="grid">
+    <div class="chart-card">
+      <h2>Accounts by plan</h2>
+      <p class="chart-note" id="plan-note"></p>
+      <div class="chart-holder"><canvas id="planChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Subscription status</h2>
+      <p class="chart-note">Stripe's own status vocabulary. "None" is an account with no subscription record.</p>
+      <div class="chart-holder"><canvas id="statusChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Signups per month</h2>
+      <p class="chart-note">New accounts created, last six months.</p>
+      <div class="chart-holder"><canvas id="signupChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Agent Missions run</h2>
+      <p class="chart-note" id="mission-note">Total missions consumed across all accounts, last six months.</p>
+      <div class="chart-holder"><canvas id="missionChart"></canvas></div>
+      <div id="mission-unavailable"></div>
+    </div>
+  </div>
+</div>
+
+<div class="gate" id="gate">Checking access…</div>
+
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s)
+    .replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const money = n => 'A$' + Math.round(n || 0).toLocaleString();
+
+  // Shared Chart.js styling. The library has been vendored in this repo for
+  // a long time and never once invoked; these are its first real uses.
+  const PALETTE = ['#7c3aed', '#06b6d4', '#22c55e', '#f59e0b', '#ec4899',
+                   '#3b82f6', '#ef4444', '#14b8a6', '#a78bfa', '#64748b'];
+
+  function baseOptions(extra) {
+    return Object.assign({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { backgroundColor: '#15152a', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1 },
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { beginAtZero: true, ticks: { color: '#64748b', font: { size: 11 }, precision: 0 },
+             grid: { color: 'rgba(255,255,255,0.05)' } },
+      },
+    }, extra || {});
+  }
+
+  /**
+   * Render a chart, or say why there is nothing to draw.
+   *
+   * An empty chart and a chart whose data source does not exist look
+   * identical once drawn — both are a flat line at zero. They mean completely
+   * different things, so they are never rendered the same way here.
+   */
+  function drawOrExplain(canvasId, hasData, emptyMessage, build) {
+    const canvas = $(canvasId);
+    if (!canvas) return;
+    if (!hasData) {
+      const holder = canvas.parentElement;
+      holder.innerHTML = `<div class="empty-note">${esc(emptyMessage)}</div>`;
+      return;
+    }
+    build(canvas.getContext('2d'));
+  }
+
+  async function checkAdminAccess() {
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      const user = await window.Auth?.getUser?.();
+      if (!user) { $('gate').innerHTML = 'Sign in to view the admin overview.<br><br><a href="/index.html?openAuth=login">Sign in →</a>'; return null; }
+
+      const profile = window.Supabase?.DB?.getProfile ? await window.Supabase.DB.getProfile(user.id) : null;
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+        $('gate').innerHTML = 'Access denied — the admin overview is admin-only.<br><br><a href="/dashboard.html">Go back →</a>';
+        return null;
+      }
+
+      const client = window.Supabase.getClient();
+      const s = await client.auth.getSession();
+      return s?.data?.session?.access_token || null;
+    } catch (e) {
+      $('gate').textContent = 'Could not verify admin access: ' + e.message;
+      return null;
+    }
+  }
+
+  function renderCards(d) {
+    const rev = d.revenue;
+    $('cards').innerHTML = `
+      <div class="card">
+        <div class="card-label">Estimated MRR</div>
+        <div class="card-value" style="color:var(--green);">${money(rev.estimatedMrrAud)}</div>
+        <div class="card-sub">${rev.payingAccounts} paying account${rev.payingAccounts === 1 ? '' : 's'}${
+          rev.customPricedAccounts
+            ? ` · ${rev.customPricedAccounts} on custom pricing, not included`
+            : ''}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Accounts</div>
+        <div class="card-value">${d.accounts.total}</div>
+        <div class="card-sub">${d.accounts.admins} admin${d.accounts.admins === 1 ? '' : 's'}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Missions this month</div>
+        <div class="card-value" style="color:var(--cyan);">${
+          d.missions.available ? d.missions.thisPeriodTotal : '—'}</div>
+        <div class="card-sub">${
+          d.missions.available
+            ? (d.missions.accountsAtOrOverLimit
+                ? `${d.missions.accountsAtOrOverLimit} account(s) at their limit`
+                : 'No account has hit its limit')
+            : 'Mission metering not installed'}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Billing events</div>
+        <div class="card-value">${d.billingEvents.available ? d.billingEvents.total : '—'}</div>
+        <div class="card-sub">${
+          d.billingEvents.available
+            ? (d.billingEvents.total ? 'Stripe webhooks received' : 'None received yet')
+            : 'Billing tables not installed'}</div>
+      </div>`;
+  }
+
+  function renderBanners(d) {
+    const out = [];
+    if (!d.accounts.available) out.push(`<div class="unavailable">Accounts: ${esc(d.accounts.reason)}</div>`);
+    if (!d.missions.available) out.push(`<div class="unavailable">Agent Mission metering: ${esc(d.missions.reason)} Run <code>supabase-mission-usage.sql</code> to enable it.</div>`);
+    if (!d.billingEvents.available) out.push(`<div class="unavailable">Billing events: ${esc(d.billingEvents.reason)} Run <code>supabase-billing.sql</code> to enable it.</div>`);
+    // The MRR basis is stated in the product, not just in the code comments —
+    // a revenue number without its definition invites being misread.
+    out.push(`<div class="banner info"><strong>How MRR is calculated:</strong> ${esc(d.revenue.basis)}</div>`);
+    $('banners').innerHTML = out.join('');
+  }
+
+  function renderCharts(d) {
+    const planEntries = Object.entries(d.accounts.byPlan).sort((a, b) => b[1] - a[1]);
+    $('plan-note').textContent =
+      `${d.accounts.total} account(s). Plans with a published price contribute to MRR; Enterprise and Agency are negotiated individually.`;
+
+    drawOrExplain('planChart', planEntries.length, 'No accounts yet.', ctx => {
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: planEntries.map(([k]) => d.planLabels[k] || k),
+          datasets: [{ data: planEntries.map(([, v]) => v), backgroundColor: PALETTE, borderWidth: 0 }],
+        },
+        options: baseOptions({ scales: {}, plugins: {
+          legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } },
+        } }),
+      });
+    });
+
+    const statusEntries = Object.entries(d.accounts.byStatus).sort((a, b) => b[1] - a[1]);
+    drawOrExplain('statusChart', statusEntries.length, 'No accounts yet.', ctx => {
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: statusEntries.map(([k]) => k === 'none' ? 'None' : k.replace(/_/g, ' ')),
+          datasets: [{ label: 'Accounts', data: statusEntries.map(([, v]) => v),
+                       backgroundColor: '#7c3aed', borderRadius: 5 }],
+        },
+        options: baseOptions({ plugins: { legend: { display: false } } }),
+      });
+    });
+
+    const months = Object.keys(d.accounts.signupsByMonth);
+    const signupVals = months.map(m => d.accounts.signupsByMonth[m]);
+    drawOrExplain('signupChart', signupVals.some(v => v > 0),
+      'No signups recorded in the last six months.', ctx => {
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: months, datasets: [{
+          label: 'Signups', data: signupVals, borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6,182,212,0.15)', fill: true, tension: 0.3, pointRadius: 3 }] },
+        options: baseOptions({ plugins: { legend: { display: false } } }),
+      });
+    });
+
+    if (!d.missions.available) {
+      $('mission-note').textContent = '';
+      $('missionChart').parentElement.innerHTML = '';
+      $('mission-unavailable').innerHTML =
+        `<div class="unavailable">Not installed — run <code>supabase-mission-usage.sql</code>. ` +
+        `This is different from "zero missions run", which is why no chart is drawn.</div>`;
+      return;
+    }
+    const mMonths = Object.keys(d.missions.byMonth);
+    const mVals = mMonths.map(m => d.missions.byMonth[m]);
+    drawOrExplain('missionChart', mVals.some(v => v > 0),
+      'Metering is installed, but no Agent Missions have been run yet.', ctx => {
+      new Chart(ctx, {
+        type: 'bar',
+        data: { labels: mMonths, datasets: [{
+          label: 'Missions', data: mVals, backgroundColor: '#22c55e', borderRadius: 5 }] },
+        options: baseOptions({ plugins: { legend: { display: false } } }),
+      });
+    });
+  }
+
+  async function boot() {
+    const token = await checkAdminAccess();
+    if (!token) return;
+
+    let d;
+    try {
+      const res = await fetch('/api/admin-metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({}),
+      });
+      d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+    } catch (e) {
+      $('gate').textContent = 'Could not load metrics: ' + e.message;
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    $('generated').textContent =
+      `Across every account · generated ${new Date(d.generatedAt).toLocaleString()}`;
+
+    renderBanners(d);
+    renderCards(d);
+
+    if (typeof Chart === 'undefined') {
+      document.querySelectorAll('.chart-holder').forEach(h => {
+        h.innerHTML = '<div class="empty-note">Charts unavailable — chart.umd.min.js did not load.</div>';
+      });
+      return;
+    }
+    renderCharts(d);
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+</body>
+</html>

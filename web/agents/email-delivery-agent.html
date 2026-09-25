@@ -209,6 +209,7 @@
             <span class="panel-title">Scotty QA Review</span>
             <button class="btn-secondary" onclick="EDA.backToCollate()" style="padding:6px 14px;font-size:12px;">← Edit Campaign</button>
         </div>
+        <div class="panel-body" id="merge-preview-box" style="border-bottom:1px solid var(--border);"></div>
         <div class="panel-body" id="review-body">
             <div class="empty-state">Waiting to run review…</div>
         </div>
@@ -282,6 +283,8 @@
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
@@ -417,6 +420,7 @@
         }
 
         async function runReview() {
+            renderMergePreview(); // independent of Scotty — lives in its own box, not wiped by renderReview()
             const body = document.getElementById('review-body');
             body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><span class="spinner"></span> Scotty is reviewing "${escHtml(campaign.campaignName)}" for ${campaign.recipients.length} recipients…</div>`;
 
@@ -424,8 +428,58 @@
                 lastReview = await window.EmailDeliveryService.reviewWithScotty(campaign);
                 renderReview(lastReview);
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery pre-send review failed: ' + e.message, { where: 'email-delivery-agent.runReview' });
                 body.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">⚠️ Review failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>
                 <div class="btn-row"><button class="btn-secondary" onclick="EDA.runReview()">Retry Review</button></div>`;
+            }
+        }
+
+        /**
+         * Renders the campaign with ONE real recipient's actual data —
+         * neither the compose box nor Scotty's review ever showed this
+         * before, so a mistyped merge tag ({{first_name}} instead of
+         * {{firstName}}) or a bracket placeholder ("[First Name]") looked
+         * identical to working personalization right up until send. Uses
+         * /api/preview-merge, which runs the EXACT same substitution and
+         * pre-send check api/send-campaign.js itself uses — this shows
+         * what would actually happen, not a separate guess at it.
+         */
+        async function renderMergePreview() {
+            const box = document.getElementById('merge-preview-box');
+            const sample = campaign.recipients[0];
+            if (!sample) { box.innerHTML = ''; return; }
+            box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12.5px;"><span class="spinner"></span> Rendering a preview with real recipient data…</div>`;
+
+            try {
+                const res = await fetch('/api/preview-merge', {
+                    method: 'POST', headers: await window.sendAuthHeaders(),
+                    body: JSON.stringify({ subject: campaign.subject, html: campaign.html, text: campaign.text, mergeFields: sample.mergeFields }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Preview failed');
+
+                const hasIssues = data.issues && data.issues.length;
+                box.innerHTML = `
+                    <div class="field-label">Preview — rendered for ${escHtml(sample.toName || sample.to)} (${escHtml(sample.to)})</div>
+                    ${hasIssues
+                        ? `<ul class="issue-list blockers" style="margin-top:6px;">${data.issues.map(i => `<li>🛑 ${escHtml(i)}</li>`).join('')}</ul>`
+                        : `<div style="color:var(--text2);font-size:12px;margin:4px 0 8px;">✅ No unresolved merge tags or placeholders for this recipient.</div>`}
+                    <div style="font-weight:700;font-size:13.5px;margin-top:8px;">${escHtml(data.subject)}</div>
+                    <div id="preview-frame-wrap" style="border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;"></div>
+                `;
+
+                // srcdoc set as a property, not string-interpolated into the
+                // HTML above — the campaign body is the author's own content,
+                // but it's still full HTML (possibly with its own <style> or
+                // inline event handlers), and a sandboxed, scriptless iframe
+                // renders it visually without letting it touch this page.
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                iframe.style.cssText = 'width:100%;height:280px;border:none;background:#fff;';
+                iframe.srcdoc = data.html;
+                document.getElementById('preview-frame-wrap').appendChild(iframe);
+            } catch (e) {
+                box.innerHTML = `<div style="color:var(--text2);font-size:12px;">Could not render a preview: ${escHtml(e.message)}</div>`;
             }
         }
 
@@ -512,6 +566,7 @@
                     });
                 }
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery send failed: ' + e.message, { where: 'email-delivery-agent.send' });
                 progressEl.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">Send failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '🚀 Send Campaign Now';
@@ -632,7 +687,7 @@
     async function loadConnectionStatus() {
         const row = document.getElementById('connStatusRow');
         try {
-            const res = await fetch('/api/social-connections-status');
+            const res = await fetch('/api/social-connections-status', { headers: await window.sendAuthHeaders() });
             const status = await res.json();
             const platforms = ['LinkedIn', 'Meta/Facebook', 'Instagram', 'Twitter/X', 'TikTok'];
             row.innerHTML = platforms.map(p => {
@@ -711,7 +766,7 @@
         try {
             const res = await fetch('/api/publish-social-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platform: post.platform, headline: post.headline, body: post.body,
                     cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '',
@@ -894,7 +949,7 @@
         try {
             const res = await fetch('/api/send-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     to: item.to, subject: item.subject,
                     html: plainTextToHtml(item.body), text: item.body,

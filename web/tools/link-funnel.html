@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Funnel — Clean &amp; Test a URL List | Audema</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1080px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+
+  input, select { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:9px 16px;
+           font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button:disabled { opacity:.55; cursor:default; }
+
+  .dropzone { border:2px dashed var(--border); border-radius:14px; padding:40px 20px; text-align:center;
+              cursor:pointer; transition:border-color .15s, background .15s; }
+  .dropzone:hover, .dropzone.drag { border-color:var(--purple); background:rgba(124,58,237,0.06); }
+  .dropzone .dz-icon { font-size:30px; margin-bottom:10px; }
+  .dropzone .dz-title { font-weight:700; font-size:14.5px; margin-bottom:4px; }
+  .dropzone .dz-sub { color:var(--text3); font-size:12px; }
+
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:16px 0; }
+  .tile { background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .tile .n { font-size:24px; font-weight:800; line-height:1.1; }
+  .tile .l { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-top:4px; }
+  .tile.good .n { color:#86efac; }
+  .tile.bad .n { color:#fca5a5; }
+
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; padding:8px 10px; color:var(--text3); font-size:10.5px; text-transform:uppercase;
+       letter-spacing:0.4px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; word-break:break-all; }
+  tr:last-child td { border-bottom:none; }
+  .table-scroll { max-height:360px; overflow-y:auto; }
+
+  .pill { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+          letter-spacing:0.4px; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .pill.modern { background:rgba(34,197,94,0.15); color:#86efac; }
+  .pill.outdated { background:rgba(245,158,11,0.15); color:#fcd34d; }
+  .pill.unreachable { background:rgba(148,163,184,0.15); color:var(--text3); }
+  .pill.check_failed { background:rgba(245,158,11,0.12); color:#f59e0b; }
+  .pill.pending { background:rgba(148,163,184,0.1); color:var(--text3); }
+  .reasons { color:var(--text3); font-size:11px; margin-top:2px; }
+
+  .spinner { width:13px; height:13px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff;
+             border-radius:50%; animation:spin .7s linear infinite; display:inline-block; vertical-align:-2px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .progress-bar-track { height:8px; background:var(--panel2); border-radius:999px; overflow:hidden; margin:12px 0; }
+  .progress-bar-fill { height:100%; background:linear-gradient(90deg,var(--purple),var(--cyan)); transition:width .3s; }
+
+  .actions-row { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; align-items:center; }
+  .report-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+                padding:11px 4px; border-top:1px solid var(--border); }
+  .report-row:first-child { border-top:none; }
+  .report-name { font-weight:700; font-size:13px; }
+  .report-meta { font-size:11.5px; color:var(--text3); margin-top:2px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/hub.html" class="nav-logo"><span class="nav-dot"></span> Audema</a>
+  <div>
+    <a href="/tools.html" class="nav-link active">Tools</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Link Funnel</h1>
+  <p class="sub">
+    Drop a spreadsheet or document with a mixed bag of URLs and notes in it. This splits the
+    real URLs from everything else, runs the same website-health check Blade runs on its leads
+    against each one, and saves the result here — visible to every agent working on this business,
+    not just this page.
+  </p>
+
+  <div id="msg"></div>
+
+  <div class="card" id="upload-card">
+    <h2>1. Drop a file</h2>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Drop a file here, or click to choose one</div>
+      <div class="dz-sub">.xlsx, .xls, .csv, .tsv, .txt or .docx</div>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv,.txt,.docx" style="display:none;">
+    </div>
+  </div>
+
+  <div class="card" id="results-card" style="display:none;">
+    <h2>2. What we found</h2>
+    <div class="tiles" id="split-tiles"></div>
+
+    <div id="rejected-wrap" style="display:none; margin-bottom:16px;">
+      <div class="muted" style="margin-bottom:8px;">Not URLs — left out, not silently dropped:</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Text</th><th>Why it was left out</th></tr></thead>
+          <tbody id="rejected-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button id="btn-run-check">🔍 Run website health check on the good URLs</button>
+      <span class="muted" id="check-summary"></span>
+    </div>
+    <div id="check-progress-wrap" style="display:none;">
+      <div class="muted"><span class="spinner"></span> <span id="check-progress-label">Checking…</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="check-progress-fill" style="width:0%;"></div></div>
+    </div>
+
+    <div class="table-scroll" style="margin-top:14px;">
+      <table>
+        <thead><tr><th>URL</th><th>Status</th></tr></thead>
+        <tbody id="good-body"></tbody>
+      </table>
+    </div>
+
+    <div class="actions-row">
+      <input type="text" id="report-name" placeholder="Name this report…" style="flex:1;min-width:200px;">
+      <button id="btn-save-report">Save to this campaign's reports</button>
+      <button class="ghost" id="btn-export-csv">⬇ Export CSV</button>
+      <button class="ghost" id="btn-reset">Start over</button>
+    </div>
+
+    <div class="actions-row" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+      <span class="muted" style="font-weight:700;">Send to another agent:</span>
+      <select id="handoff-status-filter">
+        <option value="">Every good URL</option>
+        <option value="modern">Only "modern" sites</option>
+        <option value="outdated">Only "outdated" sites</option>
+        <option value="unreachable">Only unreachable / check-failed</option>
+      </select>
+      <select id="handoff-target"></select>
+      <button class="ghost" id="btn-handoff-send">Send →</button>
+    </div>
+    <p class="muted" id="handoff-note" style="margin-top:6px;"></p>
+  </div>
+
+  <div class="card" id="saved-card">
+    <h2>Saved reports for this campaign</h2>
+    <div id="saved-list"><p class="muted">Loading…</p></div>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/xlsx.core.min.js"></script>
+<script src="/js/link-reports-store.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const esc = window.escapeHtml || function (v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  const state = { good: [], rejected: [], sourceFilename: '', checking: false };
+
+  const msg = (text, kind) => {
+    $('msg').innerHTML = text ? `<div class="msg ${esc(kind || 'info')}">${esc(text)}</div>` : '';
+    if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /* ── URL vs. everything-else classification ──────────────────────────
+     Pure functions, no DOM — this is the part worth getting right and
+     worth testing on its own (see tests/link-funnel/run.js). */
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::\d+)?(?:\/[^\s]*)?$/;
+  const BARE_DOMAIN_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}(?::\d+)?(?:[/?#][^\s]*)?$/i;
+  const TRIM_PUNCT_RE = /^[\s"'“”‘’(){}\[\],;:!?.]+|[\s"'“”‘’(){}\[\],;:!?.]+$/g;
+
+  function isValidIPv4(token) {
+    const m = token.match(IPV4_RE);
+    if (!m) return false;
+    return [1, 2, 3, 4].every(i => Number(m[i]) <= 255);
+  }
+
+  /** @returns {{ good: boolean, reason?: string }} */
+  function classifyToken(rawToken) {
+    const token = String(rawToken || '').replace(TRIM_PUNCT_RE, '');
+    if (!token) return { good: false, reason: 'empty' };
+    if (EMAIL_RE.test(token)) return { good: false, reason: 'an email address, not a URL' };
+
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(token)) {
+      try {
+        const u = new URL(token);
+        if (u.protocol === 'http:' || u.protocol === 'https:') return { good: true, url: token };
+        return { good: false, reason: `not a web link (${u.protocol.replace(':', '')} link)` };
+      } catch (e) {
+        return { good: false, reason: 'not a URL' };
+      }
+    }
+
+    if (isValidIPv4(token) || BARE_DOMAIN_RE.test(token)) {
+      // Reject things that only happen to look like a domain: a plain
+      // number-with-dots (a price, a version string) has no letters
+      // anywhere and isn't a real IPv4 either.
+      if (!/[a-z]/i.test(token) && !isValidIPv4(token)) return { good: false, reason: 'not a URL' };
+      return { good: true, url: token };
+    }
+
+    return { good: false, reason: 'not a URL' };
+  }
+
+  /** Split raw extracted text into candidate tokens — URLs never contain
+   *  whitespace, so splitting on it (plus common cell/sentence separators)
+   *  is enough to isolate one per token, whatever file format it came from. */
+  function extractCandidates(text) {
+    return String(text || '')
+      .split(/[\s,;|"'“”‘’()<>\[\]{}]+/)
+      .map(t => t.trim())
+      .filter(Boolean);
+  }
+
+  /** @returns {{ good: Array<{url}>, rejected: Array<{text, reason}> }} */
+  function splitGoodFromBad(text) {
+    const good = [];
+    const rejected = [];
+    const seenGood = new Set();
+    extractCandidates(text).forEach(token => {
+      const verdict = classifyToken(token);
+      if (verdict.good) {
+        const key = verdict.url.toLowerCase();
+        if (seenGood.has(key)) return; // duplicate URL — not a rejection, just already counted
+        seenGood.add(key);
+        good.push({ url: verdict.url });
+      } else if (verdict.reason !== 'empty') {
+        rejected.push({ text: token, reason: verdict.reason });
+      }
+    });
+    return { good, rejected };
+  }
+
+  /* ── File parsing ─────────────────────────────────────────────────── */
+
+  function readAsText(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(new Error('Could not read the file.'));
+      r.readAsText(file);
+    });
+  }
+
+  function readAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('Could not read the file.'));
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function readUInt32LE(bytes, off) {
+    return (bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16) | (bytes[off + 3] << 24)) >>> 0;
+  }
+  function readUInt16LE(bytes, off) { return bytes[off] | (bytes[off + 1] << 8); }
+
+  /** Minimal ZIP central-directory walk — just enough to pull one named
+   *  entry's raw (still-compressed) bytes out of a .docx package, without
+   *  vendoring a whole zip library for one file lookup. */
+  function findZipEntry(bytes, entryName) {
+    const EOCD_SIG = 0x06054b50;
+    let eocdOffset = -1;
+    const scanFrom = Math.max(0, bytes.length - 22 - 65557);
+    for (let i = bytes.length - 22; i >= scanFrom; i--) {
+      if (readUInt32LE(bytes, i) === EOCD_SIG) { eocdOffset = i; break; }
+    }
+    if (eocdOffset === -1) throw new Error('Not a valid .docx file (not a zip archive).');
+
+    const cdEntries = readUInt16LE(bytes, eocdOffset + 10);
+    let pos = readUInt32LE(bytes, eocdOffset + 16);
+    for (let e = 0; e < cdEntries; e++) {
+      if (readUInt32LE(bytes, pos) !== 0x02014b50) break;
+      const method = readUInt16LE(bytes, pos + 10);
+      const compSize = readUInt32LE(bytes, pos + 20);
+      const nameLen = readUInt16LE(bytes, pos + 28);
+      const extraLen = readUInt16LE(bytes, pos + 30);
+      const commentLen = readUInt16LE(bytes, pos + 32);
+      const localHeaderOffset = readUInt32LE(bytes, pos + 42);
+      const name = new TextDecoder('ascii').decode(bytes.slice(pos + 46, pos + 46 + nameLen));
+      if (name === entryName) {
+        const lhNameLen = readUInt16LE(bytes, localHeaderOffset + 26);
+        const lhExtraLen = readUInt16LE(bytes, localHeaderOffset + 28);
+        const dataStart = localHeaderOffset + 30 + lhNameLen + lhExtraLen;
+        return { method, data: bytes.slice(dataStart, dataStart + compSize) };
+      }
+      pos += 46 + nameLen + extraLen + commentLen;
+    }
+    return null;
+  }
+
+  async function inflateEntry(entry) {
+    if (entry.method === 0) return entry.data;
+    if (entry.method !== 8) throw new Error('This .docx uses a compression method this page cannot read.');
+    if (typeof DecompressionStream !== 'function') {
+      throw new Error('This browser cannot decompress .docx files — try Chrome/Edge/Firefox, or save as .txt/.csv instead.');
+    }
+    const stream = new Blob([entry.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const buf = await new Response(stream).arrayBuffer();
+    return new Uint8Array(buf);
+  }
+
+  async function extractDocxText(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const entry = findZipEntry(bytes, 'word/document.xml');
+    if (!entry) throw new Error('Not a valid .docx file (missing word/document.xml).');
+    const xml = new TextDecoder('utf-8').decode(await inflateEntry(entry));
+    const runs = xml.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) || [];
+    return runs.map(r => r.replace(/<[^>]+>/g, '')).join(' ');
+  }
+
+  async function extractTextFromFile(file) {
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      const buf = await readAsArrayBuffer(file);
+      const wb = XLSX.read(buf, { type: 'array' });
+      return wb.SheetNames.map(n => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n');
+    }
+    if (name.endsWith('.docx')) {
+      return extractDocxText(await readAsArrayBuffer(file));
+    }
+    if (name.endsWith('.csv') || name.endsWith('.tsv') || name.endsWith('.txt') || !name.includes('.')) {
+      return readAsText(file);
+    }
+    throw new Error('Unsupported file type — use .xlsx, .xls, .csv, .tsv, .txt or .docx.');
+  }
+
+  /* ── Drop zone ─────────────────────────────────────────────────────── */
+
+  const dropzone = $('dropzone');
+  const fileInput = $('file-input');
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+  ['dragenter', 'dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.add('drag');
+  }));
+  ['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+  }));
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  async function handleFile(file) {
+    msg('');
+    state.sourceFilename = file.name;
+    try {
+      const text = await extractTextFromFile(file);
+      const { good, rejected } = splitGoodFromBad(text);
+      if (!good.length && !rejected.length) throw new Error('No text found in that file.');
+      state.good = good.map(g => ({ url: g.url, status: 'pending', reasons: [] }));
+      state.rejected = rejected;
+      renderSplit();
+      $('results-card').style.display = 'block';
+      $('report-name').value = file.name.replace(/\.[^.]+$/, '') + ' — ' + new Date().toLocaleDateString();
+      window.scrollTo({ top: $('results-card').offsetTop - 20, behavior: 'smooth' });
+    } catch (e) {
+      msg(e.message || 'Could not read that file.', 'error');
+    }
+  }
+
+  function renderSplit() {
+    $('split-tiles').innerHTML =
+      `<div class="tile good"><div class="n">${esc(state.good.length)}</div><div class="l">Good URLs</div></div>` +
+      `<div class="tile bad"><div class="n">${esc(state.rejected.length)}</div><div class="l">Left out</div></div>`;
+
+    $('rejected-wrap').style.display = state.rejected.length ? 'block' : 'none';
+    $('rejected-body').innerHTML = state.rejected.map(r =>
+      `<tr><td>${esc(r.text)}</td><td class="muted">${esc(r.reason)}</td></tr>`).join('');
+
+    renderGood();
+  }
+
+  function statusPill(r) {
+    if (r._checking) return '<span class="pill pending"><span class="spinner"></span> checking</span>';
+    if (r.status === 'pending') return '<span class="pill pending">Not checked yet</span>';
+    return `<span class="pill ${esc(r.status)}">${esc(r.status.replace('_', ' '))}</span>`;
+  }
+
+  function renderGood() {
+    $('good-body').innerHTML = state.good.map(r => `
+      <tr>
+        <td><a class="cell-link" href="${esc(/^https?:\/\//i.test(r.url) ? r.url : 'https://' + r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></td>
+        <td>${statusPill(r)}${r.reasons && r.reasons.length ? `<div class="reasons">${esc(r.reasons.join(' · '))}</div>` : ''}</td>
+      </tr>`).join('');
+    $('check-summary').textContent = state.good.length + ' URL' + (state.good.length === 1 ? '' : 's') + ' ready to test';
+  }
+
+  /* ── Health check (reuses Blade's own single-URL checker) ────────────── */
+
+  const CHECK_CONCURRENCY = 4;
+
+  $('btn-run-check').addEventListener('click', () => runHealthCheck());
+
+  async function runHealthCheck() {
+    if (state.checking) return;
+    const targets = state.good.filter(r => !r._checking && (r.status === 'pending' || r.status === 'check_failed'));
+    if (!targets.length) return;
+    state.checking = true;
+    $('btn-run-check').disabled = true;
+    $('check-progress-wrap').style.display = 'block';
+
+    let done = 0;
+    const total = targets.length;
+    const updateProgress = () => {
+      $('check-progress-label').textContent = `Checking… ${done} / ${total}`;
+      $('check-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+    };
+    updateProgress();
+
+    const queue = targets.slice();
+    async function worker() {
+      while (queue.length) {
+        const r = queue.shift();
+        r._checking = true;
+        renderGood();
+        try {
+          const res = await fetch('/api/blade-website-check', {
+            method: 'POST', headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({ website: r.url }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data && data.error || 'check failed');
+          r.status = data.status || 'unreachable';
+          r.reasons = data.reasons || [];
+        } catch (e) {
+          r.status = 'check_failed';
+          r.reasons = [(e && e.message) || 'the check could not be completed'];
+          if (window.reportFailure) window.reportFailure('Link Funnel website check failed: ' + r.reasons[0], { where: 'link-funnel.runHealthCheck', url: r.url });
+        }
+        r._checking = false;
+        done++;
+        updateProgress();
+        renderGood();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CHECK_CONCURRENCY, targets.length) }, worker));
+
+    state.checking = false;
+    $('btn-run-check').disabled = false;
+    $('check-progress-wrap').style.display = 'none';
+  }
+
+  /* ── Send to another agent ────────────────────────────────────────── */
+
+  if (window.LinkFunnelHandoff) {
+    $('handoff-target').innerHTML = Object.keys(window.LinkFunnelHandoff.TARGETS)
+      .map(key => `<option value="${esc(key)}">${esc(window.LinkFunnelHandoff.labelFor(key))}</option>`).join('');
+  }
+
+  function urlsMatchingFilter(filter) {
+    return state.good.filter(r => {
+      if (!filter) return true;
+      if (filter === 'unreachable') return r.status === 'unreachable' || r.status === 'check_failed';
+      return r.status === filter;
+    }).map(r => r.url);
+  }
+
+  $('btn-handoff-send').addEventListener('click', () => {
+    if (!window.LinkFunnelHandoff) { msg('Handoff is unavailable right now — try reloading the page.', 'error'); return; }
+    const target = $('handoff-target').value;
+    const filter = $('handoff-status-filter').value;
+    const urls = urlsMatchingFilter(filter);
+    if (!urls.length) { msg('No URLs match that filter yet — run the health check first if you filtered by status.', 'error'); return; }
+    try {
+      window.LinkFunnelHandoff.send(target, urls, { reportName: $('report-name').value.trim() || state.sourceFilename || 'Link Funnel' });
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  });
+
+  /* ── Save / export / reset ────────────────────────────────────────── */
+
+  $('btn-save-report').addEventListener('click', async () => {
+    const name = $('report-name').value.trim();
+    if (!name) { msg('Give this report a name first.', 'error'); return; }
+    try {
+      await window.LinkReportsStore.saveReport({
+        name, sourceFilename: state.sourceFilename,
+        results: state.good.map(r => ({ url: r.url, status: r.status, reasons: r.reasons, checkedAt: new Date().toISOString() })),
+        rejected: state.rejected,
+      });
+      msg('Saved — every agent working on this business can see it under "Saved reports" below.', 'ok');
+      await loadSavedReports();
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  });
+
+  function csvField(v) {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  $('btn-export-csv').addEventListener('click', () => {
+    const headers = ['URL', 'Status', 'Notes'];
+    const rows = state.good.map(r => [r.url, r.status, (r.reasons || []).join('; ')].map(csvField).join(','));
+    const csv = headers.map(csvField).join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'link-funnel-results.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  $('btn-reset').addEventListener('click', () => {
+    state.good = []; state.rejected = []; state.sourceFilename = '';
+    $('results-card').style.display = 'none';
+    fileInput.value = '';
+    msg('');
+  });
+
+  /* ── Saved reports for this campaign ─────────────────────────────────── */
+
+  async function loadSavedReports() {
+    try {
+      const reports = await window.LinkReportsStore.listReports();
+      if (!reports.length) {
+        $('saved-list').innerHTML = '<p class="muted">No saved reports yet for this business.</p>';
+        return;
+      }
+      $('saved-list').innerHTML = reports.map(r => `
+        <div class="report-row" data-id="${esc(r.id)}">
+          <div>
+            <div class="report-name">${esc(r.name)}</div>
+            <div class="report-meta">${esc(r.good_count)} good · ${esc(r.bad_count)} left out · ${esc(new Date(r.created_at).toLocaleString())}${r.source_filename ? ' · ' + esc(r.source_filename) : ''}</div>
+          </div>
+          <div>
+            <button class="ghost" data-view="${esc(r.id)}">View</button>
+            <button class="ghost" data-delete="${esc(r.id)}">Delete</button>
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      $('saved-list').innerHTML = `<p class="muted">Could not load saved reports: ${esc(e.message)}</p>`;
+    }
+  }
+
+  $('saved-list').addEventListener('click', async (e) => {
+    const viewId = e.target.closest('[data-view]');
+    const delId = e.target.closest('[data-delete]');
+    if (viewId) {
+      try {
+        const report = await window.LinkReportsStore.getReport(viewId.dataset.view);
+        state.good = (report.results || []).map(r => ({ url: r.url, status: r.status, reasons: r.reasons || [] }));
+        state.rejected = report.rejected || [];
+        state.sourceFilename = report.source_filename || '';
+        renderSplit();
+        $('results-card').style.display = 'block';
+        $('report-name').value = report.name;
+        window.scrollTo({ top: $('results-card').offsetTop - 20, behavior: 'smooth' });
+      } catch (err) {
+        msg(err.message, 'error');
+      }
+    } else if (delId) {
+      if (!confirm('Delete this saved report? This cannot be undone.')) return;
+      try {
+        await window.LinkReportsStore.deleteReport(delId.dataset.delete);
+        await loadSavedReports();
+      } catch (err) {
+        msg(err.message, 'error');
+      }
+    }
+  });
+
+  /* ── Boot ──────────────────────────────────────────────────────────── */
+
+  async function boot() {
+    let user = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+    } catch (e) { /* handled below */ }
+
+    if (!user) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br><a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    await loadSavedReports();
+  }
+
+  boot();
+
+  // Exposed only so tests/link-funnel/run.js can exercise the pure parsing
+  // logic without a DOM — never used by the page itself.
+  window.__linkFunnelInternals = { classifyToken, extractCandidates, splitGoodFromBad };
+})();
+</script>
+</body>
+</html>

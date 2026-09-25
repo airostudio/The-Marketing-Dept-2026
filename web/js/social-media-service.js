@@ -64,6 +64,17 @@
     };
 
     /**
+     * Coerce a stored metric to a number, keeping "we have no figure"
+     * distinct from "the figure is zero". Returns null for anything that is
+     * not a finite number, and preserves a genuine 0.
+     * @param {*} v
+     * @returns {number|null}
+     */
+    function num(v) {
+        return (typeof v === 'number' && isFinite(v)) ? v : null;
+    }
+
+    /**
      * Read a JSON value from localStorage.
      * @param {string} key
      * @param {*} fallback
@@ -452,11 +463,18 @@
             totalPosts: posts.length,
             publishedPosts: published.length,
             scheduledPosts: posts.filter(function (p) { return p.status === 'scheduled'; }).length,
-            followers: platformMetrics.followers || 0,
-            engagementRate: platformMetrics.engagementRate || 0,
-            impressions: platformMetrics.impressions || 0,
-            reach: platformMetrics.reach || 0,
-            lastUpdated: platformMetrics.lastUpdated || null
+            // `|| 0` would collapse two different answers into one: "the
+            // platform API has never been read" and "the account genuinely has
+            // zero followers". Callers need to tell those apart, so an absent
+            // metric stays null and a real 0 survives as 0.
+            followers: num(platformMetrics.followers),
+            engagementRate: num(platformMetrics.engagementRate),
+            impressions: num(platformMetrics.impressions),
+            reach: num(platformMetrics.reach),
+            followerGrowth: num(platformMetrics.followerGrowth),
+            lastUpdated: platformMetrics.lastUpdated || null,
+            // True only once a platform API actually answered.
+            metricsFetched: !!platformMetrics.lastUpdated
         };
     }
 
@@ -549,17 +567,21 @@
             console.warn(TAG, 'API fetch failed for', platform, ':', err.message);
         }
 
-        // Fall back to stored metrics or zeros
+        // No API answered and nothing was stored. Returning a block of zeros
+        // here would be an assertion we never made a measurement to support,
+        // and it renders downstream as a confident "0 followers, 0% engagement".
+        // Nulls say what is actually true: we do not know.
         var stored = await storageGetAsync(STORAGE_KEYS.metrics, {});
         return stored[platform] || {
-            followers: 0,
-            engagementRate: 0,
-            impressions: 0,
-            reach: 0,
-            clicks: 0,
-            likes: 0,
-            comments: 0,
-            shares: 0
+            followers: null,
+            engagementRate: null,
+            impressions: null,
+            reach: null,
+            clicks: null,
+            likes: null,
+            comments: null,
+            shares: null,
+            source: 'unmeasured'
         };
     }
 
@@ -585,9 +607,12 @@
                         var twResult = {
                             platform: platform,
                             period: period,
-                            followers: twMetrics.followers_count || 0,
-                            following: twMetrics.following_count || 0,
-                            growth: 0,
+                            followers: num(twMetrics.followers_count),
+                            following: num(twMetrics.following_count),
+                            // One snapshot cannot produce a growth rate — that
+                            // needs an earlier reading to subtract from, and we
+                            // keep no history. Null, not a flat 0%.
+                            growth: null,
                             source: 'api'
                         };
                         storageSet(STORAGE_KEYS.metrics + '-twitter-followers', twResult);
@@ -597,16 +622,16 @@
                 if (platform === 'linkedin' && api.linkedin && api.linkedin.isAvailable()) {
                     var liData = await api.linkedin.getOrganizationStats();
                     if (liData) {
-                        var liFollowers = 0;
+                        var liFollowers = null;
                         if (liData.elements && liData.elements[0] &&
                             liData.elements[0].totalShareStatistics) {
-                            liFollowers = liData.elements[0].totalShareStatistics.followerCount || 0;
+                            liFollowers = num(liData.elements[0].totalShareStatistics.followerCount);
                         }
                         var liResult = {
                             platform: platform,
                             period: period,
                             followers: liFollowers,
-                            growth: 0,
+                            growth: null,
                             source: 'api'
                         };
                         storageSet(STORAGE_KEYS.metrics + '-linkedin-followers', liResult);
@@ -616,11 +641,14 @@
                 if (platform === 'tiktok' && api.tiktok && api.tiktok.isAvailable()) {
                     var ttData = await api.tiktok.getVideoStats();
                     if (ttData) {
+                        // TikTok's video-stats endpoint carries no follower
+                        // count, so there is nothing here to report; a 0 would
+                        // have been our invention, not TikTok's answer.
                         var ttResult = {
                             platform: platform,
                             period: period,
-                            followers: 0,
-                            growth: 0,
+                            followers: null,
+                            growth: null,
                             source: 'api'
                         };
                         storageSet(STORAGE_KEYS.metrics + '-tiktok-followers', ttResult);
@@ -632,15 +660,14 @@
             console.warn(TAG, 'API follower fetch failed for', platform, ':', err.message);
         }
 
-        // Fall back to stored data or zeros
         var stored = await storageGetAsync(STORAGE_KEYS.metrics, {});
         var pm = stored[platform] || {};
         return {
             platform: platform,
             period: period,
-            followers: pm.followers || 0,
-            growth: pm.followerGrowth || 0,
-            source: 'stored'
+            followers: num(pm.followers),
+            growth: num(pm.followerGrowth),
+            source: stored[platform] ? 'stored' : 'unmeasured'
         };
     }
 
@@ -682,9 +709,13 @@
         });
 
         var totalInteractions = totals.likes + totals.comments + totals.shares;
+        // Engagement rate is interactions per impression. With no impressions
+        // recorded the ratio is undefined, not zero — reporting '0.00' would
+        // tell the customer their posts landed and nobody engaged, when in
+        // fact nothing was ever counted.
         totals.engagementRate = totals.impressions > 0
             ? ((totalInteractions / totals.impressions) * 100).toFixed(2)
-            : '0.00';
+            : null;
 
         return { totals: totals, byPlatform: byPlatform, postCount: posts.length };
     }
@@ -883,9 +914,11 @@
             period: period,
             postsPublished: posts.filter(function (p) { return p.status === 'published'; }).length,
             postsScheduled: posts.filter(function (p) { return p.status === 'scheduled'; }).length,
-            followers: pm.followers || 0,
-            followerGrowth: pm.followerGrowth || 0,
-            engagementRate: posts.length > 0 ? (totalEng / posts.length).toFixed(2) : '0.00',
+            followers: num(pm.followers),
+            followerGrowth: num(pm.followerGrowth),
+            // With no posts in the window there is no engagement rate to
+            // report; '0.00' would read as measured flatline.
+            engagementRate: posts.length > 0 ? (totalEng / posts.length).toFixed(2) : null,
             totalEngagements: totalEng,
             impressions: pm.impressions || 0,
             calculatedAt: now()

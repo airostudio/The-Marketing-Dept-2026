@@ -1045,6 +1045,34 @@
           <button type="button" class="brain-modal-btn brain-modal-btn-primary" onclick="createIntelProfile()">Create</button>
         </div>
         <p id="profileError" style="color:#ef4444;font-size:12px;margin-top:8px;display:none;"></p>
+
+        <!-- ── Team access ────────────────────────────────────────────────
+             The owner/editor/viewer schema has existed since
+             supabase-intelligence-profiles.sql but had no UI. Granting
+             access needs a server-side email lookup (see
+             api/profile-members.js), so this talks to that endpoint rather
+             than to Supabase directly. -->
+        <div id="teamSection" style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+            <h4 style="margin:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.5);">Who can access this business</h4>
+            <span id="teamScopeName" style="font-size:11.5px;color:rgba(255,255,255,0.35);"></span>
+          </div>
+          <p style="font-size:11.5px;color:rgba(255,255,255,0.4);line-height:1.5;margin:0 0 12px;">
+            Editors can change the Business Brain. Viewers can read it. Only you, as owner, can manage this list.
+          </p>
+          <div id="teamList"><div style="font-size:12px;color:rgba(255,255,255,0.35);">Loading…</div></div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <input type="email" id="inviteEmail" placeholder="teammate@company.com"
+              style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+            <select id="inviteRole"
+              style="padding:9px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;font-family:inherit;">
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <button type="button" class="brain-modal-btn brain-modal-btn-primary" onclick="inviteTeamMember()">Invite</button>
+          </div>
+          <p id="teamMsg" style="font-size:12px;margin-top:8px;display:none;line-height:1.5;"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -1599,6 +1627,8 @@
   <!-- ── Scripts ────────────────────────────────────────────────────────────── -->
   <script src="/js/supabase.min.js"></script>
   <script src="/js/supabase-client.js"></script>
+  <script src="/js/send-auth.js"></script>
+  <script src="/js/failure-reporter.js"></script>
   <script src="/js/project-service.js"></script>
   <script src="/js/business-brain-cloud.js"></script>
   <script src="/js/intelligence-profiles.js"></script>
@@ -2173,7 +2203,7 @@
     try {
       const res  = await fetch('/api/enrich-business', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({ url }),
       });
       const data = await res.json();
@@ -2514,6 +2544,149 @@
     document.getElementById('profilesPanelOverlay').style.display = 'none';
   }
 
+  /* ── Team access ────────────────────────────────────────────────────────
+     Talks to api/profile-members.js rather than Supabase directly: granting
+     access needs an email → account lookup, and auth.users is not readable
+     from a browser. Everything here applies to the ACTIVE profile. */
+
+  function teamMsg(text, kind) {
+    const el = document.getElementById('teamMsg');
+    if (!el) return;
+    if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    el.style.color = kind === 'error' ? '#ef4444' : kind === 'ok' ? '#10b981' : 'rgba(255,255,255,0.55)';
+    el.textContent = text;
+  }
+
+  async function teamApi(body) {
+    const client = window.Supabase?.getClient?.();
+    const sessionRes = client ? await client.auth.getSession() : null;
+    const token = sessionRes?.data?.session?.access_token;
+    if (!token) throw new Error('You need to be signed in to manage access.');
+
+    const res = await fetch('/api/profile-members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.message || data.error || `Request failed (${res.status})`);
+      err.code = data.error;
+      throw err;
+    }
+    return data;
+  }
+
+  async function loadTeam() {
+    const section = document.getElementById('teamSection');
+    const listEl = document.getElementById('teamList');
+    if (!section || !listEl) return;
+
+    const profileId = window.IntelligenceProfiles.getActiveProfileId();
+    if (!profileId) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    teamMsg('');
+
+    const profiles = await window.IntelligenceProfiles.list().catch(() => []);
+    const active = profiles.find(p => p.id === profileId);
+    document.getElementById('teamScopeName').textContent = active ? active.name : '';
+
+    listEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.35);">Loading…</div>';
+    try {
+      const data = await teamApi({ action: 'list', profileId });
+      renderTeam(data.members || []);
+    } catch (e) {
+      // A non-owner gets 403 here. That is a correct outcome, not a fault —
+      // say so rather than showing an error that looks like a bug.
+      if (/Only the owner/i.test(e.message)) {
+        listEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.4);">' +
+          'This business is shared with you. Only its owner can manage access.</div>';
+        document.getElementById('inviteEmail').disabled = true;
+        document.getElementById('inviteRole').disabled = true;
+      } else {
+        listEl.innerHTML = '';
+        teamMsg('Could not load who has access: ' + e.message, 'error');
+      }
+    }
+  }
+
+  function renderTeam(members) {
+    const listEl = document.getElementById('teamList');
+    if (!members.length) {
+      listEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.35);">' +
+        'Only you have access to this business.</div>';
+      return;
+    }
+    listEl.innerHTML = members.map(m => `
+      <div class="history-item">
+        <div class="history-item-meta">
+          <div class="history-item-label">${escHtml(m.name || m.email || m.userId)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);">${escHtml(m.email || '')}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select data-team-role="${escHtml(m.userId)}"
+            style="padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#fff;font-size:12px;font-family:inherit;">
+            <option value="editor"${m.role === 'editor' ? ' selected' : ''}>Editor</option>
+            <option value="viewer"${m.role === 'viewer' ? ' selected' : ''}>Viewer</option>
+          </select>
+          <button type="button" class="brain-modal-btn brain-modal-btn-secondary"
+            data-team-remove="${escHtml(m.userId)}" style="padding:5px 10px;font-size:12px;">Remove</button>
+        </div>
+      </div>`).join('');
+
+    listEl.querySelectorAll('[data-team-role]').forEach(sel => {
+      sel.addEventListener('change', () => changeTeamRole(sel.getAttribute('data-team-role'), sel.value));
+    });
+    listEl.querySelectorAll('[data-team-remove]').forEach(btn => {
+      btn.addEventListener('click', () => removeTeamMember(btn.getAttribute('data-team-remove')));
+    });
+  }
+
+  async function inviteTeamMember() {
+    const email = document.getElementById('inviteEmail').value.trim();
+    const role = document.getElementById('inviteRole').value;
+    const profileId = window.IntelligenceProfiles.getActiveProfileId();
+    if (!email) { teamMsg('Enter the email address of the person you want to add.', 'error'); return; }
+
+    teamMsg('Granting access…');
+    try {
+      await teamApi({ action: 'invite', profileId, email, role });
+      document.getElementById('inviteEmail').value = '';
+      teamMsg(`${email} can now ${role === 'editor' ? 'edit' : 'view'} this business.`, 'ok');
+      await loadTeam();
+    } catch (e) {
+      // The "they have no account yet" case has a real explanation attached
+      // by the endpoint; surface it rather than a generic failure.
+      teamMsg(e.message, 'error');
+    }
+  }
+
+  async function changeTeamRole(userId, role) {
+    const profileId = window.IntelligenceProfiles.getActiveProfileId();
+    teamMsg('Updating…');
+    try {
+      await teamApi({ action: 'updateRole', profileId, userId, role });
+      teamMsg('Access updated.', 'ok');
+    } catch (e) {
+      teamMsg(e.message, 'error');
+      await loadTeam();
+    }
+  }
+
+  async function removeTeamMember(userId) {
+    if (!confirm('Remove this person\'s access to this business?')) return;
+    const profileId = window.IntelligenceProfiles.getActiveProfileId();
+    teamMsg('Removing…');
+    try {
+      await teamApi({ action: 'remove', profileId, userId });
+      teamMsg('Access removed.', 'ok');
+      await loadTeam();
+    } catch (e) {
+      teamMsg(e.message, 'error');
+    }
+  }
+
   async function loadProfilesPanel() {
     const listEl = document.getElementById('profilesList');
     const infoEl = document.getElementById('profilePlanInfo');
@@ -2526,6 +2699,8 @@
 
     const planLabel = info.plan.charAt(0).toUpperCase() + info.plan.slice(1);
     infoEl.textContent = `${planLabel} plan — ${info.used} of ${info.limit} intelligence profiles used. Each profile is a separate business's complete Intelligence Layer.`;
+
+    loadTeam();
 
     const activeId = window.IntelligenceProfiles.getActiveProfileId();
     if (!profiles.length) {

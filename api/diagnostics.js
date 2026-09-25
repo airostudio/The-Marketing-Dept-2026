@@ -7,26 +7,13 @@
  * No secrets are returned to the client. Only pass/warn/fail status per service.
  */
 
+const { requireUser, requireAdmin, callerOwnsScope } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +55,86 @@ async function ping(id, name, url, opts, timeoutMs = 5000) {
       return { id, name, status: 'warn', message: `Timed out after ${timeoutMs}ms.`, latencyMs };
     }
     return { id, name, status: 'warn', message: `Unreachable: ${err.message}`, latencyMs };
+  }
+}
+
+/**
+ * Confirms which Company Pages LINKEDIN_ACCESS_TOKEN can actually administer,
+ * and whether the configured org URN is one of them. This is the one live
+ * signal LinkedIn's own publish error can't give: "Data Processing Exception
+ * ... [/author]" fires identically whether the org id is wrong or the token
+ * lacks w_organization_social, so guessing between the two wastes an OAuth
+ * re-run on the wrong fix. organizationAcls answers it directly.
+ */
+async function checkLinkedInOrgAccess(id, name, accessToken, configuredUrnRaw) {
+  const configuredUrn = String(configuredUrnRaw || '').trim();
+  const t0 = Date.now();
+  try {
+    const res = await fetch(
+      'https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName)))',
+      { headers: { Authorization: `Bearer ${accessToken}`, 'X-Restli-Protocol-Version': '2.0.0' }, signal: AbortSignal.timeout(8000) }
+    );
+    const latencyMs = Date.now() - t0;
+    if (res.status === 401) {
+      return { id, name, status: 'error', message: 'LINKEDIN_ACCESS_TOKEN is expired or invalid — re-run the OAuth authorization.', latencyMs };
+    }
+    if (res.status === 403) {
+      return { id, name, status: 'error', message: 'LINKEDIN_ACCESS_TOKEN does not have organization access at all — the "Community Management API" product is likely not approved on this LinkedIn app yet, or the token was authorized without w_organization_social.', latencyMs };
+    }
+    if (!res.ok) {
+      return { id, name, status: 'warn', message: `LinkedIn returned HTTP ${res.status} listing administered organizations.`, latencyMs };
+    }
+    const data = await res.json().catch(() => ({}));
+    const orgs = (data.elements || []).map(el => {
+      const org = el['organization~'] || {};
+      return { urn: `urn:li:organization:${org.id}`, name: org.localizedName || `org ${org.id}` };
+    });
+    if (!orgs.length) {
+      return { id, name, status: 'error', message: 'This token can administer ZERO organizations — whoever authorized it is not an admin of any Company Page. Re-run the OAuth authorization signed in as a real admin of the target page.', latencyMs };
+    }
+    const match = orgs.find(o => o.urn === configuredUrn);
+    if (match) {
+      return { id, name, status: 'ok', message: `Confirmed — this token can post as "${match.name}" (${match.urn}), matching LINKEDIN_ORGANIZATION_URN.`, latencyMs };
+    }
+    return {
+      id, name, status: 'error',
+      message: `LINKEDIN_ORGANIZATION_URN (${configuredUrn}) is NOT one this token can administer. It CAN post as: ${orgs.map(o => `${o.name} (${o.urn})`).join(', ')}. ` +
+        (orgs.length ? 'Either update LINKEDIN_ORGANIZATION_URN to one of these, or re-run the OAuth authorization signed in as an admin of the correct page.' : ''),
+      latencyMs,
+    };
+  } catch (err) {
+    return { id, name, status: 'warn', message: `Could not reach LinkedIn: ${err.message}`, latencyMs: Date.now() - t0 };
+  }
+}
+
+/** Confirms LINKEDIN_PERSON_ACCESS_TOKEN is live and identifies whose profile it posts as. */
+async function checkLinkedInPersonToken(id, name, accessToken, configuredUrnRaw) {
+  const configuredUrn = String(configuredUrnRaw || '').trim();
+  const t0 = Date.now();
+  try {
+    const res = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    const latencyMs = Date.now() - t0;
+    if (res.status === 401) {
+      return { id, name, status: 'error', message: 'LINKEDIN_PERSON_ACCESS_TOKEN is expired or invalid — re-run the OAuth authorization.', latencyMs };
+    }
+    if (!res.ok) {
+      return { id, name, status: 'warn', message: `LinkedIn returned HTTP ${res.status}.`, latencyMs };
+    }
+    const data = await res.json().catch(() => ({}));
+    const actualUrn = data.sub ? `urn:li:person:${data.sub}` : null;
+    if (actualUrn && actualUrn !== configuredUrn) {
+      return {
+        id, name, status: 'error',
+        message: `LINKEDIN_PERSON_URN (${configuredUrn}) does not match the member this token actually belongs to (${actualUrn}, ${data.name || 'unknown name'}). Update LINKEDIN_PERSON_URN to ${actualUrn}.`,
+        latencyMs,
+      };
+    }
+    return { id, name, status: 'ok', message: `Confirmed — token belongs to ${data.name || actualUrn}, matching LINKEDIN_PERSON_URN.`, latencyMs };
+  } catch (err) {
+    return { id, name, status: 'warn', message: `Could not reach LinkedIn: ${err.message}`, latencyMs: Date.now() - t0 };
   }
 }
 
@@ -142,6 +209,43 @@ async function runSystemChecks() {
     ['UNSPLASH_ACCESS_KEY'],
     'Optional — enables stock photo search for content generation.'
   ));
+
+  // LinkedIn Company Page — a live check, not just presence. Both env vars
+  // being SET is not the same as the token being valid for THIS org: the
+  // "[/author] Data Processing Exception" LinkedIn returns on a bad publish
+  // is caused by either (a) the configured org id not being one the token
+  // administers, or (b) the token lacking w_organization_social — and it
+  // gives no way to tell which. organizationAcls answers that directly: it
+  // lists every org this specific token can actually administer, so the
+  // configured URN can be checked against a real list instead of guessed at.
+  if (process.env.LINKEDIN_ACCESS_TOKEN && process.env.LINKEDIN_ORGANIZATION_URN) {
+    checks.push(await checkLinkedInOrgAccess(
+      'linkedin_org', 'LinkedIn Company Page',
+      process.env.LINKEDIN_ACCESS_TOKEN, process.env.LINKEDIN_ORGANIZATION_URN
+    ));
+  } else {
+    checks.push(envCheck(
+      'linkedin_org', 'LinkedIn Company Page',
+      ['LINKEDIN_ACCESS_TOKEN', 'LINKEDIN_ORGANIZATION_URN'],
+      'Required to publish to the Company Page from Social Studio.'
+    ));
+  }
+
+  // LinkedIn personal profile — same live check, different scope
+  // (w_member_social) and a token issued to one specific member rather than
+  // an org, so there is no ACL list to compare against — /v2/userinfo alone
+  // confirms the token is live and identifies whose profile it will post as.
+  if (process.env.LINKEDIN_PERSON_ACCESS_TOKEN && process.env.LINKEDIN_PERSON_URN) {
+    checks.push(await checkLinkedInPersonToken(
+      'linkedin_person', 'LinkedIn personal profile',
+      process.env.LINKEDIN_PERSON_ACCESS_TOKEN, process.env.LINKEDIN_PERSON_URN
+    ));
+  } else {
+    checks.push({
+      id: 'linkedin_person', name: 'LinkedIn personal profile', status: 'skipped',
+      message: 'LINKEDIN_PERSON_ACCESS_TOKEN / LINKEDIN_PERSON_URN not set — personal-profile publishing is optional.'
+    });
+  }
 
   // 9. Runtime / deployment
   checks.push({
@@ -277,11 +381,9 @@ async function runProjectChecks(projectId) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
-  }
+module.exports = withFailureReporting('api/diagnostics', async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   const urlPath = (req.url || '').split('?')[0].replace(/\/$/, '');
   const isProjectRoute = urlPath.endsWith('/project');
@@ -290,6 +392,17 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    // The project route is about the caller's own project, so any signed-in
+    // owner may run it — but it names the project in the request body, and it
+    // makes live authenticated calls to that project's integrations. Checking
+    // ownership is what stops one customer probing another's setup.
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+
+  // After authentication: the burst limit is keyed on the account, so
+  // it needs the caller to exist before it runs.
+  if (rateLimited(req, res, { name: 'diagnostics', max: 20, windowMs: 60 * 1000, auth: auth })) return;
     let body = {};
     if (typeof req.body === 'object' && req.body !== null) {
       body = req.body;
@@ -299,6 +412,9 @@ module.exports = async function handler(req, res) {
     const { projectId } = body;
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' });
+    }
+    if (!(await callerOwnsScope(auth.userId, { projectId }))) {
+      return res.status(403).json({ error: 'That project is not yours.', code: 'scope_forbidden' });
     }
     try {
       const result = await runProjectChecks(projectId);
@@ -315,6 +431,12 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // These describe the deployment, not the caller: which services are wired
+  // up, which environment variables are missing, which upstreams are
+  // reachable. That is an operator's view of the platform, not a customer's.
+  const sysAuth = await requireAdmin(req, res);
+  if (!sysAuth) return;
+
   try {
     const result = await runSystemChecks();
     res.setHeader('Cache-Control', 'no-store');
@@ -323,4 +445,4 @@ module.exports = async function handler(req, res) {
     console.error('[diagnostics] error:', err.message);
     return res.status(500).json({ error: 'Diagnostics failed', detail: err.message });
   }
-};
+});

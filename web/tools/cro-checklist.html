@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify CRO Checklist | Audema Marketing</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        /* The DOM contract below is the one js/cro-checklist.js already
+           expects: .checklist-section / .checklist-section-header /
+           .section-progress-fill / .section-progress-text /
+           .checklist-item[data-id] / .checklist-checkbox, plus
+           #completedCount, #totalCount, #progressCircle, #exportBtn,
+           #exportDropdown, #exportPDF, #exportCSV, #copyChecklist, #resetBtn.
+           The script has existed since the tool was designed; the page it
+           drives was never built, so /tools/cro-checklist.html — linked from
+           the dashboard sidebar — has been a 404. */
+        body { background: #070711; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; margin: 0; }
+        .cro-wrap { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+        .cro-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+        .cro-head h1 { font-size: 28px; margin: 0 0 8px; }
+        .cro-head p { color: rgba(255,255,255,0.55); margin: 0; font-size: 14px; max-width: 620px; line-height: 1.65; }
+        a.backlink { color: rgba(255,255,255,0.5); text-decoration: none; font-size: 13px; }
+        a.backlink:hover { color: #fff; }
+
+        .progress-panel { display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px 20px; }
+        .progress-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+        .progress-ring svg { transform: rotate(-90deg); }
+        .progress-ring .track { stroke: rgba(255,255,255,0.08); }
+        .progress-ring .value { stroke: #10b981; stroke-linecap: round; transition: stroke-dashoffset .35s ease; }
+        .progress-copy .num { font-size: 22px; font-weight: 800; line-height: 1; }
+        .progress-copy .lbl { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+        .toolbar { display: flex; gap: 8px; align-items: center; position: relative; }
+        .btn-tool { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #e2e8f0; font-family: inherit; }
+        .btn-tool:hover { background: rgba(255,255,255,0.09); }
+        .export-dropdown { display: none; position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 20;
+            background: #14141f; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; min-width: 180px; }
+        .export-dropdown.show { display: block; }
+        .export-dropdown button { display: block; width: 100%; text-align: left; padding: 10px 14px; background: none;
+            border: none; color: #e2e8f0; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .export-dropdown button:hover { background: rgba(255,255,255,0.07); }
+
+        .checklist-section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; margin-top: 16px; overflow: hidden; }
+        .checklist-section-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; cursor: pointer;
+            user-select: none; }
+        .checklist-section-header:hover { background: rgba(255,255,255,0.02); }
+        .checklist-section-title { flex: 1; }
+        .checklist-section-title h3 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+        .checklist-section-title span { font-size: 12px; color: rgba(255,255,255,0.45); }
+        .section-progress { display: flex; align-items: center; gap: 10px; }
+        .section-progress-track { width: 90px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+        .section-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg,#7c3aed,#10b981); transition: width .3s ease; }
+        .section-progress-text { font-size: 12px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+        .chev { transition: transform .25s ease; color: rgba(255,255,255,0.35); }
+        .checklist-section.collapsed .chev { transform: rotate(-90deg); }
+        .checklist-section.collapsed .checklist-items { display: none; }
+
+        .checklist-items { padding: 0 20px 12px; }
+        .checklist-item { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        .checklist-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.22);
+            flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all .18s ease; }
+        .checklist-checkbox::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; opacity: 0; }
+        .checklist-checkbox.checked { background: #10b981; border-color: #10b981; }
+        .checklist-checkbox.checked::after { opacity: 1; }
+        .checklist-item-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+        .checklist-item-desc { font-size: 12.5px; color: rgba(255,255,255,0.5); line-height: 1.6; }
+        .checklist-item.completed .checklist-item-title { text-decoration: line-through; color: rgba(255,255,255,0.4); }
+        .checklist-item.completed .checklist-item-desc { color: rgba(255,255,255,0.28); }
+
+        .note { margin-top: 26px; font-size: 12px; color: rgba(255,255,255,0.38); line-height: 1.7; }
+    </style>
+</head>
+<body>
+<div class="cro-wrap">
+    <a class="backlink" href="/dashboard.html">&larr; Back to dashboard</a>
+
+    <div class="cro-head" style="margin-top:14px;">
+        <div>
+            <h1>Shopify CRO Checklist</h1>
+            <p>The changes that move conversion rate on a Shopify store, grouped by where they sit in the
+               journey. Tick what you have done; your progress is kept in this browser. Nothing here is
+               measured from your store &mdash; it is a checklist of practices, not a report.</p>
+        </div>
+        <div class="progress-panel">
+            <div class="progress-ring">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                    <circle class="track" cx="32" cy="32" r="26" fill="none" stroke-width="6"/>
+                    <circle id="progressCircle" class="value" cx="32" cy="32" r="26" fill="none" stroke-width="6"
+                            stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
+                </svg>
+            </div>
+            <div class="progress-copy">
+                <div class="num"><span id="completedCount">0</span> <span id="totalCount" style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:600;">of 0</span></div>
+                <div class="lbl">items complete</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:6px;justify-content:flex-end;">
+        <button class="btn-tool" id="resetBtn">Reset</button>
+        <button class="btn-tool" id="exportBtn">Export &#9662;</button>
+        <div class="export-dropdown" id="exportDropdown">
+            <button id="exportPDF">Print / save as PDF</button>
+            <button id="exportCSV">Download CSV</button>
+            <button id="copyChecklist">Copy as text</button>
+        </div>
+    </div>
+
+    <!-- ── Storefront & first impression ── -->
+    <div class="checklist-section">
+        <div class="checklist-section-header">
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <div class="checklist-section-title">
+                <h3>Storefront &amp; first impression</h3>
+                <span>What a first-time visitor sees before they scroll</span>
+            </div>
+            <div class="section-progress">
+                <div class="section-progress-track"><div class="section-progress-fill"></div></div>
+                <div class="section-progress-text">0/0</div>
+            </div>
+        </div>
+        <div class="checklist-items">
+            <div class="checklist-item" data-id="sf-value-prop">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">The homepage states what you sell and who for, above the fold</div>
+                    <div class="checklist-item-desc">A visitor should not have to scroll or guess. Name the product category and the customer in the first screenful.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="sf-hero-cta">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">One primary call to action, not four competing ones</div>
+                    <div class="checklist-item-desc">Shop, subscribe, book, read the blog and follow on Instagram in the same band splits attention and lowers all of them.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="sf-lcp">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Largest Contentful Paint under 2.5s on mobile</div>
+                    <div class="checklist-item-desc">Check it in the Express Site Check or PageSpeed Insights. Hero video and uncompressed banners are the usual cause.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="sf-search">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Search is visible and returns useful results for misspellings</div>
+                    <div class="checklist-item-desc">Searchers convert at a much higher rate than browsers; a search box that returns nothing for a typo loses them.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="sf-trust-row">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Shipping, returns and payment options are stated on the homepage</div>
+                    <div class="checklist-item-desc">These are the three questions that stop a first purchase. Answer them before the product page.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Product page ── -->
+    <div class="checklist-section">
+        <div class="checklist-section-header">
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <div class="checklist-section-title">
+                <h3>Product page</h3>
+                <span>Where the decision is actually made</span>
+            </div>
+            <div class="section-progress">
+                <div class="section-progress-track"><div class="section-progress-fill"></div></div>
+                <div class="section-progress-text">0/0</div>
+            </div>
+        </div>
+        <div class="checklist-items">
+            <div class="checklist-item" data-id="pdp-images">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Six or more images including scale, detail and in-use</div>
+                    <div class="checklist-item-desc">Studio shots alone leave size and texture to the imagination, which is where returns come from.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="pdp-reviews">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Reviews on the page, including the mediocre ones</div>
+                    <div class="checklist-item-desc">A wall of five stars reads as filtered. A visible three-star review with a reply raises trust rather than lowering it.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="pdp-delivery">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Delivery date and cost shown before Add to Cart</div>
+                    <div class="checklist-item-desc">"Free shipping over $X" plus an estimated arrival date. Unexpected shipping cost is the most cited abandonment reason.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="pdp-variants">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Out-of-stock variants are visible, not hidden</div>
+                    <div class="checklist-item-desc">Show them greyed with a back-in-stock signup rather than removing them, so the range still reads as complete.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="pdp-sizing">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Sizing or specification guide opens without leaving the page</div>
+                    <div class="checklist-item-desc">A new tab loses the cart. Use a drawer or modal.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="pdp-sticky">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Add to Cart stays reachable on mobile as you scroll</div>
+                    <div class="checklist-item-desc">A sticky bar with price and the button; long product pages otherwise bury the action.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Cart & checkout ── -->
+    <div class="checklist-section">
+        <div class="checklist-section-header">
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <div class="checklist-section-title">
+                <h3>Cart &amp; checkout</h3>
+                <span>The most expensive metres of the journey</span>
+            </div>
+            <div class="section-progress">
+                <div class="section-progress-track"><div class="section-progress-fill"></div></div>
+                <div class="section-progress-text">0/0</div>
+            </div>
+        </div>
+        <div class="checklist-items">
+            <div class="checklist-item" data-id="co-guest">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Guest checkout is available and offered first</div>
+                    <div class="checklist-item-desc">Forcing account creation before payment is one of the largest single drops in ecommerce.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="co-express">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Express wallets enabled (Shop Pay, Apple Pay, Google Pay, PayPal)</div>
+                    <div class="checklist-item-desc">They remove the address and card forms entirely on mobile, which is where most of the traffic is.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="co-costs">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">No cost appears for the first time at the final step</div>
+                    <div class="checklist-item-desc">Shipping, tax and any surcharge should be visible or estimated in the cart.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="co-fields">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Every form field is one you genuinely need</div>
+                    <div class="checklist-item-desc">Company, second address line and phone are optional for most stores. Each required field costs completions.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="co-errors">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Validation errors say what to do, inline, without clearing the form</div>
+                    <div class="checklist-item-desc">Test a wrong card number and a mistyped postcode on a real phone.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="co-abandon">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Abandoned-cart recovery is running and its first email is within an hour</div>
+                    <div class="checklist-item-desc">Set it up in the Email Engine. Later than a few hours and the intent has usually gone.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Measurement ── -->
+    <div class="checklist-section">
+        <div class="checklist-section-header">
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <div class="checklist-section-title">
+                <h3>Measurement</h3>
+                <span>So the next change can be judged rather than argued about</span>
+            </div>
+            <div class="section-progress">
+                <div class="section-progress-track"><div class="section-progress-fill"></div></div>
+                <div class="section-progress-text">0/0</div>
+            </div>
+        </div>
+        <div class="checklist-items">
+            <div class="checklist-item" data-id="ms-ga4">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">GA4 is connected and recording purchases</div>
+                    <div class="checklist-item-desc">Without it the Analytics Brain has nothing to report — it will say so rather than showing you zeros.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="ms-funnel">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Mid-funnel events exist: view item, add to cart, begin checkout</div>
+                    <div class="checklist-item-desc">Sessions and purchases alone cannot tell you which step is leaking.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="ms-test">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">One experiment running at a time, with the snippet installed</div>
+                    <div class="checklist-item-desc">Launch it from CRO Lab. Overlapping tests on the same page make both results unreadable.</div>
+                </div>
+            </div>
+            <div class="checklist-item" data-id="ms-power">
+                <div class="checklist-checkbox"></div>
+                <div>
+                    <div class="checklist-item-title">Required sample size worked out before the test starts</div>
+                    <div class="checklist-item-desc">Use the calculator in CRO Lab. Deciding when to stop after you have seen the numbers is how false winners get shipped.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="note">
+        Progress is stored in this browser only, so it will not follow you to another device.
+        This is a checklist of practices, not an audit of your store &mdash; nothing on this page
+        is measured from your site. For measured results, run the Express Site Check in SEO
+        Intelligence or connect GA4 for the Analytics Brain.
+    </p>
+</div>
+
+<script src="/js/cro-checklist.js"></script>
+</body>
+</html>

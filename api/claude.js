@@ -10,8 +10,12 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
+
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS_CAP = 8192;
@@ -21,28 +25,8 @@ const MAX_BODY_BYTES = 256 * 1024; // 256 KB
 // Best-effort in-memory rate limit. Resets when the serverless instance recycles.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20; // 20 req/min/IP per instance
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip);
-  if (!bucket || now - bucket.start > RATE_LIMIT_WINDOW_MS) {
-    rateBuckets.set(ip, { start: now, count: 1 });
-    return { ok: true, remaining: RATE_LIMIT_MAX - 1 };
-  }
-  if (bucket.count >= RATE_LIMIT_MAX) {
-    const retryAfter = Math.ceil((bucket.start + RATE_LIMIT_WINDOW_MS - now) / 1000);
-    return { ok: false, retryAfter };
-  }
-  bucket.count += 1;
-  return { ok: true, remaining: RATE_LIMIT_MAX - bucket.count };
-}
 
 function validateMessages(messages) {
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -63,19 +47,22 @@ function validateMessages(messages) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/claude', async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Rate limit
-  const ip = getClientIp(req);
-  const rl = checkRateLimit(ip);
-  if (!rl.ok) {
-    res.setHeader('Retry-After', String(rl.retryAfter));
-    return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfter });
-  }
+  // This is a proxy to Anthropic on the account's own API key. Left open it
+  // is free inference for anyone who finds the URL, billed to the owner. The
+  // rate limit below caps how fast that money goes, not whether the caller
+  // was ever entitled to spend it.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  // Rate limit. Keyed on the account, not the address — this endpoint spends
+  // the owner's Anthropic quota, and the account is the thing being metered.
+  if (rateLimited(req, res, { name: 'claude', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS, auth })) return;
 
   // Reject oversized payloads early
   const contentLength = parseInt(req.headers['content-length'] || '0', 10);
@@ -83,8 +70,9 @@ module.exports = async function handler(req, res) {
     return res.status(413).json({ error: 'Request body too large' });
   }
 
-  const apiKey =
-    process.env.ANTHROPIC_API_KEY ||;
+  // One variable, no fallback chain — see api/health.js for how to verify a
+  // rotation actually took (the fingerprint check there).
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error('Claude proxy: ANTHROPIC_API_KEY not configured');
@@ -118,11 +106,7 @@ module.exports = async function handler(req, res) {
 
     const upstream = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify(requestBody)
     });
 
@@ -162,4 +146,4 @@ module.exports = async function handler(req, res) {
     console.error('Claude proxy unexpected error:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});

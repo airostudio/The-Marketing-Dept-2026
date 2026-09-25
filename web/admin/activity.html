@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin activity | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1080px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  select, button { font-family:inherit; font-size:12.5px; border-radius:8px; padding:7px 12px;
+                   background:var(--panel2); color:var(--text); border:1px solid var(--border); cursor:pointer; }
+
+  .row { display:flex; gap:14px; align-items:flex-start; padding:13px 0; border-top:1px solid var(--border); }
+  .row:first-child { border-top:none; }
+  .tag { flex-shrink:0; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;
+         padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .t-created { background:rgba(34,197,94,0.13);  color:#86efac; border:1px solid rgba(34,197,94,0.3); }
+  .t-deleted { background:rgba(239,68,68,0.13);  color:#fca5a5; border:1px solid rgba(239,68,68,0.3); }
+  .t-role    { background:rgba(245,158,11,0.13); color:#fcd34d; border:1px solid rgba(245,158,11,0.3); }
+  .t-other   { background:rgba(148,163,184,0.12);color:#cbd5e1; border:1px solid var(--border); }
+  .body { flex:1; min-width:0; }
+  .line { font-size:13px; line-height:1.6; }
+  .who  { font-weight:700; }
+  .meta { color:var(--text3); font-size:11.5px; margin-top:3px; }
+  .det  { margin-top:6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px;
+          color:var(--text2); background:var(--panel2); border:1px solid var(--border);
+          border-radius:7px; padding:7px 9px; white-space:pre-wrap; word-break:break-word; }
+  .when { flex-shrink:0; text-align:right; color:var(--text3); font-size:11.5px; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/activity.html" class="nav-link active">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link">Failures</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Admin activity</h1>
+  <p class="sub">
+    Every administrative action, newest first — who did it, to whom, and from where.
+    An admin here can read across every customer's data, so this is the record of
+    what was done with that access.
+    <br>
+    Written by the server and read-only to everyone, including administrators.
+    There is no way to edit or delete an entry from this page, or from any other:
+    a log that can be pruned is not evidence of anything.
+  </p>
+
+  <div class="card">
+    <div class="filters">
+      <select id="action-filter">
+        <option value="all">All actions</option>
+        <option value="user_created">Account created</option>
+        <option value="user_deleted">Account deleted</option>
+        <option value="role_granted">Role granted</option>
+        <option value="plan_changed">Plan changed</option>
+        <option value="owner_claimed">Owner claimed</option>
+      </select>
+      <select id="limit-filter">
+        <option value="100">Last 100</option>
+        <option value="250">Last 250</option>
+        <option value="500">Last 500</option>
+      </select>
+      <button id="btn-refresh">Refresh</button>
+      <span class="muted" id="count"></span>
+    </div>
+    <div id="list"><p class="muted">Loading…</p></div>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = window.escapeHtml;
+  let token = null;
+
+  const TAG = {
+    user_created:  ['t-created', 'created'],
+    user_deleted:  ['t-deleted', 'deleted'],
+    role_granted:  ['t-role',    'role'],
+    owner_claimed: ['t-role',    'owner'],
+    plan_changed:  ['t-other',   'plan'],
+  };
+
+  /** How long ago, in the units a person would say out loud. */
+  function ago(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const mins = (Date.now() - d.getTime()) / 60000;
+    if (mins < 1) return 'just now';
+    if (mins < 60) return Math.round(mins) + 'm ago';
+    if (mins < 48 * 60) return Math.round(mins / 60) + 'h ago';
+    return Math.round(mins / 1440) + 'd ago';
+  }
+
+  /** A sentence, rather than a row of columns to decode. */
+  function sentence(e) {
+    const who = esc(e.admin_email || 'an administrator');
+    const whom = e.target_email ? esc(e.target_email) : null;
+    switch (e.action) {
+      case 'user_created':  return `<span class="who">${who}</span> created the account ${whom || '(unknown)'}`;
+      case 'user_deleted':  return `<span class="who">${who}</span> deleted the account ${whom || '(unknown)'}`;
+      case 'role_granted':  return `<span class="who">${who}</span> granted <strong>${esc((e.details && e.details.role) || 'a role')}</strong> to ${whom || '(unknown)'}`;
+      case 'owner_claimed': return `<span class="who">${who}</span> was granted <strong>super_admin</strong> by OWNER_EMAIL`;
+      case 'plan_changed':  return `<span class="who">${who}</span> changed the plan for ${whom || '(unknown)'}`;
+      default:              return `<span class="who">${who}</span> — ${esc(e.action)}${whom ? ' → ' + whom : ''}`;
+    }
+  }
+
+  async function load() {
+    $('list').innerHTML = '<p class="muted">Loading…</p>';
+    const action = $('action-filter').value;
+    const limit = $('limit-filter').value;
+    const qs = new URLSearchParams({ limit });
+    if (action !== 'all') qs.set('action', action);
+
+    let data;
+    try {
+      const res = await fetch('/api/admin-activity?' + qs.toString(),
+        { headers: { Authorization: 'Bearer ' + token } });
+      data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
+    } catch (err) {
+      $('list').innerHTML = `<p class="muted" style="color:#fca5a5;">Could not load the activity log: ${esc(err.message)}</p>`;
+      $('count').textContent = '';
+      return;
+    }
+
+    const rows = data.entries || [];
+    if (!rows.length) {
+      // An empty log is a real state, not an error: it means nothing
+      // administrative has happened since this started recording.
+      $('list').innerHTML = '<p class="muted">No administrative actions recorded yet. ' +
+        'Entries appear here the moment an account is created, deleted, or given a role.</p>';
+      $('count').textContent = '';
+      return;
+    }
+
+    $('count').textContent = data.truncated
+      ? `showing the most recent ${rows.length} — there are more`
+      : `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`;
+
+    $('list').innerHTML = rows.map(e => {
+      const [cls, label] = TAG[e.action] || ['t-other', 'action'];
+      const det = e.details && Object.keys(e.details).length
+        ? `<div class="det">${esc(JSON.stringify(e.details))}</div>` : '';
+      const from = [e.ip_address, e.user_agent ? String(e.user_agent).slice(0, 60) : null]
+        .filter(Boolean).map(esc).join(' · ');
+      return `<div class="row">
+        <span class="tag ${cls}">${esc(label)}</span>
+        <div class="body">
+          <div class="line">${sentence(e)}</div>
+          ${from ? `<div class="meta">${from}</div>` : ''}
+          ${det}
+        </div>
+        <div class="when" title="${esc(e.created_at || '')}">${esc(ago(e.created_at))}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
+
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    // Convenience, not the security boundary — api/admin-activity.js refuses
+    // a non-admin regardless of what this page chooses to show.
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      $('gate').textContent = 'This page is for Audema admins.';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    $('action-filter').addEventListener('change', load);
+    $('limit-filter').addEventListener('change', load);
+    $('btn-refresh').addEventListener('click', load);
+    await load();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

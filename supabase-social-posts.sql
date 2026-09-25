@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS social_posts (
 
   image_url             TEXT,       -- rendered/uploaded creative for this post
   image_render_status    TEXT        DEFAULT 'none' CHECK (image_render_status IN ('none', 'pending', 'rendered', 'failed')),
+  video_url             TEXT,       -- AI-generated Reel/short video for this post (api/generate-video.js) — record-
+                                    -- keeping only; api/publish-social-post.js does not upload video to any
+                                    -- platform yet, only image_url, so a video post still needs manual upload today
+
+
 
   status                TEXT        NOT NULL DEFAULT 'pending_review'
                                     CHECK (status IN ('pending_review', 'approved', 'rejected', 'scheduled', 'published', 'archived')),
@@ -91,3 +96,8 @@ CREATE POLICY "social_posts_profile_access" ON social_posts
                    AND m.role IN ('owner', 'editor'))
     )
   );
+
+-- ── video_url (added after this table's initial launch) ─────────────────────
+-- AI-generated Reel/short video per post (Social Studio's "Generate Reel"
+-- action, api/generate-video.js). Safe to re-run on an already-deployed table.
+ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS video_url TEXT;

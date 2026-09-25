@@ -25,6 +25,9 @@
 
 'use strict';
 
+const { safeFetchText } = require('./_lib/safe-fetch.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
 
@@ -59,13 +62,17 @@ function contentHash(html) {
 
 async function fetchSnapshot(url) {
   try {
-    const res = await fetch(url, {
+    // The watched URL is whatever a customer typed into the competitor
+    // tracker, and this runs unattended on a schedule with no one reading the
+    // result — exactly the shape of request that should not be able to reach
+    // an internal address.
+    const res = await safeFetchText(url, {
+      timeoutMs: PER_FETCH_TIMEOUT_MS,
+      maxBytes: 1_000_000,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AudemaScoutBot/1.0; +https://audema.ai/bot)' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(PER_FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) return { error: `HTTP ${res.status}` };
-    const html = await res.text();
+    if (res.status < 200 || res.status >= 300) return { error: `HTTP ${res.status}` };
+    const html = res.text;
     return {
       title: extractTitle(html),
       meta_description: extractMetaDescription(html),
@@ -130,7 +137,7 @@ async function runWithConcurrency(items, limit, worker) {
   return results;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-competitor-watch', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated competitor-watch sweep.' });
@@ -166,4 +173,4 @@ module.exports = async function handler(req, res) {
     truncated, // if true, more active watches exist than this run could cover — raise MAX_WATCHES_PER_RUN or shard across more frequent runs
     checkedAt: new Date().toISOString(),
   });
-};
+});
