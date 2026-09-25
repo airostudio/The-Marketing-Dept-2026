@@ -62,6 +62,7 @@ SOURCES = [
     'supabase-video-gallery.sql',
     'supabase-cro-backlog.sql',
     'supabase-system-failures.sql',
+    'supabase-link-reports.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')
