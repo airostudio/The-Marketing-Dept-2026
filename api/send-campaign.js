@@ -50,6 +50,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
 const { checkSendableContent, findUnresolvedMergeTags } = require('./_lib/content-guard.js');
+const { applyMergeFields } = require('./_lib/merge-fields.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
   require('./_lib/send-guard.js');
 
@@ -62,17 +63,6 @@ const RATE_LIMIT_MAX     = 3;         // campaign sends are heavier than single 
 
 function sanitizeTagValue(val) {
   return String(val).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 256) || 'unknown';
-}
-
-// Replace {{token}} merge tags with per-recipient values. Unresolved tokens are
-// left as-is rather than silently dropped, so a bad recipient row is visible in
-// the sent output instead of vanishing.
-function applyMergeFields(template, mergeFields) {
-  if (!template) return template;
-  return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
-    const val = mergeFields && mergeFields[key];
-    return (val === undefined || val === null || val === '') ? match : String(val);
-  });
 }
 
 module.exports = withFailureReporting('api/send-campaign', async function handler(req, res) {

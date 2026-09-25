@@ -371,12 +371,13 @@ Use markdown. Separate emails with horizontal rules (---).
         }
 
         prompt += `## DELIVERABILITY & CRAFT
-- Use {{first_name}}-style merge tokens wherever personalization is intended — never invent a literal name.
+- The ONLY merge tokens the sending system actually recognizes are: {{firstName}}, {{lastName}}, {{company}}, {{unsubscribe_url}} — exact spelling, exact case, double curly braces. Use {{firstName}} for personalization, never {{first_name}} or any other casing/spelling — a token that doesn't match one of these exactly will not be filled in, and the send is refused outright rather than going out broken.
+- NEVER write a placeholder in square brackets ANYWHERE in the actual email copy — not for the recipient's name, not for a sender name, not for a statistic, not for a link destination, not for anything. "[First Name]", "[ADD: a stat here]", "[Your Name]", "[Try Free →]" are all placeholders a human would need to fill in by hand, and this is being sent as finished copy, not a template for a human editor. If you don't have a real detail to fill in (a real customer example, a real URL), write the sentence without it rather than leaving a bracket. The square brackets used elsewhere in THIS PROMPT (like "[pain-focused variant]" in the Output Format section below) are instructions to you about what to write in that spot — they describe the content, they are never themselves valid output.
 - Avoid spam-trigger phrasing: no ALL CAPS, no "FREE!!!", no excessive punctuation or dollar-sign spam.
 - Every email needs a real unsubscribe link, not just a mention: include the literal token {{unsubscribe_url}} in the footer near any "Unsubscribe" text (e.g. "Unsubscribe: {{unsubscribe_url}}"). Pat (Email Delivery) fills that token in and attaches the List-Unsubscribe/List-Unsubscribe-Post headers Gmail/Yahoo/Apple require — don't write your own fake unsubscribe link or instructions instead.
 - Subject lines under 50 characters; preview text under 90 characters.
 - Avoid phrasing/structure so templated it reads as an obvious mail-merge blast — spam filters increasingly fingerprint generic AI-generated marketing copy; keep sentence rhythm varied and specific to this brand's voice rather than generic filler.
-- Sign-off: if a SENDER IDENTITY block is provided below, sign off with that real name. If not, close naturally without a name at all — never write a placeholder like "[Your Name]" or "[Sender]".
+- Sign-off: if a SENDER IDENTITY block is provided below, sign off with that real name. If not, close naturally without a name at all.
 
 `;
 
@@ -387,7 +388,7 @@ Use markdown. Separate emails with horizontal rules (---).
             if (contextBundle.businessContext) {
                 prompt += `\n## BUSINESS CONTEXT (Your Email Foundation)\n${contextBundle.businessContext}\n\n`;
                 prompt += `**Email-Specific Instructions:**\n`;
-                prompt += `- Use ICP pain points as subject line hooks ("Tired of [pain]?")\n`;
+                prompt += `- Use ICP pain points as subject line hooks — name the actual pain point from the business context above, e.g. "Tired of chasing unpaid invoices?", not a generic template with the pain point left blank\n`;
                 prompt += `- Write in brand voice using exact language/cultural references provided\n`;
                 prompt += `- Sequence value prop: Email 1 = primary benefit, Email 2-3 = differentiators, Email 4+ = emotional appeal\n`;
                 prompt += `- Align CTAs with business objectives (Q1 focus determines which CTA)\n`;
