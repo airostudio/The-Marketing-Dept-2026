@@ -49,6 +49,7 @@ const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscrib
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { checkSendableContent, findUnresolvedMergeTags } = require('./_lib/content-guard.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
   require('./_lib/send-guard.js');
 
@@ -129,6 +130,22 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
   if (recipients.length > MAX_BATCH_SIZE)
     return res.status(400).json({ error: `A single campaign send is capped at ${MAX_BATCH_SIZE} recipients. Split into smaller batches.` });
 
+  // Checked on the raw template, before any recipient/suppression/quota work:
+  // a bracket placeholder or broken link is wrong for every recipient
+  // identically, so there is no reason to spend the day's send budget, or
+  // even look anyone up, before refusing it. Unresolved {{merge}} tags are
+  // NOT checked here — those are expected to still be present pre-merge and
+  // are checked per-recipient below instead, since one recipient's row can
+  // be missing a field while another's isn't.
+  const templateCheck = checkSendableContent({ subject, html, text }, { allowMergeTags: true });
+  if (templateCheck.blocking.length) {
+    return res.status(422).json({
+      error: 'This campaign was not sent — it still has unfinished copy.',
+      code: 'unfinished_content',
+      issues: templateCheck.blocking,
+    });
+  }
+
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const validRecipients = [];
   const rejected = [];
@@ -204,6 +221,17 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
     const personalizedSubject = applyMergeFields(subject, mergeFieldsWithUnsub);
     const personalizedHtml    = applyMergeFields(html, mergeFieldsWithUnsub);
     const personalizedText    = text ? applyMergeFields(text, mergeFieldsWithUnsub) : undefined;
+
+    // A token the template uses but THIS recipient's row has no value for —
+    // applyMergeFields leaves it as literal "{{token}}" text on purpose
+    // rather than blanking it out, specifically so it's still visible here.
+    // Skip only this recipient rather than failing the whole batch: another
+    // recipient with a complete row should still get their email.
+    const unresolvedForRecipient = findUnresolvedMergeTags(`${personalizedSubject}\n${personalizedHtml}\n${personalizedText || ''}`);
+    if (unresolvedForRecipient.length) {
+      results.push({ to, success: false, error: `Skipped — missing ${unresolvedForRecipient.join(', ')} for this recipient` });
+      continue;
+    }
 
     // Same hard requirement as api/send-email.js — visible opt-out language
     // + a physical mailing address on every send, not just the invisible

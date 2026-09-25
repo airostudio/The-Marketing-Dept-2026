@@ -350,6 +350,82 @@ async function call(handler, body, opts) {
   check('re-importing a contact does not resurrect their status',
     !/status:\s*'subscribed'/.test(storeCode.split('async function upsertContacts')[1].split('return')[0]));
 
+  /* ── 6. Unfinished copy never reaches Resend, override or not ─────────── */
+  // The actual incident: a real campaign draft went through Scotty's
+  // client-side QA review, which correctly flagged unfilled bracket
+  // placeholders ("[First Name]", "[Sender Name]", "[Company Address]"), a
+  // broken CTA link, and a stray leftover template label — and NONE of that
+  // stopped the send, because Scotty is an LLM opinion behind a "Send Anyway
+  // (Override)" button, and the endpoint itself never looked at the
+  // rendered content at all. These checks are what closes that gap: the
+  // same class of problem, caught deterministically, with no override.
+  console.log('\n──── unfinished copy is refused, deterministically, with no override ────');
+  reset();
+  // Section 4 permanently wraps global.fetch to fail every api.resend.com
+  // call (to simulate a provider outage) and never restores it — reinstate
+  // the normal working mock so a send that SHOULD succeed here actually can.
+  global.fetch = async (url, opts) => {
+    if (String(url).includes('/auth/v1/user')) {
+      return db.validToken
+        ? { ok: true, json: async () => ({ id: 'user-1' }) }
+        : { ok: false, json: async () => ({}) };
+    }
+    if (String(url).includes('api.resend.com')) {
+      resendCalls.push(JSON.parse(opts.body));
+      return { ok: true, json: async () => ({ id: 'em_' + resendCalls.length }) };
+    }
+    throw new Error('unexpected fetch ' + url);
+  };
+
+  resendCalls = [];
+  r = await call(sendCampaign, {
+    subject: 'Hi [First Name]', html: '<p>Sign off, [Sender Name]. <a href="[Try Webese Free →]">Go</a></p>',
+    recipients: [{ to: 'a@x.test' }],
+  });
+  check('a campaign with bracket placeholders is refused (422)', r.status === 422);
+  check('and named as unfinished content', r.body.code === 'unfinished_content');
+  check('the specific placeholders are listed, not just a generic error',
+    r.body.issues.some(i => i.includes('[First Name]')) && r.body.issues.some(i => i.includes('[Sender Name]')));
+  check('the broken CTA link is called out too', r.body.issues.some(i => /Broken link/.test(i)));
+  check('nothing reached Resend', resendCalls.length === 0);
+  check('no part of the daily budget was claimed for a send that never happened', !('user-1' in db.quota) || db.quota['user-1'] === 0);
+
+  resendCalls = [];
+  r = await call(sendEmail, {
+    to: 'a@x.test', subject: 'Hi', html: '<p>Reach out: [ADD: a real customer example here]</p>',
+  });
+  check('the one-off send endpoint refuses unfinished copy the same way', r.status === 422 && r.body.code === 'unfinished_content');
+  check('and nothing was sent', resendCalls.length === 0);
+
+  // A purely numeric bracket is an ordinary footnote, not unfinished copy —
+  // this must NOT be treated the same as "[First Name]".
+  resendCalls = [];
+  r = await call(sendEmail, { to: 'a@x.test', subject: 'Hi', html: '<p>See note [1] below.</p>' });
+  check('a numeric footnote marker like "[1]" is not mistaken for a placeholder', r.status === 200);
+
+  // A real {{merge}} tag that resolves for this recipient must still send —
+  // the guard only refuses what's actually still unresolved.
+  resendCalls = [];
+  r = await call(sendCampaign, {
+    subject: 'Hi {{firstName}}', html: '<p>Hi {{firstName}}, welcome.</p>',
+    recipients: [{ to: 'a@x.test', mergeFields: { firstName: 'Sam' } }],
+  });
+  check('a merge tag WITH a real value for this recipient still sends', r.status === 200 && resendCalls.length === 1);
+  check('and the tag was actually substituted, not left literal', resendCalls[0] && resendCalls[0].subject === 'Hi Sam');
+
+  // One recipient missing the field is skipped; another with a complete row
+  // in the SAME batch must still get their email — this is per-recipient,
+  // not a whole-batch failure, because the template itself is fine.
+  resendCalls = [];
+  r = await call(sendCampaign, {
+    subject: 'Hi {{firstName}}', html: '<p>Hi {{firstName}}!</p>',
+    recipients: [{ to: 'complete@x.test', mergeFields: { firstName: 'Sam' } }, { to: 'missing@x.test' }],
+  });
+  check('the recipient with a complete row is still sent to', resendCalls.length === 1 && resendCalls[0].to[0] === 'complete@x.test');
+  check('the recipient missing the field is skipped, not sent with a literal {{firstName}}',
+    r.body.results.some(x => x.to === 'missing@x.test' && x.success === false && /firstName/.test(x.error)));
+  check('the batch as a whole still reports success (this is not a template-level failure)', r.status === 200);
+
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'
     : `${fail.length} FAILED: ${fail.join(' | ')}`));

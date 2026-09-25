@@ -25,6 +25,7 @@
 'use strict';
 
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { checkSendableContent } = require('./_lib/content-guard.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
@@ -86,6 +87,19 @@ module.exports = withFailureReporting('api/send-email', async function handler(r
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))
     return res.status(400).json({ error: 'Invalid recipient email address' });
+
+  // This endpoint does no merge-field substitution at all, so unlike
+  // send-campaign.js there is no "per recipient" distinction — anything
+  // checkSendableContent finds (a bracket placeholder, a leftover {{tag}},
+  // a broken href) is wrong for the one recipient this send has, full stop.
+  const contentCheck = checkSendableContent({ subject, html, text });
+  if (contentCheck.blocking.length) {
+    return res.status(422).json({
+      error: 'This email was not sent — it still has unfinished copy.',
+      code: 'unfinished_content',
+      issues: contentCheck.blocking,
+    });
+  }
 
   // Opt-outs apply to one-off sends too. A prospect who unsubscribed from a
   // campaign must not then receive an individually-drafted follow-up.

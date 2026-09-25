@@ -210,8 +210,17 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        aggregate.rejected.push(...batch.map(r => ({ to: r.to, error: data.error || `Batch ${i + 1} failed` })));
-        if (onBatchComplete) onBatchComplete({ batchIndex: i, batchCount: batches.length, results: null, error: data.error });
+        // Unfinished-copy is a property of the template, not this recipient —
+        // every remaining batch would fail the exact same way, so surface the
+        // specific issues once and stop rather than repeating the same
+        // rejection for every recipient across every batch.
+        const message = data.code === 'unfinished_content' && Array.isArray(data.issues) && data.issues.length
+          ? `${data.error} ${data.issues.join(' ')}`
+          : (data.error || `Batch ${i + 1} failed`);
+        const remainingInCampaign = data.code === 'unfinished_content' ? batches.slice(i).flat() : batch;
+        aggregate.rejected.push(...remainingInCampaign.map(r => ({ to: r.to, error: message })));
+        if (onBatchComplete) onBatchComplete({ batchIndex: i, batchCount: batches.length, results: null, error: message });
+        if (data.code === 'unfinished_content') break;
         continue;
       }
 
