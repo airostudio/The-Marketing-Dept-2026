@@ -84,11 +84,29 @@ async function call(body, opts = {}) {
     check('the preview surfaces this as an issue, not a silent miss', res.body.issues.some(i => i.includes('{{first_name}}')));
   }
 
-  console.log('\n──── a bracket placeholder in the draft shows up as an issue in preview ────');
+  console.log('\n──── an UNRECOGNIZABLE bracket placeholder still shows up as an issue in preview ────');
   {
     const res = await call({ subject: 'Hi [First Name]', html: '<p>Sign off, [Sender Name].</p>', mergeFields: { firstName: 'Sam' } });
-    check('the placeholder is reported', res.body.issues.some(i => i.includes('[First Name]') && i.includes('[Sender Name]')));
-    check('the rendered subject still shows the literal placeholder (this is what would actually send)', res.body.subject === 'Hi [First Name]');
+    check('the unresolvable one ([Sender Name] — not a per-recipient field) is reported', res.body.issues.some(i => i.includes('[Sender Name]')));
+    check('a RECOGNIZABLE one ([First Name]) is resolved, not reported as an issue', !res.body.issues.some(i => i.includes('[First Name]')));
+    check('and the preview shows the ACTUAL real value, not the literal placeholder', res.body.subject === 'Hi Sam');
+    check('the structured placeholders list names exactly the unresolved one, for a UI to build an input from',
+      res.body.placeholders.length === 1 && res.body.placeholders[0] === '[Sender Name]');
+  }
+
+  console.log('\n──── [First Name]/[Company]-style aliases resolve exactly like a real {{token}} would ────');
+  {
+    const res = await call({ subject: 'Hi [First Name] from [Company]', html: '<p>[First Name], welcome to [Company]!</p>', mergeFields: { firstName: 'Sam', company: 'Acme' } });
+    check('the subject is fully resolved', res.body.subject === 'Hi Sam from Acme');
+    check('the html is fully resolved', res.body.html === '<p>Sam, welcome to Acme!</p>');
+    check('no issues at all for a fully-resolvable draft', res.body.issues.length === 0);
+  }
+
+  console.log('\n──── a bracket alias with NO value for this recipient is still treated as unresolved, not silently blanked ────');
+  {
+    const res = await call({ subject: 'Hi [First Name]', html: '<p>Hi [First Name]</p>', mergeFields: {} });
+    check('the rewritten {{firstName}} stays literal — there is nothing to fill it with', res.body.subject === 'Hi {{firstName}}');
+    check('and it is reported as an issue', res.body.issues.some(i => i.includes('{{firstName}}')));
   }
 
   console.log('\n──── a recipient missing the field the template needs is flagged, not blanked ────');

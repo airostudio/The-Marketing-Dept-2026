@@ -50,7 +50,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
 const { checkSendableContent, findUnresolvedMergeTags } = require('./_lib/content-guard.js');
-const { applyMergeFields } = require('./_lib/merge-fields.js');
+const { applyMergeFields, resolveFieldAliases } = require('./_lib/merge-fields.js');
 const { authenticateSender, filterSuppressed, claimQuota, releaseQuota } =
   require('./_lib/send-guard.js');
 
@@ -109,7 +109,7 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
   if (!apiKey)    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
   if (!fromEmail) return res.status(500).json({ error: 'RESEND_FROM_EMAIL not configured' });
 
-  const { subject, html, text, replyTo, campaignId, recipients, companyName, mailingAddress } = req.body || {};
+  let { subject, html, text, replyTo, campaignId, recipients, companyName, mailingAddress } = req.body || {};
 
   if (!subject || !html)
     return res.status(400).json({ error: 'subject and html are required' });
@@ -119,6 +119,15 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
 
   if (recipients.length > MAX_BATCH_SIZE)
     return res.status(400).json({ error: `A single campaign send is capped at ${MAX_BATCH_SIZE} recipients. Split into smaller batches.` });
+
+  // A bracket placeholder someone clearly meant as a real name/company field
+  // ("[First Name]") is rewritten to the real {{token}} before anything else
+  // sees it — this is the actual Webese incident, and there's no reason to
+  // make a human retype what the recipient row already has. Anything else in
+  // brackets is content nobody has a real value for; that still blocks below.
+  subject = resolveFieldAliases(subject);
+  html = resolveFieldAliases(html);
+  text = resolveFieldAliases(text);
 
   // Checked on the raw template, before any recipient/suppression/quota work:
   // a bracket placeholder or broken link is wrong for every recipient

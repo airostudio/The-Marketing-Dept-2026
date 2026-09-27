@@ -41,4 +41,29 @@ function applyMergeFields(template, mergeFields) {
   });
 }
 
-module.exports = { applyMergeFields, KNOWN_TOKENS, MERGE_TAG_RE };
+/**
+ * A bracket placeholder like "[First Name]" is what the Webese incident
+ * actually was — copy that clearly INTENDED per-recipient personalization,
+ * just written in the wrong syntax. For that narrow, unambiguous set (a
+ * name or company, recognizably meant as a real merge field) there is no
+ * reason to make a human retype it: rewrite it to the real {{token}} so it
+ * personalizes correctly, the same as if it had been typed right the first
+ * time. Anything else in brackets — a missing statistic, a placeholder link,
+ * a sender name, a mailing address — is content nobody has a value for yet,
+ * and guessing at it would be worse than asking; see content-guard.js and
+ * Pat's own "fill in the rest" prompt for those.
+ */
+const FIELD_ALIASES = [
+  { re: /\[\s*first\s*name\s*\]/gi, token: 'firstName' },
+  { re: /\[\s*last\s*name\s*\]/gi, token: 'lastName' },
+  { re: /\[\s*company(?:\s*name)?\s*\]/gi, token: 'company' },
+];
+
+/** Rewrites recognizable bracket aliases to their real {{token}} form. Pure
+ *  text rewriting — does not touch anything it doesn't recognize. */
+function resolveFieldAliases(template) {
+  if (!template) return template;
+  return FIELD_ALIASES.reduce((text, { re, token }) => text.replace(re, `{{${token}}}`), template);
+}
+
+module.exports = { applyMergeFields, resolveFieldAliases, KNOWN_TOKENS, MERGE_TAG_RE };

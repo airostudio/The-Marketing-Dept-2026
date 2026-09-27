@@ -379,16 +379,35 @@ async function call(handler, body, opts) {
 
   resendCalls = [];
   r = await call(sendCampaign, {
+    // [First Name] is deliberately recognizable-and-resolvable (see the
+    // dedicated scenario below) — [Sender Name] and the broken link are not,
+    // and are what should still block this batch.
     subject: 'Hi [First Name]', html: '<p>Sign off, [Sender Name]. <a href="[Try Webese Free →]">Go</a></p>',
     recipients: [{ to: 'a@x.test' }],
   });
   check('a campaign with bracket placeholders is refused (422)', r.status === 422);
   check('and named as unfinished content', r.body.code === 'unfinished_content');
-  check('the specific placeholders are listed, not just a generic error',
-    r.body.issues.some(i => i.includes('[First Name]')) && r.body.issues.some(i => i.includes('[Sender Name]')));
+  check('an unresolvable placeholder is listed by name, not just a generic error',
+    r.body.issues.some(i => i.includes('[Sender Name]')));
+  check('a RESOLVABLE placeholder like [First Name] is not reported as a defect (it was rewritten to a real merge tag first)',
+    !r.body.issues.some(i => i.includes('[First Name]')));
   check('the broken CTA link is called out too', r.body.issues.some(i => /Broken link/.test(i)));
   check('nothing reached Resend', resendCalls.length === 0);
   check('no part of the daily budget was claimed for a send that never happened', !('user-1' in db.quota) || db.quota['user-1'] === 0);
+
+  // The actual Webese fix: "[First Name]" is recognizable as meaning a real
+  // per-recipient field, so it's rewritten to {{firstName}} and personalized
+  // exactly as if it had been typed correctly — a human should never have to
+  // retype what the recipient row already has.
+  reset(); // fresh rate-limit/quota state — this section calls sendCampaign more than its 3/min limit otherwise
+  resendCalls = [];
+  r = await call(sendCampaign, {
+    subject: 'Hi [First Name]!', html: '<p>Hi [First Name] from [Company], welcome!</p>',
+    recipients: [{ to: 'sam@x.test', mergeFields: { firstName: 'Sam', company: 'Acme' } }],
+  });
+  check('a bracket alias for a real field sends successfully, not refused', r.status === 200 && resendCalls.length === 1);
+  check('[First Name] was actually resolved to the real value', resendCalls[0].subject === 'Hi Sam!');
+  check('[Company] was resolved too, in the same pass', resendCalls[0].html.includes('Hi Sam from Acme, welcome!'));
 
   resendCalls = [];
   r = await call(sendEmail, {

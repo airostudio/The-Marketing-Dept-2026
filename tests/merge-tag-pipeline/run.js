@@ -57,6 +57,22 @@ console.log('\n──── the "no bracket placeholders" rule covers ALL copy, 
   check('the old narrow-scoped warning (sign-off only) is gone', !/never write a placeholder like "\[Your Name\]" or "\[Sender\]"/.test(prompt));
 }
 
+console.log('\n──── a bracket someone clearly meant as a real field is auto-resolved, not blocked ────');
+{
+  const shared = read('api/_lib/merge-fields.js');
+  check('a resolver for known field aliases exists', /function resolveFieldAliases/.test(shared));
+  check('it is exported for reuse by both send-campaign and preview-merge', /module\.exports = \{[^}]*resolveFieldAliases/.test(shared));
+
+  const sendCampaign = read('api/send-campaign.js');
+  check('send-campaign.js resolves aliases before the template-level check runs',
+    sendCampaign.indexOf('resolveFieldAliases(subject)') < sendCampaign.indexOf('checkSendableContent({ subject, html, text }, { allowMergeTags: true })'));
+
+  const preview = read('api/preview-merge.js');
+  check('preview-merge.js resolves aliases before rendering too, so the preview matches what actually sends',
+    /applyMergeFields\(resolveFieldAliases\(subject/.test(preview));
+  check('preview-merge.js returns the structured placeholder list, not just prose', /findBracketPlaceholders\(/.test(preview) && /issues: blocking, placeholders/.test(preview));
+}
+
 console.log('\n──── one substitution function, not two that can drift ────');
 {
   const sendCampaign = read('api/send-campaign.js');
@@ -76,6 +92,21 @@ console.log('\n──── Pat shows a real-data preview before send, not just 
   check('the rendered HTML is shown in a sandboxed iframe, not raw innerHTML on the page itself',
     /iframe\.setAttribute\('sandbox', ''\)/.test(page) && /iframe\.srcdoc = data\.html/.test(page));
   check('the preview surfaces issues found for the sample recipient', /data\.issues/.test(page));
+}
+
+console.log('\n──── unresolvable placeholders are ASKED about, not just refused ────');
+{
+  const page = read('web/agents/email-delivery-agent.html');
+  check('the preview endpoint\'s structured placeholder list drives an inline form', /renderPlaceholderFillForm\(placeholders\)/.test(page));
+  check('one input per exact placeholder, not a single free-text box', /data-placeholder="\$\{escHtml\(p\)\}"/.test(page));
+  check('applying a fix replaces the placeholder everywhere (subject/html/text), not just one spot',
+    /campaign\.subject = replaceAll\(campaign\.subject\)/.test(page) &&
+    /campaign\.html = replaceAll\(campaign\.html\)/.test(page) &&
+    /campaign\.text = replaceAll\(campaign\.text\)/.test(page));
+  check('the fix is reflected back into the visible compose fields too, not just in memory',
+    /in-subject'\)\.value = campaign\.subject/.test(page) && /in-html'\)\.value = campaign\.html/.test(page));
+  check('applying fixes re-runs the whole review, so the preview reflects the real content', /function applyPlaceholderFixes\(\)[\s\S]{0,1500}runReview\(\)/.test(page));
+  check('applyPlaceholderFixes is reachable from the onclick handler (exported on EDA)', /applyPlaceholderFixes,?\s*\n\s*\};/.test(page) || /EDA\.applyPlaceholderFixes\(\)/.test(page));
 }
 
 console.log('\n──── the preview endpoint reuses send-time logic exactly, not a second copy ────');

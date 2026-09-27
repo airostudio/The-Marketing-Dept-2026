@@ -459,11 +459,13 @@
                 if (!res.ok) throw new Error(data.error || 'Preview failed');
 
                 const hasIssues = data.issues && data.issues.length;
+                const placeholders = data.placeholders || [];
                 box.innerHTML = `
                     <div class="field-label">Preview — rendered for ${escHtml(sample.toName || sample.to)} (${escHtml(sample.to)})</div>
                     ${hasIssues
                         ? `<ul class="issue-list blockers" style="margin-top:6px;">${data.issues.map(i => `<li>🛑 ${escHtml(i)}</li>`).join('')}</ul>`
                         : `<div style="color:var(--text2);font-size:12px;margin:4px 0 8px;">✅ No unresolved merge tags or placeholders for this recipient.</div>`}
+                    ${placeholders.length ? `<div id="placeholder-fill-form"></div>` : ''}
                     <div style="font-weight:700;font-size:13.5px;margin-top:8px;">${escHtml(data.subject)}</div>
                     <div id="preview-frame-wrap" style="border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;"></div>
                 `;
@@ -478,9 +480,63 @@
                 iframe.style.cssText = 'width:100%;height:280px;border:none;background:#fff;';
                 iframe.srcdoc = data.html;
                 document.getElementById('preview-frame-wrap').appendChild(iframe);
+
+                // This is the "ask, don't just refuse" step: a placeholder
+                // like "[ADD: a real stat here]" isn't something the system
+                // can guess at (unlike [First Name], already resolved above
+                // from the recipient's own row) — someone has to supply the
+                // actual content before this can send at all.
+                if (placeholders.length) renderPlaceholderFillForm(placeholders);
             } catch (e) {
                 box.innerHTML = `<div style="color:var(--text2);font-size:12px;">Could not render a preview: ${escHtml(e.message)}</div>`;
             }
+        }
+
+        function renderPlaceholderFillForm(placeholders) {
+            const form = document.getElementById('placeholder-fill-form');
+            if (!form) return;
+            form.style.cssText = 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px 14px;margin:8px 0;';
+            form.innerHTML = `
+                <div style="font-weight:700;font-size:12.5px;color:#f59e0b;margin-bottom:8px;">This still needs real content before it can send:</div>
+                ${placeholders.map((p, i) => `
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11.5px;color:var(--text2);margin-bottom:3px;">What should replace <code>${escHtml(p)}</code>?</label>
+                        <input type="text" class="placeholder-fill-input" data-placeholder="${escHtml(p)}" id="placeholder-fill-${i}" style="width:100%;" placeholder="Type the real content…">
+                    </div>`).join('')}
+                <button type="button" class="btn-secondary" onclick="EDA.applyPlaceholderFixes()" style="margin-top:4px;">Apply fixes &amp; re-check</button>
+            `;
+        }
+
+        /**
+         * Replaces each filled-in placeholder with the real text supplied,
+         * everywhere it appears (subject/html/text alike) — updates both the
+         * in-memory campaign object AND the visible compose fields, so the
+         * fix is still there if the person goes back to "Edit Campaign", then
+         * re-runs the whole review so the preview reflects the real content.
+         */
+        function applyPlaceholderFixes() {
+            const inputs = document.querySelectorAll('.placeholder-fill-input');
+            let appliedAny = false;
+            inputs.forEach((input) => {
+                const value = input.value.trim();
+                if (!value) return; // leave unfilled ones as-is — still flagged next pass
+                const placeholder = input.dataset.placeholder;
+                // Split/join rather than a regex — a bracket placeholder can
+                // contain regex-special characters (e.g. "[Try Free →]" has
+                // none, but nothing guarantees that in general).
+                const replaceAll = (s) => (s || '').split(placeholder).join(value);
+                campaign.subject = replaceAll(campaign.subject);
+                campaign.html = replaceAll(campaign.html);
+                if (campaign.text) campaign.text = replaceAll(campaign.text);
+                appliedAny = true;
+            });
+            if (!appliedAny) return;
+
+            document.getElementById('in-subject').value = campaign.subject;
+            document.getElementById('in-html').value = campaign.html;
+            if (document.getElementById('in-text')) document.getElementById('in-text').value = campaign.text || '';
+
+            runReview();
         }
 
         function renderReview(review) {
@@ -657,7 +713,7 @@
 
         return {
             collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend,
-            loadFromSegmentPicker, clearSegment,
+            loadFromSegmentPicker, clearSegment, applyPlaceholderFixes,
         };
     })();
 

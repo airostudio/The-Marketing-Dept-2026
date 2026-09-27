@@ -10,6 +10,7 @@
 
 const { checkSendableContent, findBracketPlaceholders, findUnresolvedMergeTags, findBrokenLinks } =
   require('../../api/_lib/content-guard.js');
+const { resolveFieldAliases } = require('../../api/_lib/merge-fields.js');
 
 let failures = 0;
 function check(label, ok) {
@@ -62,6 +63,19 @@ console.log('\n──── checkSendableContent: the combined verdict ───
   const postMerge = checkSendableContent({ subject: 'Hi {{firstName}}', html: '<p>Hi {{firstName}}!</p>' });
   check('the SAME content, checked without allowMergeTags (post-merge), is flagged', postMerge.blocking.length === 1);
 }
+
+console.log('\n──── resolveFieldAliases: a bracket someone clearly meant as a real field, rewritten not blocked ────');
+check('rewrites [First Name] to {{firstName}}', resolveFieldAliases('Hi [First Name],') === 'Hi {{firstName}},');
+check('rewrites [Last Name] to {{lastName}}', resolveFieldAliases('[Last Name]') === '{{lastName}}');
+check('rewrites [Company] to {{company}}', resolveFieldAliases('[Company]') === '{{company}}');
+check('rewrites [Company Name] (the longer variant) to {{company}} too', resolveFieldAliases('[Company Name]') === '{{company}}');
+check('is case-insensitive and tolerates extra spacing', resolveFieldAliases('[ first  name ]') === '{{firstName}}');
+check('does NOT touch a placeholder that is not a known field', resolveFieldAliases('[Sender Name]') === '[Sender Name]');
+check('does NOT touch [Company Address] — a mailing address is not a known per-recipient field', resolveFieldAliases('[Company Address]') === '[Company Address]');
+check('does NOT touch an editorial placeholder', resolveFieldAliases('[ADD: a real stat here]') === '[ADD: a real stat here]');
+check('rewriting downstream feeds straight into the normal bracket/merge checks: after rewriting, a resolvable placeholder is no longer flagged',
+  findBracketPlaceholders(resolveFieldAliases('Hi [First Name]')).length === 0);
+check('...and an unrecognized one still is', findBracketPlaceholders(resolveFieldAliases('Hi [Sender Name]')).length === 1);
 
 console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
 process.exit(failures === 0 ? 0 : 1);
