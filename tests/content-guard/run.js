@@ -10,7 +10,7 @@
 
 const { checkSendableContent, findBracketPlaceholders, findUnresolvedMergeTags, findBrokenLinks } =
   require('../../api/_lib/content-guard.js');
-const { resolveFieldAliases } = require('../../api/_lib/merge-fields.js');
+const { resolveFieldAliases, applyMergeFields } = require('../../api/_lib/merge-fields.js');
 
 let failures = 0;
 function check(label, ok) {
@@ -76,6 +76,21 @@ check('does NOT touch an editorial placeholder', resolveFieldAliases('[ADD: a re
 check('rewriting downstream feeds straight into the normal bracket/merge checks: after rewriting, a resolvable placeholder is no longer flagged',
   findBracketPlaceholders(resolveFieldAliases('Hi [First Name]')).length === 0);
 check('...and an unrecognized one still is', findBracketPlaceholders(resolveFieldAliases('Hi [Sender Name]')).length === 1);
+
+console.log('\n──── applyMergeFields: a missing name sends WITHOUT a name, it does not get skipped ────');
+{
+  // The actual reported bug: a recipient with no firstName on file used to
+  // leave "{{firstName}}" literal, which findUnresolvedMergeTags then caught
+  // as a defect and the whole recipient was skipped — never sent to at all.
+  check('an unknown firstName resolves to empty, not left literal', applyMergeFields('Hi {{firstName}},', {}) === 'Hi,');
+  check('a dangling space-before-comma artifact is cleaned up', !applyMergeFields('Hi {{firstName}},', {}).includes(' ,'));
+  check('lastName and company get the same graceful fallback', applyMergeFields('{{lastName}} at {{company}}', {}) === ' at ');
+  check('a REAL value still personalizes normally — this is a fallback, not a bypass', applyMergeFields('Hi {{firstName}},', { firstName: 'Sam' }) === 'Hi Sam,');
+  check('unsubscribe_url is deliberately NOT given this fallback — it must never silently blank',
+    applyMergeFields('{{unsubscribe_url}}', {}) === '{{unsubscribe_url}}');
+  check('a genuinely unknown/custom token is still left literal (still a real defect worth catching)',
+    applyMergeFields('{{some_custom_field}}', {}) === '{{some_custom_field}}');
+}
 
 console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
 process.exit(failures === 0 ? 0 : 1);

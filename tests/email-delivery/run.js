@@ -432,18 +432,39 @@ async function call(handler, body, opts) {
   check('a merge tag WITH a real value for this recipient still sends', r.status === 200 && resendCalls.length === 1);
   check('and the tag was actually substituted, not left literal', resendCalls[0] && resendCalls[0].subject === 'Hi Sam');
 
-  // One recipient missing the field is skipped; another with a complete row
-  // in the SAME batch must still get their email — this is per-recipient,
-  // not a whole-batch failure, because the template itself is fine.
+  // The actual reported bug: a recipient missing firstName used to be
+  // SKIPPED ENTIRELY (never sent to at all) because the literal "{{firstName}}"
+  // left behind was caught as an "unresolved merge tag". The fix: firstName/
+  // lastName/company are optional personalization, not a precondition for
+  // sending — a recipient with none on file still gets the email, just
+  // without that personalization, while a recipient WITH the field still
+  // gets it personalized normally, in the same batch.
   resendCalls = [];
   r = await call(sendCampaign, {
     subject: 'Hi {{firstName}}', html: '<p>Hi {{firstName}}!</p>',
     recipients: [{ to: 'complete@x.test', mergeFields: { firstName: 'Sam' } }, { to: 'missing@x.test' }],
   });
-  check('the recipient with a complete row is still sent to', resendCalls.length === 1 && resendCalls[0].to[0] === 'complete@x.test');
-  check('the recipient missing the field is skipped, not sent with a literal {{firstName}}',
-    r.body.results.some(x => x.to === 'missing@x.test' && x.success === false && /firstName/.test(x.error)));
-  check('the batch as a whole still reports success (this is not a template-level failure)', r.status === 200);
+  check('BOTH recipients are sent to — nobody is skipped just for missing an optional field', resendCalls.length === 2);
+  const completeSend = resendCalls.find(c => c.to[0] === 'complete@x.test');
+  const missingSend = resendCalls.find(c => c.to[0] === 'missing@x.test');
+  check('the recipient WITH the field gets it personalized', completeSend && completeSend.html.includes('Hi Sam!'));
+  check('the recipient MISSING the field still gets the email, gracefully without a name (no awkward "Hi !")', missingSend && missingSend.html.includes('Hi!') && !missingSend.html.includes('Hi !'));
+  check('no result reports the missing-field recipient as skipped/failed', !r.body.results.some(x => x.to === 'missing@x.test' && x.success === false));
+  check('the batch as a whole reports success', r.status === 200 && r.body.sent === 2);
+
+  // A genuinely unknown/custom {{token}} — not one of the optional personal
+  // fields — is still a real defect and still causes that one recipient to
+  // be skipped, exactly as before.
+  reset(); // fresh rate-limit/quota state, same reason as above
+  resendCalls = [];
+  r = await call(sendCampaign, {
+    subject: 'Your code: {{referralCode}}', html: '<p>Use {{referralCode}} at checkout.</p>',
+    recipients: [{ to: 'has-code@x.test', mergeFields: { referralCode: 'SAVE10' } }, { to: 'no-code@x.test' }],
+  });
+  check('the recipient with the custom field still sends', resendCalls.some(c => c.to[0] === 'has-code@x.test'));
+  check('the recipient missing a genuinely custom/unknown field is still skipped, not sent broken copy',
+    r.body.results.some(x => x.to === 'no-code@x.test' && x.success === false && /referralCode/.test(x.error)) &&
+    !resendCalls.some(c => c.to[0] === 'no-code@x.test'));
 
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'

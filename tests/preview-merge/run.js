@@ -102,18 +102,31 @@ async function call(body, opts = {}) {
     check('no issues at all for a fully-resolvable draft', res.body.issues.length === 0);
   }
 
-  console.log('\n──── a bracket alias with NO value for this recipient is still treated as unresolved, not silently blanked ────');
+  console.log('\n──── a bracket alias with NO value for this recipient sends gracefully WITHOUT a name, not blocked ────');
   {
+    // firstName/lastName/company are optional personalization — a recipient
+    // with none on file is a normal case, not a defect. Blocking or flagging
+    // this would mean that recipient never gets the campaign at all.
     const res = await call({ subject: 'Hi [First Name]', html: '<p>Hi [First Name]</p>', mergeFields: {} });
-    check('the rewritten {{firstName}} stays literal — there is nothing to fill it with', res.body.subject === 'Hi {{firstName}}');
-    check('and it is reported as an issue', res.body.issues.some(i => i.includes('{{firstName}}')));
+    check('the rewritten {{firstName}} blanks gracefully rather than staying literal', res.body.subject.trim() === 'Hi');
+    check('and it is NOT reported as an issue — this is expected, not a defect', !res.body.issues.some(i => i.includes('firstName')));
   }
 
-  console.log('\n──── a recipient missing the field the template needs is flagged, not blanked ────');
+  console.log('\n──── a recipient missing an optional personalization field is never flagged ────');
   {
     const res = await call({ subject: 'Hi {{firstName}}', html: '<p>Hi {{firstName}}</p>', mergeFields: {} });
-    check('the tag is left literal rather than rendered blank', res.body.subject === 'Hi {{firstName}}');
-    check('and reported as an issue', res.body.issues.some(i => i.includes('{{firstName}}')));
+    // A trailing space before a closing tag is invisible once rendered, so
+    // it's not worth the generic cleanup applying there too — only checked
+    // against punctuation, where a dangling space is visibly a bug.
+    check('the tag blanks rather than staying literal', res.body.subject.trim() === 'Hi' && res.body.html.replace(/\s+</g, '<') === '<p>Hi</p>');
+    check('and is not reported as an issue', !res.body.issues.some(i => i.includes('firstName')));
+  }
+
+  console.log('\n──── a genuinely unknown/custom {{token}} is still flagged, unlike the optional personal fields ────');
+  {
+    const res = await call({ subject: 'Your code: {{referralCode}}', html: '<p>Use {{referralCode}}.</p>', mergeFields: {} });
+    check('a custom field with no value stays literal — this really is missing data', res.body.subject === 'Your code: {{referralCode}}');
+    check('and is reported as an issue', res.body.issues.some(i => i.includes('{{referralCode}}')));
   }
 
   console.log('\n──── missing subject and html together is refused before any rendering ────');

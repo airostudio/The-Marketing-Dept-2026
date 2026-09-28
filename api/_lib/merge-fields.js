@@ -27,18 +27,40 @@ const MERGE_TAG_RE = /\{\{\s*([\w.]+)\s*\}\}/g;
  *  fields do), but these four are the ones every template can rely on. */
 const KNOWN_TOKENS = ['firstName', 'lastName', 'company', 'unsubscribe_url'];
 
+// firstName/lastName/company are optional per-recipient personalization, not
+// data the send should depend on existing. A contact with no first name on
+// file is a completely normal case — not sending them the campaign at all
+// (which is what leaving "{{firstName}}" literal used to cause, since that
+// was then caught as an "unresolved merge tag" and the whole recipient was
+// skipped) is worse than sending it without their name. unsubscribe_url is
+// deliberately NOT in this set — it must never silently blank; send-campaign.js
+// always supplies a real value for it, and if it somehow didn't, that should
+// still be visible as a defect, not swallowed.
+const BLANK_FALLBACK_TOKENS = new Set(['firstName', 'lastName', 'company']);
+
 /**
- * Replace {{token}} merge tags with per-recipient values. Unresolved tokens
- * are left as-is rather than silently dropped, so a bad recipient row or a
- * mistyped token name is visible in the rendered output instead of vanishing
- * into blank text.
+ * Replace {{token}} merge tags with per-recipient values. A token in
+ * BLANK_FALLBACK_TOKENS with no value for this recipient resolves to an
+ * empty string — the send still goes out, just without that personalization.
+ * Any OTHER unresolved token (a typo, or a genuine custom field that really
+ * is missing) is left as literal text rather than silently dropped, so a bad
+ * recipient row or a mistyped token name is visible in the rendered output
+ * instead of vanishing into blank text, and still gets caught as unfinished
+ * content downstream.
  */
 function applyMergeFields(template, mergeFields) {
   if (!template) return template;
-  return template.replace(MERGE_TAG_RE, (match, key) => {
+  const substituted = template.replace(MERGE_TAG_RE, (match, key) => {
     const val = mergeFields && mergeFields[key];
-    return (val === undefined || val === null || val === '') ? match : String(val);
+    if (val !== undefined && val !== null && val !== '') return String(val);
+    return BLANK_FALLBACK_TOKENS.has(key) ? '' : match;
   });
+  // The one common artifact of a blanked name worth cleaning up generically:
+  // "Hi {{firstName}}," becoming "Hi ," (or "Hi {{firstName}}!" becoming
+  // "Hi !") reads like a bug even though nothing is wrong. A space directly
+  // before sentence-ending punctuation is never intentional in normal copy,
+  // so collapsing it is safe regardless of which token (if any) caused it.
+  return substituted.replace(/ +([,.!?;:])/g, '$1');
 }
 
 /**

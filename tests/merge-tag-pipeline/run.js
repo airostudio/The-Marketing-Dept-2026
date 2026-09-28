@@ -109,6 +109,14 @@ console.log('\n──── unresolvable placeholders are ASKED about, not just 
   check('applyPlaceholderFixes is reachable from the onclick handler (exported on EDA)', /applyPlaceholderFixes,?\s*\n\s*\};/.test(page) || /EDA\.applyPlaceholderFixes\(\)/.test(page));
 }
 
+console.log('\n──── a pasted recipient list is enriched from the contacts table it already has ────');
+{
+  const page = read('web/agents/email-delivery-agent.html');
+  check('collate() calls the enrichment step', /enrichRecipientsFromContacts\(recipients\)/.test(page));
+  check('only for the paste path — segment recipients already come from real contact rows',
+    /if \(!segmentRecipients\) \{\s*\n\s*recipients = await window\.EmailDeliveryService\.enrichRecipientsFromContacts/.test(page));
+}
+
 console.log('\n──── the preview endpoint reuses send-time logic exactly, not a second copy ────');
 {
   const preview = read('api/preview-merge.js');

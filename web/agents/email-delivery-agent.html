@@ -390,9 +390,16 @@
             const html      = document.getElementById('in-html').value.trim();
             const text      = document.getElementById('in-text').value.trim();
             const replyTo   = document.getElementById('in-replyto').value.trim();
-            const recipients = segmentRecipients
+            let recipients = segmentRecipients
                 ? segmentRecipients.recipients
                 : window.EmailDeliveryService.parseRecipientList(document.getElementById('in-recipients').value);
+
+            // Segment recipients already come from real contact records
+            // (ContactsStore.toRecipients()) — only a hand-pasted list can be
+            // missing a name the account already has on file for that address.
+            if (!segmentRecipients) {
+                recipients = await window.EmailDeliveryService.enrichRecipientsFromContacts(recipients);
+            }
 
             if (!subject) return alert('Subject line is required.');
             if (!html) return alert('Email body is required.');

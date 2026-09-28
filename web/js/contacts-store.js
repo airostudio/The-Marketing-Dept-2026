@@ -203,6 +203,30 @@ window.ContactsStore = (function () {
     return data || [];
   }
 
+  /**
+   * Look up existing contacts by email — the data Pat should reach for
+   * automatically when someone pastes a plain recipient list (just email
+   * addresses, no name) rather than requiring them to retype a name the
+   * account already has on file for that address.
+   * @param {string[]} emails
+   * @returns {Promise<Array>} matching contact rows (only the ones found)
+   */
+  async function getContactsByEmail(emails) {
+    const client = await getSupabase();
+    const userId = await getUserId();
+    if (!client || !userId) return [];
+    const normalized = Array.from(new Set((emails || []).map(normEmail).filter(Boolean)));
+    if (!normalized.length) return [];
+
+    const { data, error } = await client
+      .from('contacts')
+      .select('email, first_name, last_name, company')
+      .eq('user_id', userId)
+      .in('email', normalized);
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
   async function updateContact(id, patch) {
     const client = await getSupabase();
     const userId = await getUserId();
@@ -451,6 +475,7 @@ window.ContactsStore = (function () {
     upsertContacts,
     listContacts,
     countContacts,
+    getContactsByEmail,
     updateContact,
     unsubscribeContact,
     deleteContact,
