@@ -248,9 +248,9 @@ console.log('\n──── one implementation, not five ────');
 // anywhere, a fifth copy is being grown.
 const OLD_BLOCKLIST = /\/\^\(127\\\.\|10\\\.\|192\\\.168\\\./;
 const suspects = [
-  'api/fetch-page.js', 'api/check-url.js', 'api/blade-website-check.js',
+  'api/fetch-page.js', 'api/check-url.js', 'api/_lib/website-quickcheck.js',
   'api/_lib/nancy-crawl.js', 'api/crawl.js', 'api/enrich-business.js',
-  'api/cron-competitor-watch.js', 'api/seo-backlink-find-email.js',
+  'api/cron-competitor-watch.js', 'api/_lib/email-lookup.js',
 ];
 const stillInline = suspects.filter(f => OLD_BLOCKLIST.test(code(f)));
 check('no endpoint carries its own private-range regex any more', stillInline.length === 0);

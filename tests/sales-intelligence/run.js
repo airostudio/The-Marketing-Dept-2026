@@ -226,7 +226,7 @@ async function call(handler, body, opts) {
     /p\.isDecisionMaker/.test(leadSrc) && /p\.signals/.test(leadSrc) &&
     /emailVerification\?\.status === 'deliverable'/.test(leadSrc));
   check('and email discovery still refuses to invent an address',
-    /never guess or invent one/.test(read('api/seo-backlink-find-email.js')));
+    /never guess or invent one/.test(read('api/_lib/email-lookup.js')));
 
   console.log('\n' + (fail.length === 0
     ? 'ALL ASSERTIONS PASSED'

@@ -8,23 +8,12 @@
  *   signals: { hasViewport, https, copyrightYear, oldGenerator, hasFlash, platform },
  *   reasons: string[] }
  *
- * This is deliberately a single fast fetch + regex pass, not a full
- * PageSpeed/Lighthouse audit (api/pagespeed.js) — that endpoint alone can
- * take up to 90s per URL, which is a non-starter when Blade needs to
- * triage dozens of businesses per search inside Vercel's 60s ceiling.
- * The signals here are honest heuristics (stale copyright year, missing
- * mobile viewport tag, ancient CMS generator, no HTTPS, Flash embeds) —
- * good enough to sort "needs a rebuild" leads from "looks fine" ones,
- * not a certified audit.
- *
- * `signals.platform` ('godaddy' | 'wix' | 'squarespace' | null) is a
- * deliberate priority signal, not just another "outdated" heuristic: a
- * business still paying a recurring subscription for a template builder
- * site is a qualitatively different (and often better) lead for a custom-
- * website pitch than one that's merely stale — they're already a proven
- * website *buyer*, just an unhappy one. It's surfaced as its own signal
- * and reason regardless of whether the site otherwise looks "modern", so
- * Blade's UI can filter/sort for it independently of the outdated bucket.
+ * The check itself lives in api/_lib/website-quickcheck.js — shared with
+ * api/cron-sales-intel-sweep.js, which needs the identical heuristic
+ * without an internal HTTP round-trip to this endpoint. See that file for
+ * why this is a single fast fetch + regex pass, not Chase's full PageSpeed
+ * audit (api/_lib/website-audit.js), and why `signals.platform`
+ * (GoDaddy/Wix/Squarespace) is its own deliberately-prioritized signal.
  */
 
 'use strict';
@@ -32,110 +21,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-const { safeFetch } = require('./_lib/safe-fetch.js');
-
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 40;
-
-
-const PAGE_TIMEOUT_MS = 7000;
-const CURRENT_YEAR = new Date().getFullYear();
-const OLD_COPYRIGHT_THRESHOLD_YEARS = 4;
-
-const VIEWPORT_RE = /<meta[^>]+name=["']viewport["']/i;
-const COPYRIGHT_RE = /(?:©|&copy;|copyright)\s*(?:\d{4}\s*-\s*)?(\d{4})/i;
-const GENERATOR_RE = /<meta[^>]+name=["']generator["'][^>]+content=["']([^"']+)["']/i;
-const FLASH_RE = /\.swf\b|application\/x-shockwave-flash/i;
-
-// Generator strings whose leading version number is old enough to be a
-// reliable "this hasn't been touched in years" signal.
-const OLD_GENERATOR_PATTERNS = [
-  /WordPress\s+([0-3]\.\d)/i,
-  /WordPress\s+4\.[0-6]\b/i,
-  /Joomla!?\s+[12]\./i,
-  /Drupal\s+[1-6]\b/i,
-];
-
-// Priority builder-lock-in signals — see the module comment above for why
-// these are treated as their own, deliberately-prioritized signal rather
-// than folded into the generic "outdated" bucket. Ordered specific-to-
-// generic; the first match wins (a site is never running more than one of
-// these builders at once).
-const PLATFORM_PATTERNS = [
-  { id: 'wix', label: 'Wix', tests: [
-    /<meta[^>]+name=["']generator["'][^>]+content=["']Wix\.com[^"']*["']/i,
-    /static\.wixstatic\.com/i,
-    /\bwixBiSession\b|\bwixCodeUserId\b|_wixCIDX/i,
-  ] },
-  { id: 'squarespace', label: 'Squarespace', tests: [
-    /<meta[^>]+name=["']generator["'][^>]+content=["']Squarespace[^"']*["']/i,
-    /static1\.squarespace\.com|squarespace-cdn\.com/i,
-    /\bSquarespace\.(?:Constants|SQUARESPACE_CONTEXT)\b/i,
-  ] },
-  { id: 'godaddy', label: 'GoDaddy Website Builder', tests: [
-    /<meta[^>]+name=["']generator["'][^>]+content=["']GoDaddy[^"']*["']/i,
-    /\.godaddysites\.com/i,
-    /img\d?\.wsimg\.com|websitebuilder\.secureserver\.net/i,
-  ] },
-];
-
-function detectPlatform(html, finalUrl) {
-  const haystack = `${finalUrl}\n${html}`;
-  for (const platform of PLATFORM_PATTERNS) {
-    if (platform.tests.some((re) => re.test(haystack))) return platform.id;
-  }
-  return null;
-}
-
-// Shape check only. The address check that matters lives in
-// api/_lib/safe-fetch.js and runs at fetch time below, because it has to
-// resolve the hostname and re-check each redirect — neither of which a
-// synchronous string test can do.
-function parseTarget(raw) {
-  const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
-  const target = new URL(withProto);
-  if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-  return target;
-}
-
-function analyseHtml(html, finalUrl) {
-  const signals = {
-    hasViewport: VIEWPORT_RE.test(html),
-    https: /^https:/i.test(finalUrl),
-    copyrightYear: null,
-    oldGenerator: null,
-    hasFlash: FLASH_RE.test(html),
-    platform: detectPlatform(html, finalUrl),
-  };
-
-  const copyrightMatch = html.match(COPYRIGHT_RE);
-  if (copyrightMatch) {
-    const year = parseInt(copyrightMatch[1], 10);
-    if (year >= 1995 && year <= CURRENT_YEAR) signals.copyrightYear = year;
-  }
-
-  const generatorMatch = html.match(GENERATOR_RE);
-  if (generatorMatch && OLD_GENERATOR_PATTERNS.some(re => re.test(generatorMatch[1]))) {
-    signals.oldGenerator = generatorMatch[1];
-  }
-
-  const reasons = [];
-  let score = 0;
-  if (!signals.hasViewport) { score += 2; reasons.push('No mobile-responsive (viewport) tag'); }
-  if (signals.copyrightYear && CURRENT_YEAR - signals.copyrightYear >= OLD_COPYRIGHT_THRESHOLD_YEARS) {
-    score += 2; reasons.push(`Footer copyright still says ${signals.copyrightYear}`);
-  }
-  if (signals.hasFlash) { score += 3; reasons.push('Uses Flash (dead technology)'); }
-  if (!signals.https) { score += 1; reasons.push('Not served over HTTPS'); }
-  if (signals.oldGenerator) { score += 2; reasons.push(`Running an outdated platform (${signals.oldGenerator})`); }
-  if (signals.platform) {
-    const label = PLATFORM_PATTERNS.find(p => p.id === signals.platform).label;
-    score += 2;
-    reasons.push(`Built on ${label} — already paying for a website that isn't fully theirs`);
-  }
-
-  return { status: score >= 2 ? 'outdated' : 'modern', signals, reasons };
-}
+const { quickCheckWebsite } = require('./_lib/website-quickcheck.js');
 
 module.exports = withFailureReporting('api/blade-website-check', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -155,33 +41,6 @@ module.exports = withFailureReporting('api/blade-website-check', async function 
   const { website } = req.body || {};
   if (!website || !String(website).trim()) return res.status(400).json({ error: 'website is required' });
 
-  let target;
-  try {
-    target = parseTarget(website);
-  } catch (e) {
-    return res.status(400).json({ error: e.message });
-  }
-
-  try {
-    const response = await safeFetch(target.href, {
-      method: 'GET',
-      timeoutMs: PAGE_TIMEOUT_MS,
-      headers: { 'User-Agent': 'NancyJamFancy/1.0 (+content research bot)', 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
-    });
-
-    if (response.status < 200 || response.status >= 300) {
-      return res.json({ success: true, status: 'unreachable', signals: {}, reasons: [`Site responded with ${response.status}`] });
-    }
-
-    const ct = response.headers.get('content-type') || '';
-    if (!ct.includes('text/html')) {
-      return res.json({ success: true, status: 'modern', signals: {}, reasons: [] });
-    }
-
-    const html = (await response.text()).slice(0, 300_000);
-    const analysis = analyseHtml(html, response.url || target.href);
-    return res.json({ success: true, ...analysis });
-  } catch (e) {
-    return res.json({ success: true, status: 'unreachable', signals: {}, reasons: ['Site did not respond'] });
-  }
+  const result = await quickCheckWebsite(String(website).trim());
+  return res.json({ success: true, ...result });
 });
