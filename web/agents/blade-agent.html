@@ -227,6 +227,25 @@
       </div>
     </div>
 
+    <!-- Mail-merge audit workflow: run the site check + email finder above
+         first, THEN shortlist to the best opportunities, find the owner's
+         name, and export in the exact mail-merge column order. Repeatable
+         for any trade — the sector/area were already chosen back in
+         steps 1-3, nothing here is specific to any one industry. -->
+    <div class="toolbar" style="border-top:1px dashed var(--border); padding-top:14px; margin-top:2px;">
+      <div class="toolbar-left">
+        <span style="font-size:11.5px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Mail-merge audit →</span>
+        <input type="number" class="filter-newbiz-input" id="in-shortlist-count" value="50" min="1" max="500" style="width:56px;" title="How many of the best opportunities to keep">
+        <button class="btn btn-ghost btn-sm" id="btn-shortlist" title="Keeps only the best N by opportunity: no website first, then GoDaddy/Wix/Squarespace, then outdated — drops the rest from view">🎯 Shortlist top N</button>
+        <button class="btn btn-ghost btn-sm" id="btn-find-owners">👤 Find owner names</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-mailmerge">⬇ Export mail-merge CSV</button>
+      </div>
+    </div>
+    <div id="owner-progress-wrap" style="display:none;">
+      <div style="font-size:12.5px; color:var(--text2);"><span class="spinner"></span> <span id="owner-progress-label">Finding owner names…</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="owner-progress-fill" style="width:0%;"></div></div>
+    </div>
+
     <div class="filter-bar">
       <span class="filter-label">Target:</span>
       <div class="filter-chip" data-filter="platform_builder" title="Already paying for GoDaddy, Wix or Squarespace — a proven website buyer, just an unhappy one"><span class="fc-dot"></span> 🎯 On GoDaddy/Wix/Squarespace</div>
@@ -258,6 +277,7 @@
               <th>Phone</th>
               <th>Website</th>
               <th>Status</th>
+              <th>Owner</th>
               <th>Email</th>
               <th>Rating</th>
               <th>Maps</th>
@@ -700,6 +720,7 @@
         '<td>' + escapeHtml(r.phone || '—') + '</td>' +
         '<td>' + (r.website ? '<a class="cell-link" href="' + escapeAttr(r.website) + '" target="_blank" rel="noopener">' + escapeHtml(hostOf(r.website)) + '</a>' : '—') + '</td>' +
         '<td>' + siteStatusCell(r) + '</td>' +
+        '<td>' + ownerCell(r) + '</td>' +
         '<td class="cell-email">' + emailCell(r) + '</td>' +
         '<td>' + ratingLabel(r) + '</td>' +
         '<td>' + (r.mapsUrl ? '<a class="cell-link" href="' + escapeAttr(r.mapsUrl) + '" target="_blank" rel="noopener">Map ↗</a>' : '—') + '</td>' +
@@ -717,7 +738,7 @@
   $('btn-restart').addEventListener('click', function () {
     state = {
       country: state.country, areas: [], sector: '', results: [], nextPageToken: null,
-      enriching: false, checkingSites: false, activeFilters: new Set(), newBizThreshold: state.newBizThreshold,
+      enriching: false, checkingSites: false, findingOwners: false, activeFilters: new Set(), newBizThreshold: state.newBizThreshold,
     };
     document.querySelectorAll('.filter-chip.active').forEach(function (c) { c.classList.remove('active'); });
     renderAreas(); citySearch.value = ''; $('btn-city-next').disabled = true;
@@ -790,6 +811,182 @@
   function updateEnrichProgress(done, total) {
     $('enrich-progress-label').textContent = 'Finding contact emails… ' + done + ' / ' + total;
     $('enrich-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+  }
+
+  /* ─── Mail-merge audit: shortlist → owner name → personalised note → CSV ─
+     "Find 100-150 [any trade], audit them, shortlist the best 50, find the
+     owner's name, generate a personalised observation, export a mail-merge-
+     ready CSV." Repeatable for any trade/area — nothing below is specific
+     to plumbers; the sector and area were already chosen in steps 1-3. ── */
+
+  // Lower = higher priority. A business with no website at all is the
+  // clearest opportunity; a GoDaddy/Wix/Squarespace site is next — a proven
+  // website *buyer*, just an unhappy one — ahead of a merely outdated
+  // custom site, since "already paying a subscription for the wrong thing"
+  // is a stronger buying signal than "hasn't touched their site in years".
+  function opportunityRank(r) {
+    if (r.siteStatus === 'no_website') return 0;
+    if (r.sitePlatform) return 1;
+    if (r.siteStatus === 'outdated') return 2;
+    if (r.siteStatus === 'check_failed') return 3;
+    if (r.siteStatus === 'unreachable') return 4;
+    return 5; // modern, or not checked yet
+  }
+
+  $('btn-shortlist').addEventListener('click', function () { shortlistTop(); });
+
+  function shortlistTop() {
+    var n = parseInt($('in-shortlist-count').value, 10);
+    if (!n || n < 1) n = 50;
+    if (!state.results.length) return;
+    if (!confirm('Keep only the best ' + n + ' of ' + state.results.length + ' results (by opportunity) and drop the rest from this list? Export/Beeker actions after this only see the kept ones.')) return;
+
+    state.results = state.results.slice().sort(function (a, b) {
+      var d = opportunityRank(a) - opportunityRank(b);
+      // Within the same priority tier, a business with fewer reviews is
+      // more likely newer/less already-marketed-to — a reasonable, honest
+      // secondary ordering rather than an arbitrary one.
+      return d !== 0 ? d : (a.reviewCount || 0) - (b.reviewCount || 0);
+    }).slice(0, n);
+
+    state.activeFilters.clear();
+    document.querySelectorAll('.filter-chip.active').forEach(function (c) { c.classList.remove('active'); });
+    renderResults();
+  }
+
+  /* ─── Owner name lookup ──────────────────────────────────────────────── */
+
+  var OWNER_CONCURRENCY = 2; // a real, cited web search per lookup — slower and pricier than the email finder, so a gentler pace
+
+  function ownerCell(r) {
+    if (r._ownerLoading) return '<span class="email-pending"><span class="spinner"></span></span>';
+    if (r.ownerFirstName) return '<span class="email-real">' + escapeHtml(r.ownerFirstName) + '</span>';
+    if (r._ownerError) return '<span class="email-none" title="' + escapeAttr(r._ownerError) + '">lookup failed</span>';
+    if (r._ownerChecked) return '<span class="email-none">not found</span>';
+    return '<span class="email-pending">—</span>';
+  }
+
+  $('btn-find-owners').addEventListener('click', function () { findOwnerNames(); });
+
+  async function findOwnerNames() {
+    if (state.findingOwners) return;
+    var targets = state.results.filter(function (r) {
+      return !r._ownerLoading && (!r._ownerChecked || r._ownerError);
+    });
+    if (!targets.length) return;
+    state.findingOwners = true;
+    $('btn-find-owners').disabled = true;
+    $('owner-progress-wrap').style.display = 'block';
+
+    var done = 0;
+    var total = targets.length;
+    updateOwnerProgress(done, total);
+
+    var queue = targets.slice();
+    async function worker() {
+      while (queue.length) {
+        var r = queue.shift();
+        r._ownerLoading = true;
+        renderResults();
+        try {
+          var res = await fetch('/api/blade-find-owner', {
+            method: 'POST', headers: await window.sendAuthHeaders(),
+            body: JSON.stringify({
+              businessName: r.name,
+              suburb: r.searchPoint || '',
+              country: state.country ? state.country.name : '',
+              website: r.website || undefined,
+            }),
+          });
+          if (!res.ok) throw new Error('lookup returned ' + res.status);
+          var data = await res.json();
+          r.ownerFirstName = (data && data.firstName) || null;
+          r.ownerSource = (data && data.source) || null;
+          r._ownerError = null;
+        } catch (e) {
+          // Same distinction as the email finder: a failed lookup is not
+          // the same fact as "genuinely searched and found nobody" — the
+          // second is real information, the first is our own outage.
+          r.ownerFirstName = null;
+          r._ownerError = (e && e.message) || 'lookup failed';
+          if (window.reportFailure) {
+            window.reportFailure('Blade owner-name lookup failed: ' + r._ownerError,
+              { where: 'blade-agent.findOwnerNames', business: r.name });
+          }
+        }
+        r._ownerLoading = false;
+        r._ownerChecked = true;
+        done++;
+        updateOwnerProgress(done, total);
+        renderResults();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(OWNER_CONCURRENCY, targets.length) }, worker));
+
+    state.findingOwners = false;
+    $('btn-find-owners').disabled = false;
+    $('owner-progress-wrap').style.display = 'none';
+  }
+
+  function updateOwnerProgress(done, total) {
+    $('owner-progress-label').textContent = 'Finding owner names… ' + done + ' / ' + total;
+    $('owner-progress-fill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+  }
+
+  /**
+   * A short, honest observation grounded in the actual website-check
+   * evidence already gathered — never a separate AI generation step that
+   * could invent detail beyond what was really measured. Blank rather than
+   * a filler sentence when nothing notable was actually found.
+   */
+  function personalizedNote(r) {
+    if (r.siteStatus === 'no_website') return 'Currently relies on Google listing';
+    if (r.sitePlatform) {
+      var label = { godaddy: 'GoDaddy', wix: 'Wix', squarespace: 'Squarespace' }[r.sitePlatform] || r.sitePlatform;
+      return 'Locked into a ' + label + ' template — paying monthly for a site they don’t fully own';
+    }
+    var reasons = r.siteReasons || [];
+    if (reasons.some(function (x) { return /viewport/i.test(x); })) return 'Mobile layout is difficult to use';
+    if (reasons.some(function (x) { return /copyright/i.test(x); })) return 'Hasn’t updated the site in years';
+    if (reasons.some(function (x) { return /Flash/i.test(x); })) return 'Uses old technology that no longer works on most phones';
+    if (reasons.some(function (x) { return /HTTPS/i.test(x); })) return 'Site isn’t even served securely (no HTTPS)';
+    if (reasons.some(function (x) { return /outdated platform/i.test(x); })) return 'Running a very old, unsupported website platform';
+    return '';
+  }
+
+  /**
+   * The exact mail-merge column order requested: First Name, Business,
+   * Suburb, Email, Website, Website Status, Personal Note, Sent, Replied.
+   * Sent/Replied are always "No" here — this file is the input to a send,
+   * not a record of one; Pat's own campaign_sends is the source of truth
+   * for what's actually gone out.
+   */
+  $('btn-export-mailmerge').addEventListener('click', function () { exportMailMergeCsv(); });
+
+  function exportMailMergeCsv() {
+    var visible = state.results.filter(matchesFilters);
+    var rows = visible.map(function (r) {
+      return [
+        r.ownerFirstName || '', r.name, r.searchPoint || '', r.email || '',
+        r.website || 'None',
+        r.siteStatus === 'no_website' ? 'No website'
+          : r.siteStatus === 'check_failed' ? 'Check failed'
+          : (r.siteStatus || 'Not checked'),
+        personalizedNote(r), 'No', 'No',
+      ].map(csvField).join(',');
+    });
+    var csv = ['First Name,Business,Suburb,Email,Website,Website Status,Personal Note,Sent,Replied']
+      .concat(rows).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var slug = (state.sector + '-' + areasSummary()).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    a.href = url;
+    a.download = 'audema-mailmerge-' + (slug || 'leads') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
   /* ─── Website-health check ────────────────────────────────────────── */
@@ -995,6 +1192,10 @@
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
+
+  // Exposed only so tests/blade-mailmerge-audit/run.js can exercise the pure
+  // ranking/note logic without a DOM — never used by the page itself.
+  window.__bladeInternals = { opportunityRank, personalizedNote };
 
 })();
 </script>
