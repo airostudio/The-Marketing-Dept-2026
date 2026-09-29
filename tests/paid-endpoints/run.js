@@ -107,7 +107,7 @@ const WIDER = [
   'seo-backlink-search', 'seo-backlink-structure', 'seo-keyword-research',
   'seo-outreach-draft', 'seo-search-competitors', 'seo-structure-competitors',
   'seo-write-article', 'unsplash', 'brand-kit-upload-logo', 'brand-kit-auto-detect',
-  'generate-campaign-sequence', 'review-campaign',
+  'generate-campaign-sequence', 'review-campaign', 'fix-campaign',
 ];
 const GET_ONLY = new Set(['pagespeed', 'check-url', 'convert-experiments']);
 

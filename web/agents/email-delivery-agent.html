@@ -564,19 +564,134 @@
             }
             html += `</div>`;
 
+            if (!review.approved) html += `<div id="scotty-fix-box"></div>`;
+
             html += `<div class="recipient-count">Ready to send to <strong>${campaign.recipients.length}</strong> recipient${campaign.recipients.length === 1 ? '' : 's'}.</div>`;
 
             html += `<div class="btn-row" style="margin-top:12px;">`;
             if (review.approved) {
                 html += `<button class="btn-run" onclick="EDA.proceedToSend()">Proceed to Send →</button>`;
             } else {
-                html += `<button class="btn-secondary" onclick="EDA.backToCollate()">Fix Campaign</button>
+                html += `<button class="btn-secondary" onclick="EDA.askScottyToFix()" id="btn-scotty-fix">🔧 Ask Scotty to fix this</button>
+                          <button class="btn-secondary" onclick="EDA.backToCollate()">Fix Campaign Myself</button>
                           <button class="btn-secondary" onclick="EDA.runReview()">Re-run Review</button>
                           <button class="btn-danger btn-run" onclick="EDA.overrideAndSend()" title="Only use this if you have manually verified the flagged issues are false positives">Send Anyway (Override)</button>`;
             }
             html += `</div>`;
 
             body.innerHTML = html;
+        }
+
+        /**
+         * Have Scotty attempt its own fix pass on a blocked campaign: rewrite
+         * whatever's safely fixable (tone, spam language, an overstated
+         * claim), and ask — with the exact snippet to replace — for anything
+         * that needs a real fact it can't invent (a URL, a name, a stat).
+         * Reuses api/fix-campaign.js's forced-tool-call schema, so the
+         * distinction between "safe to rewrite" and "needs a real answer" is
+         * enforced by the prompt, not left to guesswork here.
+         */
+        async function askScottyToFix() {
+            const box = document.getElementById('scotty-fix-box');
+            const btn = document.getElementById('btn-scotty-fix');
+            if (!box || !lastReview || !lastReview.blockers.length) return;
+            btn.disabled = true;
+            box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12.5px;margin:10px 0;"><span class="spinner"></span> Scotty is working on a fix…</div>`;
+
+            try {
+                const res = await fetch('/api/fix-campaign', {
+                    method: 'POST', headers: await window.sendAuthHeaders(),
+                    body: JSON.stringify({ subject: campaign.subject, html: campaign.html, text: campaign.text, blockers: lastReview.blockers }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Scotty could not attempt a fix.');
+                renderScottyFix(data);
+            } catch (e) {
+                box.innerHTML = `<div class="verdict-box blocked" style="margin:10px 0;"><div class="verdict-title blocked">⚠️ Could not attempt a fix</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function renderScottyFix(fix) {
+            const box = document.getElementById('scotty-fix-box');
+            const changedCopy = fix.fixedSubject !== campaign.subject || fix.fixedHtml !== campaign.html;
+            let html = '';
+
+            if (changedCopy && fix.resolvedBlockers.length) {
+                html += `
+                    <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:12px 14px;margin:10px 0;">
+                        <div style="font-weight:700;font-size:12.5px;color:#86efac;margin-bottom:6px;">Scotty can fix this:</div>
+                        <ul class="issue-list" style="margin-bottom:10px;">${fix.resolvedBlockers.map(b => `<li>✅ ${escHtml(b)}</li>`).join('')}</ul>
+                        <div style="font-weight:700;font-size:13.5px;">${escHtml(fix.fixedSubject)}</div>
+                        <div id="scotty-fix-frame-wrap" style="border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;"></div>
+                        <button type="button" class="btn-run" style="margin-top:10px;" onclick="EDA.applyScottyFix()">Apply Scotty's fix &amp; re-check</button>
+                    </div>`;
+            } else if (fix.resolvedBlockers.length) {
+                html += `<div class="verdict-box approved" style="margin:10px 0;"><div class="verdict-summary">${escHtml(fix.resolvedBlockers.join(' '))}</div></div>`;
+            }
+
+            if (fix.questions.length) {
+                html += `<div id="scotty-questions-form"></div>`;
+            }
+
+            if (!changedCopy && !fix.resolvedBlockers.length && !fix.questions.length) {
+                html += `<div class="verdict-summary" style="margin:10px 0;color:var(--text2);">Scotty didn't find anything it could safely change here.</div>`;
+            }
+
+            box.innerHTML = html;
+            pendingScottyFix = fix;
+
+            if (changedCopy) {
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                iframe.style.cssText = 'width:100%;height:220px;border:none;background:#fff;';
+                iframe.srcdoc = fix.fixedHtml;
+                document.getElementById('scotty-fix-frame-wrap').appendChild(iframe);
+            }
+            if (fix.questions.length) {
+                renderScottyQuestionsForm(fix.questions);
+            }
+        }
+
+        let pendingScottyFix = null;
+
+        function applyScottyFix() {
+            if (!pendingScottyFix) return;
+            campaign.subject = pendingScottyFix.fixedSubject;
+            campaign.html = pendingScottyFix.fixedHtml;
+            if (pendingScottyFix.fixedText) campaign.text = pendingScottyFix.fixedText;
+            document.getElementById('in-subject').value = campaign.subject;
+            document.getElementById('in-html').value = campaign.html;
+            if (document.getElementById('in-text')) document.getElementById('in-text').value = campaign.text || '';
+            pendingScottyFix = null;
+            runReview();
+        }
+
+        /**
+         * Same rendering shape as renderPlaceholderFillForm (Link Funnel's
+         * merge-preview box) — deliberately: an "answer this to fix it" input
+         * per exact snippet, using the same `.placeholder-fill-input` /
+         * `data-placeholder` convention so the existing applyPlaceholderFixes()
+         * handles both a leftover bracket placeholder AND a Scotty-flagged
+         * blocker with the same one-click flow, not a second mechanism.
+         */
+        function renderScottyQuestionsForm(questions) {
+            const form = document.getElementById('scotty-questions-form');
+            if (!form) return;
+            const answerable = questions.filter(q => q.snippet);
+            const unanchored = questions.filter(q => !q.snippet);
+            form.style.cssText = 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px 14px;margin:10px 0;';
+            form.innerHTML = `
+                <div style="font-weight:700;font-size:12.5px;color:#f59e0b;margin-bottom:8px;">Scotty needs real information for the rest:</div>
+                ${answerable.map((q, i) => `
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11.5px;color:var(--text2);margin-bottom:3px;">${escHtml(q.question)}</label>
+                        <input type="text" class="placeholder-fill-input" data-placeholder="${escHtml(q.snippet)}" id="scotty-q-${i}" style="width:100%;" placeholder="Type the real content…">
+                    </div>`).join('')}
+                ${unanchored.length ? `<ul class="issue-list warnings" style="margin-bottom:8px;">${unanchored.map(q => `<li>⚠️ ${escHtml(q.question)}</li>`).join('')}</ul>` : ''}
+                ${answerable.length ? `<button type="button" class="btn-secondary" onclick="EDA.applyPlaceholderFixes()">Apply answers &amp; re-check</button>` : ''}
+            `;
         }
 
         function proceedToSend() {
@@ -721,6 +836,7 @@
         return {
             collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend,
             loadFromSegmentPicker, clearSegment, applyPlaceholderFixes,
+            askScottyToFix, applyScottyFix,
         };
     })();
 

@@ -117,6 +117,29 @@ console.log('\n──── a pasted recipient list is enriched from the contact
     /if \(!segmentRecipients\) \{\s*\n\s*recipients = await window\.EmailDeliveryService\.enrichRecipientsFromContacts/.test(page));
 }
 
+console.log('\n──── Scotty attempts its own fix pass on a blocked campaign before offering override ────');
+{
+  const page = read('web/agents/email-delivery-agent.html');
+  check('a fix button is offered alongside the existing manual-edit/override options', /Ask Scotty to fix this/.test(page));
+  check('it calls the new fix endpoint with the actual blockers Scotty found', /\/api\/fix-campaign[\s\S]{0,300}blockers: lastReview\.blockers/.test(page));
+  check('a safe rewrite is shown as a preview requiring an explicit apply click, not silently applied', /Apply Scotty\'s fix/.test(page) && /function applyScottyFix\(\)/.test(page));
+  check('the fixed HTML preview uses the same sandboxed-iframe pattern as the merge preview', /scotty-fix-frame-wrap[\s\S]{0,1300}iframe\.setAttribute\('sandbox', ''\)/.test(page));
+  check('questions needing real facts reuse the EXACT SAME fill-in mechanism as bracket placeholders (one flow, not two)',
+    /class="placeholder-fill-input" data-placeholder="\$\{escHtml\(q\.snippet\)\}"/.test(page) &&
+    /onclick="EDA\.applyPlaceholderFixes\(\)">Apply answers/.test(page));
+  check('askScottyToFix and applyScottyFix are reachable from onclick handlers (exported on EDA)',
+    /askScottyToFix, applyScottyFix,/.test(page));
+}
+
+console.log('\n──── the fix endpoint is instructed never to invent facts, only rewrite tone ────');
+{
+  const fixSrc = read('api/fix-campaign.js');
+  check('the prompt explicitly bans inventing a URL/name/stat/address', /Never invent a URL, a name, a number, a testimonial, or an address/.test(fixSrc));
+  check('the prompt distinguishes fixable tone/spam issues from must-ask factual gaps', /FIX IT YOURSELF/.test(fixSrc) && /ASK THE SENDER/.test(fixSrc));
+  check('uses the same forced-tool-call helper as review-campaign — no freehand JSON parsing', /callClaudeForJSON/.test(fixSrc));
+  check('malformed/emptyquestion entries from the model are filtered before reaching the client', /filter\(\(q\) => q && typeof q\.question === \x27string\x27/.test(fixSrc));
+}
+
 console.log('\n──── the preview endpoint reuses send-time logic exactly, not a second copy ────');
 {
   const preview = read('api/preview-merge.js');
