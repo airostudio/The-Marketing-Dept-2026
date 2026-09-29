@@ -5,7 +5,7 @@
  *
  * POST { website }
  * Returns: { success, status: 'unreachable'|'outdated'|'modern',
- *   signals: { hasViewport, https, copyrightYear, oldGenerator, hasFlash },
+ *   signals: { hasViewport, https, copyrightYear, oldGenerator, hasFlash, platform },
  *   reasons: string[] }
  *
  * This is deliberately a single fast fetch + regex pass, not a full
@@ -16,6 +16,15 @@
  * mobile viewport tag, ancient CMS generator, no HTTPS, Flash embeds) —
  * good enough to sort "needs a rebuild" leads from "looks fine" ones,
  * not a certified audit.
+ *
+ * `signals.platform` ('godaddy' | 'wix' | 'squarespace' | null) is a
+ * deliberate priority signal, not just another "outdated" heuristic: a
+ * business still paying a recurring subscription for a template builder
+ * site is a qualitatively different (and often better) lead for a custom-
+ * website pitch than one that's merely stale — they're already a proven
+ * website *buyer*, just an unhappy one. It's surfaced as its own signal
+ * and reason regardless of whether the site otherwise looks "modern", so
+ * Blade's UI can filter/sort for it independently of the outdated bucket.
  */
 
 'use strict';
@@ -47,6 +56,37 @@ const OLD_GENERATOR_PATTERNS = [
   /Drupal\s+[1-6]\b/i,
 ];
 
+// Priority builder-lock-in signals — see the module comment above for why
+// these are treated as their own, deliberately-prioritized signal rather
+// than folded into the generic "outdated" bucket. Ordered specific-to-
+// generic; the first match wins (a site is never running more than one of
+// these builders at once).
+const PLATFORM_PATTERNS = [
+  { id: 'wix', label: 'Wix', tests: [
+    /<meta[^>]+name=["']generator["'][^>]+content=["']Wix\.com[^"']*["']/i,
+    /static\.wixstatic\.com/i,
+    /\bwixBiSession\b|\bwixCodeUserId\b|_wixCIDX/i,
+  ] },
+  { id: 'squarespace', label: 'Squarespace', tests: [
+    /<meta[^>]+name=["']generator["'][^>]+content=["']Squarespace[^"']*["']/i,
+    /static1\.squarespace\.com|squarespace-cdn\.com/i,
+    /\bSquarespace\.(?:Constants|SQUARESPACE_CONTEXT)\b/i,
+  ] },
+  { id: 'godaddy', label: 'GoDaddy Website Builder', tests: [
+    /<meta[^>]+name=["']generator["'][^>]+content=["']GoDaddy[^"']*["']/i,
+    /\.godaddysites\.com/i,
+    /img\d?\.wsimg\.com|websitebuilder\.secureserver\.net/i,
+  ] },
+];
+
+function detectPlatform(html, finalUrl) {
+  const haystack = `${finalUrl}\n${html}`;
+  for (const platform of PLATFORM_PATTERNS) {
+    if (platform.tests.some((re) => re.test(haystack))) return platform.id;
+  }
+  return null;
+}
+
 // Shape check only. The address check that matters lives in
 // api/_lib/safe-fetch.js and runs at fetch time below, because it has to
 // resolve the hostname and re-check each redirect — neither of which a
@@ -65,6 +105,7 @@ function analyseHtml(html, finalUrl) {
     copyrightYear: null,
     oldGenerator: null,
     hasFlash: FLASH_RE.test(html),
+    platform: detectPlatform(html, finalUrl),
   };
 
   const copyrightMatch = html.match(COPYRIGHT_RE);
@@ -87,6 +128,11 @@ function analyseHtml(html, finalUrl) {
   if (signals.hasFlash) { score += 3; reasons.push('Uses Flash (dead technology)'); }
   if (!signals.https) { score += 1; reasons.push('Not served over HTTPS'); }
   if (signals.oldGenerator) { score += 2; reasons.push(`Running an outdated platform (${signals.oldGenerator})`); }
+  if (signals.platform) {
+    const label = PLATFORM_PATTERNS.find(p => p.id === signals.platform).label;
+    score += 2;
+    reasons.push(`Built on ${label} — already paying for a website that isn't fully theirs`);
+  }
 
   return { status: score >= 2 ? 'outdated' : 'modern', signals, reasons };
 }

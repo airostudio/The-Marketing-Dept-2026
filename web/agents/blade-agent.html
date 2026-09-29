@@ -131,6 +131,7 @@
   /* Our check broke — a different thing from a verdict about their site. */
   .badge-checkfailed { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); color: #f59e0b; }
   .badge-newbiz { background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fb7185; margin-left: 4px; }
+  .badge-platform { background: rgba(139,92,246,0.14); border: 1px solid rgba(139,92,246,0.4); color: #c4b5fd; margin-left: 4px; }
   .status-reasons { font-size: 11px; color: var(--text3); margin-top: 3px; max-width: 220px; }
 </style>
 </head>
@@ -228,6 +229,7 @@
 
     <div class="filter-bar">
       <span class="filter-label">Target:</span>
+      <div class="filter-chip" data-filter="platform_builder" title="Already paying for GoDaddy, Wix or Squarespace — a proven website buyer, just an unhappy one"><span class="fc-dot"></span> 🎯 On GoDaddy/Wix/Squarespace</div>
       <div class="filter-chip" data-filter="no_website"><span class="fc-dot"></span> No website</div>
       <div class="filter-chip" data-filter="outdated"><span class="fc-dot"></span> Outdated website</div>
       <div class="filter-chip" data-filter="unreachable"><span class="fc-dot"></span> Broken / unreachable</div>
@@ -655,8 +657,11 @@
     if (state.activeFilters.has('unreachable') && r.siteStatus === 'unreachable') hits.push(true);
     if (state.activeFilters.has('modern') && r.siteStatus === 'modern') hits.push(true);
     if (state.activeFilters.has('new_business') && isNewBusiness(r)) hits.push(true);
+    if (state.activeFilters.has('platform_builder') && r.sitePlatform) hits.push(true);
     return hits.length > 0;
   }
+
+  var PLATFORM_LABELS = { godaddy: 'GoDaddy', wix: 'Wix', squarespace: 'Squarespace' };
 
   function siteStatusCell(r) {
     var badge = '';
@@ -669,8 +674,13 @@
     else badge = '<span class="badge badge-checking">Not checked</span>';
 
     var newBiz = isNewBusiness(r) ? '<span class="badge badge-newbiz">New biz</span>' : '';
+    // A priority signal independent of siteStatus — a Squarespace site can
+    // still test as "modern" and be exactly the lead we want: a proven
+    // website buyer already paying a subscription for a template they're
+    // locked into.
+    var platform = r.sitePlatform ? '<span class="badge badge-platform">🎯 ' + escapeHtml(PLATFORM_LABELS[r.sitePlatform] || r.sitePlatform) + '</span>' : '';
     var reasons = (r.siteReasons && r.siteReasons.length) ? '<div class="status-reasons">' + escapeHtml(r.siteReasons.join(' · ')) + '</div>' : '';
-    return badge + newBiz + reasons;
+    return badge + newBiz + platform + reasons;
   }
 
   function renderResults() {
@@ -819,6 +829,7 @@
           var data = await res.json();
           r.siteStatus = (data && data.status) || 'unreachable';
           r.siteReasons = (data && data.reasons) || [];
+          r.sitePlatform = (data && data.signals && data.signals.platform) || null;
         } catch (e) {
           // "Unreachable" is a verdict about the prospect's website. When our
           // own check is what failed, saying that is a measurement we did not
@@ -895,11 +906,14 @@
       return {
         email: r.email,
         company: r.name || undefined,
-        tags: [BLADE_MARKETING_TAG, 'blade-' + searchTag],
+        // A detected builder platform gets its own tag ("blade-platform-wix"
+        // etc.) alongside the search tag, so a segment can target "everyone
+        // on a website builder" across every past search, not just this one.
+        tags: [BLADE_MARKETING_TAG, 'blade-' + searchTag].concat(r.sitePlatform ? ['blade-platform-' + r.sitePlatform] : []),
         customFields: {
           address: r.address || '', phone: r.phone || '', website: r.website || '',
           rating: r.rating != null ? r.rating : '', mapsUrl: r.mapsUrl || '',
-          websiteStatus: r.siteStatus || '', searchArea: r.searchPoint || '',
+          websiteStatus: r.siteStatus || '', websitePlatform: r.sitePlatform || '', searchArea: r.searchPoint || '',
         },
         source: 'blade-agent',
       };
@@ -954,13 +968,14 @@
   }
 
   function exportCsv() {
-    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Website Status', 'Website Issues', 'New Business', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'Search Area', 'Country', 'Google Maps URL'];
+    var headers = ['Business Name', 'Address', 'Phone', 'Website', 'Website Status', 'Website Platform', 'Website Issues', 'New Business', 'Email', 'Email Source', 'Rating', 'Review Count', 'Business Status', 'Sector', 'Search Area', 'Country', 'Google Maps URL'];
     var rows = state.results.filter(matchesFilters).map(function (r) {
       return [
         r.name, r.address, r.phone, r.website,
         r.siteStatus === 'no_website' ? 'No website'
           : r.siteStatus === 'check_failed' ? 'Check failed'
           : (r.siteStatus || 'Not checked'),
+        r.sitePlatform ? (PLATFORM_LABELS[r.sitePlatform] || r.sitePlatform) : '',
         (r.siteReasons || []).join('; '), isNewBusiness(r) ? 'Yes' : 'No',
         r.email || '', r.emailSource || '',
         r.rating != null ? r.rating : '', r.reviewCount != null ? r.reviewCount : '',
