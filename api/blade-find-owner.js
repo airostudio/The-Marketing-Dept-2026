@@ -36,7 +36,13 @@ module.exports = withFailureReporting('api/blade-find-owner', async function han
 
   if (rateLimited(req, res, { name: 'blade-find-owner', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS, auth })) return;
 
-  if (!process.env.PERPLEXITY_API_KEY) return res.status(503).json({ error: 'PERPLEXITY_API_KEY is not configured.' });
+  // Apollo (a real contact database) is tried first when a website is
+  // given; Perplexity (a live web search) is the fallback. Neither being
+  // configured is a real "cannot look anyone up right now" — but having
+  // at least one is required, or every call would just come back empty.
+  if (!process.env.APOLLO_API_KEY && !process.env.PERPLEXITY_API_KEY) {
+    return res.status(503).json({ error: 'Neither APOLLO_API_KEY nor PERPLEXITY_API_KEY is configured.' });
+  }
 
   const { businessName, suburb, country, website } = req.body || {};
   if (!businessName || !String(businessName).trim()) return res.status(400).json({ error: 'businessName is required' });

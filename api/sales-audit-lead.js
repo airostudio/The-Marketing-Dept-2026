@@ -37,9 +37,13 @@ const { auditWebsite } = require('./_lib/website-audit.js');
 const { detectTechnology } = require('./_lib/tech-detect.js');
 const { calculateOpportunityScore, industryValueTier } = require('./_lib/opportunity-score.js');
 
-// Wix and GoDaddy Website Builder are this feature's launch-focus rebuild
-// targets — see api/_lib/tech-detect.js's SIGNATURES catalog header.
-const TARGET_PLATFORMS = new Set(['Wix', 'GoDaddy Website Builder']);
+// Wix, GoDaddy Website Builder, and Squarespace are this feature's
+// launch-focus rebuild targets — see api/_lib/tech-detect.js's SIGNATURES
+// catalog header. A business already paying monthly for one of these three
+// is a proven website *buyer*, just an unhappy one on a template that
+// looks like thousands of others — a qualitatively better lead than one
+// that's merely stale.
+const TARGET_PLATFORMS = new Set(['Wix', 'GoDaddy Website Builder', 'Squarespace']);
 
 module.exports = withFailureReporting('api/sales-audit-lead', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

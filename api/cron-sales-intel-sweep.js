@@ -49,8 +49,9 @@
  * Required env vars:
  *   CRON_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
  *   GOOGLE_PLACES_API_KEY, RESEND_API_KEY, RESEND_FROM_EMAIL
- * Optional: PERPLEXITY_API_KEY (owner-name lookup is skipped, not faked,
- *   without it), REPORT_EMAIL (defaults to info@webese.ai)
+ * Optional: APOLLO_API_KEY and/or PERPLEXITY_API_KEY (owner-name lookup is
+ *   skipped, not faked, without at least one of them), REPORT_EMAIL
+ *   (defaults to info@webese.ai)
  */
 
 'use strict';
@@ -148,7 +149,7 @@ async function auditOneCandidate(supabaseUrl, serviceKey, place, state, sector) 
   }
 
   let ownerFirstName = '', ownerSource = '';
-  if (process.env.PERPLEXITY_API_KEY) {
+  if (process.env.APOLLO_API_KEY || process.env.PERPLEXITY_API_KEY) {
     try {
       const owner = await findOwnerName({ businessName: name, suburb: townGuess, country: 'USA', website: website || undefined });
       ownerFirstName = owner.firstName;

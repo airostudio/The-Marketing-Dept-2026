@@ -113,6 +113,47 @@ async function call(body, opts = {}) {
     check('no Perplexity call was made', !called);
   }
 
+  console.log('\n──── Apollo (a real contact database) is tried first when a website is given ────');
+  {
+    process.env.APOLLO_API_KEY = 'apollo-test-key';
+    let perplexityCalled = false;
+    global.fetch = async (url) => {
+      if (String(url).includes('apollo.io')) {
+        return { ok: true, json: async () => ({ people: [{ first_name: 'Dana', name: 'Dana Smith', title: 'Owner', linkedin_url: 'https://linkedin.com/in/danasmith' }] }) };
+      }
+      perplexityCalled = true;
+      return { ok: true, json: async () => ({ choices: [{ message: { content: '{"firstName":"","source":""}' } }] }) };
+    };
+    const res = await call({ businessName: 'ABC Plumbing', website: 'abcplumbing.com' });
+    check('an Apollo-sourced name is returned', res.body.firstName === 'Dana');
+    check('the source is Apollo\'s own record, not a search result', res.body.source === 'https://linkedin.com/in/danasmith');
+    check('Perplexity is never called once Apollo has an answer', !perplexityCalled);
+  }
+
+  console.log('\n──── falls back to Perplexity when Apollo has no record for the domain ────');
+  {
+    global.fetch = async (url) => {
+      if (String(url).includes('apollo.io')) return { ok: true, json: async () => ({ people: [] }) };
+      return { ok: true, json: async () => ({ choices: [{ message: { content: '{"firstName":"Steve","source":"https://facebook.com/abc"}' } }] }) };
+    };
+    const res = await call({ businessName: 'ABC Plumbing', website: 'abcplumbing.com' });
+    check('Perplexity\'s answer comes through when Apollo found nobody', res.body.firstName === 'Steve');
+    delete process.env.APOLLO_API_KEY;
+  }
+
+  console.log('\n──── Apollo is skipped entirely with no website — there is no domain to search ────');
+  {
+    process.env.APOLLO_API_KEY = 'apollo-test-key';
+    let apolloCalled = false;
+    global.fetch = async (url) => {
+      if (String(url).includes('apollo.io')) { apolloCalled = true; return { ok: true, json: async () => ({ people: [] }) }; }
+      return { ok: true, json: async () => ({ choices: [{ message: { content: '{"firstName":"","source":""}' } }] }) };
+    };
+    await call({ businessName: 'No Website Co' });
+    check('no Apollo call was made without a website to derive a domain from', !apolloCalled);
+    delete process.env.APOLLO_API_KEY;
+  }
+
   console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
   process.exit(failures === 0 ? 0 : 1);
 })();

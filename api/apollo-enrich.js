@@ -38,22 +38,11 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { findPeopleByDomain, cleanDomain } = require('./_lib/apollo-client.js');
 
 const APOLLO_API_BASE = 'https://api.apollo.io/api/v1';
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 15;
-
-const DEFAULT_TITLES = ['Owner', 'Founder', 'Co-Founder', 'President', 'CEO', 'Managing Director', 'General Manager'];
-
-
-function cleanDomain(raw) {
-  return (raw || '')
-    .replace(/^https?:\/\//i, '')
-    .replace(/\/.*$/, '')
-    .replace(/^www\./, '')
-    .toLowerCase()
-    .trim();
-}
 
 module.exports = withFailureReporting('api/apollo-enrich', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -121,34 +110,13 @@ module.exports = withFailureReporting('api/apollo-enrich', async function handle
     }
 
     // mode === 'people_search'
-    const personTitles = (Array.isArray(titles) && titles.length) ? titles : DEFAULT_TITLES;
-    const upstream = await fetch(`${APOLLO_API_BASE}/mixed_people/search`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        q_organization_domains: domain,
-        person_titles: personTitles,
-        per_page: 5,
-        page: 1,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: data.error || data.message || `Apollo API error (${upstream.status})` });
-    }
-
-    const people = data.people || data.contacts || [];
+    const { found, people } = await findPeopleByDomain(domain, titles);
     return res.json({
-      found: people.length > 0,
-      people: people.map(p => ({
-        name: p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || null,
-        title: p.title || null,
-        linkedinUrl: p.linkedin_url || null,
-        // Apollo's search results never include email — a separate,
-        // credit-costing enrichment call is required for that. Never
-        // filled in with a guess.
-      })),
+      found,
+      // Apollo's search results never include email — a separate,
+      // credit-costing enrichment call is required for that. Never
+      // filled in with a guess.
+      people: people.map(p => ({ name: p.name, title: p.title, linkedinUrl: p.linkedinUrl })),
       note: people.length ? 'Apollo search results do not include email addresses — verified emails require a separate Apollo enrichment credit spend, or use Hunter.io (already wired into this pipeline) against the same domain.' : undefined,
     });
   } catch (err) {
