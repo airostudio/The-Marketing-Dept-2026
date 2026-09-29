@@ -40,6 +40,7 @@ const ScottyOrchestrator = (() => {
     delivery:    '/agents/email-delivery-agent.html',
     audience:    '/agents/audience-agent.html',
     nancy:       '/agents/nancy-agent.html',
+    carol:       '/agents/carol-agent.html',
   };
 
   const AGENT_DESCRIPTIONS = {
@@ -60,6 +61,7 @@ const ScottyOrchestrator = (() => {
     delivery:    'Pat — Email Delivery — collates drafted campaigns, runs Scotty QA, and sends via Resend',
     audience:    'Beeker — Audience Manager — persistent contact database and reusable segments for campaigns',
     nancy:       'Nancy — Jam Fancy — researched, on-brand Instagram content weeks from a website URL + a photo: real screenshot, real competitor research, real finished graphics. The default for Instagram-specific content work — Social Studio remains the generalist for LinkedIn/X/TikTok/ad campaigns.',
+    carol:       'Carol — Chief of Staff — collects every agent\'s findings, flagged items, and to-dos into one prioritized daily briefing. Recommend her when the user asks "what needs my attention", "what\'s the status", or wants a single overview instead of visiting each agent individually. She reports to Scotty and has no generative work of her own, so never assign her a mission task.',
   };
 
   const HUB_URL    = '/hub.html';
@@ -793,6 +795,70 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     'compliance-automation': 'SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration',
   };
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     JSON EXTRACTION FROM LLM RESPONSES
+
+     Every planning call below asks Claude to "respond ONLY with valid JSON",
+     but Claude is not a JSON serializer — an unescaped raw newline or quote
+     left inside a string value (a multi-line description, an em-dash inside
+     quoted text) is enough to break JSON.parse. The result was V8 errors
+     like "expected double-quoted property name at line 14 column 35" —
+     accurate about where the parser gave up, useless about what actually
+     went wrong — surfaced verbatim as "Could not generate automation plan"
+     with no way to recover except starting the mission over.
+
+     parseJsonLoose repairs the mechanical, common breakages (trailing
+     commas, un-escaped control characters inside strings) without ever
+     inventing or guessing content, and callJsonPrompt retries the request
+     itself once before giving up, since a second, independent generation is
+     often simply well-formed. Only if both a fixed-up parse and a retry fail
+     does this throw — and then with the real parse error and a snippet of
+     the offending text attached, not a dead end.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  function parseJsonLoose(raw, label) {
+    const match = String(raw || '').match(/\{[\s\S]*\}/);
+    if (!match) {
+      const err = new Error(`${label} returned unexpected format — no JSON object found in the response.`);
+      err.rawText = String(raw || '').slice(0, 500);
+      throw err;
+    }
+    const text = match[0];
+
+    try { return JSON.parse(text); } catch (e) { /* try repairs below */ }
+
+    // A trailing comma before a closing bracket/brace is valid in JS object
+    // literals but not JSON — a frequent slip when a model writes JSON the
+    // way it writes code.
+    let repaired = text.replace(/,(\s*[}\]])/g, '$1');
+    try { return JSON.parse(repaired); } catch (e) { /* keep going */ }
+
+    // Un-escaped raw newlines/tabs inside a quoted string are the other
+    // frequent cause — and the direct match for "expected double-quoted
+    // property name": the parser hits the raw linebreak, ends the string
+    // early, and reads whatever follows as if it were the start of a new
+    // key. Escaping control characters found INSIDE quoted spans (not
+    // between them) fixes this without touching real JSON structure.
+    repaired = repaired.replace(/"(?:[^"\\]|\\.)*"/g, (m) =>
+      m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t'));
+    try { return JSON.parse(repaired); }
+    catch (e) {
+      const err = new Error(`${label} returned malformed JSON (${e.message}).`);
+      err.rawText = text.slice(0, 500);
+      throw err;
+    }
+  }
+
+  async function callJsonPrompt(request, label, { retries = 1 } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const text = await window.ClaudeService.streamResponse(request);
+      try { return parseJsonLoose(text, label); }
+      catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  }
+
   /**
    * Generate a multi-agent mission plan.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
@@ -832,23 +898,30 @@ Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - For campaign goals: prioritise content → ads → email → social
+- Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
+  THIS specific goal this week (e.g. "Short-form video", "Carousels & images", "Email sequence",
+  "Paid boosts", "LinkedIn posts") — pick names that make sense for the goal, not a fixed list.
+  Each gets a 0-100 "focus" score for how much to lean into it. These are independent
+  recommendations, not shares of a pie — several can score high at once, and they need not sum
+  to 100. This is your judgment call as a strategist, not a measurement — do not present it as
+  analytics.
 
 Respond ONLY with valid JSON — no markdown fences, no commentary:
 {
   "missionTitle": "15 words max",
   "missionSummary": "2 sentences: what will be produced and the business impact",
-  "agentKeys": ["sales", "email"]
+  "agentKeys": ["sales", "email"],
+  "channelMix": [
+    { "channel": "Short-form video", "focus": 86 },
+    { "channel": "Email sequence", "focus": 60 }
+  ]
 }`;
 
     report({ stage: 'selecting' });
-    const selectResult = await window.ClaudeService.streamResponse({
+    const selection = await callJsonPrompt({
       systemPrompt: selectSystemPrompt,
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
-    });
-
-    const selectMatch = selectResult.match(/\{[\s\S]*\}/);
-    if (!selectMatch) throw new Error('Mission plan parsing failed — Claude returned unexpected format');
-    const selection = JSON.parse(selectMatch[0]);
+    }, 'Mission plan selection');
 
     const agentKeys = Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : [];
     if (!agentKeys.length) throw new Error('Mission plan parsing failed — no valid agents were selected');
@@ -876,22 +949,28 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "userPrompt": "2-4 sentences of specific, self-contained instruction"
 }`;
 
-      const taskResult = await window.ClaudeService.streamResponse({
+      const taskData = await callJsonPrompt({
         systemPrompt: taskSystemPrompt,
         messages: [{
           role: 'user',
           content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
         }],
-      });
-
-      const taskMatch = taskResult.match(/\{[\s\S]*\}/);
-      if (!taskMatch) throw new Error(`Mission plan parsing failed for the ${agentKey} task — Claude returned unexpected format`);
-      const taskData = JSON.parse(taskMatch[0]);
+      }, `Mission plan task for the ${agentKey} agent`);
       tasks.push({ agentKey, ...taskData });
       report({ stage: 'task_done', agentKey, index: i, total: agentKeys.length, taskName: taskData.taskName });
     }
 
-    return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks };
+    // Never trust the shape blindly — a channel name is free text and a focus
+    // score is a number Claude wrote, both need the same defensive filtering
+    // every other AI-produced field in this file gets before it reaches the UI.
+    const channelMix = Array.isArray(selection.channelMix)
+      ? selection.channelMix
+          .filter(c => c && typeof c.channel === 'string' && c.channel.trim() && Number.isFinite(Number(c.focus)))
+          .map(c => ({ channel: c.channel.trim().slice(0, 40), focus: Math.max(0, Math.min(100, Math.round(Number(c.focus)))) }))
+          .slice(0, 5)
+      : [];
+
+    return { missionTitle: selection.missionTitle, missionSummary: selection.missionSummary, tasks, channelMix };
   }
 
   /**
@@ -967,17 +1046,13 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
 }`;
 
     report({ stage: 'assessing' });
-    const ideaResult = await window.ClaudeService.streamResponse({
+    const ideaData = await callJsonPrompt({
       systemPrompt: ideaSystemPrompt,
       messages: [{
         role: 'user',
         content: `Mission: ${plan.missionTitle || 'Marketing Campaign'}\n\nBusiness context:\n${ctxSnippet}\n\nCompleted agent work:\n${resultsSummary}`,
       }],
-    });
-
-    const ideaMatch = ideaResult.match(/\{[\s\S]*\}/);
-    if (!ideaMatch) throw new Error('Automation assessment returned unexpected format');
-    const ideaData = JSON.parse(ideaMatch[0]);
+    }, 'Automation assessment');
     const ideas = (Array.isArray(ideaData.automations) ? ideaData.automations : []).filter(idea => idea && idea.agentKey);
     report({ stage: 'assessed', count: ideas.length });
 
@@ -1056,17 +1131,13 @@ Respond ONLY with valid JSON:
 
     // Same non-streaming-Opus-vs-Vercel's-60s-ceiling fix as
     // generateMissionPlan() above — see the comment there.
-    const result = await window.ClaudeService.streamResponse({
+    return callJsonPrompt({
       systemPrompt,
       messages: [{
         role: 'user',
         content: `Completed agent: ${agentKey} — ${taskName}\n\nContext: ${ctxSnippet}\n\nCompleted work:\n${resultText.slice(0, 1200)}`,
       }],
-    });
-
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Assessment returned unexpected format');
-    return JSON.parse(jsonMatch[0]);
+    }, 'Follow-on automation assessment');
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
@@ -1116,6 +1187,8 @@ Respond ONLY with valid JSON:
     executeAutomationStep,
     assessSingleAgentResult,
     classifyAutomation,
+    parseJsonLoose,
+    callJsonPrompt,
     AGENT_ROUTES,
     AGENT_DESCRIPTIONS,
   };

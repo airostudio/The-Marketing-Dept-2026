@@ -15,6 +15,31 @@
 
 'use strict';
 
+const { reportFailureAsync } = require('./report-failure.js');
+
+/**
+ * Every "we could not do this" answer this module gives, recorded as it is
+ * returned.
+ *
+ * The {available:false, reason} contract is deliberately honest — callers show
+ * the customer what was not available rather than inventing a result — and
+ * honesty to the customer is not the same as telling someone who can fix it.
+ * An unset key or a provider that has started refusing us is invisible until
+ * somebody complains, unless it is reported here.
+ *
+ * A missing key is a configuration failure and needs a person; everything else
+ * is the provider's behaviour and is classified from the message.
+ */
+function unavailable(provider, reason, kind) {
+  reportFailureAsync({
+    source: `api/_lib/nancy-providers:${provider}`,
+    message: String(reason),
+    kind,
+    detail: { provider },
+  });
+  return { available: false, reason };
+}
+
 // ── Search / research provider ──────────────────────────────────────────────
 // Uses Perplexity Sonar (already integrated elsewhere in this app — see
 // api/enrich-business.js, api/perplexity.js) because it does live web search
@@ -25,7 +50,7 @@
 async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
-    return { available: false, reason: 'PERPLEXITY_API_KEY not configured — live web research is unavailable.' };
+    return unavailable('perplexity', 'PERPLEXITY_API_KEY not configured — live web research is unavailable.', 'config_missing');
   }
 
   try {
@@ -52,7 +77,7 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
-      return { available: false, reason: `Perplexity error ${res.status}: ${errText.slice(0, 200)}` };
+      return unavailable('perplexity', `Perplexity error ${res.status}: ${errText.slice(0, 200)}`);
     }
 
     const data = await res.json();
@@ -66,7 +91,7 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
     // would crash the whole handler with a non-JSON response instead of a
     // real error message.
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    return { available: false, reason: isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}` };
+    return unavailable('perplexity', isTimeout ? 'Perplexity request timed out.' : `Perplexity request failed: ${err.message}`);
   }
 }
 
@@ -82,10 +107,9 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
 async function screenshotProvider(targetUrl) {
   const apiKey = process.env.SCREENSHOT_API_KEY;
   if (!apiKey) {
-    return {
-      available: false,
-      reason: 'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (screenshotlayer by default). Brand colours will be extracted from raw HTML/CSS only.',
-    };
+    return unavailable('screenshot',
+      'SCREENSHOT_API_KEY not configured — no live screenshot service is connected (screenshotlayer by default). Brand colours will be extracted from raw HTML/CSS only.',
+      'config_missing');
   }
 
   const provider = (process.env.SCREENSHOT_PROVIDER || 'screenshotlayer').toLowerCase();
@@ -115,12 +139,12 @@ async function screenshotProvider(targetUrl) {
       if (contentType.includes('application/json') || contentType.includes('text/')) {
         const body = await res.json().catch(() => null);
         const info = body?.error?.info || body?.error?.type || `HTTP ${res.status}`;
-        return { available: false, reason: `screenshotlayer error: ${info}` };
+        return unavailable('screenshot', `screenshotlayer error: ${info}`);
       }
-      if (!res.ok) return { available: false, reason: `screenshotlayer error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `screenshotlayer error ${res.status}`);
 
       const buf = Buffer.from(await res.arrayBuffer());
-      if (!buf.length) return { available: false, reason: 'screenshotlayer returned an empty response' };
+      if (!buf.length) return unavailable('screenshot', 'screenshotlayer returned an empty response');
       return { available: true, buffer: buf, mimeType: FORMAT_MIME[format] || 'image/png' };
     }
 
@@ -140,7 +164,7 @@ async function screenshotProvider(targetUrl) {
       const res = await fetch(`https://api.screenshotone.com/take?${params.toString()}`, {
         signal: AbortSignal.timeout(40000),
       });
-      if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
@@ -153,34 +177,130 @@ async function screenshotProvider(targetUrl) {
         body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
         signal: AbortSignal.timeout(40000),
       });
-      if (!res.ok) return { available: false, reason: `Screenshot provider error ${res.status}` };
+      if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
 
-    return { available: false, reason: `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotlayer, screenshotone, browserless.` };
+    return unavailable('screenshot', `Unknown SCREENSHOT_PROVIDER "${provider}" — supported: screenshotlayer, screenshotone, browserless.`);
   } catch (err) {
-    return { available: false, reason: `Screenshot capture failed: ${err.message}` };
+    return unavailable('screenshot', `Screenshot capture failed: ${err.message}`);
   }
+}
+
+/**
+ * Gemini's generateContent can answer HTTP 200 with no image at all — a
+ * safety block, no candidates, or a candidate whose parts never include an
+ * inlineData image (it answered with text instead, or nothing). None of
+ * those are HTTP errors, so without this check a caller would see
+ * `available:false` with no way to tell "the key is fine but Gemini
+ * refused this prompt" from "something is actually broken". Mirrors
+ * describeEmptyGeminiResponse() in api/gemini.js, but for the image case —
+ * kept as a separate function because the two APIs disagree on the shape of
+ * a candidate that produced nothing (text expects an empty string in
+ * parts[0].text; here it's the absence of an inlineData part at all).
+ */
+function describeEmptyGeminiImageResponse(data) {
+  const blockReason = data?.promptFeedback?.blockReason;
+  if (blockReason) return `Gemini blocked this image request before generating anything (reason: ${blockReason}). Try a less sensitive prompt.`;
+
+  const candidate = data?.candidates?.[0];
+  if (!candidate) return 'Gemini returned no candidates for this image request — the prompt may have been rejected before generation started.';
+
+  const finishReason = candidate.finishReason;
+  if (finishReason === 'SAFETY') return 'Gemini blocked its image response for this request due to safety filters. Try rephrasing the prompt.';
+  if (finishReason === 'RECITATION') return 'Gemini blocked its image response because the output too closely matched existing content. Try a more generic, original prompt.';
+  if (finishReason === 'IMAGE_SAFETY') return 'Gemini blocked the generated image itself for safety reasons. Try a different prompt.';
+  if (finishReason && finishReason !== 'STOP') return `Gemini stopped generating without producing an image (reason: ${finishReason}).`;
+
+  const parts = candidate.content?.parts || [];
+  const hasImage = parts.some(p => p?.inlineData?.data);
+  if (!hasImage) return 'Gemini returned a response with no image data — it may have answered with text only. Try a more explicit "generate an image of..." style prompt.';
+  return null; // an image part was found; not actually empty
 }
 
 // ── Image generation provider ────────────────────────────────────────────────
 // Generates the finished post image directly (not just a background) — the
 // prompt bakes in the brand palette and the exact headline/copy/CTA text so
 // the model renders a complete, trending Instagram graphic. Contract:
-// { prompt, width, height } -> { available, buffer, mimeType } |
-// { available:false, reason }. Currently implements OpenAI's gpt-image-1;
-// IMAGE_GEN_PROVIDER exists to swap to another service later without
-// touching any caller. When IMAGE_GEN_API_KEY is absent (or the call fails),
-// callers fall back to the deterministic SVG templates — a legitimate
-// on-brand result, not a placeholder.
-async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
-  const apiKey = process.env.IMAGE_GEN_API_KEY;
-  if (!apiKey) {
-    return { available: false, reason: 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.' };
+// { prompt, width, height, referenceImageBase64?, referenceImageMimeType?,
+// provider? } -> { available, buffer, mimeType } | { available:false, reason
+// }. Implements OpenAI's gpt-image-1 and Google's Gemini image models.
+// Which one runs is IMAGE_GEN_PROVIDER by default, so most callers need no
+// code change to swap; the optional `provider` option lets one specific
+// caller pin a provider regardless of that shared default — e.g.
+// generate-website-mockup.js always wants Gemini even on a deployment whose
+// IMAGE_GEN_PROVIDER is set to 'openai' for its other image features. When
+// IMAGE_GEN_API_KEY (openai) / GEMINI_API_KEY (gemini) is absent or the call
+// fails, callers fall back to the deterministic SVG templates — a
+// legitimate on-brand result, not a placeholder.
+async function imageGenProvider(prompt, { width = 1080, height = 1350, referenceImageBase64 = null, referenceImageMimeType = null, provider: providerOverride = null } = {}) {
+  const provider = (providerOverride || process.env.IMAGE_GEN_PROVIDER || 'openai').toLowerCase();
+
+  if (provider === 'gemini') {
+    // Reuses GEMINI_API_KEY — the exact same env var api/gemini.js already
+    // reads. There is deliberately no second Gemini key name: one Gemini
+    // integration, one key, one place it's configured.
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return unavailable('image-gen', 'GEMINI_API_KEY not configured — Gemini image generation is unavailable.', 'config_missing');
+    }
+
+    // Model ids/versions on Google's side move; keeping this current is meant
+    // to be a one-line env-var edit, not a code change. The default below is
+    // the model name understood, as of this writing, to support image output
+    // on the generateContent endpoint — VERIFY IT against Google's current
+    // Gemini API docs (https://ai.google.dev/gemini-api/docs/image-generation)
+    // before relying on it in production; it is exactly the kind of thing
+    // that quietly goes stale.
+    const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+
+    // v1: no logo compositing. The reference-image params are accepted as a
+    // clean extension point for a future "composite the real logo in" pass,
+    // but with no caller supplying one yet, the request carries only the
+    // text prompt — never a fabricated or unrelated image part.
+    const parts = [{ text: prompt }];
+    if (referenceImageBase64) {
+      parts.push({ inlineData: { mimeType: referenceImageMimeType || 'image/png', data: referenceImageBase64 } });
+    }
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return unavailable('image-gen', `Gemini image generation error ${res.status}: ${errText.slice(0, 300)}`);
+      }
+
+      const data = await res.json();
+      const emptyReason = describeEmptyGeminiImageResponse(data);
+      if (emptyReason) return unavailable('image-gen', emptyReason);
+
+      const imagePart = data.candidates[0].content.parts.find(p => p?.inlineData?.data);
+      return {
+        available: true,
+        buffer: Buffer.from(imagePart.inlineData.data, 'base64'),
+        mimeType: imagePart.inlineData.mimeType || 'image/png',
+      };
+    } catch (err) {
+      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+      return unavailable('image-gen', isTimeout ? 'Gemini image generation timed out.' : `Gemini image generation failed: ${err.message}`);
+    }
   }
 
-  const provider = (process.env.IMAGE_GEN_PROVIDER || 'openai').toLowerCase();
+  const apiKey = process.env.IMAGE_GEN_API_KEY;
+  if (!apiKey) {
+    return unavailable('image-gen', 'IMAGE_GEN_API_KEY not configured — falling back to a programmatic brand-colour template instead of a generated image.', 'config_missing');
+  }
 
   try {
     if (provider === 'openai') {
@@ -203,20 +323,20 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350 } = {}) {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        return { available: false, reason: `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}` };
+        return unavailable('image-gen', `OpenAI image generation error ${res.status}: ${errText.slice(0, 300)}`);
       }
 
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json;
-      if (!b64) return { available: false, reason: 'OpenAI image generation returned no image data.' };
+      if (!b64) return unavailable('image-gen', 'OpenAI image generation returned no image data.');
 
       return { available: true, buffer: Buffer.from(b64, 'base64'), mimeType: 'image/png' };
     }
 
-    return { available: false, reason: `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai.` };
+    return unavailable('image-gen', `Unknown IMAGE_GEN_PROVIDER "${provider}" — supported: openai, gemini.`);
   } catch (err) {
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    return { available: false, reason: isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}` };
+    return unavailable('image-gen', isTimeout ? 'Image generation timed out.' : `Image generation failed: ${err.message}`);
   }
 }
 

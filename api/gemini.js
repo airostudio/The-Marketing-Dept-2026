@@ -16,6 +16,9 @@
  * no way to know why. Inspect promptFeedback/candidate finishReason to give
  * a real explanation instead of "the API returned an empty response."
  */
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+
 function describeEmptyGeminiResponse(data) {
   const blockReason = data?.promptFeedback?.blockReason;
   if (blockReason) return `Gemini blocked this request before generating a response (reason: ${blockReason}). Rephrase the prompt or reduce sensitive content.`;
@@ -30,10 +33,16 @@ function describeEmptyGeminiResponse(data) {
   return 'Gemini returned an empty response for this request with no explanation from the API. Try again, or simplify the prompt.';
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/gemini', async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -155,4 +164,4 @@ module.exports = async function handler(req, res) {
 
   res.write('data: [DONE]\n\n');
   res.end();
-};
+});

@@ -43,6 +43,8 @@
 'use strict';
 
 const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { requireUser, callerOwnsScope } = require('./_lib/require-user.js');
 
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 
@@ -200,16 +202,47 @@ async function getOrCreateBalance({ supabaseUrl, serviceKey, intelProfileId, pro
   return Array.isArray(created) ? created[0] : created;
 }
 
-async function deductCredits({ supabaseUrl, serviceKey, balanceId, newCreditsUsed }) {
-  await sb(supabaseUrl, serviceKey, 'PATCH', `/credit_balances?id=eq.${balanceId}`, { credits_used: newCreditsUsed });
+/**
+ * Reserve the cost of one image, atomically.
+ *
+ * This replaced a read-compare-in-JavaScript-then-write-an-absolute-value
+ * sequence that straddled the OpenAI call. Two calls that both read
+ * credits_used = X both wrote X + cost, so the second image was free; and
+ * because the check ran before a request that can take two minutes and the
+ * deduction ran after it, an account with one image's worth of credit left
+ * could start twenty inside that window and have every one of them pass.
+ *
+ * consume_credits() compares and deducts in a single UPDATE, so the row lock
+ * serialises concurrent callers. Called BEFORE the money is spent; see
+ * refundCredits() for the failure path.
+ *
+ * @returns {{allowed: boolean, used: number, total: number}}
+ */
+async function reserveCredits({ supabaseUrl, serviceKey, intelProfileId, projectId, cost }) {
+  const rows = await sb(supabaseUrl, serviceKey, 'POST', '/rpc/consume_credits', {
+    pid: projectId || null, ipid: intelProfileId || null, cost,
+  });
+  const r = (Array.isArray(rows) ? rows[0] : rows) || {};
+  return { allowed: r.allowed === true, used: r.used_after || 0, total: r.total || 0 };
 }
 
-module.exports = async function handler(req, res) {
+/** Give back a reservation for a generation that failed. Clamped at zero DB-side. */
+async function refundCredits({ supabaseUrl, serviceKey, intelProfileId, projectId, cost }) {
+  await sb(supabaseUrl, serviceKey, 'POST', '/rpc/refund_credits', {
+    pid: projectId || null, ipid: intelProfileId || null, cost,
+  });
+}
+
+module.exports = withFailureReporting('api/generate-ad-image', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Each call buys an image from OpenAI on the account's key.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -229,6 +262,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: `format must be one of: ${[...FORMATS].join(', ')}` });
   }
 
+  // The credit scope arrives in the request body, so it has to be checked
+  // against the caller. Without this, being signed in at all would be enough
+  // to bill another customer's balance — the account gate stops strangers and
+  // does nothing about the customer next door.
+  if (!(await callerOwnsScope(auth.userId, { intelProfileId, projectId }))) {
+    return res.status(403).json({
+      error: 'That business is not yours to bill.',
+      code: 'scope_forbidden',
+    });
+  }
+
   // ── Credit gate — checked before spending any money on the OpenAI call ──
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -236,22 +280,61 @@ module.exports = async function handler(req, res) {
   try {
     balance = await getOrCreateBalance({ supabaseUrl, serviceKey, intelProfileId, projectId });
   } catch (err) {
-    console.warn('[generate-ad-image] credit balance lookup failed, proceeding unmetered:', err.message);
-  }
-
-  if (balance) {
-    const remaining = balance.credits_total - balance.credits_used;
-    if (remaining < AD_IMAGE_CREDIT_COST) {
-      return res.status(402).json({
-        error: 'out_of_credits',
-        message: `This site is out of AI image credits (0 of ${balance.credits_total} remaining). Upgrade to keep generating ad images.`,
-        creditsRemaining: Math.max(0, remaining),
-        creditsRequired: AD_IMAGE_CREDIT_COST,
-        creditsTotal: balance.credits_total,
-        upgradeUrl: '/index.html#pricing',
+    // Failing open here means a database blip turns metering off entirely and
+    // images keep being bought with nothing counting them. A scope was named,
+    // so it must be honoured or the call must stop.
+    console.error('[generate-ad-image] credit balance lookup failed:', err.message);
+    if (intelProfileId || projectId) {
+      return res.status(503).json({
+        error: 'Could not check your image credits, so nothing was generated. Try again shortly.',
+        code: 'credits_unavailable',
       });
     }
   }
+
+  // Reserve the cost now, not after the image comes back. The check and the
+  // deduction are one statement in the database, so simultaneous calls on the
+  // same balance cannot all pass a comparison against the same pre-spend
+  // figure. If generation then fails, the reservation is refunded below.
+  let reserved = false;
+  if (balance) {
+    let reservation;
+    try {
+      reservation = await reserveCredits({
+        supabaseUrl, serviceKey, intelProfileId, projectId, cost: AD_IMAGE_CREDIT_COST,
+      });
+    } catch (err) {
+      console.error('[generate-ad-image] credit reservation failed:', err.message);
+      return res.status(503).json({
+        error: 'Could not reserve your image credits, so nothing was generated. Try again shortly.',
+        code: 'credits_unavailable',
+      });
+    }
+    if (!reservation.allowed) {
+      const remaining = Math.max(0, reservation.total - reservation.used);
+      return res.status(402).json({
+        error: 'out_of_credits',
+        message: `This site is out of AI image credits (${remaining} of ${reservation.total} remaining). Upgrade to keep generating ad images.`,
+        creditsRemaining: remaining,
+        creditsRequired: AD_IMAGE_CREDIT_COST,
+        creditsTotal: reservation.total,
+        upgradeUrl: '/index.html#pricing',
+      });
+    }
+    reserved = true;
+    balance = { credits_total: reservation.total, credits_used: reservation.used, id: balance.id };
+  }
+
+  /** Hand back the reservation when the image never arrives. */
+  const releaseReservation = async () => {
+    if (!reserved) return;
+    reserved = false;
+    try {
+      await refundCredits({ supabaseUrl, serviceKey, intelProfileId, projectId, cost: AD_IMAGE_CREDIT_COST });
+    } catch (err) {
+      console.error('[generate-ad-image] credit refund failed — the customer was charged for an image they did not get:', err.message);
+    }
+  };
 
   const platformSize = PLATFORM_TO_SIZE[platform] || 'square';
   const size = SIZE_FOR_PLATFORM[platformSize];
@@ -278,11 +361,13 @@ module.exports = async function handler(req, res) {
 
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
+      await releaseReservation();
       return res.status(upstream.status).json({ error: data.error?.message || `Image generation failed (${upstream.status})` });
     }
 
     const b64 = data.data?.[0]?.b64_json;
     if (!b64) {
+      await releaseReservation();
       return res.status(502).json({ error: 'Image API returned no image data.' });
     }
 
@@ -291,17 +376,14 @@ module.exports = async function handler(req, res) {
     const dataUri = `data:${mimeType};base64,${b64}`;
     const hostedUrl = await uploadHostedCreative(buffer, mimeType, format, platformSize);
 
-    // Only spend credits once generation actually succeeded.
-    let creditsRemaining;
-    if (balance) {
-      const newUsed = balance.credits_used + AD_IMAGE_CREDIT_COST;
-      try {
-        await deductCredits({ supabaseUrl, serviceKey, balanceId: balance.id, newCreditsUsed: newUsed });
-        creditsRemaining = Math.max(0, balance.credits_total - newUsed);
-      } catch (err) {
-        console.warn('[generate-ad-image] credit deduction failed (image still returned):', err.message);
-      }
-    }
+    // The credits were already taken by the reservation above, which is what
+    // makes concurrent calls safe. Nothing is deducted here — this only
+    // reports what the reservation left, and marks it as kept so the error
+    // path below does not refund a generation that succeeded.
+    reserved = false;
+    const creditsRemaining = balance
+      ? Math.max(0, balance.credits_total - balance.credits_used)
+      : undefined;
 
     return res.json({
       success: true,
@@ -318,6 +400,10 @@ module.exports = async function handler(req, res) {
       ],
     });
   } catch (err) {
+    // Timeout, network failure, anything else: the customer got no image, so
+    // they keep the credits. releaseReservation() is a no-op once the success
+    // path has marked the reservation kept.
+    await releaseReservation();
     return res.status(500).json({ error: err.message });
   }
-};
+});

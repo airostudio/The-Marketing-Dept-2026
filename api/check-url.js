@@ -13,6 +13,11 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { safeFetch } = require('./_lib/safe-fetch.js');
+
 const TIMEOUT_MS = 12000;
 const MAX_REDIRECTS = 5;
 
@@ -21,24 +26,10 @@ const RL_WINDOW = 60_000;
 // 80/min — high enough to cover both the project-wizard's one-off reachability
 // check and the SEO audit's bulk broken-link verification (up to 50 links/run).
 const RL_MAX = 80;
-const rateBuckets = new Map();
 
-function getIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip) || { count: 0, reset: now + RL_WINDOW };
-  if (now > bucket.reset) { bucket.count = 0; bucket.reset = now + RL_WINDOW; }
-  bucket.count++;
-  rateBuckets.set(ip, bucket);
-  return bucket.count > RL_MAX;
-}
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/check-url', async function handler(req, res) {
   // CORS headers so the browser client can call this from any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -47,8 +38,13 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getIp(req);
-  if (isRateLimited(ip)) return res.status(429).json({ error: 'Too many requests' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'check-url', max: 80, windowMs: 60_000, auth })) return;
 
   // Parse and validate the target URL
   const raw = (req.query.url || '').trim();
@@ -59,29 +55,22 @@ module.exports = async function handler(req, res) {
     const withProto = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
     target = new URL(withProto);
     if (!target.hostname.includes('.')) throw new Error('Invalid hostname');
-    // Block private IP ranges and localhost to prevent SSRF
-    const h = target.hostname.toLowerCase();
-    if (
-      h === 'localhost' ||
-      h.endsWith('.local') ||
-      /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-      h === '::1'
-    ) {
-      return res.status(400).json({ error: 'Private/internal addresses not allowed' });
-    }
+    // The address check runs at fetch time, in api/_lib/safe-fetch.js. The
+    // blocklist that used to be here matched hostname strings only, so it
+    // missed the numeric spellings of an address and anything a caller's own
+    // DNS pointed inward — and it had drifted from the copy in
+    // api/fetch-page.js, silently allowing 0.0.0.0 and the cloud metadata
+    // endpoint that the other copy blocked.
   } catch {
     return res.status(400).json({ reachable: false, status: 0, error: 'Invalid URL format' });
   }
 
-  // Perform a HEAD request (falls back to GET if HEAD is refused)
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+  // Perform a HEAD request (falls back to GET if HEAD is refused).
+  // safeFetch owns the timeout, so there is no AbortController here.
   async function probe(method) {
-    return fetch(target.toString(), {
+    return safeFetch(target.toString(), {
       method,
-      redirect: 'follow',
-      signal: controller.signal,
+      timeoutMs: TIMEOUT_MS,
       headers: {
         'User-Agent': 'Audema-URLCheck/1.0 (SEO Audit Bot; +https://audema.com)',
         'Accept': 'text/html,application/xhtml+xml,*/*',
@@ -98,11 +87,13 @@ module.exports = async function handler(req, res) {
         response = await probe('GET');
       }
     } catch (headErr) {
+      // A refused target will refuse the GET too — don't spend a second
+      // lookup on it, and let the outer handler report why it was refused
+      // rather than dressing it up as an unreachable site.
+      if (headErr.message && headErr.message.startsWith('Refused to fetch')) throw headErr;
       // HEAD failed (e.g. network error) — try GET before giving up
       response = await probe('GET');
     }
-
-    clearTimeout(timer);
 
     const status = response.status;
     const reachable = status >= 200 && status < 400;
@@ -120,9 +111,11 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ reachable, status, title, url: target.toString() });
 
   } catch (err) {
-    clearTimeout(timer);
+    if (err.message && err.message.startsWith('Refused to fetch')) {
+      return res.status(400).json({ reachable: false, status: 0, error: err.message });
+    }
 
-    const isTimeout = err.name === 'AbortError';
+    const isTimeout = err.name === 'AbortError' || err.name === 'TimeoutError';
     const isDns = err.cause?.code === 'ENOTFOUND' || err.message?.includes('ENOTFOUND');
 
     const error = isTimeout
@@ -133,4 +126,4 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ reachable: false, status: 0, error });
   }
-}
+});

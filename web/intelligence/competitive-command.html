@@ -698,7 +698,13 @@
     </div>
 </div>
 
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/competitive-roster-store.js"></script>
 <script src="/js/intelligence-engine.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="/js/claude-service.js"></script>
 <script src="/js/agent-history.js"></script>
 <script src="/js/marked.min.js"></script>
@@ -706,16 +712,73 @@
 'use strict';
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
-const RADAR_KEY  = 'tmd_radar';
-const GAPS_KEY   = 'tmd_ci_gaps';
-const BC_KEY     = 'tmd_ci_battlecards';
+//
+// The roster, gaps and battlecards used to live in localStorage and nowhere
+// else, so a team's whole competitive picture existed on one browser on one
+// machine — gone if site data was cleared, invisible on a second device, and
+// an empty page for a colleague on the same account.
+//
+// They are now rows in competitive_roster (see supabase-competitive-roster.sql),
+// with localStorage kept only as a write-through cache. Reads stay synchronous
+// so the thirty-odd existing call sites and the render path are unchanged; the
+// cache is refreshed from the cloud on load, and writes go to both.
 
-function loadCompetitors() { return JSON.parse(localStorage.getItem(RADAR_KEY) || '[]'); }
-function saveCompetitors(data) { localStorage.setItem(RADAR_KEY, JSON.stringify(data)); }
-function loadGaps() { return JSON.parse(localStorage.getItem(GAPS_KEY) || '[]'); }
-function saveGaps(data) { localStorage.setItem(GAPS_KEY, JSON.stringify(data)); }
-function loadBattlecards() { return JSON.parse(localStorage.getItem(BC_KEY) || '{}'); }
-function saveBattlecards(data) { localStorage.setItem(BC_KEY, JSON.stringify(data)); }
+function cloudStore() { return window.CompetitiveRosterStore || null; }
+
+function loadCompetitors() { return cloudStore() ? cloudStore().cacheRead('competitor') : []; }
+function loadGaps()        { return cloudStore() ? cloudStore().cacheRead('gap') : []; }
+function loadBattlecards() { return cloudStore() ? cloudStore().cacheRead('battlecard') : {}; }
+
+// Sync state, so the page can say plainly whether what you are looking at has
+// reached the cloud. A save that quietly stayed local would be the original
+// bug wearing a fix.
+let cloudSynced = false;
+
+function persist(kind, data) {
+    const store = cloudStore();
+    if (!store) return;
+    store.save(kind, data).then(() => {
+        if (!cloudSynced) { cloudSynced = true; renderSyncState(); }
+    }).catch(err => {
+        cloudSynced = false;
+        renderSyncState(err.message);
+    });
+}
+
+function saveCompetitors(data) { persist('competitor', data); }
+function saveGaps(data)        { persist('gap', data); }
+function saveBattlecards(data) { persist('battlecard', data); }
+
+/** A quiet, honest line about where this data actually lives. */
+function renderSyncState(errorMessage) {
+    let el = document.getElementById('ciSyncState');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'ciSyncState';
+        el.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:9999;font-size:11.5px;' +
+            'padding:6px 12px;border-radius:8px;pointer-events:none;max-width:320px;line-height:1.5;';
+        document.body.appendChild(el);
+    }
+    if (errorMessage) {
+        el.style.background = 'rgba(239,68,68,0.12)';
+        el.style.border     = '1px solid rgba(239,68,68,0.35)';
+        el.style.color      = '#fca5a5';
+        el.textContent      = 'Saved on this device only — could not reach the cloud: ' + errorMessage;
+        return;
+    }
+    if (cloudSynced) {
+        el.style.background = 'rgba(16,185,129,0.10)';
+        el.style.border     = '1px solid rgba(16,185,129,0.28)';
+        el.style.color      = '#34d399';
+        el.textContent      = 'Synced to your account';
+        setTimeout(() => { if (el && cloudSynced) el.style.display = 'none'; }, 4000);
+        return;
+    }
+    el.style.background = 'rgba(245,158,11,0.10)';
+    el.style.border     = '1px solid rgba(245,158,11,0.28)';
+    el.style.color      = '#fbbf24';
+    el.textContent      = 'Sign in to sync your competitive roster across devices.';
+}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let selectedFilter  = 'all';
@@ -906,7 +969,20 @@ function refreshFeed() {
 
     const el = document.getElementById('feedList');
     if (!moves.length) {
-        el.innerHTML = `<div class="empty-state"><div class="es-icon">📡</div><div class="es-text">No moves logged yet</div><div class="es-sub">Start tracking competitor activity using the "+ Log Move" button.</div></div>`;
+        // "+ Log Move" asks which competitor the move belongs to, so with an
+        // empty roster that instruction leads to the same dead end the gaps
+        // and battlecard views had.
+        el.innerHTML = comps.length
+            ? `<div class="empty-state"><div class="es-icon">📡</div><div class="es-text">No moves logged yet</div><div class="es-sub">Start tracking competitor activity using the "+ Log Move" button.</div></div>`
+            : `<div class="empty-state">
+                 <div class="es-icon">📡</div>
+                 <div class="es-text">No competitors to track yet</div>
+                 <div class="es-sub" style="max-width:420px;margin:0 auto 18px;line-height:1.6;">
+                   Add the companies you compete with and their moves, gaps and battlecards all
+                   build from here.
+                 </div>
+                 <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+               </div>`;
         return;
     }
 
@@ -940,6 +1016,28 @@ function renderBattlecardSelectors() {
     sel.innerHTML = '<option value="">— Choose competitor —</option>' +
         comps.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     if (cur) sel.value = cur;
+
+    // With an empty roster this view was a dead end: a dropdown with nothing
+    // in it, a permanently disabled Generate button, and an empty state
+    // saying "Select a competitor" — which cannot be done. The only way to
+    // add one is a button in the sidebar of a different tab, which the copy
+    // never mentioned. Say what is missing and offer the thing that fixes it.
+    const empty = comps.length === 0;
+    sel.disabled = empty;
+    if (empty) {
+        document.getElementById('bcContent').innerHTML = `
+            <div class="bc-empty">
+                <div class="bc-empty-icon">🃏</div>
+                <div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:8px;">
+                    No competitors on your roster yet
+                </div>
+                <div style="font-size:13px;color:var(--text3);margin-bottom:18px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.6;">
+                    A battlecard is built from a specific competitor's positioning, strengths and
+                    recent moves. Add one and this fills in.
+                </div>
+                <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+            </div>`;
+    }
 }
 
 window.onBattlecardSelect = function() {
@@ -969,8 +1067,14 @@ window.generateBattlecard = async function() {
     const comp  = comps.find(c => c.id === id);
     if (!comp) return;
 
-    if (!window.ClaudeService?.getApiKey()) {
-        alert('Claude API key not configured. Go to Settings to add your key.');
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
         return;
     }
 
@@ -1097,7 +1201,13 @@ Stage: [company stage + funding]
 function renderBattlecard(text) {
     // Parse sections
     const sections = {};
-    const sectionRe = /^## ([^\n]+)\n([\s\S]*?)(?=^## |\Z)/gm;
+    // The lookahead used to read (?=^## |\Z). JavaScript has no \Z anchor —
+    // \Z there is simply a literal capital Z, so any section containing one
+    // was truncated at it: a competitor "based in New Zealand" rendered as
+    // "based in New", and a card about Zendesk, Zoom or Zapier lost text at
+    // every mention. The sentinel appended below already terminates the last
+    // section, so the alternation was never needed for its stated purpose.
+    const sectionRe = /^## ([^\n]+)\n([\s\S]*?)(?=^## )/gm;
     let m;
     while ((m = sectionRe.exec(text + '\n## END')) !== null) {
         sections[m[1].trim()] = m[2].trim();
@@ -1196,9 +1306,31 @@ function renderGaps() {
 
     const el = document.getElementById('gapList');
     if (!filtered.length) {
-        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">🕳️</div><div class="es-text">No gaps logged yet</div><div class="es-sub">Use "AI Discover Gaps" to find opportunities, or add gaps manually.</div></div>`;
+        // Two different empty states, because they need two different things
+        // from the reader. With competitors on the roster, "no gaps yet" is
+        // true and the invitation to press Discover is actionable. With an
+        // empty roster it was a trap: the copy told you to press a button
+        // whose only response is an alert refusing you, and never said what
+        // was actually missing or where to fix it.
+        const haveCompetitors = loadCompetitors().length > 0;
+        el.innerHTML = haveCompetitors
+            ? `<div class="empty-state" style="grid-column:1/-1;"><div class="es-icon">🕳️</div><div class="es-text">No gaps logged yet</div><div class="es-sub">Use "AI Discover Gaps" to find opportunities, or add gaps manually.</div></div>`
+            : `<div class="empty-state" style="grid-column:1/-1;">
+                 <div class="es-icon">🕳️</div>
+                 <div class="es-text">Add a competitor before analysing gaps</div>
+                 <div class="es-sub" style="max-width:440px;margin:0 auto 18px;line-height:1.6;">
+                   A strategic gap is somewhere your competitors are collectively weak or absent.
+                   With nobody on the roster there is nothing to compare against.
+                 </div>
+                 <button class="btn-generate" onclick="openAddModal()">+ Add your first competitor</button>
+               </div>`;
+        // Nothing to discover from, so do not present a control that will refuse.
+        const db = document.getElementById('discoverBtn');
+        if (db) db.disabled = !haveCompetitors;
         return;
     }
+    const db = document.getElementById('discoverBtn');
+    if (db) db.disabled = false;
 
     el.innerHTML = filtered.map(g => `
         <div class="gap-card">
@@ -1227,14 +1359,24 @@ window.toggleGapFilter = function(cat, btn) {
 };
 
 window.discoverGaps = async function() {
-    if (!window.ClaudeService?.getApiKey()) {
-        alert('Claude API key not configured. Go to Settings to add your key.');
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
         return;
     }
 
     const comps = loadCompetitors();
     if (!comps.length) {
-        alert('Add at least one competitor first.');
+        // renderGaps() already shows the empty-roster state with the add
+        // button in it; re-render rather than firing an alert that names the
+        // problem and not the fix, and that a customer can dismiss without
+        // reading.
+        renderGaps();
         return;
     }
 
@@ -1463,7 +1605,16 @@ window.saveCompetitor = function() {
 window.analyzeMove = async function() {
     const desc = document.getElementById('moveDesc').value.trim();
     if (!desc) { alert('Please describe the competitor move first.'); return; }
-    if (!window.ClaudeService?.getApiKey()) { alert('Claude API key not configured.'); return; }
+    // ClaudeService has no getApiKey() and never did — the Anthropic key lives
+    // on the server, behind /api/claude, and must never reach the browser.
+    // `?.` guards ClaudeService being absent, not the method being missing, so
+    // this line threw "getApiKey is not a function" and every AI feature on
+    // this page died on click with no message to the customer. What actually
+    // needs checking is that the service loaded.
+    if (!window.ClaudeService?.streamResponse) {
+        alert('The AI service failed to load. Reload the page and try again.');
+        return;
+    }
 
     const compId = document.getElementById('moveCompetitorSelect').value;
     const comps  = loadCompetitors();
@@ -1564,11 +1715,39 @@ window.saveGap = function() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
+    // Render immediately from the local cache so the page is never blank while
+    // the cloud round-trip runs.
     renderRoster();
     refreshKPIs();
     refreshFeed();
-    // Check for Intelligence Engine
     try { if (window.IntelligenceEngine) console.log('[CC] Intelligence Engine ready'); } catch(e) {}
+    syncFromCloud();
+}
+
+async function syncFromCloud() {
+    const store = cloudStore();
+    if (!store) { renderSyncState(); return; }
+    try {
+        // Lift anything already sitting in this browser into the account, once.
+        // It never overwrites a roster the cloud already holds.
+        await store.migrateLocal();
+
+        const [comps, gaps, cards] = await Promise.all([
+            store.load('competitor'), store.load('gap'), store.load('battlecard'),
+        ]);
+        cloudSynced = comps.synced && gaps.synced && cards.synced;
+        renderSyncState();
+        if (cloudSynced) {
+            // The caches are already refreshed by load(); re-render against them.
+            renderRoster();
+            refreshKPIs();
+            refreshFeed();
+            if (typeof renderGaps === 'function') renderGaps();
+        }
+    } catch (err) {
+        cloudSynced = false;
+        renderSyncState(err.message);
+    }
 }
 
 // Retry init if IE not loaded yet

@@ -208,12 +208,20 @@
     <script src="../js/supabase.min.js"></script>
     <script src="../js/config.js"></script>
     <script src="../js/supabase-client.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/project-service.js"></script>
     <script src="../js/marketing-store.js"></script>
     <script src="../js/api-connector.js"></script>
     <script src="../js/dashboard.js"></script>
     <script src="../js/seo-modules.js"></script>
+    <!-- SEO Pulse sends "Missing Viewport Meta" here with ?issue=&tool=&action=.
+         Without this handler the page ignored those parameters entirely, so
+         clicking "Fix Now" on a viewport issue landed on a page that gave no
+         sign it knew why the visitor had arrived. Every other Fix Now target
+         already loads it. -->
+    <script src="../js/seo-pulse-handler.js"></script>
     <script>
     (function() {
         'use strict';
@@ -245,10 +253,40 @@
             document.getElementById('noDataState').style.display = 'block';
         }
 
+
+        /**
+         * The first-run state for this page: no project, so nothing to measure.
+         *
+         * Replaces an alert() that said "create a project first" without saying
+         * where, and that a customer could dismiss without reading. Uses the
+         * page's own noDataState panel so the answer stays where the question
+         * was asked.
+         */
+        function showNeedsProject() {
+            const el = document.getElementById('noDataState');
+            if (!el) return;
+            el.style.display = 'block';
+            el.innerHTML = `
+                <div class="empty-state" style="padding:48px;text-align:center;">
+                    <div style="font-size:40px;margin-bottom:12px;">🗂️</div>
+                    <h3 style="margin:0 0 8px;font-size:17px;">The mobile test needs a website to test</h3>
+                    <p style="margin:0 auto 20px;max-width:420px;line-height:1.6;color:var(--color-text-secondary);">
+                        A project is the site everything on this page is measured against.
+                        Create one and this page fills in.
+                    </p>
+                    <a href="/project-wizard.html" class="btn btn-primary"
+                       style="display:inline-block;text-decoration:none;">Create a project →</a>
+                </div>`;
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         async function runTest() {
             const project = SEOModules.getCurrentProject();
             if (!project || !project.websiteUrl) {
-                alert('Please create a project first to run the mobile test.');
+                // A browser alert names the problem and not the fix, and can be
+                // dismissed without being read. A brand-new account arrives here
+                // with no project — which is the normal first-run state, not an
+                // error — so say what is needed and link to where it is made.
+                showNeedsProject();
                 return;
             }
 
@@ -431,10 +469,14 @@
         }
 
         function escapeHtml(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+            // Escapes quotes as well as &<> — this is used inside attributes
+            // (value="...", href="...") as well as between tags, and the
+            // textContent/innerHTML trick this replaced left quotes alone, so a
+            // " in the value ended the attribute and the rest was parsed as more
+            // attributes on the tag. See web/js/escape-html.js.
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function setupEventListeners() {

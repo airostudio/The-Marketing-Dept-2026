@@ -9,7 +9,7 @@ window.GeminiService = (function () {
     try {
       const res = await fetch('/api/gemini', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           messages,
           systemPrompt,

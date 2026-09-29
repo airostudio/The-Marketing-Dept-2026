@@ -295,6 +295,7 @@
         </div>
         <div class="panel-body">
             <div id="watchSignInNote" style="display:none;font-size:12px;color:var(--text3);padding:12px 0;">Sign in to monitor competitors for changes. <a href="/index.html?openAuth=login" style="color:var(--accent);">Sign in →</a></div>
+            <div id="linkfunnel-import-banner" style="display:none;"></div>
             <div id="watchAddRow" style="display:flex;gap:10px;margin-bottom:14px;">
                 <input class="field-input" id="watchName" type="text" placeholder="Competitor name" style="flex:1;">
                 <input class="field-input" id="watchUrl" type="text" placeholder="https://competitor.com/pricing" style="flex:2;">
@@ -336,6 +337,9 @@
 <script src="../js/marked.min.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/escape-html.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/competitor-watch-store.js"></script>
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
@@ -343,6 +347,7 @@
 <script src="../js/claude-service.js"></script>
 <script src="../js/perplexity-service.js"></script>
 <script src="../js/agent-history.js"></script>
+<script src="/js/link-funnel-handoff.js"></script>
 <script>
     const SYSTEM_PROMPT = `You are a competitive intelligence analyst specializing in SEO, keyword strategy, search intent analysis, and competitive positioning. Provide deep analysis to maximize traffic potential through AI-powered keyword suggestions, search intent classification, and strategic competitive gaps. Identify: what competitors emphasize and why, messaging angles they're NOT using, keyword opportunities, content gaps, backlink strategies, and battlecard-ready talking points with concrete countermoves.`;
 
@@ -471,7 +476,7 @@
         try {
             const r = await fetch('/api/scout-data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domains }),
                 signal: AbortSignal.timeout(25000),
             });
@@ -521,7 +526,7 @@
         try {
             const r = await fetch('/api/domain-metrics', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({ domain: 'example.com' }),
                 signal: AbortSignal.timeout(5000)
             });
@@ -737,6 +742,23 @@ For each competitor, sales-ready format:
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Analyze" forever. Every setTimeout on this page was a
+        // button-label flash; none of them was a backstop.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '🔭';
+            document.getElementById('btnText').textContent = 'Analyze';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = '<div style="color:#f87171;padding:10px;">The request timed out after 120 seconds. The AI API may be unreachable or overloaded — press Analyze to try again.</div>';
+            if (window.reportFailure) window.reportFailure('Competitive Intelligence timed out after 120s', { where: 'competitive-agent.html.run' });
+            releaseButton();
+        }, 120000);
+
         try {
             const primary = window.PerplexityService || window.ClaudeService;
             if (primary) {
@@ -749,7 +771,21 @@ For each competitor, sales-ready format:
                     let settled = false;
                     let hadError = false;
                     let chunksReceived = false;
-                    const settle = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+                    // A stream that stops sending never calls onError, so
+                    // without this the promise never settles and the run never
+                    // reaches its own error handling. The outer stallTimer
+                    // frees the button; this frees the flow, so a late chunk
+                    // cannot overwrite the timeout message afterwards.
+                    const settle = (outcome) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(attemptTimer);
+                        resolve(outcome);
+                    };
+                    const attemptTimer = setTimeout(() => {
+                        settle({ ok: false, chunksReceived,
+                                 err: new Error('the request timed out after 110 seconds') });
+                    }, 110000);
                     Promise.resolve(service.streamResponse({
                         systemPrompt: sysPrompt,
                         messages: [{ role: 'user', content: userPrompt }],
@@ -789,7 +825,14 @@ For each competitor, sales-ready format:
                 } else {
                     outputBody.innerHTML = typeof marked !== 'undefined' ? marked.parse(outcome.text) : outcome.text;
                     if (storedCitations && storedCitations.length) {
-                        const citList = storedCitations.map((c, i) => `<li><a href="${c}" target="_blank" rel="noopener">[${i+1}] ${c}</a></li>`).join('');
+                        // These URLs come back from Perplexity's live web search
+                        // — remote content, and they went into an href and the
+                        // link text with no escaping at all. safeUrl also keeps a
+                        // javascript: URL out of the href.
+                        const citList = storedCitations.map((c, i) => {
+                            const href = (window.safeUrl ? window.safeUrl(c) : c) || '#';
+                            return `<li><a href="${escHtmlWatch(href)}" target="_blank" rel="noopener">[${i+1}] ${escHtmlWatch(c)}</a></li>`;
+                        }).join('');
                         const el = document.createElement('div');
                         el.className = 'citations-block';
                         el.innerHTML = `<hr style="margin:16px 0;opacity:0.3"><p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">Sources</p><ul style="font-size:12px;color:rgba(255,255,255,0.6);padding-left:18px;">${citList}</ul>`;
@@ -801,23 +844,34 @@ For each competitor, sales-ready format:
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered competitive intelligence.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlWatch(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('Competitive Intelligence generation failed: ' + e.message, { where: 'competitive-agent.run' });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '🔭';
-            document.getElementById('btnText').textContent = 'Analyze';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 
     function copyOutput() {
+        // On first run there is no output at all: `outputBody` is only created
+        // when a generation starts, so the old `if (!body) return;` made Copy a
+        // button that did nothing and said nothing. Tell the customer why
+        // instead, and never put a placeholder on the clipboard.
+        const btn = document.getElementById('copyBtn');
         const body = document.getElementById('outputBody');
-        if (!body) return;
-        navigator.clipboard.writeText(body.innerText || body.textContent).then(() => {
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-        });
+        const text = body ? (body.innerText || body.textContent || '').trim() : '';
+        if (!text) { flashCopy(btn, 'Nothing to copy yet'); return; }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopy(btn, 'Copied!', true),
+            () => flashCopy(btn, 'Copy failed')
+        );
+    }
+
+    function flashCopy(btn, message, ok) {
+        if (!btn) return;
+        btn.textContent = message;
+        if (ok) btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
     }
 
     // Scout's analysis was previously a dead end — the report only ever
@@ -862,9 +916,14 @@ For each competitor, sales-ready format:
 
     // ── MONITORED COMPETITORS ────────────────────────────────────────────
     function escHtmlWatch(s) {
-        const d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
+        // Escapes quotes as well as &<> — this is used inside attributes
+        // (value="...", href="...") as well as between tags, and the
+        // textContent/innerHTML trick this replaced left quotes alone, so a
+        // " in the value ended the attribute and the rest was parsed as more
+        // attributes on the tag. See web/js/escape-html.js.
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function fmtWhen(iso) {
@@ -940,7 +999,49 @@ For each competitor, sales-ready format:
         catch (e) { alert('Could not remove: ' + e.message); }
     }
 
+    /** A batch of URLs queued from Link Funnel. Unlike Nancy/SEO/Social, this
+     *  is a cheap database insert per URL, not a paid API call — so instead
+     *  of stepping through one at a time, this offers a single "import all"
+     *  confirmation. */
+    function renderLinkFunnelImportBanner() {
+        const banner = document.getElementById('linkfunnel-import-banner');
+        const q = window.LinkFunnelHandoff && window.LinkFunnelHandoff.peek('competitive-watch');
+        if (!q) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+
+        const esc = window.escapeHtml || (s => String(s));
+        banner.style.cssText = 'display:block;background:rgba(124,58,237,0.08);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);';
+        const reportLabel = q.reportName ? ` from "${esc(q.reportName)}"` : '';
+        banner.innerHTML = `📋 ${q.urls.length} URL${q.urls.length === 1 ? '' : 's'} waiting${reportLabel} (Link Funnel) — add them all as monitored competitors?` +
+            `<div style="margin-top:8px;">` +
+            `<button type="button" class="btn-run" style="width:auto;padding:0 16px;margin-right:8px;" id="lf-import-all">Import all ${q.urls.length}</button>` +
+            `<button type="button" id="lf-import-dismiss" style="background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:8px 14px;cursor:pointer;">Dismiss</button>` +
+            `</div><div id="lf-import-progress" style="margin-top:8px;display:none;"></div>`;
+
+        document.getElementById('lf-import-dismiss').addEventListener('click', () => {
+            window.LinkFunnelHandoff.clear('competitive-watch');
+            renderLinkFunnelImportBanner();
+        });
+        document.getElementById('lf-import-all').addEventListener('click', async () => {
+            document.getElementById('lf-import-all').disabled = true;
+            const progress = document.getElementById('lf-import-progress');
+            progress.style.display = 'block';
+            let done = 0, failed = 0;
+            for (const url of q.urls) {
+                progress.textContent = `Adding ${done + 1} of ${q.urls.length}…`;
+                let name = '';
+                try { name = new URL(/^https?:\/\//i.test(url) ? url : 'https://' + url).hostname.replace(/^www\./, ''); } catch (e) { /* fall back to a blank name — addWatch still works */ }
+                try { await window.CompetitorWatchStore.addWatch({ name, url }); }
+                catch (e) { failed++; }
+                done++;
+            }
+            progress.textContent = `Added ${done - failed} of ${q.urls.length}${failed ? `, ${failed} failed` : ''}.`;
+            window.LinkFunnelHandoff.clear('competitive-watch');
+            await refreshWatchList();
+        });
+    }
+
     refreshWatchList();
+    renderLinkFunnelImportBanner();
 </script>
     <script src="/js/url-utils.js"></script>
 <script src="/js/mission-store.js"></script>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Intel sweep | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1180px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  select, button, a.btn { font-family:inherit; font-size:12.5px; border-radius:8px; padding:7px 12px;
+                   background:var(--panel2); color:var(--text); border:1px solid var(--border); cursor:pointer;
+                   text-decoration:none; display:inline-block; }
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .stat .num { font-size:20px; font-weight:800; }
+  .stat .lbl { color:var(--text3); font-size:11.5px; margin-top:2px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--text3); font-size:11px; text-transform:uppercase; letter-spacing:0.4px;
+       padding:8px 10px; border-bottom:1px solid var(--border); }
+  td { padding:8px 10px; border-top:1px solid var(--border); vertical-align:top; }
+  .badge { font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+  .b-no_website { background:rgba(239,68,68,0.13); color:#fca5a5; }
+  .b-outdated   { background:rgba(245,158,11,0.13); color:#fcd34d; }
+  .b-unreachable{ background:rgba(148,163,184,0.12); color:#cbd5e1; }
+  .b-modern     { background:rgba(34,197,94,0.13); color:#86efac; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/activity.html" class="nav-link">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link">Failures</a>
+    <a href="/admin/grants.html" class="nav-link">Funding Room</a>
+    <a href="/admin/sales-intel.html" class="nav-link active">Sales Intel</a>
+    <a href="/hub.html" class="nav-link">← Hub</a>
+  </div>
+</nav>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Sales Intel sweep</h1>
+  <p class="sub">
+    The daily geographic sweep (api/cron-sales-intel-sweep.js) walking US states
+    alphabetically, auditing local businesses' websites, and filing genuine
+    opportunities here. <strong>Discover + draft only</strong> — nothing on this
+    page has been sent to anyone. Review and send from
+    <a href="/agents/blade-agent.html">Blade</a> or <a href="/agents/email-delivery-agent.html">Pat</a>.
+  </p>
+
+  <div class="card">
+    <div class="stat-grid" id="stats"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <select id="sent-filter">
+        <option value="">All leads</option>
+        <option value="false" selected>Not yet sent</option>
+        <option value="true">Already sent</option>
+      </select>
+      <select id="limit-filter">
+        <option value="100">Last 100</option>
+        <option value="250">Last 250</option>
+        <option value="500">Last 500</option>
+      </select>
+      <button id="btn-refresh">Refresh</button>
+      <button id="btn-export">Export mail-merge CSV</button>
+      <span class="muted" id="count"></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Owner</th><th>Business</th><th>State / Suburb</th><th>Sector</th>
+          <th>Email</th><th>Website</th><th>Status</th><th>Note</th><th>Discovered</th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="9" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = window.escapeHtml;
+  let token = null;
+
+  const STATUS_LABEL = { no_website: 'No website', outdated: 'Outdated', unreachable: 'Unreachable', modern: 'Modern' };
+
+  function ago(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const mins = (Date.now() - d.getTime()) / 60000;
+    if (mins < 1) return 'just now';
+    if (mins < 60) return Math.round(mins) + 'm ago';
+    if (mins < 48 * 60) return Math.round(mins / 60) + 'h ago';
+    return Math.round(mins / 1440) + 'd ago';
+  }
+
+  async function load() {
+    $('rows').innerHTML = '<tr><td colspan="9" class="muted">Loading…</td></tr>';
+    const sent = $('sent-filter').value;
+    const limit = $('limit-filter').value;
+    const qs = new URLSearchParams({ limit });
+    if (sent) qs.set('sent', sent);
+
+    let data;
+    try {
+      const r = await fetch('/api/sales-intel-leads?' + qs.toString(), { headers: { Authorization: 'Bearer ' + token } });
+      data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+    } catch (err) {
+      $('rows').innerHTML = `<tr><td colspan="9" class="muted" style="color:#fca5a5;">Could not load leads: ${esc(err.message)}</td></tr>`;
+      $('count').textContent = '';
+      return;
+    }
+
+    const leads = data.leads || [];
+    const notSent = leads.filter(l => !l.sent).length;
+    const withOwner = leads.filter(l => l.owner_first_name).length;
+    $('stats').innerHTML = `
+      <div class="stat"><div class="num">${leads.length}</div><div class="lbl">Loaded</div></div>
+      <div class="stat"><div class="num">${notSent}</div><div class="lbl">Not yet sent</div></div>
+      <div class="stat"><div class="num">${withOwner}</div><div class="lbl">Owner name found</div></div>
+    `;
+
+    if (!leads.length) {
+      $('rows').innerHTML = '<tr><td colspan="9" class="muted">No leads on file yet — the sweep runs once a day.</td></tr>';
+      $('count').textContent = '';
+      return;
+    }
+    $('count').textContent = data.truncated ? `showing the most recent ${leads.length} — there are more` : `${leads.length} lead${leads.length === 1 ? '' : 's'}`;
+
+    $('rows').innerHTML = leads.map(l => `
+      <tr>
+        <td>${esc(l.owner_first_name || '—')}</td>
+        <td>${esc(l.business_name)}</td>
+        <td>${esc([l.suburb, l.state].filter(Boolean).join(', '))}</td>
+        <td>${esc(l.sector || '')}</td>
+        <td>${esc(l.email || '—')}</td>
+        <td>${l.website ? `<a href="${esc(l.website)}" target="_blank" rel="noopener">${esc(l.website)}</a>` : 'None'}</td>
+        <td><span class="badge b-${esc(l.website_status || '')}">${esc(STATUS_LABEL[l.website_status] || l.website_status || '')}</span></td>
+        <td>${esc(l.personal_note || '')}</td>
+        <td title="${esc(l.discovered_at || '')}">${esc(ago(l.discovered_at))}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function exportCsv() {
+    const sent = $('sent-filter').value;
+    const qs = new URLSearchParams({ format: 'csv', limit: '1000' });
+    if (sent) qs.set('sent', sent);
+    try {
+      const r = await fetch('/api/sales-intel-leads?' + qs.toString(), { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const csv = await r.text();
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sales-intel-leads.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      alert('Could not export the CSV: ' + err.message);
+    }
+  }
+
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
+
+    if (!user || !token) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br>' +
+        '<a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    // Convenience, not the security boundary — api/sales-intel-leads.js
+    // refuses a non-admin regardless of what this page chooses to show.
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+      $('gate').textContent = 'This page is for Audema admins.';
+      return;
+    }
+
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    $('btn-refresh').addEventListener('click', load);
+    $('sent-filter').addEventListener('change', load);
+    $('limit-filter').addEventListener('change', load);
+    $('btn-export').addEventListener('click', exportCsv);
+    await load();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuiltWith Research | Audema</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Same script chain other agent pages load, in the same order, so
+         window.Supabase / window.sendAuthHeaders are available here too. -->
+    <script src="/js/supabase.min.js"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/escape-html.js"></script>
+    <script src="/js/send-auth.js"></script>
+    <script src="/js/failure-reporter.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --green: #10b981; --green-rgb: 16,185,129;
+            --purple: #7c3aed; --pink: #ec4899; --cyan: #06b6d4; --orange: #f59e0b; --red: #ef4444;
+            --bg: #070711; --card: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.08);
+            --text: #ffffff; --text2: rgba(255,255,255,0.55);
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        nav { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 58px; border-bottom: 1px solid var(--border); background: rgba(7,7,17,0.92); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .nav-logo { font-size: 14px; font-weight: 700; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .nav-sep { color: var(--border); }
+        .nav-crumb { font-size: 13px; color: var(--text2); }
+        .nav-crumb span { color: var(--green); font-weight: 600; }
+        .nav-right { display: flex; gap: 8px; align-items: center; }
+        .nav-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 9px; border-radius: 6px; background: rgba(245,158,11,0.14); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+        .nav-btn { padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 500; text-decoration: none; color: var(--text2); border: 1px solid var(--border); transition: all 0.15s; cursor: pointer; background: none; }
+        .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); }
+        .card-body { padding: 18px; }
+
+        .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--green); color: #000; }
+        .btn-primary:hover { background: #0da874; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+        .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text2); border: 1px solid var(--border); }
+        .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+        input, textarea, select { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 13px; font-family: inherit; width: 100%; outline: none; transition: border 0.15s; }
+        input:focus, textarea:focus, select:focus { border-color: rgba(var(--green-rgb), 0.5); }
+        label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 5px; }
+
+        /* ── Password gate ─────────────────────────────────────────────── */
+        .gate { max-width: 420px; margin: 90px auto; text-align: center; }
+        .gate .logo-icon { width: 44px; height: 44px; font-size: 20px; margin: 0 auto 18px; }
+        .gate h1 { font-size: 19px; margin-bottom: 6px; }
+        .gate p { font-size: 13px; color: var(--text2); margin-bottom: 22px; line-height: 1.6; }
+        .gate form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+        .gate-error { font-size: 12.5px; color: var(--red); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 9px 12px; display: none; }
+
+        /* ── Tabs ───────────────────────────────────────────────────────── */
+        .tabs-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+        .tab-btn { padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--text2); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .form-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+        .form-row > div { flex: 1; min-width: 160px; }
+
+        .status-line { font-size: 12.5px; color: var(--text2); margin: 10px 0; min-height: 18px; }
+        .status-line.err { color: var(--red); }
+        .status-line.ok { color: var(--green); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; word-break: break-word; }
+        tr:last-child td { border-bottom: none; }
+        .table-wrap { overflow-x: auto; }
+        .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }
+        .muted { color: var(--text2); }
+
+        .pill { padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+        .pill-green { background: rgba(var(--green-rgb),0.15); color: var(--green); }
+        .pill-cyan { background: rgba(6,182,212,0.15); color: var(--cyan); }
+
+        details.raw { margin-top: 14px; }
+        details.raw summary { cursor: pointer; font-size: 12px; color: var(--text2); }
+        details.raw pre { margin-top: 8px; max-height: 320px; overflow: auto; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; }
+
+        .banner { padding: 11px 14px; border-radius: 9px; font-size: 12.5px; margin-bottom: 16px; line-height: 1.55; }
+        .banner.info { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.25); color: #67e8f9; }
+        .banner.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+
+        .checkbox-cell { width: 30px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-left">
+        <a class="nav-logo" href="#"><span class="logo-icon">🔎</span> BuiltWith Research</a>
+        <span class="nav-sep">/</span>
+        <span class="nav-crumb">Internal tool — <span>not linked from the app</span></span>
+    </div>
+    <div class="nav-right">
+        <span class="nav-badge" id="quota-badge">Uses paid BuiltWith quota</span>
+        <button class="nav-btn" id="lock-again-btn" onclick="lockAgain()" style="display:none;">Lock</button>
+    </div>
+</nav>
+
+<div class="wrap">
+
+    <!-- ── Password gate ─────────────────────────────────────────────── -->
+    <div class="gate" id="gate">
+        <div class="logo-icon">🔎</div>
+        <h1>BuiltWith Research</h1>
+        <p>This tool spends the team's own paid BuiltWith subscription. You need to already be signed into
+           Audema, and you need the tool's separate access password.</p>
+        <form id="gate-form" onsubmit="return submitPassword(event)">
+            <div>
+                <label for="gate-password">Access password</label>
+                <input type="password" id="gate-password" autocomplete="off" placeholder="Enter the shared password" required>
+            </div>
+            <div class="gate-error" id="gate-error"></div>
+            <button type="submit" class="btn btn-primary" id="gate-submit" style="justify-content:center;">Unlock</button>
+        </form>
+    </div>
+
+    <!-- ── Tool (hidden until unlocked) ──────────────────────────────── -->
+    <div id="tool" style="display:none;">
+
+        <div class="banner warn">
+            Every lookup here spends the team's BuiltWith quota. Results include the full raw upstream
+            response under "Raw response" on each panel — the request/response shape for this integration
+            was reconstructed from public documentation and has not been verified against a live BuiltWith
+            call; if a normalized field looks wrong or empty, check the raw response before assuming
+            BuiltWith found nothing.
+        </div>
+
+        <div class="tabs-bar">
+            <button class="tab-btn active" onclick="switchTab('domain')">Domain Lookup</button>
+            <button class="tab-btn" onclick="switchTab('discover')">Discover by Technology</button>
+            <button class="tab-btn" onclick="switchTab('trends')">Trends</button>
+            <button class="tab-btn" onclick="switchTab('relationships')">Relationships</button>
+        </div>
+
+        <!-- Domain Lookup -->
+        <div class="tab-panel active" id="tab-domain">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Domain API — technologies on one site</span></div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div><label>Domain</label><input type="text" id="domain-input" placeholder="example.com"></div>
+                        <div style="flex:0 0 auto; align-self:flex-end;"><button class="btn btn-primary" onclick="runDomainLookup()" id="domain-btn">Look up</button></div>
+                    </div>
+                    <div class="status-line" id="domain-status"></div>
+                    <div class="table-wrap">
+                        <table id="domain-table" style="display:none;">
+                            <thead><tr><th>Technology</th><th>Category</th><th>First detected</th><th>Last detected</th></tr></thead>
+                            <tbody id="domain-tbody"></tbody>
+                        </table>
+                    </div>
+                    <details class="raw" id="domain-raw-wrap" style="display:none;">
+                        <summary>Raw response</summary>
+                        <pre id="domain-raw"></pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discover by Technology (Lists API) -->
+        <div class="tab-panel" id="tab-discover">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Lists API — every domain using a technology</span></div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div><label>Technology</label><input type="text" id="disc-tech" placeholder="e.g. Wix, Shopify, WooCommerce"></div>
+                        <div><label>Since (optional)</label><input type="text" id="disc-since" placeholder="e.g. 30 Days Ago"></div>
+                        <div style="flex:0 0 auto; align-self:flex-end;"><button class="btn btn-primary" onclick="runDiscover()" id="disc-btn">Discover</button></div>
+                    </div>
+                    <div class="status-line" id="disc-status"></div>
+
+                    <div id="disc-results" style="display:none;">
+                        <div class="form-row" style="align-items:center; justify-content:space-between;">
+                            <div class="muted" id="disc-count-line"></div>
+                            <div style="flex:0 0 auto;">
+                                <button class="btn btn-ghost btn-sm" onclick="toggleSelectAllDiscover()">Select all</button>
+                                <button class="btn btn-primary btn-sm" onclick="sendSelectedToChase()">Send selected to Prospect Hunter</button>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th class="checkbox-cell"></th><th>Domain</th><th>Details</th></tr></thead>
+                                <tbody id="disc-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="status-line ok" id="disc-send-status"></div>
+                    <details class="raw" id="disc-raw-wrap" style="display:none;">
+                        <summary>Raw response</summary>
+                        <pre id="disc-raw"></pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trends -->
+        <div class="tab-panel" id="tab-trends">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Trends API — adoption over time</span></div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div><label>Technology</label><input type="text" id="trends-tech" placeholder="e.g. Shopify"></div>
+                        <div style="flex:0 0 auto; align-self:flex-end;"><button class="btn btn-primary" onclick="runTrends()" id="trends-btn">Get trend</button></div>
+                    </div>
+                    <div class="status-line" id="trends-status"></div>
+                    <div class="table-wrap">
+                        <table id="trends-table" style="display:none;">
+                            <thead><tr><th>Period</th><th>Count / Share</th></tr></thead>
+                            <tbody id="trends-tbody"></tbody>
+                        </table>
+                    </div>
+                    <details class="raw" id="trends-raw-wrap" style="display:none;">
+                        <summary>Raw response</summary>
+                        <pre id="trends-raw"></pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relationships -->
+        <div class="tab-panel" id="tab-relationships">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Relationships API — sites linked to a domain</span></div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div><label>Domain</label><input type="text" id="rel-domain" placeholder="example.com"></div>
+                        <div style="flex:0 0 auto; align-self:flex-end;"><button class="btn btn-primary" onclick="runRelationships()" id="rel-btn">Look up</button></div>
+                    </div>
+                    <div class="status-line" id="rel-status"></div>
+                    <div class="table-wrap">
+                        <table id="rel-table" style="display:none;">
+                            <thead><tr><th>Related domain</th><th>Type</th><th>First detected</th><th>Last detected</th></tr></thead>
+                            <tbody id="rel-tbody"></tbody>
+                        </table>
+                    </div>
+                    <details class="raw" id="rel-raw-wrap" style="display:none;">
+                        <summary>Raw response</summary>
+                        <pre id="rel-raw"></pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Access token (separate from normal Audema login) ───────────────────────
+// Stored in sessionStorage — NOT localStorage — so it does not persist across
+// browser restarts. Real verification always happens server-side on every
+// call regardless; decoding the payload here is only for a friendly
+// "expired, re-enter password" UI state.
+const TOKEN_KEY = 'builtwith_access_token';
+
+function loadStoredToken() {
+    try {
+        const raw = sessionStorage.getItem(TOKEN_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.token || !parsed.expiresAt) return null;
+        if (Date.now() > parsed.expiresAt) return null;
+        return parsed;
+    } catch (e) { return null; }
+}
+
+function storeToken(token, expiresAt) {
+    try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expiresAt })); } catch (e) {}
+}
+
+function clearToken() {
+    try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+}
+
+let ACCESS_TOKEN = null;
+
+function showGate(errorMsg) {
+    document.getElementById('gate').style.display = '';
+    document.getElementById('tool').style.display = 'none';
+    document.getElementById('lock-again-btn').style.display = 'none';
+    const err = document.getElementById('gate-error');
+    if (errorMsg) { err.textContent = errorMsg; err.style.display = ''; }
+    else { err.style.display = 'none'; }
+}
+
+function showTool() {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('tool').style.display = '';
+    document.getElementById('lock-again-btn').style.display = '';
+}
+
+function lockAgain() {
+    clearToken();
+    ACCESS_TOKEN = null;
+    showGate();
+}
+
+async function submitPassword(evt) {
+    evt.preventDefault();
+    const btn = document.getElementById('gate-submit');
+    const password = document.getElementById('gate-password').value;
+    const err = document.getElementById('gate-error');
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    try {
+        const headers = await (window.sendAuthHeaders ? window.sendAuthHeaders() : { 'Content-Type': 'application/json' });
+        const res = await fetch('/api/builtwith-unlock', {
+            method: 'POST', headers, body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            err.textContent = data.error || 'Could not unlock the tool.';
+            err.style.display = '';
+            return false;
+        }
+        ACCESS_TOKEN = data.token;
+        storeToken(data.token, data.expiresAt);
+        showTool();
+    } catch (e) {
+        err.textContent = 'Network error contacting the unlock endpoint.';
+        err.style.display = '';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+    }
+    return false;
+}
+
+async function bwHeaders() {
+    const headers = await (window.sendAuthHeaders ? window.sendAuthHeaders() : { 'Content-Type': 'application/json' });
+    return Object.assign({}, headers, { 'X-BuiltWith-Token': ACCESS_TOKEN });
+}
+
+async function bwPost(endpoint, body) {
+    const headers = await bwHeaders();
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        if (data && data.code === 'builtwith_locked') { lockAgain(); }
+        throw new Error(data.error || `Request failed (${res.status})`);
+    }
+    return data;
+}
+
+(function init() {
+    const stored = loadStoredToken();
+    if (stored) { ACCESS_TOKEN = stored.token; showTool(); }
+    else { showGate(); }
+})();
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+// escape-html.js is loaded in <head>; this fallback matches its behaviour
+// (including quotes, unlike the textContent/innerHTML trick) in case it
+// ever fails to load, same convention as web/admin/*.html.
+function esc(s) {
+    if (window.escapeHtml) return window.escapeHtml(s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+function setStatus(id, msg, kind) {
+    const el = document.getElementById(id);
+    el.textContent = msg || '';
+    el.className = 'status-line' + (kind ? ' ' + kind : '');
+}
+
+// ── Domain Lookup ────────────────────────────────────────────────────────
+async function runDomainLookup() {
+    const domain = document.getElementById('domain-input').value.trim();
+    if (!domain) return;
+    const btn = document.getElementById('domain-btn');
+    btn.disabled = true;
+    setStatus('domain-status', 'Looking up ' + domain + '…');
+    document.getElementById('domain-table').style.display = 'none';
+    document.getElementById('domain-raw-wrap').style.display = 'none';
+    try {
+        const data = await bwPost('/api/builtwith-domain', { domain });
+        const rows = data.technologies || [];
+        const tbody = document.getElementById('domain-tbody');
+        tbody.innerHTML = rows.length
+            ? rows.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(t.category)}</td><td class="mono">${esc(t.firstDetected)}</td><td class="mono">${esc(t.lastDetected)}</td></tr>`).join('')
+            : `<tr><td colspan="4" class="muted">No technologies parsed from the normalized shape — check "Raw response" below; BuiltWith may still have returned data under a field name this tool does not yet recognise.</td></tr>`;
+        document.getElementById('domain-table').style.display = '';
+        document.getElementById('domain-raw').textContent = JSON.stringify(data.raw, null, 2);
+        document.getElementById('domain-raw-wrap').style.display = '';
+        setStatus('domain-status', rows.length ? `${rows.length} technologies.` : 'Request succeeded — see raw response.', 'ok');
+    } catch (e) {
+        setStatus('domain-status', e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Discover by Technology (Lists API) ──────────────────────────────────
+let discoverRows = [];
+let discoverTechnology = '';
+
+async function runDiscover() {
+    const technology = document.getElementById('disc-tech').value.trim();
+    if (!technology) return;
+    const since = document.getElementById('disc-since').value.trim();
+    const btn = document.getElementById('disc-btn');
+    btn.disabled = true;
+    setStatus('disc-status', 'Querying BuiltWith Lists for "' + technology + '"…');
+    document.getElementById('disc-results').style.display = 'none';
+    document.getElementById('disc-raw-wrap').style.display = 'none';
+    document.getElementById('disc-send-status').textContent = '';
+    try {
+        const filters = {};
+        if (since) filters.since = since;
+        const data = await bwPost('/api/builtwith-lists', { technology, filters });
+        discoverRows = data.domains || [];
+        discoverTechnology = data.technology || technology;
+        const tbody = document.getElementById('disc-tbody');
+        tbody.innerHTML = discoverRows.length
+            ? discoverRows.map((r, i) => {
+                const details = Object.entries(r).filter(([k]) => k !== 'domain')
+                    .map(([k, v]) => `${esc(k)}: ${esc(typeof v === 'object' ? JSON.stringify(v) : v)}`).join(' · ');
+                return `<tr><td class="checkbox-cell"><input type="checkbox" class="disc-check" data-i="${i}"></td><td class="mono">${esc(r.domain)}</td><td class="muted">${details}</td></tr>`;
+              }).join('')
+            : `<tr><td colspan="3" class="muted">No domains parsed from the normalized shape — check "Raw response"; this does not necessarily mean BuiltWith found zero matches.</td></tr>`;
+        document.getElementById('disc-count-line').textContent = `${discoverRows.length} domain(s) parsed (reported total: ${data.totalCount ?? '—'})`;
+        document.getElementById('disc-results').style.display = '';
+        document.getElementById('disc-raw').textContent = JSON.stringify(data.raw, null, 2);
+        document.getElementById('disc-raw-wrap').style.display = '';
+        setStatus('disc-status', 'Done.', 'ok');
+    } catch (e) {
+        setStatus('disc-status', e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function toggleSelectAllDiscover() {
+    const boxes = document.querySelectorAll('.disc-check');
+    const allChecked = Array.from(boxes).every(b => b.checked);
+    boxes.forEach(b => b.checked = !allChecked);
+}
+
+// ── Send to Prospect Hunter (Chase's chase_v3 localStorage store) ───────
+// Same key and object shape as web/agents/sales-agent.html's Store.add(), so
+// this page and Chase read/write the exact same list — no server round trip
+// needed, localStorage is shared across pages on this origin.
+const CHASE_STORE_KEY = 'chase_v3';
+
+function loadChaseStore() {
+    try { return JSON.parse(localStorage.getItem(CHASE_STORE_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveChaseStore(d) {
+    localStorage.setItem(CHASE_STORE_KEY, JSON.stringify(d));
+}
+function addChaseProspect(p) {
+    const d = loadChaseStore();
+    // Same dedupe rule as Chase's own Store.add(): by name+city.
+    if (d.find(x => x.name === p.name && x.city === p.city)) return false;
+    d.push(Object.assign({}, p, {
+        id: Date.now() + Math.random(),
+        addedAt: new Date().toISOString(),
+        status: 'new',
+        notes: p.notes || '',
+    }));
+    saveChaseStore(d);
+    return true;
+}
+
+function sendSelectedToChase() {
+    const boxes = Array.from(document.querySelectorAll('.disc-check:checked'));
+    if (!boxes.length) {
+        document.getElementById('disc-send-status').className = 'status-line err';
+        document.getElementById('disc-send-status').textContent = 'Select at least one domain first.';
+        return;
+    }
+    let added = 0, skipped = 0;
+    boxes.forEach(box => {
+        const row = discoverRows[Number(box.dataset.i)];
+        if (!row || !row.domain) { skipped++; return; }
+        const ok = addChaseProspect({
+            name: row.domain,
+            city: '',
+            country: row.country || row.Country || '',
+            industry: '',
+            phone: row.phone || row.Phone || row.Telephone || '',
+            email: row.email || row.Email || '',
+            website: /^https?:\/\//i.test(row.domain) ? row.domain : ('https://' + row.domain),
+            websiteStatus: 'has_website',
+            platform: discoverTechnology || '',
+            notes: `Discovered via BuiltWith reverse lookup for "${discoverTechnology}".`,
+        });
+        if (ok) added++; else skipped++;
+    });
+    const el = document.getElementById('disc-send-status');
+    el.className = 'status-line ' + (added ? 'ok' : 'err');
+    el.textContent = `${added} prospect(s) added to Chase's pipeline` + (skipped ? `, ${skipped} skipped (duplicate or missing domain)` : '') + '.';
+}
+
+// ── Trends ───────────────────────────────────────────────────────────────
+async function runTrends() {
+    const technology = document.getElementById('trends-tech').value.trim();
+    if (!technology) return;
+    const btn = document.getElementById('trends-btn');
+    btn.disabled = true;
+    setStatus('trends-status', 'Fetching trend for "' + technology + '"…');
+    document.getElementById('trends-table').style.display = 'none';
+    document.getElementById('trends-raw-wrap').style.display = 'none';
+    try {
+        const data = await bwPost('/api/builtwith-trends', { technology });
+        const rows = data.trend || [];
+        const tbody = document.getElementById('trends-tbody');
+        tbody.innerHTML = rows.length
+            ? rows.map(r => `<tr><td class="mono">${esc(r.period)}</td><td class="mono">${esc(r.count)}</td></tr>`).join('')
+            : `<tr><td colspan="2" class="muted">No points parsed from the normalized shape — check "Raw response".</td></tr>`;
+        document.getElementById('trends-table').style.display = '';
+        document.getElementById('trends-raw').textContent = JSON.stringify(data.raw, null, 2);
+        document.getElementById('trends-raw-wrap').style.display = '';
+        setStatus('trends-status', rows.length ? `${rows.length} point(s).` : 'Request succeeded — see raw response.', 'ok');
+    } catch (e) {
+        setStatus('trends-status', e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Relationships ────────────────────────────────────────────────────────
+async function runRelationships() {
+    const domain = document.getElementById('rel-domain').value.trim();
+    if (!domain) return;
+    const btn = document.getElementById('rel-btn');
+    btn.disabled = true;
+    setStatus('rel-status', 'Fetching relationships for ' + domain + '…');
+    document.getElementById('rel-table').style.display = 'none';
+    document.getElementById('rel-raw-wrap').style.display = 'none';
+    try {
+        const data = await bwPost('/api/builtwith-relationships', { domain });
+        const rows = data.related || [];
+        const tbody = document.getElementById('rel-tbody');
+        tbody.innerHTML = rows.length
+            ? rows.map(r => `<tr><td class="mono">${esc(r.domain)}</td><td>${esc(r.type)}</td><td class="mono">${esc(r.firstDetected)}</td><td class="mono">${esc(r.lastDetected)}</td></tr>`).join('')
+            : `<tr><td colspan="4" class="muted">No related sites parsed from the normalized shape — check "Raw response".</td></tr>`;
+        document.getElementById('rel-table').style.display = '';
+        document.getElementById('rel-raw').textContent = JSON.stringify(data.raw, null, 2);
+        document.getElementById('rel-raw-wrap').style.display = '';
+        setStatus('rel-status', rows.length ? `${rows.length} related site(s).` : 'Request succeeded — see raw response.', 'ok');
+    } catch (e) {
+        setStatus('rel-status', e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

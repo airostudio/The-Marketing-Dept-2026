@@ -83,14 +83,65 @@ const EmailDeliveryService = (() => {
       const to = parts[0];
       const toName = parts[1] && !parts[1].includes('=') ? parts[1] : undefined;
       const mergeFields = {};
+      // A field-assignment part can itself carry several fields, semicolon-
+      // separated ("firstName=Jane;company=Acme") — this used to split only
+      // on the outer comma, so that whole chunk was treated as ONE key=value
+      // pair: `p.split('=')` on "firstName=Jane;company=Acme" yields three
+      // pieces, and destructuring `[k, v]` silently took "Jane;company" as
+      // the value and dropped "company=Acme" entirely. Split each
+      // comma-part on ';' first, then take the FIRST '=' in each piece (via
+      // indexOf, not split) so a value that itself contains '=' isn't cut short.
       parts.slice(1).forEach(p => {
-        if (p.includes('=')) {
-          const [k, v] = p.split('=');
-          if (k && v !== undefined) mergeFields[k.trim()] = v.trim();
-        }
+        if (!p.includes('=')) return;
+        p.split(';').forEach(pair => {
+          const eqIdx = pair.indexOf('=');
+          if (eqIdx === -1) return;
+          const k = pair.slice(0, eqIdx).trim();
+          const v = pair.slice(eqIdx + 1).trim();
+          if (k && v) mergeFields[k] = v;
+        });
       });
       return { to, toName, mergeFields: Object.keys(mergeFields).length ? mergeFields : undefined };
     }).filter(r => r.to);
+  }
+
+  /**
+   * A pasted recipient list is very often just email addresses with no name
+   * attached — but the account frequently already has that person as a real
+   * contact (imported by Blade, added to Audience Manager, etc) with a real
+   * first name on file. Rather than sending them an unpersonalized email
+   * (or requiring whoever pasted the list to retype data that already
+   * exists), look each address up against the contacts table and fill in
+   * whatever it has — without overwriting anything already explicitly
+   * supplied in the paste (e.g. `firstName=Jane` in the paste line wins over
+   * whatever the contacts table says for that address).
+   * @param {Array<{to, toName?, mergeFields?}>} recipients
+   * @returns {Promise<Array>} the same recipients, enriched where possible
+   */
+  async function enrichRecipientsFromContacts(recipients) {
+    if (!window.ContactsStore || !recipients || !recipients.length) return recipients;
+
+    let matches;
+    try {
+      matches = await window.ContactsStore.getContactsByEmail(recipients.map(r => r.to));
+    } catch (e) {
+      // Enrichment is a nice-to-have on top of a paste that already works —
+      // a failed lookup (signed out, RLS hiccup) must not block sending.
+      return recipients;
+    }
+    if (!matches.length) return recipients;
+
+    const byEmail = new Map(matches.map(c => [String(c.email || '').trim().toLowerCase(), c]));
+    return recipients.map(r => {
+      const contact = byEmail.get(String(r.to || '').trim().toLowerCase());
+      if (!contact) return r;
+      const mergeFields = { ...(r.mergeFields || {}) };
+      if (mergeFields.firstName === undefined && contact.first_name) mergeFields.firstName = contact.first_name;
+      if (mergeFields.lastName === undefined && contact.last_name) mergeFields.lastName = contact.last_name;
+      if (mergeFields.company === undefined && contact.company) mergeFields.company = contact.company;
+      const toName = r.toName || [contact.first_name, contact.last_name].filter(Boolean).join(' ') || undefined;
+      return { ...r, toName, mergeFields: Object.keys(mergeFields).length ? mergeFields : undefined };
+    });
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
@@ -99,74 +150,41 @@ const EmailDeliveryService = (() => {
 
   /**
    * Runs the campaign past Scotty for a compliance/deliverability QA check.
+   *
+   * This is a server call (api/review-campaign.js), not a client-side
+   * freehand completion — that endpoint uses a forced tool call
+   * (api/_lib/nancy-claude.js's callClaudeForJSON), the same pattern every
+   * other structured Claude call in this app uses, so the response is
+   * guaranteed valid structured data. The previous client-side version asked
+   * the model to freehand a JSON blob (after being told to echo the
+   * campaign's own subject/HTML back into its reasoning) and parsed it with
+   * a bare regex + JSON.parse() — which failed exactly as reported
+   * ("Unterminated string in JSON") whenever the model included a quote or
+   * newline in a string field without perfectly escaping it.
    * @param {Object} campaign — from collateCampaign()
    * @returns {Promise<{approved:boolean, blockers:string[], warnings:string[], summary:string}>}
    */
   async function reviewWithScotty(campaign) {
-    if (!window.ClaudeService) throw new Error('Claude API not configured. Add your API key in Settings.');
-
-    const recipientSample = (campaign.recipients || []).slice(0, 5).map(r => r.to).join(', ');
-    const mergeTokensUsed = Array.from(new Set(
-      (`${campaign.subject}\n${campaign.html}`.match(/\{\{\s*([\w.]+)\s*\}\}/g) || [])
-        .map(t => t.replace(/[{}]/g, '').trim())
-    ));
-
-    const systemPrompt = `You are Scotty, the AI CMO, acting as the final QA gate before a marketing email campaign is sent to real recipients. You are strict — deliverability, legal exposure, and brand reputation are on the line. You are reviewing copy only; you cannot see rendered output, so flag anything text-inspectable.
-
-Check for:
-- Missing or malformed unsubscribe / opt-out language (required for bulk commercial email — CAN-SPAM / GDPR)
-- Missing physical sender identification if implied as a commercial newsletter
-- Spam-trigger language (ALL CAPS shouting, excessive "!!!", "FREE", "ACT NOW", "$$$", misleading subject lines)
-- Unresolved or likely-broken merge tags (e.g. {{firstName}} left in copy with no fallback, or merge tokens that don't look like real fields)
-- Unfilled bracket placeholders left in the copy (e.g. "[Your Name]", "[Company]", "[solve pain point]", "[insert X]") — these must never go out in a real send
-- Overstated/unverifiable claims (guarantees, ROI numbers, "#1", medical/financial claims) that need a disclaimer
-- Broken or placeholder links (e.g. "#", "example.com", "TODO", "[link]")
-- Missing subject line or empty body
-- Recipient list problems visible from the sample given (obviously fake/test addresses like test@test.com mixed into a real send)
-
-Respond ONLY with valid JSON — no markdown fences, no commentary:
-{
-  "approved": true or false,
-  "blockers": ["specific issue that MUST be fixed before send — empty array if none"],
-  "warnings": ["non-blocking issue worth a human glance — empty array if none"],
-  "summary": "2-3 sentence CMO-level verdict on whether this is safe to send and why"
-}
-
-Set approved:false if there is at least one blocker. Minor stylistic nitpicks belong in warnings, not blockers.`;
-
-    const userMessage = `Campaign: ${campaign.campaignName}
-Recipient count: ${(campaign.recipients || []).length}
-Recipient sample: ${recipientSample || '(none provided)'}
-Merge tokens found in copy: ${mergeTokensUsed.join(', ') || '(none)'}
-Reply-to: ${campaign.replyTo || '(not set)'}
-
-Subject: ${campaign.subject}
-
-HTML body:
-${campaign.html}
-
-${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
-
-    // callAgent() is non-streaming: api/claude.js awaits the entire Anthropic
-    // completion before it can respond, so a slow Opus generation lives or
-    // dies against Vercel's 60s function ceiling with zero partial credit —
-    // this surfaced elsewhere in Scotty as a bare "API error 504" with no
-    // indication why. Streaming via the app's faster default model starts
-    // returning content immediately instead of waiting in the dark.
-    const result = await window.ClaudeService.streamResponse({
-      systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+    const res = await fetch('/api/review-campaign', {
+      method: 'POST',
+      headers: await window.sendAuthHeaders(),
+      body: JSON.stringify({
+        campaignName: campaign.campaignName,
+        recipients:   campaign.recipients,
+        replyTo:      campaign.replyTo,
+        subject:      campaign.subject,
+        html:         campaign.html,
+        text:         campaign.text,
+      }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Scotty QA review failed.');
 
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Scotty QA review returned an unexpected format — treat as not approved and retry.');
-
-    const parsed = JSON.parse(jsonMatch[0]);
     return {
-      approved: !!parsed.approved && (!parsed.blockers || parsed.blockers.length === 0),
-      blockers: parsed.blockers || [],
-      warnings: parsed.warnings || [],
-      summary:  parsed.summary || '',
+      approved: !!data.approved,
+      blockers: data.blockers || [],
+      warnings: data.warnings || [],
+      summary:  data.summary || '',
     };
   }
 
@@ -195,7 +213,7 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
       const batch = batches[i];
       const res = await fetch('/api/send-campaign', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.sendAuthHeaders(),
         body: JSON.stringify({
           subject:        campaign.subject,
           html:           campaign.html,
@@ -210,8 +228,17 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        aggregate.rejected.push(...batch.map(r => ({ to: r.to, error: data.error || `Batch ${i + 1} failed` })));
-        if (onBatchComplete) onBatchComplete({ batchIndex: i, batchCount: batches.length, results: null, error: data.error });
+        // Unfinished-copy is a property of the template, not this recipient —
+        // every remaining batch would fail the exact same way, so surface the
+        // specific issues once and stop rather than repeating the same
+        // rejection for every recipient across every batch.
+        const message = data.code === 'unfinished_content' && Array.isArray(data.issues) && data.issues.length
+          ? `${data.error} ${data.issues.join(' ')}`
+          : (data.error || `Batch ${i + 1} failed`);
+        const remainingInCampaign = data.code === 'unfinished_content' ? batches.slice(i).flat() : batch;
+        aggregate.rejected.push(...remainingInCampaign.map(r => ({ to: r.to, error: message })));
+        if (onBatchComplete) onBatchComplete({ batchIndex: i, batchCount: batches.length, results: null, error: message });
+        if (data.code === 'unfinished_content') break;
         continue;
       }
 
@@ -239,6 +266,7 @@ ${campaign.text ? `Plain text body:\n${campaign.text}` : ''}`;
   return {
     collateCampaign,
     parseRecipientList,
+    enrichRecipientsFromContacts,
     reviewWithScotty,
     sendCampaign,
   };

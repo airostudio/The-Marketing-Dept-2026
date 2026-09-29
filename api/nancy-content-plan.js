@@ -28,24 +28,16 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { reportFailureAsync } = require('./_lib/report-failure.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 const DAY_FRAMEWORK = {
   1: 'Authority — strong insight demonstrating expertise.',
@@ -96,15 +88,20 @@ function buildTool(days, includeRationale) {
   };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-content-plan', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'nancy-content-plan', max: 8, windowMs: 60 * 1000, auth })) return;
 
   const { businessProfile, brand, strategy, personalization = {}, previousTopics = [], dayRange = [1, 7], priorPosts = [] } = req.body || {};
   if (!businessProfile || !strategy) return res.status(400).json({ error: 'businessProfile and strategy are required' });
@@ -155,9 +152,35 @@ Hard rules:
   const result = await callClaudeForJSON({ system, user, tool, maxTokens, timeoutMs: 45000 });
   if (!result.success) return res.status(502).json({ success: false, error: result.error });
 
+  // callClaudeForJSON only guarantees the tool call's JSON parsed — it does
+  // not check that JSON actually matches the schema's own required shape.
+  // Anthropic's tool_choice is a strong steer, not an enforced contract, so
+  // "parsed fine" and "posts is really an array of the days we asked for"
+  // are two different claims. Skipping this check used to mean an
+  // occasional missing/short posts array came back as {success:true} —
+  // callers (nancy-agent.html) trusted that and forwarded posts[0], which
+  // for a missing day is undefined; JSON.stringify then drops that key
+  // entirely from the next request body, so the actual failure surfaced
+  // three steps downstream as api/nancy-render-week's generic
+  // "post is required", with nothing here to explain what really happened.
+  const posts = Array.isArray(result.data.posts) ? result.data.posts : [];
+  const validDays = new Set(days);
+  const validPosts = posts.filter(p => p && typeof p === 'object' && validDays.has(p.day));
+  if (validPosts.length !== days.length) {
+    reportFailureAsync({
+      source: 'api/nancy-content-plan',
+      message: `Claude's content plan for day(s) ${days.join(', ')} came back with ${validPosts.length}/${days.length} valid post(s) instead of the requested count — the tool call parsed but did not match its own schema.`,
+      detail: { requestedDays: days, receivedPostCount: posts.length, validPostCount: validPosts.length },
+    });
+    return res.status(502).json({
+      success: false,
+      error: `Claude did not return a post for day${days.length > 1 ? 's' : ''} ${days.join(', ')}. This has been reported — try generating this day again.`,
+    });
+  }
+
   return res.json({
     success: true,
     week_rationale: result.data.week_rationale || null,
-    posts: result.data.posts,
+    posts: validPosts,
   });
-};
+});

@@ -364,6 +364,8 @@
 <script src="../js/agent-characters.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
+<script src="../js/send-auth.js"></script>
+<script src="../js/failure-reporter.js"></script>
 <script src="../js/claude-service.js"></script>
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase.min.js"></script>
@@ -544,6 +546,24 @@ ${requiredOutput}
         outputArea.innerHTML = '<div class="output-body" id="outputBody"><span class="streaming-cursor"></span></div>';
         const outputBody = document.getElementById('outputBody');
 
+        // onError covers a stream that fails. It does not cover a stream that
+        // simply stops sending: nothing rejects, the await never settles, the
+        // finally below never runs, and the button stays disabled reading
+        // "Generating..." until the page is reloaded.
+        const releaseButton = () => {
+            btn.disabled = false;
+            document.getElementById('btnIcon').textContent = '💼';
+            document.getElementById('btnText').textContent = 'Generate Outreach';
+        };
+        const stallTimer = setTimeout(() => {
+            if (!btn.disabled) return;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">The request timed out after 90 seconds. The AI API may be unreachable or overloaded — press Generate Outreach to try again.</div>`;
+            if (window.reportFailure) {
+                window.reportFailure('LinkedIn outreach generation timed out after 90s', { where: 'linkedin-agent.run', task });
+            }
+            releaseButton();
+        }, 90000);
+
         try {
             if (window.ClaudeService) {
                 let fullText = '';
@@ -559,18 +579,22 @@ ${requiredOutput}
                         if (window.AgentHistory && text.trim()) window.AgentHistory.save({ agentKey: 'linkedin', taskType: task || 'LinkedIn Outreach', content: text, topic: persona || '' });
                     },
                     onError: (err) => {
-                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${err.message}</div>`;
+                        outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlLI(err.message)}</div>`;
+                        if (window.reportFailure) {
+                            window.reportFailure('LinkedIn outreach generation failed: ' + err.message,
+                                { where: 'linkedin-agent.run', task });
+                        }
                     }
                 });
             } else {
                 outputBody.innerHTML = '<div style="color:rgba(255,255,255,0.5);padding:20px;font-style:italic;">Configure your Claude API key in <a href="/settings.html" style="color:#a78bfa;">Settings</a> to enable AI-powered outreach generation.</div>';
             }
         } catch (e) {
-            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${e.message}</div>`;
+            outputBody.innerHTML = `<div style="color:#f87171;padding:10px;">Error: ${escHtmlLI(e.message)}</div>`;
+            if (window.reportFailure) window.reportFailure('LinkedIn outreach generation failed: ' + e.message, { where: 'linkedin-agent.run', task });
         } finally {
-            btn.disabled = false;
-            document.getElementById('btnIcon').textContent = '💼';
-            document.getElementById('btnText').textContent = 'Generate Outreach';
+            clearTimeout(stallTimer);
+            releaseButton();
         }
     }
 

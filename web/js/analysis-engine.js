@@ -302,7 +302,7 @@
         try {
             const checkResp = await fetch(
                 `/api/check-url?url=${encodeURIComponent(withProto)}`,
-                { signal: AbortSignal.timeout(20000) }
+                { headers: await window.sendAuthHeaders(), signal: AbortSignal.timeout(20000) }
             );
             const check = await checkResp.json();
 
@@ -547,7 +547,7 @@
             try {
                 const response = await fetch('/api/fetch-page', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: await window.sendAuthHeaders(),
                     body: JSON.stringify({ url }),
                     signal: AbortSignal.timeout(15000)
                 });

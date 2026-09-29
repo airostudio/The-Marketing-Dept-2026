@@ -69,8 +69,13 @@ window.SocialPostsStore = (function () {
   }
 
   /**
-   * Insert a batch of generated posts/concepts as pending_review rows.
-   * @param {Array<Object>} posts - each: {source, platform, angleType?, hook?, headline, body, cta?, hashtags?, proofPoint?, urgencyLine?, visualDirection?, imageUrl?, metadata?}
+   * Insert a batch of generated posts/concepts. Rows default to
+   * pending_review, same as ever — passing scheduledAt is the one way a
+   * caller opts a post straight into 'scheduled' at insert time (used by a
+   * Campaign Sequence, whose whole point is to already carry a planned
+   * posting date), so a caller building an ordinary review batch doesn't
+   * need to change at all.
+   * @param {Array<Object>} posts - each: {source, platform, angleType?, hook?, headline, body, cta?, hashtags?, proofPoint?, urgencyLine?, visualDirection?, imageUrl?, metadata?, scheduledAt?}
    * @returns {Promise<{batchId: string, posts: Array}>}
    */
   async function createBatch(posts) {
@@ -98,7 +103,7 @@ window.SocialPostsStore = (function () {
       const metadata = { ...(p.metadata || {}) };
       if (!VALID_SOURCES.has(rawSource) && !metadata.origin_agent) metadata.origin_agent = rawSource;
 
-      return {
+      const row = {
         user_id: userId,
         project_id: scope.project_id || null,
         intel_profile_id: scope.intel_profile_id || null,
@@ -117,6 +122,12 @@ window.SocialPostsStore = (function () {
         image_url: p.imageUrl || null,
         metadata,
       };
+      if (p.scheduledAt) {
+        row.scheduled_at = p.scheduledAt;
+        row.status = 'scheduled';
+        row.publish_status = 'queued';
+      }
+      return row;
     });
 
     const { data, error } = await client.from('social_posts').insert(rows).select();

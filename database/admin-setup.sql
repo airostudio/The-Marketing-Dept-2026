@@ -13,24 +13,36 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' CHECK (ro
 -- Step 2: Create index for role-based queries
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
--- Step 3: Update the plan check constraint to include 'admin'
+-- Step 3: Admin status lives entirely in the `role` column above — it is
+-- independent of `plan` (an admin can be on any billing tier, including
+-- free, since admin access isn't a purchased plan). The canonical plan enum
+-- is defined in supabase-intelligence-profiles.sql; re-assert it here too so
+-- this script still works if run standalone/out of order.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
-ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check CHECK (plan IN ('free', 'pro', 'enterprise', 'admin'));
+ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+  CHECK (plan IN (
+    'free',
+    'start','growth','scale','autonomous','enterprise',
+    'agency_starter','agency_growth','agency_pro','agency_enterprise'
+  ));
 
 -- Step 4: Create admin RLS policies
 -- Admin users can view all profiles
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
 CREATE POLICY "Admins can view all profiles" ON profiles
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
     );
 
 -- Admin users can update any profile
+DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
 CREATE POLICY "Admins can update any profile" ON profiles
     FOR UPDATE USING (
         EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
     );
 
 -- Admin users can delete any profile (except other admins)
+DROP POLICY IF EXISTS "Admins can delete non-admin profiles" ON profiles;
 CREATE POLICY "Admins can delete non-admin profiles" ON profiles
     FOR DELETE USING (
         EXISTS (
@@ -42,11 +54,13 @@ CREATE POLICY "Admins can delete non-admin profiles" ON profiles
     );
 
 -- Step 5: Admin access to all projects
+DROP POLICY IF EXISTS "Admins can view all projects" ON projects;
 CREATE POLICY "Admins can view all projects" ON projects
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
     );
 
+DROP POLICY IF EXISTS "Admins can update all projects" ON projects;
 CREATE POLICY "Admins can update all projects" ON projects
     FOR UPDATE USING (
         EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
@@ -55,14 +69,42 @@ CREATE POLICY "Admins can update all projects" ON projects
 -- Step 6: Create admin activity log table
 CREATE TABLE IF NOT EXISTS admin_activity_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    action TEXT NOT NULL,  -- e.g., 'user_created', 'user_updated', 'user_deleted', 'plan_changed'
+    -- SET NULL, not CASCADE. An audit row's whole job is to outlive the
+    -- thing it describes: deleting an administrator must not delete the
+    -- record of what that administrator did, which is precisely the history
+    -- anyone investigating would come looking for.
+    admin_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- Denormalised on purpose. Once the account is gone the id points at
+    -- nothing, and "some deleted user changed a plan" answers no question.
+    admin_email TEXT,
+    action TEXT NOT NULL,  -- e.g. 'user_created', 'user_deleted', 'role_granted'
     target_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    target_email TEXT,
     details JSONB DEFAULT '{}',
     ip_address INET,
     user_agent TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Existing installs: the table shipped with CASCADE on admin_id and no email
+-- columns. These bring it into line without touching a recorded row.
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS admin_email  TEXT;
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS target_email TEXT;
+ALTER TABLE admin_activity_log ALTER COLUMN admin_id DROP NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'admin_activity_log_admin_id_fkey'
+       AND table_name = 'admin_activity_log'
+  ) THEN
+    ALTER TABLE admin_activity_log DROP CONSTRAINT admin_activity_log_admin_id_fkey;
+    ALTER TABLE admin_activity_log
+      ADD CONSTRAINT admin_activity_log_admin_id_fkey
+      FOREIGN KEY (admin_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_admin_log_admin ON admin_activity_log(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_log_target ON admin_activity_log(target_user_id);
@@ -71,15 +113,25 @@ CREATE INDEX IF NOT EXISTS idx_admin_log_created ON admin_activity_log(created_a
 -- RLS for admin activity log
 ALTER TABLE admin_activity_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can view activity log" ON admin_activity_log;
 CREATE POLICY "Admins can view activity log" ON admin_activity_log
     FOR SELECT USING (
         EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
     );
 
-CREATE POLICY "Admins can create activity log" ON admin_activity_log
-    FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
-    );
+-- There is deliberately NO insert policy here any more, and none for UPDATE
+-- or DELETE either.
+--
+-- The one that stood here let any admin insert rows through the anon key.
+-- That is the wrong shape for an audit log: it allowed an administrator to
+-- write entries by hand — manufacturing a record of something that never
+-- happened, or padding the log around something that did. Writes come from
+-- the server on the service-role key, which bypasses RLS, so removing this
+-- costs nothing and closes the forgery route.
+--
+-- RLS denies whatever has no policy, so the table is now append-only from
+-- the server and read-only to every client: admins can read it, nobody can
+-- edit or erase it.
 
 -- Step 7: Function to promote user to admin
 CREATE OR REPLACE FUNCTION promote_to_admin(user_email TEXT, admin_role TEXT DEFAULT 'admin')
@@ -103,20 +155,21 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
     END IF;
 
-    -- Update profile to admin
+    -- Update profile to admin (role only — plan/billing is untouched)
     UPDATE profiles
     SET
         role = admin_role,
-        plan = 'admin',
         updated_at = NOW()
     WHERE id = target_user_id;
 
     -- Log the action
-    INSERT INTO admin_activity_log (admin_id, action, target_user_id, details)
+    INSERT INTO admin_activity_log (admin_id, admin_email, action, target_user_id, target_email, details)
     VALUES (
         auth.uid(),
+        (SELECT email FROM profiles WHERE id = auth.uid()),
         'user_promoted_to_admin',
         target_user_id,
+        user_email,
         jsonb_build_object('new_role', admin_role, 'email', user_email)
     );
 
@@ -146,11 +199,10 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'User not found with email: ' || user_email);
     END IF;
 
-    -- Update profile to user
+    -- Update profile to user (role only — plan/billing is untouched)
     UPDATE profiles
     SET
         role = 'user',
-        plan = 'free',
         updated_at = NOW()
     WHERE id = target_user_id;
 
@@ -182,11 +234,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. Then run ONE of these commands to make that user an admin:
 --
 --    For regular admin:
---    UPDATE profiles SET role = 'admin', plan = 'admin'
+--    UPDATE profiles SET role = 'admin'
 --    WHERE email = 'your-email@example.com';
 --
 --    For super admin:
---    UPDATE profiles SET role = 'super_admin', plan = 'admin'
+--    UPDATE profiles SET role = 'super_admin'
 --    WHERE email = 'your-email@example.com';
 --
 -- 3. After that, you can use the admin dashboard to manage other users

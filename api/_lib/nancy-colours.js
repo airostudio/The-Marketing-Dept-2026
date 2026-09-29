@@ -37,10 +37,12 @@ function isNeutral(hex) {
  * colours inside button/CTA/heading/link selector blocks score highest;
  * colours found anywhere else in the stylesheet score lowest.
  */
-function extractColours(html) {
+function extractColours(html, externalCss = '') {
   const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
   const inlineStyles = [...html.matchAll(/style=["']([^"']+)["']/gi)].map(m => m[1]).join('\n');
-  const allCss = styleBlocks + '\n' + inlineStyles;
+  // Linked stylesheets are where a real site keeps its brand colours; without
+  // them this function returned nothing on most sites customers actually own.
+  const allCss = String(externalCss || '') + '\n' + styleBlocks + '\n' + inlineStyles;
 
   const scores = new Map(); // hex -> score
 
@@ -77,14 +79,22 @@ function extractColours(html) {
     secondary: ranked.slice(1, 3),
     accent: ranked.slice(3, 5),
     allCandidates: ranked.slice(0, 12),
+    // Lets callers tell "we looked and this site has no declared colours"
+    // apart from "we never looked", which decide different things downstream.
+    cssBytesRead: allCss.trim().length,
   };
 }
 
 /** Detects font-family declarations, for a Google Fonts fallback suggestion. */
-function extractFontHints(html) {
-  const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
+function extractFontHints(html, externalCss = '') {
+  const styleBlocks = String(externalCss || '') + '\n' +
+    [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
   const linkFonts = [...html.matchAll(/fonts\.googleapis\.com\/css2?\?family=([^"'&]+)/gi)].map(m => decodeURIComponent(m[1]).split(':')[0].replace(/\+/g, ' '));
-  const familyRules = [...styleBlocks.matchAll(/font-family\s*:\s*([^;]+);/gi)].map(m => m[1].replace(/["']/g, '').split(',')[0].trim());
+  // Terminate on `;` or `}`. Requiring the semicolon missed the last
+  // declaration in every block, and every minifier drops exactly that one —
+  // so on real, minified stylesheets this found no fonts at all.
+  const familyRules = [...styleBlocks.matchAll(/font-family\s*:\s*([^;}]+)[;}]/gi)]
+    .map(m => m[1].replace(/["']/g, '').split(',')[0].trim());
   const seen = new Set();
   const all = [...linkFonts, ...familyRules].filter(f => {
     const key = f.toLowerCase();

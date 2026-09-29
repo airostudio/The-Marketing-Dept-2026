@@ -61,10 +61,17 @@ function verifyJWT(token, secret) {
 // ── Handler ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // CORS — only Webese origins
+  // CORS — only Webese origins.
+  //
+  // The scheme is part of the match. endsWith('.webese.ai') alone also
+  // accepted http://x.webese.ai, and reflecting an attacker-reachable origin
+  // back is the one thing a reflected-origin check exists to avoid. Nothing
+  // here sets Access-Control-Allow-Credentials, so the exposure was small —
+  // but the check should say what it means.
   const origin = req.headers.origin || ''
-  if (origin.endsWith('.webese.ai') || origin === 'https://webese.ai') {
+  if (/^https:\/\/([a-z0-9-]+\.)*webese\.ai$/i.test(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
   }
 
   if (req.method === 'OPTIONS') {

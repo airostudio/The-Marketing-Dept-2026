@@ -264,6 +264,8 @@
 <script src="../js/supabase-client.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/contacts-store.js"></script>
 <script src="../js/social-posts-store.js"></script>
 <script>
@@ -410,34 +412,57 @@
             try {
                 const search = document.getElementById('search-input').value.trim();
                 const status = document.getElementById('filter-status').value;
-                const contacts = await window.ContactsStore.listContacts({ search, status, limit: 200 });
-                renderContacts(contacts);
-                renderStats(contacts);
+                const PAGE = 200;
+                const contacts = await window.ContactsStore.listContacts({ search, status, limit: PAGE });
+                // How many actually match, so a list that is cut off says so.
+                // It used to show 200 rows and call the count "Loaded", which
+                // is true but tells a customer with 3,000 contacts nothing
+                // about the 2,800 they cannot see.
+                let matching = contacts.length;
+                try {
+                    if (window.ContactsStore.countContacts) {
+                        matching = await window.ContactsStore.countContacts({ search, status });
+                    }
+                } catch (e) { /* the list is still correct without the count */ }
+                renderContacts(contacts, matching, PAGE);
+                renderStats(contacts, matching);
             } catch (e) {
                 body.innerHTML = `<div class="msg err">${escHtml(e.message)}</div>`;
+                if (window.reportFailure) window.reportFailure('Audience Manager could not load contacts: ' + e.message, { where: 'audience-agent.loadContacts' });
             }
         }
 
-        function renderStats(contacts) {
-            const total = contacts.length;
+        function renderStats(contacts, matching) {
+            // The breakdown is counted over the rows on screen, so the total
+            // shown beside it has to be the same population — otherwise the
+            // four numbers do not add up and no label can rescue that. The
+            // full match count gets its own pill instead.
+            const loaded = contacts.length;
             const subscribed = contacts.filter(c => c.status === 'subscribed').length;
             const unsub = contacts.filter(c => c.status === 'unsubscribed').length;
             const bounced = contacts.filter(c => c.status === 'bounced' || c.status === 'complained').length;
+            const truncated = matching != null && matching > loaded;
             document.getElementById('contact-stats').innerHTML = `
-                <div class="stat-pill"><div class="num">${total}</div><div class="label">Loaded</div></div>
-                <div class="stat-pill"><div class="num">${subscribed}</div><div class="label">Subscribed</div></div>
-                <div class="stat-pill"><div class="num">${unsub}</div><div class="label">Unsubscribed</div></div>
-                <div class="stat-pill"><div class="num">${bounced}</div><div class="label">Bounced/Complained</div></div>
+                <div class="stat-pill"><div class="num">${loaded}</div><div class="label">Loaded</div></div>
+                ${truncated ? `<div class="stat-pill"><div class="num">${matching}</div><div class="label">Matching in total</div></div>` : ''}
+                <div class="stat-pill"><div class="num">${subscribed}</div><div class="label">Subscribed (of loaded)</div></div>
+                <div class="stat-pill"><div class="num">${unsub}</div><div class="label">Unsubscribed (of loaded)</div></div>
+                <div class="stat-pill"><div class="num">${bounced}</div><div class="label">Bounced/Complained (of loaded)</div></div>
             `;
         }
 
-        function renderContacts(contacts) {
+        function renderContacts(contacts, matching, pageSize) {
             const body = document.getElementById('contacts-body');
             if (!contacts.length) {
                 body.innerHTML = `<div class="empty-state">No contacts yet. Head to the Import tab to add your first list.</div>`;
                 return;
             }
-            body.innerHTML = `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>
+            const truncated = matching != null && matching > contacts.length;
+            const notice = truncated
+                ? `<div class="msg" style="margin-bottom:10px;">Showing the ${contacts.length} most recent of <strong>${matching}</strong> matching contacts.
+                     Narrow it with the search box or the status filter to see the rest.</div>`
+                : '';
+            body.innerHTML = notice + `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>
                 <th>Email</th><th>Name</th><th>Company</th><th>Tags</th><th>Status</th><th>Consent</th><th></th>
             </tr></thead><tbody>
                 ${contacts.map(c => `<tr>

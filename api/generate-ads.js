@@ -32,26 +32,15 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
+
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX    = 8;
-const rateBuckets       = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW) {
-    b = { windowStart: now, count: 0 };
-    rateBuckets.set(ip, b);
-  }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
 // ── Platform specs (character limits + visual guidance) ────────────────────
 const PLATFORM_SPECS = {
@@ -322,15 +311,18 @@ function getObjectiveStrategy(objective) {
   return strategies[objective] || strategies['Conversions'];
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/generate-ads', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Each call is a Claude completion billed to the account.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'generate-ads', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth })) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
@@ -365,40 +357,128 @@ module.exports = async function handler(req, res) {
   const modelsArr = Array.isArray(models) ? models : [models];
   const variantCount = Math.min(Number(variants) || 5, 8);
 
+  // vercel.json's "api/*.js" glob raised maxDuration to 150s app-wide (see
+  // generate-social-posts.js's own UPSTREAM_TIMEOUT_MS for the same fix) —
+  // this file still had the old pre-bump 55s abort left over, which is what
+  // kept firing "The operation was aborted due to timeout" even after
+  // splitting the request to one platform at a time: a single platform with
+  // several variants/frameworks and a forced structured tool call can
+  // legitimately take longer than 55s. 145000 leaves 5s of the function's
+  // own 150s budget for the rest of the handler (parsing, persistence).
+  const UPSTREAM_TIMEOUT_MS = 145000;
+
+  function isTimeout(err) {
+    return err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted due to timeout/i.test(err.message || '');
+  }
+
   try {
+    // Streamed, not a single non-streaming fetch — a non-streaming request
+    // that takes tens of seconds to produce its one response is exactly the
+    // shape most likely to get killed early by an idle-connection timeout
+    // somewhere in the network path (proxies/CDNs commonly kill a connection
+    // that's gone quiet for ~30s even when the overall request budget is
+    // larger), which reads identically to "Claude took too long" even when
+    // Claude was still actively generating. This is the same fix already
+    // applied to generate-social-posts.js for the same forced-tool-use shape.
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json',
-      },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({
         model:      'claude-sonnet-4-6',
         max_tokens: 8000,
         system:     systemPrompt,
         tools:      [AD_VARIANTS_TOOL],
         tool_choice: { type: 'tool', name: 'submit_ad_variants' },
+        stream:     true,
         messages: [{
           role:    'user',
           content: `Generate the complete ad campaign now. ${platforms.length} platform(s): ${platforms.join(', ')}. ${variantCount} variants each. Frameworks: ${modelsArr.join(', ')}. Objective: ${objective}. Make every word count — this is real ad spend going out the door.`,
         }],
       }),
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
-    const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      const errMsg = data.error?.message || `Anthropic error ${upstream.status}`;
+      const errData = await upstream.json().catch(() => ({}));
+      const errMsg = errData.error?.message || `Anthropic error ${upstream.status}`;
       return res.status(upstream.status).json({ error: errMsg });
     }
 
-    const toolUse = data.content?.find(b => b.type === 'tool_use' && b.name === 'submit_ad_variants');
-    if (!toolUse || !Array.isArray(toolUse.input?.variants) || !toolUse.input.variants.length) {
+    // Minimal SSE accumulator — only the one forced tool_use block's input
+    // JSON (built incrementally via input_json_delta events) plus the final
+    // usage stats matter; everything else in the stream is ignored. Same
+    // line-by-line parsing as generate-social-posts.js, for the same reason:
+    // scanning for '\n'-terminated "data:" lines tolerates a stray '\r' or a
+    // missing blank-line separator without losing events.
+    let toolInputJson = '';
+    let usage = null;
+    let sawToolUse = false;
+    let streamError = null;
+    let eventCount = 0;
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const processLine = (rawLine) => {
+      const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+      if (!line.startsWith('data:')) return;
+      const jsonStr = line.slice(5).trim();
+      if (!jsonStr || jsonStr === '[DONE]') return;
+
+      let payload;
+      try {
+        payload = JSON.parse(jsonStr);
+      } catch {
+        return;
+      }
+      eventCount++;
+
+      if (payload.type === 'content_block_start' && payload.content_block?.type === 'tool_use') {
+        sawToolUse = true;
+      } else if (payload.type === 'content_block_delta' && payload.delta?.type === 'input_json_delta') {
+        toolInputJson += payload.delta.partial_json || '';
+      } else if (payload.type === 'message_start') {
+        usage = payload.message?.usage || null;
+      } else if (payload.type === 'message_delta') {
+        usage = { ...(usage || {}), ...(payload.usage || {}) };
+      } else if (payload.type === 'error') {
+        streamError = payload.error?.message || 'Anthropic stream error';
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (value && value.length) buffer += decoder.decode(value, { stream: true });
+      if (done) {
+        buffer += decoder.decode();
+        if (buffer) processLine(buffer);
+        break;
+      }
+      let newlineIdx;
+      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+        processLine(buffer.slice(0, newlineIdx));
+        buffer = buffer.slice(newlineIdx + 1);
+      }
+    }
+
+    if (streamError) return res.status(502).json({ error: streamError });
+    if (!sawToolUse || !toolInputJson) {
+      console.error('generate-ads: no tool_use captured', { eventCount, sawToolUse, toolInputJsonLength: toolInputJson.length });
       return res.status(502).json({ error: 'Claude did not return structured ad variants. Try again — this is usually transient.' });
     }
 
-    const { campaignStrategyNote, variants: structuredVariants } = toolUse.input;
+    let toolInput;
+    try {
+      toolInput = JSON.parse(toolInputJson);
+    } catch {
+      return res.status(502).json({ error: 'Claude returned malformed structured output. Try again — this is usually transient.' });
+    }
+
+    const { campaignStrategyNote, variants: structuredVariants } = toolInput;
+    if (!Array.isArray(structuredVariants) || !structuredVariants.length) {
+      return res.status(502).json({ error: 'Claude did not return structured ad variants. Try again — this is usually transient.' });
+    }
 
     return res.json({
       success:              true,
@@ -409,10 +489,13 @@ module.exports = async function handler(req, res) {
       objective,
       models:               modelsArr,
       variantsRequested:    variantCount,
-      usage:                data.usage,
+      usage,
     });
 
   } catch (err) {
+    if (isTimeout(err)) {
+      return res.status(504).json({ error: `Claude took too long generating variants for ${platforms.join(', ')}. Try again, or generate fewer variants/frameworks at once if this keeps happening.` });
+    }
     return res.status(502).json({ error: err.message });
   }
-};
+});

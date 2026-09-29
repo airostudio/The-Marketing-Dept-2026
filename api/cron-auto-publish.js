@@ -25,6 +25,7 @@
 
 'use strict';
 
+const { withFailureReporting } = require('./_lib/report-failure.js');
 const { publishPost } = require('./publish-social-post.js');
 
 const BATCH_LIMIT = 25;
@@ -45,7 +46,7 @@ async function sb(supabaseUrl, serviceKey, method, path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/cron-auto-publish', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return res.status(500).json({ error: 'CRON_SECRET is not configured — refusing to run an unauthenticated auto-publish sweep.' });
@@ -114,4 +115,4 @@ module.exports = async function handler(req, res) {
   }
 
   return res.json(summary);
-};
+});

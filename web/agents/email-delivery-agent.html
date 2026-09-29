@@ -209,6 +209,7 @@
             <span class="panel-title">Scotty QA Review</span>
             <button class="btn-secondary" onclick="EDA.backToCollate()" style="padding:6px 14px;font-size:12px;">← Edit Campaign</button>
         </div>
+        <div class="panel-body" id="merge-preview-box" style="border-bottom:1px solid var(--border);"></div>
         <div class="panel-body" id="review-body">
             <div class="empty-state">Waiting to run review…</div>
         </div>
@@ -282,6 +283,8 @@
 <script src="../js/agent-history.js"></script>
 <script src="../js/supabase.min.js"></script>
 <script src="../js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
 <script src="../js/intelligence-profiles.js"></script>
 <script src="../js/site-switcher.js"></script>
 <script src="../js/contacts-store.js"></script>
@@ -387,9 +390,16 @@
             const html      = document.getElementById('in-html').value.trim();
             const text      = document.getElementById('in-text').value.trim();
             const replyTo   = document.getElementById('in-replyto').value.trim();
-            const recipients = segmentRecipients
+            let recipients = segmentRecipients
                 ? segmentRecipients.recipients
                 : window.EmailDeliveryService.parseRecipientList(document.getElementById('in-recipients').value);
+
+            // Segment recipients already come from real contact records
+            // (ContactsStore.toRecipients()) — only a hand-pasted list can be
+            // missing a name the account already has on file for that address.
+            if (!segmentRecipients) {
+                recipients = await window.EmailDeliveryService.enrichRecipientsFromContacts(recipients);
+            }
 
             if (!subject) return alert('Subject line is required.');
             if (!html) return alert('Email body is required.');
@@ -417,6 +427,7 @@
         }
 
         async function runReview() {
+            renderMergePreview(); // independent of Scotty — lives in its own box, not wiped by renderReview()
             const body = document.getElementById('review-body');
             body.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text2);padding:20px;"><span class="spinner"></span> Scotty is reviewing "${escHtml(campaign.campaignName)}" for ${campaign.recipients.length} recipients…</div>`;
 
@@ -424,9 +435,115 @@
                 lastReview = await window.EmailDeliveryService.reviewWithScotty(campaign);
                 renderReview(lastReview);
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery pre-send review failed: ' + e.message, { where: 'email-delivery-agent.runReview' });
                 body.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">⚠️ Review failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>
                 <div class="btn-row"><button class="btn-secondary" onclick="EDA.runReview()">Retry Review</button></div>`;
             }
+        }
+
+        /**
+         * Renders the campaign with ONE real recipient's actual data —
+         * neither the compose box nor Scotty's review ever showed this
+         * before, so a mistyped merge tag ({{first_name}} instead of
+         * {{firstName}}) or a bracket placeholder ("[First Name]") looked
+         * identical to working personalization right up until send. Uses
+         * /api/preview-merge, which runs the EXACT same substitution and
+         * pre-send check api/send-campaign.js itself uses — this shows
+         * what would actually happen, not a separate guess at it.
+         */
+        async function renderMergePreview() {
+            const box = document.getElementById('merge-preview-box');
+            const sample = campaign.recipients[0];
+            if (!sample) { box.innerHTML = ''; return; }
+            box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12.5px;"><span class="spinner"></span> Rendering a preview with real recipient data…</div>`;
+
+            try {
+                const res = await fetch('/api/preview-merge', {
+                    method: 'POST', headers: await window.sendAuthHeaders(),
+                    body: JSON.stringify({ subject: campaign.subject, html: campaign.html, text: campaign.text, mergeFields: sample.mergeFields }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Preview failed');
+
+                const hasIssues = data.issues && data.issues.length;
+                const placeholders = data.placeholders || [];
+                box.innerHTML = `
+                    <div class="field-label">Preview — rendered for ${escHtml(sample.toName || sample.to)} (${escHtml(sample.to)})</div>
+                    ${hasIssues
+                        ? `<ul class="issue-list blockers" style="margin-top:6px;">${data.issues.map(i => `<li>🛑 ${escHtml(i)}</li>`).join('')}</ul>`
+                        : `<div style="color:var(--text2);font-size:12px;margin:4px 0 8px;">✅ No unresolved merge tags or placeholders for this recipient.</div>`}
+                    ${placeholders.length ? `<div id="placeholder-fill-form"></div>` : ''}
+                    <div style="font-weight:700;font-size:13.5px;margin-top:8px;">${escHtml(data.subject)}</div>
+                    <div id="preview-frame-wrap" style="border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;"></div>
+                `;
+
+                // srcdoc set as a property, not string-interpolated into the
+                // HTML above — the campaign body is the author's own content,
+                // but it's still full HTML (possibly with its own <style> or
+                // inline event handlers), and a sandboxed, scriptless iframe
+                // renders it visually without letting it touch this page.
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                iframe.style.cssText = 'width:100%;height:280px;border:none;background:#fff;';
+                iframe.srcdoc = data.html;
+                document.getElementById('preview-frame-wrap').appendChild(iframe);
+
+                // This is the "ask, don't just refuse" step: a placeholder
+                // like "[ADD: a real stat here]" isn't something the system
+                // can guess at (unlike [First Name], already resolved above
+                // from the recipient's own row) — someone has to supply the
+                // actual content before this can send at all.
+                if (placeholders.length) renderPlaceholderFillForm(placeholders);
+            } catch (e) {
+                box.innerHTML = `<div style="color:var(--text2);font-size:12px;">Could not render a preview: ${escHtml(e.message)}</div>`;
+            }
+        }
+
+        function renderPlaceholderFillForm(placeholders) {
+            const form = document.getElementById('placeholder-fill-form');
+            if (!form) return;
+            form.style.cssText = 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px 14px;margin:8px 0;';
+            form.innerHTML = `
+                <div style="font-weight:700;font-size:12.5px;color:#f59e0b;margin-bottom:8px;">This still needs real content before it can send:</div>
+                ${placeholders.map((p, i) => `
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11.5px;color:var(--text2);margin-bottom:3px;">What should replace <code>${escHtml(p)}</code>?</label>
+                        <input type="text" class="placeholder-fill-input" data-placeholder="${escHtml(p)}" id="placeholder-fill-${i}" style="width:100%;" placeholder="Type the real content…">
+                    </div>`).join('')}
+                <button type="button" class="btn-secondary" onclick="EDA.applyPlaceholderFixes()" style="margin-top:4px;">Apply fixes &amp; re-check</button>
+            `;
+        }
+
+        /**
+         * Replaces each filled-in placeholder with the real text supplied,
+         * everywhere it appears (subject/html/text alike) — updates both the
+         * in-memory campaign object AND the visible compose fields, so the
+         * fix is still there if the person goes back to "Edit Campaign", then
+         * re-runs the whole review so the preview reflects the real content.
+         */
+        function applyPlaceholderFixes() {
+            const inputs = document.querySelectorAll('.placeholder-fill-input');
+            let appliedAny = false;
+            inputs.forEach((input) => {
+                const value = input.value.trim();
+                if (!value) return; // leave unfilled ones as-is — still flagged next pass
+                const placeholder = input.dataset.placeholder;
+                // Split/join rather than a regex — a bracket placeholder can
+                // contain regex-special characters (e.g. "[Try Free →]" has
+                // none, but nothing guarantees that in general).
+                const replaceAll = (s) => (s || '').split(placeholder).join(value);
+                campaign.subject = replaceAll(campaign.subject);
+                campaign.html = replaceAll(campaign.html);
+                if (campaign.text) campaign.text = replaceAll(campaign.text);
+                appliedAny = true;
+            });
+            if (!appliedAny) return;
+
+            document.getElementById('in-subject').value = campaign.subject;
+            document.getElementById('in-html').value = campaign.html;
+            if (document.getElementById('in-text')) document.getElementById('in-text').value = campaign.text || '';
+
+            runReview();
         }
 
         function renderReview(review) {
@@ -447,19 +564,134 @@
             }
             html += `</div>`;
 
+            if (!review.approved) html += `<div id="scotty-fix-box"></div>`;
+
             html += `<div class="recipient-count">Ready to send to <strong>${campaign.recipients.length}</strong> recipient${campaign.recipients.length === 1 ? '' : 's'}.</div>`;
 
             html += `<div class="btn-row" style="margin-top:12px;">`;
             if (review.approved) {
                 html += `<button class="btn-run" onclick="EDA.proceedToSend()">Proceed to Send →</button>`;
             } else {
-                html += `<button class="btn-secondary" onclick="EDA.backToCollate()">Fix Campaign</button>
+                html += `<button class="btn-secondary" onclick="EDA.askScottyToFix()" id="btn-scotty-fix">🔧 Ask Scotty to fix this</button>
+                          <button class="btn-secondary" onclick="EDA.backToCollate()">Fix Campaign Myself</button>
                           <button class="btn-secondary" onclick="EDA.runReview()">Re-run Review</button>
                           <button class="btn-danger btn-run" onclick="EDA.overrideAndSend()" title="Only use this if you have manually verified the flagged issues are false positives">Send Anyway (Override)</button>`;
             }
             html += `</div>`;
 
             body.innerHTML = html;
+        }
+
+        /**
+         * Have Scotty attempt its own fix pass on a blocked campaign: rewrite
+         * whatever's safely fixable (tone, spam language, an overstated
+         * claim), and ask — with the exact snippet to replace — for anything
+         * that needs a real fact it can't invent (a URL, a name, a stat).
+         * Reuses api/fix-campaign.js's forced-tool-call schema, so the
+         * distinction between "safe to rewrite" and "needs a real answer" is
+         * enforced by the prompt, not left to guesswork here.
+         */
+        async function askScottyToFix() {
+            const box = document.getElementById('scotty-fix-box');
+            const btn = document.getElementById('btn-scotty-fix');
+            if (!box || !lastReview || !lastReview.blockers.length) return;
+            btn.disabled = true;
+            box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12.5px;margin:10px 0;"><span class="spinner"></span> Scotty is working on a fix…</div>`;
+
+            try {
+                const res = await fetch('/api/fix-campaign', {
+                    method: 'POST', headers: await window.sendAuthHeaders(),
+                    body: JSON.stringify({ subject: campaign.subject, html: campaign.html, text: campaign.text, blockers: lastReview.blockers }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Scotty could not attempt a fix.');
+                renderScottyFix(data);
+            } catch (e) {
+                box.innerHTML = `<div class="verdict-box blocked" style="margin:10px 0;"><div class="verdict-title blocked">⚠️ Could not attempt a fix</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function renderScottyFix(fix) {
+            const box = document.getElementById('scotty-fix-box');
+            const changedCopy = fix.fixedSubject !== campaign.subject || fix.fixedHtml !== campaign.html;
+            let html = '';
+
+            if (changedCopy && fix.resolvedBlockers.length) {
+                html += `
+                    <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:12px 14px;margin:10px 0;">
+                        <div style="font-weight:700;font-size:12.5px;color:#86efac;margin-bottom:6px;">Scotty can fix this:</div>
+                        <ul class="issue-list" style="margin-bottom:10px;">${fix.resolvedBlockers.map(b => `<li>✅ ${escHtml(b)}</li>`).join('')}</ul>
+                        <div style="font-weight:700;font-size:13.5px;">${escHtml(fix.fixedSubject)}</div>
+                        <div id="scotty-fix-frame-wrap" style="border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;"></div>
+                        <button type="button" class="btn-run" style="margin-top:10px;" onclick="EDA.applyScottyFix()">Apply Scotty's fix &amp; re-check</button>
+                    </div>`;
+            } else if (fix.resolvedBlockers.length) {
+                html += `<div class="verdict-box approved" style="margin:10px 0;"><div class="verdict-summary">${escHtml(fix.resolvedBlockers.join(' '))}</div></div>`;
+            }
+
+            if (fix.questions.length) {
+                html += `<div id="scotty-questions-form"></div>`;
+            }
+
+            if (!changedCopy && !fix.resolvedBlockers.length && !fix.questions.length) {
+                html += `<div class="verdict-summary" style="margin:10px 0;color:var(--text2);">Scotty didn't find anything it could safely change here.</div>`;
+            }
+
+            box.innerHTML = html;
+            pendingScottyFix = fix;
+
+            if (changedCopy) {
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                iframe.style.cssText = 'width:100%;height:220px;border:none;background:#fff;';
+                iframe.srcdoc = fix.fixedHtml;
+                document.getElementById('scotty-fix-frame-wrap').appendChild(iframe);
+            }
+            if (fix.questions.length) {
+                renderScottyQuestionsForm(fix.questions);
+            }
+        }
+
+        let pendingScottyFix = null;
+
+        function applyScottyFix() {
+            if (!pendingScottyFix) return;
+            campaign.subject = pendingScottyFix.fixedSubject;
+            campaign.html = pendingScottyFix.fixedHtml;
+            if (pendingScottyFix.fixedText) campaign.text = pendingScottyFix.fixedText;
+            document.getElementById('in-subject').value = campaign.subject;
+            document.getElementById('in-html').value = campaign.html;
+            if (document.getElementById('in-text')) document.getElementById('in-text').value = campaign.text || '';
+            pendingScottyFix = null;
+            runReview();
+        }
+
+        /**
+         * Same rendering shape as renderPlaceholderFillForm (Link Funnel's
+         * merge-preview box) — deliberately: an "answer this to fix it" input
+         * per exact snippet, using the same `.placeholder-fill-input` /
+         * `data-placeholder` convention so the existing applyPlaceholderFixes()
+         * handles both a leftover bracket placeholder AND a Scotty-flagged
+         * blocker with the same one-click flow, not a second mechanism.
+         */
+        function renderScottyQuestionsForm(questions) {
+            const form = document.getElementById('scotty-questions-form');
+            if (!form) return;
+            const answerable = questions.filter(q => q.snippet);
+            const unanchored = questions.filter(q => !q.snippet);
+            form.style.cssText = 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px 14px;margin:10px 0;';
+            form.innerHTML = `
+                <div style="font-weight:700;font-size:12.5px;color:#f59e0b;margin-bottom:8px;">Scotty needs real information for the rest:</div>
+                ${answerable.map((q, i) => `
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11.5px;color:var(--text2);margin-bottom:3px;">${escHtml(q.question)}</label>
+                        <input type="text" class="placeholder-fill-input" data-placeholder="${escHtml(q.snippet)}" id="scotty-q-${i}" style="width:100%;" placeholder="Type the real content…">
+                    </div>`).join('')}
+                ${unanchored.length ? `<ul class="issue-list warnings" style="margin-bottom:8px;">${unanchored.map(q => `<li>⚠️ ${escHtml(q.question)}</li>`).join('')}</ul>` : ''}
+                ${answerable.length ? `<button type="button" class="btn-secondary" onclick="EDA.applyPlaceholderFixes()">Apply answers &amp; re-check</button>` : ''}
+            `;
         }
 
         function proceedToSend() {
@@ -512,6 +744,7 @@
                     });
                 }
             } catch (e) {
+                if (window.reportFailure) window.reportFailure('Email Delivery send failed: ' + e.message, { where: 'email-delivery-agent.send' });
                 progressEl.innerHTML = `<div class="verdict-box blocked"><div class="verdict-title blocked">Send failed</div><div class="verdict-summary">${escHtml(e.message)}</div></div>`;
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '🚀 Send Campaign Now';
@@ -602,7 +835,8 @@
 
         return {
             collate, runReview, backToCollate, proceedToSend, overrideAndSend, doSend,
-            loadFromSegmentPicker, clearSegment,
+            loadFromSegmentPicker, clearSegment, applyPlaceholderFixes,
+            askScottyToFix, applyScottyFix,
         };
     })();
 
@@ -632,7 +866,7 @@
     async function loadConnectionStatus() {
         const row = document.getElementById('connStatusRow');
         try {
-            const res = await fetch('/api/social-connections-status');
+            const res = await fetch('/api/social-connections-status', { headers: await window.sendAuthHeaders() });
             const status = await res.json();
             const platforms = ['LinkedIn', 'Meta/Facebook', 'Instagram', 'Twitter/X', 'TikTok'];
             row.innerHTML = platforms.map(p => {
@@ -711,7 +945,7 @@
         try {
             const res = await fetch('/api/publish-social-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     platform: post.platform, headline: post.headline, body: post.body,
                     cta: post.cta, hashtags: post.hashtags, imageUrl: post.image_url || '',
@@ -894,7 +1128,7 @@
         try {
             const res = await fetch('/api/send-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await window.sendAuthHeaders(),
                 body: JSON.stringify({
                     to: item.to, subject: item.subject,
                     html: plainTextToHtml(item.body), text: item.body,

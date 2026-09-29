@@ -6,8 +6,9 @@
  * (and its cloud sync/history) is scoped to the active profile.
  *
  * Plan limits (enforced server-side by a Postgres trigger, mirrored here
- * for friendly UX): basic/free = 1, professional/pro = 3, agency = 8,
- * enterprise = admin-configured via profiles.intel_profile_limit.
+ * for friendly UX): start/growth/scale/autonomous/free = 1,
+ * agency_starter = 5, agency_growth = 15, agency_pro = 50,
+ * enterprise/agency_enterprise = admin-configured via profiles.intel_profile_limit.
  *
  * Active profile is stored in localStorage ('intel_active_profile') and a
  * 'intel-profile:changed' event fires on switch so open pages can reload.
@@ -19,7 +20,11 @@ window.IntelligenceProfiles = (function () {
   'use strict';
 
   const ACTIVE_KEY = 'intel_active_profile';
-  const PLAN_LIMITS = { free: 1, basic: 1, pro: 3, professional: 3, agency: 8 };
+  const PLAN_LIMITS = {
+    free: 1, start: 1, growth: 1, scale: 1, autonomous: 1,
+    agency_starter: 5, agency_growth: 15, agency_pro: 50,
+  };
+  const UNLIMITED_PLANS = new Set(['enterprise', 'agency_enterprise']);
 
   async function getSupabase() {
     if (window.Supabase?.ready) { try { await window.Supabase.ready(); } catch { /* fall through to getClient() below */ } }
@@ -55,16 +60,16 @@ window.IntelligenceProfiles = (function () {
   async function getPlanInfo() {
     const client = await getSupabase();
     const userId = await getUserId();
-    if (!client || !userId) return { plan: 'basic', limit: 1, used: 0, offline: true };
+    if (!client || !userId) return { plan: 'free', limit: 1, used: 0, offline: true };
 
-    let plan = 'basic', customLimit = null;
+    let plan = 'free', customLimit = null;
     try {
       const { data } = await client.from('profiles')
         .select('plan, intel_profile_limit').eq('id', userId).maybeSingle();
-      if (data) { plan = data.plan || 'basic'; customLimit = data.intel_profile_limit; }
+      if (data) { plan = data.plan || 'free'; customLimit = data.intel_profile_limit; }
     } catch { /* keep defaults */ }
 
-    const limit = plan === 'enterprise'
+    const limit = UNLIMITED_PLANS.has(plan)
       ? (customLimit || 1)
       : (PLAN_LIMITS[plan] || 1);
 

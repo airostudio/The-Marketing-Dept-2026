@@ -18,6 +18,10 @@
 
 'use strict';
 
+const { requireUser } = require('./_lib/require-user.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+
 const { crawlSite } = require('./_lib/nancy-crawl.js');
 const { extractColours, extractFontHints } = require('./_lib/nancy-colours.js');
 const { screenshotProvider } = require('./_lib/nancy-providers.js');
@@ -25,30 +29,22 @@ const { uploadToR2, isR2Configured } = require('./_lib/r2.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 6;
-const rateBuckets = new Map();
 
-function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
-}
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let b = rateBuckets.get(ip);
-  if (!b || now - b.windowStart > RATE_LIMIT_WINDOW_MS) { b = { windowStart: now, count: 0 }; rateBuckets.set(ip, b); }
-  b.count++;
-  return b.count <= RATE_LIMIT_MAX;
-}
 
-module.exports = async function handler(req, res) {
+module.exports = withFailureReporting('api/nancy-screenshot', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const ip = getClientIp(req);
-  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests. Slow down.' });
+  // Every path below reaches a paid third party or this server's own crawler
+  // on the account's credentials. Identify the caller before spending any of
+  // it; a rate limit caps the speed, not the entitlement.
+  const auth = await requireUser(req, res);
+  if (!auth) return;
+
+  if (rateLimited(req, res, { name: 'nancy-screenshot', max: 6, windowMs: 60 * 1000, auth })) return;
 
   const { url } = req.body || {};
   if (!url) return res.status(400).json({ error: 'url is required' });
@@ -63,8 +59,11 @@ module.exports = async function handler(req, res) {
     return res.status(422).json({ success: false, error: 'Could not fetch the homepage to inspect its CSS.' });
   }
 
-  const colourCandidates = extractColours(crawl.homepageHtml);
-  const fontHints = extractFontHints(crawl.homepageHtml);
+  // The site's linked stylesheets, not just its inline CSS — see the note in
+  // nancy-crawl.js. Without them this returned no candidates on most real
+  // sites, and the brand step went on to name a colour nobody had measured.
+  const colourCandidates = extractColours(crawl.homepageHtml, crawl.homepageCss);
+  const fontHints = extractFontHints(crawl.homepageHtml, crawl.homepageCss);
 
   try {
     const shot = await screenshotProvider(crawl.origin);
@@ -87,4 +86,4 @@ module.exports = async function handler(req, res) {
     // crash here should still come back as JSON, not a platform error page.
     return res.status(500).json({ success: false, error: err.message || 'Screenshot capture failed unexpectedly.' });
   }
-};
+});
