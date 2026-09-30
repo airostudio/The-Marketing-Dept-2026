@@ -104,6 +104,49 @@ async function searchProvider(query, { systemPrompt, maxTokens = 1500 } = {}) {
 // this adapter layer is that no other file needs to change to switch.
 // Reads SCREENSHOT_API_KEY + SCREENSHOT_PROVIDER so swapping providers is a
 // two-env-var change, not a code change.
+// This app has no image-processing library (no npm deps in api/*.js), so a
+// screenshot too large for Claude's vision limit (image dimensions capped
+// at 8000px — messages.0.content.0.image.source.base64.data errors) cannot
+// be resized after the fact. It has to come back the right size already,
+// which means never asking any provider for a true, unbounded full-page
+// capture: a long landing page easily produces a PNG taller than 8000px at
+// a 1440px-wide viewport. Instead every provider below captures a fixed,
+// bounded region from the top of the page (a generous multiple of one
+// viewport height — enough to see hero + several sections) with full-page
+// capture explicitly turned off, rather than trusting a resize/thumbnail
+// parameter this codebase can't verify against live docs from here.
+const SCREENSHOT_VIEWPORT_WIDTH = 1440;
+const SCREENSHOT_VIEWPORT_HEIGHT = 4000; // comfortably under the 8000px limit on both axes
+const CLAUDE_MAX_IMAGE_DIMENSION = 8000;
+
+/**
+ * Read width/height straight out of a PNG's IHDR chunk (bytes 16-23 of any
+ * valid PNG, no library needed) — every provider above is asked for 'png'
+ * specifically, so this is the one format that matters here.
+ *
+ * @returns {{width: number, height: number} | null} null if this isn't a
+ *   PNG or is too short to have a real IHDR chunk.
+ */
+function readPngDimensions(buf) {
+  const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (buf.length < 24 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) return null;
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+/**
+ * The one bounded viewport height requested above should make this
+ * unreachable in practice, but a provider that ignores fullpage/full_page
+ * (or a future provider added here that isn't checked as carefully) must
+ * never get to hand Claude an image it will flatly reject — that surfaces
+ * as a confusing API-level crash instead of Nancy's normal "screenshot
+ * unavailable, brand colours extracted from CSS only" fallback.
+ */
+function tooLargeForClaude(buf) {
+  const dims = readPngDimensions(buf);
+  if (!dims) return false; // not a PNG we can check — let it through as before
+  return dims.width > CLAUDE_MAX_IMAGE_DIMENSION || dims.height > CLAUDE_MAX_IMAGE_DIMENSION;
+}
+
 async function screenshotProvider(targetUrl) {
   const apiKey = process.env.SCREENSHOT_API_KEY;
   if (!apiKey) {
@@ -126,8 +169,8 @@ async function screenshotProvider(targetUrl) {
       const params = new URLSearchParams({
         access_key: apiKey,
         url: targetUrl,
-        viewport: '1440x900',
-        fullpage: '1',
+        viewport: `${SCREENSHOT_VIEWPORT_WIDTH}x${SCREENSHOT_VIEWPORT_HEIGHT}`,
+        fullpage: '0',
         format,
         force: '1', // bypass screenshotlayer's own cache — Nancy wants the live current page
       });
@@ -145,6 +188,7 @@ async function screenshotProvider(targetUrl) {
 
       const buf = Buffer.from(await res.arrayBuffer());
       if (!buf.length) return unavailable('screenshot', 'screenshotlayer returned an empty response');
+      if (tooLargeForClaude(buf)) return unavailable('screenshot', 'screenshotlayer returned an image larger than Claude can accept — the site\'s page is unusually tall.');
       return { available: true, buffer: buf, mimeType: FORMAT_MIME[format] || 'image/png' };
     }
 
@@ -153,9 +197,9 @@ async function screenshotProvider(targetUrl) {
       const params = new URLSearchParams({
         access_key: apiKey,
         url: targetUrl,
-        viewport_width: '1440',
-        viewport_height: '900',
-        full_page: 'true',
+        viewport_width: String(SCREENSHOT_VIEWPORT_WIDTH),
+        viewport_height: String(SCREENSHOT_VIEWPORT_HEIGHT),
+        full_page: 'false',
         format: 'png',
         block_ads: 'true',
         block_cookie_banners: 'true',
@@ -166,6 +210,7 @@ async function screenshotProvider(targetUrl) {
       });
       if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
+      if (tooLargeForClaude(buf)) return unavailable('screenshot', 'ScreenshotOne returned an image larger than Claude can accept — the site\'s page is unusually tall.');
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
 
@@ -174,11 +219,12 @@ async function screenshotProvider(targetUrl) {
       const res = await fetch(`${endpoint}/screenshot?token=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: targetUrl, options: { fullPage: true, type: 'png' }, viewport: { width: 1440, height: 900 } }),
+        body: JSON.stringify({ url: targetUrl, options: { fullPage: false, type: 'png' }, viewport: { width: SCREENSHOT_VIEWPORT_WIDTH, height: SCREENSHOT_VIEWPORT_HEIGHT } }),
         signal: AbortSignal.timeout(40000),
       });
       if (!res.ok) return unavailable('screenshot', `Screenshot provider error ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
+      if (tooLargeForClaude(buf)) return unavailable('screenshot', 'Browserless returned an image larger than Claude can accept — the site\'s page is unusually tall.');
       return { available: true, buffer: buf, mimeType: 'image/png' };
     }
 
@@ -340,4 +386,4 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350, reference
   }
 }
 
-module.exports = { searchProvider, screenshotProvider, imageGenProvider };
+module.exports = { searchProvider, screenshotProvider, imageGenProvider, readPngDimensions, tooLargeForClaude };
