@@ -198,7 +198,7 @@ async function sendReport(cursor, { leadsFoundToday, candidatesToday, nextState,
     `Checked ${candidatesToday} businesses today, found ${leadsFoundToday} genuine opportunities.`,
     `Running total: ${totalLeadsFound} leads on file, all discover+draft only — nothing has been sent.`,
     `Next run picks up at: ${nextState} / ${nextSector}.`,
-    `Review and send from Blade/Pat: https://audema.com/agents/blade-agent.html`,
+    `Review and send from Blade/Pat: https://audema.marketing/agents/blade-agent.html`,
   ].join('\n');
   const html = text.split('\n').map(l => `<p>${l}</p>`).join('\n');
 

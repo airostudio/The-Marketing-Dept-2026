@@ -72,7 +72,7 @@ module.exports = withFailureReporting('api/check-url', async function handler(re
       method,
       timeoutMs: TIMEOUT_MS,
       headers: {
-        'User-Agent': 'Audema-URLCheck/1.0 (SEO Audit Bot; +https://audema.com)',
+        'User-Agent': 'Audema-URLCheck/1.0 (SEO Audit Bot; +https://audema.marketing)',
         'Accept': 'text/html,application/xhtml+xml,*/*',
       },
     });

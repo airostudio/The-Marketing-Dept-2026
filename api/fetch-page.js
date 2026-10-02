@@ -80,7 +80,7 @@ module.exports = withFailureReporting('api/fetch-page', async function handler(r
       timeoutMs: TIMEOUT_MS,
       maxBytes: MAX_BODY_BYTES,
       headers: {
-        'User-Agent': 'Audema-SEOAudit/1.0 (+https://audema.com/seo-bot)',
+        'User-Agent': 'Audema-SEOAudit/1.0 (+https://audema.marketing/seo-bot)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
