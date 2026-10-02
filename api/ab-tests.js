@@ -26,9 +26,10 @@
 
 'use strict';
 
-const { sbRest } = require('./_lib/supabase-rest.js');
+const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { assignVariant, summariseResults } = require('./_lib/ab-split.js');
+const { canAccessRecord, accessibleProfileIds, ownedOrSharedFilter } = require('./_lib/profile-access.js');
 
 const DIMENSIONS = ['subject', 'content', 'from_name', 'send_time'];
 const GOALS = ['open', 'click'];
@@ -72,13 +73,19 @@ module.exports = withFailureReporting('api/ab-tests', async function handler(req
   const sb = (m, p, b) => sbRest(supabaseUrl, serviceKey, m, p, b);
   const body = req.body || {};
 
-  /** Load a test the caller owns, or null. Ownership re-read from the DB. */
-  async function ownedTest(testId) {
+  /**
+   * Load a test the caller can act on — owned outright, or shared via an
+   * intelligence profile they're a member of. Re-read from the DB every
+   * time; see api/_lib/profile-access.js for why this can't just be RLS
+   * (this endpoint holds the service-role key and bypasses RLS entirely).
+   */
+  async function ownedTest(testId, { requireEdit = true } = {}) {
     if (!testId) return { http: 400, err: { error: 'testId is required.' } };
     const r = await sb('GET', `/email_ab_tests?id=eq.${encodeURIComponent(testId)}&limit=1`);
     if (!r.ok) return { http: r.status === 404 ? 503 : 500, err: tableError(r) };
     const t = r.data && r.data[0];
-    if (!t || t.user_id !== caller.id) return { http: 404, err: { error: 'Test not found.' } };
+    const allowed = t && await canAccessRecord(supabaseUrl, serviceKey, caller.id, t, { requireEdit });
+    if (!allowed) return { http: 404, err: { error: 'Test not found.' } };
     return { test: t };
   }
 
@@ -111,8 +118,20 @@ module.exports = withFailureReporting('api/ab-tests', async function handler(req
         return res.status(400).json({ error: 'A subject-line test needs a subject on every variant.' });
       }
 
+      // Same shared-profile attribution as contacts/segments/email_flows —
+      // see api/email-flows.js's create action for the full reasoning.
+      let intelProfileId = null;
+      if (body.intelProfileId) {
+        if (!isUuid(body.intelProfileId)) return res.status(400).json({ error: 'intelProfileId is not a valid id.' });
+        const allowed = await canAccessRecord(supabaseUrl, serviceKey, caller.id,
+          { user_id: null, intel_profile_id: body.intelProfileId }, { requireEdit: true });
+        if (!allowed) return res.status(403).json({ error: 'You do not have edit access to that business profile.' });
+        intelProfileId = body.intelProfileId;
+      }
+
       const created = await sb('POST', '/email_ab_tests', {
         user_id: caller.id, campaign_id: campaignId, name, dimension, goal,
+        intel_profile_id: intelProfileId,
       });
       if (!created.ok) return res.status(created.status === 404 ? 503 : 500).json(tableError(created));
       const test = created.data && created.data[0];
@@ -143,8 +162,9 @@ module.exports = withFailureReporting('api/ab-tests', async function handler(req
 
     /* ── list ──────────────────────────────────────────────────────────── */
     if (body.action === 'list') {
+      const profileIds = await accessibleProfileIds(supabaseUrl, serviceKey, caller.id);
       const r = await sb('GET',
-        `/email_ab_tests?user_id=eq.${caller.id}&order=created_at.desc&limit=200`);
+        `/email_ab_tests?${ownedOrSharedFilter(caller.id, profileIds)}&order=created_at.desc&limit=200`);
       if (!r.ok) return res.status(r.status === 404 ? 503 : 500).json(tableError(r));
       return res.json({ ok: true, tests: (r.data || []).map(t => ({
         id: t.id, name: t.name, campaignId: t.campaign_id, dimension: t.dimension,
@@ -214,10 +234,14 @@ module.exports = withFailureReporting('api/ab-tests', async function handler(req
 
     /* ── results ───────────────────────────────────────────────────────── */
     if (body.action === 'results') {
-      const { test, http, err } = await ownedTest(body.testId);
+      const { test, http, err } = await ownedTest(body.testId, { requireEdit: false });
       if (err) return res.status(http).json(err);
 
-      const r = await sb('POST', '/rpc/ab_test_results', { tid: test.id, uid: caller.id });
+      // Access was already verified above (owner or shared-profile member);
+      // ab_test_results()'s own uid check only understands exact ownership,
+      // so pass null to skip it rather than have a shared member's own
+      // results call come back empty despite having real access.
+      const r = await sb('POST', '/rpc/ab_test_results', { tid: test.id, uid: null });
       if (!r.ok) return res.status(r.status === 404 ? 503 : 500).json(tableError(r));
 
       const summary = summariseResults(r.data || [], test.goal);

@@ -25,8 +25,9 @@
 
 'use strict';
 
-const { sbRest } = require('./_lib/supabase-rest.js');
+const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
+const { canAccessRecord, accessibleProfileIds, ownedOrSharedFilter } = require('./_lib/profile-access.js');
 
 const TRIGGERS = ['manual', 'contact_created', 'segment_entry'];
 const STATUSES = ['draft', 'active', 'paused'];
@@ -74,12 +75,17 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
   const sb = (m, p, b) => sbRest(supabaseUrl, serviceKey, m, p, b);
   const body = req.body || {};
 
-  async function ownedFlow(flowId) {
+  async function ownedFlow(flowId, { requireEdit = true } = {}) {
     if (!flowId) return { http: 400, err: { error: 'flowId is required.' } };
     const r = await sb('GET', `/email_flows?id=eq.${encodeURIComponent(flowId)}&limit=1`);
     if (!r.ok) return { http: r.status === 404 ? 503 : 500, err: tableError(r) };
     const f = r.data && r.data[0];
-    if (!f || f.user_id !== caller.id) return { http: 404, err: { error: 'Flow not found.' } };
+    // Owned outright, or shared via an intelligence profile the caller is a
+    // member of (viewer for a read, owner/editor to change anything) — see
+    // api/_lib/profile-access.js for why this can't just be RLS: this
+    // endpoint holds the service-role key and bypasses RLS entirely.
+    const allowed = f && await canAccessRecord(supabaseUrl, serviceKey, caller.id, f, { requireEdit });
+    if (!allowed) return { http: 404, err: { error: 'Flow not found.' } };
     return { flow: f };
   }
 
@@ -111,9 +117,24 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
         return res.status(400).json({ error: 'A segment-entry flow needs a segmentId.' });
       }
 
+      // When the caller is working inside a shared intelligence profile
+      // (the business a teammate was invited onto, not their own), the flow
+      // is attributed to that profile instead of just the creator — the
+      // same pattern contacts/segments already use — so it shows up for
+      // every member, not only whoever happened to click "create".
+      let intelProfileId = null;
+      if (body.intelProfileId) {
+        if (!isUuid(body.intelProfileId)) return res.status(400).json({ error: 'intelProfileId is not a valid id.' });
+        const allowed = await canAccessRecord(supabaseUrl, serviceKey, caller.id,
+          { user_id: null, intel_profile_id: body.intelProfileId }, { requireEdit: true });
+        if (!allowed) return res.status(403).json({ error: 'You do not have edit access to that business profile.' });
+        intelProfileId = body.intelProfileId;
+      }
+
       const created = await sb('POST', '/email_flows', {
         user_id: caller.id, name, trigger_type: triggerType,
         segment_id: body.segmentId || null,
+        intel_profile_id: intelProfileId,
         from_name: body.fromName || null, from_email: body.fromEmail || null,
         // Created as a draft on purpose: a flow should not start mailing the
         // moment it is saved, before anyone has read it back.
@@ -139,7 +160,8 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
 
     /* ── list ──────────────────────────────────────────────────────────── */
     if (body.action === 'list') {
-      const r = await sb('GET', `/email_flows?user_id=eq.${caller.id}&order=created_at.desc&limit=200`);
+      const profileIds = await accessibleProfileIds(supabaseUrl, serviceKey, caller.id);
+      const r = await sb('GET', `/email_flows?${ownedOrSharedFilter(caller.id, profileIds)}&order=created_at.desc&limit=200`);
       if (!r.ok) return res.status(r.status === 404 ? 503 : 500).json(tableError(r));
       const flows = r.data || [];
 
@@ -164,7 +186,7 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
 
     /* ── get ───────────────────────────────────────────────────────────── */
     if (body.action === 'get') {
-      const { flow, http, err } = await ownedFlow(body.flowId);
+      const { flow, http, err } = await ownedFlow(body.flowId, { requireEdit: false });
       if (err) return res.status(http).json(err);
       const s = await sb('GET', `/email_flow_steps?flow_id=eq.${flow.id}&order=step_order.asc`);
       return res.json({ ok: true,

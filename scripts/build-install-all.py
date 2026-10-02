@@ -63,6 +63,8 @@ SOURCES = [
     'supabase-cro-backlog.sql',
     'supabase-system-failures.sql',
     'supabase-link-reports.sql',
+    'supabase-sales-intel-sweep.sql',
+    'supabase-team-access-extend.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')
