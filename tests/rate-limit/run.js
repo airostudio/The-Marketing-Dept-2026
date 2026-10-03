@@ -177,6 +177,7 @@ const AUTH_CALLS = [
   'await requireAdmin(req, res)',
   'await authenticateSender(req)',
   'await requireInternalToolsAccess(req, res)', // wraps requireUser() plus the tool's own unlock-token check
+  'await getCallerFromToken(supabaseUrl, serviceKey, accessToken)', // the service-role-key endpoints (ab-tests.js, email-flows.js, site-snapshot.js, ...) that decode the caller's own bearer token themselves instead of calling requireUser()
 ];
 const misordered = ENDPOINTS.filter(f => {
   if (PUBLIC_BY_DESIGN.has(f)) return false;   // no auth to come after
