@@ -13,6 +13,9 @@
 --                   the ones with a real email into Beeker's contacts,
 --                   tagged and with their provenance recorded. It sends
 --                   nothing — sending is Pat's job, behind its own checks.
+--   'pat_campaign' — a drafted, QA-reviewed outreach email (Pat). Approving
+--                   records the human OK and prepares an audience segment;
+--                   it sends nothing. The person sends from Pat's own page.
 -- New agents add a kind; nothing about the table changes.
 --
 -- Writes happen only through the service-role endpoints

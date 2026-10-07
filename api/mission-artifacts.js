@@ -19,6 +19,12 @@
  *   It sends nothing. Sending is Pat's job, behind Pat's own checks and the
  *   unsubscribe/suppression machinery every send already goes through.
  *
+ *   pat_campaign — records the human OK on a drafted outreach email and
+ *   finds/creates the dynamic segment for its audience tags. It sends
+ *   nothing and refuses to approve a draft whose QA review did not pass.
+ *   The person then sends from Pat's own page (suppression, quota, content
+ *   guard and the compliance footer all apply there).
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -64,6 +70,23 @@ function summarise(a) {
     attention: a.payload?.attention || null,
     counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length },
   };
+}
+
+/** The dynamic segment for a Pat draft's audience tags; created if absent. */
+async function ensureAudienceSegment(sb, artifact, callerId) {
+  const tags = Array.isArray(artifact.payload?.params?.audienceTags) ? artifact.payload.params.audienceTags : [];
+  if (!tags.length) return { segmentId: null };
+  const name = `Scotty: ${tags.join(' + ')}`;
+  const found = await sb('GET', `/segments?user_id=eq.${callerId}&name=eq.${encodeURIComponent(name)}&select=id&limit=1`);
+  if (!found.ok) throw new Error('Could not check for the audience segment.');
+  if (found.data && found.data[0]) return { segmentId: found.data[0].id, segmentName: name };
+  const made = await sb('POST', '/segments', {
+    user_id: callerId, intel_profile_id: artifact.intel_profile_id || null, name,
+    description: 'Created by a Scotty mission. Subscribed contacts carrying all of these tags.',
+    member_mode: 'dynamic', filter_rules: { tagsAll: tags, status: 'subscribed' },
+  });
+  if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
+  return { segmentId: made.data[0].id, segmentName: name };
 }
 
 /** blade_leads → Beeker contacts. Returns the counts, never throws on a single bad row. */
@@ -194,6 +217,15 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
         return res.status(409).json({ error: `This is ${artifact.status.replace('_', ' ')}, so it cannot be ${body.action === 'approve' ? 'approved' : 'rejected'} now.` });
       }
 
+      // A draft that failed its own QA cannot be approved: fix the blockers
+      // (or reject it) instead of waving it through.
+      if (body.action === 'approve' && artifact.kind === 'pat_campaign' && !artifact.payload?.review?.approved) {
+        return res.status(409).json({
+          error: 'This draft did not pass review, so it cannot be approved.',
+          blockers: artifact.payload?.review?.blockers || [],
+        });
+      }
+
       const target = body.action === 'approve' ? 'approved' : 'rejected';
       // Claim the decision atomically: only a row still pending_approval flips,
       // so of two simultaneous clicks exactly one gets a row back.
@@ -209,6 +241,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);
         else result = {};
       } catch (e) {
         // Nothing was imported and nobody was told it had been — hand the

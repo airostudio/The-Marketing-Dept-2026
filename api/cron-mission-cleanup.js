@@ -4,7 +4,7 @@
  * silently: this sweeps what missions have left behind, finds what went
  * wrong, and reports it so a person can handle it by hand.
  *
- * It looks for three things on mission_artifacts:
+ * It looks for four things on mission_artifacts:
  *
  *   stalled        a list still 'building' long after anything touched it —
  *                  the browser tab that was driving it closed, or a lookup
@@ -15,6 +15,8 @@
  *   lookup_errors  a finished list where some leads' contact lookups errored
  *                  (as opposed to "searched, nobody found") — a person may
  *                  want to retry those.
+ *   needs_input    a Pat draft that failed its own review and so can never be
+ *                  approved as it stands — it needs facts only a person has.
  *
  * It fixes nothing and deletes nothing. Each problem is (1) flagged on the
  * artifact itself (payload.attention, so the UI can show it) and (2) reported
@@ -63,6 +65,18 @@ function assess(artifact, now) {
       message: `Approved mission list ${label} imported ${payload.approval.imported || 0} leads but ${payload.approval.failed} failed to save into the audience and need adding by hand.`,
       detail: { artifactId: artifact.id, userId: artifact.user_id, failedLeads: payload.approval.failedLeads || [] },
     };
+  }
+
+  if (artifact.status === 'pending_approval' && artifact.kind === 'pat_campaign') {
+    const review = payload.review || {};
+    if (review.approved === false) {
+      return {
+        reason: 'needs_input', kind: 'upstream_error',
+        message: `Pat's draft ${label} did not pass review and cannot be approved: ${(review.blockers || []).slice(0, 3).join('; ') || 'no reason recorded'}. It needs a person to supply the missing facts or reject it.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, blockers: review.blockers || [], questions: payload.questions || [] },
+      };
+    }
+    return null;
   }
 
   if (artifact.status === 'pending_approval') {

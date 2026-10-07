@@ -782,6 +782,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
   const MISSION_AGENT_CAPABILITIES = {
     sales: 'ICP research, prospect lists, outreach strategies, lead qualification',
     blade: 'Finds a REAL shortlist of local businesses (a trade in a named city/area) whose websites are missing, outdated or on a template builder, with real contact emails and owner names where findable. Runs for real — produces actual leads, not a plan. Use for "find/prospect local [trade] in [place]" goals.',
+    delivery: 'Pat — drafts ONE real outreach email (subject, body, link), runs it through the send-time checks and Scotty QA review, and prepares the audience. Runs for real; sends nothing until a person approves and sends it. Use for outreach to businesses already found (e.g. after blade) — needs a stated offer.',
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
     seo: 'Keywords, technical audit, meta tags, rankings strategy',
@@ -869,7 +870,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade']);
+  const REAL_EXECUTORS = new Set(['blade', 'delivery']);
 
   function isRealExecutor(agentKey) { return REAL_EXECUTORS.has(agentKey); }
 
@@ -996,6 +997,99 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+
+  const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
+
+Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
+- offer: what is being offered to the recipients, in one or two plain sentences, using only facts stated
+- ctaUrl: the link recipients should click, ONLY if a real URL is stated; otherwise ""
+- audience: who it is going to, in plain words (e.g. "plumbers in Austin")
+- audienceTags: contact tags that identify the audience. If the mission finds businesses with "blade", use ["blade-prospect", "<trade as lowercase-hyphenated plural, e.g. plumbers>"]; otherwise []
+If the goal does not state the offer, return "" — a person will be asked. Do not write the email here.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is emailed and why",
+  "params": { "offer": "", "ctaUrl": "", "audience": "", "audienceTags": [] }
+}`;
+
+  function sanitizePatParams(p) {
+    const clean = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+    const src = (p && typeof p === 'object') ? p : {};
+    let ctaUrl = clean(src.ctaUrl, 500);
+    try { if (ctaUrl && !/^https?:$/.test(new URL(ctaUrl).protocol)) ctaUrl = ''; } catch { ctaUrl = ''; }
+    const tags = Array.isArray(src.audienceTags) ? src.audienceTags : [];
+    return {
+      offer: clean(src.offer, 600),
+      ctaUrl,
+      audience: clean(src.audience, 200),
+      audienceTags: [...new Set(tags.map(t => clean(t, 40).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean))].slice(0, 5),
+    };
+  }
+
+  function describePatParams(params) {
+    return `Draft an outreach email to ${params.audience || '[audience]'}: ${params.offer || '[offer]'}`;
+  }
+
+  function missingPatInputs(params) {
+    return sanitizePatParams(params).offer ? [] : ['what you are offering them'];
+  }
+
+  /**
+   * Run Pat for real: one server call that drafts, checks and reviews the
+   * email and saves it as a mission artifact awaiting approval. If the server
+   * needs a fact it will not invent, it answers with questions and this
+   * throws them — the mission shows them rather than a made-up draft.
+   *
+   * @param {object} task  { params: {offer, ctaUrl, audience, audienceTags} }
+   * @param {object} opts  { authHeaders, intelProfileId, missionId, sender: {senderName, companyName, businessContext}, expectedRecipients, onStatus, fetchImpl }
+   */
+  async function runPatTask(task, { authHeaders, intelProfileId, missionId, sender, expectedRecipients, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizePatParams(task.params);
+    const missing = missingPatInputs(params);
+    if (missing.length) throw new Error(`Pat needs ${missing.join(' and ')} before it can draft.`);
+
+    if (task._patState && task._patState.artifactId) return task._patState;   // retry must not draft (and pay) twice
+    if (onStatus) onStatus('Drafting the email and running the send-time checks…');
+    const res = await doFetch('/api/mission-pat', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'draft', ...params, ...(sender || {}),
+        expectedRecipients: expectedRecipients || 0,
+        intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Pat request failed (HTTP ${res.status})`);
+    if (data.status === 'needs_input') {
+      throw new Error(`Pat needs more from you: ${(data.questions || []).map(q => q.question).join(' ')}`);
+    }
+    task._patState = {
+      artifactId: data.artifactId, subject: data.subject, html: data.html || '', text: data.text || '', preview: data.preview || {},
+      review: data.review || { approved: false, blockers: [] }, fixed: !!data.fixed,
+      questions: data.questions || [], audienceTags: params.audienceTags, complete: true,
+    };
+    return task._patState;
+  }
+
+  /** A plain-markdown account of a real Pat result, for the mission report. */
+  function describePatResult(result) {
+    const r = result.review || {};
+    const lines = [`**Pat drafted for real.** Subject: "${result.subject}".`];
+    if (r.approved) {
+      lines.push(`It passed the send-time checks and Scotty's QA review${result.fixed ? ' (after one automatic fix)' : ''}.${r.summary ? ' ' + r.summary : ''}`);
+      if ((r.warnings || []).length) lines.push('Warnings: ' + r.warnings.join('; '));
+      lines.push('', 'Waiting for your approval — nothing has been sent.');
+    } else {
+      lines.push('It did **not** pass review, so it cannot be approved yet:');
+      (r.blockers || []).forEach(b => lines.push(`- ${b}`));
+      (result.questions || []).forEach(q => lines.push(`- Needs from you: ${q}`));
+    }
+    return lines.join('\n');
+  }
+
   /**
    * Generate a multi-agent mission plan.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
@@ -1035,6 +1129,7 @@ Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - When the goal is to find LOCAL businesses of a particular trade in a particular place (plumbers, dentists, roofers…), use "blade" instead of "sales" — blade finds real businesses; never select both for the same prospecting job
+- When the goal is to email the businesses found (or an existing audience) about a stated offer, include "delivery" (Pat) — it drafts and checks one real email. Use "email" instead for sequences, newsletters or copy-only work
 - For campaign goals: prioritise content → ads → email → social
 - Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
   THIS specific goal this week (e.g. "Short-form video", "Carousels & images", "Email sequence",
@@ -1110,6 +1205,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'delivery') {
+        const raw = await callJsonPrompt({
+          systemPrompt: PAT_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the delivery agent');
+        const params = sanitizePatParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Draft outreach email').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'delivery',
+          userPrompt: describePatParams(params),
         };
       } else {
         taskData = await callJsonPrompt({
@@ -1349,6 +1457,11 @@ Respond ONLY with valid JSON:
     sanitizeBladeParams,
     describeBladeParams,
     missingBladeInputs,
+    runPatTask,
+    describePatResult,
+    sanitizePatParams,
+    describePatParams,
+    missingPatInputs,
     getAgentInlinePrompt,
     assessAndPlanAutomation,
     executeAutomationStep,

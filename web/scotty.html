@@ -2543,6 +2543,7 @@ const ScottyBoot = (() => {
         email:       { emoji: '📧',  label: 'Email Engine'            },
         sales:       { emoji: '🎯',  label: 'Chase — Sales Intel'     },
         blade:       { emoji: '🗡️',  label: 'Blade — Local Prospects' },
+        delivery:    { emoji: '✉️',  label: 'Pat — Email Delivery'    },
         ads:         { emoji: '📣',  label: 'Ad Creative Lab'         },
         social:      { emoji: '📱',  label: 'Social Studio'           },
         nancy:       { emoji: '🍯',  label: 'Jam Fancy'               },
@@ -2760,12 +2761,12 @@ const ScottyBoot = (() => {
 const AGENT_META = {
     emojis: {
         seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
-        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', linkedin:'💼',
+        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', delivery:'✉️', linkedin:'💼',
         video:'🎬', compliance:'🛡️', deck:'📽️', 'compliance-automation':'🔒',
     },
     routes: {
         content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
-        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html',
+        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html', delivery:'/agents/email-delivery-agent.html',
         ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
         analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
         video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
@@ -2777,7 +2778,7 @@ const AGENT_META = {
         seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
         ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
         compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
-        sales:'Sales Intelligence', blade:'Blade — Local Prospects', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        sales:'Sales Intelligence', blade:'Blade — Local Prospects', delivery:'Pat — Email Delivery', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
         'compliance-automation':'Enterprise Compliance Automation',
     },
     serviceNames: {
@@ -2785,6 +2786,7 @@ const AGENT_META = {
         ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
+        delivery:'Claude drafting + send-time checks + QA review',
     },
     // Pages with exactly one unambiguous primary action (#runBtn) that only
     // requires the single prefilled field — verified safe to auto-click blind
@@ -3328,6 +3330,15 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'delivery' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">✉️ Pat drafts for real — it can only say what you tell it${(t.params && t.params.offer) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t state an offer — please fill it in)</strong>'}. Nothing is sent without your approval:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <input data-param="offer"    placeholder="What are you offering them?"        value="${this._escapeAttr((t.params && t.params.offer)    || '')}" style="flex:2;min-width:220px;">
+                                <input data-param="ctaUrl"   placeholder="Link (optional, https://…)"        value="${this._escapeAttr((t.params && t.params.ctaUrl)   || '')}" style="flex:1;min-width:160px;">
+                                <input data-param="audience" placeholder="Who it goes to, e.g. plumbers"      value="${this._escapeAttr((t.params && t.params.audience) || '')}" style="flex:1;min-width:140px;">
+                            </div>
+                        </div>` : ''}
                         <div class="task-result" id="taskResult${i}"></div>
                     </div>
                 `).join('')}
@@ -3386,10 +3397,21 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'delivery') {
+                    t.params = window.ScottyOrchestrator.sanitizePatParams({ offer: val('offer'), ctaUrl: val('ctaUrl'), audience: val('audience'), audienceTags: (t.params && t.params.audienceTags) || [] });
+                    t.userPrompt = window.ScottyOrchestrator.describePatParams(t.params);
+                    const missingPat = window.ScottyOrchestrator.missingPatInputs(t.params);
+                    if (missingPat.length) {
+                        autoText.textContent = `Pat needs ${missingPat.join(' and ')} before the mission can start.`;
+                        box.querySelector('[data-param="offer"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 t.params = window.ScottyOrchestrator.sanitizeBladeParams({ sector: val('sector'), city: val('city'), country: val('country') });
                 t.userPrompt = window.ScottyOrchestrator.describeBladeParams(t.params);
                 const missing = window.ScottyOrchestrator.missingBladeInputs(t.params);
@@ -3424,6 +3446,7 @@ class ScottyChat {
 
         // Execute all tasks autonomously
         const results = new Array(total).fill(null);
+        let bladeEmails = 0;   // how many addresses Blade found this mission — Pat's review sizes the send from it
         const progressBar  = missionEl.querySelector('#missionProgressBar');
         const progressLabel = missionEl.querySelector('#missionProgressLabel');
 
@@ -3457,7 +3480,25 @@ class ScottyChat {
             for (let attempt = 0; attempt < 2; attempt++) {
                 fullText = '';
                 try {
-                    if (orch.isRealExecutor(task.agentKey)) {
+                    if (task.agentKey === 'delivery' && orch.isRealExecutor('delivery')) {
+                        const bundle = contextBundle || {};
+                        const real = await orch.runPatTask(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            sender: {
+                                companyName: (bundle.companyName && bundle.companyName !== 'your company') ? bundle.companyName : '',
+                                businessContext: bundle.businessContext || '',
+                            },
+                            expectedRecipients: bladeEmails,
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describePatResult(real);
+                        this._renderPatResult(resultEl, real);
+                        if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (orch.isRealExecutor(task.agentKey)) {
                         // A real run: the agent's actual pipeline, saved as an
                         // artifact waiting on approval — not a write-up.
                         const real = await orch.runBladeTask(task, {
@@ -3467,6 +3508,7 @@ class ScottyChat {
                             onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
                         });
                         fullText = orch.describeBladeResult(real);
+                        bladeEmails += (real.leads || []).filter(l => l.email).length;
                         this._renderBladeResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
@@ -3646,14 +3688,45 @@ class ScottyChat {
         this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId);
     }
 
-    _wireArtifactDecision(box, artifactId) {
+    _renderPatResult(resultEl, real) {
+        const r = real.review || {};
+        const list = (items) => items.map(x => `<li>${this._escapeAttr(x)}</li>`).join('');
+        const blockers = (r.blockers || []);
+        const asks = (real.questions || []);
+        const tags = (real.audienceTags || []);
+        // Sandboxed, script-free preview: the draft is model-written HTML and
+        // must never run in the app's own origin.
+        const frame = `<iframe sandbox="" referrerpolicy="no-referrer" style="width:100%;height:240px;border:1px solid var(--border);border-radius:6px;background:#fff;" srcdoc="${this._escapeAttr(real.preview.html || '')}"></iframe>`;
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <div style="font-size:13px;margin-bottom:6px;"><strong>Subject:</strong> ${this._escapeAttr(real.preview.subject || real.subject)}</div>
+                ${frame}
+                ${r.approved
+                    ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                        <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Passed the send-time checks and Scotty's QA review.</strong>${r.summary ? ' ' + this._escapeAttr(r.summary) : ''} Approving records your OK${tags.length ? ' and prepares the audience <code>' + this._escapeAttr(tags.join(' + ')) + '</code>' : ''}. It sends nothing — you send from Pat.</div>
+                        ${(r.warnings || []).length ? `<ul style="font-size:12px;color:#f59e0b;margin:0 0 8px 16px;">${list(r.warnings)}</ul>` : ''}
+                        <button class="mission-report-btn primary blade-approve">Approve this email</button>
+                        <button class="mission-report-btn blade-reject">Reject</button>
+                        <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                    </div>`
+                    : `<div style="margin-top:12px;padding:10px;border:1px solid #f59e0b;border-radius:8px;font-size:13px;">
+                        ⚠️ <strong>This draft did not pass review, so it cannot be approved.</strong>
+                        <ul style="margin:6px 0 0 16px;">${list(blockers)}${list(asks)}</ul>
+                        <div style="margin-top:6px;color:var(--text2);">Adjust the offer above and run the mission again, or write it yourself in Pat. It has been flagged for follow-up.</div>
+                    </div>`}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { pat: real });
+    }
+
+    _wireArtifactDecision(box, artifactId, opts) {
         if (!box) return;
         const approveBtn = box.querySelector('.blade-approve');
         const rejectBtn = box.querySelector('.blade-reject');
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? 'Adding to your audience…' : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : 'Adding to your audience…') : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -3661,8 +3734,17 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.pat) {
+                    const d = opts.pat;
+                    const segId = r.segmentId || '';
+                    msg.innerHTML = `✅ Approved — nothing has been sent. <button class="mission-report-btn primary pat-open">Open in Pat to send →</button>`;
+                    msg.querySelector('.pat-open').addEventListener('click', () => {
+                        window.PatHandoff.sendDraft({ campaignName: d.subject, subject: d.subject, html: d.html, text: d.text || '' }, { segmentId: segId || undefined });
+                    });
+                    return;
+                }
                 const parts = [`${r.imported || 0} added to your audience`];
                 if (r.skippedExisting) parts.push(`${r.skippedExisting} already there`);
                 if (r.skippedNoEmail) parts.push(`${r.skippedNoEmail} had no email found (phone-only)`);
