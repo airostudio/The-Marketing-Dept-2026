@@ -19,7 +19,9 @@
  * later without a rewrite.
  *
  * Honesty rules, same as everywhere else in this app: an email or owner name
- * is only ever one that was actually found. Not found is '' / null, never a
+ * is only ever one that was actually found, and an email found by search
+ * rather than on the business's own site is labelled so ('estimate' when it
+ * could not be confirmed on the page that was cited). Not found is '' / null, never a
  * plausible guess. A site that merely looks modern is not a lead.
  */
 
@@ -27,7 +29,7 @@
 
 const { searchPlaces } = require('./places-search.js');
 const { quickCheckWebsite } = require('./website-quickcheck.js');
-const { findContactEmail } = require('./email-lookup.js');
+const { findContactEmail, findEmailByBusiness } = require('./email-lookup.js');
 const { findOwnerName } = require('./owner-lookup.js');
 const { opportunityRank, personalizedNote } = require('./lead-scoring.js');
 
@@ -160,14 +162,29 @@ async function enrichLead(lead, { country = '' } = {}) {
   };
   const errors = [];
 
-  // A business with no website has no domain to crawl or search by — an email
-  // for it can't be found here, and one is never invented.
+  // 1. The business's own website, when it has one — the most trustworthy source.
   if (lead.website) {
     try {
       const found = await findContactEmail(lead.website);
       out.email = found.email;
       out.emailSource = found.dataSource === 'not_found' ? null : found.dataSource;
     } catch (e) { errors.push(`email: ${e.message}`); }
+  }
+
+  // 2. No website, or its site didn't give one up: search the open web and
+  // social listings for the business itself — plenty of small businesses
+  // publish a gmail address on a Facebook page or Google listing and nowhere
+  // else. That search only ever returns an address it can trace to a cited
+  // page, and flags one it couldn't confirm there as 'estimate'.
+  if (!out.email && process.env.PERPLEXITY_API_KEY) {
+    try {
+      const found = await findEmailByBusiness({ businessName: lead.name, area: lead.area, country, website: lead.website || undefined });
+      if (found.email) {
+        out.email = found.email;
+        out.emailSource = found.dataSource;          // 'search_verified' | 'estimate'
+        out.emailSourceUrl = found.source || null;
+      }
+    } catch (e) { errors.push(`email search: ${e.message}`); }
   }
 
   if (process.env.APOLLO_API_KEY || process.env.PERPLEXITY_API_KEY) {

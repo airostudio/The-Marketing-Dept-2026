@@ -98,7 +98,7 @@ mockModule('api/_lib/report-failure.js', { withFailureReporting: (n, h) => h, re
 let placesResults = [];
 mockModule('api/_lib/places-search.js', { searchPlaces: async () => ({ results: placesResults, nextPageToken: null }) });
 mockModule('api/_lib/website-quickcheck.js', { quickCheckWebsite: async () => ({ status: 'outdated', signals: {}, reasons: ['No mobile-responsive (viewport) tag'] }) });
-mockModule('api/_lib/email-lookup.js', { findContactEmail: async (site) => ({ email: site.includes('noemail') ? null : `hello@${site.replace(/^https?:\/\//, '')}`, dataSource: site.includes('noemail') ? 'not_found' : 'real' }) });
+mockModule('api/_lib/email-lookup.js', { findEmailByBusiness: async () => ({ email: null, dataSource: 'not_found', source: null }), findContactEmail: async (site) => ({ email: site.includes('noemail') ? null : `hello@${site.replace(/^https?:\/\//, '')}`, dataSource: site.includes('noemail') ? 'not_found' : 'real' }) });
 mockModule('api/_lib/owner-lookup.js', { findOwnerName: async () => ({ firstName: 'Dana', source: 'https://src' }) });
 
 global.fetch = async (url) => {

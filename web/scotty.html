@@ -3625,7 +3625,7 @@ class ScottyChat {
             <tr>
                 <td>${this._escapeAttr(l.name)}</td>
                 <td>${this._escapeAttr(l.siteStatus === 'no_website' ? 'No website' : (l.sitePlatform || l.siteStatus))}</td>
-                <td>${l.email ? this._escapeAttr(l.email) : '<span style="color:var(--text3)">—</span>'}</td>
+                <td>${l.email ? this._escapeAttr(l.email) + (l.emailSource === 'estimate' ? ' <span title="Found in search results but could not be confirmed on the cited page — check before relying on it" style="color:#f59e0b;">(unverified)</span>' : (l.emailSource === 'search_verified' ? ' <span title="Found by searching for the business and confirmed on the page it came from" style="color:var(--text3);">(via search)</span>' : '')) : '<span style="color:var(--text3)">—</span>'}</td>
                 <td>${l.ownerFirstName ? this._escapeAttr(l.ownerFirstName) : '<span style="color:var(--text3)">—</span>'}</td>
                 <td>${this._escapeAttr(l.phone || '')}</td>
             </tr>`).join('');
@@ -3666,7 +3666,7 @@ class ScottyChat {
                 const parts = [`${r.imported || 0} added to your audience`];
                 if (r.skippedExisting) parts.push(`${r.skippedExisting} already there`);
                 if (r.skippedNoEmail) parts.push(`${r.skippedNoEmail} had no email found (phone-only)`);
-                if (r.failed) parts.push(`${r.failed} failed to save`);
+                if (r.failed) parts.push(`${r.failed} failed to save — flagged for a person to follow up`);
                 msg.innerHTML = `✅ ${this._escapeHtml(parts.join(' · '))} — <a href="/agents/audience-agent.html" target="_blank" rel="noopener">open Beeker →</a>`;
             } catch (e) {
                 msg.textContent = `Could not ${action}: ${e.message}`;

@@ -982,9 +982,10 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     }
     const withEmail = result.leads.filter(l => l.email).length;
     const withOwner = result.leads.filter(l => l.ownerFirstName).length;
+    const viaSearch = result.leads.filter(l => l.email && (l.emailSource === 'estimate' || l.emailSource === 'search_verified')).length;
     const lines = [
       `**Blade ran for real.** Searched Google for "${s.query || ''}", checked ${s.candidatesChecked ?? '?'} businesses' websites, and shortlisted ${result.leads.length} with a genuine opportunity (${s.noWebsite ?? 0} with no website, ${s.builderLocked ?? 0} on a template builder).`,
-      `Contact details actually found: ${withEmail} email${withEmail === 1 ? '' : 's'}, ${withOwner} owner name${withOwner === 1 ? '' : 's'}. Anything not found is left blank, not guessed.`,
+      `Contact details actually found: ${withEmail} email${withEmail === 1 ? '' : 's'}${viaSearch ? ` (${viaSearch} from searching Google/social listings — those are labelled, and any not confirmed on the page they came from are marked unverified)` : ''}, ${withOwner} owner name${withOwner === 1 ? '' : 's'}. Anything not found is left blank, not guessed.`,
       '',
       '| Business | Site | Email | Owner |',
       '|---|---|---|---|',

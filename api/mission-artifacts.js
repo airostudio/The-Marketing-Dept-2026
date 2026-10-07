@@ -61,6 +61,7 @@ function summarise(a) {
   return {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
+    attention: a.payload?.attention || null,
     counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length },
   };
 }
@@ -103,6 +104,7 @@ async function importBladeLeads(sb, artifact, callerId) {
         website: l.website || null, phone: l.phone || null, area: l.area || null,
         website_status: l.siteStatus || null, personal_note: l.note || null,
         place_id: l.placeId || null,
+        email_source: l.emailSource || null, email_source_url: l.emailSourceUrl || null,
       },
       tags,
       status: 'subscribed',
@@ -113,13 +115,19 @@ async function importBladeLeads(sb, artifact, callerId) {
   }
 
   let imported = 0, failed = 0;
+  const failedLeads = [];
   await runWithConcurrency(toInsert, 5, async (row) => {
     const ins = await sb('POST', '/contacts', row);
     if (ins.ok) imported++;
     else if (ins.status === 409) skippedExisting++;   // raced with another import
-    else failed++;
+    else {
+      failed++;
+      // Named, so a person (and the cleanup agent that reports it) knows
+      // exactly who didn't make it in, not just how many.
+      failedLeads.push({ email: row.email, name: row.company, status: ins.status });
+    }
   });
-  return { imported, skippedNoEmail, skippedExisting, failed };
+  return { imported, skippedNoEmail, skippedExisting, failed, failedLeads: failedLeads.slice(0, 50) };
 }
 
 module.exports = withFailureReporting('api/mission-artifacts', async function handler(req, res) {
@@ -211,6 +219,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
 
       await sb('PATCH', `/mission_artifacts?id=eq.${artifact.id}`, {
         payload: { ...(artifact.payload || {}), approval: { ...result, at: new Date().toISOString(), by: caller.id } },
+        updated_at: new Date().toISOString(),
       });
       return res.json({ ok: true, status: 'approved', result });
     }

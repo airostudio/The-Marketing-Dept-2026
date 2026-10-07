@@ -32,7 +32,9 @@ mockModule('api/_lib/website-quickcheck.js', {
   quickCheckWebsite: async (url) => siteResults[url] || { status: 'modern', signals: {}, reasons: [] },
 });
 let emailImpl = async () => ({ email: null, dataSource: 'not_found' });
-mockModule('api/_lib/email-lookup.js', { findContactEmail: (d) => emailImpl(d) });
+let searchImpl = async () => ({ email: null, dataSource: 'not_found', source: null });
+let searchCalls = [];
+mockModule('api/_lib/email-lookup.js', { findContactEmail: (d) => emailImpl(d), findEmailByBusiness: (a) => { searchCalls.push(a); return searchImpl(a); } });
 let ownerImpl = async () => ({ firstName: '', source: '' });
 mockModule('api/_lib/owner-lookup.js', { findOwnerName: (a) => ownerImpl(a) });
 
@@ -101,9 +103,32 @@ console.log('\n──── enrichment never invents what it cannot find ──�
   check('a found owner is carried through with its source', withSite.ownerFirstName === 'Dana' && withSite.ownerSource === 'https://x');
   check('the lead is marked enriched', withSite.enriched === true && withSite.enrichError === null);
 
-  emailCalls = 0;
+  emailCalls = 0; searchCalls = [];
   const noSite = await enrichLead({ name: 'B', area: 'Austin', website: '', enriched: false });
-  check('a business with no website gets no email lookup — there is no domain to search', emailCalls === 0 && noSite.email === null);
+  check('a business with no website gets no website crawl — there is no domain to crawl', emailCalls === 0);
+  check('but it IS searched for by name and place, since many publish a gmail on Facebook/Google', searchCalls.length === 1 && searchCalls[0].businessName === 'B' && searchCalls[0].area === 'Austin');
+  check('and nothing found by that search still means blank', noSite.email === null);
+
+  searchImpl = async () => ({ email: 'bobsplumbing@gmail.com', dataSource: 'search_verified', source: 'https://facebook.com/bobs' });
+  const viaSearch = await enrichLead({ name: 'Bob', area: 'Austin', website: '', enriched: false });
+  check('an address found by search is kept, with how and where it was found', viaSearch.email === 'bobsplumbing@gmail.com' && viaSearch.emailSource === 'search_verified' && viaSearch.emailSourceUrl === 'https://facebook.com/bobs');
+
+  searchImpl = async () => ({ email: 'maybe@gmail.com', dataSource: 'estimate', source: 'https://x' });
+  const unverified = await enrichLead({ name: 'Bob', area: 'Austin', website: '', enriched: false });
+  check('an address the search could not confirm is labelled estimate, never presented as confirmed', unverified.emailSource === 'estimate');
+
+  searchCalls = [];
+  emailImpl = async () => ({ email: 'info@own-site.example', dataSource: 'real' });
+  const ownSite = await enrichLead({ name: 'Own', area: 'Austin', website: 'https://own-site.example', enriched: false });
+  check('an address found on the business\'s own site wins — the search is not even run', ownSite.emailSource === 'real' && searchCalls.length === 0);
+
+  emailImpl = async () => ({ email: null, dataSource: 'not_found' });
+  searchImpl = async () => ({ email: null, dataSource: 'not_found', source: null });
+  searchCalls = [];
+  delete process.env.PERPLEXITY_API_KEY;
+  await enrichLead({ name: 'NoKey', area: 'Austin', website: '', enriched: false });
+  check('with no search key configured the search is not attempted', searchCalls.length === 0);
+  process.env.PERPLEXITY_API_KEY = 'k';
 
   emailImpl = async () => ({ email: null, dataSource: 'not_found' });
   ownerImpl = async () => ({ firstName: '', source: '' });
@@ -111,10 +136,11 @@ console.log('\n──── enrichment never invents what it cannot find ──�
   check('an honest "not found" stays blank, with no error recorded', nothing.email === null && nothing.ownerFirstName === '' && nothing.enrichError === null);
 
   emailImpl = async () => { throw new Error('crawl exploded'); };
+  searchImpl = async () => { throw new Error('search exploded'); };
   ownerImpl = async () => { throw new Error('perplexity 500'); };
   const failed = await enrichLead({ name: 'D', area: 'Austin', website: 'https://d.example', enriched: false });
   check('a lookup that errors never throws out of enrichLead', failed.enriched === true);
-  check('a failure is recorded as a failure, distinct from "searched, found nobody"', /email: crawl exploded/.test(failed.enrichError) && /owner: perplexity 500/.test(failed.enrichError));
+  check('a failure is recorded as a failure, distinct from "searched, found nobody"', /email: crawl exploded/.test(failed.enrichError) && /email search: search exploded/.test(failed.enrichError) && /owner: perplexity 500/.test(failed.enrichError));
   check('and the fields stay blank rather than becoming a guess', failed.email === null && failed.ownerFirstName === '');
 }
 
