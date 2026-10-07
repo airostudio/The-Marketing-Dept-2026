@@ -22,6 +22,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { directive: languageDirective } = require('./_lib/writing-language.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 6;
@@ -76,10 +77,10 @@ module.exports = withFailureReporting('api/seo-keyword-research', async function
 
   if (rateLimited(req, res, { name: 'seo-keyword-research', max: 6, windowMs: 60 * 1000, auth })) return;
 
-  const { profile, competitors = [], cross_competitor_gaps = [] } = req.body || {};
+  const { profile, competitors = [], cross_competitor_gaps = [], language = '' } = req.body || {};
   if (!profile || !profile.business_summary) return res.status(400).json({ error: 'profile (from seo-analyze-site) is required' });
 
-  const system = `You are an SEO content strategist proposing article topics. Ground every topic in the REAL business profile, products/services, and competitor content gaps provided — never propose a topic unrelated to what this business actually offers. Avoid duplicating any topic already in existing_topics. Search volume and difficulty are directional buckets, not real numbers — you have no live keyword database.`;
+  const system = `You are an SEO content strategist proposing article topics. Ground every topic in the REAL business profile, products/services, and competitor content gaps provided — never propose a topic unrelated to what this business actually offers. Avoid duplicating any topic already in existing_topics. Search volume and difficulty are directional buckets, not real numbers — you have no live keyword database.${languageDirective(language) ? ' ' + languageDirective(language) : ''}`;
 
   const user = `BUSINESS PROFILE:\n${JSON.stringify(profile, null, 2)}\n\nCOMPETITOR CONTENT (${competitors.length} competitors researched):\n${JSON.stringify(competitors, null, 2)}\n\nCROSS-COMPETITOR CONTENT GAPS:\n${JSON.stringify(cross_competitor_gaps, null, 2)}\n\nPropose 8-12 SEO article topics that would genuinely help this specific business, prioritizing real content gaps and real product/service coverage over generic industry topics.`;
 

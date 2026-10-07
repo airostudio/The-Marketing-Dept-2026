@@ -41,6 +41,12 @@
  *   example over X's character limit) are left out and named in the result.
  *   Schedules and publishes nothing.
  *
+ *   seo_plan — saves the plan into the SEO Content Engine as a new run: the
+ *   site analysis, every proposed topic (search volume labelled real or
+ *   estimate) and the drafted articles (as drafts, topics marked written).
+ *   Publishes nothing anywhere; the articles are for a person to read, edit
+ *   and publish by hand.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -84,7 +90,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -103,6 +109,51 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** seo_plan → seo_runs + seo_topics + seo_articles. Undone (the run deleted) if any step fails. */
+async function saveSeoPlan(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const profile = payload.profile || {};
+  const topics = Array.isArray(payload.topics) ? payload.topics : [];
+  const articles = Array.isArray(payload.articles) ? payload.articles : [];
+  if (!topics.length) throw new Error('This plan has no topics to save.');
+  const projectId = payload.params?.projectId || null;
+
+  const run = await sb('POST', '/seo_runs', {
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    website_url: payload.params?.websiteUrl, business_summary: profile.business_summary || null,
+    products_services: profile.products_services || [], target_customer: profile.target_customer || null,
+    existing_topics: profile.existing_topics || [], competitors: payload.competitors || [], status: 'ready',
+  });
+  if (!run.ok || !run.data?.[0]) throw new Error(`Could not create the SEO run (HTTP ${run.status}).`);
+  const runId = run.data[0].id;
+  const undo = async (msg) => { await sb('DELETE', `/seo_runs?id=eq.${runId}`); throw new Error(msg); };
+
+  const written = new Set(articles.map(a => a.topicIndex));
+  const trows = topics.map((t, i) => ({
+    run_id: runId, user_id: callerId, topic: t.topic, target_keyword: t.target_keyword || null,
+    search_volume: t.data_source === 'real' ? t.search_volume : null, difficulty: t.data_source === 'real' ? t.difficulty : null,
+    data_source: t.data_source === 'real' ? 'real' : 'estimate',
+    rationale: t.rationale || null, content_pillar: t.content_pillar || null,
+    status: written.has(i) ? 'written' : 'planned',
+  }));
+  const tins = await sb('POST', '/seo_topics', trows);
+  if (!tins.ok || !Array.isArray(tins.data) || tins.data.length !== trows.length) return undo(`Could not save the topics (HTTP ${tins.status}).`);
+  // Matched back by content, not position, in case the database returns rows in another order.
+  const idFor = (i) => (tins.data.find(r => r.topic === topics[i].topic && r.target_keyword === (topics[i].target_keyword || null)) || {}).id || null;
+
+  if (articles.length) {
+    const arows = articles.map(a => ({
+      run_id: runId, user_id: callerId, topic_id: idFor(a.topicIndex),
+      title: a.title, meta_description: a.meta_description || null, slug: a.slug || null,
+      target_keyword: a.target_keyword || null, body_markdown: a.body_markdown,
+      schema_markup: a.schema_markup || null, word_count: a.word_count || null, status: 'draft',
+    }));
+    const ains = await sb('POST', '/seo_articles', arows);
+    if (!ains.ok) return undo(`Could not save the articles (HTTP ${ains.status}).`);
+  }
+  return { runId, topics: trows.length, articles: articles.length, realVolumes: trows.filter(t => t.data_source === 'real').length };
 }
 
 /** social_posts (mission) → social_posts (Calendar). One atomic insert of the postable ones. */
@@ -355,6 +406,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'seo_plan') result = await saveSeoPlan(sb, artifact, caller.id);
         else if (artifact.kind === 'social_posts') result = await sendSocialToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);

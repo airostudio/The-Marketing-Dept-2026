@@ -19,6 +19,9 @@
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'seo_plan'    — SEO research, proposed topics and drafted articles (SEO).
+--                   Approving saves them into the SEO Content Engine as a new
+--                   run; it publishes nothing.
 --   'social_posts' — text posts for LinkedIn / X / Facebook (Social Studio).
 --                   Approving puts the publishable ones in the Content
 --                   Calendar as approved; it schedules and publishes nothing.

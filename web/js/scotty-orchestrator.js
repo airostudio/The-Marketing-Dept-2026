@@ -788,7 +788,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     chase: 'Audits the websites of businesses found by blade (or a typed list of site addresses) for real — platform, SEO, mobile, speed, conversion — and scores each as an opportunity. Runs for real; approving tags the prospects in the audience by opportunity strength. Use after blade when website quality matters to the offer.',
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
-    seo: 'Keywords, technical audit, meta tags, rankings strategy',
+    seo: 'Researches a website\'s competitors and keyword gaps for real, proposes content topics with search volumes (real where available, otherwise clearly labelled estimates), and writes full SEO articles. Runs for real; approving saves the plan and articles into the SEO Content Engine. Needs a website address. Not a technical site audit.',
     competitive: 'Competitor analysis, positioning gaps, battlecards',
     ads: 'Google/Meta/LinkedIn ad copy and creative variants',
     social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1219,6 +1219,32 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const SEO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the SEO agent, which researches a website's competitors and keyword gaps, proposes content topics, and writes full SEO articles.
+
+It needs:
+- websiteUrl: the business's own website address. Fill it ONLY from the goal or the business context — never guess or invent an address. If none is stated, return "".
+- articleCount: how many full articles to write, 1 to 3 (2 if the goal doesn't say)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the content plan is for",
+  "params": { "websiteUrl": "", "articleCount": 2 }
+}`;
+
+  function describeSeoResult(result) {
+    const real = result.topics.filter(t => t.data_source === 'real').length;
+    const lines = [
+      `**The SEO agent ran for real.** Read the site, ${result.competitors && result.competitors.length ? `researched ${result.competitors.length} competitors, ` : ''}proposed ${result.topics.length} topics (${real} with a real search volume, ${result.topics.length - real} estimates) and wrote ${result.articles.length} article${result.articles.length === 1 ? '' : 's'}.`,
+    ];
+    if (result.competitorsNote) lines.push(`Competitor research: ${result.competitorsNote}`);
+    if (result.volumesNote) lines.push(result.volumesNote);
+    lines.push('', '**Articles written:**');
+    result.articles.forEach(a => lines.push(`- ${a.title} — ${a.word_count || '?'} words, targeting "${a.target_keyword}"`));
+    lines.push('', 'Waiting for your approval — nothing has been published. Approving saves the plan and articles into the SEO Content Engine.');
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1428,6 +1454,23 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
         };
+      } else if (agentKey === 'seo' && window.SeoMission) {   // module missing → falls back to the written plan, never a half-real task
+        const raw = await callJsonPrompt({
+          systemPrompt: SEO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the seo agent');
+        // The Business Brain's own website is a fact, not a guess: use it when the goal names none.
+        const params = window.SeoMission.sanitizeParams({
+          websiteUrl: (raw.params && raw.params.websiteUrl) || contextBundle.website || '',
+          articleCount: raw.params && raw.params.articleCount,
+        });
+        taskData = {
+          taskName: String(raw.taskName || 'SEO content plan').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'seo',
+          userPrompt: window.SeoMission.describeParams(params),
+        };
       } else if (agentKey === 'social') {
         const raw = await callJsonPrompt({
           systemPrompt: SOCIAL_TASK_SYSTEM_PROMPT,
@@ -1441,7 +1484,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           realExecutor: 'social',
           userPrompt: describeSocialParams(params),
         };
-      } else if (agentKey === 'nancy') {
+      } else if (agentKey === 'nancy' && window.NancyMission) {
         const raw = await callJsonPrompt({
           systemPrompt: NANCY_TASK_SYSTEM_PROMPT,
           messages: [missionMessage],
@@ -1724,6 +1767,7 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    describeSeoResult,
     runSocialTask,
     describeSocialResult,
     sanitizeSocialParams,

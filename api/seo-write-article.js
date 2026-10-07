@@ -20,6 +20,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { directive: languageDirective } = require('./_lib/writing-language.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 8;
@@ -84,11 +85,11 @@ module.exports = withFailureReporting('api/seo-write-article', async function ha
 
   if (rateLimited(req, res, { name: 'seo-write-article', max: 8, windowMs: 60 * 1000, auth })) return;
 
-  const { topic, profile, brandVoice } = req.body || {};
+  const { topic, profile, brandVoice, language = '' } = req.body || {};
   if (!topic || !topic.topic) return res.status(400).json({ error: 'topic (from seo-keyword-research) is required' });
   if (!profile) return res.status(400).json({ error: 'profile (from seo-analyze-site) is required' });
 
-  const system = `You are an expert SEO content writer. Write a genuinely useful, well-researched article that happens to be well-optimized for search — never keyword-stuffed filler. Ground every factual claim about the business in the profile given; never invent a specific product feature, price, or statistic that isn't provided. If you'd naturally cite a stat you don't have, phrase it generally instead of inventing a number.`;
+  const system = `You are an expert SEO content writer. Write a genuinely useful, well-researched article that happens to be well-optimized for search — never keyword-stuffed filler. Ground every factual claim about the business in the profile given; never invent a specific product feature, price, or statistic that isn't provided. If you'd naturally cite a stat you don't have, phrase it generally instead of inventing a number. Spelling and grammar must be flawless.${languageDirective(language) ? ' ' + languageDirective(language) : ''}`;
 
   const user = `TOPIC: ${topic.topic}
 TARGET KEYWORD: ${topic.target_keyword}

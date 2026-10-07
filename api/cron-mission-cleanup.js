@@ -50,12 +50,15 @@ function assess(artifact, now) {
     const idleMs = now - new Date(artifact.updated_at || artifact.created_at).getTime();
     if (idleMs >= STALL_MS) {
       const isWeek = artifact.kind === 'nancy_week';
+      const isSeo = artifact.kind === 'seo_plan';
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
-      const remaining = isWeek ? Math.max(0, 7 - posts.length) : leads.filter(l => !l.enriched && !l.audited).length;
+      const articlesDone = Array.isArray(payload.articles) ? payload.articles.length : 0;
+      const seoTarget = payload.params?.articleTarget || 1;
+      const remaining = isSeo ? Math.max(0, seoTarget - articlesDone) : isWeek ? Math.max(0, 7 - posts.length) : leads.filter(l => !l.enriched && !l.audited).length;
       return {
         reason: 'stalled', kind: 'upstream_timeout',
-        message: `Mission list ${label} stalled while building: ${remaining} of ${isWeek ? 7 : leads.length} ${isWeek ? 'days never got their post and image' : 'leads never finished their lookup or audit'}, and nothing has touched it for ${Math.round(idleMs / 60000)} minutes.`,
-        detail: { artifactId: artifact.id, userId: artifact.user_id, remaining, total: isWeek ? 7 : leads.length },
+        message: `Mission list ${label} stalled while building: ${remaining} of ${isSeo ? seoTarget : isWeek ? 7 : leads.length} ${isSeo ? 'articles were never written' : isWeek ? 'days never got their post and image' : 'leads never finished their lookup or audit'}, and nothing has touched it for ${Math.round(idleMs / 60000)} minutes.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, remaining, total: isSeo ? seoTarget : isWeek ? 7 : leads.length },
       };
     }
     return null;
