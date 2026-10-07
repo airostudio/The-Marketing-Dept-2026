@@ -97,6 +97,7 @@ require.cache[helperPath] = {
           revenue_cents: rows.reduce((s, r) => s + r.amount_cents, 0),
           currency: rows[0] ? rows[0].currency : null }] };
       }
+      if (table === 'suppressed_emails') return { ok: true, status: 200, data: [] };
       if (table === 'campaign_email_stats') {
         return { ok: true, status: 200, data: [{ sent: 0, delivered: 0, opened: 0, unique_opened: 0,
           clicked: 0, unique_clicked: 0, bounced: 0, complained: 0 }] };

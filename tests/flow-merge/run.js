@@ -15,13 +15,13 @@ function mockModule(rel, exp) { const p = require.resolve(path.join(REPO, rel));
 
 const fm = require(path.join(REPO, 'api/_lib/flow-merge.js'));
 
-const db = { contacts: [], steps: [], enrolments: [], flow: null, claims: 0, failContacts: false, contactQueries: [], created: [] };
+const db = { suppressed: [], suppFail: 0, rpcCalls: [], contacts: [], steps: [], enrolments: [], flow: null, claims: 0, failContacts: false, contactQueries: [], created: [] };
 const q = (s, k) => { const m = s.match(new RegExp(`[?&]${k}=eq\\.([^&]+)`)); return m ? decodeURIComponent(m[1]) : null; };
 mockModule('api/_lib/supabase-rest.js', {
   isUuid: (v) => /^[0-9a-f-]{36}$/i.test(String(v)),
   sbRest: async (u, k, method, p, body) => {
     if (p.startsWith('/email_flow_enrolments')) {
-      if (method === 'PATCH') { db.claims++; return { ok: true, data: [{ id: 'e1' }] }; }
+      if (method === 'PATCH') { db.patches = (db.patches || []); db.patches.push(body); if (body.status !== 'exited') db.claims++; return { ok: true, data: [{ id: 'e1' }] }; }
       return { ok: true, data: db.enrolments.map(e => ({ ...e, email_flows: db.flow })) };
     }
     if (p.startsWith('/contacts')) {
@@ -38,6 +38,11 @@ mockModule('api/_lib/supabase-rest.js', {
     if (p.startsWith('/email_flows')) {
       if (method === 'POST') { const row = { id: '99999999-9999-9999-9999-999999999999', ...body }; db.created.push(row); return { ok: true, data: [row] }; }
       return { ok: true, data: [] };
+    }
+    if (p.startsWith('/rpc/suppressed_emails')) {
+      db.rpcCalls.push(body);
+      if (db.suppFail) return { ok: false, status: db.suppFail, data: null };
+      return { ok: true, data: db.suppressed.filter(r => body.addresses.includes(r.email)) };
     }
     return { ok: true, data: [] };
   },
@@ -56,7 +61,7 @@ Object.assign(process.env, { SUPABASE_URL: 'https://x.test', SUPABASE_SERVICE_RO
 
 function res() { const r = { statusCode: 200 }; r.status = (c) => { r.statusCode = c; return r; }; r.json = (d) => { r.body = d; return r; }; r.setHeader = () => {}; r.end = () => r; return r; }
 async function runCron() {
-  sent = []; db.claims = 0;
+  sent = []; db.claims = 0; db.patches = [];
   delete require.cache[require.resolve(path.join(REPO, 'api/cron-email-flows.js'))];
   const cron = require(path.join(REPO, 'api/cron-email-flows.js'));
   const r = res(); await cron({ method: 'GET', headers: { authorization: 'Bearer cs', host: 'app.test' }, query: {} }, r); return r;
@@ -66,7 +71,7 @@ function setup({ html, subject = 'Hello', contact, sender } = {}) {
   db.enrolments = [{ id: 'e1', flow_id: 'f1', user_id: 'u1', email: 'a@x.test', next_step_order: 1 }];
   db.steps = [{ flow_id: 'f1', step_order: 1, delay_hours: 0, subject, html }];
   db.contacts = contact === null ? [] : [{ id: 'c1', user_id: 'u1', email: 'a@x.test', status: 'subscribed', first_name: 'Ada', company: 'Acme', custom_fields: { area: 'Perth' }, ...contact }];
-  db.failContacts = false; db.contactQueries = [];
+  db.failContacts = false; db.contactQueries = []; db.suppressed = []; db.suppFail = 0; db.rpcCalls = [];
 }
 
 (async () => {
@@ -132,6 +137,38 @@ function setup({ html, subject = 'Hello', contact, sender } = {}) {
   db.failContacts = true;
   r = await runCron();
   check('if the lookup fails nothing is sent and nothing is claimed', sent.length === 0 && db.claims === 0 && r.body.details[0].outcome === 'contact_lookup_failed');
+
+  console.log('\n──── the account suppression list ────');
+  setup({ html: '<p>Hi {{firstName|there}}</p>' });
+  db.suppressed = [{ email: 'a@x.test', reason: 'bounced' }];
+  r = await runCron();
+  check('an address on the suppression list is not mailed, even though the contact row says subscribed', sent.length === 0 && r.body.details[0].outcome === 'suppressed' && r.body.details[0].status === 'bounced');
+  check('and the enrolment is closed with the reason, so it is not retried every run', db.claims === 0 && db.patches.some(b => b.status === 'exited' && b.exit_reason === 'suppressed_bounced'));
+
+  setup({ html: '<p>Hi {{firstName|there}}</p>', contact: null });
+  db.suppressed = [{ email: 'a@x.test', reason: 'unsubscribed' }];
+  await runCron();
+  check('it applies to enrolments with no contact row at all', sent.length === 0);
+
+  setup({ html: '<p>Hi {{firstName|there}}</p>' });
+  db.suppFail = 500;
+  r = await runCron();
+  check('if the list cannot be read nothing is sent and nothing is claimed', sent.length === 0 && db.claims === 0 && r.body.details[0].outcome === 'suppression_unreadable');
+  setup({ html: '<p>Hi {{firstName|there}}</p>' });
+  db.suppFail = 404;
+  r = await runCron();
+  check('a missing suppression table is reported distinctly and also blocks the send', sent.length === 0 && r.body.details[0].outcome === 'not_installed');
+
+  setup({ html: '<p>Hi {{firstName|there}}</p>' });
+  db.enrolments = [0, 1, 2].map(i => ({ id: 'e' + i, flow_id: 'f1', user_id: 'u1', email: `p${i}@x.test`, next_step_order: 1 }));
+  db.contacts = [];
+  await runCron();
+  check('the list is read once per account for everyone due, not once per recipient', db.rpcCalls.length === 1 && db.rpcCalls[0].addresses.length === 3 && db.rpcCalls[0].uid === 'u1');
+  setup({ html: '<p>Hi {{firstName|there}}</p>' });
+  db.suppressed = [{ email: 'a@x.test', reason: 'complained' }];
+  db.enrolments = [{ id: 'e1', flow_id: 'f1', user_id: 'u1', email: 'a@x.test', next_step_order: 1 }, { id: 'e2', flow_id: 'f1', user_id: 'u1', email: 'ok@x.test', next_step_order: 1 }];
+  await runCron();
+  check('only the suppressed address is held back; the rest still send', sent.length === 1 && sent[0].to[0] === 'ok@x.test');
 
   console.log(failures === 0 ? '\nALL ASSERTIONS PASSED\n' : `\n${failures} FAILED\n`);
   process.exit(failures === 0 ? 0 : 1);

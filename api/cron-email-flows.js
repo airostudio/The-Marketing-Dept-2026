@@ -39,6 +39,7 @@ const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
 const { applyMergeFields, resolveFieldAliases } = require('./_lib/merge-fields.js');
 const { findUnresolvedMergeTags } = require('./_lib/content-guard.js');
 const { buildMergeFields, copyIssues } = require('./_lib/flow-merge.js');
+const { filterSuppressed } = require('./_lib/send-guard.js');
 
 const MAX_SENDS_PER_RUN = 200;
 const SUPPRESSED = ['unsubscribed', 'bounced', 'complained'];
@@ -91,9 +92,42 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     return res.status(200).json(Object.assign({ ok: true, dryRun: !!dryRun }, report));
   }
 
+  // The account's suppression list — the same one a campaign send checks
+  // (opt-outs, bounces, complaints that may never have touched the contacts
+  // table) — read once per account for everyone due, not per recipient.
+  // Fails closed: an account whose list can't be read sends nothing this run.
+  const byUser = new Map();
+  due.forEach(e => { if (!byUser.has(e.user_id)) byUser.set(e.user_id, []); byUser.get(e.user_id).push({ to: e.email }); });
+  const suppression = new Map();   // user_id → { ok, error?, blocked: Map(email → reason) }
+  for (const [uid, recipients] of byUser) {
+    const s = await filterSuppressed(uid, recipients);
+    suppression.set(uid, s.ok
+      ? { ok: true, blocked: new Map(s.suppressed.map(x => [String(x.to).toLowerCase(), x.reason])) }
+      : { ok: false, code: s.code, error: s.error });
+  }
+
   for (const enrolment of due) {
     const flow = enrolment.email_flows || {};
     const email = enrolment.email;
+
+    const supp = suppression.get(enrolment.user_id);
+    if (!supp.ok) {
+      // Not claimed, not sent: it stays due and is retried once the list is readable.
+      report.skipped++;
+      report.details.push({ email, step: enrolment.next_step_order, outcome: supp.code || 'suppression_unreadable', error: supp.error });
+      continue;
+    }
+    const suppressedReason = supp.blocked.get(String(email).toLowerCase());
+    if (suppressedReason) {
+      report.skipped++;
+      report.details.push({ email, step: enrolment.next_step_order, outcome: 'suppressed', status: suppressedReason });
+      if (!dryRun) {
+        await sb('PATCH', `/email_flow_enrolments?id=eq.${enrolment.id}`, {
+          status: 'exited', exit_reason: `suppressed_${suppressedReason}`, completed_at: now.toISOString(),
+        });
+      }
+      continue;
+    }
 
     // Suppression re-checked here, not just at enrolment: this enrolment may
     // have been created days before the recipient opted out.
