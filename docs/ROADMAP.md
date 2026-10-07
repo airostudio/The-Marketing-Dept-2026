@@ -26,7 +26,8 @@ Real executors exist for Blade (find and enrich local prospects), Chase
 QA-check and prepare outreach) and Nancy (research a website, write and design
 a week of Instagram posts) Social Studio (a batch of LinkedIn / X / Facebook
 text posts) SEO (competitor and keyword research, topics, drafted
-articles) and Ads (platform-checked ad copy). Blade, Chase and Pat run in that order within a
+articles) Ads (platform-checked ad copy) and Analytics (a performance report written only
+from the account's own recorded numbers, every figure checked). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -44,3 +45,9 @@ other agent still produces a written plan rather than running its pipeline.
   Lab page still makes those), A/B test setup, and anything that talks to a real
   ad account (Meta, Google, LinkedIn): there is no ad-platform connection, so
   approved ad copy is kept for pasting into an ad manager, not launched.
+- **Analytics in missions — not yet included:** anything that needs data the
+  platform does not record — website traffic, social reach/likes/followers,
+  ad spend, and forecasts or attribution models. Reports cover the calling
+  user's own email campaigns (campaigns sent by a teammate on a shared profile
+  are not included), the audience, flows, social posts and shop-reported
+  revenue, for the last 7, 30 or 90 days.

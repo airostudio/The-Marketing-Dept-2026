@@ -794,7 +794,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
     linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
-    analytics: 'KPIs, attribution, reporting frameworks',
+    analytics: 'Writes a real performance report from the account\'s OWN recorded numbers (emails sent and their opens/clicks where tracked, revenue reported by the shop, audience growth, flows, social posts published) for the last 7, 30 or 90 days, with every figure checked against the data. Runs for real; approving saves it to Report History. Reports only what is recorded — it cannot analyse data that was never collected, and it is not a forecast or an attribution model.',
     cro: 'Conversion optimisation, A/B test designs, landing page audits',
     deck: 'Pitch decks, sales presentations, one-pagers',
     video: 'Video scripts, thumbnails, YouTube strategy',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1271,6 +1271,70 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const ANALYTICS_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Analytics Brain, which writes a performance report from the account's own recorded marketing data (email, revenue, audience, automation flows, social posts).
+
+Choose ONLY:
+- periodDays: 7, 30 or 90 — the period the goal asks about (30 if unstated)
+- focus: anything specific the goal wants the report to emphasise, in a short phrase ("" if nothing)
+Do not mention any figures; the report is written from the real data.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the report is for",
+  "params": { "periodDays": 30, "focus": "" }
+}`;
+
+  function sanitizeAnalyticsParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const d = parseInt(src.periodDays, 10);
+    return {
+      periodDays: [7, 30, 90].includes(d) ? d : 30,
+      focus: String(src.focus == null ? '' : src.focus).replace(/\s+/g, ' ').trim().slice(0, 300),
+    };
+  }
+
+  function describeAnalyticsParams(params) {
+    return `Write a performance report on the last ${params.periodDays} days of recorded marketing activity${params.focus ? `, focusing on ${params.focus}` : ''}.`;
+  }
+
+  /**
+   * Run Analytics Brain for real: one server call gathers the account's data,
+   * writes the report and checks every figure against that data. Remembered on
+   * task._analyticsState so a retry never writes (and pays for) a second report.
+   */
+  async function runAnalyticsTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeAnalyticsParams(task.params);
+    if (task._analyticsState) return task._analyticsState;
+
+    if (onStatus) onStatus('Reading your recorded numbers and writing the report…');
+    const res = await doFetch('/api/mission-analytics', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'report', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Analytics request failed (HTTP ${res.status})`);
+    const state = data.status === 'no_data'
+      ? { noData: true, note: data.note, period: data.facts && data.facts.period, complete: true }
+      : { artifactId: data.artifactId, title: data.title, markdown: data.markdown, review: data.review || { approved: false, unsupportedNumbers: [] }, unavailable: data.unavailable || [], period: data.period, complete: true };
+    task._analyticsState = state;
+    return state;
+  }
+
+  function describeAnalyticsResult(result) {
+    if (result.noData) return `**Analytics Brain looked at your real data** — ${result.note}`;
+    const r = result.review || {};
+    const lines = [`**Analytics Brain wrote "${result.title}" from your real numbers** (${result.period ? result.period.label : 'recent activity'}).`];
+    if (result.unavailable && result.unavailable.length) lines.push('Not available: ' + result.unavailable.join('; '));
+    if (r.approved) lines.push(`Every figure in it was checked against your data${r.fixed ? ' (after one correction)' : ''}.`, '', 'Waiting for your approval — approving saves it to Report History.');
+    else lines.push(`It contains figures that are **not in your data** (${(r.unsupportedNumbers || []).join(', ')}), so it cannot be approved. Run it again or reject it.`);
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1479,6 +1543,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'analytics') {
+        const raw = await callJsonPrompt({
+          systemPrompt: ANALYTICS_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the analytics agent');
+        const params = sanitizeAnalyticsParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Performance report').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'analytics',
+          userPrompt: describeAnalyticsParams(params),
         };
       } else if (agentKey === 'ads' && window.AdsMission) {
         const raw = await callJsonPrompt({
@@ -1806,6 +1883,10 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    runAnalyticsTask,
+    describeAnalyticsResult,
+    sanitizeAnalyticsParams,
+    describeAnalyticsParams,
     describeAdsResult,
     describeSeoResult,
     runSocialTask,

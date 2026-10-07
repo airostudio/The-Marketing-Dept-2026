@@ -165,7 +165,7 @@ const base = { action: 'save', product: 'Custom websites for plumbers', audience
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ AdsMission: am, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Ads is a real executor; analytics is not', orch.isRealExecutor('ads') && !orch.isRealExecutor('analytics'));
+  check('Ads is a real executor; cro is not', orch.isRealExecutor('ads') && !orch.isRealExecutor('cro'));
   const txt = orch.describeAdsResult({ strategyNote: 'n', variants: [{ platform: 'Meta/Facebook', angleName: 'A', headline: 'H', body: 'b', problems: [] }, { platform: 'LinkedIn', angleName: 'B', headline: 'H2', body: 'b', problems: ['Headline is 80 characters — LinkedIn allows 70.'] }], failures: [{ platform: 'TikTok', message: 'slow' }] });
   check('the report names ads that do not fit and platforms that failed, and says nothing is bought', /does not fit/.test(txt) && /TikTok \(slow\)/.test(txt) && /nothing has been bought or published/.test(txt));
 

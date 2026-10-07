@@ -52,6 +52,11 @@
  *   paste into their ad manager. Ads over a limit are left out and named.
  *   Buys, publishes and schedules nothing — there is no ad account behind it.
  *
+ *   analytics_report — saves the report to Report History (analytics_reports)
+ *   with the figures it was written from kept as its source data. Refuses a
+ *   report that contains a figure not found in the account's data. Sends and
+ *   publishes nothing.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -95,7 +100,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : undefined, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -114,6 +119,22 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** analytics_report → analytics_reports (Report History). */
+async function saveAnalyticsReport(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  if (!payload.markdown) throw new Error('This report has no content to save.');
+  const days = payload.params?.periodDays || 30;
+  const projectId = payload.params?.projectId || null;
+  const ins = await sb('POST', '/analytics_reports', {
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    report_type: days <= 7 ? 'weekly' : days <= 30 ? 'monthly' : 'quarterly', audience: 'team',
+    title: artifact.title, focus: payload.params?.focus || null,
+    source_data: JSON.stringify(payload.facts || {}), content: payload.markdown,
+  });
+  if (!ins.ok || !ins.data?.[0]) throw new Error(`Could not save the report (HTTP ${ins.status}).`);
+  return { reportId: ins.data[0].id };
 }
 
 /** ad_campaign → social_posts rows with source 'ad', approved. One atomic insert of the ads that fit. */
@@ -420,6 +441,14 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
           blockers: artifact.payload?.review?.blockers || [],
         });
       }
+      // A report with a figure that isn't in the account's data never reaches Report History.
+      if (body.action === 'approve' && artifact.kind === 'analytics_report' && !artifact.payload?.review?.approved) {
+        const bad = artifact.payload?.review?.unsupportedNumbers || [];
+        return res.status(409).json({
+          error: `This report contains figures that are not in your data (${bad.join(', ') || 'unspecified'}), so it cannot be approved.`,
+          blockers: bad,
+        });
+      }
 
       const target = body.action === 'approve' ? 'approved' : 'rejected';
       // Claim the decision atomically: only a row still pending_approval flips,
@@ -436,6 +465,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'analytics_report') result = await saveAnalyticsReport(sb, artifact, caller.id);
         else if (artifact.kind === 'ad_campaign') result = await saveAdCopy(sb, artifact, caller.id);
         else if (artifact.kind === 'seo_plan') result = await saveSeoPlan(sb, artifact, caller.id);
         else if (artifact.kind === 'social_posts') result = await sendSocialToCalendar(sb, artifact, caller.id);

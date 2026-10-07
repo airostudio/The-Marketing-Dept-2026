@@ -185,7 +185,7 @@ const article = (n) => ({ title: `Article ${n}`, meta_description: 'Meta', slug:
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ SeoMission: sm, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('the SEO agent is a real executor; analytics and cro are not', orch.isRealExecutor('seo') && !orch.isRealExecutor('cro') && !orch.isRealExecutor('analytics'));
+  check('the SEO agent is a real executor; cro and competitive are not', orch.isRealExecutor('seo') && !orch.isRealExecutor('cro') && !orch.isRealExecutor('competitive'));
   const text = orch.describeSeoResult({ topics, competitors: [{}], articles: [{ title: 'A', word_count: 700, target_keyword: 'k' }], volumesNote: 'Real search volumes are not connected' });
   check('the report separates real volumes from estimates and says nothing is published', /2 with a real search volume, 2 estimates/.test(text) && /not connected/.test(text) && /nothing has been published/.test(text));
 

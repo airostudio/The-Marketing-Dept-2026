@@ -2787,7 +2787,7 @@ const AGENT_META = {
         'compliance-automation':'Enterprise Compliance Automation',
     },
     serviceNames: {
-        seo:'Live site read + competitor research + keyword data + Claude', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
+        seo:'Live site read + competitor research + keyword data + Claude', analytics:'Your recorded data + Claude, figures verified', deck:'Gemini 2.5 Pro',
         ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Perplexity Sonar Pro',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
@@ -3337,6 +3337,14 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'analytics' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📊 Analytics Brain reports for real — only on numbers your account has recorded, and every figure is checked against them. Nothing is sent or published:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <label style="font-size:12px;">Period <select data-param="periodDays">${[7, 30, 90].map(n => `<option value="${n}"${((t.params && t.params.periodDays) || 30) === n ? ' selected' : ''}>Last ${n} days</option>`).join('')}</select></label>
+                                <input data-param="focus" placeholder="Focus (optional)" value="${this._escapeAttr((t.params && t.params.focus) || '')}" style="flex:1;min-width:200px;">
+                            </div>
+                        </div>` : ''}
                         ${t.realExecutor === 'ads' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📣 The Ad Creative Lab writes real ad copy${(t.params && t.params.product && t.params.audience) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t say what to advertise or to whom — please fill these in)</strong>'}. Nothing is bought or published:</div>
@@ -3452,10 +3460,15 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'analytics') {
+                    t.params = window.ScottyOrchestrator.sanitizeAnalyticsParams({ periodDays: val('periodDays'), focus: val('focus') });
+                    t.userPrompt = window.ScottyOrchestrator.describeAnalyticsParams(t.params);
+                    continue;
+                }
                 if (t.realExecutor === 'ads') {
                     t.params = window.AdsMission.sanitizeParams({
                         product: val('product'), audience: val('audience'), objective: val('objective'), variants: val('variants'),
@@ -3619,6 +3632,22 @@ class ScottyChat {
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'analytics' && task.realExecutor === 'analytics') {
+                        const bundle = contextBundle || {};
+                        const real = await orch.runAnalyticsTask(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            businessContext: bundle.businessContext || '',
+                            language: bundle.language || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeAnalyticsResult(real);
+                        this._renderAnalyticsResult(resultEl, real);
+                        if (real.artifactId && this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
                     } else if (task.agentKey === 'ads' && task.realExecutor === 'ads') {
@@ -3891,6 +3920,34 @@ class ScottyChat {
         } catch { return null; }
     }
 
+    _renderAnalyticsResult(resultEl, real) {
+        if (real.noData) {
+            resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">📊 ${this._escapeAttr(real.note)}</div>`;
+            return;
+        }
+        const r = real.review || {};
+        // The report is markdown the model wrote; it is shown as plain text,
+        // never as HTML, so nothing in it can run.
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                ${(real.unavailable || []).length ? `<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;">Not available in your data:<ul style="margin:4px 0 0 16px;">${real.unavailable.map(u => `<li>${this._escapeAttr(u)}</li>`).join('')}</ul></div>` : ''}
+                <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6;margin:0 0 10px;">${this._escapeAttr(real.markdown)}</pre>
+                ${r.approved
+                    ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                        <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Every figure was checked against your data.</strong> Approving saves this to Report History on the Analytics page. Nothing is sent or published.</div>
+                        <button class="mission-report-btn primary blade-approve">Approve — save to Report History</button>
+                        <button class="mission-report-btn blade-reject">Reject</button>
+                        <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                    </div>`
+                    : `<div style="margin-top:12px;padding:10px;border:1px solid #f59e0b;border-radius:8px;font-size:13px;">
+                        ⚠️ <strong>This report contains figures that are not in your data, so it cannot be approved:</strong> ${this._escapeAttr((r.unsupportedNumbers || []).join(', '))}
+                        <div style="margin-top:6px;color:var(--text2);">Run the mission again. It has been flagged for follow-up.</div>
+                    </div>`}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { analytics: true });
+    }
+
     _renderAdsResult(resultEl, real) {
         const cards = real.variants.map(v => {
             const bad = v.problems && v.problems.length;
@@ -4078,7 +4135,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : 'Adding to your audience…'))))) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : 'Adding to your audience…')))))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -4086,8 +4143,12 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.analytics) {
+                    msg.innerHTML = `✅ Saved to Report History — nothing was sent. <a href="/agents/analytics-agent.html">Open Analytics Brain →</a>`;
+                    return;
+                }
                 if (opts && opts.ads) {
                     const left = (r.skipped || []).length;
                     msg.innerHTML = `✅ ${this._escapeHtml(String(r.ads || 0))} ad${r.ads === 1 ? '' : 's'} saved as approved ad copy${left ? ` (${this._escapeHtml(String(left))} left out — over a platform limit)` : ''} — nothing bought or published. <a href="/agents/audience-agent.html?tab=calendar">Open the ad copy →</a>`;

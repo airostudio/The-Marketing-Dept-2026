@@ -72,6 +72,18 @@ function assess(artifact, now) {
     };
   }
 
+  if (artifact.status === 'pending_approval' && artifact.kind === 'analytics_report') {
+    const review = payload.review || {};
+    if (review.approved === false) {
+      return {
+        reason: 'needs_input', kind: 'upstream_error',
+        message: `Analytics report ${label} contains figures that are not in the account's data (${(review.unsupportedNumbers || []).slice(0, 5).join(', ')}) and cannot be approved. It needs to be re-run or rejected.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, unsupportedNumbers: review.unsupportedNumbers || [] },
+      };
+    }
+    return null;
+  }
+
   if (artifact.status === 'pending_approval' && artifact.kind === 'pat_campaign') {
     const review = payload.review || {};
     if (review.approved === false) {
