@@ -312,7 +312,33 @@
                         <h2>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
                             Automation Flows
+                            <button type="button" class="btn-generate" id="newFlowBtn" style="margin-left:auto;padding:0.45rem 1rem;" onclick="toggleFlowBuilder()">+ New flow</button>
                         </h2>
+                        <div id="flowBuilder" style="display:none;margin-bottom:1.25rem;padding:1.25rem;background:var(--input-bg,#161622);border:1px solid var(--border-color,#2e2e3e);border-radius:10px;">
+                            <p style="font-size:12.5px;color:var(--text-muted,#888);line-height:1.6;margin:0 0 1rem;">
+                                A flow is a short sequence of emails sent a set time after someone is enrolled. It is saved as a
+                                <strong>draft</strong>: nothing sends until you activate it and enrol people. Every email still gets the
+                                unsubscribe footer and is checked against your opt-out list before it goes.
+                            </p>
+                            <div class="ai-form">
+                                <div class="form-group full-width"><label for="flowName">Flow name</label><input type="text" id="flowName" maxlength="120" placeholder="e.g. Welcome series"></div>
+                                <div class="form-group"><label for="flowSendAs">Send as</label><select id="flowSendAs"></select>
+                                    <div id="flowSendAsHint" style="font-size:11.5px;color:var(--text-muted,#888);margin-top:4px;"></div></div>
+                                <div class="form-group"><label for="flowFromName">From name <span style="font-weight:400;">(optional)</span></label><input type="text" id="flowFromName" maxlength="120" placeholder="Defaults to your account's sender name"></div>
+                                <div class="form-group full-width"><label for="flowFromEmail">From email <span style="font-weight:400;">(optional)</span></label><input type="email" id="flowFromEmail" placeholder="Defaults to your account's sending address"></div>
+                            </div>
+                            <div id="flowSteps" style="margin-top:1rem;"></div>
+                            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.75rem;align-items:center;">
+                                <button type="button" class="btn-generate" style="background:#2e2e3e;" onclick="addFlowStep()">+ Add another email</button>
+                                <span style="font-size:11.5px;color:var(--text-muted,#888);">Insert a tag at the cursor:</span>
+                                <span id="flowTagButtons"></span>
+                            </div>
+                            <div id="flowBuilderMsg" role="status" style="margin-top:0.9rem;font-size:12.5px;line-height:1.6;"></div>
+                            <div style="display:flex;gap:0.6rem;margin-top:0.9rem;">
+                                <button type="button" class="btn-generate" id="saveFlowBtn" onclick="saveFlow()">Save as draft</button>
+                                <button type="button" class="btn-generate" style="background:#2e2e3e;" onclick="toggleFlowBuilder(false)">Cancel</button>
+                            </div>
+                        </div>
                         <div class="automation-list" id="automationList">
                             <!-- rendered by renderAutomations() -->
                         </div>
@@ -370,6 +396,9 @@
     <script src="/js/ai-service.js"></script>
     <script src="/js/contacts-store.js"></script>
     <script src="/js/email-marketing-service.js"></script>
+    <script src="/js/writing-language.js"></script>
+    <script src="/js/intelligence-engine.js"></script>
+    <script src="/js/flow-builder.js"></script>
     <script>
         // Auth protection
         document.addEventListener('DOMContentLoaded', async function() {
@@ -670,7 +699,177 @@
                     <div class="metric"><div class="metric-val">${f.completed.toLocaleString()}</div><div class="metric-label">Completed</div></div>
                     ${f.status !== 'active' ? '<p style="font-size:12px;color:var(--color-text-tertiary);margin:8px 0 0;">' +
                         'This flow is not active, so nothing is being sent from it.</p>' : ''}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+                        ${f.status === 'active'
+                            ? `<button type="button" class="btn-generate" style="background:#2e2e3e;padding:0.4rem 0.9rem;" onclick="setFlowStatus('${esc(f.id)}','paused')">Pause</button>`
+                            : `<button type="button" class="btn-generate" style="padding:0.4rem 0.9rem;" onclick="setFlowStatus('${esc(f.id)}','active')">Activate</button>`}
+                        ${f.status === 'active' ? `
+                            <select id="enrolSeg-${esc(f.id)}" class="enrol-seg" style="padding:0.4rem;background:var(--input-bg,#161622);color:inherit;border:1px solid var(--border-color,#2e2e3e);border-radius:8px;"></select>
+                            <button type="button" class="btn-generate" style="padding:0.4rem 0.9rem;" onclick="enrolSegment('${esc(f.id)}')">Enrol this segment</button>` : ''}
+                    </div>
+                    <div id="flowMsg-${esc(f.id)}" role="status" style="font-size:12px;line-height:1.6;margin-top:6px;"></div>
                 </div>`).join('');
+            fillEnrolSegments();
+        }
+
+        /* ── flow builder ───────────────────────────────────────────────── */
+
+        let flowStepCount = 0;
+        let lastFlowField = null;
+
+        function setFlowMsg(el, text, ok) {
+            if (!el) return;
+            el.style.color = ok ? '#22c55e' : '#f87171';
+            el.textContent = text;
+        }
+
+        function toggleFlowBuilder(force) {
+            const box = document.getElementById('flowBuilder');
+            const open = typeof force === 'boolean' ? force : box.style.display === 'none';
+            box.style.display = open ? '' : 'none';
+            if (!open) return;
+            if (!document.querySelector('#flowSteps .flow-step')) addFlowStep();
+            fillSendAs();
+            renderTagButtons();
+        }
+
+        function fillSendAs() {
+            const sel = document.getElementById('flowSendAs');
+            const hint = document.getElementById('flowSendAsHint');
+            const contacts = (window.IntelligenceEngine && window.IntelligenceEngine.brain.getContacts()) || [];
+            sel.innerHTML = '';
+            if (!contacts.length) {
+                sel.innerHTML = '<option value="">No contact set</option>';
+                hint.innerHTML = 'Add a contact under <a href="/intelligence/business-brain.html">Contact People</a> in your Business Brain to use the sender tags.';
+                return;
+            }
+            contacts.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.key; o.textContent = c.name + (c.title ? ' — ' + c.title : '');
+                sel.appendChild(o);
+            });
+            hint.textContent = 'Fills {{senderName}}, {{senderTitle}} and {{senderCompany}}. Saved with the flow.';
+        }
+
+        function renderTagButtons() {
+            const wrap = document.getElementById('flowTagButtons');
+            if (wrap.childElementCount) return;
+            window.FlowBuilder.TAGS.forEach(t => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.textContent = t.label; b.title = t.tag;
+                b.style.cssText = 'margin:0 4px 4px 0;padding:2px 8px;border-radius:999px;border:1px solid var(--border-color,#2e2e3e);background:transparent;color:inherit;font-size:11.5px;cursor:pointer;';
+                b.addEventListener('mousedown', e => e.preventDefault());   // keep focus (and the cursor) in the field
+                b.addEventListener('click', () => {
+                    const f = lastFlowField;
+                    if (!f) return;
+                    const a = f.selectionStart ?? f.value.length, z = f.selectionEnd ?? a;
+                    f.value = f.value.slice(0, a) + t.tag + f.value.slice(z);
+                    f.focus(); f.selectionStart = f.selectionEnd = a + t.tag.length;
+                });
+                wrap.appendChild(b);
+            });
+        }
+
+        function addFlowStep() {
+            const box = document.getElementById('flowSteps');
+            if (box.querySelectorAll('.flow-step').length >= window.FlowBuilder.MAX_STEPS) return;
+            const n = ++flowStepCount;
+            const first = !box.querySelector('.flow-step');
+            const div = document.createElement('div');
+            div.className = 'flow-step';
+            div.style.cssText = 'padding:0.9rem;margin-bottom:0.75rem;border:1px solid var(--border-color,#2e2e3e);border-radius:8px;';
+            div.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <strong class="flow-step-title" style="font-size:0.85rem;"></strong>
+                    <button type="button" class="flow-step-remove" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:12px;">Remove</button>
+                </div>
+                <div class="ai-form">
+                    <div class="form-group"><label>${first ? 'Send after enrolment (hours)' : 'Send after the previous email (hours)'}</label><input type="number" class="flow-delay" min="0" step="1" value="${first ? 0 : 48}"></div>
+                    <div class="form-group"><label>Subject</label><input type="text" class="flow-subject" maxlength="200" placeholder="e.g. Welcome, {{firstName|there}}"></div>
+                    <div class="form-group full-width"><label>Email</label><textarea class="flow-body" rows="6" placeholder="Write it as plain text. A blank line starts a new paragraph."></textarea></div>
+                </div>`;
+            div.querySelectorAll('input,textarea').forEach(f => f.addEventListener('focus', () => { lastFlowField = f; }));
+            div.querySelector('.flow-step-remove').addEventListener('click', () => { div.remove(); renumberFlowSteps(); });
+            box.appendChild(div);
+            renumberFlowSteps();
+        }
+
+        function renumberFlowSteps() {
+            document.querySelectorAll('#flowSteps .flow-step').forEach((d, i) => {
+                d.querySelector('.flow-step-title').textContent = 'Email ' + (i + 1);
+            });
+        }
+
+        async function saveFlow() {
+            const msg = document.getElementById('flowBuilderMsg');
+            const btn = document.getElementById('saveFlowBtn');
+            const steps = Array.from(document.querySelectorAll('#flowSteps .flow-step')).map(d => ({
+                delayHours: d.querySelector('.flow-delay').value,
+                subject: d.querySelector('.flow-subject').value,
+                body: d.querySelector('.flow-body').value,
+            }));
+            const sendAs = document.getElementById('flowSendAs').value;
+            const brain = window.IntelligenceEngine && window.IntelligenceEngine.brain;
+            const profile = (() => { try { const id = localStorage.getItem('intel_active_profile'); return id && !id.startsWith('local_') ? id : undefined; } catch (e) { return undefined; } })();
+            const built = window.FlowBuilder.buildCreatePayload({
+                name: document.getElementById('flowName').value,
+                fromName: document.getElementById('flowFromName').value,
+                fromEmail: document.getElementById('flowFromEmail').value,
+                steps,
+            }, { senderFields: sendAs && brain ? brain.getSenderMergeFields(sendAs) : {}, intelProfileId: profile });
+            if (built.errors.length) return setFlowMsg(msg, built.errors.join(' '), false);
+
+            btn.disabled = true; setFlowMsg(msg, 'Saving…', true);
+            try {
+                const r = await authedFetch('/api/email-flows', built.payload);
+                if (!r) return setFlowMsg(msg, 'Sign in to save a flow.', false);
+                if (!r.ok) {
+                    const issues = (r.data && r.data.issues) || [];
+                    return setFlowMsg(msg, [(r.data && r.data.error) || `HTTP ${r.status}`, ...issues].join(' '), false);
+                }
+                setFlowMsg(msg, 'Saved as a draft. Activate it from the list below when you are ready.', true);
+                document.getElementById('flowSteps').innerHTML = '';
+                document.getElementById('flowName').value = '';
+                flowStepCount = 0;
+                renderAutomations();
+                setTimeout(() => toggleFlowBuilder(false), 1500);
+            } finally { btn.disabled = false; }
+        }
+
+        async function setFlowStatus(flowId, status) {
+            const msg = document.getElementById('flowMsg-' + flowId);
+            const r = await authedFetch('/api/email-flows', { action: 'setStatus', flowId, status });
+            if (!r || !r.ok) return setFlowMsg(msg, (r && r.data && r.data.error) || 'Could not change the flow.', false);
+            renderAutomations();
+        }
+
+        async function fillEnrolSegments() {
+            const sels = document.querySelectorAll('select.enrol-seg');
+            if (!sels.length) return;
+            let segs = [];
+            try { segs = await window.ContactsStore.listSegments(); } catch (e) { /* leave empty; the message below says so */ }
+            sels.forEach(sel => {
+                sel.innerHTML = segs.length
+                    ? segs.map(sg => `<option value="${esc(sg.id)}">${esc(sg.name)}</option>`).join('')
+                    : '<option value="">No segments yet</option>';
+            });
+        }
+
+        async function enrolSegment(flowId) {
+            const msg = document.getElementById('flowMsg-' + flowId);
+            const segId = document.getElementById('enrolSeg-' + flowId).value;
+            if (!segId) return setFlowMsg(msg, 'Create a segment first (Audience → Segments).', false);
+            setFlowMsg(msg, 'Enrolling…', true);
+            try {
+                const contacts = await window.ContactsStore.resolveSegmentContacts(segId);
+                const pick = window.FlowBuilder.enrolRecipients(contacts);
+                if (!pick.recipients.length) return setFlowMsg(msg, 'That segment has nobody who can be emailed right now.', false);
+                const r = await authedFetch('/api/email-flows', { action: 'enrol', flowId, recipients: pick.recipients });
+                if (!r || !r.ok) return setFlowMsg(msg, (r && r.data && r.data.error) || 'Could not enrol them.', false);
+                const d = r.data;
+                setFlowMsg(msg, `${d.enrolled} enrolled` + (d.alreadyInFlow ? `, ${d.alreadyInFlow} already in the flow` : '') +
+                    (pick.capped ? `. Only the first ${window.FlowBuilder.MAX_ENROL} were enrolled — run it again for the rest.` : '.'), true);
+            } catch (e) { setFlowMsg(msg, e.message, false); }
         }
 
         /**
