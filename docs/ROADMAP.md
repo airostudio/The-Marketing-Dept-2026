@@ -21,6 +21,7 @@ nobody assumes it works.
 
 ## Scotty (autonomous missions)
 
-Real executors exist for Blade (find and enrich local prospects) and Pat
-(draft, QA-check and prepare outreach). Every other agent still produces a
-written plan rather than running its pipeline.
+Real executors exist for Blade (find and enrich local prospects), Chase
+(audit each shortlisted website and score the opportunity) and Pat (draft,
+QA-check and prepare outreach), and run in that order within a mission. Every
+other agent still produces a written plan rather than running its pipeline.

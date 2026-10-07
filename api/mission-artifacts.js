@@ -25,6 +25,12 @@
  *   The person then sends from Pat's own page (suppression, quota, content
  *   guard and the compliance footer all apply there).
  *
+ *   chase_audit — tags the audited businesses that are already in the audience
+ *   (matched by email, the flow owner's own contacts only) with how strong an
+ *   opportunity they are (opportunity-high-priority, …) and records their
+ *   score and platform on the contact. It changes nothing else and sends
+ *   nothing; a tag is a label, it does not suppress or enrol anyone.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -68,7 +74,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length },
   };
 }
 
@@ -87,6 +93,43 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** chase_audit → opportunity tags on contacts that already exist. */
+async function tagAuditedProspects(sb, artifact, callerId) {
+  const leads = (Array.isArray(artifact.payload?.leads) ? artifact.payload.leads : []);
+  const scored = leads.filter(l => l.audit && l.audit.opportunity && l.email && EMAIL_RE.test(String(l.email).trim()));
+  const unscored = leads.length - scored.length;
+  if (!scored.length) return { tagged: 0, notInAudience: 0, unscored, failed: 0, failedLeads: [] };
+
+  const byEmail = new Map(scored.map(l => [String(l.email).trim().toLowerCase(), l]));
+  const found = await sb('GET',
+    `/contacts?user_id=eq.${callerId}&email=in.(${[...byEmail.keys()].map(encodeURIComponent).join(',')})&select=id,email,tags,custom_fields`);
+  // Without the audience list there is nothing safe to tag: hand the approval back.
+  if (!found.ok) throw new Error('Could not look up which of these businesses are already in your audience.');
+  const contacts = found.data || [];
+  const inAudience = new Set(contacts.map(c => String(c.email).toLowerCase()));
+  const notInAudience = [...byEmail.keys()].filter(e => !inAudience.has(e)).length;
+
+  let tagged = 0, failed = 0;
+  const failedLeads = [];
+  await runWithConcurrency(contacts, 5, async (c) => {
+    const lead = byEmail.get(String(c.email).toLowerCase());
+    const cls = String(lead.audit.opportunity.classification || '').replace(/_/g, '-');
+    const tag = `opportunity-${cls}`;
+    // Replace any earlier opportunity-* tag so a re-audit moves the label, not piles them up.
+    const tags = [...new Set([...(Array.isArray(c.tags) ? c.tags : []).filter(t => !String(t).startsWith('opportunity-')), tag])];
+    const custom_fields = {
+      ...((c.custom_fields && typeof c.custom_fields === 'object') ? c.custom_fields : {}),
+      opportunity_score: lead.audit.opportunity.score,
+      site_platform: lead.audit.platform || null,
+      audited_at: lead.audit.checkedAt || null,
+    };
+    const up = await sb('PATCH', `/contacts?id=eq.${c.id}&user_id=eq.${callerId}`, { tags, custom_fields });
+    if (up.ok) tagged++;
+    else { failed++; failedLeads.push({ email: c.email, name: lead.name, status: up.status }); }
+  });
+  return { tagged, notInAudience, unscored, failed, failedLeads: failedLeads.slice(0, 50) };
 }
 
 /** blade_leads → Beeker contacts. Returns the counts, never throws on a single bad row. */
@@ -241,6 +284,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);
         else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);
         else result = {};
       } catch (e) {

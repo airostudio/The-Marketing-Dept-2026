@@ -28,6 +28,7 @@ const ScottyOrchestrator = (() => {
     email:       '/agents/email-agent.html',
     sales:       '/agents/sales-agent.html',
     blade:       '/agents/blade-agent.html',
+    chase:       '/agents/sales-agent.html',
     ads:         '/agents/social-agent.html',
     social:      '/agents/social-agent.html',
     analytics:   '/agents/analytics-agent.html',
@@ -50,6 +51,7 @@ const ScottyOrchestrator = (() => {
     email:       'Email Engine — Klaviyo-style flows, sequences, campaigns',
     sales:       'Sales Intelligence — Apollo-style prospecting and outreach',
     blade:       'Blade — finds REAL local businesses (e.g. plumbers in Austin) from Google, checks each one\'s website, and shortlists the ones with a genuine website opportunity, with contact emails and owner names where they can actually be found',
+    chase:       'Chase — runs a REAL audit of each business\'s website (technology/platform, SEO, mobile, speed, conversion, local SEO) and scores how strong a website opportunity each one is',
     ads:         'Ad Creative Lab — ad variants, A/B tests, platform-specific creative',
     social:      'Social Studio — platform-native posts, content calendar',
     analytics:   'Analytics Brain — attribution, MMM, performance reporting',
@@ -783,6 +785,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     sales: 'ICP research, prospect lists, outreach strategies, lead qualification',
     blade: 'Finds a REAL shortlist of local businesses (a trade in a named city/area) whose websites are missing, outdated or on a template builder, with real contact emails and owner names where findable. Runs for real — produces actual leads, not a plan. Use for "find/prospect local [trade] in [place]" goals.',
     delivery: 'Pat — drafts ONE real outreach email (subject, body, link), runs it through the send-time checks and Scotty QA review, and prepares the audience. Runs for real; sends nothing until a person approves and sends it. Use for outreach to businesses already found (e.g. after blade) — needs a stated offer.',
+    chase: 'Audits the websites of businesses found by blade (or a typed list of site addresses) for real — platform, SEO, mobile, speed, conversion — and scores each as an opportunity. Runs for real; approving tags the prospects in the audience by opportunity strength. Use after blade when website quality matters to the offer.',
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
     seo: 'Keywords, technical audit, meta tags, rankings strategy',
@@ -870,7 +873,21 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'delivery']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery']);
+
+  // Real executors hand work down the line (Blade's list → Chase's audit →
+  // Pat's email), so whatever order the model listed them in, they run in this
+  // one. Everything else keeps its relative position.
+  const REAL_PIPELINE_ORDER = ['blade', 'chase', 'delivery'];
+  function orderForExecution(keys) {
+    const unique = [...new Set(keys)];
+    const rank = (k) => REAL_PIPELINE_ORDER.indexOf(k);
+    const slots = unique.map((k, i) => i).filter(i => rank(unique[i]) >= 0);
+    const sorted = slots.map(i => unique[i]).sort((a, b) => rank(a) - rank(b));
+    const out = unique.slice();
+    slots.forEach((slot, n) => { out[slot] = sorted[n]; });
+    return out;
+  }
 
   function isRealExecutor(agentKey) { return REAL_EXECUTORS.has(agentKey); }
 
@@ -997,6 +1014,112 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+
+  const CHASE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Chase, an agent that audits business websites for real and scores each as a sales opportunity.
+
+Chase audits either the websites on the Blade shortlist from the same mission, or a typed list of website addresses. Fill these ONLY from what the goal states — never guess or invent a website:
+- urls: website addresses the goal explicitly names (usually none — Chase normally uses Blade's list)
+- industry: the trade or business type being audited, if stated
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on whose websites are audited and why",
+  "params": { "industry": "", "urls": [] }
+}`;
+
+  function sanitizeChaseParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const industry = String(src.industry == null ? '' : src.industry).replace(/\s+/g, ' ').trim().slice(0, 80);
+    const raw = Array.isArray(src.urls) ? src.urls : String(src.urls || '').split(/[\s,]+/);
+    const urls = [...new Set(raw.map(u => String(u || '').trim()).filter(Boolean))].slice(0, 25);
+    return { industry, urls };
+  }
+
+  function describeChaseParams(params) {
+    return params.urls && params.urls.length
+      ? `Audit ${params.urls.length} website${params.urls.length === 1 ? '' : 's'} and score each as a website opportunity.`
+      : 'Audit the websites Blade found and score each as a website opportunity.';
+  }
+
+  /** Chase needs a website list from somewhere: Blade earlier in the mission, or typed addresses. */
+  function missingChaseInputs(params, { hasBladeSource } = {}) {
+    if (hasBladeSource) return [];
+    return sanitizeChaseParams(params).urls.length ? [] : ['the website addresses to audit (or a Blade search earlier in the mission)'];
+  }
+
+  /**
+   * Run Chase for real: build the list (from Blade's finished artifact, or the
+   * typed addresses), then audit a few sites at a time until none remain.
+   * Resumable via task._chaseState, like Blade, so a retry never re-starts the list.
+   *
+   * @param {object} task  { params: {industry, urls} }
+   * @param {object} opts  { authHeaders, intelProfileId, missionId, sourceArtifactId, onStatus, fetchImpl }
+   */
+  async function runChaseTask(task, { authHeaders, intelProfileId, missionId, sourceArtifactId, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const say = (msg) => { if (onStatus) onStatus(msg); };
+    const params = sanitizeChaseParams(task.params);
+    const missing = missingChaseInputs(params, { hasBladeSource: !!sourceArtifactId });
+    if (missing.length) throw new Error(`Chase needs ${missing.join(' ')} before it can audit.`);
+
+    async function post(body) {
+      const res = await doFetch('/api/mission-chase', { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || `Chase request failed (HTTP ${res.status})`);
+      return data;
+    }
+
+    const state = task._chaseState || (task._chaseState = {});
+    if (!state.artifactId) {
+      say('Preparing the list of websites to audit…');
+      const started = await post({
+        action: 'start', industry: params.industry || undefined,
+        ...(sourceArtifactId ? { sourceArtifactId } : { urls: params.urls }),
+        intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      });
+      Object.assign(state, {
+        artifactId: started.artifactId, status: started.status, source: started.source,
+        truncated: started.truncated, note: started.note, leads: started.leads || [], remaining: started.remaining || 0,
+      });
+    }
+
+    let guard = 0;
+    while (state.remaining > 0 && guard++ < 40) {
+      const total = state.leads.length;
+      say(`Auditing websites… ${total - state.remaining}/${total} done`);
+      const batch = await post({ action: 'audit', artifactId: state.artifactId });
+      if (!batch.processed) break;
+      for (const l of batch.leads || []) {
+        const i = state.leads.findIndex(x => x.key === l.key);
+        if (i >= 0) state.leads[i] = l;
+      }
+      state.remaining = batch.remaining;
+      state.status = batch.status;
+    }
+    // An audit that stopped advancing is a failed task, not a finished one.
+    if (state.remaining > 0) throw new Error(`Website audit stalled with ${state.remaining} site${state.remaining === 1 ? '' : 's'} still to check.`);
+
+    return { artifactId: state.artifactId, status: state.status, source: state.source, truncated: state.truncated, note: state.note, leads: state.leads, complete: true };
+  }
+
+  /** A plain-markdown account of a real Chase result, for the mission report. */
+  function describeChaseResult(result) {
+    if (!result.leads || !result.leads.length) return `**Chase ran for real** — ${result.note || 'there were no websites to audit.'}`;
+    const scored = result.leads.filter(l => l.audit);
+    const failed = result.leads.filter(l => l.auditError);
+    const ranked = [...scored].sort((a, b) => b.audit.opportunity.score - a.audit.opportunity.score);
+    const lines = [
+      `**Chase ran for real.** Audited ${result.leads.length} website${result.leads.length === 1 ? '' : 's'}: ${scored.length} scored${failed.length ? `, ${failed.length} could not be audited (those are flagged, not scored)` : ''}.${result.truncated ? ' The list was capped; the rest were not audited.' : ''}`,
+      '',
+      '| Business | Platform | Opportunity | Biggest issue |',
+      '|---|---|---|---|',
+      ...ranked.slice(0, 15).map(l => `| ${l.name} | ${l.audit.platform || 'unknown'} | ${l.audit.opportunity.score} (${String(l.audit.opportunity.classification).replace(/_/g, ' ')}) | ${(l.audit.topProblems[0] && l.audit.topProblems[0].issue) || '—'} |`),
+    ];
+    if (ranked.length > 15) lines.push(`…and ${ranked.length - 15} more.`);
+    lines.push('', 'Waiting for your approval — nothing has been changed or sent.');
+    return lines.join('\n');
+  }
 
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
@@ -1129,6 +1252,7 @@ Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
 - When the goal is to find LOCAL businesses of a particular trade in a particular place (plumbers, dentists, roofers…), use "blade" instead of "sales" — blade finds real businesses; never select both for the same prospecting job
+- After blade, include "chase" when the offer depends on how good or bad each business's website is (website redesign, hosting, SEO): it audits every shortlisted site for real. Skip it when website quality is irrelevant
 - When the goal is to email the businesses found (or an existing audience) about a stated offer, include "delivery" (Pat) — it drafts and checks one real email. Use "email" instead for sequences, newsletters or copy-only work
 - For campaign goals: prioritise content → ads → email → social
 - Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
@@ -1156,7 +1280,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
     }, 'Mission plan selection');
 
-    const agentKeys = Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : [];
+    const agentKeys = orderForExecution(Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : []);
     if (!agentKeys.length) throw new Error('Mission plan parsing failed — no valid agents were selected');
     report({ stage: 'selected', agentKeys, missionTitle: selection.missionTitle });
 
@@ -1205,6 +1329,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'chase') {
+        const raw = await callJsonPrompt({
+          systemPrompt: CHASE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the chase agent');
+        const params = sanitizeChaseParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Audit prospect websites').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'chase',
+          userPrompt: describeChaseParams(params),
         };
       } else if (agentKey === 'delivery') {
         const raw = await callJsonPrompt({
@@ -1452,11 +1589,17 @@ Respond ONLY with valid JSON:
     generateMissionPlan,
     executeAgentTask,
     isRealExecutor,
+    orderForExecution,
     runBladeTask,
     describeBladeResult,
     sanitizeBladeParams,
     describeBladeParams,
     missingBladeInputs,
+    runChaseTask,
+    describeChaseResult,
+    sanitizeChaseParams,
+    describeChaseParams,
+    missingChaseInputs,
     runPatTask,
     describePatResult,
     sanitizePatParams,

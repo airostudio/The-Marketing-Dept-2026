@@ -2545,6 +2545,7 @@ const ScottyBoot = (() => {
         sales:       { emoji: '🎯',  label: 'Chase — Sales Intel'     },
         blade:       { emoji: '🗡️',  label: 'Blade — Local Prospects' },
         delivery:    { emoji: '✉️',  label: 'Pat — Email Delivery'    },
+        chase:       { emoji: '🎯',  label: 'Chase — Website Audit'   },
         ads:         { emoji: '📣',  label: 'Ad Creative Lab'         },
         social:      { emoji: '📱',  label: 'Social Studio'           },
         nancy:       { emoji: '🍯',  label: 'Jam Fancy'               },
@@ -2762,12 +2763,12 @@ const ScottyBoot = (() => {
 const AGENT_META = {
     emojis: {
         seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
-        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', delivery:'✉️', linkedin:'💼',
+        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', chase:'🎯', delivery:'✉️', linkedin:'💼',
         video:'🎬', compliance:'🛡️', deck:'📽️', 'compliance-automation':'🔒',
     },
     routes: {
         content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
-        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html', delivery:'/agents/email-delivery-agent.html',
+        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html', delivery:'/agents/email-delivery-agent.html', chase:'/agents/sales-agent.html',
         ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
         analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
         video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
@@ -2779,7 +2780,7 @@ const AGENT_META = {
         seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
         ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
         compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
-        sales:'Sales Intelligence', blade:'Blade — Local Prospects', delivery:'Pat — Email Delivery', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        sales:'Sales Intelligence', blade:'Blade — Local Prospects', delivery:'Pat — Email Delivery', chase:'Chase — Website Audit', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
         'compliance-automation':'Enterprise Compliance Automation',
     },
     serviceNames: {
@@ -2788,6 +2789,7 @@ const AGENT_META = {
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
+        chase:'Live site crawl + PageSpeed + tech detection',
     },
     // Pages with exactly one unambiguous primary action (#runBtn) that only
     // requires the single prefilled field — verified safe to auto-click blind
@@ -3331,6 +3333,13 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'chase' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            ${plan.tasks.some(x => x.agentKey === 'blade')
+                                ? `<div style="font-size:12px;color:var(--text2);">🎯 Chase audits for real — it will check the website of every business Blade shortlists in this mission (up to 25), scoring each as an opportunity. Nothing is changed until you approve.</div>`
+                                : `<div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🎯 Chase audits for real — there is no Blade search in this mission, so list the website addresses to audit (one per line, up to 25)${(t.params && t.params.urls && t.params.urls.length) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t name any — please add them)</strong>'}:</div>
+                                   <textarea data-param="urls" rows="4" placeholder="example.com&#10;another-site.com" style="width:100%;">${this._escapeAttr(((t.params && t.params.urls) || []).join('\n'))}</textarea>`}
+                        </div>` : ''}
                         ${t.realExecutor === 'delivery' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">✉️ Pat drafts for real — it can only say what you tell it${(t.params && t.params.offer) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t state an offer — please fill it in)</strong>'}. Nothing is sent without your approval:</div>
@@ -3398,10 +3407,22 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'chase') {
+                    const hasBlade = plan.tasks.some(x => x.agentKey === 'blade');
+                    t.params = window.ScottyOrchestrator.sanitizeChaseParams({ industry: (t.params && t.params.industry) || '', urls: val('urls') });
+                    t.userPrompt = window.ScottyOrchestrator.describeChaseParams(t.params);
+                    const missingChase = window.ScottyOrchestrator.missingChaseInputs(t.params, { hasBladeSource: hasBlade });
+                    if (missingChase.length) {
+                        autoText.textContent = `Chase needs ${missingChase.join(' ')} before the mission can start.`;
+                        box.querySelector('[data-param="urls"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'delivery') {
                     t.params = window.ScottyOrchestrator.sanitizePatParams({ offer: val('offer'), ctaUrl: val('ctaUrl'), audience: val('audience'), audienceTags: (t.params && t.params.audienceTags) || [] });
                     t.userPrompt = window.ScottyOrchestrator.describePatParams(t.params);
@@ -3447,6 +3468,7 @@ class ScottyChat {
 
         // Execute all tasks autonomously
         const results = new Array(total).fill(null);
+        let bladeArtifactId = null;   // the finished Blade list Chase audits
         let bladeEmails = 0;   // how many addresses Blade found this mission — Pat's review sizes the send from it
         const progressBar  = missionEl.querySelector('#missionProgressBar');
         const progressLabel = missionEl.querySelector('#missionProgressLabel');
@@ -3504,6 +3526,19 @@ class ScottyChat {
                         if (this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
+                    } else if (task.agentKey === 'chase' && orch.isRealExecutor('chase')) {
+                        const real = await orch.runChaseTask(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            sourceArtifactId: bladeArtifactId || undefined,
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeChaseResult(real);
+                        this._renderChaseResult(resultEl, real);
+                        if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
                     } else if (orch.isRealExecutor(task.agentKey)) {
                         // A real run: the agent's actual pipeline, saved as an
                         // artifact waiting on approval — not a write-up.
@@ -3515,6 +3550,7 @@ class ScottyChat {
                         });
                         fullText = orch.describeBladeResult(real);
                         bladeEmails += (real.leads || []).filter(l => l.email).length;
+                        if (real.leads && real.leads.length) bladeArtifactId = real.artifactId;
                         this._renderBladeResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
@@ -3694,6 +3730,42 @@ class ScottyChat {
         this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId);
     }
 
+    _renderChaseResult(resultEl, real) {
+        if (!real.leads.length) {
+            resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">🎯 ${this._escapeAttr(real.note || 'There were no websites to audit.')}</div>`;
+            return;
+        }
+        const scored = real.leads.filter(l => l.audit);
+        const failed = real.leads.filter(l => l.auditError);
+        const ranked = [...scored].sort((a, b) => b.audit.opportunity.score - a.audit.opportunity.score);
+        const rows = ranked.map(l => `
+            <tr>
+                <td>${this._escapeAttr(l.name)}</td>
+                <td>${this._escapeAttr(l.audit.platform || 'unknown')}</td>
+                <td><strong>${this._escapeAttr(l.audit.opportunity.score)}</strong> <span style="color:var(--text3)">${this._escapeAttr(String(l.audit.opportunity.classification).replace(/_/g, ' '))}</span></td>
+                <td>${this._escapeAttr((l.audit.topProblems[0] && l.audit.topProblems[0].issue) || '—')}</td>
+            </tr>`).join('');
+        const failedRows = failed.map(l => `<li>${this._escapeAttr(l.name)} — ${this._escapeAttr(l.auditError)}</li>`).join('');
+        const taggable = scored.filter(l => l.email).length;
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${this._escapeAttr(scored.length)} of ${this._escapeAttr(real.leads.length)} websites audited and scored${real.truncated ? ' (list capped at 25)' : ''}. A score is only shown for a site that could actually be crawled.</div>
+                <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">
+                    <thead><tr style="text-align:left;color:var(--text3);"><th>Business</th><th>Platform</th><th>Opportunity</th><th>Biggest issue</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table></div>
+                ${failed.length ? `<div style="margin-top:8px;font-size:12px;color:#f59e0b;">Could not be audited (flagged for follow-up, not scored):<ul style="margin:4px 0 0 16px;">${failedRows}</ul></div>` : ''}
+                ${scored.length ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving labels the ${this._escapeAttr(taggable)} audited businesses with a known email by opportunity strength (for example <code>opportunity-high-priority</code>) — only those already in your audience. It changes nothing else and sends nothing.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — tag prospects by opportunity</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>` : ''}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { chase: true });
+    }
+
     _renderPatResult(resultEl, real) {
         const r = real.review || {};
         const list = (items) => items.map(x => `<li>${this._escapeAttr(x)}</li>`).join('');
@@ -3732,7 +3804,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : 'Adding to your audience…') : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : 'Adding to your audience…')) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -3740,8 +3812,16 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.chase) {
+                    const parts = [`${r.tagged || 0} prospects tagged`];
+                    if (r.notInAudience) parts.push(`${r.notInAudience} not in your audience yet (approve the Blade list first, then they can be tagged)`);
+                    if (r.unscored) parts.push(`${r.unscored} had no score or email`);
+                    if (r.failed) parts.push(`${r.failed} failed to save — flagged for a person to follow up`);
+                    msg.innerHTML = `✅ ${this._escapeHtml(parts.join(' · '))} — <a href="/agents/audience-agent.html" target="_blank" rel="noopener">open Beeker →</a>`;
+                    return;
+                }
                 if (opts && opts.pat) {
                     const d = opts.pat;
                     const segId = r.segmentId || '';
