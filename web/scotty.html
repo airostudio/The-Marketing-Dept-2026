@@ -2472,6 +2472,7 @@
 <script src="/js/nancy-mission.js"></script>
 <script src="/js/seo-mission.js"></script>
 <script src="/js/ads-mission.js"></script>
+<script src="/js/competitive-mission.js"></script>
 <script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
 <script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
@@ -2788,7 +2789,7 @@ const AGENT_META = {
     },
     serviceNames: {
         seo:'Live site read + competitor research + keyword data + Claude', analytics:'Your recorded data + Claude, figures verified', deck:'Gemini 2.5 Pro',
-        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Perplexity Sonar Pro',
+        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Live site reads + quote-verified findings + Claude',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
@@ -3337,6 +3338,11 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'competitive' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">⚡ Scout reads your competitors' websites for real (this takes several minutes). It will not guess who they are${(t.params && t.params.urls && t.params.urls.length) ? '' : ' <strong style="color:#f59e0b;">(none were named — add their website addresses, one per line, up to 5)</strong>'}. Every finding is checked against what is actually on their pages. Nothing is contacted:</div>
+                            <textarea data-param="urls" rows="4" placeholder="competitor-one.com&#10;competitor-two.com" style="width:100%;">${this._escapeAttr(((t.params && t.params.urls) || []).join('\n'))}</textarea>
+                        </div>` : ''}
                         ${t.realExecutor === 'analytics' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📊 Analytics Brain reports for real — only on numbers your account has recorded, and every figure is checked against them. Nothing is sent or published:</div>
@@ -3460,10 +3466,21 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics' && t.realExecutor !== 'competitive') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'competitive') {
+                    t.params = window.CompetitiveMission.sanitizeParams({ urls: val('urls') });
+                    t.userPrompt = window.CompetitiveMission.describeParams(t.params);
+                    const missingComp = window.CompetitiveMission.missingInputs(t.params);
+                    if (missingComp.length) {
+                        autoText.textContent = `Scout needs ${missingComp.join(' ')} before the mission can start.`;
+                        box.querySelector('[data-param="urls"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'analytics') {
                     t.params = window.ScottyOrchestrator.sanitizeAnalyticsParams({ periodDays: val('periodDays'), focus: val('focus') });
                     t.userPrompt = window.ScottyOrchestrator.describeAnalyticsParams(t.params);
@@ -3632,6 +3649,22 @@ class ScottyChat {
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'competitive' && task.realExecutor === 'competitive') {
+                        const bundle = contextBundle || {};
+                        const real = await window.CompetitiveMission.runCompetitiveReport(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            businessContext: bundle.businessContext || '',
+                            language: bundle.language || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeCompetitiveResult(real);
+                        this._renderCompetitiveResult(resultEl, real);
+                        if (real.artifactId && this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
                     } else if (task.agentKey === 'analytics' && task.realExecutor === 'analytics') {
@@ -3920,6 +3953,36 @@ class ScottyChat {
         } catch { return null; }
     }
 
+    _renderCompetitiveResult(resultEl, real) {
+        if (real.status === 'empty') {
+            resultEl.innerHTML = `<div style="padding:12px;color:#f59e0b;">${this._escapeAttr(real.note)}</div>${real.competitors.map(c => `<div style="padding:0 12px;font-size:12px;">${this._escapeAttr(c.name)} — ${this._escapeAttr(c.error || '')}</div>`).join('')}`;
+            return;
+        }
+        const r = real.review || {};
+        const status = real.competitors.map(c => `<li>${this._escapeAttr(c.name)} — ${c.error ? `<span style="color:#f59e0b;">${this._escapeAttr(c.error)}</span>` : `${this._escapeAttr(c.findings)} verified finding${c.findings === 1 ? '' : 's'}${c.droppedUnverified ? `, ${this._escapeAttr(c.droppedUnverified)} dropped (quote not on their page)` : ''}`}</li>`).join('');
+        // The report is markdown built from verified findings; it is shown as
+        // plain text, never as HTML, so nothing from a competitor's site can run.
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <ul style="font-size:12px;margin:0 0 8px 16px;">${status}</ul>
+                ${real.seoNote ? `<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;">${this._escapeAttr(real.seoNote)}</div>` : ''}
+                <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6;margin:0 0 10px;">${this._escapeAttr(real.markdown)}</pre>
+                ${r.approved
+                    ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                        <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Every finding is backed by a quote from their pages, and every figure was checked.</strong> Approving saves this to Report History and starts daily change-watching on the sites that were read. Nothing is sent to the competitors.</div>
+                        <button class="mission-report-btn primary blade-approve">Approve — save and start watching</button>
+                        <button class="mission-report-btn blade-reject">Reject</button>
+                        <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                    </div>`
+                    : `<div style="margin-top:12px;padding:10px;border:1px solid #f59e0b;border-radius:8px;font-size:13px;">
+                        ⚠️ <strong>The comparison contains figures that are not in the findings, so it cannot be approved:</strong> ${this._escapeAttr((r.unsupportedNumbers || []).join(', '))}
+                        <div style="margin-top:6px;color:var(--text2);">Run the mission again. It has been flagged for follow-up.</div>
+                    </div>`}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { competitive: true });
+    }
+
     _renderAnalyticsResult(resultEl, real) {
         if (real.noData) {
             resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">📊 ${this._escapeAttr(real.note)}</div>`;
@@ -4135,7 +4198,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : 'Adding to your audience…')))))) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : (opts && opts.competitive ? 'Saving the report and starting the watch…' : 'Adding to your audience…'))))))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -4143,8 +4206,15 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : (opts && opts.competitive) ? 'Rejected — nothing was saved and no sites are being watched.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.competitive) {
+                    const parts = [`Saved to Report History`, `now watching ${r.watching || 0} site${r.watching === 1 ? '' : 's'} for changes`];
+                    if (r.alreadyWatching) parts.push(`${r.alreadyWatching} already watched`);
+                    if (r.failed) parts.push(`${r.failed} could not be set up — flagged for a person to follow up`);
+                    msg.innerHTML = `✅ ${this._escapeHtml(parts.join(' · '))}. Nothing was sent. <a href="/agents/competitive-agent.html">Open Scout →</a>`;
+                    return;
+                }
                 if (opts && opts.analytics) {
                     msg.innerHTML = `✅ Saved to Report History — nothing was sent. <a href="/agents/analytics-agent.html">Open Analytics Brain →</a>`;
                     return;

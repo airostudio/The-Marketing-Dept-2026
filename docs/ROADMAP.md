@@ -27,7 +27,9 @@ QA-check and prepare outreach) and Nancy (research a website, write and design
 a week of Instagram posts) Social Studio (a batch of LinkedIn / X / Facebook
 text posts) SEO (competitor and keyword research, topics, drafted
 articles) Ads (platform-checked ad copy) and Analytics (a performance report written only
-from the account's own recorded numbers, every figure checked). Blade, Chase and Pat run in that order within a
+from the account's own recorded numbers, every figure checked) and
+Competitive Intelligence (quote-verified battlecards from competitors' own
+websites, with daily change-watching). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -51,3 +53,9 @@ other agent still produces a written plan rather than running its pipeline.
   user's own email campaigns (campaigns sent by a teammate on a shared profile
   are not included), the audience, flows, social posts and shop-reported
   revenue, for the last 7, 30 or 90 days.
+- **Competitive Intelligence in missions — not yet included:** finding
+  competitors for you (it only reads sites you name or already keep in your
+  Business Brain), reviews/social/ad-library monitoring, and anything beyond a
+  competitor's public website pages (pricing behind a login, JavaScript-only
+  pages and PDFs are not read). Findings are only as complete as the pages that
+  could be fetched, and the report says which pages were read.

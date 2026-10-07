@@ -51,14 +51,16 @@ function assess(artifact, now) {
     if (idleMs >= STALL_MS) {
       const isWeek = artifact.kind === 'nancy_week';
       const isSeo = artifact.kind === 'seo_plan';
+      const isComp = artifact.kind === 'competitive_report';
+      const compProfiles = Array.isArray(payload.profiles) ? payload.profiles : [];
       const posts = Array.isArray(payload.posts) ? payload.posts : [];
       const articlesDone = Array.isArray(payload.articles) ? payload.articles.length : 0;
       const seoTarget = payload.params?.articleTarget || 1;
-      const remaining = isSeo ? Math.max(0, seoTarget - articlesDone) : isWeek ? Math.max(0, 7 - posts.length) : leads.filter(l => !l.enriched && !l.audited).length;
+      const remaining = isComp ? compProfiles.filter(p => !p.analyzed).length || 1 : isSeo ? Math.max(0, seoTarget - articlesDone) : isWeek ? Math.max(0, 7 - posts.length) : leads.filter(l => !l.enriched && !l.audited).length;
       return {
         reason: 'stalled', kind: 'upstream_timeout',
-        message: `Mission list ${label} stalled while building: ${remaining} of ${isSeo ? seoTarget : isWeek ? 7 : leads.length} ${isSeo ? 'articles were never written' : isWeek ? 'days never got their post and image' : 'leads never finished their lookup or audit'}, and nothing has touched it for ${Math.round(idleMs / 60000)} minutes.`,
-        detail: { artifactId: artifact.id, userId: artifact.user_id, remaining, total: isSeo ? seoTarget : isWeek ? 7 : leads.length },
+        message: `Mission list ${label} stalled while building: ${remaining} of ${isComp ? compProfiles.length : isSeo ? seoTarget : isWeek ? 7 : leads.length} ${isComp ? 'competitor sites were never read or the final report never written' : isSeo ? 'articles were never written' : isWeek ? 'days never got their post and image' : 'leads never finished their lookup or audit'}, and nothing has touched it for ${Math.round(idleMs / 60000)} minutes.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, remaining, total: isComp ? compProfiles.length : isSeo ? seoTarget : isWeek ? 7 : leads.length },
       };
     }
     return null;
@@ -70,6 +72,18 @@ function assess(artifact, now) {
       message: `Approved mission list ${label} handled ${payload.approval.imported ?? payload.approval.tagged ?? 0} leads but ${payload.approval.failed} failed to save into the audience and need handling by hand.`,
       detail: { artifactId: artifact.id, userId: artifact.user_id, failedLeads: payload.approval.failedLeads || [] },
     };
+  }
+
+  if (artifact.status === 'pending_approval' && artifact.kind === 'competitive_report') {
+    const review = (payload.report && payload.report.review) || {};
+    if (review.approved === false) {
+      return {
+        reason: 'needs_input', kind: 'upstream_error',
+        message: `Competitive report ${label} contains figures that are not in the competitors' pages or search data (${(review.unsupportedNumbers || []).slice(0, 5).join(', ')}) and cannot be approved. It needs to be re-run or rejected.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, unsupportedNumbers: review.unsupportedNumbers || [] },
+      };
+    }
+    return null;
   }
 
   if (artifact.status === 'pending_approval' && artifact.kind === 'analytics_report') {

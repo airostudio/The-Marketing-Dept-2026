@@ -19,6 +19,10 @@
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'competitive_report' — competitor battlecards (every finding quote-verified
+--                   against their pages) and a cross-competitor read (figures
+--                   checked). Approving saves it to Report History and starts
+--                   daily change-watching on those sites.
 --   'analytics_report' — a performance report written only from the account's
 --                   own numbers, with every figure checked against them (Analytics).
 --                   Approving saves it to Report History; it sends nothing.

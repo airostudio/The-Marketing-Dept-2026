@@ -789,7 +789,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
     seo: 'Researches a website\'s competitors and keyword gaps for real, proposes content topics with search volumes (real where available, otherwise clearly labelled estimates), and writes full SEO articles. Runs for real; approving saves the plan and articles into the SEO Content Engine. Needs a website address. Not a technical site audit.',
-    competitive: 'Competitor analysis, positioning gaps, battlecards',
+    competitive: 'Reads named competitors\' public websites for real and builds battlecards in which every finding is backed by a quote verified to be on their pages (positioning, offers, pricing they state, audiences, claims), plus a cross-competitor read of where the business can stand out, and starts daily change-watching on them. Runs for real; approving saves it to Report History. Needs the competitors\' website addresses — it will not guess them.',
     ads: 'Writes real ad copy variants for Meta/Facebook, LinkedIn, Google Search, X, TikTok, YouTube or Google Display, checked against each platform\'s character limits. Runs for real; approving saves the fitting ads as ad copy to paste into an ad manager (nothing is bought or published). Needs the product/offer and the audience.',
     social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1335,6 +1335,32 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const COMPETITIVE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Scout, which reads competitors' public websites and compares how they position themselves.
+
+Fill this ONLY from what the goal or business context actually names — never guess or invent a competitor or a website address:
+- urls: website addresses of competitors the goal or context explicitly names (at most 5). If it names a competitor but gives no address, leave that one out. Return [] if none are named.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the comparison is for",
+  "params": { "urls": [] }
+}`;
+
+  function describeCompetitiveResult(result) {
+    if (result.status === 'empty') return `**Scout tried for real** — ${result.note}`;
+    const read = result.competitors.filter(c => !c.error);
+    const lines = [`**Scout read ${read.length} of ${result.competitors.length} competitor site${result.competitors.length === 1 ? '' : 's'} for real** and wrote "${result.title}".`];
+    result.competitors.forEach(c => lines.push(c.error
+      ? `- ${c.name}: could not be analysed — ${c.error}`
+      : `- ${c.name}: ${c.findings} verified finding${c.findings === 1 ? '' : 's'}${c.droppedUnverified ? ` (${c.droppedUnverified} left out because their quote was not on the page)` : ''}`));
+    if (result.seoNote) lines.push(result.seoNote);
+    const r = result.review || {};
+    if (r.approved) lines.push('', 'Every finding is backed by a quote from their pages, and every figure in the comparison was checked.', 'Waiting for your approval — approving saves it to Report History and starts daily change-watching on these sites.');
+    else lines.push('', `The comparison contains figures that are **not in the findings** (${(r.unsupportedNumbers || []).join(', ')}), so it cannot be approved. Run it again or reject it.`);
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1543,6 +1569,21 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'competitive' && window.CompetitiveMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: COMPETITIVE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the competitive agent');
+        // Competitors the person already keeps in their Business Brain are facts, not guesses.
+        const named = (raw.params && raw.params.urls) || [];
+        const params = window.CompetitiveMission.sanitizeParams({ urls: named.length ? named : window.CompetitiveMission.radarUrls() });
+        taskData = {
+          taskName: String(raw.taskName || 'Competitor analysis').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'competitive',
+          userPrompt: window.CompetitiveMission.describeParams(params),
         };
       } else if (agentKey === 'analytics') {
         const raw = await callJsonPrompt({
@@ -1883,6 +1924,7 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    describeCompetitiveResult,
     runAnalyticsTask,
     describeAnalyticsResult,
     sanitizeAnalyticsParams,

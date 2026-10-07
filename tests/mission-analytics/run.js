@@ -219,7 +219,7 @@ function seed() {
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Analytics is a real executor; cro and competitive are not', orch.isRealExecutor('analytics') && !orch.isRealExecutor('cro') && !orch.isRealExecutor('competitive'));
+  check('Analytics is a real executor; cro and video are not', orch.isRealExecutor('analytics') && !orch.isRealExecutor('cro') && !orch.isRealExecutor('video'));
   check('params: period is one of 7/30/90, focus bounded', orch.sanitizeAnalyticsParams({ periodDays: 45 }).periodDays === 30 && orch.sanitizeAnalyticsParams({ periodDays: '7' }).periodDays === 7 && orch.sanitizeAnalyticsParams({ focus: 'x'.repeat(500) }).focus.length === 300);
   const jr = (status, b) => ({ ok: status < 400, status, json: async () => b });
   const reqs = [];
