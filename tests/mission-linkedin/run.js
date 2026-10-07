@@ -171,7 +171,7 @@ const follow = 'Thanks for connecting, Jane. We build custom websites for plumbe
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('LinkedIn Outreach is a real executor; compliance is not', orch.isRealExecutor('linkedin') && !orch.isRealExecutor('compliance'));
+  check('LinkedIn Outreach is a real executor; deck is not', orch.isRealExecutor('linkedin') && !orch.isRealExecutor('deck'));
   const page = fs.readFileSync(path.join(REPO, 'web/scotty.html'), 'utf8');
   check('the page runs it only for a task the planner marked real', /task\.agentKey === 'linkedin' && task\.realExecutor === 'linkedin'/.test(page) && /<script src="\/js\/linkedin-mission\.js">/.test(page));
   check('the start gate demands people and an offer', /LinkedInMission\.missingInputs\(t\.params\)/.test(page));

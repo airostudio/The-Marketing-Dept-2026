@@ -121,7 +121,7 @@ async function call(h, who, body, noAuth) { global.__callerId = who; const r = r
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Social Studio is a real executor; deck and compliance are not', orch.isRealExecutor('social') && !orch.isRealExecutor('deck') && !orch.isRealExecutor('compliance'));
+  check('Social Studio is a real executor; deck and enterprise compliance automation are not', orch.isRealExecutor('social') && !orch.isRealExecutor('deck') && !orch.isRealExecutor('compliance-automation'));
   const sp = orch.sanitizeSocialParams({ topic: ' x  y ', platforms: ['Instagram', 'TikTok', 'Facebook'], contentGoal: 'Nope', postCount: 99 });
   check('params: unsupported platforms and goals fall back, counts are bounded', sp.topic === 'x y' && sp.platforms.join() === 'Facebook' && sp.contentGoal === 'Engagement' && sp.postCount === 10);
   check('with no valid platform it defaults to LinkedIn', orch.sanitizeSocialParams({ platforms: ['Instagram'] }).platforms.join() === 'LinkedIn');

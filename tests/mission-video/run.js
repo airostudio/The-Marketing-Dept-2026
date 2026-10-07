@@ -226,12 +226,12 @@ const GOOD = 'A slow dolly shot through a sunlit bakery at dawn, 35mm lens, a ba
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Video Studio is a real executor; deck and compliance are not', orch.isRealExecutor('video') && !orch.isRealExecutor('deck') && !orch.isRealExecutor('compliance'));
+  check('Video Studio is a real executor; deck and enterprise compliance automation are not', orch.isRealExecutor('video') && !orch.isRealExecutor('deck') && !orch.isRealExecutor('compliance-automation'));
   check('the planner only marks it real when the module is loaded', /agentKey === 'video' && window\.VideoMission/.test(osrc));
   check('its capability no longer promises scripts or YouTube strategy', !/video: 'Video scripts, thumbnails, YouTube strategy'/.test(osrc));
   const page = fs.readFileSync(path.join(REPO, 'web/scotty.html'), 'utf8');
   check('the page runs it only for a task the planner marked real', /task\.agentKey === 'video' && task\.realExecutor === 'video'/.test(page) && /<script src="\/js\/video-mission\.js">/.test(page));
-  check('the start gate demands a brief', /VideoMission\.missingInputs\(t\.params\)/.test(page) && /t\.realExecutor !== 'video'\) continue;/.test(page));
+  check('the start gate demands a brief', /VideoMission\.missingInputs\(t\.params\)/.test(page) && /t\.realExecutor !== 'video'[^\n]*\) continue;/.test(page));
   check('the plan card says each render is paid and nothing is posted', /Each render is paid/.test(page) && /Nothing is posted/.test(page));
   check('only an https video link is put in the player, escaped', /_renderVideoResult[\s\S]*\^https:[\s\S]*_escapeAttr\(src\)/.test(page));
   check('model text is escaped on screen', /_renderVideoResult[\s\S]*_escapeAttr\(real\.concept\)[\s\S]*_escapeAttr\(real\.prompt\)/.test(page));

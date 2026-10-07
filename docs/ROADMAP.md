@@ -32,7 +32,10 @@ Competitive Intelligence (quote-verified battlecards from competitors' own
 websites, with daily change-watching) and CRO (citation-checked A/B test ideas for real
 pages, added to the ICE backlog) and LinkedIn Outreach (checked connection
 notes and follow-ups as drafts) and Video Studio (one short AI clip from a
-checked shot prompt, added to the Video Studio gallery). Blade, Chase and Pat run in that order within a
+checked shot prompt, added to the Video Studio gallery) and Compliance Guard
+(screens the mission's own outputs before approval; every finding quotes the
+words it is about, and an output with a critical finding needs a confirmed
+read before it can be approved). Compliance always runs last. Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -74,6 +77,14 @@ other agent still produces a written plan rather than running its pipeline.
   profiles — it only knows what you give it (up to 10 people per mission). The
   approved drafts are filed in this browser's LinkedIn Outreach prospect list
   (which is stored in the browser, not the cloud).
+- **Compliance Guard in missions — not yet included:** a lawyer (it is an
+  AI-assisted screen, and says so everywhere), fixing the content for you (it
+  suggests wording; the person edits and re-runs the agent), images and the
+  video's own frames (it reads text, image text Nancy wrote, and the video's
+  shot prompt — not pixels), landing pages and links the content points to,
+  and outputs a teammate owns on a shared profile unless you can edit them.
+  Enterprise compliance automation (SOC 2, ISO 27001) is a separate agent and
+  still produces a written plan.
 - **Video Studio in missions — not yet included:** more than one clip per
   mission, image-to-video from your own photo, scripts, voiceover, music,
   captions and editing several shots together, and putting the clip on a social

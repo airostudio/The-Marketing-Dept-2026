@@ -23,6 +23,12 @@
 --                   written only from the facts you gave and checked by code
 --                   (LinkedIn Outreach). Approving contacts no one and never
 --                   touches LinkedIn; you send them by hand.
+--   'compliance_review' — a screen of the mission's own outputs (and any pasted
+--                   content) for advertising, privacy and brand-safety risk; every
+--                   finding quotes the words it is about (Compliance Guard). It also
+--                   marks each output it read, and an output with a critical finding
+--                   then needs a confirmed read before it can be approved. Approving
+--                   the screen saves it to Report History; it changes no content.
 --   'video_clip'  — one short rendered clip from a checked shot prompt (no words,
 --                   logos or unsupported figures on screen) (Video Studio). While
 --                   'building' it holds the render's task id. Approving adds it to

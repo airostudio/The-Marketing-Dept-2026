@@ -18,6 +18,23 @@
 
 'use strict';
 
+/**
+ * "Things we never say" is free text: bullets, quoted phrases, notes in
+ * brackets. Keep the phrases themselves — a quoted phrase where there is one,
+ * otherwise the line without its bullet and bracketed note.
+ */
+function neverSayPhrases(raw) {
+  const out = [];
+  for (const line of String(raw || '').split(/\n|;/)) {
+    const quoted = [...line.matchAll(/(?<![A-Za-z])["“'‘]([^"”'’]{3,80})["”'’](?![A-Za-z])/g)].map(m => m[1].trim());
+    if (quoted.length) { out.push(...quoted); continue; }
+    const bare = line.replace(/^\s*[-*•\d.)]+\s*/, '').replace(/\([^)]*\)/g, '').trim();
+    if (bare.length >= 3 && bare.length <= 80) out.push(bare);
+  }
+  return [...new Set(out)].slice(0, 40);
+}
+
+
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS & STORAGE KEYS
    ───────────────────────────────────────────────────────────────────────────── */
@@ -1296,7 +1313,11 @@ class IntelligenceEngine {
       companyName:         (this.brain.load().company?.name || '').trim(),
       website:             (this.brain.load().company?.website || '').trim(),
       language:            this.brain.getWritingLanguage(),
-      contacts:            this.brain.getContacts()
+      contacts:            this.brain.getContacts(),
+      // What Compliance Guard checks content against, as facts the business stated.
+      industry:            (this.brain.load().company?.industry || '').trim(),
+      neverSay:            neverSayPhrases(this.brain.load().positioning?.thingsWeNeverSay),
+      competitorNames:     (this.radar.getAll() || []).map(c => String(c.name || '').trim()).filter(Boolean)
     };
   }
 

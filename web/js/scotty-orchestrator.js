@@ -798,7 +798,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     cro: 'Audits one or two real pages for conversion problems (found in the page itself) and proposes prioritised A/B tests, each tied to something actually on the page or to a quote from it — never a forecast result. Runs for real; approving adds the tests to the CRO Lab backlog. Needs the page address and what counts as a conversion.',
     deck: 'Pitch decks, sales presentations, one-pagers',
     video: 'Renders ONE short AI video clip (2-12 seconds, one continuous shot, no sound you can control) from a plain-words brief, after checking the shot puts no words, logos, real people or unsupported figures on screen. Runs for real; approving adds the clip to the Video Studio gallery (nothing is posted). Needs what the video should show. Not scripts, edits, voiceovers or talking-head videos.',
-    compliance: 'Brand safety, legal review, GDPR, FTC checks',
+    compliance: 'Screens what THIS mission\'s other agents produced (the email, posts, ads, articles, LinkedIn drafts, video) for advertising, privacy and brand-safety risk before you approve it — unsubstantiated or absolute claims, missing disclosures, banned phrases, competitor mentions, consent for cold email, AI-content labels. Every finding quotes the exact words it is about. Runs for real, always last; an output with a critical finding then needs you to confirm you have read it before approving. Changes no content. A screen, not legal advice. Include it whenever the mission produces content that will be published or sent.',
     'compliance-automation': 'SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration',
   };
 
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin', 'video']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin', 'video', 'compliance']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -886,6 +886,9 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     const sorted = slots.map(i => unique[i]).sort((a, b) => rank(a) - rank(b));
     const out = unique.slice();
     slots.forEach((slot, n) => { out[slot] = sorted[n]; });
+    // Compliance screens what the others produced, so it always runs last.
+    const at = out.indexOf('compliance');
+    if (at >= 0) { out.splice(at, 1); out.push('compliance'); }
     return out;
   }
 
@@ -1468,6 +1471,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "params": { "brief": "", "platform": "", "duration": 5 }
 }`;
 
+  const COMPLIANCE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Compliance Guard, which screens the content this mission's other agents produce (and any content the goal itself includes) before it is approved.
+
+Fill these ONLY from what the goal or business context states:
+- region: where the content will be published or sent — one of US, UK, EU, AU, CA, Global. Use the business's own location if stated; "Global" if unclear or several.
+- content: ONLY if the goal itself contains the text to be checked (pasted copy), copy that text exactly; otherwise "".
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what is being screened",
+  "params": { "region": "Global", "content": "" }
+}`;
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1676,6 +1692,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'compliance' && window.ComplianceMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: COMPLIANCE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the compliance agent');
+        const params = window.ComplianceMission.sanitizeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Compliance screen').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'compliance',
+          userPrompt: window.ComplianceMission.describeParams(params, agentKeys.filter(k => window.ComplianceMission.PRODUCERS.includes(k))),
         };
       } else if (agentKey === 'video' && window.VideoMission) {
         const raw = await callJsonPrompt({
