@@ -2789,7 +2789,7 @@ const AGENT_META = {
     },
     serviceNames: {
         seo:'Live site read + competitor research + keyword data + Claude', analytics:'Your recorded data + Claude, figures verified', deck:'Gemini 2.5 Pro',
-        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Live site reads + quote-verified findings + Claude',
+        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Live site reads + quote-verified findings + Claude', cro:'Live page read + code checks + Claude, citations verified',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
@@ -3338,6 +3338,14 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'cro' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🧪 The CRO Lab audits real pages${(t.params && t.params.urls && t.params.urls.length && t.params.goal) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t say which page or what counts as a conversion — please fill these in)</strong>'}. Every test it proposes must be tied to something found on the page, and none forecasts a result. Nothing on your site changes:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <textarea data-param="urls" rows="2" placeholder="Page to audit, e.g. example.com/quote (up to 2, one per line)" style="flex:3;min-width:240px;">${this._escapeAttr(((t.params && t.params.urls) || []).join('\n'))}</textarea>
+                                <input data-param="goal" placeholder="What counts as a conversion? e.g. quote requests" value="${this._escapeAttr((t.params && t.params.goal) || '')}" style="flex:2;min-width:200px;">
+                            </div>
+                        </div>` : ''}
                         ${t.realExecutor === 'competitive' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">⚡ Scout reads your competitors' websites for real (this takes several minutes). It will not guess who they are${(t.params && t.params.urls && t.params.urls.length) ? '' : ' <strong style="color:#f59e0b;">(none were named — add their website addresses, one per line, up to 5)</strong>'}. Every finding is checked against what is actually on their pages. Nothing is contacted:</div>
@@ -3466,10 +3474,21 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics' && t.realExecutor !== 'competitive') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics' && t.realExecutor !== 'competitive' && t.realExecutor !== 'cro') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'cro') {
+                    t.params = window.ScottyOrchestrator.sanitizeCroParams({ urls: val('urls'), goal: val('goal') });
+                    t.userPrompt = window.ScottyOrchestrator.describeCroParams(t.params);
+                    const missingCro = window.ScottyOrchestrator.missingCroInputs(t.params);
+                    if (missingCro.length) {
+                        autoText.textContent = `The CRO Lab needs ${missingCro.join(' and ')} before the mission can start.`;
+                        box.querySelector(!t.params.urls.length ? '[data-param="urls"]' : '[data-param="goal"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'competitive') {
                     t.params = window.CompetitiveMission.sanitizeParams({ urls: val('urls') });
                     t.userPrompt = window.CompetitiveMission.describeParams(t.params);
@@ -3649,6 +3668,22 @@ class ScottyChat {
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'cro' && task.realExecutor === 'cro') {
+                        const bundle = contextBundle || {};
+                        const real = await orch.runCroTask(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            businessContext: bundle.businessContext || '',
+                            language: bundle.language || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeCroResult(real);
+                        this._renderCroResult(resultEl, real);
+                        if (real.artifactId && this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
                     } else if (task.agentKey === 'competitive' && task.realExecutor === 'competitive') {
@@ -3953,6 +3988,37 @@ class ScottyChat {
         } catch { return null; }
     }
 
+    _renderCroResult(resultEl, real) {
+        if (!real.ideas.length) {
+            resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">🧪 ${this._escapeAttr(real.note || 'No test idea survived the checks.')}</div>`;
+            return;
+        }
+        const cards = real.ideas.map((i, n) => `
+            <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12.5px;">
+                <div><strong>${this._escapeAttr(n + 1)}. ${this._escapeAttr(i.name)}</strong> <span style="color:var(--text3);" title="Judgement scores out of 10, not measurements">· impact ${this._escapeAttr(i.impact)} · confidence ${this._escapeAttr(i.confidence)} · ease ${this._escapeAttr(i.ease)}</span></div>
+                <div style="color:var(--text3);">Page: ${this._escapeAttr(i.page)}</div>
+                <div style="margin-top:4px;"><strong>Found on the page:</strong> ${i.basis.type === 'observation' ? this._escapeAttr(i.basis.issue) + ' — ' + this._escapeAttr(i.basis.evidence) : '“' + this._escapeAttr(i.basis.quote) + '”'}</div>
+                <div><strong>Hypothesis:</strong> ${this._escapeAttr(i.hypothesis)}</div>
+                <div><strong>Change:</strong> ${this._escapeAttr(i.whatToChange)}</div>
+                <div><strong>Measure:</strong> ${this._escapeAttr(i.primaryMetric)}</div>
+            </div>`).join('');
+        const dropped = (real.droppedUnverified || 0) + (real.droppedForeignFigures || 0);
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Goal: ${this._escapeAttr(real.goal)}. Scores are judgement, and no result is forecast.</div>
+                ${cards}
+                ${dropped ? `<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;">${this._escapeAttr(dropped)} further idea${dropped === 1 ? '' : 's'} left out — couldn't be tied to something on the page, or promised a result.</div>` : ''}
+                ${(real.unreadable || []).map(u => `<div style="font-size:12px;color:#f59e0b;">Could not read ${this._escapeAttr(u.url)} — ${this._escapeAttr(u.error)}</div>`).join('')}
+                <div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving adds these ${this._escapeAttr(real.ideas.length)} tests to the CRO Lab backlog (you can edit the scores there) and saves the audit to Report History. Nothing on your site changes and no test starts.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — add to CRO backlog</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>
+            </div>`;
+        this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId, { cro: true });
+    }
+
     _renderCompetitiveResult(resultEl, real) {
         if (real.status === 'empty') {
             resultEl.innerHTML = `<div style="padding:12px;color:#f59e0b;">${this._escapeAttr(real.note)}</div>${real.competitors.map(c => `<div style="padding:0 12px;font-size:12px;">${this._escapeAttr(c.name)} — ${this._escapeAttr(c.error || '')}</div>`).join('')}`;
@@ -4198,7 +4264,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : (opts && opts.competitive ? 'Saving the report and starting the watch…' : 'Adding to your audience…'))))))) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : (opts && opts.competitive ? 'Saving the report and starting the watch…' : (opts && opts.cro ? 'Adding to the CRO backlog…' : 'Adding to your audience…')))))))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -4206,8 +4272,12 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : (opts && opts.competitive) ? 'Rejected — nothing was saved and no sites are being watched.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : (opts && opts.competitive) ? 'Rejected — nothing was saved and no sites are being watched.' : (opts && opts.cro) ? 'Rejected — nothing was added.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.cro) {
+                    msg.innerHTML = `✅ ${this._escapeHtml(String(r.backlog || 0))} tests added to the CRO backlog and the audit saved — nothing on your site changed. <a href="/agents/cro-agent.html">Open the CRO Lab →</a>`;
+                    return;
+                }
                 if (opts && opts.competitive) {
                     const parts = [`Saved to Report History`, `now watching ${r.watching || 0} site${r.watching === 1 ? '' : 's'} for changes`];
                     if (r.alreadyWatching) parts.push(`${r.alreadyWatching} already watched`);

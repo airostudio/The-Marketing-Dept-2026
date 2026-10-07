@@ -4860,6 +4860,10 @@ CREATE POLICY "site_snapshots_profile_edit" ON site_snapshots
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'cro_plan'    — A/B test ideas for real pages, each tied to an observation or a
+--                   verified quote from the page (CRO). Approving adds them to the
+--                   CRO ICE backlog and saves the audit to Report History; it
+--                   starts no test and changes no website.
 --   'competitive_report' — competitor battlecards (every finding quote-verified
 --                   against their pages) and a cross-competitor read (figures
 --                   checked). Approving saves it to Report History and starts

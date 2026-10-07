@@ -62,6 +62,10 @@
  *   Refuses a report with a figure that is not in the findings. Contacts and
  *   changes nothing on the competitors' side.
  *
+ *   cro_plan — adds the test ideas to the CRO Lab's ICE backlog (cro_backlog_tests,
+ *   with the model's impact/confidence/ease scores, which the page lets you edit)
+ *   and saves the audit to Report History. Starts no test and changes no website.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -105,7 +109,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : a.kind === 'competitive_report' ? !!a.payload?.report?.review?.approved : undefined, competitors: Array.isArray(a.payload?.profiles) ? a.payload.profiles.length : 0, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : a.kind === 'competitive_report' ? !!a.payload?.report?.review?.approved : undefined, ideas: Array.isArray(a.payload?.ideas) ? a.payload.ideas.length : 0, competitors: Array.isArray(a.payload?.profiles) ? a.payload.profiles.length : 0, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -124,6 +128,38 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** cro_plan → CRO ICE backlog + Report History. The backlog rows are undone if the report cannot be saved. */
+async function saveCroPlan(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const ideas = Array.isArray(payload.ideas) ? payload.ideas : [];
+  if (!ideas.length) throw new Error('This plan has no test ideas to save.');
+  const projectId = payload.params?.projectId || null;
+  const scope = { project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null };
+
+  // The CRO page builds inline handlers from the id (updateIce(<id>, …)), so ids must be plain numbers like its own Date.now() ids.
+  const base = Date.now() * 10;
+  const rows = ideas.map((i, n) => ({ user_id: callerId, ...scope, client_id: String(base + n), name: i.name, impact: i.impact, confidence: i.confidence, ease: i.ease }));
+  const ins = await sb('POST', '/cro_backlog_tests', rows);
+  if (!ins.ok) throw new Error(`Could not add the tests to the backlog (HTTP ${ins.status}).`);
+
+  const lines = [`# ${artifact.title}`, '', `Conversion goal: ${payload.params?.goal || ''}`, `Pages: ${(payload.params?.urls || []).join(', ')}`, '',
+    '_Impact, confidence and ease are judgement scores out of 10, not measurements. No result is forecast._', ''];
+  ideas.forEach((i, n) => {
+    lines.push(`## ${n + 1}. ${i.name}`, `Page: ${i.page}`, `Impact ${i.impact} · Confidence ${i.confidence} · Ease ${i.ease}`, '',
+      `**Why:** ${i.basis.type === 'observation' ? `${i.basis.issue} — ${i.basis.evidence}` : `Page says “${i.basis.quote}”`}`,
+      `**Hypothesis:** ${i.hypothesis}`, `**Change:** ${i.whatToChange}`, `**Measure:** ${i.primaryMetric}`, '');
+  });
+  const rep = await sb('POST', '/analytics_reports', {
+    user_id: callerId, ...scope, report_type: 'cro', audience: 'team', title: artifact.title, focus: payload.params?.goal || null,
+    source_data: JSON.stringify({ observations: payload.observations || [] }), content: lines.join('\n'),
+  });
+  if (!rep.ok || !rep.data?.[0]) {
+    await sb('DELETE', `/cro_backlog_tests?user_id=eq.${callerId}&client_id=in.(${rows.map(r => r.client_id).join(',')})`);
+    throw new Error(`Could not save the audit report (HTTP ${rep.status}).`);
+  }
+  return { backlog: rows.length, reportId: rep.data[0].id };
 }
 
 /** competitive_report → Report History + competitor watches. */
@@ -503,6 +539,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'cro_plan') result = await saveCroPlan(sb, artifact, caller.id);
         else if (artifact.kind === 'competitive_report') result = await saveCompetitiveReport(sb, artifact, caller.id);
         else if (artifact.kind === 'analytics_report') result = await saveAnalyticsReport(sb, artifact, caller.id);
         else if (artifact.kind === 'ad_campaign') result = await saveAdCopy(sb, artifact, caller.id);

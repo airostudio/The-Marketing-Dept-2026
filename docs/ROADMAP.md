@@ -29,7 +29,8 @@ text posts) SEO (competitor and keyword research, topics, drafted
 articles) Ads (platform-checked ad copy) and Analytics (a performance report written only
 from the account's own recorded numbers, every figure checked) and
 Competitive Intelligence (quote-verified battlecards from competitors' own
-websites, with daily change-watching). Blade, Chase and Pat run in that order within a
+websites, with daily change-watching) and CRO (citation-checked A/B test ideas for real
+pages, added to the ICE backlog). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -59,3 +60,9 @@ other agent still produces a written plan rather than running its pipeline.
   competitor's public website pages (pricing behind a login, JavaScript-only
   pages and PDFs are not read). Findings are only as complete as the pages that
   could be fetched, and the report says which pages were read.
+- **CRO in missions — not yet included:** building or launching an A/B test
+  (a test is only added to the backlog; the CRO Lab page sets up the
+  experiment), judging running experiments' results, and anything that needs
+  real visitor behaviour data (heatmaps, funnels, session recordings) — the
+  audit reads the page's own HTML and text, at most two pages per mission, and
+  cannot see how it renders or how visitors use it.

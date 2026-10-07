@@ -260,7 +260,7 @@ async function call(h, who, body, noAuth) { global.__callerId = who; const r = r
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ CompetitiveMission: cm, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Scout is a real executor; cro is not', orch.isRealExecutor('competitive') && !orch.isRealExecutor('cro'));
+  check('Scout is a real executor; video is not', orch.isRealExecutor('competitive') && !orch.isRealExecutor('video'));
   const txt = orch.describeCompetitiveResult({ title: 'T', status: 'pending_approval', competitors: [{ name: 'a.com', findings: 4, droppedUnverified: 2 }, { name: 'b.com', error: 'Could not read the site' }], seoNote: 'Search data was not available.', review: { approved: true, unsupportedNumbers: [] } });
   check('the report separates verified findings from dropped ones and unreadable sites, and says what approving does', /4 verified findings \(2 left out/.test(txt) && /could not be analysed/.test(txt) && /not available/.test(txt) && /starts daily change-watching/.test(txt));
   check('a blocked comparison is described as blocked', /not in the findings/.test(orch.describeCompetitiveResult({ title: 'T', competitors: [], review: { approved: false, unsupportedNumbers: ['35%'] } })));

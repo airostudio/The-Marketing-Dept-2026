@@ -795,7 +795,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
     linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
     analytics: 'Writes a real performance report from the account\'s OWN recorded numbers (emails sent and their opens/clicks where tracked, revenue reported by the shop, audience growth, flows, social posts published) for the last 7, 30 or 90 days, with every figure checked against the data. Runs for real; approving saves it to Report History. Reports only what is recorded — it cannot analyse data that was never collected, and it is not a forecast or an attribution model.',
-    cro: 'Conversion optimisation, A/B test designs, landing page audits',
+    cro: 'Audits one or two real pages for conversion problems (found in the page itself) and proposes prioritised A/B tests, each tied to something actually on the page or to a quote from it — never a forecast result. Runs for real; approving adds the tests to the CRO Lab backlog. Needs the page address and what counts as a conversion.',
     deck: 'Pitch decks, sales presentations, one-pagers',
     video: 'Video scripts, thumbnails, YouTube strategy',
     compliance: 'Brand safety, legal review, GDPR, FTC checks',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1361,6 +1361,86 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const CRO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the CRO Lab, which audits real web pages for conversion problems and proposes A/B tests.
+
+Fill these ONLY from what the goal or business context states — never invent a page or a goal:
+- urls: the page addresses to audit (at most 2). Use a page the goal names; otherwise the business's own website address if the context states one. [] if neither.
+- goal: what counts as a conversion on these pages, in a few words (e.g. "phone call bookings", "quote requests", "online sales"). "" if the goal doesn't say.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the audit is for",
+  "params": { "urls": [], "goal": "" }
+}`;
+
+  function sanitizeCroParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const raw = Array.isArray(src.urls) ? src.urls : String(src.urls || '').split(/[\s,]+/);
+    const seen = new Set(); const urls = [];
+    for (const r of raw) {
+      let s = String(r || '').trim().slice(0, 300);
+      if (!s) continue;
+      if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+      try { const u = new URL(s); if (/^https?:$/.test(u.protocol) && u.hostname.includes('.') && !seen.has(u.toString())) { seen.add(u.toString()); urls.push(u.toString()); } } catch { /* skip */ }
+      if (urls.length >= 2) break;
+    }
+    return { urls, goal: String(src.goal == null ? '' : src.goal).replace(/\s+/g, ' ').trim().slice(0, 160) };
+  }
+
+  function describeCroParams(params) {
+    return `Audit ${params.urls.length ? params.urls.join(' and ') : '[page]'} for conversion problems and propose A/B tests for: ${params.goal || '[goal]'}.`;
+  }
+
+  function missingCroInputs(params) {
+    const p = sanitizeCroParams(params);
+    const m = [];
+    if (!p.urls.length) m.push('the page to audit');
+    if (!p.goal) m.push('what counts as a conversion');
+    return m;
+  }
+
+  /**
+   * Run the CRO Lab for real: one server call reads the pages, finds the
+   * problems in their HTML and proposes citation-checked tests. Remembered on
+   * task._croState so a retry never audits (and pays) twice.
+   */
+  async function runCroTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeCroParams(task.params);
+    const missing = missingCroInputs(params);
+    if (missing.length) throw new Error(`The CRO Lab needs ${missing.join(' and ')} before it can start.`);
+    if (task._croState) return task._croState;
+
+    if (onStatus) onStatus('Reading the page and finding what to test…');
+    const res = await doFetch('/api/mission-cro', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'audit', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `CRO request failed (HTTP ${res.status})`);
+    task._croState = {
+      artifactId: data.artifactId, status: data.status, ideas: data.ideas || [], observations: data.observations || [],
+      unreadable: data.unreadable || [], droppedUnverified: data.droppedUnverified || 0, droppedForeignFigures: data.droppedForeignFigures || 0,
+      note: data.note || null, goal: params.goal, complete: true,
+    };
+    return task._croState;
+  }
+
+  function describeCroResult(result) {
+    if (!result.ideas.length) return `**The CRO Lab audited the page for real** — ${result.note || 'no test idea survived the checks.'}`;
+    const lines = [`**The CRO Lab audited the page for real and proposed ${result.ideas.length} test${result.ideas.length === 1 ? '' : 's'}** for the goal "${result.goal}". Each is tied to something found on the page; impact, confidence and ease are judgement scores out of 10, and no result is forecast.`, ''];
+    result.ideas.forEach((i, n) => lines.push(`${n + 1}. **${i.name}** — impact ${i.impact}, confidence ${i.confidence}, ease ${i.ease}. ${i.basis.type === 'observation' ? `Because: ${i.basis.issue}.` : `The page says “${i.basis.quote}”.`}`));
+    const dropped = (result.droppedUnverified || 0) + (result.droppedForeignFigures || 0);
+    if (dropped) lines.push('', `${dropped} further idea${dropped === 1 ? ' was' : 's were'} left out because ${dropped === 1 ? 'it' : 'they'} could not be tied to something on the page, or promised a result.`);
+    (result.unreadable || []).forEach(u => lines.push('', `Could not read ${u.url}: ${u.error}`));
+    lines.push('', 'Waiting for your approval — nothing on your website changes and no test is started. Approving adds these tests to the CRO Lab backlog.');
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1569,6 +1649,20 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'cro') {
+        const raw = await callJsonPrompt({
+          systemPrompt: CRO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the cro agent');
+        const rp = raw.params || {};
+        const params = sanitizeCroParams({ urls: (rp.urls && rp.urls.length) ? rp.urls : (contextBundle.website ? [contextBundle.website] : []), goal: rp.goal });
+        taskData = {
+          taskName: String(raw.taskName || 'CRO audit').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'cro',
+          userPrompt: describeCroParams(params),
         };
       } else if (agentKey === 'competitive' && window.CompetitiveMission) {
         const raw = await callJsonPrompt({
@@ -1924,6 +2018,11 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    runCroTask,
+    describeCroResult,
+    sanitizeCroParams,
+    describeCroParams,
+    missingCroInputs,
     describeCompetitiveResult,
     runAnalyticsTask,
     describeAnalyticsResult,
