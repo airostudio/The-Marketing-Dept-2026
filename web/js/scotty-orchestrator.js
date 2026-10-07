@@ -793,7 +793,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     ads: 'Writes real ad copy variants for Meta/Facebook, LinkedIn, Google Search, X, TikTok, YouTube or Google Display, checked against each platform\'s character limits. Runs for real; approving saves the fitting ads as ad copy to paste into an ad manager (nothing is bought or published). Needs the product/offer and the audience.',
     social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
-    linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
+    linkedin: 'Drafts a personalised LinkedIn connection note and follow-up for each person you list (up to 10), using only the facts you give about them, with every draft checked (length limits, no invented claims about their posts or work). Runs for real, but NEVER sends or touches LinkedIn — LinkedIn forbids automated messages, so a person sends the approved drafts by hand. Needs the people and what is being offered; it cannot search LinkedIn for prospects.',
     analytics: 'Writes a real performance report from the account\'s OWN recorded numbers (emails sent and their opens/clicks where tracked, revenue reported by the shop, audience growth, flows, social posts published) for the last 7, 30 or 90 days, with every figure checked against the data. Runs for real; approving saves it to Report History. Reports only what is recorded — it cannot analyse data that was never collected, and it is not a forecast or an attribution model.',
     cro: 'Audits one or two real pages for conversion problems (found in the page itself) and proposes prioritised A/B tests, each tied to something actually on the page or to a quote from it — never a forecast result. Runs for real; approving adds the tests to the CRO Lab backlog. Needs the page address and what counts as a conversion.',
     deck: 'Pitch decks, sales presentations, one-pagers',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1441,6 +1441,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const LINKEDIN_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for LinkedIn Outreach, which drafts a connection note and a follow-up message for specific people. It cannot search LinkedIn or find people.
+
+Fill these ONLY from what the goal or business context explicitly states — never invent a person or an offer:
+- prospects: people the goal names (name, and title/company if stated). [] if none are named.
+- offer: what is being offered to them, in one or two plain sentences. "" if the goal doesn't say.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is being contacted and why",
+  "params": { "offer": "", "prospects": [ { "name": "", "title": "", "company": "" } ] }
+}`;
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1649,6 +1662,22 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'linkedin' && window.LinkedInMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: LINKEDIN_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the linkedin agent');
+        const rp = raw.params || {};
+        // People already kept on the LinkedIn Outreach page are the user's own facts; use them when the goal names nobody.
+        const named = Array.isArray(rp.prospects) ? rp.prospects : [];
+        const params = window.LinkedInMission.sanitizeParams({ offer: rp.offer, prospects: named.length ? named : window.LinkedInMission.readStoredProspects() });
+        taskData = {
+          taskName: String(raw.taskName || 'LinkedIn outreach drafts').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'linkedin',
+          userPrompt: window.LinkedInMission.describeParams(params),
         };
       } else if (agentKey === 'cro') {
         const raw = await callJsonPrompt({

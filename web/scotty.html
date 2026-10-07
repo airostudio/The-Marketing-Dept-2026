@@ -2473,6 +2473,7 @@
 <script src="/js/seo-mission.js"></script>
 <script src="/js/ads-mission.js"></script>
 <script src="/js/competitive-mission.js"></script>
+<script src="/js/linkedin-mission.js"></script>
 <script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
 <script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
@@ -2789,7 +2790,7 @@ const AGENT_META = {
     },
     serviceNames: {
         seo:'Live site read + competitor research + keyword data + Claude', analytics:'Your recorded data + Claude, figures verified', deck:'Gemini 2.5 Pro',
-        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Live site reads + quote-verified findings + Claude', cro:'Live page read + code checks + Claude, citations verified',
+        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Live site reads + quote-verified findings + Claude', cro:'Live page read + code checks + Claude, citations verified', linkedin:'Claude drafts, checked by code — you send by hand',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
@@ -3338,6 +3339,12 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'linkedin' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">💼 LinkedIn Outreach writes drafts only — it never sends anything or touches LinkedIn (LinkedIn forbids automated messages), and it can't search for people${(t.params && t.params.prospects && t.params.prospects.length && t.params.offer) ? '' : ' <strong style="color:#f59e0b;">(add who the messages are for and what you are offering)</strong>'}. One person per line — <em>Name, Title, Company, linkedin.com/in/… (optional)</em>:</div>
+                            <textarea data-param="prospects" rows="4" placeholder="Jane Smith, Owner, Smith Plumbing&#10;Sam Lee, Practice Manager, Bright Dental" style="width:100%;">${this._escapeAttr(((t.params && t.params.prospects) || []).map(p => [p.name, p.title, p.company, p.linkedinUrl].filter(Boolean).join(', ')).join('\n'))}</textarea>
+                            <input data-param="offer" placeholder="What are you offering them?" value="${this._escapeAttr((t.params && t.params.offer) || '')}" style="width:100%;margin-top:6px;">
+                        </div>` : ''}
                         ${t.realExecutor === 'cro' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🧪 The CRO Lab audits real pages${(t.params && t.params.urls && t.params.urls.length && t.params.goal) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t say which page or what counts as a conversion — please fill these in)</strong>'}. Every test it proposes must be tied to something found on the page, and none forecasts a result. Nothing on your site changes:</div>
@@ -3474,10 +3481,27 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics' && t.realExecutor !== 'competitive' && t.realExecutor !== 'cro') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads' && t.realExecutor !== 'analytics' && t.realExecutor !== 'competitive' && t.realExecutor !== 'cro' && t.realExecutor !== 'linkedin') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'linkedin') {
+                    // Keep the ids of people who came from the LinkedIn Outreach page, so approved drafts are filed against them.
+                    const stored = window.LinkedInMission.readStoredProspects();
+                    const typed = window.LinkedInMission.parseProspectLines(val('prospects')).map(p => {
+                        const hit = stored.find(s => s.name === p.name && (s.company || '') === (p.company || ''));
+                        return hit ? { ...p, clientId: hit.clientId, note: hit.note } : p;
+                    });
+                    t.params = window.LinkedInMission.sanitizeParams({ prospects: typed, offer: val('offer') });
+                    t.userPrompt = window.LinkedInMission.describeParams(t.params);
+                    const missingLi = window.LinkedInMission.missingInputs(t.params);
+                    if (missingLi.length) {
+                        autoText.textContent = `LinkedIn Outreach needs ${missingLi.join(' and ')} before the mission can start.`;
+                        box.querySelector(!t.params.prospects.length ? '[data-param="prospects"]' : '[data-param="offer"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'cro') {
                     t.params = window.ScottyOrchestrator.sanitizeCroParams({ urls: val('urls'), goal: val('goal') });
                     t.userPrompt = window.ScottyOrchestrator.describeCroParams(t.params);
@@ -3668,6 +3692,26 @@ class ScottyChat {
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'linkedin' && task.realExecutor === 'linkedin') {
+                        const bundle = contextBundle || {};
+                        const primary = (bundle.contacts || [])[0] || {};
+                        const real = await window.LinkedInMission.runLinkedInDrafts(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            sender: {
+                                senderName: primary.name || '', senderTitle: primary.title || '',
+                                companyName: (bundle.companyName && bundle.companyName !== 'your company') ? bundle.companyName : '',
+                            },
+                            language: bundle.language || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = window.LinkedInMission.describeResult(real);
+                        this._renderLinkedInResult(resultEl, real);
+                        if (real.artifactId && this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
                     } else if (task.agentKey === 'cro' && task.realExecutor === 'cro') {
@@ -3988,6 +4032,29 @@ class ScottyChat {
         } catch { return null; }
     }
 
+    _renderLinkedInResult(resultEl, real) {
+        const cards = real.drafts.map(d => `
+            <div style="padding:10px;border:1px solid ${d.usable ? 'var(--border)' : '#f59e0b'};border-radius:8px;margin-bottom:8px;font-size:12.5px;">
+                <div><strong>${this._escapeAttr(d.name)}</strong> <span style="color:var(--text3);">${this._escapeAttr([d.title, d.company].filter(Boolean).join(' · '))}</span></div>
+                ${d.usable ? `
+                <div style="margin-top:4px;"><strong>Connection note</strong> <span style="color:var(--text3);">(${this._escapeAttr(d.connectionNote.length)}/200)</span><div style="white-space:pre-wrap;">${this._escapeAttr(d.connectionNote)}</div></div>
+                <div style="margin-top:4px;"><strong>Follow-up, after they accept</strong><div style="white-space:pre-wrap;">${this._escapeAttr(d.followUp)}</div></div>`
+                : `<div style="color:#f59e0b;margin-top:4px;">⚠️ Left out — ${this._escapeAttr(d.problems.join(' '))}</div>`}
+            </div>`).join('');
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                ${cards}
+                ${real.usable ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving files the ${this._escapeAttr(real.usable)} passing draft${real.usable === 1 ? '' : 's'} against these people on the LinkedIn Outreach page. <strong>Nothing is sent and nothing touches LinkedIn</strong> — you send each message yourself.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — save drafts to LinkedIn Outreach</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>` : `<div style="margin-top:12px;color:#f59e0b;font-size:13px;">${this._escapeAttr(real.note || 'None of these drafts passed the checks, so there is nothing to approve.')}</div>`}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { linkedin: true });
+    }
+
     _renderCroResult(resultEl, real) {
         if (!real.ideas.length) {
             resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">🧪 ${this._escapeAttr(real.note || 'No test idea survived the checks.')}</div>`;
@@ -4264,7 +4331,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : (opts && opts.competitive ? 'Saving the report and starting the watch…' : (opts && opts.cro ? 'Adding to the CRO backlog…' : 'Adding to your audience…')))))))) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : (opts && opts.analytics ? 'Saving the report…' : (opts && opts.competitive ? 'Saving the report and starting the watch…' : (opts && opts.cro ? 'Adding to the CRO backlog…' : (opts && opts.linkedin ? 'Saving the drafts…' : 'Adding to your audience…'))))))))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -4272,8 +4339,13 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : (opts && opts.competitive) ? 'Rejected — nothing was saved and no sites are being watched.' : (opts && opts.cro) ? 'Rejected — nothing was added.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : (opts && opts.analytics) ? 'Rejected — nothing was saved.' : (opts && opts.competitive) ? 'Rejected — nothing was saved and no sites are being watched.' : (opts && opts.cro) ? 'Rejected — nothing was added.' : (opts && opts.linkedin) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.linkedin) {
+                    const m = window.LinkedInMission.mergeApprovedDrafts(r.drafts || []);
+                    msg.innerHTML = `✅ ${this._escapeHtml(String(r.approved || 0))} draft${r.approved === 1 ? '' : 's'} saved (${this._escapeHtml(String(m.updated))} added to existing prospects, ${this._escapeHtml(String(m.added))} new prospect${m.added === 1 ? '' : 's'}). Nothing was sent — <a href="/agents/linkedin-agent.html">open LinkedIn Outreach to copy and send them →</a>`;
+                    return;
+                }
                 if (opts && opts.cro) {
                     msg.innerHTML = `✅ ${this._escapeHtml(String(r.backlog || 0))} tests added to the CRO backlog and the audit saved — nothing on your site changed. <a href="/agents/cro-agent.html">Open the CRO Lab →</a>`;
                     return;

@@ -4860,6 +4860,10 @@ CREATE POLICY "site_snapshots_profile_edit" ON site_snapshots
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'linkedin_drafts' — connection notes and follow-ups for people you listed,
+--                   written only from the facts you gave and checked by code
+--                   (LinkedIn Outreach). Approving contacts no one and never
+--                   touches LinkedIn; you send them by hand.
 --   'cro_plan'    — A/B test ideas for real pages, each tied to an observation or a
 --                   verified quote from the page (CRO). Approving adds them to the
 --                   CRO ICE backlog and saves the audit to Report History; it

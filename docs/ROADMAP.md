@@ -30,7 +30,8 @@ articles) Ads (platform-checked ad copy) and Analytics (a performance report wri
 from the account's own recorded numbers, every figure checked) and
 Competitive Intelligence (quote-verified battlecards from competitors' own
 websites, with daily change-watching) and CRO (citation-checked A/B test ideas for real
-pages, added to the ICE backlog). Blade, Chase and Pat run in that order within a
+pages, added to the ICE backlog) and LinkedIn Outreach (checked connection
+notes and follow-ups as drafts). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -66,3 +67,9 @@ other agent still produces a written plan rather than running its pipeline.
   real visitor behaviour data (heatmaps, funnels, session recordings) — the
   audit reads the page's own HTML and text, at most two pages per mission, and
   cannot see how it renders or how visitors use it.
+- **LinkedIn Outreach in missions — not yet included, and partly deliberately:**
+  sending. LinkedIn's terms forbid automated connection requests and messages,
+  so drafts are always sent by hand. It also does not search LinkedIn or read
+  profiles — it only knows what you give it (up to 10 people per mission). The
+  approved drafts are filed in this browser's LinkedIn Outreach prospect list
+  (which is stored in the browser, not the cloud).
