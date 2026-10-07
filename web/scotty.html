@@ -2471,6 +2471,7 @@
 <script src="/js/writing-language.js"></script>
 <script src="/js/nancy-mission.js"></script>
 <script src="/js/seo-mission.js"></script>
+<script src="/js/ads-mission.js"></script>
 <script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
 <script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
@@ -2787,7 +2788,7 @@ const AGENT_META = {
     },
     serviceNames: {
         seo:'Live site read + competitor research + keyword data + Claude', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
-        ads:'GPT-4o', social:'Claude Sonnet — structured posts', competitive:'Perplexity Sonar Pro',
+        ads:'Claude Sonnet — platform-checked ad copy', social:'Claude Sonnet — structured posts', competitive:'Perplexity Sonar Pro',
         compliance:'Claude Opus 4.7',
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
@@ -3336,6 +3337,19 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'ads' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📣 The Ad Creative Lab writes real ad copy${(t.params && t.params.product && t.params.audience) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t say what to advertise or to whom — please fill these in)</strong>'}. Nothing is bought or published:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <input data-param="product" placeholder="What is being advertised?" value="${this._escapeAttr((t.params && t.params.product) || '')}" style="flex:3;min-width:220px;">
+                                <input data-param="audience" placeholder="Who is it for?" value="${this._escapeAttr((t.params && t.params.audience) || '')}" style="flex:2;min-width:180px;">
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px;">
+                                <select data-param="objective">${window.AdsMission.OBJECTIVES.map(x => `<option value="${this._escapeAttr(x)}"${((t.params && t.params.objective) || 'Conversions') === x ? ' selected' : ''}>${this._escapeAttr(x)}</option>`).join('')}</select>
+                                <label>Variants each <select data-param="variants">${[2, 3, 4, 5].map(n => `<option value="${n}"${((t.params && t.params.variants) || 3) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+                                ${window.AdsMission.PLATFORMS.map(pl => `<label><input type="checkbox" data-platform="${this._escapeAttr(pl)}"${((t.params && t.params.platforms) || ['Meta/Facebook']).includes(pl) ? ' checked' : ''}> ${this._escapeAttr(pl)}</label>`).join('')}
+                            </div>
+                        </div>` : ''}
                         ${t.realExecutor === 'seo' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🔍 The SEO agent works for real — it reads the website, researches competitors and keywords, then writes full articles (this takes several minutes)${(t.params && t.params.websiteUrl) ? '' : ' <strong style="color:#f59e0b;">(no website was given — please add it)</strong>'}. Nothing is published:</div>
@@ -3438,10 +3452,24 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy' && t.realExecutor !== 'social' && t.realExecutor !== 'seo' && t.realExecutor !== 'ads') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'ads') {
+                    t.params = window.AdsMission.sanitizeParams({
+                        product: val('product'), audience: val('audience'), objective: val('objective'), variants: val('variants'),
+                        platforms: Array.from(box.querySelectorAll('input[data-platform]:checked')).map(x => x.dataset.platform),
+                    });
+                    t.userPrompt = window.AdsMission.describeParams(t.params);
+                    const missingAds = window.AdsMission.missingInputs(t.params);
+                    if (missingAds.length) {
+                        autoText.textContent = `The Ad Creative Lab needs ${missingAds.join(' and ')} before the mission can start.`;
+                        box.querySelector(!t.params.product ? '[data-param="product"]' : '[data-param="audience"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'seo') {
                     t.params = window.SeoMission.sanitizeParams({ websiteUrl: val('websiteUrl'), articleCount: val('articleCount') });
                     t.userPrompt = window.SeoMission.describeParams(t.params);
@@ -3590,6 +3618,21 @@ class ScottyChat {
                         });
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
+                        if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'ads' && task.realExecutor === 'ads') {
+                        const bundle = contextBundle || {};
+                        const real = await window.AdsMission.runAdsCampaign(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            language: bundle.language || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeAdsResult(real);
+                        this._renderAdsResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
@@ -3848,6 +3891,38 @@ class ScottyChat {
         } catch { return null; }
     }
 
+    _renderAdsResult(resultEl, real) {
+        const cards = real.variants.map(v => {
+            const bad = v.problems && v.problems.length;
+            return `
+            <div style="padding:10px;border:1px solid ${bad ? '#f59e0b' : 'var(--border)'};border-radius:8px;margin-bottom:8px;font-size:12.5px;">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;"><strong>${this._escapeAttr(v.platform)}</strong><span style="color:var(--text3);">${this._escapeAttr(v.framework)} · ${this._escapeAttr(v.angleName)}</span></div>
+                ${v.headline ? `<div><strong>${this._escapeAttr(v.headline)}</strong></div>` : ''}
+                <div style="white-space:pre-wrap;">${this._escapeAttr(v.body)}</div>
+                ${v.description ? `<div style="color:var(--text2);">${this._escapeAttr(v.description)}</div>` : ''}
+                <div style="color:var(--text3);margin-top:4px;">Button: ${this._escapeAttr(v.cta)} · Visual: ${this._escapeAttr(v.visualDirection)}</div>
+                <div style="color:var(--text3);">Tests: ${this._escapeAttr(v.abHypothesis)}</div>
+                ${(v.warnings || []).map(w => `<div style="color:#f59e0b;margin-top:4px;">Note: ${this._escapeAttr(w)}</div>`).join('')}
+                ${bad ? `<div style="color:#f59e0b;margin-top:4px;">⚠️ Left out on approval — ${this._escapeAttr(v.problems.join(' '))}</div>` : ''}
+            </div>`;
+        }).join('');
+        const failed = (real.failures || []).map(f => `<li>${this._escapeAttr(f.platform)} — ${this._escapeAttr(f.message)}</li>`).join('');
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                ${real.strategyNote ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${this._escapeAttr(real.strategyNote)}</div>` : ''}
+                ${cards}
+                ${failed ? `<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;">These platforms could not be written (re-run to try again):<ul style="margin:4px 0 0 16px;">${failed}</ul></div>` : ''}
+                ${real.usable ? `<div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving saves the ${this._escapeAttr(real.usable)} ad${real.usable === 1 ? '' : 's'} that fit their platform as approved ad copy (on the Content Calendar page, kept apart from posts) for you to paste into your ad manager. Nothing is bought, scheduled or published.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — save ${this._escapeAttr(real.usable)} ad${real.usable === 1 ? '' : 's'}</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>` : `<div style="margin-top:12px;color:#f59e0b;font-size:13px;">None of these ads fit their platform as written, so there is nothing to approve. Run the mission again.</div>`}
+            </div>`;
+        const box = resultEl.querySelector('.blade-approval');
+        if (box) this._wireArtifactDecision(box, real.artifactId, { ads: true });
+    }
+
     _renderSeoResult(resultEl, real) {
         const written = new Set(real.articles.map(a => a.topicIndex));
         const rows = real.topics.map((t, i) => `
@@ -4003,7 +4078,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : 'Adding to your audience…')))) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : (opts && opts.seo ? 'Saving to the SEO Content Engine…' : (opts && opts.ads ? 'Saving the ad copy…' : 'Adding to your audience…'))))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -4011,8 +4086,13 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : (opts && opts.seo) ? 'Rejected — nothing was saved.' : (opts && opts.ads) ? 'Rejected — nothing was saved.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.ads) {
+                    const left = (r.skipped || []).length;
+                    msg.innerHTML = `✅ ${this._escapeHtml(String(r.ads || 0))} ad${r.ads === 1 ? '' : 's'} saved as approved ad copy${left ? ` (${this._escapeHtml(String(left))} left out — over a platform limit)` : ''} — nothing bought or published. <a href="/agents/audience-agent.html?tab=calendar">Open the ad copy →</a>`;
+                    return;
+                }
                 if (opts && opts.seo) {
                     msg.innerHTML = `✅ Saved: ${this._escapeHtml(String(r.topics || 0))} topics and ${this._escapeHtml(String(r.articles || 0))} draft article${r.articles === 1 ? '' : 's'} — nothing published. <a href="/seo/content-engine.html">Open the SEO Content Engine →</a>`;
                     return;

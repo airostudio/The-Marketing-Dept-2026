@@ -25,8 +25,8 @@ Real executors exist for Blade (find and enrich local prospects), Chase
 (audit each shortlisted website and score the opportunity), Pat (draft,
 QA-check and prepare outreach) and Nancy (research a website, write and design
 a week of Instagram posts) Social Studio (a batch of LinkedIn / X / Facebook
-text posts) and SEO (competitor and keyword research, topics, drafted
-articles). Blade, Chase and Pat run in that order within a
+text posts) SEO (competitor and keyword research, topics, drafted
+articles) and Ads (platform-checked ad copy). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -40,3 +40,7 @@ other agent still produces a written plan rather than running its pipeline.
 - **SEO in missions — not yet included:** technical site audits, backlink
   prospecting and outreach (still done on the SEO Content Engine page), the
   daily task plan, and more than three articles per mission.
+- **Ads in missions — not yet included:** ad images and video (the Ad Creative
+  Lab page still makes those), A/B test setup, and anything that talks to a real
+  ad account (Meta, Google, LinkedIn): there is no ad-platform connection, so
+  approved ad copy is kept for pasting into an ad manager, not launched.

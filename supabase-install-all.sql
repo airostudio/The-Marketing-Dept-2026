@@ -4860,6 +4860,9 @@ CREATE POLICY "site_snapshots_profile_edit" ON site_snapshots
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'ad_campaign' — ad copy per platform, checked against platform limits (Ads).
+--                   Approving saves the fitting ads as approved ad copy; it
+--                   buys, schedules and publishes nothing.
 --   'seo_plan'    — SEO research, proposed topics and drafted articles (SEO).
 --                   Approving saves them into the SEO Content Engine as a new
 --                   run; it publishes nothing.

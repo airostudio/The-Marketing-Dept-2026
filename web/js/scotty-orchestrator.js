@@ -790,7 +790,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     content: 'Blog posts, landing page copy, case studies, thought leadership',
     seo: 'Researches a website\'s competitors and keyword gaps for real, proposes content topics with search volumes (real where available, otherwise clearly labelled estimates), and writes full SEO articles. Runs for real; approving saves the plan and articles into the SEO Content Engine. Needs a website address. Not a technical site audit.',
     competitive: 'Competitor analysis, positioning gaps, battlecards',
-    ads: 'Google/Meta/LinkedIn ad copy and creative variants',
+    ads: 'Writes real ad copy variants for Meta/Facebook, LinkedIn, Google Search, X, TikTok, YouTube or Google Display, checked against each platform\'s character limits. Runs for real; approving saves the fitting ads as ad copy to paste into an ad manager (nothing is bought or published). Needs the product/offer and the audience.',
     social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
     linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1245,6 +1245,32 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const ADS_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the Ad Creative Lab, which writes real ad copy for paid platforms.
+
+Fill these ONLY from what the goal or business context states — never invent a product, offer or audience:
+- product: what is being advertised — the specific product, service or offer, in one or two plain sentences. "" if the goal doesn't say.
+- audience: who the ads target, in plain words (job, trade, location, need). Use the ideal customer from the business context if the goal doesn't say. "" if neither does.
+- objective: exactly one of Awareness | Traffic | Leads | Conversions | Retargeting — the one the goal implies (Conversions if unclear)
+- platforms: any of Meta/Facebook, LinkedIn, Google Search, Google Display, Twitter/X, TikTok, YouTube the goal mentions; ["Meta/Facebook"] if none (at most 4)
+- variants: ad variants per platform, 2 to 5 (3 if unstated)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the ads are for",
+  "params": { "product": "", "audience": "", "objective": "Conversions", "platforms": ["Meta/Facebook"], "variants": 3 }
+}`;
+
+  function describeAdsResult(result) {
+    const problems = result.variants.filter(v => v.problems && v.problems.length);
+    const lines = [`**The Ad Creative Lab wrote ${result.variants.length} ads for real** across ${[...new Set(result.variants.map(v => v.platform))].join(', ')}. ${result.strategyNote || ''}`.trim(), ''];
+    result.variants.forEach(v => lines.push(`- **${v.platform} — ${v.angleName || v.framework}:** ${v.headline || v.body.slice(0, 80)}${v.problems && v.problems.length ? ` _(does not fit: ${v.problems.join(' ')})_` : ''}`));
+    if (result.failures && result.failures.length) lines.push('', `Could not be written: ${result.failures.map(f => `${f.platform} (${f.message})`).join('; ')}.`);
+    if (problems.length) lines.push('', `${problems.length} ad${problems.length === 1 ? '' : 's'} will be left out when you approve because ${problems.length === 1 ? 'it does' : 'they do'} not fit the platform's limits.`);
+    lines.push('', 'Waiting for your approval — nothing has been bought or published. Approving saves the fitting ads as ad copy for you to use in your ad manager.');
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1453,6 +1479,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'ads' && window.AdsMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: ADS_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the ads agent');
+        const params = window.AdsMission.sanitizeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Write ad campaign').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'ads',
+          userPrompt: window.AdsMission.describeParams(params),
         };
       } else if (agentKey === 'seo' && window.SeoMission) {   // module missing → falls back to the written plan, never a half-real task
         const raw = await callJsonPrompt({
@@ -1767,6 +1806,7 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    describeAdsResult,
     describeSeoResult,
     runSocialTask,
     describeSocialResult,

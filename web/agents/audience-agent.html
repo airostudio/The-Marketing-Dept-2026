@@ -264,6 +264,14 @@
                     <div class="empty-state">Loading…</div>
                 </div>
             </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Approved ad copy — for your ad manager</span>
+                </div>
+                <div class="panel-body" id="calendar-ads-body">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -324,11 +332,17 @@
             unschedEl.innerHTML = schedEl.innerHTML = '<div class="empty-state">Loading…</div>';
 
             try {
-                const [pending, approved, scheduled] = await Promise.all([
+                const [pendingAll, approvedAll, scheduled] = await Promise.all([
                     window.SocialPostsStore.listPosts({ status: 'pending_review' }),
                     window.SocialPostsStore.listPosts({ status: 'approved' }),
                     window.SocialPostsStore.listCalendar(new Date().toISOString(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
                 ]);
+                // Ad copy is NOT a post. Scheduling it here would publish it to a
+                // page's organic feed, so it never joins the queue that can be
+                // scheduled — it is kept in its own list below, to copy out.
+                const pending = pendingAll.filter(p => p.source !== 'ad');
+                const approved = approvedAll.filter(p => p.source !== 'ad');
+                renderAdCopy(approvedAll.filter(p => p.source === 'ad'));
                 unscheduledPosts = [...pending, ...approved.filter(p => !p.scheduled_at)]
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 renderUnscheduled(unscheduledPosts);
@@ -336,6 +350,35 @@
             } catch (e) {
                 unschedEl.innerHTML = schedEl.innerHTML = `<div class="empty-state">${escHtml(e.message)}</div>`;
             }
+        }
+
+        function renderAdCopy(ads) {
+            const el = document.getElementById('calendar-ads-body');
+            if (!el) return;
+            if (!ads.length) {
+                el.innerHTML = '<div class="empty-state">No approved ad copy yet. Ads approved from a Scotty mission are kept here — they are never scheduled as posts.</div>';
+                return;
+            }
+            el.innerHTML = ads.map(p => {
+                const m = p.metadata || {};
+                const text = [p.headline, p.body, m.description, p.cta ? 'Button: ' + p.cta : ''].filter(Boolean).join('\n');
+                return `<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+                    <div style="margin-bottom:4px;"><strong>${escHtml(p.platform)}</strong> <span style="color:var(--text3);">${escHtml(p.angle_type || '')}${p.hook ? ' · ' + escHtml(p.hook) : ''}</span></div>
+                    ${p.headline ? `<div><strong>${escHtml(p.headline)}</strong></div>` : ''}
+                    <div style="white-space:pre-wrap;">${escHtml(p.body)}</div>
+                    ${m.description ? `<div style="color:var(--text2);">${escHtml(m.description)}</div>` : ''}
+                    <div style="color:var(--text3);margin-top:4px;">${p.cta ? 'Button: ' + escHtml(p.cta) + ' · ' : ''}${p.visual_direction ? 'Visual: ' + escHtml(p.visual_direction) : ''}</div>
+                    ${m.abHypothesis ? `<div style="color:var(--text3);">Tests: ${escHtml(m.abHypothesis)}</div>` : ''}
+                    <button class="btn-secondary" style="margin-top:6px;" data-copy="${escHtml(text)}" onclick="AM.copyAd(this)">Copy</button>
+                </div>`;
+            }).join('');
+        }
+
+        function copyAd(btn) {
+            const text = btn.getAttribute('data-copy') || '';
+            const done = () => { const old = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = old; }, 1500); };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => { btn.textContent = 'Copy failed'; });
+            else btn.textContent = 'Copy not available';
         }
 
         function renderUnscheduled(posts) {
@@ -738,7 +781,7 @@
 
         return {
             switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment,
-            loadCalendar, setPostSchedule, unschedulePost,
+            loadCalendar, copyAd, setPostSchedule, unschedulePost,
             approvePost, rejectPost, approveAll, approveSelected,
         };
     })();

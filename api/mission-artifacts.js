@@ -47,6 +47,11 @@
  *   Publishes nothing anywhere; the articles are for a person to read, edit
  *   and publish by hand.
  *
+ *   ad_campaign — saves the ads that fit their platform's copy limits as
+ *   approved AD COPY (social_posts rows with source 'ad') for the person to
+ *   paste into their ad manager. Ads over a limit are left out and named.
+ *   Buys, publishes and schedules nothing — there is no ad account behind it.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -90,7 +95,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -109,6 +114,31 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** ad_campaign → social_posts rows with source 'ad', approved. One atomic insert of the ads that fit. */
+async function saveAdCopy(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const all = Array.isArray(payload.variants) ? payload.variants : [];
+  const usable = all.filter(v => !(v.problems && v.problems.length));
+  const skipped = all.filter(v => v.problems && v.problems.length).map(v => ({ platform: v.platform, angleName: v.angleName, reason: v.problems.join(' ') }));
+  if (!usable.length) throw new Error('None of these ads fit their platform as written, so there is nothing to save.');
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = usable.map(v => ({
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    batch_id: batchId, source: 'ad', platform: v.platform, angle_type: v.framework || null,
+    hook: v.angleName || null, headline: (v.headline || v.angleName || v.body).slice(0, 200), body: v.body || '', cta: v.cta || null,
+    hashtags: [], visual_direction: v.visualDirection || null, status: 'approved',
+    metadata: {
+      origin_agent: 'ads', ad_only: true, description: v.description || null, framework: v.framework,
+      psychologicalTrigger: v.psychologicalTrigger, abHypothesis: v.abHypothesis, objective: payload.params?.objective || null,
+      warnings: v.warnings || [], mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+    },
+  }));
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the ad copy (HTTP ${ins.status}).`);
+  return { ads: rows.length, skipped, batchId };
 }
 
 /** seo_plan → seo_runs + seo_topics + seo_articles. Undone (the run deleted) if any step fails. */
@@ -406,6 +436,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'ad_campaign') result = await saveAdCopy(sb, artifact, caller.id);
         else if (artifact.kind === 'seo_plan') result = await saveSeoPlan(sb, artifact, caller.id);
         else if (artifact.kind === 'social_posts') result = await sendSocialToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);

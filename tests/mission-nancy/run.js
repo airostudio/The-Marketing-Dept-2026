@@ -185,7 +185,7 @@ const img = 'https://cdn.example.com/p.png';
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ NancyMission: nm, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Nancy is a real executor; ads (no real pipeline yet) is not', orch.isRealExecutor('nancy') && !orch.isRealExecutor('ads'));
+  check('Nancy is a real executor; analytics (no real pipeline yet) is not', orch.isRealExecutor('nancy') && !orch.isRealExecutor('analytics'));
   check('the report lists each day and what is waiting', /Day 1/.test(orch.describeNancyResult({ businessName: 'Acme', posts: [{ day: 1, hook: 'H', content_pillar: 'Tips' }, { day: 2, hook: 'H2', imageFallback: 'x' }] })) && /simple graphic/.test(orch.describeNancyResult({ posts: [{ day: 2, hook: 'H2', imageFallback: 'x' }] })) && /nothing has been scheduled or published/.test(orch.describeNancyResult({ posts: [] })));
 
   const page = fs.readFileSync(path.join(REPO, 'web/scotty.html'), 'utf8');
