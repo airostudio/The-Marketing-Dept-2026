@@ -2469,6 +2469,7 @@
 <script src="/js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
 <script src="/js/perplexity-service.js" onerror="console.info('PerplexityService not loaded')"></script>
 <script src="/js/writing-language.js"></script>
+<script src="/js/nancy-mission.js"></script>
 <script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
 <script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
@@ -2763,12 +2764,12 @@ const ScottyBoot = (() => {
 const AGENT_META = {
     emojis: {
         seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
-        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', chase:'🎯', delivery:'✉️', linkedin:'💼',
+        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', chase:'🎯', delivery:'✉️', nancy:'🍯', linkedin:'💼',
         video:'🎬', compliance:'🛡️', deck:'📽️', 'compliance-automation':'🔒',
     },
     routes: {
         content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
-        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html', delivery:'/agents/email-delivery-agent.html', chase:'/agents/sales-agent.html',
+        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html', delivery:'/agents/email-delivery-agent.html', chase:'/agents/sales-agent.html', nancy:'/agents/nancy-agent.html',
         ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
         analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
         video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
@@ -2780,7 +2781,7 @@ const AGENT_META = {
         seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
         ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
         compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
-        sales:'Sales Intelligence', blade:'Blade — Local Prospects', delivery:'Pat — Email Delivery', chase:'Chase — Website Audit', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        sales:'Sales Intelligence', blade:'Blade — Local Prospects', delivery:'Pat — Email Delivery', chase:'Chase — Website Audit', nancy:'Jam Fancy (Nancy)', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
         'compliance-automation':'Enterprise Compliance Automation',
     },
     serviceNames: {
@@ -2790,6 +2791,7 @@ const AGENT_META = {
         blade:'Google Places + live site checks',
         delivery:'Claude drafting + send-time checks + QA review',
         chase:'Live site crawl + PageSpeed + tech detection',
+        nancy:'Live site read + market research + Claude copy + image rendering',
     },
     // Pages with exactly one unambiguous primary action (#runBtn) that only
     // requires the single prefilled field — verified safe to auto-click blind
@@ -3333,6 +3335,14 @@ class ScottyChat {
                                 <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
                             </div>
                         </div>` : ''}
+                        ${t.realExecutor === 'nancy' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🍯 Nancy works for real — she reads the website, researches the market, then writes and designs seven Instagram posts (this takes several minutes)${(t.params && t.params.websiteUrl) ? '' : ' <strong style="color:#f59e0b;">(no website was given — please add it)</strong>'}. Nothing is scheduled or published until you approve and schedule it:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <input data-param="websiteUrl" placeholder="Business website, e.g. example.com" value="${this._escapeAttr((t.params && t.params.websiteUrl) || '')}" style="flex:2;min-width:220px;">
+                                <input data-param="mustTalkAbout" placeholder="Must feature (optional)" value="${this._escapeAttr((t.params && t.params.mustTalkAbout) || '')}" style="flex:2;min-width:180px;">
+                            </div>
+                        </div>` : ''}
                         ${t.realExecutor === 'chase' ? `
                         <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
                             ${plan.tasks.some(x => x.agentKey === 'blade')
@@ -3407,10 +3417,21 @@ class ScottyChat {
             // the boxes now — the user may have corrected or filled them in.
             for (let i = 0; i < total; i++) {
                 const t = plan.tasks[i];
-                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase') continue;
+                if (t.realExecutor !== 'blade' && t.realExecutor !== 'delivery' && t.realExecutor !== 'chase' && t.realExecutor !== 'nancy') continue;
                 const box = missionEl.querySelector(`#taskParams${i}`);
                 if (!box) continue;
                 const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                if (t.realExecutor === 'nancy') {
+                    t.params = window.NancyMission.sanitizeParams({ websiteUrl: val('websiteUrl'), mustTalkAbout: val('mustTalkAbout') });
+                    t.userPrompt = window.NancyMission.describeParams(t.params);
+                    const missingNancy = window.NancyMission.missingInputs(t.params);
+                    if (missingNancy.length) {
+                        autoText.textContent = `Nancy needs ${missingNancy.join(' ')} before the mission can start.`;
+                        box.querySelector('[data-param="websiteUrl"]')?.focus();
+                        return;
+                    }
+                    continue;
+                }
                 if (t.realExecutor === 'chase') {
                     const hasBlade = plan.tasks.some(x => x.agentKey === 'blade');
                     t.params = window.ScottyOrchestrator.sanitizeChaseParams({ industry: (t.params && t.params.industry) || '', urls: val('urls') });
@@ -3523,6 +3544,20 @@ class ScottyChat {
                         });
                         fullText = orch.describePatResult(real);
                         this._renderPatResult(resultEl, real);
+                        if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else if (task.agentKey === 'nancy' && orch.isRealExecutor('nancy')) {
+                        const real = await window.NancyMission.runNancyWeek(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            projectId: this._activeProjectId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            language: (contextBundle && contextBundle.language) || '',
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeNancyResult(real);
+                        this._renderNancyResult(resultEl, real);
                         if (this._activeMission && window.MissionStore) {
                             window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
                         }
@@ -3730,6 +3765,38 @@ class ScottyChat {
         this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId);
     }
 
+    _activeProjectId() {
+        try {
+            const id = localStorage.getItem('seo-current-project');
+            return (id && !String(id).startsWith('local_')) ? id : null;
+        } catch { return null; }
+    }
+
+    _renderNancyResult(resultEl, real) {
+        const cards = real.posts.map(p => {
+            const src = /^https:\/\//.test(p.imageUrl || '') ? p.imageUrl : '';
+            return `
+            <div style="width:150px;font-size:11.5px;">
+                ${src ? `<img src="${this._escapeAttr(src)}" alt="Day ${this._escapeAttr(p.day)} graphic" loading="lazy" style="width:150px;height:187px;object-fit:cover;border-radius:6px;border:1px solid var(--border);background:#fff;">` : ''}
+                <div style="margin-top:4px;"><strong>Day ${this._escapeAttr(p.day)}</strong> ${p.imageFallback ? '<span title="The AI image could not be made, so a simple graphic was used" style="color:#f59e0b;">(simple graphic)</span>' : ''}</div>
+                <div style="color:var(--text2);">${this._escapeAttr(p.slide_headline)}</div>
+                <details><summary style="cursor:pointer;color:var(--text3);">Caption</summary><div style="white-space:pre-wrap;">${this._escapeAttr(p.caption)}</div></details>
+            </div>`;
+        }).join('');
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${this._escapeAttr(real.posts.length)} Instagram posts for ${this._escapeAttr(real.businessName || 'the business')}, researched from the live website.</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">${cards}</div>
+                <div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving puts these ${this._escapeAttr(real.posts.length)} posts in the Content Calendar as approved, ready for you to schedule. Nothing is scheduled or published yet.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — send to Content Calendar</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>
+            </div>`;
+        this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId, { nancy: true });
+    }
+
     _renderChaseResult(resultEl, real) {
         if (!real.leads.length) {
             resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">🎯 ${this._escapeAttr(real.note || 'There were no websites to audit.')}</div>`;
@@ -3804,7 +3871,7 @@ class ScottyChat {
         const msg = box.querySelector('.blade-approval-msg');
         const decide = async (action) => {
             approveBtn.disabled = rejectBtn.disabled = true;
-            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : 'Adding to your audience…')) : 'Rejecting…';
+            msg.textContent = action === 'approve' ? (opts && opts.pat ? 'Recording your approval…' : (opts && opts.chase ? 'Tagging prospects…' : (opts && opts.nancy ? 'Sending to the Content Calendar…' : 'Adding to your audience…'))) : 'Rejecting…';
             try {
                 const res = await fetch('/api/mission-artifacts', {
                     method: 'POST', headers: await window.sendAuthHeaders(),
@@ -3812,8 +3879,13 @@ class ScottyChat {
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
-                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : 'Rejected — nothing was imported.'; return; }
+                if (action === 'reject') { msg.textContent = (opts && opts.pat) ? 'Rejected — nothing was sent.' : (opts && opts.chase) ? 'Rejected — nothing was changed.' : (opts && opts.nancy) ? 'Rejected — nothing was sent to the Calendar.' : 'Rejected — nothing was imported.'; return; }
                 const r = data.result || {};
+                if (opts && opts.nancy) {
+                    const ids = (r.ids || []).map(encodeURIComponent).join(',');
+                    msg.innerHTML = `✅ ${this._escapeHtml(String(r.posts || 0))} posts are in the Content Calendar, approved but not scheduled — <a href="/agents/audience-agent.html?tab=calendar${ids ? '&schedulePosts=' + ids : ''}">open the Content Calendar to schedule them →</a>`;
+                    return;
+                }
                 if (opts && opts.chase) {
                     const parts = [`${r.tagged || 0} prospects tagged`];
                     if (r.notInAudience) parts.push(`${r.notInAudience} not in your audience yet (approve the Blade list first, then they can be tagged)`);

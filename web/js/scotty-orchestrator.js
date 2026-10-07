@@ -792,7 +792,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     competitive: 'Competitor analysis, positioning gaps, battlecards',
     ads: 'Google/Meta/LinkedIn ad copy and creative variants',
     social: 'Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that\'s nancy)',
-    nancy: 'Instagram content specifically — a researched, on-brand week of Instagram posts. Prefer this over "social" whenever the goal is Instagram.',
+    nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
     linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
     analytics: 'KPIs, attribution, reporting frameworks',
     cro: 'Conversion optimisation, A/B test designs, landing page audits',
@@ -873,12 +873,12 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
   // one. Everything else keeps its relative position.
-  const REAL_PIPELINE_ORDER = ['blade', 'chase', 'delivery'];
+  const REAL_PIPELINE_ORDER = ['blade', 'chase', 'delivery'];   // Nancy is independent of this chain and keeps its place
   function orderForExecution(keys) {
     const unique = [...new Set(keys)];
     const rank = (k) => REAL_PIPELINE_ORDER.indexOf(k);
@@ -1121,6 +1121,26 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const NANCY_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Nancy, an agent that researches a business's website and market, then writes and designs a week of seven Instagram posts.
+
+Nancy needs:
+- websiteUrl: the business's own website address. Fill it ONLY from the goal or the business context — never guess or invent an address. If none is stated, return "".
+- mustTalkAbout: anything the goal says the week must feature (a launch, an offer, an event), in a short phrase. "" if nothing is stated.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the week of posts is for",
+  "params": { "websiteUrl": "", "mustTalkAbout": "" }
+}`;
+
+  function describeNancyResult(result) {
+    const lines = [`**Nancy ran for real.** Researched ${result.businessName || 'the business'} and created ${result.posts.length} Instagram posts with finished graphics.`, ''];
+    result.posts.forEach(p => lines.push(`- **Day ${p.day} — ${p.content_pillar || p.objective || ''}:** ${p.hook || p.slide_headline}${p.imageFallback ? ' _(simple graphic: the AI image could not be made)_' : ''}`));
+    lines.push('', 'Waiting for your approval — nothing has been scheduled or published.');
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1329,6 +1349,23 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'nancy') {
+        const raw = await callJsonPrompt({
+          systemPrompt: NANCY_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the nancy agent');
+        // The Business Brain's own website is a fact, not a guess: use it when the goal names none.
+        const params = window.NancyMission.sanitizeParams({
+          websiteUrl: raw.params && raw.params.websiteUrl || contextBundle.website || '',
+          mustTalkAbout: raw.params && raw.params.mustTalkAbout,
+        });
+        taskData = {
+          taskName: String(raw.taskName || 'Create Instagram week').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'nancy',
+          userPrompt: window.NancyMission.describeParams(params),
         };
       } else if (agentKey === 'chase') {
         const raw = await callJsonPrompt({
@@ -1596,6 +1633,7 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    describeNancyResult,
     describeChaseResult,
     sanitizeChaseParams,
     describeChaseParams,

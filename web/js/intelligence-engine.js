@@ -1294,6 +1294,7 @@ class IntelligenceEngine {
       isReady:             this.brain.isConfigured(),
       completionScore:     this.brain.getCompletionScore(),
       companyName:         (this.brain.load().company?.name || '').trim(),
+      website:             (this.brain.load().company?.website || '').trim(),
       language:            this.brain.getWritingLanguage(),
       contacts:            this.brain.getContacts()
     };

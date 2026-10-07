@@ -31,6 +31,11 @@
  *   score and platform on the contact. It changes nothing else and sends
  *   nothing; a tag is a label, it does not suppress or enrol anyone.
  *
+ *   nancy_week — puts the week's posts in the Content Calendar as APPROVED
+ *   (your approval here is the review), ready to be scheduled there. It
+ *   schedules nothing and publishes nothing; nothing goes out until a post is
+ *   given a time in the Calendar.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -74,7 +79,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -93,6 +98,40 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** nancy_week → social_posts, approved and unscheduled. One atomic insert. */
+async function sendWeekToCalendar(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const posts = Array.isArray(payload.posts) ? payload.posts : [];
+  if (!posts.length) throw new Error('This week has no posts to send.');
+  const platforms = Array.isArray(payload.params?.platforms) && payload.params.platforms.length ? payload.params.platforms : ['Instagram'];
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = [];
+  for (const p of posts) {
+    for (const platform of platforms) {
+      rows.push({
+        user_id: callerId,
+        project_id: artifact.intel_profile_id ? null : projectId,
+        intel_profile_id: artifact.intel_profile_id || null,
+        batch_id: batchId,
+        source: 'organic', platform,
+        hook: p.hook || null, headline: p.slide_headline, body: p.caption, cta: p.cta || null,
+        hashtags: p.hashtags || [], visual_direction: p.visual_direction || null,
+        image_url: p.imageUrl, image_render_status: 'rendered',
+        status: 'approved',
+        metadata: {
+          origin_agent: 'nancy', day: p.day, objective: p.objective, content_pillar: p.content_pillar,
+          cta_url: p.cta_url || null, mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+        },
+      });
+    }
+  }
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
+  const saved = Array.isArray(ins.data) ? ins.data : [];
+  return { posts: posts.length, platforms, rows: rows.length, ids: saved.map(r => r.id).filter(Boolean), batchId };
 }
 
 /** chase_audit → opportunity tags on contacts that already exist. */
@@ -284,6 +323,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);
         else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);
         else result = {};

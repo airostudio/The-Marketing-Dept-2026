@@ -16,6 +16,11 @@
 --   'pat_campaign' — a drafted, QA-reviewed outreach email (Pat). Approving
 --                   records the human OK and prepares an audience segment;
 --                   it sends nothing. The person sends from Pat's own page.
+--   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
+--                   Approving puts them in the Content Calendar as approved;
+--                   it schedules and publishes nothing.
+--   'chase_audit' — website audits of a Blade shortlist (Chase). Approving
+--                   tags prospects already in the audience by opportunity.
 -- New agents add a kind; nothing about the table changes.
 --
 -- Writes happen only through the service-role endpoints
