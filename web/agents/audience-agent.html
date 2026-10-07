@@ -99,6 +99,8 @@
         .cal-status-badge.publishing { background: rgba(245,158,11,0.12); color: #fbbf24; }
         .cal-status-badge.published { background: rgba(16,185,129,0.12); color: var(--green); }
         .cal-status-badge.failed { background: rgba(239,68,68,0.12); color: #fca5a5; }
+        .cal-status-badge.pending_review { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .cal-status-badge.approved { background: rgba(16,185,129,0.12); color: var(--green); }
 
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-style: italic; font-size: 14px; }
         .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
@@ -242,7 +244,13 @@
         <!-- CALENDAR TAB -->
         <div class="tab-panel" id="tab-calendar" style="display:none;">
             <div class="panel" style="margin-bottom:20px;">
-                <div class="panel-header"><span class="panel-title">Needs Scheduling</span></div>
+                <div class="panel-header">
+                    <span class="panel-title">Needs Review &amp; Scheduling</span>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn-secondary" id="btn-approve-selected" onclick="AM.approveSelected()">Approve Selected</button>
+                        <button class="btn-secondary" id="btn-approve-all" onclick="AM.approveAll()">Approve All</button>
+                    </div>
+                </div>
                 <div class="panel-body" id="calendar-unscheduled-body">
                     <div class="empty-state">Loading…</div>
                 </div>
@@ -285,14 +293,26 @@
             if (name === 'calendar') loadCalendar();
         }
 
-        /* ── CONTENT CALENDAR — schedule approved Social Studio posts ───────────
-           Setting a time here (SocialPostsStore.schedulePost) is what makes the
-           post actually go out: it flips status='scheduled', publish_status
-           ='queued', and Vercel Cron (api/cron-auto-publish.js, every 15 min)
-           picks it up and publishes it for real through the same adapters
-           Pat's "Publish Now" uses — this isn't a separate/fake calendar. ─── */
+        /* ── CONTENT CALENDAR — review, approve and schedule, in one place ──────
+           This used to only ever show already-'approved' posts, on the
+           assumption a separate review queue in Social Studio (PULSE) was
+           where 'pending_review' posts got approved first. That queue only
+           ever shows posts generated in the CURRENT browser tab (it's a
+           local array, never loaded from the database) — a post written
+           straight to the database by any other agent, Nancy included, was
+           never visible there, with no approve button anywhere a person
+           could find it. This tab is now that one front door instead: it
+           loads BOTH 'pending_review' and 'approved'-but-unscheduled posts,
+           with Approve/Reject per post plus Approve All/Approve Selected
+           for a fast pass through a whole batch. Setting a time
+           (SocialPostsStore.schedulePost) is still what makes a post
+           actually go out: it flips status='scheduled', publish_status=
+           'queued', and Vercel Cron (api/cron-auto-publish.js, every 15
+           min) picks it up and publishes it for real through the same
+           adapters Pat's "Publish Now" uses. ─── */
 
         let highlightedPostIds = new Set();
+        let unscheduledPosts = [];
 
         async function loadCalendar() {
             const unschedEl = document.getElementById('calendar-unscheduled-body');
@@ -304,11 +324,14 @@
             unschedEl.innerHTML = schedEl.innerHTML = '<div class="empty-state">Loading…</div>';
 
             try {
-                const [approved, scheduled] = await Promise.all([
+                const [pending, approved, scheduled] = await Promise.all([
+                    window.SocialPostsStore.listPosts({ status: 'pending_review' }),
                     window.SocialPostsStore.listPosts({ status: 'approved' }),
                     window.SocialPostsStore.listCalendar(new Date().toISOString(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
                 ]);
-                renderUnscheduled(approved.filter(p => !p.scheduled_at));
+                unscheduledPosts = [...pending, ...approved.filter(p => !p.scheduled_at)]
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                renderUnscheduled(unscheduledPosts);
                 renderScheduled(scheduled);
             } catch (e) {
                 unschedEl.innerHTML = schedEl.innerHTML = `<div class="empty-state">${escHtml(e.message)}</div>`;
@@ -318,31 +341,111 @@
         function renderUnscheduled(posts) {
             const el = document.getElementById('calendar-unscheduled-body');
             if (!posts.length) {
-                el.innerHTML = '<div class="empty-state">Nothing waiting — approved posts with no schedule yet will show up here.</div>';
+                el.innerHTML = '<div class="empty-state">Nothing waiting — posts needing review or a schedule will show up here.</div>';
                 return;
             }
-            // Highlighted first, so a hand-off from Pat is immediately visible.
-            const sorted = [...posts].sort((a, b) => (highlightedPostIds.has(String(b.id)) ? 1 : 0) - (highlightedPostIds.has(String(a.id)) ? 1 : 0));
+            // Highlighted first, so a hand-off from Pat is immediately visible;
+            // within that, posts still needing a decision before anyone else's.
+            const sorted = [...posts].sort((a, b) => {
+                const hi = (highlightedPostIds.has(String(b.id)) ? 1 : 0) - (highlightedPostIds.has(String(a.id)) ? 1 : 0);
+                if (hi) return hi;
+                return (a.status === 'pending_review' ? 0 : 1) - (b.status === 'pending_review' ? 0 : 1);
+            });
 
             el.innerHTML = sorted.map(p => {
                 const isHighlighted = highlightedPostIds.has(String(p.id));
+                const needsApproval = p.status === 'pending_review';
                 const defaultDt = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16); // 1hr from now, local-ish
+                const origin = p.metadata?.origin_agent ? ` · from ${escHtml(p.metadata.origin_agent)}` : '';
+                // Pat's own hand-off (email-delivery-agent.html) never tags
+                // metadata.origin_agent — it's the original sender this label
+                // was written for, so that's the fallback, not a vague
+                // "another agent"; Nancy and anything newer tags itself.
+                const handoffLabel = p.metadata?.origin_agent ? p.metadata.origin_agent.toUpperCase() : 'PAT';
                 return `
                 <div class="cal-card${isHighlighted ? ' highlighted' : ''}" data-post-id="${p.id}">
-                    ${isHighlighted ? `<div style="font-size:11px;color:#06b6d4;font-weight:700;margin-bottom:6px;">📥 SENT FROM PAT — NEEDS A TIME</div>` : ''}
+                    ${isHighlighted ? `<div style="font-size:11px;color:#06b6d4;font-weight:700;margin-bottom:6px;">📥 SENT FROM ${escHtml(handoffLabel)} — NEEDS ATTENTION</div>` : ''}
                     <div class="cal-card-top">
-                        <div>
-                            <span class="cal-platform">${escHtml(p.platform)}</span>
-                            <div class="cal-headline">${escHtml(p.headline)}</div>
-                        </div>
+                        <label style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0;">
+                            <input type="checkbox" class="cal-select" data-post-id="${p.id}" style="margin-top:3px;">
+                            <div style="flex:1;min-width:0;">
+                                <span class="cal-platform">${escHtml(p.platform)}</span>
+                                <span class="cal-status-badge ${needsApproval ? 'pending_review' : 'approved'}">${needsApproval ? 'Needs approval' : 'Approved'}</span>${origin}
+                                <div class="cal-headline">${escHtml(p.headline)}</div>
+                            </div>
+                        </label>
                     </div>
                     <div class="cal-body">${escHtml(p.body)}</div>
+                    ${needsApproval ? `
+                    <div class="row-actions" style="margin-top:8px;">
+                        <button class="btn-secondary" onclick="AM.approvePost('${p.id}')">✓ Approve</button>
+                        <button onclick="AM.rejectPost('${p.id}')">✕ Reject</button>
+                    </div>` : `
                     <div class="cal-schedule-row">
                         <input type="datetime-local" class="cal-datetime-input" id="cal-dt-${p.id}" value="${defaultDt}">
                         <button class="btn-secondary" onclick="AM.setPostSchedule('${p.id}')">Set Time</button>
-                    </div>
+                    </div>`}
                 </div>`;
             }).join('');
+        }
+
+        async function approvePost(postId) {
+            try {
+                await window.SocialPostsStore.updateStatus(postId, 'approved');
+                const p = unscheduledPosts.find(x => String(x.id) === String(postId));
+                if (p) p.status = 'approved';
+                renderUnscheduled(unscheduledPosts);
+            } catch (e) {
+                alert('Could not approve: ' + e.message);
+            }
+        }
+
+        async function rejectPost(postId) {
+            if (!confirm('Reject this post? It will be removed from the queue.')) return;
+            try {
+                await window.SocialPostsStore.updateStatus(postId, 'rejected');
+                unscheduledPosts = unscheduledPosts.filter(x => String(x.id) !== String(postId));
+                renderUnscheduled(unscheduledPosts);
+            } catch (e) {
+                alert('Could not reject: ' + e.message);
+            }
+        }
+
+        function selectedPostIds() {
+            return [...document.querySelectorAll('.cal-select:checked')].map(el => el.dataset.postId);
+        }
+
+        /** Approve every post still waiting on a decision, in one pass. */
+        async function approveAll() {
+            const ids = unscheduledPosts.filter(p => p.status === 'pending_review').map(p => p.id);
+            if (!ids.length) { alert('Nothing is waiting on approval right now.'); return; }
+            if (!confirm(`Approve all ${ids.length} post(s) awaiting review?`)) return;
+            await approveMany(ids);
+        }
+
+        /** Approve only the checked posts — lets a real review stay selective. */
+        async function approveSelected() {
+            const ids = selectedPostIds().filter(id => {
+                const p = unscheduledPosts.find(x => String(x.id) === String(id));
+                return p && p.status === 'pending_review';
+            });
+            if (!ids.length) { alert('Check at least one post awaiting approval first.'); return; }
+            await approveMany(ids);
+        }
+
+        async function approveMany(ids) {
+            const btnAll = document.getElementById('btn-approve-all');
+            const btnSel = document.getElementById('btn-approve-selected');
+            btnAll.disabled = btnSel.disabled = true;
+            try {
+                const results = await Promise.all(ids.map(id => window.SocialPostsStore.updateStatus(id, 'approved').then(() => ({ id, ok: true })).catch((e) => ({ id, ok: false, error: e.message }))));
+                const failed = results.filter(r => !r.ok);
+                unscheduledPosts.forEach(p => { if (ids.includes(String(p.id)) || ids.includes(p.id)) { const r = results.find(x => String(x.id) === String(p.id)); if (r && r.ok) p.status = 'approved'; } });
+                renderUnscheduled(unscheduledPosts);
+                if (failed.length) alert(`${failed.length} of ${ids.length} could not be approved: ${failed[0].error}`);
+            } finally {
+                btnAll.disabled = btnSel.disabled = false;
+            }
         }
 
         function renderScheduled(posts) {
@@ -636,6 +739,7 @@
         return {
             switchTab, loadContacts, unsubscribe, deleteContact, doImport, createSegment, loadSegments, deleteSegment,
             loadCalendar, setPostSchedule, unschedulePost,
+            approvePost, rejectPost, approveAll, approveSelected,
         };
     })();
 </script>
