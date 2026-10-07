@@ -175,6 +175,10 @@
                     <label class="field-label">Reply-To (optional)</label>
                     <input type="text" class="field-input" id="in-replyto" placeholder="you@yourdomain.com">
                 </div>
+                <div class="field-group" id="send-as-group" style="display:none;">
+                    <label class="field-label">Send as (fills {{senderName}}, {{senderTitle}}…)</label>
+                    <select class="field-input" id="in-sendas"></select>
+                </div>
             </div>
             <div class="field-group">
                 <label class="field-label">Email Body (HTML)</label>
@@ -277,6 +281,7 @@
 </div>
 
 <script src="../js/marked.min.js"></script>
+<script src="../js/writing-language.js"></script>
 <script src="../js/intelligence-engine.js"></script>
 <script src="../js/scotty-intake.js"></script>
 <script src="../js/claude-service.js"></script>
@@ -412,9 +417,11 @@
             const sender = window.IntelligenceEngine?.brain?.getSenderIdentity?.() || {};
             const companyName = window.IntelligenceEngine?.brain?.load?.()?.company?.name || '';
 
+            const sendAs = document.getElementById('in-sendas')?.value || '';
             campaign = window.EmailDeliveryService.collateCampaign({
                 campaignName: name, subject, html, text, replyTo, recipients,
                 companyName, mailingAddress: sender.mailingAddress || '',
+                senderFields: window.IntelligenceEngine?.brain?.getSenderMergeFields?.(sendAs) || {},
             });
             campaign.segmentId = segmentRecipients ? segmentRecipients.segmentId : null;
 
@@ -831,6 +838,24 @@
             const replyToEl = document.getElementById('in-replyto');
             const senderEmail = window.IntelligenceEngine?.brain?.getSenderIdentity?.()?.email;
             if (replyToEl && !replyToEl.value.trim() && senderEmail) replyToEl.value = senderEmail;
+
+            // "Send as" — one of up to five Business Brain contacts. Picking
+            // one also points Reply-To at that person's email.
+            const contacts = window.IntelligenceEngine?.brain?.getContacts?.() || [];
+            const sendAsEl = document.getElementById('in-sendas');
+            if (sendAsEl && contacts.length) {
+                contacts.forEach(c => {
+                    const o = document.createElement('option');
+                    o.value = c.key;
+                    o.textContent = c.name + (c.title ? ' — ' + c.title : '');
+                    sendAsEl.appendChild(o);
+                });
+                if (contacts.length > 1) document.getElementById('send-as-group').style.display = '';
+                sendAsEl.addEventListener('change', () => {
+                    const c = contacts.find(x => x.key === sendAsEl.value);
+                    if (c && c.email && replyToEl) replyToEl.value = c.email;
+                });
+            }
         });
 
         return {

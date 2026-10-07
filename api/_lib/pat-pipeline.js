@@ -29,7 +29,8 @@
 const { callClaudeForJSON } = require('./nancy-claude.js');
 const { reviewCampaign, fixCampaign } = require('./campaign-review.js');
 const { checkSendableContent, findUnresolvedMergeTags } = require('./content-guard.js');
-const { applyMergeFields, resolveFieldAliases, KNOWN_TOKENS } = require('./merge-fields.js');
+const { applyMergeFields, resolveFieldAliases, KNOWN_TOKENS, tokenNames, tokensNeedingFallback } = require('./merge-fields.js');
+const { directive: languageDirective } = require('./writing-language.js');
 
 const DRAFT_TOOL = {
   name: 'submit_campaign_draft',
@@ -48,22 +49,22 @@ const DRAFT_TOOL = {
 const DRAFT_SYSTEM_PROMPT = `You write one short, honest outreach email that will go to a whole list of small local businesses, in the voice of the sender named below.
 
 Hard rules — each one exists because breaking it gets an email blocked or a sender's domain damaged:
-- The ONLY merge tags that exist are {{firstName}}, {{lastName}}, {{company}}. Use {{firstName}} once at most, in a greeting such as "Hi {{firstName}},". Never write any other {{tag}}. (A recipient with no first name simply gets "Hi,".)
+- The ONLY merge tags that exist are {{firstName}}, {{lastName}}, {{company}}, {{area}} and {{website}}. Give every tag a fallback after a pipe, used when a recipient has no value: "Hi {{firstName|there}},", "{{company|your business}}", "{{area|your area}}". Use {{firstName|there}} once at most, in the greeting. Use {{area}}/{{website}} only if it reads naturally with its fallback. Never write any other {{tag}}, and never write a {{sender…}} tag — sign off with the literal sender name given.
 - NEVER write a [bracketed placeholder] anywhere — not in the greeting, the body, the sign-off or a link. Nothing is filled in later.
 - Do NOT write an unsubscribe line, a footer, or a postal address. The sending system adds the legally required footer and unsubscribe link itself.
 - NEVER invent a statistic, a price, a result, a guarantee, a testimonial, a client name, a deadline or a case study. Use only the facts you are given.
 - NEVER make a claim about the recipient's own website or business ("your site is slow", "I noticed your…") — this one email goes to many different businesses and any specific claim will be false for most of them. Speak to the trade in general terms.
 - Use the offer exactly as described; do not embellish what it includes.
 - If a link URL is given, use it as the single link's href, exactly as given. If none is given, do not include any link — invite them to reply instead.
-- Sign off with the sender name and/or company given — nothing else, and never a made-up name.
+- Sign off with the sender name (and title, if given) and the company — nothing else, and never a made-up name.
 - 60–120 words. Plain, direct, no hype, no "I hope this finds you well", no fake urgency.`;
 
 /** Checks that cost nothing and must pass before any model is called. */
-function missingInputs({ offer, senderName, companyName }) {
+function missingInputs({ offer, senderName }) {
   const questions = [];
   if (!String(offer || '').trim()) questions.push({ field: 'offer', question: 'What are you offering these businesses? (One or two sentences — the email can only say what you tell it.)' });
-  if (!String(senderName || '').trim() && !String(companyName || '').trim()) {
-    questions.push({ field: 'sender', question: 'Who is this email from? Set a sender name or company in your Business Brain, so it is not signed with an invented name.' });
+  if (!String(senderName || '').trim()) {
+    questions.push({ field: 'sender', question: 'Who is this email from? Add at least one contact person under "Contact People" in your Business Brain, so it is signed by a real name and not an invented one.' });
   }
   return questions;
 }
@@ -72,8 +73,11 @@ function missingInputs({ offer, senderName, companyName }) {
 function gateIssues({ subject, html, text }) {
   const issues = [...checkSendableContent({ subject, html, text }, { allowMergeTags: true }).blocking];
   const combined = `${subject}\n${html}\n${text}`;
-  const unknown = findUnresolvedMergeTags(combined).filter(t => !KNOWN_TOKENS.includes(t.replace(/^\{\{\s*|\s*\}\}$/g, '')));
-  if (unknown.length) issues.push(`Merge tag${unknown.length === 1 ? '' : 's'} the send system does not know how to fill: ${unknown.join(', ')}`);
+  const unknown = tokenNames(combined).filter(t => !KNOWN_TOKENS.includes(t));
+  if (unknown.length) issues.push(`Merge tag${unknown.length === 1 ? '' : 's'} the send system does not know how to fill: ${unknown.map(t => `{{${t}}}`).join(', ')}`);
+  // A tag with no fallback would skip every recipient who lacks that detail.
+  const bare = tokensNeedingFallback(combined).filter(t => KNOWN_TOKENS.includes(t));
+  if (bare.length) issues.push(`Add a fallback to ${bare.map(t => `{{${t}}}`).join(', ')} (for example {{${bare[0]}|your area}}) so recipients without it are not skipped.`);
   if (!String(subject || '').trim()) issues.push('The subject line is empty.');
   if (!String(html || '').replace(/<[^>]+>/g, '').trim()) issues.push('The email body is empty.');
   return issues;
@@ -87,12 +91,12 @@ function normalise(draft) {
   };
 }
 
-async function runChecks(copy, { campaignName, replyTo, expectedRecipients }, deps) {
+async function runChecks(copy, { campaignName, replyTo, expectedRecipients, language }, deps) {
   const gate = gateIssues(copy);
   let review;
   try {
     review = await deps.review({
-      campaignName, replyTo, ...copy,
+      campaignName, replyTo, language, ...copy,
       recipients: Array.from({ length: Math.min(Math.max(0, expectedRecipients | 0), 500) }, () => ({})),
     });
   } catch (e) {
@@ -130,12 +134,14 @@ async function buildCampaign(input, deps = {}) {
     `Who it is going to: ${String(input.audience || 'small local businesses').trim()}`,
     `Link to use: ${String(input.ctaUrl || '').trim() || '(none — invite them to reply instead; include no link)'}`,
     `Sender name: ${String(input.senderName || '').trim() || '(not set)'}`,
+    input.senderTitle ? `Sender title: ${String(input.senderTitle).trim()}` : '',
     `Sender company: ${String(input.companyName || '').trim() || '(not set)'}`,
+    languageDirective(input.language) || '',
     input.businessContext ? `Background on the sender's business (context only — do not quote statistics from it unless stated here as fact):\n${String(input.businessContext).slice(0, 1200)}` : '',
   ].filter(Boolean).join('\n');
 
   let copy = normalise(await d.draft({ user }));
-  const ctx = { campaignName: input.campaignName, replyTo: input.replyTo, expectedRecipients: input.expectedRecipients };
+  const ctx = { campaignName: input.campaignName, replyTo: input.replyTo, expectedRecipients: input.expectedRecipients, language: input.language };
   let review = await runChecks(copy, ctx, d);
   let fixed = false;
   let fixQuestions = [];
@@ -155,7 +161,7 @@ async function buildCampaign(input, deps = {}) {
     } catch { /* the original blockers stand and are reported as-is */ }
   }
 
-  const sample = { firstName: 'Sam', lastName: 'Taylor', company: 'Acme Plumbing', unsubscribe_url: '#' };
+  const sample = { firstName: 'Sam', lastName: 'Taylor', company: 'Acme Plumbing', area: 'Austin', website: 'https://example.com', unsubscribe_url: '#' };
   return {
     status: 'drafted',
     ...copy,

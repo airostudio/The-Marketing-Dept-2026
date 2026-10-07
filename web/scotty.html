@@ -2468,6 +2468,7 @@
 <script src="/js/gemini-service.js" onerror="console.info('GeminiService not loaded')"></script>
 <script src="/js/openai-service.js" onerror="console.info('OpenAIService not loaded')"></script>
 <script src="/js/perplexity-service.js" onerror="console.info('PerplexityService not loaded')"></script>
+<script src="/js/writing-language.js"></script>
 <script src="/js/intelligence-engine.js" onerror="console.info('IntelligenceEngine not loaded')"></script>
 <script src="/js/intelligence-sync.js" onerror="console.info('IntelligenceSync not loaded')"></script>
 <script src="/js/scotty-orchestrator.js" onerror="console.info('ScottyOrchestrator not loaded')"></script>
@@ -3486,9 +3487,14 @@ class ScottyChat {
                             authHeaders: () => window.sendAuthHeaders(),
                             intelProfileId: this._activeIntelProfileId(),
                             missionId: this._activeMission && this._activeMission.id,
+                            // Signed by the primary Business Brain contact; written
+                            // in the language the business chose. Blank = Pat asks.
                             sender: {
+                                senderName: ((bundle.contacts || [])[0] || {}).name || '',
+                                senderTitle: ((bundle.contacts || [])[0] || {}).title || '',
                                 companyName: (bundle.companyName && bundle.companyName !== 'your company') ? bundle.companyName : '',
                                 businessContext: bundle.businessContext || '',
+                                language: bundle.language || '',
                             },
                             expectedRecipients: bladeEmails,
                             onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },

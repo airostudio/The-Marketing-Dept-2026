@@ -48,11 +48,11 @@ module.exports = withFailureReporting('api/review-campaign', async function hand
 
   if (rateLimited(req, res, { name: 'review-campaign', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS, auth })) return;
 
-  const { campaignName, recipients, replyTo, subject, html, text } = req.body || {};
+  const { campaignName, recipients, replyTo, subject, html, text, language } = req.body || {};
   if (!subject || !html) return res.status(400).json({ error: 'subject and html are required' });
 
   try {
-    return res.json(await reviewCampaign({ campaignName, recipients, replyTo, subject, html, text }));
+    return res.json(await reviewCampaign({ campaignName, recipients, replyTo, subject, html, text, language }));
   } catch (e) {
     return res.status(502).json({ error: e.message });
   }

@@ -11,6 +11,7 @@
 'use strict';
 
 const { callClaudeForJSON } = require('./nancy-claude.js');
+const writingLanguage = require('./writing-language.js');
 
 const REVIEW_TOOL = {
   name: 'submit_campaign_review',
@@ -44,12 +45,12 @@ Set approved:false if there is at least one blocker. Minor stylistic nitpicks be
 
 
 /** @returns {Promise<{approved, blockers, warnings, summary}>} @throws Error on a failed Claude call */
-async function reviewCampaign({ campaignName, recipients, replyTo, subject, html, text }) {
+async function reviewCampaign({ campaignName, recipients, replyTo, subject, html, text, language }) {
   const recipientList = Array.isArray(recipients) ? recipients : [];
   const recipientSample = recipientList.slice(0, 5).map((r) => r && r.to).filter(Boolean).join(', ');
   const mergeTokensUsed = Array.from(new Set(
-    (`${subject}\n${html}`.match(/\{\{\s*([\w.]+)\s*\}\}/g) || [])
-      .map((t) => t.replace(/[{}]/g, '').trim())
+    (`${subject}\n${html}`.match(/\{\{\s*([\w.]+)\s*(?:\|[^{}]*)?\}\}/g) || [])
+      .map((t) => t.replace(/[{}]/g, '').split('|')[0].trim())
   ));
 
   const user = `Campaign: ${campaignName || '(untitled)'}
@@ -57,7 +58,7 @@ Recipient count: ${recipientList.length}
 Recipient sample: ${recipientSample || '(none provided)'}
 Merge tokens found in copy: ${mergeTokensUsed.join(', ') || '(none)'}
 Reply-to: ${replyTo || '(not set)'}
-
+${writingLanguage.directive(language) ? `Expected writing language: ${writingLanguage.LANGUAGES[language][0]}. Report any misspelling, or spelling from a different variant, as a warning (not a blocker).\n` : ''}
 Subject: ${subject}
 
 HTML body:

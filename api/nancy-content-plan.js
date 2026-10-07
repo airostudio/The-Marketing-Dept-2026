@@ -33,6 +33,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { directive: languageDirective } = require('./_lib/writing-language.js');
 const { reportFailureAsync } = require('./_lib/report-failure.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -103,7 +104,7 @@ module.exports = withFailureReporting('api/nancy-content-plan', async function h
 
   if (rateLimited(req, res, { name: 'nancy-content-plan', max: 8, windowMs: 60 * 1000, auth })) return;
 
-  const { businessProfile, brand, strategy, personalization = {}, previousTopics = [], dayRange = [1, 7], priorPosts = [] } = req.body || {};
+  const { businessProfile, brand, strategy, personalization = {}, previousTopics = [], dayRange = [1, 7], priorPosts = [], language = '' } = req.body || {};
   if (!businessProfile || !strategy) return res.status(400).json({ error: 'businessProfile and strategy are required' });
 
   const [start, end] = dayRange;
@@ -132,7 +133,8 @@ Hard rules:
 - Use the strategy's content_opportunities and where_opportunity_is to ground topic choices — do not generate generic ideas untethered from the research.
 - Never copy any competitor's actual wording — use them only as market intelligence about patterns and gaps.
 - Respect the user's personalization answers: if faceComfort is "Don't use me" or "Mostly graphics", uses_user_photo must be false on every post (including a Founder/Personal day — reframe it as team/process/behind-the-scenes instead).
-- Do not repeat any topic already used in previousTopics, or in the already-written posts from the other call (see below).`;
+- Do not repeat any topic already used in previousTopics, or in the already-written posts from the other call (see below).
+- Spelling and grammar must be flawless: re-read every word before you submit.${languageDirective(language) ? '\n- ' + languageDirective(language) : ''}`;
 
   const priorPostsNote = priorPosts.length
     ? `\n\nPOSTS ALREADY WRITTEN FOR OTHER DAYS THIS WEEK (do not repeat these topics/angles/hooks):\n${JSON.stringify(priorPosts, null, 2)}`

@@ -26,6 +26,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { canAccessRecord } = require('./_lib/profile-access.js');
 const { buildCampaign } = require('./_lib/pat-pipeline.js');
+const writingLanguage = require('./_lib/writing-language.js');
 
 async function getCallerFromToken(supabaseUrl, serviceKey, accessToken) {
   const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -91,6 +92,8 @@ module.exports = withFailureReporting('api/mission-pat', async function handler(
     ctaUrl: cleanUrl(body.ctaUrl),
     audience: clean(body.audience, 200),
     senderName: clean(body.senderName, 80),
+    senderTitle: clean(body.senderTitle, 80),
+    language: writingLanguage.isSupported(body.language) ? body.language : '',
     companyName: clean(body.companyName, 120),
     businessContext: clean(body.businessContext, 1200),
     expectedRecipients: Math.max(0, Math.min(5000, parseInt(body.expectedRecipients, 10) || 0)),
