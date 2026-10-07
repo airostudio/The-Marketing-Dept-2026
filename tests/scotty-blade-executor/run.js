@@ -37,8 +37,8 @@ function jsonRes(status, body) { return { ok: status < 400, status, json: async 
   console.log('\n──── Blade is a registered agent, and the only one that runs for real ────');
   check('Scotty can route to Blade', orch.AGENT_ROUTES.blade === '/agents/blade-agent.html');
   check('Blade is a real executor', orch.isRealExecutor('blade') === true);
-  check('agents without a real pipeline still run as before — sales, email, social, seo are not real executors',
-    ['sales', 'email', 'social', 'seo'].every(k => orch.isRealExecutor(k) === false));
+  check('agents without a real pipeline still run as before — sales, email, seo are not real executors',
+    ['sales', 'email', 'seo'].every(k => orch.isRealExecutor(k) === false));
 
   console.log('\n──── the inputs: trimmed, bounded, and missing means missing ────');
   check('sanitising trims and collapses whitespace', JSON.stringify(orch.sanitizeBladeParams({ sector: '  dental   clinics ', city: ' Austin ', country: '' })) === '{"sector":"dental clinics","city":"Austin","country":""}');

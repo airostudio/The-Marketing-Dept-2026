@@ -260,7 +260,7 @@ async function call(handler, body, opts) {
   check('the app-wide maxDuration was raised well past the old 60s default',
     apiGlobFn && apiGlobFn.maxDuration > 60);
 
-  const genPosts = read('api/generate-social-posts.js');
+  const genPosts = read('api/_lib/social-posts-gen.js');   // the generator moved here so a Scotty mission shares it
   const upstreamTimeoutMatch = genPosts.match(/UPSTREAM_TIMEOUT_MS\s*=\s*(\d+)/);
   check('UPSTREAM_TIMEOUT_MS is actually defined', !!upstreamTimeoutMatch);
   const upstreamTimeoutMs = upstreamTimeoutMatch ? Number(upstreamTimeoutMatch[1]) : 0;

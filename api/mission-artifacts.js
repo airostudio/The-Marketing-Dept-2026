@@ -36,6 +36,11 @@
  *   schedules nothing and publishes nothing; nothing goes out until a post is
  *   given a time in the Calendar.
  *
+ *   social_posts — puts the posts that can be published as written in the
+ *   Content Calendar as APPROVED, ready to schedule. Posts that cannot (for
+ *   example over X's character limit) are left out and named in the result.
+ *   Schedules and publishes nothing.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -79,7 +84,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
   };
 }
 
@@ -98,6 +103,33 @@ async function ensureAudienceSegment(sb, artifact, callerId) {
   });
   if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
   return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** social_posts (mission) → social_posts (Calendar). One atomic insert of the postable ones. */
+async function sendSocialToCalendar(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const all = Array.isArray(payload.posts) ? payload.posts : [];
+  const postable = all.filter(p => !p.problem);
+  const skipped = all.filter(p => p.problem).map(p => ({ platform: p.platform, title: p.title, reason: p.problem }));
+  if (!postable.length) throw new Error('None of these posts can be published as written, so there is nothing to send.');
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = postable.map(p => ({
+    user_id: callerId,
+    project_id: artifact.intel_profile_id ? null : projectId,
+    intel_profile_id: artifact.intel_profile_id || null,
+    batch_id: batchId, source: 'organic', platform: p.platform,
+    hook: p.hook || null, headline: (p.title || p.hook || p.body).slice(0, 200), body: p.body, hashtags: p.hashtags || [],
+    status: 'approved',
+    metadata: {
+      origin_agent: 'social', title: p.title, recommended_format: p.recommendedFormat, suggested_posting_time: p.postingTime,
+      engagement_note: p.engagementNote, content_goal: payload.params?.contentGoal || null,
+      mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+    },
+  }));
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
+  return { posts: rows.length, skipped, ids: (Array.isArray(ins.data) ? ins.data : []).map(r => r.id).filter(Boolean), batchId };
 }
 
 /** nancy_week → social_posts, approved and unscheduled. One atomic insert. */
@@ -323,6 +355,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       let result;
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'social_posts') result = await sendSocialToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);
         else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);

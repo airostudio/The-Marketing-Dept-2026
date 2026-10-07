@@ -24,10 +24,15 @@ nobody assumes it works.
 Real executors exist for Blade (find and enrich local prospects), Chase
 (audit each shortlisted website and score the opportunity), Pat (draft,
 QA-check and prepare outreach) and Nancy (research a website, write and design
-a week of Instagram posts). Blade, Chase and Pat run in that order within a
+a week of Instagram posts) and Social Studio (a batch of LinkedIn / X / Facebook
+text posts). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
 - **Nancy in missions — not yet included:** uploaded photos and the logo overlay
   (a mission has no one to supply them), avoiding topics used in earlier weeks,
   and choosing platforms other than Instagram. Needs image hosting (R2) set up.
+- **Social Studio in missions — not yet included:** Instagram and TikTok posts
+  (they need artwork; Instagram is Nancy's), X threads (a thread cannot be
+  posted automatically, so over-length X posts are left out on approval), and
+  images or video on any post.

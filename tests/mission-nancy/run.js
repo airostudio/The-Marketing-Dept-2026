@@ -92,7 +92,7 @@ const img = 'https://cdn.example.com/p.png';
   check('a week with no shared profile belongs to its owner alone — a teammate gets not-found', r.statusCode === 404 && art.payload.posts.length === 0);
   r = await call(nancy, OWNER, { action: 'addPost', artifactId: art.id, post: plan(1, { caption: 'X'.repeat(5000), hashtags: ['a b', '#c', '', 'd'.repeat(100)] }), asset: { hostedUrl: img, format: 'ai' } });
   const d1 = art.payload.posts.find(p => p.day === 1);
-  check('a day is saved with bounded fields', r.body.ok && d1.caption.length === 2200 && d1.hashtags.every(t => t.startsWith('#') && !/\s/.test(t) && t.length <= 61));
+  check('a day is saved with bounded fields', r.body.ok && d1.caption.length === 2200 && d1.hashtags.every(t => !t.startsWith('#') && !/\s/.test(t) && t.length <= 60));
   r = await call(nancy, OWNER, { action: 'addPost', artifactId: art.id, post: plan(1), asset: { hostedUrl: img, format: 'ai' } });
   check('repeating a day replaces it instead of duplicating', art.payload.posts.filter(p => p.day === 1).length === 1 && r.body.saved === 1);
   db.conflictOnce = true;
@@ -118,7 +118,7 @@ const img = 'https://cdn.example.com/p.png';
   check('they are organic Instagram posts for this user, in one batch', db.posts.every(p => p.source === 'organic' && p.platform === 'Instagram' && p.user_id === OWNER && p.batch_id === row.batch_id));
   check('they carry the hosted image and are marked rendered', db.posts.every(p => p.image_url === img && p.image_render_status === 'rendered'));
   check('the project scope is kept so the Calendar can show them', db.posts.every(p => p.project_id === PROJECT && p.intel_profile_id === null));
-  check('copy lands in the right columns', row.headline === 'Headline 1' && /Caption for day 1/.test(row.body) && row.cta === 'Call us' && row.hashtags.includes('#plumbing'));
+  check('copy lands in the right columns', row.headline === 'Headline 1' && /Caption for day 1/.test(row.body) && row.cta === 'Call us' && row.hashtags.includes('plumbing') && row.hashtags.includes('tips'));
   check('provenance says Nancy, the day, and the mission artifact', row.metadata.origin_agent === 'nancy' && row.metadata.day === 1 && row.metadata.mission_artifact_id === art.id && row.metadata.approved_in === 'scotty_mission');
   check('it can only be approved once — no duplicate posts', (await call(arts, OWNER, { action: 'approve', artifactId: art.id })).statusCode === 409 && db.posts.length === 7);
 
@@ -185,7 +185,7 @@ const img = 'https://cdn.example.com/p.png';
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ NancyMission: nm, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('Nancy is a real executor; Social Studio is not', orch.isRealExecutor('nancy') && !orch.isRealExecutor('social'));
+  check('Nancy is a real executor; ads (no real pipeline yet) is not', orch.isRealExecutor('nancy') && !orch.isRealExecutor('ads'));
   check('the report lists each day and what is waiting', /Day 1/.test(orch.describeNancyResult({ businessName: 'Acme', posts: [{ day: 1, hook: 'H', content_pillar: 'Tips' }, { day: 2, hook: 'H2', imageFallback: 'x' }] })) && /simple graphic/.test(orch.describeNancyResult({ posts: [{ day: 2, hook: 'H2', imageFallback: 'x' }] })) && /nothing has been scheduled or published/.test(orch.describeNancyResult({ posts: [] })));
 
   const page = fs.readFileSync(path.join(REPO, 'web/scotty.html'), 'utf8');

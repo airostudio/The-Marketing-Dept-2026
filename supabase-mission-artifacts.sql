@@ -19,6 +19,9 @@
 --   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
 --                   Approving puts them in the Content Calendar as approved;
 --                   it schedules and publishes nothing.
+--   'social_posts' — text posts for LinkedIn / X / Facebook (Social Studio).
+--                   Approving puts the publishable ones in the Content
+--                   Calendar as approved; it schedules and publishes nothing.
 --   'chase_audit' — website audits of a Blade shortlist (Chase). Approving
 --                   tags prospects already in the audience by opportunity.
 -- New agents add a kind; nothing about the table changes.

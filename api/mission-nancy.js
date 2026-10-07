@@ -64,7 +64,8 @@ function cleanPost(p) {
   const headline = str(p.slide_headline, 120);
   if (!caption) return { error: `Day ${day} has no caption.` };
   if (!headline) return { error: `Day ${day} has no headline.` };
-  const tags = (Array.isArray(p.hashtags) ? p.hashtags : []).map(t => str(t, 60).replace(/^#?/, '#').replace(/\s+/g, '')).filter(t => t.length > 1).slice(0, 30);
+  // Stored without the leading # — the publisher adds it when composing the post (a stored '#' would post as '##').
+  const tags = (Array.isArray(p.hashtags) ? p.hashtags : []).map(t => str(t, 60).replace(/\s+/g, '').replace(/^#+/, '')).filter(Boolean).slice(0, 30);
   return { post: {
     day, objective: str(p.objective, 200), content_pillar: str(p.content_pillar, 100), format: str(p.format, 40),
     hook: str(p.hook, 300), slide_headline: headline, caption, cta: str(p.cta, 200),

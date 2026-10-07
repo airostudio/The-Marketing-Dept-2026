@@ -791,7 +791,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     seo: 'Keywords, technical audit, meta tags, rankings strategy',
     competitive: 'Competitor analysis, positioning gaps, battlecards',
     ads: 'Google/Meta/LinkedIn ad copy and creative variants',
-    social: 'Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that\'s nancy)',
+    social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
     nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
     linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
     analytics: 'KPIs, attribution, reporting frameworks',
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1141,6 +1141,84 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
     return lines.join('\n');
   }
 
+  const SOCIAL_PLATFORMS = ['LinkedIn', 'Twitter/X', 'Facebook'];
+  const SOCIAL_GOALS = ['Thought Leadership', 'Product Launch', 'Case Study', 'Engagement', 'Community Building'];
+
+  const SOCIAL_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Social Studio, an agent that writes a batch of text posts for LinkedIn, X and Facebook.
+
+Fill these ONLY from what the goal or business context states — never invent a topic:
+- topic: what the posts should be about, in one or two short sentences. If the goal does not say, return "".
+- contentGoal: exactly one of ${SOCIAL_GOALS.join(' | ')} — the one the goal most closely implies (Engagement if unclear)
+- platforms: any of ${SOCIAL_PLATFORMS.join(', ')} the goal mentions; ["LinkedIn"] if none are named. Never Instagram or TikTok (other agents cover those).
+- postCount: how many posts, 3 to 10 (6 if unstated)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the posts are for",
+  "params": { "topic": "", "contentGoal": "Engagement", "platforms": ["LinkedIn"], "postCount": 6 }
+}`;
+
+  function sanitizeSocialParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const platforms = [...new Set((Array.isArray(src.platforms) ? src.platforms : []).filter(x => SOCIAL_PLATFORMS.includes(x)))];
+    return {
+      topic: String(src.topic == null ? '' : src.topic).replace(/\s+/g, ' ').trim().slice(0, 400),
+      contentGoal: SOCIAL_GOALS.includes(src.contentGoal) ? src.contentGoal : 'Engagement',
+      platforms: platforms.length ? platforms : ['LinkedIn'],
+      postCount: Math.max(3, Math.min(10, parseInt(src.postCount, 10) || 6)),
+    };
+  }
+
+  function describeSocialParams(params) {
+    return `Write ${params.postCount} ${params.platforms.join('/')} posts about: ${params.topic || '[topic]'}`;
+  }
+
+  function missingSocialInputs(params) {
+    return sanitizeSocialParams(params).topic ? [] : ['what the posts should be about'];
+  }
+
+  /**
+   * Run Social Studio for real: one server call writes and saves the batch as
+   * a mission artifact awaiting approval. Remembered on task._socialState so a
+   * retry never writes (and pays for) a second batch.
+   *
+   * @param {object} task  { params: {topic, contentGoal, platforms, postCount} }
+   * @param {object} opts  { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl }
+   */
+  async function runSocialTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeSocialParams(task.params);
+    const missing = missingSocialInputs(params);
+    if (missing.length) throw new Error(`Social Studio needs ${missing.join(' ')} before it can write.`);
+    if (task._socialState && task._socialState.artifactId) return task._socialState;
+
+    if (onStatus) onStatus(`Writing ${params.postCount} posts…`);
+    const res = await doFetch('/api/mission-social', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'generate', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Social Studio request failed (HTTP ${res.status})`);
+    task._socialState = {
+      artifactId: data.artifactId, status: data.status, contentPlanNote: data.contentPlanNote || '',
+      posts: data.posts || [], postable: data.postable || 0, complete: true,
+    };
+    return task._socialState;
+  }
+
+  function describeSocialResult(result) {
+    const blocked = result.posts.filter(p => p.problem);
+    const lines = [`**Social Studio wrote ${result.posts.length} posts for real.** ${result.contentPlanNote || ''}`.trim(), ''];
+    result.posts.forEach(p => lines.push(`- **${p.platform} — ${p.title || p.hook}**${p.problem ? ` _(cannot be published as written: ${p.problem})_` : ''}`));
+    if (blocked.length) lines.push('', `${blocked.length} post${blocked.length === 1 ? '' : 's'} will be left out when you approve, because ${blocked.length === 1 ? 'it cannot' : 'they cannot'} be published as written.`);
+    lines.push('', 'Waiting for your approval — nothing has been scheduled or published.');
+    return lines.join('\n');
+  }
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1349,6 +1427,19 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'social') {
+        const raw = await callJsonPrompt({
+          systemPrompt: SOCIAL_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the social agent');
+        const params = sanitizeSocialParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Write social posts').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'social',
+          userPrompt: describeSocialParams(params),
         };
       } else if (agentKey === 'nancy') {
         const raw = await callJsonPrompt({
@@ -1633,6 +1724,13 @@ Respond ONLY with valid JSON:
     describeBladeParams,
     missingBladeInputs,
     runChaseTask,
+    runSocialTask,
+    describeSocialResult,
+    sanitizeSocialParams,
+    describeSocialParams,
+    missingSocialInputs,
+    SOCIAL_PLATFORMS,
+    SOCIAL_GOALS,
     describeNancyResult,
     describeChaseResult,
     sanitizeChaseParams,
