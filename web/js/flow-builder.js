@@ -34,7 +34,7 @@
   }
 
   /**
-   * @param {{name, fromName?, fromEmail?, steps: Array<{delayHours, subject, body}>}} form
+   * @param {{name, trigger?, segmentId?, fromName?, fromEmail?, steps: Array<{delayHours, subject, body}>}} form
    * @param {{senderFields?: object, intelProfileId?: string}} [opts]
    * @returns {{errors: string[], payload?: object}}
    */
@@ -58,7 +58,12 @@
     });
     if (errors.length) return { errors };
 
-    const payload = { action: 'create', name, triggerType: 'manual', steps: out };
+    const trigger = ['manual', 'contact_created', 'segment_entry'].includes(form.trigger) ? form.trigger : 'manual';
+    if (trigger === 'segment_entry' && !form.segmentId) errors.push('Choose which segment this flow watches.');
+    if (errors.length) return { errors };
+
+    const payload = { action: 'create', name, triggerType: trigger, steps: out };
+    if (trigger === 'segment_entry') payload.segmentId = form.segmentId;
     if (form.fromName && String(form.fromName).trim()) payload.fromName = String(form.fromName).trim();
     if (form.fromEmail && String(form.fromEmail).trim()) payload.fromEmail = String(form.fromEmail).trim();
     if (o.senderFields && Object.keys(o.senderFields).length) payload.senderFields = o.senderFields;
@@ -86,7 +91,13 @@
     return { recipients: out.slice(0, MAX_ENROL), skipped, capped, total: out.length };
   }
 
-  const api = { MAX_STEPS, MAX_ENROL, TAGS, textToHtml, buildCreatePayload, enrolRecipients };
+  const TRIGGER_LABELS = {
+    manual: 'Manual — you enrol people',
+    contact_created: 'Automatic — whenever a new contact is added',
+    segment_entry: 'Automatic — whenever someone joins a segment',
+  };
+
+  const api = { TRIGGER_LABELS, MAX_STEPS, MAX_ENROL, TAGS, textToHtml, buildCreatePayload, enrolRecipients };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FlowBuilder = api;
 })(typeof window !== 'undefined' ? window : globalThis);

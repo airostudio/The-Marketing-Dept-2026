@@ -126,8 +126,12 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
       }
 
       const triggerType = TRIGGERS.includes(body.triggerType) ? body.triggerType : 'manual';
-      if (triggerType === 'segment_entry' && !body.segmentId) {
-        return res.status(400).json({ error: 'A segment-entry flow needs a segmentId.' });
+      if (triggerType === 'segment_entry') {
+        if (!body.segmentId || !isUuid(body.segmentId)) return res.status(400).json({ error: 'A segment-entry flow needs a segmentId.' });
+        // The watcher only ever reads the flow owner's own segments; refuse
+        // up front rather than save a flow that would never enrol anyone.
+        const sg = await sb('GET', `/segments?id=eq.${body.segmentId}&user_id=eq.${caller.id}&select=id&limit=1`);
+        if (!sg.ok || !(sg.data && sg.data[0])) return res.status(400).json({ error: 'That segment was not found in your audience.' });
       }
 
       // When the caller is working inside a shared intelligence profile
@@ -218,7 +222,13 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
       if (!STATUSES.includes(body.status)) {
         return res.status(400).json({ error: `Status must be one of: ${STATUSES.join(', ')}.` });
       }
-      const up = await sb('PATCH', `/email_flows?id=eq.${flow.id}`, { status: body.status });
+      // Activating restarts an automatic flow's watcher from "now": the first
+      // run after this only baselines (see api/cron-flow-triggers.js), so
+      // nobody who is already in the audience is enrolled. Only sent for
+      // automatic flows, so manual flows work without the trigger migration.
+      const patch = { status: body.status };
+      if (body.status === 'active' && flow.trigger_type !== 'manual') patch.trigger_checked_at = null;
+      const up = await sb('PATCH', `/email_flows?id=eq.${flow.id}`, patch);
       if (!up.ok) return res.status(500).json({ error: 'Could not update the flow.' });
 
       // Pausing stops the cron because it only selects enrolments whose flow

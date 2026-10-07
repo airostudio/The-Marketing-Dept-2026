@@ -38,6 +38,13 @@ check('a fractional delay is floored', fb.buildCreatePayload({ name: 'x', steps:
 check('the email limit matches the server', fb.MAX_STEPS === Number(/const MAX_STEPS = (\d+)/.exec(fs.readFileSync(path.join(REPO, 'api/email-flows.js'), 'utf8'))[1]));
 check('every offered tag is one the send system knows, and has a fallback unless it must not', fb.TAGS.every(t => fm.copyIssues({ subject: 's', html: `<p>${t.tag}</p>` }, { senderFields: { senderName: 'a', senderTitle: 'b', senderCompany: 'c' } }).length === 0));
 
+console.log('\n──── triggers ────');
+check('manual is the default trigger', fb.buildCreatePayload(good).payload.triggerType === 'manual');
+check('contact_created is passed through', fb.buildCreatePayload({ ...good, trigger: 'contact_created' }).payload.triggerType === 'contact_created');
+check('segment_entry needs a segment', fb.buildCreatePayload({ ...good, trigger: 'segment_entry' }).errors.length === 1);
+check('segment_entry sends its segment', fb.buildCreatePayload({ ...good, trigger: 'segment_entry', segmentId: 's1' }).payload.segmentId === 's1');
+check('an unknown trigger falls back to manual', fb.buildCreatePayload({ ...good, trigger: 'x' }).payload.triggerType === 'manual');
+
 console.log('\n──── enrolling a segment ────');
 const e = fb.enrolRecipients([
   { id: '1', email: 'a@x.co', status: 'subscribed' }, { id: '2', email: 'A@x.co', status: 'subscribed' },
@@ -53,7 +60,8 @@ const page = fs.readFileSync(path.join(REPO, 'web/marketing/email-marketing.html
 check('flow-builder, language list and engine load, language list first', page.indexOf('writing-language.js') < page.indexOf('intelligence-engine.js') && /flow-builder\.js/.test(page));
 check('there is a New flow button and form', /id="newFlowBtn"/.test(page) && /id="flowBuilder"/.test(page));
 check('it says plainly that a new flow is a draft that sends nothing', /saved as a\s+<strong>draft<\/strong>: nothing sends until you activate it/.test(page));
-check('there is no trigger picker advertising automatic enrolment that does not exist', !/id="flowTrigger"/.test(page));
+check('the trigger picker offers manual and both automatic triggers', /id="flowTrigger"/.test(page) && /value="contact_created"/.test(page) && /value="segment_entry"/.test(page));
+check('it says automatic flows only enrol people who arrive after activation', /AFTER you activate the flow/.test(page));
 check('the request goes through the authenticated helper, never a bare fetch', /authedFetch\('\/api\/email-flows', built\.payload\)/.test(page));
 check('Activate / Pause and Enrol are only offered where they apply', /setFlowStatus\('\$\{esc\(f\.id\)\}','paused'\)/.test(page) && /f\.status === 'active' \? `\s*<select id="enrolSeg-/.test(page));
 check('flow ids put into attributes are escaped', !/\$\{f\.id\}/.test(page.split('async function renderAutomations')[1].split('async function renderAbTests')[0]));

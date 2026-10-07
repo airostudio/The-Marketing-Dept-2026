@@ -322,6 +322,14 @@
                             </p>
                             <div class="ai-form">
                                 <div class="form-group full-width"><label for="flowName">Flow name</label><input type="text" id="flowName" maxlength="120" placeholder="e.g. Welcome series"></div>
+                                <div class="form-group"><label for="flowTrigger">Who gets enrolled</label>
+                                    <select id="flowTrigger" onchange="onFlowTriggerChange()">
+                                        <option value="manual">Manual — I enrol people</option>
+                                        <option value="contact_created">Automatic — every new contact added</option>
+                                        <option value="segment_entry">Automatic — everyone who joins a segment</option>
+                                    </select></div>
+                                <div class="form-group" id="flowSegmentGroup" style="display:none;"><label for="flowSegment">Segment to watch</label><select id="flowSegment"></select></div>
+                                <div id="flowTriggerHint" class="full-width" style="grid-column:1/-1;font-size:11.5px;color:var(--text-muted,#888);line-height:1.6;margin-top:-4px;"></div>
                                 <div class="form-group"><label for="flowSendAs">Send as</label><select id="flowSendAs"></select>
                                     <div id="flowSendAsHint" style="font-size:11.5px;color:var(--text-muted,#888);margin-top:4px;"></div></div>
                                 <div class="form-group"><label for="flowFromName">From name <span style="font-weight:400;">(optional)</span></label><input type="text" id="flowFromName" maxlength="120" placeholder="Defaults to your account's sender name"></div>
@@ -694,6 +702,7 @@
                 <div class="automation-card">
                     <div class="auto-name">${esc(f.name)}
                         <span class="badge">${esc(f.status)}</span></div>
+                    <div style="font-size:12px;color:var(--color-text-tertiary);margin:2px 0 8px;">${esc((window.FlowBuilder.TRIGGER_LABELS || {})[f.triggerType] || f.triggerType)}</div>
                     <div class="metric"><div class="metric-val">${f.enrolled.toLocaleString()}</div><div class="metric-label">Enrolled</div></div>
                     <div class="metric"><div class="metric-val">${f.active.toLocaleString()}</div><div class="metric-label">In progress</div></div>
                     <div class="metric"><div class="metric-val">${f.completed.toLocaleString()}</div><div class="metric-label">Completed</div></div>
@@ -731,6 +740,21 @@
             if (!document.querySelector('#flowSteps .flow-step')) addFlowStep();
             fillSendAs();
             renderTagButtons();
+        }
+
+        async function onFlowTriggerChange() {
+            const t = document.getElementById('flowTrigger').value;
+            const grp = document.getElementById('flowSegmentGroup');
+            const hint = document.getElementById('flowTriggerHint');
+            grp.style.display = t === 'segment_entry' ? '' : 'none';
+            hint.textContent = t === 'manual' ? ''
+                : 'Automatic flows only enrol people who arrive AFTER you activate the flow. Everyone already in your audience is left alone, and nobody on your opt-out list is ever enrolled. Checked every 15 minutes.';
+            if (t === 'segment_entry') {
+                const sel = document.getElementById('flowSegment');
+                let segs = [];
+                try { segs = await window.ContactsStore.listSegments(); } catch (e) { /* shown as empty below */ }
+                sel.innerHTML = segs.length ? segs.map(sg => `<option value="${esc(sg.id)}">${esc(sg.name)}</option>`).join('') : '<option value="">No segments yet</option>';
+            }
         }
 
         function fillSendAs() {
@@ -813,6 +837,8 @@
             const profile = (() => { try { const id = localStorage.getItem('intel_active_profile'); return id && !id.startsWith('local_') ? id : undefined; } catch (e) { return undefined; } })();
             const built = window.FlowBuilder.buildCreatePayload({
                 name: document.getElementById('flowName').value,
+                trigger: document.getElementById('flowTrigger').value,
+                segmentId: document.getElementById('flowSegment').value,
                 fromName: document.getElementById('flowFromName').value,
                 fromEmail: document.getElementById('flowFromEmail').value,
                 steps,
@@ -827,7 +853,7 @@
                     const issues = (r.data && r.data.issues) || [];
                     return setFlowMsg(msg, [(r.data && r.data.error) || `HTTP ${r.status}`, ...issues].join(' '), false);
                 }
-                setFlowMsg(msg, 'Saved as a draft. Activate it from the list below when you are ready.', true);
+                setFlowMsg(msg, 'Saved as a draft. Activate it from the list below when you are ready.' + (built.payload.triggerType !== 'manual' ? ' It starts watching for new people from the moment you activate it.' : ''), true);
                 document.getElementById('flowSteps').innerHTML = '';
                 document.getElementById('flowName').value = '';
                 flowStepCount = 0;
