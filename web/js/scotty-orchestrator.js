@@ -27,6 +27,7 @@ const ScottyOrchestrator = (() => {
     seo:         '/agents/seo-agent.html',
     email:       '/agents/email-agent.html',
     sales:       '/agents/sales-agent.html',
+    blade:       '/agents/blade-agent.html',
     ads:         '/agents/social-agent.html',
     social:      '/agents/social-agent.html',
     analytics:   '/agents/analytics-agent.html',
@@ -48,6 +49,7 @@ const ScottyOrchestrator = (() => {
     seo:         'SEO Intelligence — rankings, keywords, technical audits',
     email:       'Email Engine — Klaviyo-style flows, sequences, campaigns',
     sales:       'Sales Intelligence — Apollo-style prospecting and outreach',
+    blade:       'Blade — finds REAL local businesses (e.g. plumbers in Austin) from Google, checks each one\'s website, and shortlists the ones with a genuine website opportunity, with contact emails and owner names where they can actually be found',
     ads:         'Ad Creative Lab — ad variants, A/B tests, platform-specific creative',
     social:      'Social Studio — platform-native posts, content calendar',
     analytics:   'Analytics Brain — attribution, MMM, performance reporting',
@@ -779,6 +781,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
 
   const MISSION_AGENT_CAPABILITIES = {
     sales: 'ICP research, prospect lists, outreach strategies, lead qualification',
+    blade: 'Finds a REAL shortlist of local businesses (a trade in a named city/area) whose websites are missing, outdated or on a template builder, with real contact emails and owner names where findable. Runs for real — produces actual leads, not a plan. Use for "find/prospect local [trade] in [place]" goals.',
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
     seo: 'Keywords, technical audit, meta tags, rankings strategy',
@@ -859,6 +862,139 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     throw lastErr;
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     REAL EXECUTORS
+     Every other agent key still runs as a Claude write-up (executeAgentTask).
+     An agent listed here runs its actual backend pipeline and produces a real
+     artifact in the database, waiting for the user's one-click approval.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  const REAL_EXECUTORS = new Set(['blade']);
+
+  function isRealExecutor(agentKey) { return REAL_EXECUTORS.has(agentKey); }
+
+  const BLADE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Blade, an agent that finds REAL local businesses on Google and checks their websites.
+
+Blade needs three inputs. Fill each ONLY from what the goal (or, for the place, the business context) actually states — never guess:
+- sector: the trade or business type to find, in plural (e.g. "plumbers", "dental clinics")
+- city: the city, suburb or area to search
+- country: the country, if stated or obvious from the place named
+If the goal does not state one of them, return an empty string for it. Do not pick a "sensible" city; a person will be asked.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is being found and why",
+  "params": { "sector": "", "city": "", "country": "" }
+}`;
+
+  function sanitizeBladeParams(p) {
+    const clean = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 80);
+    const src = (p && typeof p === 'object') ? p : {};
+    return { sector: clean(src.sector), city: clean(src.city), country: clean(src.country) };
+  }
+
+  function describeBladeParams(params) {
+    const where = [params.city, params.country].filter(Boolean).join(', ');
+    return `Find ${params.sector || '[trade]'} in ${where || '[place]'} whose websites are missing, outdated, or on a template builder.`;
+  }
+
+  /** What's still missing before a real Blade run can start, in plain words. */
+  function missingBladeInputs(params) {
+    const p = sanitizeBladeParams(params);
+    const missing = [];
+    if (!p.sector) missing.push('the trade to find (e.g. plumbers)');
+    if (!p.city) missing.push('the city or area to search');
+    return missing;
+  }
+
+  /**
+   * Run Blade for real: search → audit → shortlist (one call), then find
+   * contact details a few leads at a time until none remain. Everything is
+   * saved server-side as a mission artifact awaiting approval.
+   *
+   * Resumable: progress is kept on task._bladeState, so a retry after a
+   * failure partway through continues enriching the same list instead of
+   * searching again and paying for Places a second time.
+   *
+   * @param {object} task  { params: {sector, city, country} }
+   * @param {object} opts  { authHeaders: () => Promise<headers>, intelProfileId, missionId, onStatus, fetchImpl }
+   */
+  async function runBladeTask(task, { authHeaders, intelProfileId, missionId, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const say = (msg) => { if (onStatus) onStatus(msg); };
+    const params = sanitizeBladeParams(task.params);
+    const missing = missingBladeInputs(params);
+    if (missing.length) throw new Error(`Blade needs ${missing.join(' and ')} before it can search.`);
+
+    async function post(body) {
+      const res = await doFetch('/api/mission-blade', { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || `Blade request failed (HTTP ${res.status})`);
+      return data;
+    }
+
+    const state = task._bladeState || (task._bladeState = {});
+    if (!state.artifactId) {
+      say(`Searching Google for ${params.sector} in ${params.city}…`);
+      const found = await post({ action: 'discover', ...params, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined });
+      state.artifactId = found.artifactId;
+      state.status = found.status;
+      state.stats = found.stats;
+      state.note = found.note;
+      state.leads = found.leads || [];
+      state.remaining = found.remaining || 0;
+    }
+
+    let guard = 0;
+    while (state.remaining > 0 && guard++ < 60) {
+      const total = state.leads.length;
+      say(`Finding contact details… ${total - state.remaining}/${total} checked`);
+      const batch = await post({ action: 'enrich', artifactId: state.artifactId });
+      if (!batch.processed) break; // nothing advanced — don't spin
+      for (const l of batch.leads || []) {
+        const i = state.leads.findIndex(x => x.placeId === l.placeId);
+        if (i >= 0) state.leads[i] = l;
+      }
+      state.remaining = batch.remaining;
+      state.status = batch.status;
+    }
+
+    // A lookup that stopped advancing is a failed task, not a finished one —
+    // leaving it looking complete would offer an approval the server (rightly)
+    // refuses, since the list is still being built. Throwing lets the
+    // mission's normal retry pick up where this left off.
+    if (state.remaining > 0) {
+      throw new Error(`Contact lookup stalled with ${state.remaining} lead${state.remaining === 1 ? '' : 's'} still to check.`);
+    }
+
+    return {
+      artifactId: state.artifactId, status: state.status, stats: state.stats || {},
+      note: state.note, leads: state.leads, complete: true,
+    };
+  }
+
+  /** A plain-markdown account of a real Blade result, for the mission report. */
+  function describeBladeResult(result) {
+    const s = result.stats || {};
+    if (!result.leads || !result.leads.length) {
+      return `**Blade searched for real** — ${result.note || 'no qualifying businesses were found.'}`;
+    }
+    const withEmail = result.leads.filter(l => l.email).length;
+    const withOwner = result.leads.filter(l => l.ownerFirstName).length;
+    const lines = [
+      `**Blade ran for real.** Searched Google for "${s.query || ''}", checked ${s.candidatesChecked ?? '?'} businesses' websites, and shortlisted ${result.leads.length} with a genuine opportunity (${s.noWebsite ?? 0} with no website, ${s.builderLocked ?? 0} on a template builder).`,
+      `Contact details actually found: ${withEmail} email${withEmail === 1 ? '' : 's'}, ${withOwner} owner name${withOwner === 1 ? '' : 's'}. Anything not found is left blank, not guessed.`,
+      '',
+      '| Business | Site | Email | Owner |',
+      '|---|---|---|---|',
+      ...result.leads.slice(0, 15).map(l => `| ${l.name} | ${l.siteStatus === 'no_website' ? 'No website' : (l.sitePlatform || l.siteStatus)} | ${l.email || '—'} | ${l.ownerFirstName || '—'} |`),
+    ];
+    if (result.leads.length > 15) lines.push(`…and ${result.leads.length - 15} more.`);
+    lines.push('', 'Waiting for your approval — nothing has been imported or sent.');
+    return lines.join('\n');
+  }
+
   /**
    * Generate a multi-agent mission plan.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
@@ -897,6 +1033,7 @@ ${capabilityList}
 Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
+- When the goal is to find LOCAL businesses of a particular trade in a particular place (plumbers, dentists, roofers…), use "blade" instead of "sales" — blade finds real businesses; never select both for the same prospecting job
 - For campaign goals: prioritise content → ads → email → social
 - Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
   THIS specific goal this week (e.g. "Short-form video", "Carousels & images", "Email sequence",
@@ -949,13 +1086,36 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "userPrompt": "2-4 sentences of specific, self-contained instruction"
 }`;
 
-      const taskData = await callJsonPrompt({
-        systemPrompt: taskSystemPrompt,
-        messages: [{
-          role: 'user',
-          content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
-        }],
-      }, `Mission plan task for the ${agentKey} agent`);
+      const missionMessage = {
+        role: 'user',
+        content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
+      };
+
+      // Blade runs for real, so its task is structured inputs the real
+      // pipeline can act on (a trade and a place), not a prose instruction
+      // for Claude to role-play. Anything the goal doesn't actually state
+      // stays blank for the user to fill in before the mission starts — an
+      // invented city would mean searching for the wrong businesses.
+      let taskData;
+      if (agentKey === 'blade') {
+        const raw = await callJsonPrompt({
+          systemPrompt: BLADE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the blade agent');
+        const params = sanitizeBladeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Find local prospects').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'blade',
+          userPrompt: describeBladeParams(params),
+        };
+      } else {
+        taskData = await callJsonPrompt({
+          systemPrompt: taskSystemPrompt,
+          messages: [missionMessage],
+        }, `Mission plan task for the ${agentKey} agent`);
+      }
       tasks.push({ agentKey, ...taskData });
       report({ stage: 'task_done', agentKey, index: i, total: agentKeys.length, taskName: taskData.taskName });
     }
@@ -1182,6 +1342,12 @@ Respond ONLY with valid JSON:
     isOrchestrationIntent,
     generateMissionPlan,
     executeAgentTask,
+    isRealExecutor,
+    runBladeTask,
+    describeBladeResult,
+    sanitizeBladeParams,
+    describeBladeParams,
+    missingBladeInputs,
     getAgentInlinePrompt,
     assessAndPlanAutomation,
     executeAutomationStep,

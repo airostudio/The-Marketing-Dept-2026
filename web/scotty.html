@@ -2542,6 +2542,7 @@ const ScottyBoot = (() => {
         seo:         { emoji: '🔍',  label: 'SEO Intelligence'        },
         email:       { emoji: '📧',  label: 'Email Engine'            },
         sales:       { emoji: '🎯',  label: 'Chase — Sales Intel'     },
+        blade:       { emoji: '🗡️',  label: 'Blade — Local Prospects' },
         ads:         { emoji: '📣',  label: 'Ad Creative Lab'         },
         social:      { emoji: '📱',  label: 'Social Studio'           },
         nancy:       { emoji: '🍯',  label: 'Jam Fancy'               },
@@ -2759,12 +2760,12 @@ const ScottyBoot = (() => {
 const AGENT_META = {
     emojis: {
         seo:'🔍', competitive:'🕵️', content:'✍️', email:'📧', ads:'🎨',
-        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', linkedin:'💼',
+        social:'📱', cro:'🧪', analytics:'📊', sales:'🎯', blade:'🗡️', linkedin:'💼',
         video:'🎬', compliance:'🛡️', deck:'📽️', 'compliance-automation':'🔒',
     },
     routes: {
         content:'/agents/content-studio-agent.html', seo:'/agents/seo-agent.html',
-        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html',
+        email:'/agents/email-agent.html', sales:'/agents/sales-agent.html', blade:'/agents/blade-agent.html',
         ads:'/agents/social-agent.html', social:'/agents/social-agent.html',
         analytics:'/agents/analytics-agent.html', competitive:'/agents/competitive-agent.html',
         video:'/agents/video-agent.html', cro:'/agents/cro-agent.html',
@@ -2776,13 +2777,14 @@ const AGENT_META = {
         seo:'SEO Intelligence', analytics:'Analytics Brain', deck:'Deck Maker',
         ads:'Ad Creative Lab', social:'Social Studio', competitive:'Competitive Intelligence',
         compliance:'Compliance Guard', content:'Content Studio', email:'Email Engine',
-        sales:'Sales Intelligence', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
+        sales:'Sales Intelligence', blade:'Blade — Local Prospects', linkedin:'LinkedIn Outreach', video:'Video Studio', cro:'CRO Lab',
         'compliance-automation':'Enterprise Compliance Automation',
     },
     serviceNames: {
         seo:'Gemini 2.5 Pro', analytics:'Gemini 2.5 Pro', deck:'Gemini 2.5 Pro',
         ads:'GPT-4o', social:'GPT-4o', competitive:'Perplexity Sonar Pro',
         compliance:'Claude Opus 4.7',
+        blade:'Google Places + live site checks',
     },
     // Pages with exactly one unambiguous primary action (#runBtn) that only
     // requires the single prefilled field — verified safe to auto-click blind
@@ -3317,6 +3319,15 @@ class ScottyChat {
                                 <a href="${agentRoutes[t.agentKey] || '#'}" target="_blank" class="task-agent-link" id="taskAgentLink${i}" onclick="event.stopPropagation()" title="Open ${agentDisplayNames[t.agentKey] || t.agentKey}">${agentDisplayNames[t.agentKey] || t.agentKey} →</a>
                             </div>
                         </div>
+                        ${t.realExecutor === 'blade' ? `
+                        <div class="mission-task-params" id="taskParams${i}" style="padding:10px 14px;border-top:1px dashed var(--border);">
+                            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">🗡️ Blade runs for real — confirm who to find before starting${(t.params && t.params.sector && t.params.city) ? '' : ' <strong style="color:#f59e0b;">(the goal didn\'t say — please fill these in)</strong>'}:</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <input data-param="sector"  placeholder="Trade, e.g. plumbers"  value="${this._escapeAttr((t.params && t.params.sector)  || '')}" style="flex:1;min-width:140px;">
+                                <input data-param="city"    placeholder="City or area"          value="${this._escapeAttr((t.params && t.params.city)    || '')}" style="flex:1;min-width:140px;">
+                                <input data-param="country" placeholder="Country (optional)"    value="${this._escapeAttr((t.params && t.params.country) || '')}" style="flex:1;min-width:120px;">
+                            </div>
+                        </div>` : ''}
                         <div class="task-result" id="taskResult${i}"></div>
                     </div>
                 `).join('')}
@@ -3369,6 +3380,26 @@ class ScottyChat {
 
         startBtn.addEventListener('click', () => {
             if (aborted) return;
+
+            // Real-executor tasks (Blade) search for actual businesses, so the
+            // inputs have to be real before anything is spent. Read what's in
+            // the boxes now — the user may have corrected or filled them in.
+            for (let i = 0; i < total; i++) {
+                const t = plan.tasks[i];
+                if (t.realExecutor !== 'blade') continue;
+                const box = missionEl.querySelector(`#taskParams${i}`);
+                if (!box) continue;
+                const val = (name) => (box.querySelector(`[data-param="${name}"]`)?.value || '');
+                t.params = window.ScottyOrchestrator.sanitizeBladeParams({ sector: val('sector'), city: val('city'), country: val('country') });
+                t.userPrompt = window.ScottyOrchestrator.describeBladeParams(t.params);
+                const missing = window.ScottyOrchestrator.missingBladeInputs(t.params);
+                if (missing.length) {
+                    autoText.textContent = `Blade needs ${missing.join(' and ')} before the mission can start.`;
+                    box.querySelector('[data-param="' + (!t.params.sector ? 'sector' : 'city') + '"]')?.focus();
+                    return;
+                }
+            }
+
             started = true;
             startBtn.style.display = 'none';
             abortBtn.textContent = '✕ Abort';
@@ -3426,17 +3457,33 @@ class ScottyChat {
             for (let attempt = 0; attempt < 2; attempt++) {
                 fullText = '';
                 try {
-                    await orch.executeAgentTask(task, contextBundle, {
-                        onChunk: (chunk) => {
-                            if (aborted) return;
-                            fullText += chunk;
-                            if (liveStatus) liveStatus.textContent = `⚡ Receiving from ${svcName}…`;
-                            resultEl.innerHTML = this._renderMarkdownSimple(fullText);
-                            this._scrollToBottom();
-                        },
-                        onDone:  (text) => { fullText = text; },
-                        onError: (err)  => { throw err; },
-                    });
+                    if (orch.isRealExecutor(task.agentKey)) {
+                        // A real run: the agent's actual pipeline, saved as an
+                        // artifact waiting on approval — not a write-up.
+                        const real = await orch.runBladeTask(task, {
+                            authHeaders: () => window.sendAuthHeaders(),
+                            intelProfileId: this._activeIntelProfileId(),
+                            missionId: this._activeMission && this._activeMission.id,
+                            onStatus: (msg) => { if (liveStatus) liveStatus.textContent = `⚡ ${msg}`; },
+                        });
+                        fullText = orch.describeBladeResult(real);
+                        this._renderBladeResult(resultEl, real);
+                        if (this._activeMission && window.MissionStore) {
+                            window.MissionStore.updateStep(this._activeMission.id, task.agentKey, { resultRef: real.artifactId });
+                        }
+                    } else {
+                        await orch.executeAgentTask(task, contextBundle, {
+                            onChunk: (chunk) => {
+                                if (aborted) return;
+                                fullText += chunk;
+                                if (liveStatus) liveStatus.textContent = `⚡ Receiving from ${svcName}…`;
+                                resultEl.innerHTML = this._renderMarkdownSimple(fullText);
+                                this._scrollToBottom();
+                            },
+                            onDone:  (text) => { fullText = text; },
+                            onError: (err)  => { throw err; },
+                        });
+                    }
                     succeeded = true;
                     break;
                 } catch (err) {
@@ -3552,6 +3599,82 @@ class ScottyChat {
 
         // Autonomous automation phase — no clicks required
         this._runAutomationAssessment(plan, results, contextBundle, missionEl);
+    }
+
+    /* ── REAL EXECUTOR RESULTS ────────────────────────────────────────────────
+       A real-executor task (Blade) leaves a real artifact behind. This shows
+       what was actually found and puts the one human checkpoint right on it:
+       approving imports the leads that have a real email into the audience,
+       and nothing is ever sent from here.
+    ──────────────────────────────────────────────────────────────────────── */
+
+    _activeIntelProfileId() {
+        try {
+            const id = localStorage.getItem('intel_active_profile');
+            return (id && !String(id).startsWith('local_')) ? id : null;
+        } catch { return null; }
+    }
+
+    _renderBladeResult(resultEl, real) {
+        if (!real.leads.length) {
+            resultEl.innerHTML = `<div style="padding:12px;color:var(--text2);">🗡️ ${this._escapeAttr(real.note || 'Blade found no qualifying businesses.')}</div>`;
+            return;
+        }
+        const withEmail = real.leads.filter(l => l.email).length;
+        const rows = real.leads.map(l => `
+            <tr>
+                <td>${this._escapeAttr(l.name)}</td>
+                <td>${this._escapeAttr(l.siteStatus === 'no_website' ? 'No website' : (l.sitePlatform || l.siteStatus))}</td>
+                <td>${l.email ? this._escapeAttr(l.email) : '<span style="color:var(--text3)">—</span>'}</td>
+                <td>${l.ownerFirstName ? this._escapeAttr(l.ownerFirstName) : '<span style="color:var(--text3)">—</span>'}</td>
+                <td>${this._escapeAttr(l.phone || '')}</td>
+            </tr>`).join('');
+        resultEl.innerHTML = `
+            <div style="padding:12px;">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${this._escapeAttr(real.leads.length)} real businesses shortlisted from ${this._escapeAttr(real.stats.candidatesChecked || '?')} checked — ${this._escapeAttr(withEmail)} with a real email found. Blank means not found, never guessed.</div>
+                <div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">
+                    <thead><tr style="text-align:left;color:var(--text3);"><th>Business</th><th>Website</th><th>Email</th><th>Owner</th><th>Phone</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table></div>
+                <div class="blade-approval" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:8px;">
+                    <div style="font-size:13px;margin-bottom:8px;">✅ <strong>Ready for your approval.</strong> Approving adds the ${this._escapeAttr(withEmail)} with an email to your audience, tagged <code>blade-prospect</code>. It sends nothing.</div>
+                    <button class="mission-report-btn primary blade-approve">Approve — add ${this._escapeAttr(withEmail)} to audience</button>
+                    <button class="mission-report-btn blade-reject">Reject</button>
+                    <span class="blade-approval-msg" style="margin-left:10px;font-size:12px;color:var(--text2);"></span>
+                </div>
+            </div>`;
+        this._wireArtifactDecision(resultEl.querySelector('.blade-approval'), real.artifactId);
+    }
+
+    _wireArtifactDecision(box, artifactId) {
+        if (!box) return;
+        const approveBtn = box.querySelector('.blade-approve');
+        const rejectBtn = box.querySelector('.blade-reject');
+        const msg = box.querySelector('.blade-approval-msg');
+        const decide = async (action) => {
+            approveBtn.disabled = rejectBtn.disabled = true;
+            msg.textContent = action === 'approve' ? 'Adding to your audience…' : 'Rejecting…';
+            try {
+                const res = await fetch('/api/mission-artifacts', {
+                    method: 'POST', headers: await window.sendAuthHeaders(),
+                    body: JSON.stringify({ action, artifactId }),
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
+                if (action === 'reject') { msg.textContent = 'Rejected — nothing was imported.'; return; }
+                const r = data.result || {};
+                const parts = [`${r.imported || 0} added to your audience`];
+                if (r.skippedExisting) parts.push(`${r.skippedExisting} already there`);
+                if (r.skippedNoEmail) parts.push(`${r.skippedNoEmail} had no email found (phone-only)`);
+                if (r.failed) parts.push(`${r.failed} failed to save`);
+                msg.innerHTML = `✅ ${this._escapeHtml(parts.join(' · '))} — <a href="/agents/audience-agent.html" target="_blank" rel="noopener">open Beeker →</a>`;
+            } catch (e) {
+                msg.textContent = `Could not ${action}: ${e.message}`;
+                approveBtn.disabled = rejectBtn.disabled = false;
+            }
+        };
+        approveBtn.addEventListener('click', () => decide('approve'));
+        rejectBtn.addEventListener('click', () => decide('reject'));
     }
 
     /* ── CHAIN ACTIONS ────────────────────────────────────────────────────────
@@ -4522,6 +4645,12 @@ class ScottyChat {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    // _escapeHtml leaves quotes alone (fine between tags, not inside an
+    // attribute value) — anything placed in value="…" needs these too.
+    _escapeAttr(str) {
+        return this._escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 }
 

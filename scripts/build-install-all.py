@@ -66,6 +66,7 @@ SOURCES = [
     'supabase-sales-intel-sweep.sql',
     'supabase-team-access-extend.sql',
     'supabase-site-snapshots.sql',
+    'supabase-mission-artifacts.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')

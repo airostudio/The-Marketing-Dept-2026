@@ -18,25 +18,12 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { searchPlaces } = require('./_lib/places-search.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20;
 
 
-const FIELD_MASK = [
-  'places.id',
-  'places.displayName',
-  'places.formattedAddress',
-  'places.nationalPhoneNumber',
-  'places.internationalPhoneNumber',
-  'places.websiteUri',
-  'places.rating',
-  'places.userRatingCount',
-  'places.businessStatus',
-  'places.types',
-  'places.googleMapsUri',
-  'nextPageToken',
-].join(',');
 
 module.exports = withFailureReporting('api/blade-places-search', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -65,40 +52,9 @@ module.exports = withFailureReporting('api/blade-places-search', async function 
     : `${String(sector).trim()} in ${String(city).trim()}${country ? ', ' + String(country).trim() : ''}`;
 
   try {
-    const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': FIELD_MASK,
-      },
-      body: JSON.stringify({
-        ...(textQuery ? { textQuery } : {}),
-        ...(pageToken ? { pageToken } : {}),
-        languageCode: 'en',
-        pageSize: 20,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error?.message || 'Places API error' });
-
-    const results = (data.places || []).map(place => ({
-      placeId: place.id,
-      name: place.displayName?.text || '',
-      address: place.formattedAddress || '',
-      phone: place.nationalPhoneNumber || place.internationalPhoneNumber || '',
-      website: place.websiteUri || '',
-      rating: place.rating ?? null,
-      reviewCount: place.userRatingCount ?? null,
-      businessStatus: place.businessStatus || '',
-      types: place.types || [],
-      mapsUrl: place.googleMapsUri || '',
-    }));
-
-    return res.json({ success: true, results, nextPageToken: data.nextPageToken || null });
+    const { results, nextPageToken } = await searchPlaces(apiKey, pageToken ? { pageToken } : { textQuery });
+    return res.json({ success: true, results, nextPageToken });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(e.status || 500).json({ error: e.message });
   }
 });
