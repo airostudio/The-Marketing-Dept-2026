@@ -57,6 +57,7 @@ SOURCES = [
     'supabase-support.sql',
     'supabase-email-events.sql',
     'supabase-email-engine.sql',
+    'supabase-email-flows-sender.sql',
     'supabase-email-suppression.sql',
     'supabase-competitive-roster.sql',
     'supabase-video-gallery.sql',

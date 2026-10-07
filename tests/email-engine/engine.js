@@ -270,7 +270,7 @@ async function call(handler, body, opts) {
     r.status === 409 && /Activate it/.test(r.body.error));
 
   await call(flows, { action: 'setStatus', flowId, status: 'active' });
-  db.contacts.push({ id: 'ct1', email: 'a@x.test', user_id: 'user-1', status: 'subscribed', firstname: 'Ada' });
+  db.contacts.push({ id: 'ct1', email: 'a@x.test', user_id: 'user-1', status: 'subscribed', first_name: 'Ada' });
   db.contacts.push({ id: 'ct2', email: 'gone@x.test', user_id: 'user-1', status: 'unsubscribed' });
 
   r = await call(flows, { action: 'enrol', flowId,

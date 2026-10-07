@@ -1,7 +1,7 @@
 /**
  * api/email-flows.js — automation flows: define them, enrol people, watch them run.
  *
- * POST { action: 'create',   name, steps: [{delayHours, subject, html}], triggerType?, segmentId?, fromName?, fromEmail? }
+ * POST { action: 'create',   name, steps: [{delayHours, subject, html}], triggerType?, segmentId?, fromName?, fromEmail?, senderFields? }
  * POST { action: 'list' }
  * POST { action: 'get',      flowId }
  * POST { action: 'setStatus', flowId, status }   // draft | active | paused
@@ -28,6 +28,7 @@
 const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { canAccessRecord, accessibleProfileIds, ownedOrSharedFilter } = require('./_lib/profile-access.js');
+const { cleanSenderFields, copyIssues } = require('./_lib/flow-merge.js');
 
 const TRIGGERS = ['manual', 'contact_created', 'segment_entry'];
 const STATUSES = ['draft', 'active', 'paused'];
@@ -112,6 +113,18 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
         }
       }
 
+      // Who the flow is sent as ({{senderName}} etc.), snapshotted from the
+      // Business Brain contact picked when the flow is saved. Copy that can't
+      // be sent as written is refused here, where a person can fix it, rather
+      // than failing silently on each recipient later.
+      const senderFields = cleanSenderFields(body.senderFields);
+      for (const [i, s] of steps.entries()) {
+        const issues = copyIssues(s, { senderFields });
+        if (issues.length) {
+          return res.status(422).json({ error: `Step ${i + 1} cannot be sent as written.`, code: 'unfinished_content', issues });
+        }
+      }
+
       const triggerType = TRIGGERS.includes(body.triggerType) ? body.triggerType : 'manual';
       if (triggerType === 'segment_entry' && !body.segmentId) {
         return res.status(400).json({ error: 'A segment-entry flow needs a segmentId.' });
@@ -136,6 +149,7 @@ module.exports = withFailureReporting('api/email-flows', async function handler(
         segment_id: body.segmentId || null,
         intel_profile_id: intelProfileId,
         from_name: body.fromName || null, from_email: body.fromEmail || null,
+        ...(Object.keys(senderFields).length ? { sender_fields: senderFields } : {}),
         // Created as a draft on purpose: a flow should not start mailing the
         // moment it is saved, before anyone has read it back.
         status: 'draft',
