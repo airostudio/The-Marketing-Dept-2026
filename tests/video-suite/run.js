@@ -50,12 +50,15 @@ const code = f => read(f).split('\n')
 
 const PAGE = 'web/agents/video-agent.html';
 const API  = 'api/generate-video.js';
+// The provider contract and the copy into storage live in the shared library
+// Video Studio and Scotty's video step both use.
+const LIB  = 'api/_lib/seedance.js';
 
 (async () => {
   /* ── 1. A finished video is kept somewhere durable ────────────────────── */
   console.log('──── the video outlives the link it arrived on ────');
 
-  const api = code(API);
+  const api = code(API) + '\n' + code(LIB);
   check('the endpoint mirrors the finished file into our own storage',
     /mirrorToR2/.test(api) && /uploadToR2/.test(api));
   check('and says which kind of link it is handing back',
@@ -137,7 +140,7 @@ const API  = 'api/generate-video.js';
   /* ── 4. Nothing in the suite fabricates ───────────────────────────────── */
   console.log('\n──── nothing is invented ────');
 
-  [PAGE, API, 'web/js/video-gen-store.js'].forEach(f => {
+  [PAGE, API, LIB, 'web/js/video-gen-store.js'].forEach(f => {
     const src = code(f);
     const randomMetrics = [...src.matchAll(/(\w+)\s*[:=]\s*[^;\n]*Math\.random/g)]
       .filter(m => !/^(id|uid|key|seed|nonce|suffix|genId|return)$/i.test(m[1]));
@@ -276,6 +279,7 @@ async function callStatus({ r2, arkStatus = 'succeeded' }) {
     },
   };
   delete require.cache[path.join(REPO, 'api/generate-video.js')];
+  delete require.cache[path.join(REPO, 'api/_lib/seedance.js')];
 
   global.fetch = async (url) => {
     if (String(url).includes('/auth/v1/user')) {

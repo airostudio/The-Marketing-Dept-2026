@@ -797,7 +797,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     analytics: 'Writes a real performance report from the account\'s OWN recorded numbers (emails sent and their opens/clicks where tracked, revenue reported by the shop, audience growth, flows, social posts published) for the last 7, 30 or 90 days, with every figure checked against the data. Runs for real; approving saves it to Report History. Reports only what is recorded — it cannot analyse data that was never collected, and it is not a forecast or an attribution model.',
     cro: 'Audits one or two real pages for conversion problems (found in the page itself) and proposes prioritised A/B tests, each tied to something actually on the page or to a quote from it — never a forecast result. Runs for real; approving adds the tests to the CRO Lab backlog. Needs the page address and what counts as a conversion.',
     deck: 'Pitch decks, sales presentations, one-pagers',
-    video: 'Video scripts, thumbnails, YouTube strategy',
+    video: 'Renders ONE short AI video clip (2-12 seconds, one continuous shot, no sound you can control) from a plain-words brief, after checking the shot puts no words, logos, real people or unsupported figures on screen. Runs for real; approving adds the clip to the Video Studio gallery (nothing is posted). Needs what the video should show. Not scripts, edits, voiceovers or talking-head videos.',
     compliance: 'Brand safety, legal review, GDPR, FTC checks',
     'compliance-automation': 'SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration',
   };
@@ -873,7 +873,7 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
      artifact in the database, waiting for the user's one-click approval.
   ───────────────────────────────────────────────────────────────────────── */
 
-  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin']);
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin', 'video']);
 
   // Real executors hand work down the line (Blade's list → Chase's audit →
   // Pat's email), so whatever order the model listed them in, they run in this
@@ -1454,6 +1454,20 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "params": { "offer": "", "prospects": [ { "name": "", "title": "", "company": "" } ] }
 }`;
 
+  const VIDEO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Video Studio, which renders a single short AI video clip — one continuous shot of a few seconds, with no on-screen words.
+
+Fill these ONLY from what the goal or business context states — never invent products, people or places the business does not have:
+- brief: what the clip should show, in one or two plain sentences (subject, setting, the one thing that happens). "" if the goal gives nothing to show.
+- platform: where the clip is meant to be used if the goal says (e.g. "TikTok", "Instagram Reels", "YouTube", "website"); "" if not.
+- duration: seconds, 2 to 12. 5 unless the goal says otherwise.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the clip is for",
+  "params": { "brief": "", "platform": "", "duration": 5 }
+}`;
+
   const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
 
 Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
@@ -1662,6 +1676,20 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
           params,
           realExecutor: 'blade',
           userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'video' && window.VideoMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: VIDEO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the video agent');
+        const rp = raw.params || {};
+        const params = window.VideoMission.sanitizeParams({ brief: rp.brief, duration: rp.duration, aspectRatio: window.VideoMission.aspectForPlatform(rp.platform) });
+        taskData = {
+          taskName: String(raw.taskName || 'Video clip').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'video',
+          userPrompt: window.VideoMission.describeParams(params),
         };
       } else if (agentKey === 'linkedin' && window.LinkedInMission) {
         const raw = await callJsonPrompt({

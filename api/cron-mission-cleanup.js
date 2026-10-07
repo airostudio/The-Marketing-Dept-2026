@@ -48,6 +48,14 @@ function assess(artifact, now) {
 
   if (artifact.status === 'building') {
     const idleMs = now - new Date(artifact.updated_at || artifact.created_at).getTime();
+    if (idleMs >= STALL_MS && artifact.kind === 'video_clip') {
+      // The render is paid for and may well have finished: nobody has asked.
+      return {
+        reason: 'stalled', kind: 'upstream_timeout',
+        message: `Mission video ${label} was ${payload.taskId ? `rendering (task ${payload.taskId})` : 'being started'} and nobody has checked on it for ${Math.round(idleMs / 60000)} minutes. Opening the mission in Scotty checks again and collects it.`,
+        detail: { artifactId: artifact.id, userId: artifact.user_id, taskId: payload.taskId || null, remaining: 1, total: 1 },
+      };
+    }
     if (idleMs >= STALL_MS) {
       const isWeek = artifact.kind === 'nancy_week';
       const isSeo = artifact.kind === 'seo_plan';

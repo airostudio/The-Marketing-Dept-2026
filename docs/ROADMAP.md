@@ -31,7 +31,8 @@ from the account's own recorded numbers, every figure checked) and
 Competitive Intelligence (quote-verified battlecards from competitors' own
 websites, with daily change-watching) and CRO (citation-checked A/B test ideas for real
 pages, added to the ICE backlog) and LinkedIn Outreach (checked connection
-notes and follow-ups as drafts). Blade, Chase and Pat run in that order within a
+notes and follow-ups as drafts) and Video Studio (one short AI clip from a
+checked shot prompt, added to the Video Studio gallery). Blade, Chase and Pat run in that order within a
 mission; Nancy is independent. Every
 other agent still produces a written plan rather than running its pipeline.
 
@@ -73,3 +74,11 @@ other agent still produces a written plan rather than running its pipeline.
   profiles — it only knows what you give it (up to 10 people per mission). The
   approved drafts are filed in this browser's LinkedIn Outreach prospect list
   (which is stored in the browser, not the cloud).
+- **Video Studio in missions — not yet included:** more than one clip per
+  mission, image-to-video from your own photo, scripts, voiceover, music,
+  captions and editing several shots together, and putting the clip on a social
+  post (done by hand from the Video Studio gallery; the social publishers do
+  not upload video yet). On-screen words and logos are refused on purpose —
+  video models garble them — so they are added in the edit. Each render is
+  paid; without R2 storage set up the clip is only on the generator's expiring
+  link, and is labelled that way.

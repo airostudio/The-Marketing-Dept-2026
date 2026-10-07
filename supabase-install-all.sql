@@ -4864,6 +4864,10 @@ CREATE POLICY "site_snapshots_profile_edit" ON site_snapshots
 --                   written only from the facts you gave and checked by code
 --                   (LinkedIn Outreach). Approving contacts no one and never
 --                   touches LinkedIn; you send them by hand.
+--   'video_clip'  — one short rendered clip from a checked shot prompt (no words,
+--                   logos or unsupported figures on screen) (Video Studio). While
+--                   'building' it holds the render's task id. Approving adds it to
+--                   the Video Studio gallery; it posts and publishes nothing.
 --   'cro_plan'    — A/B test ideas for real pages, each tied to an observation or a
 --                   verified quote from the page (CRO). Approving adds them to the
 --                   CRO ICE backlog and saves the audit to Report History; it

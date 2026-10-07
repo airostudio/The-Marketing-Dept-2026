@@ -172,7 +172,7 @@ const idea = (o = {}) => ({ name: 'Shorten the quote form', page: 'https://acme.
   console.log('\n──── Scotty ────');
   const osrc = fs.readFileSync(path.join(REPO, 'web/js/scotty-orchestrator.js'), 'utf8');
   const orch = new Function('window', 'document', `${osrc}\nreturn window.ScottyOrchestrator;`)({ localStorage: { getItem: () => null, setItem() {}, removeItem() {} } }, { readyState: 'complete', querySelectorAll: () => [], addEventListener() {} });
-  check('CRO is a real executor; video is not', orch.isRealExecutor('cro') && !orch.isRealExecutor('video'));
+  check('CRO is a real executor; deck is not', orch.isRealExecutor('cro') && !orch.isRealExecutor('deck'));
   const sp = orch.sanitizeCroParams({ urls: 'a.com/x, https://b.com javascript:1 c.com', goal: '  quote   requests ' });
   check('params: addresses normalised, junk dropped, capped at two; goal tidied', sp.urls.length === 2 && sp.urls[0] === 'https://a.com/x' && sp.goal === 'quote requests');
   check('both a page and a goal are required', orch.missingCroInputs({}).length === 2 && orch.missingCroInputs({ urls: ['a.com'] }).length === 1 && orch.missingCroInputs({ urls: ['a.com'], goal: 'x' }).length === 0);

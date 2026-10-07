@@ -72,6 +72,11 @@
  *   browser files the drafts against the prospects, and the person sends them
  *   by hand.
  *
+ *   video_clip — adds the finished clip to the Video Studio gallery
+ *   (video_generations), with its storage label kept: a clip that only has the
+ *   generator's expiring link stays marked temporary there. Posts and
+ *   publishes nothing.
+ *
  * An artifact can be decided exactly once: the status change is a conditional
  * update, so a double-click or two teammates approving at the same moment
  * cannot import the same list twice.
@@ -115,7 +120,7 @@ function summarise(a) {
     id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
     missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
     attention: a.payload?.attention || null,
-    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : a.kind === 'competitive_report' ? !!a.payload?.report?.review?.approved : undefined, usableDrafts: Array.isArray(a.payload?.drafts) ? a.payload.drafts.filter(d => d.usable).length : 0, ideas: Array.isArray(a.payload?.ideas) ? a.payload.ideas.length : 0, competitors: Array.isArray(a.payload?.profiles) ? a.payload.profiles.length : 0, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0 },
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : a.kind === 'competitive_report' ? !!a.payload?.report?.review?.approved : undefined, usableDrafts: Array.isArray(a.payload?.drafts) ? a.payload.drafts.filter(d => d.usable).length : 0, ideas: Array.isArray(a.payload?.ideas) ? a.payload.ideas.length : 0, competitors: Array.isArray(a.payload?.profiles) ? a.payload.profiles.length : 0, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0, video: a.kind === 'video_clip' ? (a.payload?.video ? a.payload.video.storage || 'temporary' : null) : undefined },
   };
 }
 
@@ -141,6 +146,30 @@ async function approveLinkedInDrafts(sb, artifact) {
   const drafts = (Array.isArray(artifact.payload?.drafts) ? artifact.payload.drafts : []).filter(d => d.usable);
   if (!drafts.length) throw new Error('None of these drafts passed the checks, so there is nothing to approve.');
   return { approved: drafts.length, skipped: (artifact.payload.drafts.length - drafts.length), drafts: drafts.map(d => ({ id: d.id, clientId: d.clientId, name: d.name, title: d.title, company: d.company, linkedinUrl: d.linkedinUrl, connectionNote: d.connectionNote, followUp: d.followUp })) };
+}
+
+/** video_clip → the Video Studio gallery. Idempotent on the artifact id. */
+async function saveVideoToGallery(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const video = payload.video;
+  if (!video || !video.videoUrl) throw new Error('This video has no finished file to keep.');
+  const params = payload.params || {};
+  const clientId = `scotty-${artifact.id}`;
+  const scope = { project_id: artifact.intel_profile_id ? null : (params.projectId || null), intel_profile_id: artifact.intel_profile_id || null };
+  const existing = await sb('GET', `/video_generations?user_id=eq.${callerId}&client_id=eq.${encodeURIComponent(clientId)}&select=id&limit=1`);
+  if (!existing.ok) throw new Error(existing.status === 404 ? 'The Video Studio gallery is not installed. Run supabase-video-gallery.sql in the Supabase SQL editor.' : `Could not read the video gallery (HTTP ${existing.status}).`);
+  if (!(existing.data && existing.data[0])) {
+    const ins = await sb('POST', '/video_generations', {
+      user_id: callerId, ...scope, client_id: clientId,
+      prompt: payload.prompt || params.brief || '', mode: 'text-to-video', image_url: null,
+      aspect_ratio: params.aspectRatio || '16:9', duration: params.duration || 5, resolution: params.resolution || '1080p',
+      task_id: payload.taskId || null, status: 'succeeded',
+      video_url: video.videoUrl, thumbnail_url: video.thumbnailUrl || null,
+      storage: video.storage === 'permanent' ? 'permanent' : 'temporary', storage_note: video.storageNote || null,
+    });
+    if (!ins.ok) throw new Error(`Could not add the video to the gallery (HTTP ${ins.status}).`);
+  }
+  return { videoGenId: clientId, videoUrl: video.videoUrl, storage: video.storage === 'permanent' ? 'permanent' : 'temporary', storageNote: video.storageNote || null };
 }
 
 /** cro_plan → CRO ICE backlog + Report History. The backlog rows are undone if the report cannot be saved. */
@@ -537,6 +566,10 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
         });
       }
 
+      if (body.action === 'approve' && artifact.kind === 'video_clip' && !artifact.payload?.video?.videoUrl) {
+        return res.status(409).json({ error: 'This video has no finished file, so there is nothing to approve.' });
+      }
+
       const target = body.action === 'approve' ? 'approved' : 'rejected';
       // Claim the decision atomically: only a row still pending_approval flips,
       // so of two simultaneous clicks exactly one gets a row back.
@@ -553,6 +586,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       try {
         if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
         else if (artifact.kind === 'linkedin_drafts') result = await approveLinkedInDrafts(sb, artifact);
+        else if (artifact.kind === 'video_clip') result = await saveVideoToGallery(sb, artifact, caller.id);
         else if (artifact.kind === 'cro_plan') result = await saveCroPlan(sb, artifact, caller.id);
         else if (artifact.kind === 'competitive_report') result = await saveCompetitiveReport(sb, artifact, caller.id);
         else if (artifact.kind === 'analytics_report') result = await saveAnalyticsReport(sb, artifact, caller.id);
