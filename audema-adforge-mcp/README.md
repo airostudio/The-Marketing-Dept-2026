@@ -329,7 +329,7 @@ By default, ads render with a brand-colour solid or gradient background — genu
 
 **Generate one inline.** Pass a `backgroundPrompt` to `export_ad_image` instead of `backgroundImagePath`, and the server will call the configured AI image provider itself (`src/render/imageProvider.ts`), cache the result under `ADFORGE_DATA_DIR/generated-images`, and render with it. Requires setting `ADFORGE_IMAGE_PROVIDER` in `.env` to one of:
 
-- `openai` — calls `gpt-image-1` using `OPENAI_API_KEY`. **Uses the exact same environment variable name as the main Audema web app** — if you already have that key set for the live product, the same value works here too (this server never runs on Vercel itself; only the key value is shared).
+- `openai` — calls `gpt-image-2.5-flare` using `OPENAI_API_KEY`. **Uses the exact same environment variable name as the main Audema web app** — if you already have that key set for the live product, the same value works here too (this server never runs on Vercel itself; only the key value is shared).
 - `replicate` — calls a hosted diffusion model (`black-forest-labs/flux-schnell` by default, override with `REPLICATE_IMAGE_MODEL`) using `REPLICATE_API_TOKEN`.
 - `none` (default) — `backgroundPrompt` is rejected with a clear, specific error telling you which env var to set, rather than silently falling back to a flat background. If you asked for a generated image, you'll know when you didn't get one.
 

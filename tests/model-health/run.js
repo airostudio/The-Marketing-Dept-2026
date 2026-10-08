@@ -105,7 +105,7 @@ console.log('\n──── missing key is a skip, not a failure ────');
     }
     if (u.includes('api.openai.com/v1/models/')) {
       seenOpenAIImageUrl = u;
-      return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-1' }) };
+      return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-2.5-flare' }) };
     }
     return { ok: false, status: 404, json: async () => ({}) };
   };
@@ -123,10 +123,10 @@ console.log('\n──── missing key is a skip, not a failure ────');
     seenGeminiBody && seenGeminiBody.contents[0].parts[0].text && seenGeminiBody.generationConfig.maxOutputTokens === 8);
   check('and comes back ok: true', geminiTextResult.ok === true);
 
-  const openaiImageEntry = MODEL_REGISTRY.find(m => m.id === 'gpt-image-1');
+  const openaiImageEntry = MODEL_REGISTRY.find(m => m.id === 'gpt-image-2.5-flare');
   const openaiImageResult = await testModelLive(openaiImageEntry, { anthropic: 'x', openai: 'sk-test', gemini: 'x' });
   check('OpenAI IMAGE model gets an existence check (GET /v1/models/{id}), never a real generation call',
-    seenOpenAIImageUrl && seenOpenAIImageUrl.includes('/v1/models/gpt-image-1'));
+    seenOpenAIImageUrl && seenOpenAIImageUrl.includes('/v1/models/gpt-image-2.5-flare'));
   check('and comes back ok: true', openaiImageResult.ok === true);
 
   const geminiImageEntry = MODEL_REGISTRY.find(m => m.id === 'gemini-2.5-flash-image');
@@ -226,7 +226,7 @@ console.log('\n──── missing key is a skip, not a failure ────');
       return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'OK' } }] }) };
     }
     if (u.includes('api.openai.com/v1/models/')) {
-      return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-1' }) };
+      return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-2.5-flare' }) };
     }
     if (u.includes('generativelanguage.googleapis.com') && u.includes(':generateContent')) {
       return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'OK' }] } }] }) };

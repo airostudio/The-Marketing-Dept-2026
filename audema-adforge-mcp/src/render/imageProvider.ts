@@ -10,7 +10,7 @@
  * the key, not for where this code executes.
  *
  * ADFORGE_IMAGE_PROVIDER selects which provider to call:
- *   'openai'    — gpt-image-1 (OPENAI_API_KEY)
+ *   'openai'    — gpt-image-2.5-flare (OPENAI_API_KEY)
  *   'replicate' — a hosted diffusion model (REPLICATE_API_TOKEN)
  *   'none' (default) — export_ad_image falls back to a flat/gradient
  *                        background; no network call is made.
@@ -61,7 +61,8 @@ async function generateWithOpenAI(prompt: string, width: number, height: number)
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY is not set.');
 
-  // gpt-image-1 only accepts these three request sizes — pick the closest
+  // The three request sizes gpt-image-1 accepted (kept for gpt-image-2.5-flare;
+  // check its size list if a size is refused) — pick the closest
   // match for the ad's aspect ratio rather than distorting a fixed size.
   const ratio = width / height;
   const size = ratio > 1.2 ? '1536x1024' : ratio < 0.85 ? '1024x1536' : '1024x1024';
@@ -70,7 +71,7 @@ async function generateWithOpenAI(prompt: string, width: number, height: number)
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+      model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare',
       prompt,
       size,
       quality: 'high',

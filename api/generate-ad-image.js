@@ -62,7 +62,8 @@ const PLATFORM_TO_SIZE = {
   'All Platforms':   'square',
 };
 
-// gpt-image-1 only accepts these three request sizes.
+// The three request sizes gpt-image-1 accepted, kept for gpt-image-2.5-flare —
+// check its size list if a size is refused.
 const SIZE_FOR_PLATFORM = {
   square:    '1024x1024',
   portrait:  '1024x1536',
@@ -339,7 +340,7 @@ module.exports = withFailureReporting('api/generate-ad-image', async function ha
   const platformSize = PLATFORM_TO_SIZE[platform] || 'square';
   const size = SIZE_FOR_PLATFORM[platformSize];
   const prompt = buildPrompt({ headline, subheadline, cta, proofPoint, urgencyLine, platform, visualDirection, product, audience, brand });
-  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare';
 
   try {
     const upstream = await fetch(OPENAI_IMAGES_URL, {

@@ -171,7 +171,7 @@ The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `OPENAI_API_KEY` | Same key already used by `api/openai.js` — no separate key needed | ✅ For AI ad images |
-| `OPENAI_IMAGE_MODEL` | Image model to request | Optional (defaults to `gpt-image-1`) |
+| `OPENAI_IMAGE_MODEL` | Image model to request (ad images and Nancy's OpenAI images) | Optional (defaults to `gpt-image-2.5-flare`) |
 
 Without `OPENAI_API_KEY`, the button returns a clear "not configured" error — a free, instant, no-API-key "quick template" fallback (deterministic SVG background + typography, via `api/render-social-image.js`) stays available underneath every card either way, clearly labeled as a placeholder rather than a finished ad.
 

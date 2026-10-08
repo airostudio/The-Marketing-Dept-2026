@@ -271,7 +271,7 @@ function describeEmptyGeminiImageResponse(data) {
 // the model renders a complete, trending Instagram graphic. Contract:
 // { prompt, width, height, referenceImageBase64?, referenceImageMimeType?,
 // provider? } -> { available, buffer, mimeType } | { available:false, reason
-// }. Implements OpenAI's gpt-image-1 and Google's Gemini image models.
+// }. Implements OpenAI's gpt-image-2.5-flare and Google's Gemini image models.
 // Which one runs is IMAGE_GEN_PROVIDER by default, so most callers need no
 // code change to swap; the optional `provider` option lets one specific
 // caller pin a provider regardless of that shared default — e.g.
@@ -350,8 +350,8 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350, reference
 
   try {
     if (provider === 'openai') {
-      // gpt-image-1 only supports 1024x1024, 1024x1536, 1536x1024, or
-      // 'auto' — pick the closest portrait size to a 4:5 Instagram post and
+      // The sizes gpt-image-1 accepted: 1024x1024, 1024x1536, 1536x1024, or
+      // 'auto'. Kept for gpt-image-2.5-flare — check its size list if a size is refused — pick the closest portrait size to a 4:5 Instagram post and
       // let the caller lay the result into its own canvas.
       const aspect = width / height;
       const size = aspect < 0.9 ? '1024x1536' : aspect > 1.1 ? '1536x1024' : '1024x1024';
@@ -363,7 +363,7 @@ async function imageGenProvider(prompt, { width = 1080, height = 1350, reference
       const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality, n: 1 }),
+        body: JSON.stringify({ model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare', prompt, size, quality, n: 1 }),
         signal: AbortSignal.timeout(50000),
       });
 
