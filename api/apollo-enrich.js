@@ -22,7 +22,7 @@
  *   count, industry, LinkedIn URL, phone. Returns { found: false } if
  *   Apollo has no record — never backfilled with a guess.
  *
- * mode='people_search' → POST /v1/mixed_people/search
+ * mode='people_search' → POST /v1/mixed_people/api_search
  *   Returns real people Apollo has on file at that domain matching the
  *   given titles (defaults to owner/founder/decision-maker titles — this
  *   is the "who do I actually contact" question). Apollo's search endpoint
@@ -116,7 +116,7 @@ module.exports = withFailureReporting('api/apollo-enrich', async function handle
       // Apollo's search results never include email — a separate,
       // credit-costing enrichment call is required for that. Never
       // filled in with a guess.
-      people: people.map(p => ({ name: p.name, title: p.title, linkedinUrl: p.linkedinUrl })),
+      people: people.map(p => ({ name: p.name, lastNameHidden: p.lastNameHidden, title: p.title, linkedinUrl: p.linkedinUrl })),
       note: people.length ? 'Apollo search results do not include email addresses — verified emails require a separate Apollo enrichment credit spend, or use Hunter.io (already wired into this pipeline) against the same domain.' : undefined,
     });
   } catch (err) {
