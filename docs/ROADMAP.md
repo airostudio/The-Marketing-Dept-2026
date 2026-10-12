@@ -19,6 +19,26 @@ nobody assumes it works.
 - **Live enrolment counts** after "Enrol this segment" (currently refresh the
   page).
 
+## Scorecards & waitlists
+
+Hosted question pages at `/s/<slug>` that campaigns can point to (Marketing →
+Scorecards & Waitlists). A scorecard scores visitors and shows a personal
+result; a waitlist validates an idea before it is built, and waitlists in the
+same comparison group can be compared. Only visitors who tick the consent box
+become contacts, tagged so the segments made on publish can trigger email
+flows.
+
+- **Not yet included:** embedding a scorecard on the business's own website
+  (our pages forbid framing; a hosted link only for now); a custom domain or
+  branding per business; editing answer options of a live scorecard without
+  affecting earlier answers' counts; a CAPTCHA (bots are slowed by a hidden
+  field, a minimum fill time and rate limits); Scotty using a live scorecard
+  link as the default destination for Pat, Nancy, Social Studio and Ads (paste
+  a share link for now); statistical significance in waitlist comparisons
+  (it shows real counts only); emailing the visitor a copy of their result.
+- **Webese:** its `/for` pages live in another repository. When marketing
+  Webese, a scorecard or waitlist here can be linked from those pages.
+
 ## Scotty (autonomous missions)
 
 Real executors exist for Blade (find and enrich local prospects), Chase

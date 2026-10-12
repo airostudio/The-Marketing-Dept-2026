@@ -69,6 +69,7 @@ SOURCES = [
     'supabase-team-access-extend.sql',
     'supabase-site-snapshots.sql',
     'supabase-mission-artifacts.sql',
+    'supabase-scorecards.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')

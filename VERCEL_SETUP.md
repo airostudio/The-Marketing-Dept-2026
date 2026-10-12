@@ -145,6 +145,7 @@ Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `UNSUBSCRIBE_SECRET` | Signs the token in every unsubscribe link so it can't be forged. Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset — set a dedicated value if you'd rather not reuse that key for this. | Recommended |
+| `SCORECARD_SECRET` | Signs the start token on public scorecard and waitlist pages (`/s/<slug>`), which stops instant bot submissions. Falls back to `UNSUBSCRIBE_SECRET`, then `SUPABASE_SERVICE_ROLE_KEY`. | Optional |
 | `RESEND_WEBHOOK_SECRET` | The `whsec_...` signing secret Resend gives you when you add a webhook endpoint | ✅ For bounce/complaint tracking |
 | `PUBLIC_APP_URL` | Your deployment's public base URL, e.g. `https://app.yourdomain.com`. Falls back to the request's own `Host` header if unset — set this explicitly if you're behind a proxy/custom domain where that header isn't reliable. | Optional |
 

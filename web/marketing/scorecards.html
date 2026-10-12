@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scorecards &amp; Waitlists | Audema Marketing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        body { background: var(--bg-primary, #0f0f14); color: var(--text-primary, #f2f2f7); font-family: Inter, system-ui, sans-serif; }
+        .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+        .topnav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; margin-bottom: 18px; }
+        .topnav a { color: var(--text-muted, #a3a3b5); text-decoration: none; }
+        h1 { font-size: 26px; margin: 0 0 6px; }
+        .lede { color: var(--text-muted, #a3a3b5); margin: 0 0 22px; max-width: 760px; line-height: 1.55; }
+        .card { background: var(--card-bg, #1a1a22); border: 1px solid var(--border-color, #2c2c38); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+        .card h2 { font-size: 16px; margin: 0 0 12px; }
+        .muted { color: var(--text-muted, #a3a3b5); font-size: 13px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+        label.f { display: block; font-size: 12px; color: var(--text-muted, #a3a3b5); margin: 10px 0 4px; font-weight: 600; }
+        input, select, textarea { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border-color, #2c2c38); background: var(--bg-primary, #0f0f14); color: inherit; font: inherit; font-size: 14px; }
+        input[type=checkbox] { width: auto; }
+        textarea { resize: vertical; }
+        .btn { background: #6d5dfc; color: #fff; border: 0; border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn.sec { background: transparent; border: 1px solid var(--border-color, #2c2c38); color: inherit; }
+        .btn.danger { background: transparent; border: 1px solid #ef4444; color: #ef4444; }
+        .btn[disabled] { opacity: .5; cursor: default; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color, #2c2c38); vertical-align: top; }
+        th { color: var(--text-muted, #a3a3b5); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .pill.draft { background: rgba(148,163,184,.15); color: #94a3b8; }
+        .pill.live { background: rgba(34,197,94,.15); color: #4ade80; }
+        .pill.closed { background: rgba(245,158,11,.15); color: #fbbf24; }
+        .q { border: 1px solid var(--border-color, #2c2c38); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+        .opt-row { display: grid; grid-template-columns: 1fr 90px 32px; gap: 6px; margin-bottom: 6px; }
+        .problems { color: #fbbf24; font-size: 13px; margin: 8px 0 0; padding-left: 18px; }
+        .ok { color: #4ade80; font-size: 13px; }
+        .bar { height: 8px; background: var(--border-color, #2c2c38); border-radius: 8px; overflow: hidden; }
+        .bar > div { height: 100%; background: #6d5dfc; }
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .kpi { border: 1px solid var(--border-color, #2c2c38); border-radius: 10px; padding: 12px; }
+        .kpi b { display: block; font-size: 22px; }
+        .hidden { display: none; }
+        code { font-size: 12px; word-break: break-all; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="topnav">
+        <a href="/marketing/overview.html">Marketing Overview</a>
+        <a href="/marketing/email-marketing.html">Email Marketing &amp; Flows</a>
+        <a href="/agents/audience-agent.html">Audience</a>
+        <a href="/scotty.html">Scotty</a>
+    </div>
+    <h1>Scorecards &amp; Waitlists</h1>
+    <p class="lede">Send campaign traffic somewhere that catches it. A <strong>scorecard</strong> asks visitors a few questions about their situation and gives them a personal score, and you learn who they are and what they need. A <strong>waitlist</strong> tests an idea before you build it: people join and tell you their problem and what they would pay. Put two waitlists in the same comparison group to see which idea the market wants. Only visitors who tick the consent box become contacts, and seeing a result never depends on ticking it.</p>
+
+    <div id="scopeWarn" class="card hidden"><span class="muted">Pick a business profile (Business Brain) or a project first. Contacts from your scorecards go into that business's audience.</span></div>
+
+    <!-- New -->
+    <div class="card" id="newCard">
+        <h2>Create</h2>
+        <div class="grid2">
+            <div>
+                <label class="f">Type</label>
+                <select id="newKind"><option value="scorecard">Scorecard: questions, then a personal score</option><option value="waitlist">Waitlist: test an idea before building it</option></select>
+            </div>
+            <div>
+                <label class="f">Who it's for (optional)</label>
+                <input id="newAudience" placeholder="e.g. small business owners who need a new website">
+            </div>
+        </div>
+        <label class="f" id="newTopicLabel">What should it assess?</label>
+        <input id="newTopic" placeholder="e.g. How well is your website winning you customers?">
+        <div class="row" style="margin-top:12px;">
+            <button class="btn" id="draftBtn">Draft with Scotty</button>
+            <button class="btn sec" id="blankBtn">Start blank</button>
+            <span class="muted" id="newMsg"></span>
+        </div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+        <h2>Your scorecards and waitlists</h2>
+        <div id="list" class="muted">Loading…</div>
+    </div>
+
+    <!-- Editor -->
+    <div class="card hidden" id="editor">
+        <h2 id="edTitle">Edit</h2>
+        <div class="grid2">
+            <div><label class="f">Title</label><input id="edName" maxlength="120"></div>
+            <div><label class="f">Link name (fixed once published)</label><input id="edSlug" maxlength="60" placeholder="website-health-check"></div>
+            <div><label class="f">Business name (shown to visitors)</label><input id="edBiz" maxlength="120"></div>
+            <div><label class="f">Privacy policy link (https://, recommended)</label><input id="edPrivacy" maxlength="500"></div>
+        </div>
+        <label class="f">Headline</label><input id="edHeadline" maxlength="160">
+        <label class="f">Subheading</label><textarea id="edSub" rows="2" maxlength="400"></textarea>
+        <label class="f">Benefits, one per line (up to 4)</label><textarea id="edBullets" rows="3"></textarea>
+        <div class="grid2">
+            <div><label class="f">Start button text</label><input id="edCta" maxlength="40"></div>
+            <div><label class="f">Consent wording (leave blank for the default)</label><input id="edConsent" maxlength="300"></div>
+        </div>
+        <div id="waitlistFields" class="grid2">
+            <div><label class="f">Comparison group (same name on two waitlists compares them)</label><input id="edGroup" maxlength="60" placeholder="e.g. new-product-ideas"></div>
+            <div><label class="f">Thank-you message</label><input id="edWaitMsg" maxlength="600"></div>
+        </div>
+        <div id="ctaFields" class="grid2">
+            <div><label class="f">Result button text (optional)</label><input id="edResCtaLabel" maxlength="60" placeholder="Book a free call"></div>
+            <div><label class="f">Result button link (https://)</label><input id="edResCtaUrl" maxlength="500"></div>
+        </div>
+
+        <h2 style="margin-top:18px;">Questions</h2>
+        <div id="questions"></div>
+        <button class="btn sec" id="addQ">+ Add question</button>
+
+        <div id="bandsWrap">
+            <h2 style="margin-top:18px;">Results (score bands, together covering 0–100%)</h2>
+            <div id="bands"></div>
+            <button class="btn sec" id="addBand">+ Add band</button>
+        </div>
+
+        <ul class="problems" id="edProblems"></ul>
+        <div class="row" style="margin-top:14px;">
+            <button class="btn" id="saveBtn">Save</button>
+            <button class="btn sec" id="publishBtn">Publish</button>
+            <button class="btn sec" id="closeEdBtn">Close editor</button>
+            <span class="muted" id="edMsg"></span>
+        </div>
+    </div>
+
+    <!-- Share + results -->
+    <div class="card hidden" id="results">
+        <h2 id="resTitle">Results</h2>
+        <div id="share"></div>
+        <div id="resBody" class="muted">Loading…</div>
+    </div>
+
+    <div class="card hidden" id="compare">
+        <h2 id="cmpTitle">Compare</h2>
+        <div id="cmpBody"></div>
+    </div>
+</div>
+
+<script src="../js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/writing-language.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script>
+(function () {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const SOURCES = ['email', 'instagram', 'facebook', 'linkedin', 'x', 'tiktok', 'ads', 'website', 'qr'];
+    let editing = null;   // { id?, kind, slugFixed, def }
+
+    function scope() {
+        const get = (k) => { try { const v = localStorage.getItem(k); return v && !String(v).startsWith('local_') ? v : null; } catch { return null; } };
+        return { intelProfileId: get('intel_active_profile'), projectId: get('seo-current-project') };
+    }
+    function bundle() { try { return (window.IntelligenceEngine && window.IntelligenceEngine.getContextBundle()) || {}; } catch { return {}; } }
+
+    async function api(body) {
+        const res = await fetch('/api/scorecards', { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify(body) });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) { const e = new Error((data && data.error) || `HTTP ${res.status}`); e.data = data; throw e; }
+        return data;
+    }
+
+    /* ── list ─────────────────────────────────────────────────────────── */
+    async function loadList() {
+        try {
+            const d = await api({ action: 'list' });
+            if (!d.scorecards.length) { $('list').innerHTML = '<span class="muted">None yet. Create one above.</span>'; return; }
+            $('list').innerHTML = `<table><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Responses</th><th>Opted in</th><th>Link</th><th></th></tr></thead><tbody>${d.scorecards.map(s => `
+                <tr>
+                    <td><strong>${esc(s.title)}</strong>${s.group ? `<div class="muted">Group: ${esc(s.group)}</div>` : ''}</td>
+                    <td>${esc(s.kind)}</td>
+                    <td><span class="pill ${esc(s.status)}">${esc(s.status)}</span></td>
+                    <td>${esc(s.responses)}</td>
+                    <td>${esc(s.consented)}</td>
+                    <td>${s.status === 'draft' ? '<span class="muted">not published</span>' : `<code>/s/${esc(s.slug)}</code>`}</td>
+                    <td class="row">
+                        <button class="btn sec" data-act="edit" data-id="${esc(s.id)}">Edit</button>
+                        ${s.status !== 'draft' ? `<button class="btn sec" data-act="results" data-id="${esc(s.id)}">Results</button>` : ''}
+                        ${s.group && s.kind === 'waitlist' ? `<button class="btn sec" data-act="compare" data-group="${esc(s.group)}">Compare group</button>` : ''}
+                        ${s.status === 'live' ? `<button class="btn sec" data-act="close" data-id="${esc(s.id)}">Close</button>` : ''}
+                        ${s.status === 'closed' ? `<button class="btn sec" data-act="reopen" data-id="${esc(s.id)}">Reopen</button>` : ''}
+                        ${s.status === 'draft' ? `<button class="btn danger" data-act="delete" data-id="${esc(s.id)}">Delete</button>` : ''}
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+        } catch (e) {
+            $('list').innerHTML = `<span class="muted">${esc(e.data && e.data.code === 'not_installed' ? e.message : 'Could not load: ' + e.message)}</span>`;
+        }
+    }
+
+    $('list').addEventListener('click', async (ev) => {
+        const b = ev.target.closest('button[data-act]'); if (!b) return;
+        const act = b.dataset.act, id = b.dataset.id;
+        try {
+            if (act === 'edit') { const d = await api({ action: 'get', id }); openEditor(d.scorecard); }
+            else if (act === 'results') showResults(id);
+            else if (act === 'compare') showCompare(b.dataset.group);
+            else if (act === 'delete') { if (confirm('Delete this draft?')) { await api({ action: 'delete', id }); loadList(); } }
+            else { await api({ action: act, id }); loadList(); }
+        } catch (e) { alert(e.message); }
+    });
+
+    /* ── create ───────────────────────────────────────────────────────── */
+    $('newKind').addEventListener('change', () => {
+        const w = $('newKind').value === 'waitlist';
+        $('newTopicLabel').textContent = w ? 'Describe the idea people are joining the waitlist for' : 'What should it assess?';
+        $('newTopic').placeholder = w ? 'e.g. A done-for-you website service for tradespeople, built in 7 days' : 'e.g. How well is your website winning you customers?';
+    });
+
+    $('draftBtn').addEventListener('click', async () => {
+        const b = bundle();
+        const btn = $('draftBtn'); btn.disabled = true; $('newMsg').textContent = 'Scotty is drafting… (about 20-40 seconds)';
+        try {
+            const d = await api({ action: 'draft', kind: $('newKind').value, topic: $('newTopic').value, audience: $('newAudience').value,
+                businessName: b.companyName && b.companyName !== 'your company' ? b.companyName : '', businessContext: b.businessContext || '', language: b.language || '' });
+            $('newMsg').textContent = '';
+            openEditor({ kind: $('newKind').value, status: 'draft', definition: d.definition, problems: [...(d.warnings || []), ...(d.problems || [])] });
+        } catch (e) { $('newMsg').textContent = e.message; }
+        finally { btn.disabled = false; }
+    });
+
+    $('blankBtn').addEventListener('click', () => {
+        const kind = $('newKind').value, b = bundle();
+        openEditor({ kind, status: 'draft', definition: {
+            kind, title: $('newTopic').value.slice(0, 120), businessName: b.companyName && b.companyName !== 'your company' ? b.companyName : '',
+            intro: { headline: '', subheading: '', bullets: [] },
+            questions: [{ id: 'q1', prompt: '', type: 'single', required: true, options: [{ id: 'o1', label: '', points: 0 }, { id: 'o2', label: '', points: kind === 'scorecard' ? 10 : 0 }] }],
+            bands: kind === 'scorecard' ? [{ title: 'Getting started', min: 0, max: 40, message: '' }, { title: 'On the way', min: 41, max: 70, message: '' }, { title: 'In great shape', min: 71, max: 100, message: '' }] : [],
+        }, problems: [] });
+    });
+
+    /* ── editor ───────────────────────────────────────────────────────── */
+    function openEditor(card) {
+        const def = JSON.parse(JSON.stringify(card.definition || {}));
+        def.questions = def.questions || []; def.bands = def.bands || []; def.intro = def.intro || {};
+        editing = { id: card.id || null, kind: card.kind || def.kind, status: card.status, slugFixed: !!card.publishedAt || card.status !== 'draft', slug: card.slug || '', def };
+        const isW = editing.kind === 'waitlist';
+        $('edTitle').textContent = card.id ? `Edit ${isW ? 'waitlist' : 'scorecard'}` : `New ${isW ? 'waitlist' : 'scorecard'}`;
+        $('edName').value = def.title || ''; $('edSlug').value = editing.slug; $('edSlug').disabled = !!card.id;
+        $('edBiz').value = def.businessName || ''; $('edPrivacy').value = def.privacyUrl || '';
+        $('edHeadline').value = def.intro.headline || ''; $('edSub').value = def.intro.subheading || '';
+        $('edBullets').value = (def.intro.bullets || []).join('\n'); $('edCta').value = def.intro.ctaLabel || '';
+        $('edConsent').value = def.consentLabel || ''; $('edGroup').value = def.group || ''; $('edWaitMsg').value = def.waitlistMessage || '';
+        $('edResCtaLabel').value = (def.resultCta && def.resultCta.label) || ''; $('edResCtaUrl').value = (def.resultCta && def.resultCta.url) || '';
+        $('waitlistFields').classList.toggle('hidden', !isW); $('ctaFields').classList.toggle('hidden', isW); $('bandsWrap').classList.toggle('hidden', isW);
+        $('publishBtn').classList.toggle('hidden', card.status === 'live');
+        renderQuestions(); renderBands(); renderProblems(card.problems || []);
+        $('edMsg').textContent = '';
+        $('editor').classList.remove('hidden'); $('editor').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderQuestions() {
+        const isW = editing.kind === 'waitlist';
+        $('questions').innerHTML = editing.def.questions.map((q, i) => `
+            <div class="q" data-i="${i}">
+                <div class="row" style="justify-content:space-between;"><strong>Question ${i + 1}</strong>
+                    <span class="row"><button class="btn sec" data-q="up">↑</button><button class="btn sec" data-q="down">↓</button><button class="btn danger" data-q="del">Remove</button></span></div>
+                <label class="f">Question</label><input data-k="prompt" value="${esc(q.prompt)}" maxlength="300">
+                <div class="grid2">
+                    <div><label class="f">Answer type</label><select data-k="type">${[['single', 'Pick one'], ['multi', 'Pick any'], ['scale', 'Scale'], ['text', 'Written answer']].map(([v, l]) => `<option value="${v}"${q.type === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+                    <div><label class="f">${isW ? 'Help text (optional)' : 'Category (optional, for sub-scores)'}</label><input data-k="${isW ? 'help' : 'category'}" value="${esc(isW ? q.help : q.category)}" maxlength="${isW ? 300 : 60}"></div>
+                </div>
+                <label class="muted"><input type="checkbox" data-k="required"${q.required !== false ? ' checked' : ''}> Required</label>
+                ${(q.type === 'single' || q.type === 'multi') ? `<label class="f">Answers${isW ? '' : ' and points'}</label>${(q.options || []).map((o, n) => `
+                    <div class="opt-row" data-o="${n}"><input data-ok="label" value="${esc(o.label)}" maxlength="160" placeholder="Answer ${n + 1}">
+                    ${isW ? '<span></span>' : `<input data-ok="points" type="number" value="${esc(o.points)}" title="points">`}
+                    <button class="btn danger" data-q="delopt" data-n="${n}">×</button></div>`).join('')}
+                    <button class="btn sec" data-q="addopt">+ Answer</button>` : ''}
+                ${q.type === 'scale' ? `<div class="grid2"><div><label class="f">From</label><input data-k="min" type="number" value="${esc(q.min != null ? q.min : 1)}"></div><div><label class="f">To</label><input data-k="max" type="number" value="${esc(q.max != null ? q.max : 5)}"></div>
+                    <div><label class="f">Low label</label><input data-k="minLabel" value="${esc(q.minLabel)}" maxlength="60"></div><div><label class="f">High label</label><input data-k="maxLabel" value="${esc(q.maxLabel)}" maxlength="60"></div></div>${isW ? '' : '<div class="muted">On a scorecard, the number chosen is the points.</div>'}` : ''}
+                ${q.type === 'text' && !isW ? '<div class="muted">Written answers are kept for insight and score nothing.</div>' : ''}
+            </div>`).join('');
+    }
+
+    $('questions').addEventListener('input', (ev) => {
+        const box = ev.target.closest('.q'); if (!box) return;
+        const q = editing.def.questions[Number(box.dataset.i)];
+        const k = ev.target.dataset.k, ok = ev.target.dataset.ok;
+        if (k) q[k] = ev.target.type === 'checkbox' ? ev.target.checked : (ev.target.type === 'number' ? Number(ev.target.value) : ev.target.value);
+        if (ok) { const o = q.options[Number(ev.target.closest('.opt-row').dataset.o)]; o[ok] = ok === 'points' ? Number(ev.target.value) : ev.target.value; }
+        if (k === 'type') { if ((q.type === 'single' || q.type === 'multi') && !(q.options && q.options.length)) q.options = [{ label: '', points: 0 }, { label: '', points: 0 }]; renderQuestions(); }
+    });
+    $('questions').addEventListener('click', (ev) => {
+        const b = ev.target.closest('button[data-q]'); if (!b) return;
+        const i = Number(b.closest('.q').dataset.i), qs = editing.def.questions, q = qs[i];
+        if (b.dataset.q === 'del') qs.splice(i, 1);
+        if (b.dataset.q === 'up' && i > 0) [qs[i - 1], qs[i]] = [qs[i], qs[i - 1]];
+        if (b.dataset.q === 'down' && i < qs.length - 1) [qs[i + 1], qs[i]] = [qs[i], qs[i + 1]];
+        if (b.dataset.q === 'addopt') (q.options = q.options || []).push({ label: '', points: 0 });
+        if (b.dataset.q === 'delopt') q.options.splice(Number(b.dataset.n), 1);
+        renderQuestions();
+    });
+    $('addQ').addEventListener('click', () => { editing.def.questions.push({ prompt: '', type: 'single', required: true, options: [{ label: '', points: 0 }, { label: '', points: 0 }] }); renderQuestions(); });
+
+    function renderBands() {
+        $('bands').innerHTML = editing.def.bands.map((b, i) => `
+            <div class="q" data-b="${i}">
+                <div class="grid2">
+                    <div><label class="f">Result title</label><input data-bk="title" value="${esc(b.title)}" maxlength="120"></div>
+                    <div class="row"><div style="flex:1"><label class="f">From %</label><input data-bk="min" type="number" value="${esc(b.min)}"></div><div style="flex:1"><label class="f">To %</label><input data-bk="max" type="number" value="${esc(b.max)}"></div></div>
+                </div>
+                <label class="f">What their score means, and what to do next</label><textarea data-bk="message" rows="3" maxlength="1500">${esc(b.message)}</textarea>
+                <label class="f">Next step (optional)</label><input data-bk="nextStep" value="${esc(b.nextStep)}" maxlength="300">
+                <button class="btn danger" data-bdel="${i}" style="margin-top:8px;">Remove band</button>
+            </div>`).join('');
+    }
+    $('bands').addEventListener('input', (ev) => {
+        const box = ev.target.closest('[data-b]'); const k = ev.target.dataset.bk; if (!box || !k) return;
+        editing.def.bands[Number(box.dataset.b)][k] = ev.target.type === 'number' ? Number(ev.target.value) : ev.target.value;
+    });
+    $('bands').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-bdel]'); if (b) { editing.def.bands.splice(Number(b.dataset.bdel), 1); renderBands(); } });
+    $('addBand').addEventListener('click', () => { editing.def.bands.push({ title: '', min: 0, max: 100, message: '' }); renderBands(); });
+
+    function collect() {
+        const d = editing.def;
+        Object.assign(d, {
+            kind: editing.kind, title: $('edName').value, businessName: $('edBiz').value, privacyUrl: $('edPrivacy').value,
+            consentLabel: $('edConsent').value, group: $('edGroup').value, waitlistMessage: $('edWaitMsg').value,
+            resultCta: ($('edResCtaLabel').value || $('edResCtaUrl').value) ? { label: $('edResCtaLabel').value, url: $('edResCtaUrl').value } : null,
+        });
+        d.intro = { headline: $('edHeadline').value, subheading: $('edSub').value, bullets: $('edBullets').value.split('\n').map(s => s.trim()).filter(Boolean), ctaLabel: $('edCta').value };
+        return d;
+    }
+    function renderProblems(list) {
+        $('edProblems').innerHTML = (list || []).map(p => `<li>${esc(p)}</li>`).join('');
+    }
+
+    async function save() {
+        const s = scope();
+        const body = { action: 'save', definition: collect() };
+        if (editing.id) body.id = editing.id; else Object.assign(body, { slug: $('edSlug').value, intelProfileId: s.intelProfileId || undefined, projectId: s.projectId || undefined });
+        const d = await api(body);
+        editing.id = d.scorecard.id; editing.slug = d.scorecard.slug; editing.status = d.scorecard.status;
+        editing.def = d.scorecard.definition;
+        $('edSlug').value = d.scorecard.slug; $('edSlug').disabled = true;
+        renderQuestions(); renderBands(); renderProblems(d.scorecard.problems);
+        return d.scorecard;
+    }
+    $('saveBtn').addEventListener('click', async () => {
+        $('edMsg').textContent = 'Saving…';
+        try { const sc = await save(); $('edMsg').textContent = sc.problems.length ? 'Saved as a draft. Fix the points above before publishing.' : 'Saved.'; loadList(); }
+        catch (e) { $('edMsg').textContent = e.message; renderProblems(e.data && e.data.problems); }
+    });
+    $('publishBtn').addEventListener('click', async () => {
+        $('edMsg').textContent = 'Publishing…';
+        try {
+            const sc = await save();
+            if (sc.problems.length) { $('edMsg').textContent = 'Fix the points above before publishing.'; return; }
+            const d = await api({ action: 'publish', id: sc.id });
+            $('edMsg').textContent = `Live at /s/${d.scorecard.slug}.${d.failedSegments && d.failedSegments.length ? ' Some follow-up segments could not be created: ' + d.failedSegments.join(', ') : ''}`;
+            $('publishBtn').classList.add('hidden');
+            loadList(); showResults(sc.id);
+        } catch (e) { $('edMsg').textContent = e.message; renderProblems(e.data && e.data.problems); }
+    });
+    $('closeEdBtn').addEventListener('click', () => { $('editor').classList.add('hidden'); editing = null; });
+
+    /* ── results & share ──────────────────────────────────────────────── */
+    function shareBlock(slug) {
+        const base = `${location.origin}/s/${slug}`;
+        return `<div style="margin-bottom:14px;">
+            <div class="muted">Point your campaigns here. Each link records which channel the visitor came from. Add a campaign name to tell campaigns apart.</div>
+            <div class="row" style="margin:8px 0;"><input id="shareCampaign" placeholder="Campaign name (optional), e.g. october-email" style="max-width:320px;"></div>
+            <table><tbody>${['direct', ...SOURCES].map(src => `<tr><td style="width:110px;">${esc(src)}</td><td><code data-src="${esc(src)}">${esc(src === 'direct' ? base : base + '?src=' + src)}</code></td><td><button class="btn sec" data-copy="${esc(src)}">Copy</button></td></tr>`).join('')}</tbody></table>
+        </div>`;
+    }
+    function shareUrl(slug, src) {
+        const c = ($('shareCampaign') && $('shareCampaign').value.trim()) || '';
+        const u = new URL(`${location.origin}/s/${slug}`);
+        if (src !== 'direct') u.searchParams.set('src', src);
+        if (c) u.searchParams.set('c', c.slice(0, 80));
+        return u.href;
+    }
+
+    async function showResults(id) {
+        $('results').classList.remove('hidden'); $('resBody').textContent = 'Loading…'; $('share').innerHTML = '';
+        try {
+            const d = await api({ action: 'results', id });
+            const s = d.scorecard, t = d.totals;
+            $('resTitle').textContent = `${s.title} — results`;
+            if (s.status !== 'draft') {
+                $('share').innerHTML = shareBlock(s.slug);
+                const refresh = () => $('share').querySelectorAll('code[data-src]').forEach(c => { c.textContent = shareUrl(s.slug, c.dataset.src); });
+                $('shareCampaign').addEventListener('input', refresh);
+                $('share').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-copy]'); if (!b) return; navigator.clipboard.writeText(shareUrl(s.slug, b.dataset.copy)).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1500); }); });
+            }
+            const pct = (n, of) => of ? Math.round((n / of) * 100) : 0;
+            const bars = (items, of) => items.map(([label, n]) => `<div style="margin-bottom:8px;"><div class="row" style="justify-content:space-between;"><span>${esc(label)}</span><span class="muted">${esc(n)} · ${esc(pct(n, of))}%</span></div><div class="bar"><div style="width:${pct(n, of)}%"></div></div></div>`).join('');
+            $('resBody').innerHTML = `
+                <div class="kpis">
+                    <div class="kpi"><span class="muted">Responses</span><b>${esc(t.responses)}</b></div>
+                    <div class="kpi"><span class="muted">People</span><b>${esc(t.people)}</b></div>
+                    <div class="kpi"><span class="muted">Opted in to email</span><b>${esc(t.consented)}</b></div>
+                    ${s.kind === 'scorecard' ? `<div class="kpi"><span class="muted">Average score</span><b>${t.averagePercent == null ? '–' : esc(t.averagePercent) + '%'}</b></div>` : ''}
+                </div>
+                ${d.capped ? '<p class="muted">Showing the most recent 5,000 responses.</p>' : ''}
+                ${!t.responses ? '<p class="muted">No responses yet. Share the links above.</p>' : `
+                ${s.kind === 'scorecard' ? `<h2>Results</h2>${bars(Object.values(t.bands).map(b => [b.title, b.count]), t.responses)}` : ''}
+                <h2>Where they came from</h2>${bars(Object.entries(t.sources).sort((a, b) => b[1] - a[1]), t.responses)}
+                ${Object.keys(t.campaigns).length ? `<h2>Campaigns</h2>${bars(Object.entries(t.campaigns).sort((a, b) => b[1] - a[1]), t.responses)}` : ''}
+                <h2>Answers</h2>
+                ${t.questions.map(q => `<div class="q"><strong>${esc(q.prompt)}</strong> <span class="muted">(${esc(q.answered)} answered)</span>
+                    ${q.options ? bars(q.options.map(o => [o.label, o.count]), q.answered) : ''}
+                    ${q.type === 'scale' ? `<div class="muted">Average ${q.average == null ? '–' : esc(q.average)} on ${esc(q.min)}–${esc(q.max)}</div>${bars(q.distribution.map(x => [String(x.value), x.count]), q.answered)}` : ''}
+                    ${q.recent ? `<ul>${q.recent.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`).join('')}
+                <h2>Latest</h2>
+                <table><thead><tr><th>Who</th>${s.kind === 'scorecard' ? '<th>Score</th>' : '<th>Place</th>'}<th>From</th><th>Opted in</th><th>When</th></tr></thead><tbody>
+                ${d.recent.map(r => `<tr><td>${esc(r.firstName || '')} <span class="muted">${esc(r.email)}</span></td><td>${s.kind === 'scorecard' ? (r.percent == null ? '–' : esc(r.percent) + '%') : esc(r.position || '–')}</td><td>${esc(r.source || 'direct')}${r.campaign ? ' · ' + esc(r.campaign) : ''}</td><td>${r.consented ? 'Yes' : 'No'}</td><td>${esc(new Date(r.at).toLocaleString())}</td></tr>`).join('')}
+                </tbody></table>`}`;
+            $('results').scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { $('resBody').textContent = e.message; }
+    }
+
+    async function showCompare(group) {
+        $('compare').classList.remove('hidden'); $('cmpTitle').textContent = `Compare: ${group}`; $('cmpBody').textContent = 'Loading…';
+        try {
+            const d = await api({ action: 'compare', group });
+            const items = d.items.filter(x => x.totals);
+            const topFor = (t) => t.questions.filter(q => q.options && q.answered).map(q => { const best = q.options.slice().sort((a, b) => b.count - a.count)[0]; return `<div><span class="muted">${esc(q.prompt)}</span><br>${esc(best.label)} <span class="muted">(${esc(best.count)} of ${esc(q.answered)})</span></div>`; }).join('');
+            $('cmpBody').innerHTML = `<p class="muted">Real sign-ups and answers only. A difference between a handful of people may be chance; give each waitlist the same traffic before deciding.</p>
+                <div class="grid2">${items.map(x => `<div class="q"><strong>${esc(x.title)}</strong> <span class="pill ${esc(x.status)}">${esc(x.status)}</span>
+                    <div class="kpis" style="margin-top:8px;"><div class="kpi"><span class="muted">People</span><b>${esc(x.totals.people)}</b></div><div class="kpi"><span class="muted">Opted in</span><b>${esc(x.totals.consented)}</b></div></div>
+                    <div style="display:grid;gap:8px;">${topFor(x.totals)}</div></div>`).join('')}</div>`;
+            $('compare').scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { $('cmpBody').textContent = e.message; }
+    }
+
+    const s = scope();
+    if (!s.intelProfileId && !s.projectId) $('scopeWarn').classList.remove('hidden');
+    loadList();
+})();
+</script>
+</body>
+</html>
