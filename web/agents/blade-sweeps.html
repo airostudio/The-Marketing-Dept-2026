@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blade Area Sweeps | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root { --accent:#f43f5e; --accent2:#e11d48; --bg:#0a0a10; --panel:#111117; --panel2:#16161f; --border:rgba(255,255,255,0.09); --text:#f5f5f7; --text2:rgba(245,245,247,0.62); --text3:rgba(245,245,247,0.4); --green:#34d399; --amber:#fbbf24; --red:#f87171; }
+  body { margin:0; font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  nav { display:flex; gap:14px; align-items:center; padding:0 24px; height:56px; border-bottom:1px solid var(--border); font-size:13px; }
+  nav a { color:var(--text2); text-decoration:none; }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 16px 96px; }
+  h1 { font-size:28px; margin:0 0 8px; }
+  .sub { color:var(--text2); line-height:1.6; margin:0 0 22px; max-width:820px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin:0 0 12px; }
+  label.f { display:block; font-size:11.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; font-weight:700; margin:12px 0 5px; }
+  input, select { width:100%; padding:10px 12px; background:var(--panel2); border:1px solid var(--border); border-radius:8px; color:var(--text); font:inherit; font-size:13.5px; }
+  input[type=checkbox] { width:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
+  .btn { padding:10px 16px; border-radius:9px; border:0; font:inherit; font-size:13px; font-weight:700; cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+  .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn[disabled] { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .muted { color:var(--text2); font-size:13px; }
+  .warn { color:var(--amber); font-size:13px; }
+  .err { color:var(--red); font-size:13px; }
+  .towns { max-height:260px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:8px; margin-top:8px; columns:3 200px; font-size:13px; }
+  .towns label { display:block; break-inside:avoid; padding:2px 0; }
+  .bar { height:8px; background:var(--panel2); border-radius:8px; overflow:hidden; margin:8px 0; }
+  .bar > div { height:100%; background:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:7px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--text3); font-size:11px; text-transform:uppercase; }
+  .pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; text-transform:uppercase; background:var(--panel2); }
+  .pill.running { color:var(--green); } .pill.paused { color:var(--amber); } .pill.failed, .pill.cancelled { color:var(--red); }
+  .hidden { display:none; }
+  code { font-size:12px; word-break:break-all; }
+</style>
+</head>
+<body>
+<nav><a href="/agents/blade-agent.html">← Blade</a><a href="/hub.html">Agent Hub</a><a href="/scotty.html">Scotty</a></nav>
+<div class="wrap">
+  <h1>🗡️ Blade area sweeps</h1>
+  <p class="sub">Search every city and town in a county, a state or a whole country, one town at a time, for the trades you choose. Blade checks each business's website and keeps the real opportunities: no website, a template builder, or an outdated site. A sweep runs in the background, so you can close this page. Every search is a paid Google Places call, so each sweep has a search budget and stops when it reaches it.</p>
+
+  <div class="card">
+    <h2>1. Where</h2>
+    <div class="grid">
+      <div><label class="f">Country</label><select id="country"><option value="">Loading…</option></select></div>
+      <div><label class="f">State / region</label><select id="state" disabled><option value="">All of the country</option></select></div>
+      <div><label class="f">County / district</label><select id="county" disabled><option value="">All of the state</option></select></div>
+      <div><label class="f">Smallest town to include (population)</label><input id="minPop" type="number" min="0" value="0"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn ghost" id="loadTowns" disabled>List the towns</button>
+      <span class="muted" id="townsMsg"></span>
+    </div>
+    <div id="townsWrap" class="hidden">
+      <div class="row" style="margin-top:8px;"><label class="muted"><input type="checkbox" id="allTowns" checked> All towns listed</label><span class="muted" id="townCount"></span></div>
+      <div class="towns" id="towns"></div>
+    </div>
+    <p class="muted" id="geoNote"></p>
+  </div>
+
+  <div class="card">
+    <h2>2. What and how much</h2>
+    <div class="grid">
+      <div><label class="f">Trades (comma-separated, up to 8)</label><input id="sectors" placeholder="plumbers, roofers, electricians"></div>
+      <div><label class="f">Result pages per town</label><select id="pages"><option value="1">1 (up to 20 businesses, 1 search)</option><option value="2">2 (up to 40, 2 searches)</option><option value="3">3 (up to 60, 3 searches)</option></select></div>
+      <div><label class="f">Search budget (paid Places searches)</label><input id="budget" type="number" min="1" value="200"></div>
+    </div>
+    <div id="trackerBox" class="hidden" style="margin-top:12px;">
+      <label class="muted"><input type="checkbox" id="toTracker"> Write qualified businesses into the <strong>Webese <span id="trackerState">state</span> Outreach Tracker</strong></label>
+      <div class="muted" id="trackerHelp" style="margin-top:4px;"></div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn ghost" id="estimateBtn">Estimate</button>
+      <button class="btn" id="startBtn" disabled>Start sweep</button>
+      <span class="muted" id="estMsg"></span>
+    </div>
+    <div id="estimate" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Your sweeps</h2>
+    <div id="sweeps" class="muted">Loading…</div>
+  </div>
+
+  <div class="card hidden" id="detail">
+    <h2 id="detailTitle"></h2>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const safeHref = (u) => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
+  const geo = { countries: [], states: [], counties: [], towns: [] };
+  let meta = { canWriteTrackers: false, sheetsConfigured: false, serviceAccount: null };
+
+  async function call(path, body) {
+    const res = await fetch(path, { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify(body) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const e = new Error((data && data.error) || `HTTP ${res.status}`); e.data = data; e.status = res.status;
+      // Our own outages reach the admin console; a person's input problem (4xx) does not.
+      if (res.status >= 500 && window.reportFailure) window.reportFailure(`Blade sweeps: ${path} ${body.action} failed: ${e.message}`, { where: 'blade-sweeps.html', status: res.status });
+      throw e;
+    }
+    return data;
+  }
+  const opt = (v, label) => `<option value="${esc(v)}">${esc(label)}</option>`;
+
+  /* ── drill-down ─────────────────────────────────────────────────────── */
+  async function loadCountries() {
+    try {
+      const d = await call('/api/blade-geo', { action: 'countries' });
+      geo.countries = d.countries;
+      $('country').innerHTML = opt('', 'Pick a country') + d.countries.map(c => opt(c.geonameId, c.name)).join('');
+    } catch (e) { $('country').innerHTML = opt('', 'Unavailable'); $('geoNote').textContent = e.message; }
+  }
+  const country = () => geo.countries.find(c => String(c.geonameId) === $('country').value);
+  const state = () => geo.states.find(s => String(s.geonameId) === $('state').value);
+  const county = () => geo.counties.find(s => String(s.geonameId) === $('county').value);
+
+  $('country').addEventListener('change', async () => {
+    resetTowns(); geo.states = []; geo.counties = [];
+    $('state').innerHTML = opt('', 'All of the country'); $('county').innerHTML = opt('', 'All of the state'); $('county').disabled = true;
+    $('state').disabled = !country(); $('loadTowns').disabled = true;
+    updateTracker(); invalidateEstimate();
+    if (!country()) return;
+    try { const d = await call('/api/blade-geo', { action: 'children', geonameId: country().geonameId, level: 'state' }); geo.states = d.areas; $('state').innerHTML = opt('', 'All of the country') + d.areas.map(a => opt(a.geonameId, a.name)).join(''); }
+    catch (e) { $('geoNote').textContent = e.message; }
+  });
+  $('state').addEventListener('change', async () => {
+    resetTowns(); geo.counties = [];
+    $('county').innerHTML = opt('', 'All of the state'); $('county').disabled = !state(); $('loadTowns').disabled = !state();
+    updateTracker(); invalidateEstimate();
+    if (!state()) return;
+    try { const d = await call('/api/blade-geo', { action: 'children', geonameId: state().geonameId, level: 'county' }); geo.counties = d.areas; $('county').innerHTML = opt('', 'All of the state') + d.areas.map(a => opt(a.geonameId, a.name)).join(''); if (!d.areas.length) $('county').disabled = true; }
+    catch (e) { $('geoNote').textContent = e.message; }
+  });
+  $('county').addEventListener('change', () => { resetTowns(); invalidateEstimate(); });
+  $('minPop').addEventListener('input', () => { resetTowns(); invalidateEstimate(); });
+
+  function resetTowns() { geo.towns = []; $('townsWrap').classList.add('hidden'); $('towns').innerHTML = ''; $('townsMsg').textContent = ''; }
+  $('loadTowns').addEventListener('click', async () => {
+    $('townsMsg').textContent = 'Listing towns…';
+    try {
+      const d = await call('/api/blade-geo', { action: 'towns', countryCode: country().countryCode, adminCode1: state().adminCode1, adminCode2: county() ? county().adminCode2 : '', minPopulation: $('minPop').value });
+      geo.towns = d.towns;
+      $('townCount').textContent = `${d.count} town${d.count === 1 ? '' : 's'}${d.count > d.towns.length ? ` (first ${d.towns.length} shown; untick "All" to pick from these)` : ''}${d.truncated ? ' — more exist than can be listed; raise the minimum population or pick a county' : ''}`;
+      $('towns').innerHTML = d.towns.map((t, i) => `<label><input type="checkbox" data-i="${i}" checked disabled> ${esc(t.name)}<span class="muted">${t.adminName2 ? ' · ' + esc(t.adminName2) : ''}${t.population ? ' · ' + esc(t.population.toLocaleString()) : ''}</span></label>`).join('');
+      $('allTowns').checked = true; $('townsWrap').classList.remove('hidden'); $('townsMsg').textContent = '';
+    } catch (e) { $('townsMsg').textContent = e.message; }
+  });
+  $('allTowns').addEventListener('change', () => { $('towns').querySelectorAll('input').forEach(c => { c.disabled = $('allTowns').checked; c.checked = true; }); invalidateEstimate(); });
+  $('towns').addEventListener('change', invalidateEstimate);
+
+  function root() {
+    const c = country(); if (!c) return null;
+    const base = { countryCode: c.countryCode, countryName: c.name, geonameId: c.geonameId };
+    const s = state(); if (!s) return { ...base, level: 'country' };
+    Object.assign(base, { adminCode1: s.adminCode1, stateName: s.name, geonameId: s.geonameId });
+    const k = county();
+    if (k) Object.assign(base, { adminCode2: k.adminCode2, countyName: k.name, geonameId: k.geonameId });
+    if (geo.towns.length && !$('allTowns').checked) {
+      const picked = [...$('towns').querySelectorAll('input:checked')].map(x => geo.towns[Number(x.dataset.i)]);
+      return { ...base, level: 'towns', towns: picked };
+    }
+    return { ...base, level: k ? 'county' : 'state' };
+  }
+
+  /* ── Webese tracker option ──────────────────────────────────────────── */
+  function updateTracker() {
+    const c = country(), s = state();
+    const show = meta.canWriteTrackers && c && c.countryCode === 'US';
+    $('trackerBox').classList.toggle('hidden', !show);
+    if (!show) { $('toTracker').checked = false; return; }
+    $('trackerState').textContent = s ? s.name : '<state>';
+    $('trackerHelp').innerHTML = !meta.sheetsConfigured
+      ? '<span class="warn">GOOGLE_SERVICE_ACCOUNT_JSON is not set in Vercel, so the tracker cannot be written yet.</span>'
+      : `Blade writes the business columns only (no email, owner or phone; the Outreach platform's enrichment fills those), as <code>HOLD</code> with <code>CONTACT_ENRICHMENT_REQUIRED_LIVE</code>, skips businesses already in the tracker, and moves the state's research cursor. Turn the ChatGPT First-Pass Fleet off for this state. The sheet must be shared with <code>${esc(meta.serviceAccount || 'the service account')}</code>.`;
+  }
+
+  /* ── estimate & start ───────────────────────────────────────────────── */
+  let estimated = false;
+  function invalidateEstimate() { estimated = false; $('startBtn').disabled = true; $('estimate').innerHTML = ''; }
+  ['sectors', 'pages'].forEach(id => $(id).addEventListener('input', invalidateEstimate));
+  function payload() { return { root: root(), sectors: $('sectors').value.split(',').map(s => s.trim()).filter(Boolean), minPopulation: $('minPop').value, pagesPerTown: $('pages').value }; }
+
+  $('estimateBtn').addEventListener('click', async () => {
+    const p = payload();
+    if (!p.root) { $('estMsg').textContent = 'Pick a country first.'; return; }
+    $('estMsg').textContent = 'Counting towns…';
+    try {
+      const d = await call('/api/blade-sweeps', { action: 'estimate', ...p });
+      const e = d.estimate;
+      $('estimate').innerHTML = `<div><strong>${esc(e.towns)}</strong> town${e.towns === 1 ? '' : 's'} × <strong>${esc(e.sectors)}</strong> trade${e.sectors === 1 ? '' : 's'} = <strong>${esc(e.tasks)}</strong> town searches, up to <strong>${esc(e.maxSearchesNeeded)}</strong> paid Places searches at ${esc(p.pagesPerTown)} page${p.pagesPerTown === '1' ? '' : 's'} per town.</div>
+        ${e.statesToExpand ? `<div>${esc(e.statesToExpand)} states will be listed as the sweep reaches them. ${esc(e.note || '')}</div>` : ''}
+        ${e.sampleTowns.length ? `<div class="muted">Starting with: ${esc(e.sampleTowns.join(' · '))}</div>` : ''}
+        ${e.warning ? `<div class="warn">${esc(e.warning)}</div>` : ''}`;
+      if (e.maxSearchesNeeded && Number($('budget').value) > e.maxSearchesNeeded) $('budget').value = e.maxSearchesNeeded;
+      $('estMsg').textContent = ''; estimated = true; $('startBtn').disabled = false;
+    } catch (e) { $('estMsg').textContent = e.message; }
+  });
+
+  async function start(acknowledgeFleet) {
+    const s = (() => { try { return { intelProfileId: localStorage.getItem('intel_active_profile'), projectId: localStorage.getItem('seo-current-project') }; } catch { return {}; } })();
+    const clean = (v) => (v && !String(v).startsWith('local_') ? v : undefined);
+    $('startBtn').disabled = true; $('estMsg').textContent = 'Starting…';
+    try {
+      const d = await call('/api/blade-sweeps', { action: 'create', ...payload(), maxSearches: $('budget').value, writeToTracker: $('toTracker').checked, acknowledgeFleet: !!acknowledgeFleet, intelProfileId: clean(s.intelProfileId), projectId: clean(s.projectId) });
+      $('estMsg').textContent = 'Started. It runs in the background every few minutes.';
+      await loadSweeps(); openSweep(d.sweep.id);
+    } catch (e) {
+      if (e.data && e.data.code === 'fleet_recent' && window.confirm(`${e.message}\n\nStart anyway?`)) return start(true);
+      $('estMsg').textContent = e.message; $('startBtn').disabled = !estimated;
+    }
+  }
+  $('startBtn').addEventListener('click', () => start(false));
+
+  /* ── sweeps ─────────────────────────────────────────────────────────── */
+  async function loadSweeps() {
+    try {
+      const d = await call('/api/blade-sweeps', { action: 'list' });
+      meta = { canWriteTrackers: d.canWriteTrackers, sheetsConfigured: d.sheetsConfigured, serviceAccount: d.serviceAccount };
+      updateTracker();
+      if (!d.sweeps.length) { $('sweeps').innerHTML = '<span class="muted">None yet.</span>'; return; }
+      $('sweeps').innerHTML = `<table><thead><tr><th>Sweep</th><th>Status</th><th>Searches</th><th>Opportunities</th><th>In tracker</th><th></th></tr></thead><tbody>${d.sweeps.map(s => {
+        const t = s.totals || {};
+        return `<tr><td><strong>${esc(s.name)}</strong><div class="muted">${esc(new Date(s.created_at).toLocaleDateString())}${s.status_note ? ' · ' + esc(s.status_note) : ''}</div></td>
+          <td><span class="pill ${esc(s.status)}">${esc(s.status)}</span></td>
+          <td>${esc(s.searches_used)} / ${esc(s.max_searches)}</td>
+          <td>${esc(t.qualified || 0)} <span class="muted">of ${esc(t.audited || 0)} new</span></td>
+          <td>${s.write_to_tracker ? esc(t.written || 0) + (t.duplicates ? ` <span class="muted">(+${esc(t.duplicates)} already there)</span>` : '') : '<span class="muted">—</span>'}</td>
+          <td><button class="btn ghost" data-open="${esc(s.id)}">Open</button></td></tr>`;
+      }).join('')}</tbody></table>`;
+    } catch (e) { $('sweeps').textContent = e.data && e.data.code === 'not_installed' ? e.message : 'Could not load sweeps: ' + e.message; }
+  }
+  $('sweeps').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-open]'); if (b) openSweep(b.dataset.open); });
+
+  async function openSweep(id) {
+    $('detail').classList.remove('hidden'); $('detailBody').textContent = 'Loading…';
+    try {
+      const d = await call('/api/blade-sweeps', { action: 'get', id });
+      const s = d.sweep, c = d.counts, total = c.pending + c.done + c.failed, t = s.totals || {};
+      $('detailTitle').textContent = s.name;
+      const trackers = Object.entries(s.trackers || {}).map(([st, ref]) => { const href = safeHref(ref.url); return href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(ref.name || st)}</a>` : esc(ref.name || st); }).join(', ');
+      $('detailBody').innerHTML = `
+        <div class="muted">${esc(c.done)} of ${esc(total)} town searches done${c.failed ? `, ${esc(c.failed)} set aside after repeated errors` : ''}${(s.frontier || []).length ? `, ${esc(s.frontier.length)} states still to list` : ''}. ${esc(s.searches_used)} of ${esc(s.max_searches)} paid searches used.</div>
+        <div class="bar"><div style="width:${total ? Math.round((c.done / total) * 100) : 0}%"></div></div>
+        <div class="muted">Businesses checked: ${esc(t.audited || 0)} new · opportunities: ${esc(t.qualified || 0)}${s.write_to_tracker ? ` · written to the tracker: ${esc(t.written || 0)} · already there: ${esc(t.duplicates || 0)}` : ''}</div>
+        ${trackers ? `<div class="muted">Tracker: ${trackers}</div>` : ''}
+        ${d.next ? `<div class="muted">Next: ${esc(d.next.sector)} in ${esc(d.next.place_name)}${d.next.county_name ? ', ' + esc(d.next.county_name) : ''}</div>` : ''}
+        ${s.status_note ? `<div class="${s.status === 'running' ? 'muted' : 'warn'}">${esc(s.status_note)}</div>` : ''}
+        <div class="row" style="margin:12px 0;">
+          ${s.status === 'running' ? `<button class="btn" data-act="tick">Run a batch now</button><button class="btn ghost" data-act="pause">Pause</button>` : ''}
+          ${s.status === 'paused' ? `<button class="btn" data-act="resume">Resume</button>` : ''}
+          ${['running', 'paused'].includes(s.status) ? `<button class="btn ghost" data-act="budget">Change budget</button><button class="btn ghost" data-act="cancel">Cancel</button>` : ''}
+          <button class="btn ghost" data-act="csv">⬇ Opportunities CSV</button>
+          <span class="muted" id="actMsg"></span>
+        </div>
+        <table><thead><tr><th>Town</th><th>Trade</th><th>Found</th><th>Opportunities</th><th>To tracker</th><th></th></tr></thead><tbody>
+        ${d.recent.map(r => `<tr><td>${esc(r.place_name)}${r.county_name ? ' <span class="muted">' + esc(r.county_name) + '</span>' : ''}</td><td>${esc(r.sector)}</td><td>${esc(r.discovered)}</td><td>${esc(r.qualified)}</td><td>${esc(r.written)}</td><td>${r.status === 'failed' ? '<span class="err">' + esc(r.error || 'failed') + '</span>' : ''}</td></tr>`).join('')}
+        </tbody></table>`;
+      $('detailBody').onclick = async (ev) => {
+        const b = ev.target.closest('button[data-act]'); if (!b) return;
+        const act = b.dataset.act;
+        try {
+          if (act === 'csv') return downloadCsv(s);
+          if (act === 'cancel' && !confirm('Cancel this sweep? The businesses found so far are kept.')) return;
+          let extra = {};
+          if (act === 'budget') { const v = prompt('New search budget (paid Places searches):', String(s.max_searches)); if (!v) return; extra = { maxSearches: v }; }
+          $('actMsg').textContent = act === 'tick' ? 'Running a batch (up to about a minute)…' : 'Working…';
+          const r = await call('/api/blade-sweeps', { action: act, id: s.id, ...extra });
+          $('actMsg').textContent = act === 'tick' ? `Done ${r.tasksDone} town search${r.tasksDone === 1 ? '' : 'es'}${r.written ? `, ${r.written} written to the tracker` : ''}.` : '';
+          await loadSweeps(); openSweep(s.id);
+        } catch (e) { $('actMsg').textContent = e.message; }
+      };
+      $('detail').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) { $('detailBody').textContent = e.message; }
+  }
+
+  async function downloadCsv(s) {
+    const rows = []; let offset = 0, more = true;
+    while (more && offset < 50000) { const d = await call('/api/blade-sweeps', { action: 'leads', id: s.id, offset }); rows.push(...d.leads); more = d.more; offset += d.leads.length; }
+    const cols = ['business_name', 'sector', 'state_name', 'county_name', 'place_name', 'address', 'phone', 'website', 'site_status', 'site_platform', 'offer_type', 'opportunity_score', 'observation', 'review_count', 'maps_url', 'tracker_status', 'discovered_at'];
+    const cell = (v) => { let t = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const csv = [cols.join(','), ...rows.map(r => cols.map(c => cell(r[c])).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `${s.name.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 60)}.csv`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  loadCountries(); loadSweeps();
+  setInterval(() => { if (!document.hidden) loadSweeps(); }, 60000);
+})();
+</script>
+</body>
+</html>

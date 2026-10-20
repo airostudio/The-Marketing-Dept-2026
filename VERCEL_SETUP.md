@@ -146,6 +146,10 @@ Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had
 |--------------|-------------|----------|
 | `UNSUBSCRIBE_SECRET` | Signs the token in every unsubscribe link so it can't be forged. Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset — set a dedicated value if you'd rather not reuse that key for this. | Recommended |
 | `SCORECARD_SECRET` | Signs the start token on public scorecard and waitlist pages (`/s/<slug>`), which stops instant bot submissions. Falls back to `UNSUBSCRIBE_SECRET`, then `SUPABASE_SERVICE_ROLE_KEY`. | Optional |
+| `GEONAMES_USERNAME` | Blade area sweeps: the free GeoNames account that lists every state, county and town in a country. Sign up at geonames.org, then enable "free web services" on the account page. | Required for area sweeps |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Blade area sweeps writing into the Webese state trackers: the same service-account JSON the Webese Outreach platform uses (`WEBESE_GOOGLE_SERVICE_ACCOUNT_JSON` there), raw or base64. Each "Webese <State> Outreach Tracker" must be shared with its email as an Editor. | Only for Webese tracker writes |
+| `WEBESE_DRIVE_FOLDER_ID` | Optional: only look for trackers in this Drive folder, as the Outreach platform does. | Optional |
+| `WEBESE_TRACKER_USER_IDS` | Comma-separated Audema user ids (besides admins) allowed to write sweeps into the Webese trackers. | Optional |
 | `RESEND_WEBHOOK_SECRET` | The `whsec_...` signing secret Resend gives you when you add a webhook endpoint | ✅ For bounce/complaint tracking |
 | `PUBLIC_APP_URL` | Your deployment's public base URL, e.g. `https://app.yourdomain.com`. Falls back to the request's own `Host` header if unset — set this explicitly if you're behind a proxy/custom domain where that header isn't reliable. | Optional |
 

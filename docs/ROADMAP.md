@@ -19,6 +19,24 @@ nobody assumes it works.
 - **Live enrolment counts** after "Enrol this segment" (currently refresh the
   page).
 
+## Blade area sweeps
+
+Blade can sweep every town in a county, a state or a whole country (GeoNames)
+for the chosen trades, in the background, within a search budget
+(`/agents/blade-sweeps.html`). For Webese, qualified businesses go into the
+state's "Webese <State> Outreach Tracker" the way the Outreach platform
+expects: business columns only, HOLD + CONTACT_ENRICHMENT_REQUIRED_LIVE,
+duplicates skipped, the research cursor and Run History kept up to date.
+
+- **Not yet included:** marking a state FIRST_PASS_COMPLETE (left to the
+  operator, because a sweep covers only the trades chosen, not every
+  category); creating a missing tracker sheet; writing Business Time Zone /
+  Local Send Time; a Webese tracker outside the US (the Outreach platform only
+  reads US state trackers); posting a heartbeat to the Outreach platform's
+  task board; areas with more than about 5,000 towns in one go (sweep them
+  county by county, or raise the minimum population); a Scotty mission step
+  that starts a sweep.
+
 ## Scorecards & waitlists
 
 Hosted question pages at `/s/<slug>` that campaigns can point to (Marketing →

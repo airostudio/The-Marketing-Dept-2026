@@ -22,6 +22,7 @@ const FIELD_MASK = [
   'places.businessStatus',
   'places.types',
   'places.googleMapsUri',
+  'places.location',
   'nextPageToken',
 ].join(',');
 
@@ -37,16 +38,19 @@ function normalizePlace(place) {
     businessStatus: place.businessStatus || '',
     types: place.types || [],
     mapsUrl: place.googleMapsUri || '',
+    lat: place.location ? place.location.latitude : null,
+    lng: place.location ? place.location.longitude : null,
   };
 }
 
 /**
  * @param {string} apiKey
- * @param {{textQuery?: string, pageToken?: string}} query one of the two
+ * @param {{textQuery?: string, pageToken?: string, locationBias?: {lat:number, lng:number, radiusM:number}}} query
+ *   textQuery or pageToken; locationBias favours results around a point (a town Blade is sweeping)
  * @returns {Promise<{results: Array, nextPageToken: string|null}>}
  * @throws Error with `.status` set to the upstream HTTP status on a Places error
  */
-async function searchPlaces(apiKey, { textQuery, pageToken } = {}) {
+async function searchPlaces(apiKey, { textQuery, pageToken, locationBias } = {}) {
   const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
@@ -57,6 +61,9 @@ async function searchPlaces(apiKey, { textQuery, pageToken } = {}) {
     body: JSON.stringify({
       ...(textQuery ? { textQuery } : {}),
       ...(pageToken ? { pageToken } : {}),
+      ...(locationBias && Number.isFinite(locationBias.lat) && Number.isFinite(locationBias.lng)
+        ? { locationBias: { circle: { center: { latitude: locationBias.lat, longitude: locationBias.lng }, radius: Math.min(50000, Math.max(1000, locationBias.radiusM || 10000)) } } }
+        : {}),
       languageCode: 'en',
       pageSize: 20,
     }),
