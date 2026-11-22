@@ -37,12 +37,21 @@
 --   supabase-support.sql
 --   supabase-email-events.sql
 --   supabase-email-engine.sql
+--   supabase-email-flows-sender.sql
+--   supabase-email-flow-triggers.sql
 --   supabase-email-suppression.sql
 --   supabase-competitive-roster.sql
 --   supabase-video-gallery.sql
 --   supabase-cro-backlog.sql
 --   supabase-system-failures.sql
 --   supabase-link-reports.sql
+--   supabase-sales-intel-sweep.sql
+--   supabase-team-access-extend.sql
+--   supabase-site-snapshots.sql
+--   supabase-mission-artifacts.sql
+--   supabase-scorecards.sql
+--   supabase-blade-sweeps.sql
+--   supabase-autopilot.sql
 -- ═══════════════════════════════════════════════════════════════════════
 
 
@@ -3535,6 +3544,60 @@ CREATE POLICY "conversions_owner_read" ON email_conversions
 
 
 -- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-email-flows-sender.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Who an automation flow is sent as
+-- ═══════════════════════════════════════════════════════════════════════════
+-- A flow's steps can use {{senderName}}, {{senderFirstName}}, {{senderTitle}},
+-- {{senderEmail}}, {{senderPhone}} and {{senderCompany}}. The values are a
+-- snapshot of the Business Brain contact chosen when the flow was saved
+-- (the cron has no browser to read the Brain from). Whitelisted keys only —
+-- see api/_lib/flow-merge.js.
+--
+-- Safe to run more than once. Run after supabase-email-engine.sql.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE email_flows ADD COLUMN IF NOT EXISTS sender_fields JSONB;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-email-flow-triggers.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Automatic enrolment for automation flows
+-- ═══════════════════════════════════════════════════════════════════════════
+-- A flow with trigger 'contact_created' or 'segment_entry' is watched by
+-- api/cron-flow-triggers.js, which enrols people as they arrive.
+--
+--   trigger_checked_at  when the watcher last looked. NULL means "not
+--                       baselined yet": on its next run the watcher records
+--                       who is already there WITHOUT enrolling them, so
+--                       activating a flow never mails the existing audience.
+--                       Reset to NULL every time the flow is activated.
+--   email_flow_trigger_seen  for 'segment_entry': who was already in the
+--                       segment at baseline, or has since been enrolled, so
+--                       "entered the segment" fires once per person.
+--
+-- Safe to run more than once. Run after supabase-email-engine.sql.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE email_flows ADD COLUMN IF NOT EXISTS trigger_checked_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS email_flow_trigger_seen (
+  flow_id  UUID        NOT NULL REFERENCES email_flows(id) ON DELETE CASCADE,
+  email    TEXT        NOT NULL,
+  seen_at  TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (flow_id, email)
+);
+
+-- Written only by the service-role watcher; no policies, so no direct client access.
+ALTER TABLE email_flow_trigger_seen ENABLE ROW LEVEL SECURITY;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
 -- SOURCE: supabase-email-suppression.sql
 -- ═══════════════════════════════════════════════════════════════════════
 
@@ -4401,3 +4464,882 @@ CREATE POLICY "link_reports_profile_access" ON link_check_reports
                    AND m.role IN ('owner', 'editor'))
     )
   );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-sales-intel-sweep.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Sales Intelligence — daily geographic sweep for Blade's repeatable
+-- mail-merge audit workflow.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+--
+-- api/cron-sales-intel-sweep.js runs once a day, walking US states
+-- alphabetically (and, within a state, towns returned by the Places API),
+-- auditing 100-150 businesses' websites, and filing anyone who looks like a
+-- real opportunity (no website, or locked into GoDaddy/Wix/Squarespace, or
+-- otherwise outdated) here as a draft lead. Nothing here ever sends an
+-- email — see sales_intel_leads.sent below. A human reviews and sends via
+-- Pat/Blade; this is discovery and drafting only.
+--
+-- This is a shared company-wide prospecting list, not per-customer data —
+-- there is no user_id to scope it to, so access is restricted to admins,
+-- the same way api/admin-activity.js's audit log is.
+
+-- ── Cursor: where the sweep left off, so tomorrow continues today's place ──
+-- A single row (id always 1) — there is one sweep, not one per user.
+CREATE TABLE IF NOT EXISTS sales_intel_sweep_cursor (
+  id                INTEGER     PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  state_index       INTEGER     NOT NULL DEFAULT 0,   -- into api/_lib/us-states.js US_STATES, alphabetical
+  sector_index      INTEGER     NOT NULL DEFAULT 0,   -- into the sector rotation in api/cron-sales-intel-sweep.js
+  next_page_token   TEXT,                             -- Places API Text Search pagination within the current state+sector
+  leads_found_today INTEGER     NOT NULL DEFAULT 0,
+  candidates_today  INTEGER     NOT NULL DEFAULT 0,
+  last_run_at       TIMESTAMPTZ,
+  last_run_date     DATE,
+  total_leads_found INTEGER     NOT NULL DEFAULT 0,
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO sales_intel_sweep_cursor (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- ── Dedupe: every place the sweep has already looked at ────────────────────
+-- Prevents re-fetching and re-scoring the same business day after day,
+-- including ones that turned out to be a genuinely modern site (not a lead)
+-- — those still shouldn't be checked again tomorrow.
+CREATE TABLE IF NOT EXISTS sales_intel_seen_places (
+  place_id     TEXT        PRIMARY KEY,
+  checked_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Leads: qualifying opportunities, ready for a human to review and send ──
+CREATE TABLE IF NOT EXISTS sales_intel_leads (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  place_id          TEXT        UNIQUE,
+  business_name     TEXT        NOT NULL,
+  sector             TEXT,
+  state             TEXT,
+  suburb            TEXT,
+  email             TEXT,
+  website           TEXT,
+  website_status    TEXT        CHECK (website_status IN ('no_website', 'outdated', 'unreachable', 'modern')),
+  site_platform     TEXT,        -- 'godaddy' | 'wix' | 'squarespace' | null
+  owner_first_name  TEXT,
+  owner_source      TEXT,
+  personal_note     TEXT,
+  opportunity_rank  INTEGER,
+  sent              BOOLEAN     NOT NULL DEFAULT false,
+  replied           BOOLEAN     NOT NULL DEFAULT false,
+  discovered_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_intel_leads_discovered ON sales_intel_leads (discovered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_intel_leads_sent       ON sales_intel_leads (sent);
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE sales_intel_sweep_cursor ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales_intel_seen_places  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales_intel_leads        ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "sales_intel_cursor_admin_read" ON sales_intel_sweep_cursor;
+CREATE POLICY "sales_intel_cursor_admin_read" ON sales_intel_sweep_cursor
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+  );
+
+DROP POLICY IF EXISTS "sales_intel_leads_admin_all" ON sales_intel_leads;
+CREATE POLICY "sales_intel_leads_admin_all" ON sales_intel_leads
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('admin', 'super_admin'))
+  );
+
+-- sales_intel_seen_places carries no client-facing policy at all — it's an
+-- internal dedupe ledger the cron reads/writes on the service-role key
+-- (which bypasses RLS) and nobody else has any reason to query.
+
+-- Writes to all three tables happen only via the service-role key
+-- (api/cron-sales-intel-sweep.js). The admin-facing read/update policies
+-- above are for api/sales-intel-leads.js, so a human can review, mark a
+-- lead handled, or export it — never so a client can insert a lead itself.
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-team-access-extend.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Team Access — extend profile-sharing to Pat's campaign/automation
+-- tables.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql, supabase-audience.sql and
+--           supabase-email-engine.sql have already been run.
+--
+-- The intelligence_profile_members sharing model (one business, several
+-- logins, owner/editor/viewer roles — see supabase-intelligence-profiles.sql
+-- and api/profile-members.js) already reaches contacts, segments and
+-- social_posts. It stops there: campaign_sends (the send log), the A/B
+-- testing tables, automation flows, and revenue attribution are all still
+-- owner-only — a teammate invited onto a shared profile can see the
+-- audience and drafted content, but not whether a campaign actually sent,
+-- how a split test is doing, or what an automation is enrolling people
+-- into. This closes that gap using the exact same pattern already proven
+-- on contacts/segments: an intel_profile_id column, direct policies on
+-- the tables that have one, and EXISTS-chained policies on the child
+-- tables that don't (email_ab_variants/assignments via test_id,
+-- email_flow_steps/enrolments via flow_id) — mirroring how
+-- segment_members already reaches through segments' intel_profile_id.
+--
+-- Nothing here removes the existing owner-only policies — a row with no
+-- intel_profile_id (never shared) still works exactly as before.
+
+-- ── New columns ──────────────────────────────────────────────────────────
+ALTER TABLE campaign_sends    ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+ALTER TABLE email_ab_tests    ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+ALTER TABLE email_flows       ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+ALTER TABLE email_conversions ADD COLUMN IF NOT EXISTS intel_profile_id UUID REFERENCES intelligence_profiles(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_profile    ON campaign_sends    (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_profile          ON email_ab_tests    (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_email_flows_profile       ON email_flows       (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_email_conversions_profile ON email_conversions (intel_profile_id);
+
+-- ── campaign_sends ───────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "campaign_sends_profile_access" ON campaign_sends;
+CREATE POLICY "campaign_sends_profile_access" ON campaign_sends
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+-- ── A/B testing: tests directly, variants/assignments chained through test_id ──
+DROP POLICY IF EXISTS "ab_tests_profile_access" ON email_ab_tests;
+CREATE POLICY "ab_tests_profile_access" ON email_ab_tests
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+DROP POLICY IF EXISTS "ab_variants_profile_access" ON email_ab_variants;
+CREATE POLICY "ab_variants_profile_access" ON email_ab_variants
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM email_ab_tests t
+      WHERE t.id = test_id AND t.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = t.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = t.intel_profile_id AND m.user_id = auth.uid()
+                     AND m.role IN ('owner', 'editor'))
+      )
+    )
+  );
+
+-- Read-only for members, same as ab_assignments_owner_read — an assignment
+-- is a send-time fact, not something a teammate should hand-edit.
+DROP POLICY IF EXISTS "ab_assignments_profile_read" ON email_ab_assignments;
+CREATE POLICY "ab_assignments_profile_read" ON email_ab_assignments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM email_ab_tests t
+      WHERE t.id = test_id AND t.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = t.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = t.intel_profile_id AND m.user_id = auth.uid())
+      )
+    )
+  );
+
+-- ── Automation flows: flows directly, steps/enrolments chained through flow_id ──
+DROP POLICY IF EXISTS "flows_profile_access" ON email_flows;
+CREATE POLICY "flows_profile_access" ON email_flows
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p
+              WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid()
+                   AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+DROP POLICY IF EXISTS "flow_steps_profile_access" ON email_flow_steps;
+CREATE POLICY "flow_steps_profile_access" ON email_flow_steps
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM email_flows f
+      WHERE f.id = flow_id AND f.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = f.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = f.intel_profile_id AND m.user_id = auth.uid()
+                     AND m.role IN ('owner', 'editor'))
+      )
+    )
+  );
+
+-- Read-only for members, same as flow_enrolments_owner_read — who is
+-- currently mid-sequence is a fact the automation produced, not something
+-- a teammate should hand-edit.
+DROP POLICY IF EXISTS "flow_enrolments_profile_read" ON email_flow_enrolments;
+CREATE POLICY "flow_enrolments_profile_read" ON email_flow_enrolments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM email_flows f
+      WHERE f.id = flow_id AND f.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = f.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = f.intel_profile_id AND m.user_id = auth.uid())
+      )
+    )
+  );
+
+-- ── Revenue attribution: read-only for members, same as conversions_owner_read ──
+-- Reported revenue numbers are facts a webhook recorded, not something a
+-- teammate should be able to alter.
+DROP POLICY IF EXISTS "conversions_profile_read" ON email_conversions;
+CREATE POLICY "conversions_profile_read" ON email_conversions
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-site-snapshots.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Site Snapshots — a saved list of client websites, each with a
+-- history of screenshots, for before/after comparisons.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql already run (for sharing).
+--
+-- Every screenshot/crawl tool in this app already works against any real
+-- public website — api/_lib/safe-fetch.js's SSRF protection only blocks
+-- private/internal addresses, never a client's real domain. What didn't
+-- exist was a place to KEEP a client site on hand and re-shoot it over
+-- time: "take a screenshot of this client's site now, take another one
+-- after we rebuild it, show them side by side." This is that list.
+
+CREATE TABLE IF NOT EXISTS site_watchlist (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  client_name       TEXT        NOT NULL,
+  url               TEXT        NOT NULL,
+  notes             TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_site_watchlist_user    ON site_watchlist (user_id);
+CREATE INDEX IF NOT EXISTS idx_site_watchlist_profile ON site_watchlist (intel_profile_id);
+
+CREATE TABLE IF NOT EXISTS site_snapshots (
+  id            UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  watchlist_id  UUID        NOT NULL REFERENCES site_watchlist(id) ON DELETE CASCADE,
+  -- Free text, not an enum: 'before'/'after' covers the common case, but a
+  -- client whose site is reshot every month needs more than two labels.
+  label         TEXT        NOT NULL DEFAULT 'before',
+  hosted_url    TEXT        NOT NULL,
+  mime_type     TEXT        NOT NULL DEFAULT 'image/png',
+  captured_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_site_snapshots_watchlist ON site_snapshots (watchlist_id, captured_at DESC);
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE site_watchlist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "site_watchlist_owner_all" ON site_watchlist;
+CREATE POLICY "site_watchlist_owner_all" ON site_watchlist
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Same profile-sharing pattern as contacts/segments/campaign_sends — see
+-- supabase-team-access-extend.sql. Viewers can see a client's screenshot
+-- history; only the owner or an editor can add a client or take a new shot.
+DROP POLICY IF EXISTS "site_watchlist_profile_access" ON site_watchlist;
+CREATE POLICY "site_watchlist_profile_access" ON site_watchlist
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "site_watchlist_profile_edit" ON site_watchlist;
+CREATE POLICY "site_watchlist_profile_edit" ON site_watchlist
+  FOR ALL USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid() AND m.role IN ('owner', 'editor'))
+    )
+  ) WITH CHECK (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid() AND m.role IN ('owner', 'editor'))
+    )
+  );
+
+DROP POLICY IF EXISTS "site_snapshots_owner_all" ON site_snapshots;
+CREATE POLICY "site_snapshots_owner_all" ON site_snapshots
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM site_watchlist w WHERE w.id = watchlist_id AND w.user_id = auth.uid())
+  ) WITH CHECK (
+    EXISTS (SELECT 1 FROM site_watchlist w WHERE w.id = watchlist_id AND w.user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "site_snapshots_profile_read" ON site_snapshots;
+CREATE POLICY "site_snapshots_profile_read" ON site_snapshots
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM site_watchlist w
+      WHERE w.id = watchlist_id AND w.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = w.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = w.intel_profile_id AND m.user_id = auth.uid())
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "site_snapshots_profile_edit" ON site_snapshots;
+CREATE POLICY "site_snapshots_profile_edit" ON site_snapshots
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM site_watchlist w
+      WHERE w.id = watchlist_id AND w.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = w.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = w.intel_profile_id AND m.user_id = auth.uid() AND m.role IN ('owner', 'editor'))
+      )
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM site_watchlist w
+      WHERE w.id = watchlist_id AND w.intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = w.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                   WHERE m.profile_id = w.intel_profile_id AND m.user_id = auth.uid() AND m.role IN ('owner', 'editor'))
+      )
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-mission-artifacts.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Mission Artifacts — the real, approvable output of a Scotty mission.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql already run (for sharing).
+--
+-- A Scotty mission used to "run" an agent by asking Claude to write up what
+-- that agent would have produced — a markdown report, nothing real behind it.
+-- A mission task that actually runs an agent's real pipeline needs somewhere
+-- real to put what it produced, in a form a person can look at and approve
+-- with one click: that's this table. One row per agent task's output.
+--
+-- kind says what payload holds and what "approve" does for it:
+--   'blade_leads' — shortlisted local businesses (Blade). Approving imports
+--                   the ones with a real email into Beeker's contacts,
+--                   tagged and with their provenance recorded. It sends
+--                   nothing — sending is Pat's job, behind its own checks.
+--   'pat_campaign' — a drafted, QA-reviewed outreach email (Pat). Approving
+--                   records the human OK and prepares an audience segment;
+--                   it sends nothing. The person sends from Pat's own page.
+--   'nancy_week'  — a week of Instagram posts with hosted images (Nancy).
+--                   Approving puts them in the Content Calendar as approved;
+--                   it schedules and publishes nothing.
+--   'linkedin_drafts' — connection notes and follow-ups for people you listed,
+--                   written only from the facts you gave and checked by code
+--                   (LinkedIn Outreach). Approving contacts no one and never
+--                   touches LinkedIn; you send them by hand.
+--   'compliance_review' — a screen of the mission's own outputs (and any pasted
+--                   content) for advertising, privacy and brand-safety risk; every
+--                   finding quotes the words it is about (Compliance Guard). It also
+--                   marks each output it read, and an output with a critical finding
+--                   then needs a confirmed read before it can be approved. Approving
+--                   the screen saves it to Report History; it changes no content.
+--   'video_clip'  — one short rendered clip from a checked shot prompt (no words,
+--                   logos or unsupported figures on screen) (Video Studio). While
+--                   'building' it holds the render's task id. Approving adds it to
+--                   the Video Studio gallery; it posts and publishes nothing.
+--   'cro_plan'    — A/B test ideas for real pages, each tied to an observation or a
+--                   verified quote from the page (CRO). Approving adds them to the
+--                   CRO ICE backlog and saves the audit to Report History; it
+--                   starts no test and changes no website.
+--   'competitive_report' — competitor battlecards (every finding quote-verified
+--                   against their pages) and a cross-competitor read (figures
+--                   checked). Approving saves it to Report History and starts
+--                   daily change-watching on those sites.
+--   'analytics_report' — a performance report written only from the account's
+--                   own numbers, with every figure checked against them (Analytics).
+--                   Approving saves it to Report History; it sends nothing.
+--   'ad_campaign' — ad copy per platform, checked against platform limits (Ads).
+--                   Approving saves the fitting ads as approved ad copy; it
+--                   buys, schedules and publishes nothing.
+--   'seo_plan'    — SEO research, proposed topics and drafted articles (SEO).
+--                   Approving saves them into the SEO Content Engine as a new
+--                   run; it publishes nothing.
+--   'social_posts' — text posts for LinkedIn / X / Facebook (Social Studio).
+--                   Approving puts the publishable ones in the Content
+--                   Calendar as approved; it schedules and publishes nothing.
+--   'chase_audit' — website audits of a Blade shortlist (Chase). Approving
+--                   tags prospects already in the audience by opportunity.
+-- New agents add a kind; nothing about the table changes.
+--
+-- Writes happen only through the service-role endpoints
+-- (api/mission-blade.js, api/mission-artifacts.js), which do their own
+-- ownership/profile-membership check; the policies below are for reading.
+
+CREATE TABLE IF NOT EXISTS mission_artifacts (
+  id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  intel_profile_id  UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  mission_id        TEXT,       -- the client-side MissionStore id, when the artifact came from a mission
+  agent_key         TEXT        NOT NULL,
+  kind              TEXT        NOT NULL,
+  title             TEXT        NOT NULL,
+  payload           JSONB       NOT NULL DEFAULT '{}',
+  status            TEXT        NOT NULL DEFAULT 'building'
+                                CHECK (status IN ('building', 'pending_approval', 'approved', 'rejected', 'empty')),
+  decided_by        UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  decided_at        TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mission_artifacts_user    ON mission_artifacts (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mission_artifacts_profile ON mission_artifacts (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_mission_artifacts_status  ON mission_artifacts (status);
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+ALTER TABLE mission_artifacts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "mission_artifacts_owner_all" ON mission_artifacts;
+CREATE POLICY "mission_artifacts_owner_all" ON mission_artifacts
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Same profile-sharing pattern as contacts/campaigns/site watchlist: anyone
+-- on the business can see what a mission produced for it.
+DROP POLICY IF EXISTS "mission_artifacts_profile_read" ON mission_artifacts;
+CREATE POLICY "mission_artifacts_profile_read" ON mission_artifacts
+  FOR SELECT USING (
+    intel_profile_id IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = intel_profile_id AND p.owner_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM intelligence_profile_members m
+                 WHERE m.profile_id = intel_profile_id AND m.user_id = auth.uid())
+    )
+  );
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-scorecards.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Scorecards & Waitlists — public question pages that turn campaign
+-- traffic into scored, opted-in contacts.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-audience.sql, supabase-audience-consent.sql,
+--           supabase-intelligence-profiles.sql.
+--
+-- Campaigns used to send people straight to a website with nothing to catch
+-- them. A scorecard is a hosted page (/s/<slug>) that asks a visitor a series
+-- of questions, scores them and shows a personal result; a waitlist asks
+-- questions without scoring, to learn what people need and would pay before
+-- the product is built, and can be compared against another idea's waitlist.
+--
+-- Visitors never write to these tables directly: the public endpoint
+-- (api/scorecard-public.js) validates, scores on the server and writes with
+-- the service role. Owners read through api/scorecards.js.
+
+CREATE TABLE IF NOT EXISTS scorecards (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  -- The public address: /s/<slug>. Unique across the whole service.
+  slug             TEXT        NOT NULL UNIQUE,
+  kind             TEXT        NOT NULL DEFAULT 'scorecard' CHECK (kind IN ('scorecard', 'waitlist')),
+  status           TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'live', 'closed')),
+  title            TEXT        NOT NULL DEFAULT '',
+
+  -- The whole definition (intro, questions, result bands, business name,
+  -- consent wording), shaped by api/_lib/scorecard.js normalize().
+  definition       JSONB       NOT NULL DEFAULT '{}',
+
+  -- Waitlists sharing a group are compared side by side.
+  comparison_group TEXT,
+
+  -- Segments made on publish, so email flows can follow up by result.
+  segment_ids      JSONB       NOT NULL DEFAULT '{}',
+
+  published_at     TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scorecards_user    ON scorecards (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scorecards_profile ON scorecards (intel_profile_id);
+CREATE INDEX IF NOT EXISTS idx_scorecards_project ON scorecards (project_id);
+
+CREATE TABLE IF NOT EXISTS scorecard_responses (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  scorecard_id     UUID        NOT NULL REFERENCES scorecards(id) ON DELETE CASCADE,
+  -- The scorecard's owner, so responses can be scoped without a join.
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  email            TEXT        NOT NULL,
+  first_name       TEXT,
+  answers          JSONB       NOT NULL DEFAULT '{}',
+  score            INTEGER,
+  max_score        INTEGER,
+  percent          INTEGER,
+  band_key         TEXT,
+
+  -- Where they came from: ?src=email|instagram|… and ?c=<campaign>.
+  source           TEXT,
+  campaign         TEXT,
+
+  -- Marketing consent is separate from taking the scorecard: a visitor can
+  -- see their result without agreeing to emails. Only a consented response
+  -- becomes a subscribed contact.
+  consented        BOOLEAN     NOT NULL DEFAULT FALSE,
+  consent_text     TEXT,
+  contact_id       UUID        REFERENCES contacts(id) ON DELETE SET NULL,
+
+  -- Their place in line, counted when they joined (waitlists).
+  position         INTEGER,
+
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_card ON scorecard_responses (scorecard_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_user ON scorecard_responses (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_email ON scorecard_responses (scorecard_id, lower(email));
+
+-- ── updated_at ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION touch_scorecards()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_scorecards_touch ON scorecards;
+CREATE TRIGGER trg_scorecards_touch
+  BEFORE UPDATE ON scorecards
+  FOR EACH ROW EXECUTE FUNCTION touch_scorecards();
+
+-- ── Row-Level Security ──────────────────────────────────────────────────────
+-- Read-only for the owner (and teammates on a shared profile). Every write
+-- goes through the API with the service role.
+ALTER TABLE scorecards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scorecard_responses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "scorecards_owner_read" ON scorecards;
+CREATE POLICY "scorecards_owner_read" ON scorecards
+  FOR SELECT USING (
+    auth.uid() = user_id OR (
+      intel_profile_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM intelligence_profiles p WHERE p.id = scorecards.intel_profile_id AND p.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM intelligence_profile_members m WHERE m.profile_id = scorecards.intel_profile_id AND m.user_id = auth.uid())
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "scorecard_responses_owner_read" ON scorecard_responses;
+CREATE POLICY "scorecard_responses_owner_read" ON scorecard_responses
+  FOR SELECT USING (auth.uid() = user_id);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-blade-sweeps.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Blade Area Sweeps — search every town in a county, state or country
+-- for local businesses, in the background, and (for Webese) write the
+-- results into the state's Outreach Tracker sheet.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql.
+--
+-- Blade searched one city at a time from a browser tab. A sweep is a queue of
+-- (town × trade) searches worked through a batch at a time by
+-- api/cron-blade-sweeps.js (or "run a batch now"), so it carries on with the
+-- page closed and stops at the search budget the person set — every search
+-- is a paid Google Places call.
+--
+-- Writes go through the API with the service role; owners can read their own.
+
+CREATE TABLE IF NOT EXISTS blade_sweeps (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+
+  name             TEXT        NOT NULL DEFAULT '',
+  -- What was picked: { level: 'country'|'state'|'county'|'towns', countryCode, countryName,
+  --   adminCode1, stateName, adminCode2, countyName, towns? }
+  root             JSONB       NOT NULL DEFAULT '{}',
+  -- States still to be expanded into towns (country-wide sweeps only).
+  frontier         JSONB       NOT NULL DEFAULT '[]',
+  sectors          TEXT[]      NOT NULL DEFAULT '{}',
+  min_population   INTEGER     NOT NULL DEFAULT 0,
+  pages_per_town   INTEGER     NOT NULL DEFAULT 1 CHECK (pages_per_town BETWEEN 1 AND 3),
+
+  max_searches     INTEGER     NOT NULL CHECK (max_searches > 0),
+  searches_used    INTEGER     NOT NULL DEFAULT 0,
+
+  status           TEXT        NOT NULL DEFAULT 'running'
+                     CHECK (status IN ('running', 'paused', 'done', 'cancelled', 'failed')),
+  status_note      TEXT,
+
+  -- Webese only: write qualified businesses into "Webese <State> Outreach Tracker".
+  write_to_tracker BOOLEAN     NOT NULL DEFAULT FALSE,
+  trackers         JSONB       NOT NULL DEFAULT '{}',   -- { "<State>": { fileId, name, url } }
+
+  totals           JSONB       NOT NULL DEFAULT '{}',   -- searched, discovered, audited, qualified, written, duplicates
+  lock_until       TIMESTAMPTZ,                         -- one batch at a time
+  last_tick_at     TIMESTAMPTZ,
+  finished_at      TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blade_sweeps_user   ON blade_sweeps (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_blade_sweeps_status ON blade_sweeps (status) WHERE status = 'running';
+
+-- One row per (town × trade): the unit of work.
+CREATE TABLE IF NOT EXISTS blade_sweep_tasks (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  sweep_id         UUID        NOT NULL REFERENCES blade_sweeps(id) ON DELETE CASCADE,
+  seq              INTEGER     NOT NULL,
+  state_name       TEXT,
+  state_code       TEXT,
+  county_name      TEXT,
+  county_code      TEXT,
+  place_name       TEXT        NOT NULL,
+  place_geoname_id BIGINT,
+  lat              DOUBLE PRECISION,
+  lng              DOUBLE PRECISION,
+  population       INTEGER,
+  sector           TEXT        NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'done', 'failed')),
+  searches         INTEGER     NOT NULL DEFAULT 0,
+  discovered       INTEGER     NOT NULL DEFAULT 0,
+  qualified        INTEGER     NOT NULL DEFAULT 0,
+  written          INTEGER     NOT NULL DEFAULT 0,
+  attempts         INTEGER     NOT NULL DEFAULT 0,
+  error            TEXT,
+  done_at          TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blade_sweep_tasks_next ON blade_sweep_tasks (sweep_id, status, seq);
+
+-- Every business found, once per account (a business is never written twice).
+CREATE TABLE IF NOT EXISTS blade_sweep_leads (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  sweep_id         UUID        NOT NULL REFERENCES blade_sweeps(id) ON DELETE CASCADE,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  place_id         TEXT        NOT NULL,
+  business_name    TEXT        NOT NULL,
+  sector           TEXT,
+  state_name       TEXT,
+  county_name      TEXT,
+  place_name       TEXT,
+  address          TEXT,
+  phone            TEXT,                -- kept in Audema; never written to a Webese tracker
+  website          TEXT,
+  maps_url         TEXT,
+  review_count     INTEGER,
+  site_status      TEXT,                -- no_website | outdated | modern | unreachable | check_failed
+  site_platform    TEXT,
+  qualified        BOOLEAN     NOT NULL DEFAULT FALSE,
+  offer_type       TEXT,
+  opportunity_score INTEGER,
+  observation      TEXT,
+  tracker_status   TEXT,                -- written | duplicate | null (not sent)
+  discovered_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, place_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_blade_sweep_leads_sweep ON blade_sweep_leads (sweep_id, discovered_at DESC);
+
+CREATE OR REPLACE FUNCTION touch_blade_sweeps()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_blade_sweeps_touch ON blade_sweeps;
+CREATE TRIGGER trg_blade_sweeps_touch
+  BEFORE UPDATE ON blade_sweeps
+  FOR EACH ROW EXECUTE FUNCTION touch_blade_sweeps();
+
+ALTER TABLE blade_sweeps      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blade_sweep_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blade_sweep_leads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "blade_sweeps_owner_read" ON blade_sweeps;
+CREATE POLICY "blade_sweeps_owner_read" ON blade_sweeps
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "blade_sweep_tasks_owner_read" ON blade_sweep_tasks;
+CREATE POLICY "blade_sweep_tasks_owner_read" ON blade_sweep_tasks
+  FOR SELECT USING (EXISTS (SELECT 1 FROM blade_sweeps s WHERE s.id = blade_sweep_tasks.sweep_id AND s.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "blade_sweep_leads_owner_read" ON blade_sweep_leads;
+CREATE POLICY "blade_sweep_leads_owner_read" ON blade_sweep_leads
+  FOR SELECT USING (auth.uid() = user_id);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SOURCE: supabase-autopilot.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Audema Autopilot — agents that do the work on a schedule, repair what
+-- they can, ask for what they need, and tell you what happened.
+-- Run this in: Supabase Dashboard → SQL Editor → New query → Run
+-- Requires: supabase-intelligence-profiles.sql.
+--
+--   connections      a business's own accounts an agent acts on (its website
+--                    CMS, Search Console…). Secrets are encrypted by the app
+--                    (AES-256-GCM, CONNECTIONS_ENCRYPTION_KEY) before they
+--                    reach this table, and no browser can read this table:
+--                    every read and write goes through the API.
+--   autopilots       which agent runs, on what schedule, for which business,
+--                    and how much it may do on its own (earn trust first).
+--   agent_jobs       one unit of agent work, run a step at a time by
+--                    api/cron-autopilot.js, with every fault and repair kept.
+--   activity_events  the "What happened" inbox: work done, problems fixed,
+--                    approvals and permissions the business needs to give.
+
+CREATE TABLE IF NOT EXISTS connections (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  provider         TEXT        NOT NULL CHECK (provider IN ('wordpress', 'webflow', 'shopify', 'wix', 'godaddy', 'gsc')),
+  label            TEXT        NOT NULL DEFAULT '',
+  site_url         TEXT,
+  config           JSONB       NOT NULL DEFAULT '{}',   -- non-secret: blog id, collection id, field map…
+  secret_enc       TEXT,                                -- encrypted by the app; never sent to a browser
+  status           TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'needs_attention', 'disconnected')),
+  status_note      TEXT,
+  last_ok_at       TIMESTAMPTZ,
+  last_error_at    TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_connections_user ON connections (user_id, provider);
+
+CREATE TABLE IF NOT EXISTS autopilots (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  agent            TEXT        NOT NULL,                -- 'seo', …
+  enabled          BOOLEAN     NOT NULL DEFAULT TRUE,
+  cadence          JSONB       NOT NULL DEFAULT '{}',   -- { days: [2,5], hour: 9, timezone: 'Australia/Sydney' }
+  settings         JSONB       NOT NULL DEFAULT '{}',
+  connection_id    UUID        REFERENCES connections(id) ON DELETE SET NULL,
+  -- earn_trust: the first trust_required pieces wait for approval, then it runs on its own.
+  mode             TEXT        NOT NULL DEFAULT 'earn_trust' CHECK (mode IN ('earn_trust', 'auto', 'approve')),
+  trust_required   INTEGER     NOT NULL DEFAULT 2,
+  trust_earned     INTEGER     NOT NULL DEFAULT 0,
+  next_run_at      TIMESTAMPTZ,
+  last_run_at      TIMESTAMPTZ,
+  paused_reason    TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_autopilots_due ON autopilots (next_run_at) WHERE enabled;
+
+CREATE TABLE IF NOT EXISTS agent_jobs (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  autopilot_id     UUID        REFERENCES autopilots(id) ON DELETE SET NULL,
+  agent            TEXT        NOT NULL,
+  kind             TEXT        NOT NULL,
+  step             TEXT        NOT NULL,
+  state            JSONB       NOT NULL DEFAULT '{}',
+  status           TEXT        NOT NULL DEFAULT 'queued'
+                     CHECK (status IN ('queued', 'running', 'waiting_approval', 'waiting_permission', 'done', 'failed', 'cancelled')),
+  run_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  step_attempts    INTEGER     NOT NULL DEFAULT 0,
+  lock_until       TIMESTAMPTZ,
+  last_error       TEXT,
+  repairs          JSONB       NOT NULL DEFAULT '[]',   -- [{ at, step, problem, fix }]
+  result           JSONB,
+  finished_at      TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_jobs_due ON agent_jobs (status, run_at);
+CREATE INDEX IF NOT EXISTS idx_agent_jobs_user ON agent_jobs (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS activity_events (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  agent            TEXT,
+  job_id           UUID        REFERENCES agent_jobs(id) ON DELETE SET NULL,
+  kind             TEXT        NOT NULL CHECK (kind IN ('done', 'repaired', 'needs_approval', 'needs_permission', 'failed', 'info')),
+  title            TEXT        NOT NULL,
+  body             TEXT,
+  details          JSONB       NOT NULL DEFAULT '{}',
+  action           JSONB,                               -- { type: 'approve'|'reconnect'|'connect'|'open', … }
+  read_at          TIMESTAMPTZ,
+  resolved_at      TIMESTAMPTZ,
+  emailed_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_events (user_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION touch_autopilot_tables()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_connections_touch ON connections;
+CREATE TRIGGER trg_connections_touch BEFORE UPDATE ON connections FOR EACH ROW EXECUTE FUNCTION touch_autopilot_tables();
+DROP TRIGGER IF EXISTS trg_autopilots_touch ON autopilots;
+CREATE TRIGGER trg_autopilots_touch BEFORE UPDATE ON autopilots FOR EACH ROW EXECUTE FUNCTION touch_autopilot_tables();
+DROP TRIGGER IF EXISTS trg_agent_jobs_touch ON agent_jobs;
+CREATE TRIGGER trg_agent_jobs_touch BEFORE UPDATE ON agent_jobs FOR EACH ROW EXECUTE FUNCTION touch_autopilot_tables();
+
+-- Row-level security on, with no policies: only the API (service role) reads
+-- or writes these. A browser must never see connections.secret_enc.
+ALTER TABLE connections     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE autopilots      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_jobs      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_events ENABLE ROW LEVEL SECURITY;
+
+-- Published articles: where they went, so they can be tracked.
+ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS published_url TEXT;
+ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS connection_id UUID REFERENCES connections(id) ON DELETE SET NULL;
+ALTER TABLE seo_articles DROP CONSTRAINT IF EXISTS seo_articles_status_check;
+ALTER TABLE seo_articles ADD CONSTRAINT seo_articles_status_check CHECK (status IN ('draft', 'downloaded', 'published_elsewhere', 'published'));

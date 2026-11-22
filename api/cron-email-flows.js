@@ -36,26 +36,14 @@ const { sbRest } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { sign, isConfigured: unsubscribeConfigured } = require('./_lib/unsubscribe-token.js');
 const { ensureComplianceFooter } = require('./_lib/compliance-footer.js');
+const { applyMergeFields, resolveFieldAliases } = require('./_lib/merge-fields.js');
+const { findUnresolvedMergeTags } = require('./_lib/content-guard.js');
+const { buildMergeFields, copyIssues } = require('./_lib/flow-merge.js');
+const { filterSuppressed } = require('./_lib/send-guard.js');
+const notify = require('./_lib/autopilot/notify.js');
 
 const MAX_SENDS_PER_RUN = 200;
 const SUPPRESSED = ['unsubscribed', 'bounced', 'complained'];
-
-function personalise(text, contact) {
-  if (!text) return text;
-  return String(text).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (whole, token) => {
-    const map = {
-      firstName: contact.firstname || contact.first_name || '',
-      lastName: contact.lastname || contact.last_name || '',
-      email: contact.email || '',
-      company: contact.company || '',
-    };
-    const v = map[token];
-    // An unresolved token is left as-is rather than blanked: "Hi ," reads as a
-    // broken mail merge to the recipient either way, but leaving the token
-    // visible makes it obvious to the operator which field was missing.
-    return v ? v : whole;
-  });
-}
 
 module.exports = withFailureReporting('api/cron-email-flows', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
@@ -85,7 +73,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
   // send loop.
   const dueRes = await sb('GET',
     `/email_flow_enrolments?status=eq.active&next_run_at=lte.${now.toISOString()}` +
-    `&select=*,email_flows!inner(id,name,status,from_name,from_email)` +
+    `&select=*,email_flows!inner(*)` +
     `&email_flows.status=eq.active&order=next_run_at.asc&limit=${MAX_SENDS_PER_RUN}`);
 
   if (!dueRes.ok) {
@@ -105,15 +93,59 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     return res.status(200).json(Object.assign({ ok: true, dryRun: !!dryRun }, report));
   }
 
+  // The account's suppression list — the same one a campaign send checks
+  // (opt-outs, bounces, complaints that may never have touched the contacts
+  // table) — read once per account for everyone due, not per recipient.
+  // Fails closed: an account whose list can't be read sends nothing this run.
+  const byUser = new Map();
+  due.forEach(e => { if (!byUser.has(e.user_id)) byUser.set(e.user_id, []); byUser.get(e.user_id).push({ to: e.email }); });
+  const suppression = new Map();   // user_id → { ok, error?, blocked: Map(email → reason) }
+  for (const [uid, recipients] of byUser) {
+    const s = await filterSuppressed(uid, recipients);
+    suppression.set(uid, s.ok
+      ? { ok: true, blocked: new Map(s.suppressed.map(x => [String(x.to).toLowerCase(), x.reason])) }
+      : { ok: false, code: s.code, error: s.error });
+  }
+
   for (const enrolment of due) {
     const flow = enrolment.email_flows || {};
     const email = enrolment.email;
 
+    const supp = suppression.get(enrolment.user_id);
+    if (!supp.ok) {
+      // Not claimed, not sent: it stays due and is retried once the list is readable.
+      report.skipped++;
+      report.details.push({ email, step: enrolment.next_step_order, outcome: supp.code || 'suppression_unreadable', error: supp.error });
+      continue;
+    }
+    const suppressedReason = supp.blocked.get(String(email).toLowerCase());
+    if (suppressedReason) {
+      report.skipped++;
+      report.details.push({ email, step: enrolment.next_step_order, outcome: 'suppressed', status: suppressedReason });
+      if (!dryRun) {
+        await sb('PATCH', `/email_flow_enrolments?id=eq.${enrolment.id}`, {
+          status: 'exited', exit_reason: `suppressed_${suppressedReason}`, completed_at: now.toISOString(),
+        });
+      }
+      continue;
+    }
+
     // Suppression re-checked here, not just at enrolment: this enrolment may
     // have been created days before the recipient opted out.
+    // Scoped to the account that owns the enrolment (another account's contact
+    // with the same address must not decide this one's send), and the column
+    // names are the contacts table's own. If the lookup fails the send is
+    // held back, not made blind: being unable to see an unsubscribe is not
+    // permission to email.
     const cRes = await sb('GET',
-      `/contacts?email=eq.${encodeURIComponent(email)}&select=id,email,status,firstname,lastname,company&limit=1`);
-    const contact = (cRes.ok && cRes.data && cRes.data[0]) || { email };
+      `/contacts?user_id=eq.${enrolment.user_id}&email=eq.${encodeURIComponent(email)}` +
+      `&select=id,email,status,first_name,last_name,company,custom_fields&limit=1`);
+    if (!cRes.ok) {
+      report.skipped++;
+      report.details.push({ email, step: enrolment.next_step_order, outcome: 'contact_lookup_failed', status: cRes.status });
+      continue;
+    }
+    const contact = (cRes.data && cRes.data[0]) || { email };
     if (SUPPRESSED.includes(contact.status)) {
       report.skipped++;
       report.details.push({ email, step: enrolment.next_step_order, outcome: 'suppressed', status: contact.status });
@@ -183,6 +215,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     if (!fromEmail) {
       report.failed++;
       report.details.push({ email, step: step.step_order, outcome: 'no_from_address' });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'no_from_address', detail: null });
       continue;
     }
 
@@ -194,8 +227,31 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
       unsubUrl = `${baseUrl}/api/unsubscribe?token=${encodeURIComponent(sign(contact.id, contact.email))}`;
     }
 
+    // The same rules a campaign send applies: unfinished copy or a tag this
+    // recipient has no value for means this person is skipped (the step has
+    // already been advanced, so it is never retried blindly), not mailed a
+    // literal "{{area}}".
+    const subjectTpl = resolveFieldAliases(step.subject || '');
+    const htmlTpl = resolveFieldAliases(step.html || '');
+    const issues = copyIssues({ subject: subjectTpl, html: htmlTpl }, { senderFields: flow.sender_fields });
+    if (issues.length) {
+      report.failed++;
+      report.details.push({ email, step: step.step_order, outcome: 'copy_not_sendable', issues });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'copy_not_sendable', detail: (issues || []).join('; ') });
+      continue;
+    }
+    const mergeFields = buildMergeFields(contact, flow.sender_fields);
+    const personalSubject = applyMergeFields(subjectTpl, mergeFields);
+    const personalHtml = applyMergeFields(htmlTpl, mergeFields);
+    const unresolved = findUnresolvedMergeTags(`${personalSubject}\n${personalHtml}`);
+    if (unresolved.length) {
+      report.skipped++;
+      report.details.push({ email, step: step.step_order, outcome: 'missing_fields', missing: unresolved });
+      continue;
+    }
+
     const footer = ensureComplianceFooter({
-      html: personalise(step.html, contact),
+      html: personalHtml,
       text: undefined,
       companyName: process.env.COMPLIANCE_COMPANY_NAME,
       mailingAddress: process.env.COMPLIANCE_MAILING_ADDRESS,
@@ -210,7 +266,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
         body: JSON.stringify({
           from: `${fromName} <${fromEmail}>`,
           to: [email],
-          subject: personalise(step.subject, contact),
+          subject: personalSubject,
           html: footer.html,
           reply_to: process.env.COMPLIANCE_REPLY_TO || fromEmail,
           // Tagged like every other send so the webhook can attribute the
@@ -237,6 +293,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
         report.failed++;
         report.details.push({ email, step: step.step_order, outcome: 'send_failed',
                               status: upstream.status, error: errBody.slice(0, 200) });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'send_failed', detail: `HTTP ${upstream.status}: ${errBody.slice(0, 200)}` });
         // The enrolment stays advanced. Rewinding it would re-send on the next
         // run, and a 4xx from Resend usually means the message was rejected
         // for a reason that will not change in ten minutes.
@@ -244,6 +301,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     } catch (e) {
       report.failed++;
       report.details.push({ email, step: step.step_order, outcome: 'send_error', error: e.message });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'send_error', detail: e.message });
     }
   }
 

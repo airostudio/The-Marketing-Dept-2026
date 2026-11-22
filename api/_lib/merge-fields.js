@@ -18,14 +18,29 @@
 
 'use strict';
 
-const MERGE_TAG_RE = /\{\{\s*([\w.]+)\s*\}\}/g;
+// {{token}} or {{token|fallback}}. The fallback is what is used when the
+// recipient has no value for the token — "Hi {{firstName|there}}," reads fine
+// for everyone, and {{area|your area}} can never leave a hole. The fallback
+// is plain text only: no braces, tags or pipes.
+const MERGE_TAG_RE = /\{\{\s*([\w.]+)\s*(?:\|\s*([^{}<>|]*?)\s*)?\}\}/g;
 
 /** The tokens the sending system actually recognizes — kept in sync with
  *  api/send-campaign.js's mergeFieldsWithUnsub and contacts-store.js's
  *  toRecipients(). Anything else a caller writes as {{token}} still gets
  *  substituted if the recipient row happens to carry that key (custom
  *  fields do), but these four are the ones every template can rely on. */
-const KNOWN_TOKENS = ['firstName', 'lastName', 'company', 'unsubscribe_url'];
+const KNOWN_TOKENS = [
+  'firstName', 'lastName', 'company', 'unsubscribe_url',
+  // The recipient's own details, when the contact has them (Blade-found
+  // businesses do). Use with a fallback: {{area|your area}}.
+  'area', 'website',
+  // Who the email is sent as — filled by Pat from the Business Brain contact
+  // chosen at send time. A send with none chosen is skipped loudly, not blanked.
+  'senderName', 'senderFirstName', 'senderTitle', 'senderEmail', 'senderPhone', 'senderCompany',
+];
+
+/** Tokens that may be used with no fallback because a blank is harmless. */
+const OPTIONAL_TOKENS = ['firstName', 'lastName', 'company'];
 
 // firstName/lastName/company are optional per-recipient personalization, not
 // data the send should depend on existing. A contact with no first name on
@@ -50,9 +65,10 @@ const BLANK_FALLBACK_TOKENS = new Set(['firstName', 'lastName', 'company']);
  */
 function applyMergeFields(template, mergeFields) {
   if (!template) return template;
-  const substituted = template.replace(MERGE_TAG_RE, (match, key) => {
+  const substituted = template.replace(MERGE_TAG_RE, (match, key, fallback) => {
     const val = mergeFields && mergeFields[key];
     if (val !== undefined && val !== null && val !== '') return String(val);
+    if (fallback !== undefined) return fallback;     // {{key|fallback}} — written by the author, so it wins
     return BLANK_FALLBACK_TOKENS.has(key) ? '' : match;
   });
   // The one common artifact of a blanked name worth cleaning up generically:
@@ -88,4 +104,24 @@ function resolveFieldAliases(template) {
   return FIELD_ALIASES.reduce((text, { re, token }) => text.replace(re, `{{${token}}}`), template);
 }
 
-module.exports = { applyMergeFields, resolveFieldAliases, KNOWN_TOKENS, MERGE_TAG_RE };
+/** The bare token names a text uses, fallback syntax stripped. */
+function tokenNames(text) {
+  const names = new Set();
+  const re = new RegExp(MERGE_TAG_RE.source, 'g');
+  let m;
+  while ((m = re.exec(text || ''))) names.add(m[1]);
+  return [...names];
+}
+
+/** Tokens used with no fallback that would skip a recipient who lacks them. */
+function tokensNeedingFallback(text) {
+  const bare = new Set();
+  const re = new RegExp(MERGE_TAG_RE.source, 'g');
+  let m;
+  while ((m = re.exec(text || ''))) {
+    if (m[2] === undefined && !OPTIONAL_TOKENS.includes(m[1]) && !/^sender[A-Z]/.test(m[1]) && m[1] !== 'unsubscribe_url') bare.add(m[1]);
+  }
+  return [...bare];
+}
+
+module.exports = { applyMergeFields, resolveFieldAliases, KNOWN_TOKENS, OPTIONAL_TOKENS, MERGE_TAG_RE, tokenNames, tokensNeedingFallback };

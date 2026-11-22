@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Before &amp; After | Audema</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/escape-html.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#070711; --card:rgba(255,255,255,0.03); --card2:rgba(255,255,255,0.06); --border:rgba(255,255,255,0.08);
+    --text:#fff; --text2:rgba(255,255,255,0.55); --text3:rgba(255,255,255,0.35);
+    --green:#10b981; --purple:#7c3aed; --pink:#ec4899; --red:#ef4444;
+  }
+  body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:58px;
+        border-bottom:1px solid var(--border); background:rgba(7,7,17,0.92); position:sticky; top:0; z-index:100; }
+  .nav-logo { font-size:14px; font-weight:700; text-decoration:none; color:var(--text); display:flex; align-items:center; gap:8px; }
+  .logo-icon { width:28px; height:28px; background:linear-gradient(135deg,var(--purple),var(--pink)); border-radius:7px;
+               display:flex; align-items:center; justify-content:center; font-size:13px; }
+  a.hub { color:var(--text2); text-decoration:none; font-size:13px; }
+  .wrap { max-width:1100px; margin:0 auto; padding:28px 24px 80px; }
+  h1 { font-size:22px; margin-bottom:6px; }
+  .sub { color:var(--text2); font-size:13px; margin-bottom:22px; line-height:1.6; max-width:760px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; }
+  .card-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center;
+                 justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .card-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); }
+  .card-body { padding:18px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input, textarea { font-family:inherit; font-size:13px; padding:9px 12px; border-radius:8px;
+         background:var(--card2); border:1px solid var(--border); color:var(--text); }
+  input { flex:1; min-width:160px; }
+  .btn { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+         transition:all .15s; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .btn-primary { background:var(--green); color:#000; }
+  .btn-primary:hover { background:#0da874; }
+  .btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-ghost { background:none; border:1px solid var(--border); color:var(--text2); }
+  .btn-ghost:hover { color:var(--text); background:rgba(255,255,255,0.05); }
+  .btn-danger { background:none; border:1px solid rgba(239,68,68,0.4); color:var(--red); }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+  .site-row { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:14px 18px;
+              border-top:1px solid var(--border); }
+  .site-row:first-child { border-top:none; }
+  .site-name { font-weight:700; font-size:14px; }
+  .site-url { color:var(--text2); font-size:12px; word-break:break-all; }
+  .site-actions { display:flex; gap:8px; flex-shrink:0; }
+  .shots { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; margin-top:12px; }
+  .shot { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--card2); }
+  .shot img { width:100%; display:block; background:#111; }
+  .shot-meta { padding:8px 10px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .shot-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;
+                padding:2px 8px; border-radius:20px; background:rgba(16,185,129,0.15); color:var(--green); }
+  .shot-when { font-size:11px; color:var(--text3); }
+  .err { color:var(--red); font-size:12.5px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/hub.html" class="nav-logo"><span class="logo-icon">📸</span> Before &amp; After</a>
+  <a href="/hub.html" class="hub">← Hub</a>
+</nav>
+
+<div class="wrap" id="gate" style="text-align:center;padding-top:80px;color:var(--text3);">Checking your access…</div>
+
+<div class="wrap" id="wrap" style="display:none;">
+  <h1>Before &amp; After</h1>
+  <p class="sub">
+    Keep a client's site on hand and re-shoot it over time — the first capture
+    is labelled "before", every one after that "after", so a rebuild's progress
+    is a real screenshot, not a mockup. Works on any real public website —
+    the same screenshot capture Nancy already uses elsewhere in this app.
+  </p>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Add a client site</span></div>
+    <div class="card-body">
+      <div class="row">
+        <input id="in-name" placeholder="Client / business name">
+        <input id="in-url" placeholder="https://theirsite.com">
+        <button class="btn btn-primary" id="btn-add">Add to watchlist</button>
+      </div>
+      <div class="err" id="add-err" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Watchlist</span>
+      <span class="muted" id="count"></span>
+    </div>
+    <div id="sites"><p class="muted" style="padding:18px;">Loading…</p></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = window.escapeHtml;
+  let sites = [];
+  const openSnaps = {}; // watchlistId -> snapshots[], once loaded
+
+  async function api(path, body) {
+    const headers = await window.sendAuthHeaders();
+    const res = await fetch(path, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
+    return data;
+  }
+
+  function ago(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const mins = (Date.now() - d.getTime()) / 60000;
+    if (mins < 1) return 'just now';
+    if (mins < 60) return Math.round(mins) + 'm ago';
+    if (mins < 48 * 60) return Math.round(mins / 60) + 'h ago';
+    return Math.round(mins / 1440) + 'd ago';
+  }
+
+  function renderShots(watchlistId) {
+    const el = document.getElementById('shots-' + watchlistId);
+    if (!el) return;
+    const shots = openSnaps[watchlistId] || [];
+    if (!shots.length) { el.innerHTML = '<p class="muted">No screenshots yet — capture one above.</p>'; return; }
+    el.innerHTML = '<div class="shots">' + shots.map(s => `
+      <div class="shot">
+        <img src="${esc(s.hostedUrl)}" alt="${esc(s.label)} screenshot" loading="lazy">
+        <div class="shot-meta">
+          <span class="shot-label">${esc(s.label)}</span>
+          <span class="shot-when" title="${esc(s.capturedAt)}">${esc(ago(s.capturedAt))}</span>
+        </div>
+      </div>
+    `).join('') + '</div>';
+  }
+
+  async function toggleShots(watchlistId) {
+    const el = document.getElementById('shots-' + watchlistId);
+    if (!el) return;
+    const isOpen = el.style.display !== 'none';
+    if (isOpen) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    if (!openSnaps[watchlistId]) {
+      el.innerHTML = '<p class="muted">Loading…</p>';
+      try {
+        const data = await api('/api/site-snapshot', { action: 'list', watchlistId });
+        openSnaps[watchlistId] = data.snapshots;
+      } catch (e) {
+        el.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+        return;
+      }
+    }
+    renderShots(watchlistId);
+  }
+
+  async function captureShot(watchlistId, btn) {
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Capturing…';
+    try {
+      const data = await api('/api/site-snapshot', { action: 'capture', watchlistId });
+      if (!openSnaps[watchlistId]) openSnaps[watchlistId] = [];
+      openSnaps[watchlistId].unshift(data.snapshot);
+      const el = document.getElementById('shots-' + watchlistId);
+      if (el) { el.style.display = 'block'; renderShots(watchlistId); }
+    } catch (e) {
+      alert('Could not capture a screenshot: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+
+  async function removeSite(watchlistId) {
+    if (!confirm('Remove this site and all its screenshots?')) return;
+    try {
+      await api('/api/site-watchlist', { action: 'remove', watchlistId });
+      await load();
+    } catch (e) {
+      alert('Could not remove that site: ' + e.message);
+    }
+  }
+
+  function render() {
+    $('count').textContent = sites.length ? `${sites.length} site${sites.length === 1 ? '' : 's'}` : '';
+    if (!sites.length) {
+      $('sites').innerHTML = '<p class="muted" style="padding:18px;">No client sites on the watchlist yet.</p>';
+      return;
+    }
+    $('sites').innerHTML = sites.map(s => `
+      <div class="site-row">
+        <div style="flex:1;min-width:0;">
+          <div class="site-name">${esc(s.clientName)}</div>
+          <div class="site-url"><a href="${esc(s.url)}" target="_blank" rel="noopener" style="color:inherit;">${esc(s.url)}</a></div>
+          <div id="shots-${esc(s.id)}" style="display:none;margin-top:10px;"></div>
+        </div>
+        <div class="site-actions">
+          <button class="btn btn-ghost" data-view="${esc(s.id)}">View shots</button>
+          <button class="btn btn-primary" data-capture="${esc(s.id)}">📸 Capture</button>
+          <button class="btn btn-danger" data-remove="${esc(s.id)}">Remove</button>
+        </div>
+      </div>
+    `).join('');
+
+    $('sites').querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => toggleShots(b.dataset.view)));
+    $('sites').querySelectorAll('[data-capture]').forEach(b => b.addEventListener('click', () => captureShot(b.dataset.capture, b)));
+    $('sites').querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => removeSite(b.dataset.remove)));
+  }
+
+  async function load() {
+    try {
+      const data = await api('/api/site-watchlist', { action: 'list' });
+      sites = data.sites;
+      render();
+    } catch (e) {
+      $('sites').innerHTML = `<p class="err" style="padding:18px;">Could not load the watchlist: ${esc(e.message)}</p>`;
+    }
+  }
+
+  $('btn-add').addEventListener('click', async () => {
+    const clientName = $('in-name').value.trim();
+    const url = $('in-url').value.trim();
+    $('add-err').style.display = 'none';
+    if (!clientName || !url) { $('add-err').textContent = 'A client name and URL are both required.'; $('add-err').style.display = 'block'; return; }
+    try {
+      await api('/api/site-watchlist', { action: 'add', clientName, url });
+      $('in-name').value = ''; $('in-url').value = '';
+      await load();
+    } catch (e) {
+      $('add-err').textContent = e.message;
+      $('add-err').style.display = 'block';
+    }
+  });
+
+  async function boot() {
+    let user = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Supabase?.getClient?.()?.auth.getUser().then(r => r.data.user);
+    } catch { /* handled below */ }
+    if (!user) {
+      $('gate').innerHTML = 'You need to be signed in.<br><br><a href="/index.html?openAuth=login">Sign in →</a>';
+      return;
+    }
+    $('gate').style.display = 'none';
+    $('wrap').style.display = 'block';
+    await load();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

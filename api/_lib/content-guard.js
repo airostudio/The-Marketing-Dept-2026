@@ -38,7 +38,7 @@
 'use strict';
 
 const BRACKET_PLACEHOLDER_RE = /\[[^\[\]\n]{1,160}\]/g;
-const MERGE_TAG_RE = /\{\{\s*[\w.]+\s*\}\}/g;
+const MERGE_TAG_RE = /\{\{\s*[\w.]+\s*(?:\|[^{}<>|]*)?\}\}/g;   // {{token}} or {{token|fallback}}
 const HREF_RE = /href\s*=\s*"([^"]*)"/gi;
 
 /** @returns {string[]} every distinct bracket placeholder found, "[1]"-style footnotes excluded */

@@ -29,7 +29,7 @@ window.PatHandoff = (function () {
 
   /**
    * @param {{campaignName, subject, html, text}} draft
-   * @param {{sameTab?: boolean}} [opts]
+   * @param {{sameTab?: boolean, segmentId?: string}} [opts]
    */
   function sendDraft(draft, opts = {}) {
     const payload = {
@@ -40,7 +40,8 @@ window.PatHandoff = (function () {
       timestamp: Date.now(),
     };
     localStorage.setItem('pat_incoming_draft', JSON.stringify(payload));
-    return go(PAT_URL, opts);
+    // Optionally land on Pat with an audience segment already chosen.
+    return go(opts.segmentId ? `${PAT_URL}?segment=${encodeURIComponent(opts.segmentId)}` : PAT_URL, opts);
   }
 
   /**

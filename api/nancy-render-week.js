@@ -35,6 +35,61 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { imageGenProvider } = require('./_lib/nancy-providers.js');
 const { requireUser } = require('./_lib/require-user.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
+const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+
+const TEXT_CHECK_TOOL = {
+  name: 'submit_text_check',
+  description: 'Report exactly what text is actually legible in the image, so it can be checked against what was supposed to be rendered.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      legible: { type: 'boolean', description: 'Is every piece of requested text present and fully legible (not cut off, not garbled, not overlapping)?' },
+      transcription: { type: 'string', description: 'Transcribe every word of rendered text you can see in the image, exactly as it appears, in reading order.' },
+    },
+    required: ['legible', 'transcription'],
+  },
+};
+
+/**
+ * Image-generation models bake text into pixels, not characters — asking
+ * one to "spell this correctly" in the prompt (see buildImagePrompt below)
+ * is a request, not a guarantee, and this is the actual failure mode
+ * behind garbled or misspelled words showing up in finished creatives.
+ * There's no OCR library in this codebase to check mechanically, so this
+ * spends one Claude vision call transcribing what the model actually
+ * rendered and diffs it against the real copy.
+ *
+ * Fails OPEN on an inconclusive check (no API key, a request error, a
+ * timeout): that's "could not verify", not "verified wrong" — the AI image
+ * ships as before rather than silently losing the premium-creative path
+ * every time this secondary check itself has a bad day. A verified
+ * mismatch is the one thing that forces the fallback.
+ *
+ * @returns {Promise<boolean>} true if the rendered text should be trusted.
+ */
+async function renderedTextLooksCorrect(buffer, mimeType, post) {
+  const expected = [post.slide_headline, post.slide_copy, post.cta].filter(Boolean);
+  if (!expected.length) return true; // nothing was supposed to be rendered at all
+
+  const system = `You proofread AI-generated marketing images for rendering errors. You are given the exact text that was supposed to appear and the image it was supposed to appear in. Report only what you can actually see — never assume the text is correct because it was "supposed to" be there.`;
+  const content = [
+    { type: 'image', source: { type: 'base64', media_type: mimeType, data: buffer.toString('base64') } },
+    { type: 'text', text: `This image was supposed to render this text exactly:\n${expected.map(t => `"${t}"`).join('\n')}\n\nIs every one of those pieces of text present, spelled correctly, and fully legible in the image?` },
+  ];
+
+  try {
+    const result = await callClaudeForJSON({ system, user: content, tool: TEXT_CHECK_TOOL, maxTokens: 600, timeoutMs: 25000 });
+    if (!result.success) return true; // inconclusive — fail open, see above
+    if (!result.data.legible) return false;
+    // The model can say legible:true while its own transcription still
+    // doesn't match — a literal substring check on its transcription is a
+    // second, independent check against the model talking itself into "yes".
+    const transcribed = String(result.data.transcription || '').toLowerCase().replace(/\s+/g, ' ');
+    return expected.every(t => transcribed.includes(String(t).toLowerCase().replace(/\s+/g, ' ').trim()));
+  } catch {
+    return true; // inconclusive — fail open
+  }
+}
 
 const CANVAS = { width: 1080, height: 1350 };
 const MARGIN = 72;
@@ -524,17 +579,29 @@ module.exports = withFailureReporting('api/nancy-render-week', async function ha
   // or failed generation still leaves room to fall back below rather than
   // failing the whole request.
   const gen = await imageGenProvider(buildImagePrompt(post, colours, businessName, businessProfile), { width: CANVAS.width, height: CANVAS.height });
+  let fallbackReason = gen.reason;
   if (gen.available) {
-    const hostedUrl = await uploadHostedAsset(gen.buffer, gen.mimeType, 'png', post.day);
-    const dataUri = `data:${gen.mimeType};base64,${gen.buffer.toString('base64')}`;
-    return res.json({
-      success: true,
-      asset: { day: post.day, format: 'ai', dataUri, hostedUrl, mimeType: gen.mimeType, width: CANVAS.width, height: CANVAS.height },
-    });
+    // A generated image is never trusted on the strength of its own prompt
+    // instruction to "spell this correctly" — see renderedTextLooksCorrect()
+    // above for why that can't be guaranteed, and why this app's whole
+    // discipline around not shipping unverified AI claims applies to
+    // rendered pixels just as much as generated facts.
+    const textOk = await renderedTextLooksCorrect(gen.buffer, gen.mimeType, post);
+    if (textOk) {
+      const hostedUrl = await uploadHostedAsset(gen.buffer, gen.mimeType, 'png', post.day);
+      const dataUri = `data:${gen.mimeType};base64,${gen.buffer.toString('base64')}`;
+      return res.json({
+        success: true,
+        asset: { day: post.day, format: 'ai', dataUri, hostedUrl, mimeType: gen.mimeType, width: CANVAS.width, height: CANVAS.height },
+      });
+    }
+    fallbackReason = 'The generated image\'s text did not check out as correctly spelled/legible, so this fell back to the exact-text template instead.';
   }
 
-  // Fallback: deterministic SVG templates — still on-brand, still
-  // objective-specific, costs nothing, never fails.
+  // Fallback: deterministic SVG templates — the text is rendered from the
+  // real strings, so it is correct by construction, never a model's guess
+  // at spelling. Still on-brand, still objective-specific, costs nothing,
+  // never fails.
   const photoDataUri = post.uses_user_photo && userPhotos.length ? userPhotos[(post.day - 1) % userPhotos.length]?.dataUri : null;
   const svg = buildSvg(post, brand, photoDataUri, businessName);
   const svgBuffer = Buffer.from(svg, 'utf8');
@@ -543,6 +610,6 @@ module.exports = withFailureReporting('api/nancy-render-week', async function ha
 
   return res.json({
     success: true,
-    asset: { day: post.day, format: 'svg', svg, dataUri, hostedUrl, mimeType: 'image/svg+xml', width: CANVAS.width, height: CANVAS.height, fallbackReason: gen.reason },
+    asset: { day: post.day, format: 'svg', svg, dataUri, hostedUrl, mimeType: 'image/svg+xml', width: CANVAS.width, height: CANVAS.height, fallbackReason },
   });
 });

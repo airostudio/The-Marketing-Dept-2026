@@ -97,6 +97,7 @@ require.cache[helperPath] = {
           revenue_cents: rows.reduce((s, r) => s + r.amount_cents, 0),
           currency: rows[0] ? rows[0].currency : null }] };
       }
+      if (table === 'suppressed_emails') return { ok: true, status: 200, data: [] };
       if (table === 'campaign_email_stats') {
         return { ok: true, status: 200, data: [{ sent: 0, delivered: 0, opened: 0, unique_opened: 0,
           clicked: 0, unique_clicked: 0, bounced: 0, complained: 0 }] };
@@ -270,7 +271,7 @@ async function call(handler, body, opts) {
     r.status === 409 && /Activate it/.test(r.body.error));
 
   await call(flows, { action: 'setStatus', flowId, status: 'active' });
-  db.contacts.push({ id: 'ct1', email: 'a@x.test', user_id: 'user-1', status: 'subscribed', firstname: 'Ada' });
+  db.contacts.push({ id: 'ct1', email: 'a@x.test', user_id: 'user-1', status: 'subscribed', first_name: 'Ada' });
   db.contacts.push({ id: 'ct2', email: 'gone@x.test', user_id: 'user-1', status: 'unsubscribed' });
 
   r = await call(flows, { action: 'enrol', flowId,

@@ -145,6 +145,13 @@ Fixes the highest-severity finding from the 2026 Agent Audit: campaign sends had
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `UNSUBSCRIBE_SECRET` | Signs the token in every unsubscribe link so it can't be forged. Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset — set a dedicated value if you'd rather not reuse that key for this. | Recommended |
+| `SCORECARD_SECRET` | Signs the start token on public scorecard and waitlist pages (`/s/<slug>`), which stops instant bot submissions. Falls back to `UNSUBSCRIBE_SECRET`, then `SUPABASE_SERVICE_ROLE_KEY`. | Optional |
+| `GEONAMES_USERNAME` | Blade area sweeps: the free GeoNames account that lists every state, county and town in a country. Sign up at geonames.org, then enable "free web services" on the account page. | Required for area sweeps |
+| `SCREENSHOT_API_KEY` | The hosted screenshot service used by Nancy and by Chase's Site Capture (`/agents/chase-capture.html`). | Required for screenshots |
+| `SCREENSHOT_PROVIDER` | `screenshotone` (recommended for full-page captures: 2×, scroll-to-load, sticky-header CSS, cookie-banner blocking), `browserless`, or `screenshotlayer` (the default; 1× only, can't hide sticky headers). Site Capture tells you which options the provider couldn't honour. Set up R2 to keep captures; without it a capture is returned once and not stored. | Optional |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Blade area sweeps writing into the Webese state trackers: the same service-account JSON the Webese Outreach platform uses (`WEBESE_GOOGLE_SERVICE_ACCOUNT_JSON` there), raw or base64. Each "Webese <State> Outreach Tracker" must be shared with its email as an Editor. | Only for Webese tracker writes |
+| `WEBESE_DRIVE_FOLDER_ID` | Optional: only look for trackers in this Drive folder, as the Outreach platform does. | Optional |
+| `WEBESE_TRACKER_USER_IDS` | Comma-separated Audema user ids (besides admins) allowed to write sweeps into the Webese trackers. | Optional |
 | `RESEND_WEBHOOK_SECRET` | The `whsec_...` signing secret Resend gives you when you add a webhook endpoint | ✅ For bounce/complaint tracking |
 | `PUBLIC_APP_URL` | Your deployment's public base URL, e.g. `https://app.yourdomain.com`. Falls back to the request's own `Host` header if unset — set this explicitly if you're behind a proxy/custom domain where that header isn't reliable. | Optional |
 
@@ -171,7 +178,7 @@ The "✨ Generate Ad Image" button on each ad card in Social Studio (`web/agents
 | Variable Name | Description | Required |
 |--------------|-------------|----------|
 | `OPENAI_API_KEY` | Same key already used by `api/openai.js` — no separate key needed | ✅ For AI ad images |
-| `OPENAI_IMAGE_MODEL` | Image model to request | Optional (defaults to `gpt-image-1`) |
+| `OPENAI_IMAGE_MODEL` | Image model to request (ad images and Nancy's OpenAI images) | Optional (defaults to `gpt-image-2.5-flare`) |
 
 Without `OPENAI_API_KEY`, the button returns a clear "not configured" error — a free, instant, no-API-key "quick template" fallback (deterministic SVG background + typography, via `api/render-social-image.js`) stays available underneath every card either way, clearly labeled as a placeholder rather than a finished ad.
 
@@ -731,6 +738,38 @@ No paid API required — it fetches the tracked page's HTML directly and extract
 2. No new env vars beyond `CRON_SECRET` and the BuiltWith-tool password gate, both already configured above.
 3. The Vercel Cron entry fires every minute (`* * * * *`) — see the four diagnostic steps above if it doesn't appear to be running.
 4. Open the Load Testing Agent from the Tools page (`/tools.html`), behind the same password as BuiltWith research.
+
+---
+
+## Autopilot — agents that do the work, repair themselves, and say what happened
+
+SEO Autopilot (`/seo/autopilot.html`) picks a topic, writes the article, checks it and publishes it to the business's own website on the business's schedule. It asks for approval on the first two articles, then publishes on its own (the business can choose "always ask" or "on its own from the start"). `api/cron-autopilot.js` runs every 5 minutes and moves every piece of work forward one step at a time. Faults are repaired on their own (server errors and rate limits are retried with growing waits, a failed AI answer is asked again). A refused login pauses the work and asks the business to reconnect. Everything shows in **What happened** (`/inbox.html`), and anything that needs a person is also emailed.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `CONNECTIONS_ENCRYPTION_KEY` | Any long random string (32+ characters, e.g. `openssl rand -base64 48`). Encrypts each business's website logins (AES-256-GCM) before they are stored. **Without it, no connection can be saved.** Changing it later means every business has to reconnect. | ✅ Yes |
+| `CRON_SECRET` | Same bearer token as the other cron jobs | ✅ Yes |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above | ✅ Yes |
+| `ANTHROPIC_API_KEY` | Already required above (writes the articles) | ✅ Yes |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Already used for email. Sends "needs you" and "couldn't finish" alerts. Without them, alerts appear only in What happened. | Recommended |
+| `APP_BASE_URL` | Your app's address (e.g. `https://app.audema.ai`), used for the link in alert emails | Recommended |
+| `SHOPIFY_API_VERSION` | Shopify Admin API version (default `2025-01`) | Optional |
+
+**The other agents on the same engine** (`/autopilot.html`): Analytics Brain writes a report on the business's real numbers, CRO Lab proposes A/B tests for its pages, and Social Studio drafts the next batch of posts. Each runs on its own days and repairs faults the same way. Each ends as a mission artifact the business approves from What happened. They always ask, because their work goes out to customers or makes claims about the business's numbers. These use `ANTHROPIC_API_KEY` and need `supabase-mission-artifacts.sql`.
+
+**Background jobs now report too:** Blade area sweeps (finished, or paused by a Google Places quota), competitor-watch changes, scheduled posts that couldn't go out, and email-flow steps that couldn't send. Each shows in What happened (deduplicated so a repeating problem is one item) and is emailed when it needs the business.
+
+### Setup
+
+1. Run `supabase-autopilot.sql` in Supabase Dashboard → SQL Editor (it is also in `supabase-install-all.sql`). It creates `connections`, `autopilots`, `agent_jobs` and `activity_events`, with row-level security on and no browser policies: only the API reads them, so a browser never sees an encrypted login. It also lets `seo_articles` record where each article was published.
+2. Add `CONNECTIONS_ENCRYPTION_KEY` (and `APP_BASE_URL`) in Vercel, then redeploy.
+3. The cron runs at `1-59/5 * * * *`. Like the other frequent cron jobs here, it needs a Pro plan and fires only on the **Production** deployment.
+4. A business connects its site under **Connections** (`/connections.html`). Each login is tested before it is saved:
+   - **WordPress** (including GoDaddy Managed WordPress): username + an Application Password.
+   - **Webflow**: a site API token with CMS read/write. The blog collection and its fields are found automatically.
+   - **Shopify**: the store's `.myshopify.com` address + a custom app's Admin API token (`read_content`, `write_content`).
+   - **Wix**: an API key with Wix Blog permission + the Site ID.
+   - **GoDaddy Website Builder**: no publishing API exists, so each article is prepared ready to paste, and the business is told when one is ready.
 
 ---
 

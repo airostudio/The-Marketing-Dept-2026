@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Autopilot | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/autopilot.css">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/writing-language.js"></script>
+<script src="/js/intelligence-engine.js"></script>
+<script src="/js/autopilot-ui.js"></script>
+</head>
+<body>
+<nav class="ap-nav"><a href="/seo/content-engine.html">← SEO Content Engine</a><a href="/autopilot.html">All autopilots</a><a href="/inbox.html">What happened</a><a href="/connections.html">Connections</a><a href="/scotty.html">Scotty</a></nav>
+<div class="ap-wrap">
+  <h1>🚀 SEO Autopilot</h1>
+  <p class="ap-sub">Audema's SEO agent does the work, not just the plan. On your schedule it picks a topic you can win, writes the article in your voice, checks it (made-up claims, banned phrases, placeholders, links that aren't yours), and publishes it to your website. It starts by asking for your OK on the first articles; once you've approved a few, it publishes on its own. When something goes wrong it repairs what it can, and tells you what happened in <a href="/inbox.html" style="color:var(--ap-accent)">What happened</a>.</p>
+  <div id="scopeWarn" class="ap-card ap-hidden"><span class="ap-warn">Pick a business (Business Brain profile) or project first.</span></div>
+
+  <div class="ap-card">
+    <div class="ap-row" style="justify-content:space-between;"><h2 style="margin:0;">Settings</h2><label class="ap-row"><input type="checkbox" id="enabled" checked> <strong>Autopilot on</strong></label></div>
+    <div class="ap-grid">
+      <div><label class="ap-f">Publish to</label><select id="connection"><option value="">No website connected yet</option></select><div class="ap-muted" style="margin-top:4px;"><a href="/connections.html" style="color:var(--ap-accent)">Connect WordPress, Webflow, Shopify, Wix or GoDaddy →</a></div></div>
+      <div><label class="ap-f">Publish as</label><select id="publishAs"><option value="publish">Live posts</option><option value="draft">Drafts in my CMS (I'll press publish)</option></select></div>
+    </div>
+    <label class="ap-f">Days</label>
+    <div class="ap-row" id="days"></div>
+    <div class="ap-grid">
+      <div><label class="ap-f">Time of day</label><select id="hour"></select></div>
+      <div><label class="ap-f">Time zone</label><input id="tz"></div>
+    </div>
+    <label class="ap-f">How much it does on its own</label>
+    <label class="ap-row ap-muted"><input type="radio" name="mode" value="earn_trust" checked> Ask me to approve the first articles, then publish on its own (recommended) <span id="trustNote"></span></label>
+    <label class="ap-row ap-muted"><input type="radio" name="mode" value="approve"> Always ask me first</label>
+    <label class="ap-row ap-muted"><input type="radio" name="mode" value="auto"> Publish on its own from the start</label>
+    <div class="ap-muted" style="margin-top:6px;">Whatever you choose, an article a check flags as risky always waits for you.</div>
+
+    <label class="ap-f">Topics you want covered first (one per line, optional)</label>
+    <textarea id="topics" rows="3" placeholder="emergency plumber vs regular plumber&#10;how to unblock a drain"></textarea>
+    <div class="ap-grid">
+      <div><label class="ap-f">Website address (if not connected)</label><input id="siteUrl" placeholder="https://example.com"></div>
+      <div><label class="ap-f">Writing language</label><select id="language"></select></div>
+      <div><label class="ap-f">Where your customers are</label><select id="region"><option>Global</option><option>US</option><option>UK</option><option>EU</option><option>AU</option><option>CA</option></select></div>
+    </div>
+    <label class="ap-f">Brand voice (optional)</label>
+    <input id="brandVoice" placeholder="Friendly, plain-spoken, no jargon">
+    <div class="ap-grid">
+      <div><label class="ap-f">Phrases you never use</label><textarea id="neverSay" rows="2"></textarea></div>
+      <div><label class="ap-f">Competitors (never named as worse)</label><textarea id="competitors" rows="2"></textarea></div>
+    </div>
+    <div class="ap-row" style="margin-top:14px;"><button class="ap-btn" id="save">Save</button><button class="ap-btn ghost" id="runNow" disabled>Write one now</button><span class="ap-muted" id="msg"></span></div>
+    <div class="ap-muted" id="next" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="ap-card">
+    <h2>Recent work</h2>
+    <div id="jobs" class="ap-muted">Nothing yet.</div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const { $, esc, safeHref, call, scope } = window.AutopilotUI;
+  const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const STATUS = { queued: 'queued', running: 'working', waiting_approval: 'waiting for your OK', waiting_permission: 'waiting for a connection', done: 'done', failed: 'failed', cancelled: 'rejected' };
+  let apId = null;
+
+  $('days').innerHTML = DAY.map((d, i) => `<label class="ap-row ap-muted"><input type="checkbox" value="${i}"${i === 2 || i === 5 ? ' checked' : ''}> ${d}</label>`).join('');
+  $('hour').innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}"${h === 9 ? ' selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('');
+  try { $('tz').value = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { $('tz').value = 'UTC'; }
+  const langs = (window.WritingLanguage && window.WritingLanguage.list && window.WritingLanguage.list()) || [];
+  $('language').innerHTML = '<option value="">Same as my Business Brain</option>' + langs.map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
+  // Banned phrases and competitors start from the Business Brain.
+  try { const b = window.IntelligenceEngine.getContextBundle(); $('neverSay').value = (b.neverSay || []).join('\n'); $('competitors').value = (b.competitorNames || []).join('\n'); if (!$('language').value && b.language) $('language').value = b.language; } catch { /* no brain yet */ }
+
+  function fill(d) {
+    $('connection').innerHTML = '<option value="">No website connected yet</option>' + d.connections.map(c => `<option value="${esc(c.id)}">${esc(c.label)}${c.status !== 'active' ? ' (needs reconnecting)' : ''}</option>`).join('');
+    const a = d.autopilot;
+    if (a) {
+      apId = a.id; $('runNow').disabled = false;
+      $('enabled').checked = a.enabled; $('connection').value = a.connectionId || '';
+      $('days').querySelectorAll('input').forEach(i => { i.checked = (a.cadence.days || []).includes(Number(i.value)); });
+      $('hour').value = a.cadence.hour; $('tz').value = a.cadence.timezone;
+      document.querySelector(`input[name=mode][value="${a.mode}"]`).checked = true;
+      const s = a.settings || {};
+      $('topics').value = (s.topics || []).join('\n'); $('siteUrl').value = s.siteUrl || ''; $('brandVoice').value = s.brandVoice || '';
+      $('language').value = s.language || ''; $('region').value = s.region || 'Global'; $('publishAs').value = s.publishAs || 'publish';
+      if ((s.neverSay || []).length) $('neverSay').value = s.neverSay.join('\n');
+      if ((s.competitorNames || []).length) $('competitors').value = s.competitorNames.join('\n');
+      $('trustNote').textContent = a.mode === 'earn_trust' ? `— ${a.trustEarned} of ${a.trustRequired} approved` : '';
+      $('next').textContent = a.pausedReason ? `Paused: ${a.pausedReason}` : a.enabled && a.nextRunAt ? `Next article: ${new Date(a.nextRunAt).toLocaleString()}` : 'Autopilot is off.';
+    }
+    $('jobs').innerHTML = d.jobs.length ? `<table class="ap-table"><tbody>${d.jobs.map(j => {
+      const url = j.result && safeHref(j.result.url);
+      return `<tr><td><strong>${esc(j.title || 'Choosing a topic…')}</strong><div class="ap-muted">${esc(new Date(j.createdAt).toLocaleString())}${j.repairs ? ` · fixed ${esc(j.repairs)} problem${j.repairs === 1 ? '' : 's'} on the way` : ''}</div>${j.status === 'failed' && j.lastError ? `<div class="ap-warn">${esc(j.lastError)}</div>` : ''}</td>
+        <td><span class="ap-pill ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'warn'}">${esc(STATUS[j.status] || j.status)}</span></td>
+        <td>${url ? `<a class="ap-btn ghost" href="${esc(url)}" target="_blank" rel="noopener">View post</a>` : j.status === 'waiting_approval' ? '<a class="ap-btn" href="/inbox.html">Review</a>' : j.status === 'failed' ? `<button class="ap-btn ghost" data-retry="${esc(j.id)}">Try again</button>` : ''}</td></tr>`;
+    }).join('')}</tbody></table>` : 'Nothing yet.';
+  }
+
+  async function load() {
+    const s = scope();
+    if (!s.intelProfileId && !s.projectId) { $('scopeWarn').classList.remove('ap-hidden'); return; }
+    try { fill(await call('/api/autopilot', { action: 'get', agent: 'seo', ...s })); }
+    catch (e) { $('msg').textContent = e.message; }
+  }
+
+  $('save').addEventListener('click', async () => {
+    $('msg').textContent = 'Saving…';
+    try {
+      const d = await call('/api/autopilot', {
+        action: 'save', agent: 'seo', ...scope(), enabled: $('enabled').checked, connectionId: $('connection').value || undefined,
+        mode: document.querySelector('input[name=mode]:checked').value,
+        cadence: { days: [...$('days').querySelectorAll('input:checked')].map(i => Number(i.value)), hour: Number($('hour').value), timezone: $('tz').value.trim() },
+        settings: { topics: $('topics').value, siteUrl: $('siteUrl').value, brandVoice: $('brandVoice').value, language: $('language').value, region: $('region').value, neverSay: $('neverSay').value, competitorNames: $('competitors').value, publishAs: $('publishAs').value },
+      });
+      fill(d); $('msg').textContent = 'Saved.';
+    } catch (e) { $('msg').textContent = e.message; }
+  });
+  $('runNow').addEventListener('click', async () => {
+    try { const r = await call('/api/autopilot', { action: 'runNow', id: apId }); $('msg').textContent = r.note; load(); }
+    catch (e) { $('msg').textContent = e.message; }
+  });
+  $('jobs').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-retry]'); if (!b) return;
+    try { const r = await call('/api/autopilot', { action: 'retry', jobId: b.dataset.retry }); $('msg').textContent = r.note; load(); } catch (e) { $('msg').textContent = e.message; }
+  });
+  load();
+  setInterval(() => { if (!document.hidden && apId) load(); }, 60000);
+})();
+</script>
+</body>
+</html>

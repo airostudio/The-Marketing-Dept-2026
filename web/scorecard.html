@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scorecard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  The public page a business's visitors land on: /s/<slug> (rewritten here by
+  vercel.json). It loads the questions from /api/scorecard-public, asks them
+  one at a time, and shows the visitor's result (scorecard) or their place in
+  line (waitlist). Every piece of business- or visitor-supplied text is put on
+  the page with textContent, never as HTML.
+-->
+<style>
+  :root { --bg:#f7f7fb; --card:#fff; --text:#16161d; --muted:#5d5d6e; --line:#e4e4ee; --accent:#5b4bdb; --accent-ink:#fff; --good:#16a34a; --mid:#d97706; --low:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f0f14; --card:#1a1a22; --text:#f2f2f7; --muted:#a3a3b5; --line:#2c2c38; --accent:#8b7cf6; --accent-ink:#0f0f14; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; line-height:1.55; }
+  .wrap { max-width:640px; margin:0 auto; padding:32px 16px 48px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:28px 24px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  .biz { font-size:13px; color:var(--muted); font-weight:600; letter-spacing:.02em; margin-bottom:10px; }
+  h1 { font-size:28px; line-height:1.2; margin:0 0 10px; }
+  h2 { font-size:21px; line-height:1.3; margin:0 0 6px; }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  ul.bullets { margin:0 0 20px; padding-left:20px; }
+  ul.bullets li { margin-bottom:6px; }
+  .btn { display:inline-block; background:var(--accent); color:var(--accent-ink); border:0; border-radius:10px; padding:13px 22px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; }
+  .btn[disabled] { opacity:.5; cursor:default; }
+  .btn.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  .row { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top:22px; }
+  .progress { height:6px; background:var(--line); border-radius:6px; overflow:hidden; margin-bottom:18px; }
+  .progress > div { height:100%; background:var(--accent); transition:width .25s; }
+  .step { font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .help { color:var(--muted); font-size:14px; margin:0 0 12px; }
+  .opt { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:8px; font:inherit; cursor:pointer; }
+  .opt.on { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .scale { display:flex; flex-wrap:wrap; gap:6px; }
+  .scale .opt { width:auto; min-width:44px; justify-content:center; margin:0; }
+  .scale-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:6px; }
+  input[type=text], input[type=email], textarea { width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--text); font:inherit; }
+  label.field { display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  .consent { display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--muted); margin-top:16px; }
+  .consent input { margin-top:4px; width:18px; height:18px; flex:none; }
+  .err { color:var(--low); font-size:14px; margin-top:12px; min-height:1em; }
+  .hp { position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; }
+  .score { display:flex; align-items:center; gap:18px; margin:6px 0 16px; }
+  .ring { width:96px; height:96px; flex:none; }
+  .pct { font-size:34px; font-weight:800; }
+  .bar { height:8px; background:var(--line); border-radius:8px; overflow:hidden; margin:4px 0 12px; }
+  .bar > div { height:100%; background:var(--accent); }
+  .msg { white-space:pre-wrap; }
+  .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:18px; }
+  .foot a { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card" id="card"><p class="sub">Loading…</p></div>
+<div class="foot" id="foot"></div></div>
+<script>
+(function () {
+  'use strict';
+  var card = document.getElementById('card');
+  var foot = document.getElementById('foot');
+  var params = new URLSearchParams(location.search);
+  var m = location.pathname.match(/^\/s\/([a-z0-9-]+)\/?$/);
+  var slug = (m && m[1]) || params.get('slug') || '';
+  var state = { sc: null, token: '', i: 0, answers: {} };
+
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(c); });
+    return n;
+  }
+  function show(nodes) { card.textContent = ''; nodes.forEach(function (x) { if (x) card.appendChild(x); }); window.scrollTo(0, 0); }
+  function plain(msg) { show([el('p', { class: 'sub', text: msg })]); }
+  function safeHttps(u) { try { var x = new URL(u); return x.protocol === 'https:' ? x.href : ''; } catch (e) { return ''; } }
+
+  function setFoot() {
+    foot.textContent = '';
+    var s = state.sc;
+    foot.appendChild(document.createTextNode((s.kind === 'waitlist' ? 'Waitlist' : 'Scorecard') + ' by ' + s.businessName));
+    var p = safeHttps(s.privacyUrl);
+    if (p) { foot.appendChild(document.createTextNode(' · ')); foot.appendChild(el('a', { href: p, target: '_blank', rel: 'noopener', text: 'Privacy' })); }
+  }
+
+  function intro() {
+    var s = state.sc, i = s.intro || {};
+    document.title = s.title || 'Scorecard';
+    show([
+      el('div', { class: 'biz', text: s.businessName }),
+      el('h1', { text: i.headline || s.title }),
+      i.subheading ? el('p', { class: 'sub', text: i.subheading }) : null,
+      (i.bullets && i.bullets.length) ? el('ul', { class: 'bullets' }, i.bullets.map(function (b) { return el('li', { text: b }); })) : null,
+      el('p', { class: 'sub', text: s.questions.length + ' quick question' + (s.questions.length === 1 ? '' : 's') + (s.kind === 'waitlist' ? '.' : ', then your personal result.') }),
+      el('button', { class: 'btn', text: i.ctaLabel || 'Start', onclick: function () { state.i = 0; question(); } }),
+    ]);
+  }
+
+  function answered(q) {
+    var a = state.answers[q.id];
+    if (q.type === 'multi') return Array.isArray(a) && a.length > 0;
+    if (q.type === 'text') return typeof a === 'string' && a.trim().length > 0;
+    return a !== undefined && a !== null && a !== '';
+  }
+
+  function question() {
+    var qs = state.sc.questions, q = qs[state.i];
+    var next = el('button', { class: 'btn', text: state.i === qs.length - 1 ? 'Continue' : 'Next' });
+    var err = el('div', { class: 'err' });
+    function refreshNext() { next.disabled = q.required && !answered(q); }
+    var body = [];
+    if (q.type === 'single' || q.type === 'multi') {
+      q.options.forEach(function (o) {
+        var b = el('button', { class: 'opt', type: 'button', text: o.label });
+        var on = function () { var a = state.answers[q.id]; return q.type === 'multi' ? (a || []).indexOf(o.id) >= 0 : a === o.id; };
+        if (on()) b.classList.add('on');
+        b.addEventListener('click', function () {
+          if (q.type === 'multi') {
+            var a = (state.answers[q.id] || []).slice(); var at = a.indexOf(o.id);
+            if (at >= 0) a.splice(at, 1); else a.push(o.id);
+            state.answers[q.id] = a; b.classList.toggle('on');
+          } else {
+            state.answers[q.id] = o.id;
+            Array.prototype.forEach.call(b.parentNode.querySelectorAll('.opt'), function (x) { x.classList.remove('on'); });
+            b.classList.add('on');
+          }
+          refreshNext();
+        });
+        body.push(b);
+      });
+      body = [el('div', null, body)];
+    } else if (q.type === 'scale') {
+      var row = el('div', { class: 'scale' });
+      for (var v = q.min; v <= q.max; v++) (function (v) {
+        var b = el('button', { class: 'opt' + (state.answers[q.id] === v ? ' on' : ''), type: 'button', text: String(v) });
+        b.addEventListener('click', function () {
+          state.answers[q.id] = v;
+          Array.prototype.forEach.call(row.querySelectorAll('.opt'), function (x) { x.classList.remove('on'); });
+          b.classList.add('on'); refreshNext();
+        });
+        row.appendChild(b);
+      })(v);
+      body = [row, (q.minLabel || q.maxLabel) ? el('div', { class: 'scale-labels' }, [el('span', { text: q.minLabel || '' }), el('span', { text: q.maxLabel || '' })]) : null];
+    } else {
+      var t = el('textarea', { rows: '4', maxlength: '500' });
+      t.value = state.answers[q.id] || '';
+      t.addEventListener('input', function () { state.answers[q.id] = t.value; refreshNext(); });
+      body = [t];
+    }
+    next.addEventListener('click', function () {
+      if (q.required && !answered(q)) { err.textContent = 'Please answer to continue.'; return; }
+      if (state.i < qs.length - 1) { state.i++; question(); } else details();
+    });
+    refreshNext();
+    show([
+      el('div', { class: 'progress' }, [el('div', { style: 'width:' + Math.round((state.i / (qs.length + 1)) * 100) + '%' })]),
+      el('div', { class: 'step', text: 'Question ' + (state.i + 1) + ' of ' + qs.length + (q.required ? '' : ' · optional') }),
+      el('h2', { text: q.prompt }),
+      q.help ? el('p', { class: 'help', text: q.help }) : null,
+    ].concat(body).concat([
+      err,
+      el('div', { class: 'row' }, [
+        state.i > 0 ? el('button', { class: 'btn ghost', type: 'button', text: 'Back', onclick: function () { state.i--; question(); } }) : el('span'),
+        next,
+      ]),
+    ]));
+  }
+
+  function details() {
+    var s = state.sc;
+    var name = el('input', { type: 'text', autocomplete: 'given-name', maxlength: '80' });
+    var email = el('input', { type: 'email', autocomplete: 'email', maxlength: '254', required: 'required' });
+    var consent = el('input', { type: 'checkbox' });   // unticked: seeing a result never depends on agreeing to emails
+    var hp = el('input', { type: 'text', name: 'website', tabindex: '-1', autocomplete: 'off' });
+    var err = el('div', { class: 'err' });
+    var go = el('button', { class: 'btn', text: s.kind === 'waitlist' ? 'Join the waitlist' : 'See my result' });
+    go.addEventListener('click', function () {
+      err.textContent = '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim())) { err.textContent = 'Please enter a valid email address.'; return; }
+      go.disabled = true; go.textContent = 'Sending…';
+      fetch('/api/scorecard-public', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, answers: state.answers, email: email.value.trim(), firstName: name.value.trim(), consent: consent.checked, startToken: state.token, website: hp.value, src: params.get('src') || '', c: params.get('c') || '' }),
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+        if (!x.ok) { err.textContent = (x.d && x.d.error) || 'Something went wrong. Please try again.'; go.disabled = false; go.textContent = 'Try again'; return; }
+        result(x.d);
+      }).catch(function () { err.textContent = 'Could not reach the server. Please try again.'; go.disabled = false; go.textContent = 'Try again'; });
+    });
+    show([
+      el('div', { class: 'progress' }, [el('div', { style: 'width:' + Math.round((s.questions.length / (s.questions.length + 1)) * 100) + '%' })]),
+      el('h2', { text: s.kind === 'waitlist' ? 'Where should we reach you?' : 'Where should we send your result?' }),
+      el('p', { class: 'help', text: s.kind === 'waitlist' ? 'Your answers help ' + s.businessName + ' build the right thing.' : 'Your result shows on the next screen.' }),
+      el('label', { class: 'field', text: 'First name (optional)' }), name,
+      el('label', { class: 'field', text: 'Email' }), email,
+      el('div', { class: 'hp', 'aria-hidden': 'true' }, [hp]),
+      el('label', { class: 'consent' }, [consent, el('span', { text: s.consentLabel })]),
+      err,
+      el('div', { class: 'row' }, [el('button', { class: 'btn ghost', type: 'button', text: 'Back', onclick: function () { state.i = s.questions.length - 1; question(); } }), go]),
+    ]);
+  }
+
+  function ring(pct) {
+    var ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 36 36'); svg.setAttribute('class', 'ring');
+    var bg = document.createElementNS(ns, 'circle'), fg = document.createElementNS(ns, 'circle');
+    [bg, fg].forEach(function (c) { c.setAttribute('cx', '18'); c.setAttribute('cy', '18'); c.setAttribute('r', '15.9'); c.setAttribute('fill', 'none'); c.setAttribute('stroke-width', '3.2'); });
+    bg.setAttribute('stroke', 'var(--line)');
+    fg.setAttribute('stroke', pct >= 70 ? 'var(--good)' : pct >= 40 ? 'var(--mid)' : 'var(--low)');
+    fg.setAttribute('stroke-dasharray', pct + ' ' + (100 - pct)); fg.setAttribute('stroke-dashoffset', '25'); fg.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(bg); svg.appendChild(fg); return svg;
+  }
+
+  function result(d) {
+    var s = state.sc, note = d.note ? el('p', { class: 'help', text: d.note }) : null;
+    if (d.kind === 'waitlist') {
+      show([
+        el('div', { class: 'biz', text: s.businessName }),
+        el('h1', { text: "You're on the list" }),
+        d.position ? el('p', { class: 'sub', text: 'You are number ' + d.position + ' on the waitlist.' }) : null,
+        el('p', { class: 'msg', text: d.message || '' }),
+        d.consented ? null : el('p', { class: 'help', text: "You didn't tick the box to hear from us, so we won't email you. Your answers still count." }),
+        note,
+      ]);
+      return;
+    }
+    var r = d.result || {};
+    var cta = r.cta && safeHttps(r.cta.url) ? el('a', { class: 'btn', href: safeHttps(r.cta.url), target: '_blank', rel: 'noopener', text: r.cta.label || 'Next step' }) : null;
+    show([
+      el('div', { class: 'biz', text: s.businessName }),
+      el('h1', { text: 'Your result' }),
+      r.percent != null ? el('div', { class: 'score' }, [ring(r.percent), el('div', null, [el('div', { class: 'pct', text: r.percent + '%' }), r.band ? el('div', { text: r.band.title }) : null])]) : null,
+      r.band && r.band.message ? el('p', { class: 'msg', text: r.band.message }) : null,
+      (r.categories && r.categories.length) ? el('div', null, r.categories.map(function (c) {
+        return el('div', null, [el('div', { class: 'step', text: c.name + ' · ' + (c.percent == null ? '–' : c.percent + '%') }), el('div', { class: 'bar' }, [el('div', { style: 'width:' + (c.percent || 0) + '%' })])]);
+      })) : null,
+      r.band && r.band.nextStep ? el('p', { text: r.band.nextStep }) : null,
+      cta,
+      d.consented ? el('p', { class: 'help', text: s.businessName + ' may follow up by email. You can unsubscribe any time.' }) : el('p', { class: 'help', text: "You didn't tick the box to hear from us, so we won't email you." }),
+      note,
+    ]);
+  }
+
+  if (!/^[a-z0-9-]{3,60}$/.test(slug)) { plain('This page could not be found.'); return; }
+  fetch('/api/scorecard-public?slug=' + encodeURIComponent(slug)).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+    if (!x.ok) { plain('This page could not be found.'); return; }
+    if (x.d.status === 'closed') { show([el('h1', { text: x.d.title || 'Closed' }), el('p', { class: 'sub', text: 'This is no longer taking answers. Thank you for your interest' + (x.d.businessName ? ' in ' + x.d.businessName : '') + '.' })]); return; }
+    state.sc = x.d.scorecard; state.token = x.d.startToken;
+    setFoot(); intro();
+  }).catch(function () { plain('This page could not be loaded. Please check your connection and refresh.'); });
+})();
+</script>
+</body>
+</html>

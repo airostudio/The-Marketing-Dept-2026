@@ -16,6 +16,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 
 const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
+const { directive: languageDirective } = require('./_lib/writing-language.js');
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 15;
@@ -59,12 +60,12 @@ module.exports = withFailureReporting('api/nancy-edit-post', async function hand
   // it needs the caller to exist before it runs.
   if (rateLimited(req, res, { name: 'nancy-edit-post', max: 15, windowMs: 60 * 1000, auth: auth })) return;
 
-  const { post, instruction, businessProfile = {}, brand = {} } = req.body || {};
+  const { post, instruction, businessProfile = {}, brand = {}, language = '' } = req.body || {};
   if (!post || !instruction) return res.status(400).json({ error: 'post and instruction are required' });
 
   const guidance = INSTRUCTION_GUIDANCE[instruction.toLowerCase()] || `Follow this instruction: ${instruction}`;
 
-  const system = `You revise a single Instagram post's copy. ${guidance} Keep the same content_pillar/objective for this day — you're refining, not replacing the concept. Avoid AI clichés ("in today's fast-paced world", "game changer", "unlock the power of", "whether you're...", excessive emojis/hashtags). Sound like this specific business.`;
+  const system = `You revise a single Instagram post's copy. ${guidance} Keep the same content_pillar/objective for this day — you're refining, not replacing the concept. Avoid AI clichés ("in today's fast-paced world", "game changer", "unlock the power of", "whether you're...", excessive emojis/hashtags). Sound like this specific business.${languageDirective(language) ? ' ' + languageDirective(language) : ''}`;
 
   const user = `BUSINESS: ${JSON.stringify(businessProfile)}\nBRAND VOICE: ${JSON.stringify(brand.brand_personality || businessProfile.brand_voice || [])}\n\nCURRENT POST:\n${JSON.stringify(post, null, 2)}\n\nInstruction: ${instruction}`;
 

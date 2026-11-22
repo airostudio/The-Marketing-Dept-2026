@@ -69,7 +69,7 @@ const AGENT_REGISTRY = [
   { key: 'sales', label: 'Sales Intelligence (Chase)', discipline: 'sales/lead intelligence and outbound',
     currentApproach: 'LLM-generated prospect research, outreach drafts, and lead scoring from business-context + prospect input; hands qualified prospects to Beeker\'s audience segments.' },
   { key: 'social', label: 'Social Studio / Ad Creative Lab (Pulse)', discipline: 'organic social media and paid social ad creative',
-    currentApproach: 'Organic posts generated via Claude with structured output (recently updated to bias toward carousels/Reels, keyword-rich captions over hashtag stuffing, and UGC prompts); paid ad copy generated via Claude across 8 direct-response frameworks; real AI-generated ad images via OpenAI gpt-image-1, credit-metered; draft-only (never-active) campaign push to Meta\'s Marketing API via a related MCP tool.' },
+    currentApproach: 'Organic posts generated via Claude with structured output (recently updated to bias toward carousels/Reels, keyword-rich captions over hashtag stuffing, and UGC prompts); paid ad copy generated via Claude across 8 direct-response frameworks; real AI-generated ad images via OpenAI gpt-image-2.5-flare, credit-metered; draft-only (never-active) campaign push to Meta\'s Marketing API via a related MCP tool.' },
   { key: 'linkedin', label: 'LinkedIn Outreach (Mex)', discipline: 'LinkedIn prospecting and outreach',
     currentApproach: 'LLM-generated connection request and outreach message drafts, plus a manual prospect pipeline (stage tracking: new/connected/messaged/replied/meeting/won/lost) that hands qualified prospects to Beeker. No direct LinkedIn API/automation integration — messages are drafted for the user to send manually.' },
   { key: 'video', label: 'Video Studio (Reel)', discipline: 'short-form marketing video',
@@ -112,10 +112,10 @@ const MODEL_REGISTRY = [
     purpose: 'general chat/completion',
   },
   {
-    id: 'gpt-image-1',
+    id: 'gpt-image-2.5-flare',
     provider: 'openai',
     kind: 'image',
-    usedIn: 'api/generate-ad-image.js (OPENAI_IMAGE_MODEL default) and api/_lib/nancy-providers.js imageGenProvider \'openai\' branch',
+    usedIn: 'api/generate-ad-image.js and api/_lib/nancy-providers.js imageGenProvider \'openai\' branch (both env-overridable via OPENAI_IMAGE_MODEL)',
     purpose: 'ad image generation',
   },
   {

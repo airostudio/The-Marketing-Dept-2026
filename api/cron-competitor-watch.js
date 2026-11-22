@@ -30,6 +30,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
+const notify = require('./_lib/autopilot/notify.js');
 
 const MAX_WATCHES_PER_RUN = 150; // keeps this inside Vercel's 60s function budget
 const PER_FETCH_TIMEOUT_MS = 8000;
@@ -117,6 +118,7 @@ async function processWatch(supabaseUrl, serviceKey, watch) {
   for (const change of changes) {
     await sbRest(supabaseUrl, serviceKey, 'POST', '/competitor_changes', { watch_id: watch.id, ...change });
   }
+  await notify.competitorChanged((m, p, b) => sbRest(supabaseUrl, serviceKey, m, p, b), watch, changes);
 
   return { watchId: watch.id, changed: changes.length > 0, changeTypes: changes.map(c => c.change_type) };
 }

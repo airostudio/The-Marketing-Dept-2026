@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chase · Site Capture | Audema</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --text:#e7ebf3; --muted:#9aa4b5; --accent:#4f8cff; --warn:#fbbf24; --bad:#f87171; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  nav { display:flex; gap:14px; padding:14px 20px; border-bottom:1px solid var(--line); font-size:13px; }
+  nav a { color:var(--muted); text-decoration:none; }
+  .app { max-width:960px; margin:0 auto; padding:32px 16px 80px; }
+  header h1 { margin:0 0 6px; font-size:30px; }
+  .tag { color:var(--muted); margin:0 0 24px; line-height:1.5; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:20px; }
+  label { display:block; margin-bottom:14px; }
+  label span { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  input[type=text], input[type=number], select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0d1016; color:var(--text); font-size:15px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px; }
+  .checks { display:flex; flex-wrap:wrap; gap:16px; margin:4px 0 18px; }
+  .check { display:flex; align-items:center; gap:8px; color:var(--text); font-size:14px; margin:0; }
+  button, .btn { padding:12px 22px; border-radius:10px; border:0; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
+  button:disabled { opacity:.6; cursor:progress; }
+  .btn.small { padding:8px 12px; font-size:13px; }
+  .btn.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
+  .status { color:var(--muted); margin:12px 0 0; min-height:20px; }
+  .notes { color:var(--warn); font-size:13px; margin:8px 0 0; padding-left:18px; }
+  .hidden { display:none; }
+  .result-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .result-head h2 { margin:0; font-size:18px; }
+  .meta { color:var(--muted); font-size:13px; }
+  .preview { background:#0d1016; border:1px solid var(--line); border-radius:10px; padding:10px; max-height:70vh; overflow:auto; }
+  .preview img { display:block; max-width:100%; height:auto; border-radius:6px; }
+  .recent { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+  .recent a { color:var(--text); text-decoration:none; font-size:12px; }
+  .recent img { width:100%; height:120px; object-fit:cover; object-position:top; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:4px; }
+  @media (max-width:700px) { .row { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<nav><a href="/agents/sales-agent.html">← Chase</a><a href="/agents/blade-agent.html">Blade</a><a href="/scotty.html">Scotty</a></nav>
+<main class="app">
+  <header>
+    <h1>📸 Site Capture</h1>
+    <p class="tag">A full-page screenshot of any public website, sharp enough to show a prospect exactly what their site looks like today. Handy as the "before" in an audit or an outreach email. Every capture uses the connected screenshot service.</p>
+  </header>
+
+  <form id="form" class="card">
+    <label><span>Website address</span><input name="url" id="url" type="text" placeholder="https://example.com" required autofocus /></label>
+    <div class="row">
+      <label><span>Window width</span><input name="width" type="number" value="1440" min="320" max="3840" /></label>
+      <label><span>Window height</span><input name="height" type="number" value="900" min="240" max="2160" /></label>
+      <label><span>Sharpness</span><select name="scale"><option value="2">2× (retina)</option><option value="1">1×</option></select></label>
+      <label><span>Extra wait (ms)</span><input name="delayMs" type="number" value="800" min="0" max="10000" step="100" /></label>
+    </div>
+    <div class="row" style="grid-template-columns:repeat(4,auto);">
+      <button type="button" class="btn small ghost" data-preset="1440x900">Desktop</button>
+      <button type="button" class="btn small ghost" data-preset="1024x768">Tablet</button>
+      <button type="button" class="btn small ghost" data-preset="390x844">Phone</button>
+      <span></span>
+    </div>
+    <div class="checks" style="margin-top:14px;">
+      <label class="check"><input type="checkbox" name="fullPage" checked /> Full page</label>
+      <label class="check"><input type="checkbox" name="lazyScroll" checked /> Scroll first (load lazy images)</label>
+      <label class="check"><input type="checkbox" name="hideFixed" checked /> Stop sticky headers repeating</label>
+      <label class="check"><input type="checkbox" name="blockBanners" checked /> Hide cookie banners and ads</label>
+    </div>
+    <button type="submit" id="go">Capture</button>
+    <p class="status" id="status"></p>
+  </form>
+
+  <section id="result" class="card hidden">
+    <div class="result-head">
+      <div><h2>Result</h2><div class="meta" id="meta"></div></div>
+      <div><a id="open" class="btn small ghost" target="_blank" rel="noopener">Open full size</a> <a id="dl" class="btn small" download>⬇ Download PNG</a></div>
+    </div>
+    <ul class="notes" id="notes"></ul>
+    <div class="preview"><img id="img" alt="Screenshot preview" /></div>
+  </section>
+
+  <section class="card" id="recentCard">
+    <div class="result-head"><h2>Recent captures</h2><span class="meta">Kept in this browser; the images are in your storage.</span></div>
+    <div class="recent" id="recent"><span class="meta">None yet.</span></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const form = document.getElementById('form');
+  const statusEl = document.getElementById('status');
+  const go = document.getElementById('go');
+  const result = document.getElementById('result');
+  const img = document.getElementById('img');
+  const dl = document.getElementById('dl');
+  const openLink = document.getElementById('open');
+  const RECENT_KEY = 'chase_captures_v1';
+
+  const safeImage = (u) => { const s = String(u || ''); if (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s)) return s; try { const x = new URL(s); return x.protocol === 'https:' ? x.href : ''; } catch { return ''; } };
+  const el = (tag, attrs, kids) => { const n = document.createElement(tag); Object.entries(attrs || {}).forEach(([k, v]) => { if (k === 'text') n.textContent = v; else n.setAttribute(k, v); }); (kids || []).forEach(k => n.appendChild(k)); return n; };
+
+  function readRecent() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(r => safeImage(r.imageUrl)); } catch { return []; } }
+  function saveRecent(list) { try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 24))); } catch { /* storage full or blocked */ } }
+  function renderRecent() {
+    const box = document.getElementById('recent'); box.textContent = '';
+    const list = readRecent();
+    if (!list.length) { box.appendChild(el('span', { class: 'meta', text: 'None yet.' })); return; }
+    list.forEach(r => box.appendChild(el('a', { href: safeImage(r.imageUrl), target: '_blank', rel: 'noopener' }, [el('img', { src: safeImage(r.imageUrl), alt: '', loading: 'lazy' }), el('span', { text: `${r.host} · ${new Date(r.at).toLocaleDateString()}` })])));
+  }
+
+  form.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    const [w, h] = b.dataset.preset.split('x'); form.width.value = w; form.height.value = h;
+  }));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    go.disabled = true; result.classList.add('hidden');
+    statusEl.textContent = 'Capturing… (10–60 seconds for heavy pages)';
+    const options = {
+      width: form.width.value, height: form.height.value, scale: form.scale.value, delayMs: form.delayMs.value,
+      fullPage: form.fullPage.checked, lazyScroll: form.lazyScroll.checked, hideFixed: form.hideFixed.checked, blockBanners: form.blockBanners.checked,
+    };
+    try {
+      const res = await fetch('/api/chase-capture', { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify({ url: form.url.value, options }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status >= 500 && window.reportFailure) window.reportFailure(`Site Capture failed: ${data.error || res.status}`, { where: 'chase-capture.html', status: res.status });
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const src = safeImage(data.imageUrl);
+      if (!src) throw new Error('The capture came back in a form this page cannot show.');
+      img.src = src; openLink.href = src; dl.href = src; dl.setAttribute('download', data.filename || 'capture.png');
+      document.getElementById('meta').textContent = [data.width && data.height ? `${data.width} × ${data.height} px` : null, data.bytes ? `${(data.bytes / 1048576).toFixed(1)} MB` : null, data.storage === 'permanent' ? 'saved' : 'not stored', data.provider].filter(Boolean).join(' · ');
+      const notes = document.getElementById('notes'); notes.textContent = '';
+      (data.notes || []).forEach(n => notes.appendChild(el('li', { text: n })));
+      result.classList.remove('hidden');
+      statusEl.textContent = 'Done ✓';
+      if (data.storage === 'permanent') {
+        let host = ''; try { host = new URL(data.url).hostname.replace(/^www\./, ''); } catch { /* keep blank */ }
+        saveRecent([{ imageUrl: src, host, at: new Date().toISOString() }, ...readRecent()]); renderRecent();
+      }
+    } catch (err) {
+      statusEl.textContent = '❌ ' + err.message;
+    } finally {
+      go.disabled = false;
+    }
+  });
+
+  renderRecent();
+})();
+</script>
+</body>
+</html>

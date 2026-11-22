@@ -165,7 +165,7 @@ async function alertAdmins(failureId) {
       return { sent: false, reason: 'no_recipients' };
     }
 
-    const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://audema.com').replace(/\/$/, '');
+    const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://audema.marketing').replace(/\/$/, '');
     const mail = buildEmail(incident, appUrl);
 
     const res = await fetch('https://api.resend.com/emails', {

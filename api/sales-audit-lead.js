@@ -33,17 +33,7 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-const { auditWebsite } = require('./_lib/website-audit.js');
-const { detectTechnology } = require('./_lib/tech-detect.js');
-const { calculateOpportunityScore, industryValueTier } = require('./_lib/opportunity-score.js');
-
-// Wix, GoDaddy Website Builder, and Squarespace are this feature's
-// launch-focus rebuild targets — see api/_lib/tech-detect.js's SIGNATURES
-// catalog header. A business already paying monthly for one of these three
-// is a proven website *buyer*, just an unhappy one on a template that
-// looks like thousands of others — a qualitatively better lead than one
-// that's merely stale.
-const TARGET_PLATFORMS = new Set(['Wix', 'GoDaddy Website Builder', 'Squarespace']);
+const { auditProspect } = require('./_lib/chase-pipeline.js');
 
 module.exports = withFailureReporting('api/sales-audit-lead', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -63,58 +53,14 @@ module.exports = withFailureReporting('api/sales-audit-lead', async function han
   const url = body.url && String(body.url).trim();
   if (!url) return res.status(400).json({ error: 'url is required' });
 
-  const pagespeedApiKey = process.env.GOOGLE_PAGESPEED_API_KEY;
-
-  const [audit, tech] = await Promise.all([
-    auditWebsite(url, { pagespeedApiKey }),
-    detectTechnology(url),
-  ]);
-
-  const technologies = tech.available ? tech.technologies : [];
-  // Prefer a target-platform match if one was found; otherwise the
-  // highest-confidence detected technology in a platform-shaped category.
-  const platformCategories = new Set(['website-builder', 'cms', 'ecommerce']);
-  const platformHits = technologies.filter(t => platformCategories.has(t.category));
-  const targetHit = platformHits.find(t => TARGET_PLATFORMS.has(t.name));
-  const platform = targetHit ? targetHit.name : (platformHits[0] ? platformHits[0].name : null);
-  const isTargetPlatform = !!targetHit;
-
-  const tier = industryValueTier(body.industry);
-
-  const opportunity = calculateOpportunityScore({
-    platform,
-    isTargetPlatform,
-    hasWebsite: true,
-    auditScores: audit.scores,
-    problems: audit.problems,
-    googleRating: typeof body.googleRating === 'number' ? body.googleRating : null,
-    googleReviewCount: typeof body.googleReviewCount === 'number' ? body.googleReviewCount : null,
-    hasActiveSocial: !!body.hasActiveSocial,
-    industryValueTier: tier,
-    hasContactInfo: !!body.hasContactInfo,
-  });
-
-  return res.json({
-    success: true,
+  const result = await auditProspect({
     url,
-    checkedAt: audit.checkedAt,
-    platform,
-    isTargetPlatform,
-    technologyCheck: { available: tech.available, checked: tech.checked, reason: tech.reason },
-    technologies,
-    industry: body.industry || null,
-    industryValueTier: tier,
-    audit: {
-      scores: audit.scores,
-      problems: audit.problems,
-    },
-    // Extracted from the same homepage crawl the audit already ran — a
-    // best-effort palette (never fabricated: null when the page declared no
-    // usable colour signal), so a later step like generate-website-mockup.js
-    // can offer real brand colours as a default without a caller having to
-    // supply their own.
-    brandColors: audit.brandColors,
-    opportunity,
-    raw: audit.raw,
+    industry: body.industry,
+    googleRating: body.googleRating,
+    googleReviewCount: body.googleReviewCount,
+    hasActiveSocial: body.hasActiveSocial,
+    hasContactInfo: body.hasContactInfo,
+    pagespeedApiKey: process.env.GOOGLE_PAGESPEED_API_KEY,
   });
+  return res.json(result);
 });

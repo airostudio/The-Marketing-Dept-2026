@@ -18,6 +18,23 @@
 
 'use strict';
 
+/**
+ * "Things we never say" is free text: bullets, quoted phrases, notes in
+ * brackets. Keep the phrases themselves — a quoted phrase where there is one,
+ * otherwise the line without its bullet and bracketed note.
+ */
+function neverSayPhrases(raw) {
+  const out = [];
+  for (const line of String(raw || '').split(/\n|;/)) {
+    const quoted = [...line.matchAll(/(?<![A-Za-z])["“'‘]([^"”'’]{3,80})["”'’](?![A-Za-z])/g)].map(m => m[1].trim());
+    if (quoted.length) { out.push(...quoted); continue; }
+    const bare = line.replace(/^\s*[-*•\d.)]+\s*/, '').replace(/\([^)]*\)/g, '').trim();
+    if (bare.length >= 3 && bare.length <= 80) out.push(bare);
+  }
+  return [...new Set(out)].slice(0, 40);
+}
+
+
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS & STORAGE KEYS
    ───────────────────────────────────────────────────────────────────────────── */
@@ -190,7 +207,10 @@ class BusinessBrain {
         stage: '',
         founded: '',
         teamSize: '',
-        revenueModel: ''
+        revenueModel: '',
+        // Writing language / English variant (a WritingLanguage code such as
+        // 'en-AU'). Empty = not chosen; agents then assume nothing.
+        language: ''
       },
       icp: {
         primaryBuyer: { role: '', companySize: '', industry: '' },
@@ -230,6 +250,10 @@ class BusinessBrain {
         // one-off 1:1 message. See buildComplianceFooter() below.
         mailingAddress: ''
       },
+      // Further people emails can be sent as (execs, managers) — up to four
+      // more besides `sender`, which is contact #1. Keyed c2..c5 so they bind
+      // to the form by dot-path like every other field.
+      team: {},
       intelligence: {
         lastUpdated: null,
         confidenceScore: 0
@@ -365,6 +389,8 @@ class BusinessBrain {
     if (d.company.description) lines.push(`What we do: ${d.company.description}`);
     if (d.company.industry)    lines.push(`Industry: ${d.company.industry} | Stage: ${d.company.stage}`);
     if (d.company.revenueModel) lines.push(`Revenue model: ${d.company.revenueModel}`);
+    const langDirective = (window.WritingLanguage && window.WritingLanguage.directive(d.company.language || '')) || '';
+    if (langDirective) lines.push(langDirective);
 
     const b = d.icp.primaryBuyer;
     if (b.role) {
@@ -433,6 +459,50 @@ class BusinessBrain {
   getSenderIdentity() {
     const d = this.load();
     return d.sender || { name: '', title: '', email: '', phone: '', mailingAddress: '' };
+  }
+
+  /**
+   * Every contact person in the Business Brain, primary first: `sender`
+   * (contact #1) then team c2..c5. Only people with a name are returned. At
+   * least one is expected for outreach; up to five are supported.
+   * @returns {Array<{key:string, name:string, title:string, email:string, phone:string}>}
+   */
+  getContacts() {
+    const d = this.load();
+    const out = [];
+    const s = d.sender || {};
+    if ((s.name || '').trim()) out.push({ key: 'c1', name: s.name.trim(), title: (s.title || '').trim(), email: (s.email || '').trim(), phone: (s.phone || '').trim() });
+    const team = (d.team && typeof d.team === 'object') ? d.team : {};
+    for (const key of ['c2', 'c3', 'c4', 'c5']) {
+      const c = team[key] || {};
+      if ((c.name || '').trim()) out.push({ key, name: c.name.trim(), title: (c.title || '').trim(), email: (c.email || '').trim(), phone: (c.phone || '').trim() });
+    }
+    return out;
+  }
+
+  /**
+   * The {{senderName}}-style merge fields for one contact (default: the
+   * primary), plus the company, ready to merge into every recipient.
+   * @param {string} [key] contact key from getContacts()
+   */
+  getSenderMergeFields(key) {
+    const contacts = this.getContacts();
+    const c = contacts.find(x => x.key === key) || contacts[0];
+    if (!c) return {};
+    return {
+      senderName: c.name,
+      senderFirstName: c.name.split(/\s+/)[0],
+      senderTitle: c.title,
+      senderEmail: c.email,
+      senderPhone: c.phone,
+      senderCompany: (this.load().company?.name || '').trim(),
+    };
+  }
+
+  /** The chosen writing-language code, or '' when not set. */
+  getWritingLanguage() {
+    const code = (this.load().company?.language || '').trim();
+    return (window.WritingLanguage && window.WritingLanguage.isSupported(code)) ? code : '';
   }
 
   /**
@@ -1239,7 +1309,15 @@ class IntelligenceEngine {
       competitiveLandscape: this.radar.getSummaryForClaude(),
       marketSignals:       this.pulse.getSummaryForClaude(),
       isReady:             this.brain.isConfigured(),
-      completionScore:     this.brain.getCompletionScore()
+      completionScore:     this.brain.getCompletionScore(),
+      companyName:         (this.brain.load().company?.name || '').trim(),
+      website:             (this.brain.load().company?.website || '').trim(),
+      language:            this.brain.getWritingLanguage(),
+      contacts:            this.brain.getContacts(),
+      // What Compliance Guard checks content against, as facts the business stated.
+      industry:            (this.brain.load().company?.industry || '').trim(),
+      neverSay:            neverSayPhrases(this.brain.load().positioning?.thingsWeNeverSay),
+      competitorNames:     (this.radar.getAll() || []).map(c => String(c.name || '').trim()).filter(Boolean)
     };
   }
 

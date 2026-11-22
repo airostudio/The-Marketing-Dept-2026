@@ -27,6 +27,8 @@ const ScottyOrchestrator = (() => {
     seo:         '/agents/seo-agent.html',
     email:       '/agents/email-agent.html',
     sales:       '/agents/sales-agent.html',
+    blade:       '/agents/blade-agent.html',
+    chase:       '/agents/sales-agent.html',
     ads:         '/agents/social-agent.html',
     social:      '/agents/social-agent.html',
     analytics:   '/agents/analytics-agent.html',
@@ -48,6 +50,8 @@ const ScottyOrchestrator = (() => {
     seo:         'SEO Intelligence — rankings, keywords, technical audits',
     email:       'Email Engine — Klaviyo-style flows, sequences, campaigns',
     sales:       'Sales Intelligence — Apollo-style prospecting and outreach',
+    blade:       'Blade — finds REAL local businesses (e.g. plumbers in Austin) from Google, checks each one\'s website, and shortlists the ones with a genuine website opportunity, with contact emails and owner names where they can actually be found',
+    chase:       'Chase — runs a REAL audit of each business\'s website (technology/platform, SEO, mobile, speed, conversion, local SEO) and scores how strong a website opportunity each one is',
     ads:         'Ad Creative Lab — ad variants, A/B tests, platform-specific creative',
     social:      'Social Studio — platform-native posts, content calendar',
     analytics:   'Analytics Brain — attribution, MMM, performance reporting',
@@ -779,19 +783,22 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
 
   const MISSION_AGENT_CAPABILITIES = {
     sales: 'ICP research, prospect lists, outreach strategies, lead qualification',
+    blade: 'Finds a REAL shortlist of local businesses (a trade in a named city/area) whose websites are missing, outdated or on a template builder, with real contact emails and owner names where findable. Runs for real — produces actual leads, not a plan. Use for "find/prospect local [trade] in [place]" goals.',
+    delivery: 'Pat — drafts ONE real outreach email (subject, body, link), runs it through the send-time checks and Scotty QA review, and prepares the audience. Runs for real; sends nothing until a person approves and sends it. Use for outreach to businesses already found (e.g. after blade) — needs a stated offer.',
+    chase: 'Audits the websites of businesses found by blade (or a typed list of site addresses) for real — platform, SEO, mobile, speed, conversion — and scores each as an opportunity. Runs for real; approving tags the prospects in the audience by opportunity strength. Use after blade when website quality matters to the offer.',
     email: 'Full email copy (subject lines, body, CTAs), sequences, campaigns',
     content: 'Blog posts, landing page copy, case studies, thought leadership',
-    seo: 'Keywords, technical audit, meta tags, rankings strategy',
-    competitive: 'Competitor analysis, positioning gaps, battlecards',
-    ads: 'Google/Meta/LinkedIn ad copy and creative variants',
-    social: 'Social posts, content calendar, platform-native copy (LinkedIn/X/TikTok — NOT Instagram, that\'s nancy)',
-    nancy: 'Instagram content specifically — a researched, on-brand week of Instagram posts. Prefer this over "social" whenever the goal is Instagram.',
-    linkedin: 'LinkedIn outreach sequences, connection requests, InMail',
-    analytics: 'KPIs, attribution, reporting frameworks',
-    cro: 'Conversion optimisation, A/B test designs, landing page audits',
+    seo: 'Researches a website\'s competitors and keyword gaps for real, proposes content topics with search volumes (real where available, otherwise clearly labelled estimates), and writes full SEO articles. Runs for real; approving saves the plan and articles into the SEO Content Engine. Needs a website address. Not a technical site audit.',
+    competitive: 'Reads named competitors\' public websites for real and builds battlecards in which every finding is backed by a quote verified to be on their pages (positioning, offers, pricing they state, audiences, claims), plus a cross-competitor read of where the business can stand out, and starts daily change-watching on them. Runs for real; approving saves it to Report History. Needs the competitors\' website addresses — it will not guess them.',
+    ads: 'Writes real ad copy variants for Meta/Facebook, LinkedIn, Google Search, X, TikTok, YouTube or Google Display, checked against each platform\'s character limits. Runs for real; approving saves the fitting ads as ad copy to paste into an ad manager (nothing is bought or published). Needs the product/offer and the audience.',
+    social: 'Writes a batch of platform-native TEXT posts for LinkedIn, X and Facebook (not Instagram — that\'s nancy; not TikTok). Runs for real; approving puts the publishable posts in the Content Calendar, ready to schedule. Needs a topic.',
+    nancy: 'Instagram content specifically — researches the business\'s website and market for real, then writes and designs a week of seven on-brand Instagram posts with finished graphics. Runs for real; approving puts the posts in the Content Calendar, ready to schedule. Prefer this over "social" whenever the goal is Instagram.',
+    linkedin: 'Drafts a personalised LinkedIn connection note and follow-up for each person you list (up to 10), using only the facts you give about them, with every draft checked (length limits, no invented claims about their posts or work). Runs for real, but NEVER sends or touches LinkedIn — LinkedIn forbids automated messages, so a person sends the approved drafts by hand. Needs the people and what is being offered; it cannot search LinkedIn for prospects.',
+    analytics: 'Writes a real performance report from the account\'s OWN recorded numbers (emails sent and their opens/clicks where tracked, revenue reported by the shop, audience growth, flows, social posts published) for the last 7, 30 or 90 days, with every figure checked against the data. Runs for real; approving saves it to Report History. Reports only what is recorded — it cannot analyse data that was never collected, and it is not a forecast or an attribution model.',
+    cro: 'Audits one or two real pages for conversion problems (found in the page itself) and proposes prioritised A/B tests, each tied to something actually on the page or to a quote from it — never a forecast result. Runs for real; approving adds the tests to the CRO Lab backlog. Needs the page address and what counts as a conversion.',
     deck: 'Pitch decks, sales presentations, one-pagers',
-    video: 'Video scripts, thumbnails, YouTube strategy',
-    compliance: 'Brand safety, legal review, GDPR, FTC checks',
+    video: 'Renders ONE short AI video clip (2-12 seconds, one continuous shot, no sound you can control) from a plain-words brief, after checking the shot puts no words, logos, real people or unsupported figures on screen. Runs for real; approving adds the clip to the Video Studio gallery (nothing is posted). Needs what the video should show. Not scripts, edits, voiceovers or talking-head videos.',
+    compliance: 'Screens what THIS mission\'s other agents produced (the email, posts, ads, articles, LinkedIn drafts, video) for advertising, privacy and brand-safety risk before you approve it — unsubstantiated or absolute claims, missing disclosures, banned phrases, competitor mentions, consent for cold email, AI-content labels. Every finding quotes the exact words it is about. Runs for real, always last; an output with a critical finding then needs you to confirm you have read it before approving. Changes no content. A screen, not legal advice. Include it whenever the mission produces content that will be published or sent.',
     'compliance-automation': 'SOC 2/ISO 27001/GDPR/HIPAA automation plans, evidence collection, audit readiness, sales acceleration',
   };
 
@@ -859,6 +866,716 @@ Use markdown with clear sections. Be specific and actionable. No filler.`;
     throw lastErr;
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────
+     REAL EXECUTORS
+     Every other agent key still runs as a Claude write-up (executeAgentTask).
+     An agent listed here runs its actual backend pipeline and produces a real
+     artifact in the database, waiting for the user's one-click approval.
+  ───────────────────────────────────────────────────────────────────────── */
+
+  const REAL_EXECUTORS = new Set(['blade', 'chase', 'delivery', 'nancy', 'social', 'seo', 'ads', 'analytics', 'competitive', 'cro', 'linkedin', 'video', 'compliance']);
+
+  // Real executors hand work down the line (Blade's list → Chase's audit →
+  // Pat's email), so whatever order the model listed them in, they run in this
+  // one. Everything else keeps its relative position.
+  const REAL_PIPELINE_ORDER = ['blade', 'chase', 'delivery'];   // Nancy is independent of this chain and keeps its place
+  function orderForExecution(keys) {
+    const unique = [...new Set(keys)];
+    const rank = (k) => REAL_PIPELINE_ORDER.indexOf(k);
+    const slots = unique.map((k, i) => i).filter(i => rank(unique[i]) >= 0);
+    const sorted = slots.map(i => unique[i]).sort((a, b) => rank(a) - rank(b));
+    const out = unique.slice();
+    slots.forEach((slot, n) => { out[slot] = sorted[n]; });
+    // Compliance screens what the others produced, so it always runs last.
+    const at = out.indexOf('compliance');
+    if (at >= 0) { out.splice(at, 1); out.push('compliance'); }
+    return out;
+  }
+
+  function isRealExecutor(agentKey) { return REAL_EXECUTORS.has(agentKey); }
+
+  const BLADE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Blade, an agent that finds REAL local businesses on Google and checks their websites.
+
+Blade needs three inputs. Fill each ONLY from what the goal (or, for the place, the business context) actually states — never guess:
+- sector: the trade or business type to find, in plural (e.g. "plumbers", "dental clinics")
+- city: the city, suburb or area to search
+- country: the country, if stated or obvious from the place named
+If the goal does not state one of them, return an empty string for it. Do not pick a "sensible" city; a person will be asked.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is being found and why",
+  "params": { "sector": "", "city": "", "country": "" }
+}`;
+
+  function sanitizeBladeParams(p) {
+    const clean = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 80);
+    const src = (p && typeof p === 'object') ? p : {};
+    return { sector: clean(src.sector), city: clean(src.city), country: clean(src.country) };
+  }
+
+  function describeBladeParams(params) {
+    const where = [params.city, params.country].filter(Boolean).join(', ');
+    return `Find ${params.sector || '[trade]'} in ${where || '[place]'} whose websites are missing, outdated, or on a template builder.`;
+  }
+
+  /** What's still missing before a real Blade run can start, in plain words. */
+  function missingBladeInputs(params) {
+    const p = sanitizeBladeParams(params);
+    const missing = [];
+    if (!p.sector) missing.push('the trade to find (e.g. plumbers)');
+    if (!p.city) missing.push('the city or area to search');
+    return missing;
+  }
+
+  /**
+   * Run Blade for real: search → audit → shortlist (one call), then find
+   * contact details a few leads at a time until none remain. Everything is
+   * saved server-side as a mission artifact awaiting approval.
+   *
+   * Resumable: progress is kept on task._bladeState, so a retry after a
+   * failure partway through continues enriching the same list instead of
+   * searching again and paying for Places a second time.
+   *
+   * @param {object} task  { params: {sector, city, country} }
+   * @param {object} opts  { authHeaders: () => Promise<headers>, intelProfileId, missionId, onStatus, fetchImpl }
+   */
+  async function runBladeTask(task, { authHeaders, intelProfileId, missionId, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const say = (msg) => { if (onStatus) onStatus(msg); };
+    const params = sanitizeBladeParams(task.params);
+    const missing = missingBladeInputs(params);
+    if (missing.length) throw new Error(`Blade needs ${missing.join(' and ')} before it can search.`);
+
+    async function post(body) {
+      const res = await doFetch('/api/mission-blade', { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || `Blade request failed (HTTP ${res.status})`);
+      return data;
+    }
+
+    const state = task._bladeState || (task._bladeState = {});
+    if (!state.artifactId) {
+      say(`Searching Google for ${params.sector} in ${params.city}…`);
+      const found = await post({ action: 'discover', ...params, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined });
+      state.artifactId = found.artifactId;
+      state.status = found.status;
+      state.stats = found.stats;
+      state.note = found.note;
+      state.leads = found.leads || [];
+      state.remaining = found.remaining || 0;
+    }
+
+    let guard = 0;
+    while (state.remaining > 0 && guard++ < 60) {
+      const total = state.leads.length;
+      say(`Finding contact details… ${total - state.remaining}/${total} checked`);
+      const batch = await post({ action: 'enrich', artifactId: state.artifactId });
+      if (!batch.processed) break; // nothing advanced — don't spin
+      for (const l of batch.leads || []) {
+        const i = state.leads.findIndex(x => x.placeId === l.placeId);
+        if (i >= 0) state.leads[i] = l;
+      }
+      state.remaining = batch.remaining;
+      state.status = batch.status;
+    }
+
+    // A lookup that stopped advancing is a failed task, not a finished one —
+    // leaving it looking complete would offer an approval the server (rightly)
+    // refuses, since the list is still being built. Throwing lets the
+    // mission's normal retry pick up where this left off.
+    if (state.remaining > 0) {
+      throw new Error(`Contact lookup stalled with ${state.remaining} lead${state.remaining === 1 ? '' : 's'} still to check.`);
+    }
+
+    return {
+      artifactId: state.artifactId, status: state.status, stats: state.stats || {},
+      note: state.note, leads: state.leads, complete: true,
+    };
+  }
+
+  /** A plain-markdown account of a real Blade result, for the mission report. */
+  function describeBladeResult(result) {
+    const s = result.stats || {};
+    if (!result.leads || !result.leads.length) {
+      return `**Blade searched for real** — ${result.note || 'no qualifying businesses were found.'}`;
+    }
+    const withEmail = result.leads.filter(l => l.email).length;
+    const withOwner = result.leads.filter(l => l.ownerFirstName).length;
+    const viaSearch = result.leads.filter(l => l.email && (l.emailSource === 'estimate' || l.emailSource === 'search_verified')).length;
+    const lines = [
+      `**Blade ran for real.** Searched Google for "${s.query || ''}", checked ${s.candidatesChecked ?? '?'} businesses' websites, and shortlisted ${result.leads.length} with a genuine opportunity (${s.noWebsite ?? 0} with no website, ${s.builderLocked ?? 0} on a template builder).`,
+      `Contact details actually found: ${withEmail} email${withEmail === 1 ? '' : 's'}${viaSearch ? ` (${viaSearch} from searching Google/social listings — those are labelled, and any not confirmed on the page they came from are marked unverified)` : ''}, ${withOwner} owner name${withOwner === 1 ? '' : 's'}. Anything not found is left blank, not guessed.`,
+      '',
+      '| Business | Site | Email | Owner |',
+      '|---|---|---|---|',
+      ...result.leads.slice(0, 15).map(l => `| ${l.name} | ${l.siteStatus === 'no_website' ? 'No website' : (l.sitePlatform || l.siteStatus)} | ${l.email || '—'} | ${l.ownerFirstName || '—'} |`),
+    ];
+    if (result.leads.length > 15) lines.push(`…and ${result.leads.length - 15} more.`);
+    lines.push('', 'Waiting for your approval — nothing has been imported or sent.');
+    return lines.join('\n');
+  }
+
+
+  const CHASE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Chase, an agent that audits business websites for real and scores each as a sales opportunity.
+
+Chase audits either the websites on the Blade shortlist from the same mission, or a typed list of website addresses. Fill these ONLY from what the goal states — never guess or invent a website:
+- urls: website addresses the goal explicitly names (usually none — Chase normally uses Blade's list)
+- industry: the trade or business type being audited, if stated
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on whose websites are audited and why",
+  "params": { "industry": "", "urls": [] }
+}`;
+
+  function sanitizeChaseParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const industry = String(src.industry == null ? '' : src.industry).replace(/\s+/g, ' ').trim().slice(0, 80);
+    const raw = Array.isArray(src.urls) ? src.urls : String(src.urls || '').split(/[\s,]+/);
+    const urls = [...new Set(raw.map(u => String(u || '').trim()).filter(Boolean))].slice(0, 25);
+    return { industry, urls };
+  }
+
+  function describeChaseParams(params) {
+    return params.urls && params.urls.length
+      ? `Audit ${params.urls.length} website${params.urls.length === 1 ? '' : 's'} and score each as a website opportunity.`
+      : 'Audit the websites Blade found and score each as a website opportunity.';
+  }
+
+  /** Chase needs a website list from somewhere: Blade earlier in the mission, or typed addresses. */
+  function missingChaseInputs(params, { hasBladeSource } = {}) {
+    if (hasBladeSource) return [];
+    return sanitizeChaseParams(params).urls.length ? [] : ['the website addresses to audit (or a Blade search earlier in the mission)'];
+  }
+
+  /**
+   * Run Chase for real: build the list (from Blade's finished artifact, or the
+   * typed addresses), then audit a few sites at a time until none remain.
+   * Resumable via task._chaseState, like Blade, so a retry never re-starts the list.
+   *
+   * @param {object} task  { params: {industry, urls} }
+   * @param {object} opts  { authHeaders, intelProfileId, missionId, sourceArtifactId, onStatus, fetchImpl }
+   */
+  async function runChaseTask(task, { authHeaders, intelProfileId, missionId, sourceArtifactId, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const say = (msg) => { if (onStatus) onStatus(msg); };
+    const params = sanitizeChaseParams(task.params);
+    const missing = missingChaseInputs(params, { hasBladeSource: !!sourceArtifactId });
+    if (missing.length) throw new Error(`Chase needs ${missing.join(' ')} before it can audit.`);
+
+    async function post(body) {
+      const res = await doFetch('/api/mission-chase', { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || `Chase request failed (HTTP ${res.status})`);
+      return data;
+    }
+
+    const state = task._chaseState || (task._chaseState = {});
+    if (!state.artifactId) {
+      say('Preparing the list of websites to audit…');
+      const started = await post({
+        action: 'start', industry: params.industry || undefined,
+        ...(sourceArtifactId ? { sourceArtifactId } : { urls: params.urls }),
+        intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      });
+      Object.assign(state, {
+        artifactId: started.artifactId, status: started.status, source: started.source,
+        truncated: started.truncated, note: started.note, leads: started.leads || [], remaining: started.remaining || 0,
+      });
+    }
+
+    let guard = 0;
+    while (state.remaining > 0 && guard++ < 40) {
+      const total = state.leads.length;
+      say(`Auditing websites… ${total - state.remaining}/${total} done`);
+      const batch = await post({ action: 'audit', artifactId: state.artifactId });
+      if (!batch.processed) break;
+      for (const l of batch.leads || []) {
+        const i = state.leads.findIndex(x => x.key === l.key);
+        if (i >= 0) state.leads[i] = l;
+      }
+      state.remaining = batch.remaining;
+      state.status = batch.status;
+    }
+    // An audit that stopped advancing is a failed task, not a finished one.
+    if (state.remaining > 0) throw new Error(`Website audit stalled with ${state.remaining} site${state.remaining === 1 ? '' : 's'} still to check.`);
+
+    return { artifactId: state.artifactId, status: state.status, source: state.source, truncated: state.truncated, note: state.note, leads: state.leads, complete: true };
+  }
+
+  /** A plain-markdown account of a real Chase result, for the mission report. */
+  function describeChaseResult(result) {
+    if (!result.leads || !result.leads.length) return `**Chase ran for real** — ${result.note || 'there were no websites to audit.'}`;
+    const scored = result.leads.filter(l => l.audit);
+    const failed = result.leads.filter(l => l.auditError);
+    const ranked = [...scored].sort((a, b) => b.audit.opportunity.score - a.audit.opportunity.score);
+    const lines = [
+      `**Chase ran for real.** Audited ${result.leads.length} website${result.leads.length === 1 ? '' : 's'}: ${scored.length} scored${failed.length ? `, ${failed.length} could not be audited (those are flagged, not scored)` : ''}.${result.truncated ? ' The list was capped; the rest were not audited.' : ''}`,
+      '',
+      '| Business | Platform | Opportunity | Biggest issue |',
+      '|---|---|---|---|',
+      ...ranked.slice(0, 15).map(l => `| ${l.name} | ${l.audit.platform || 'unknown'} | ${l.audit.opportunity.score} (${String(l.audit.opportunity.classification).replace(/_/g, ' ')}) | ${(l.audit.topProblems[0] && l.audit.topProblems[0].issue) || '—'} |`),
+    ];
+    if (ranked.length > 15) lines.push(`…and ${ranked.length - 15} more.`);
+    lines.push('', 'Waiting for your approval — nothing has been changed or sent.');
+    return lines.join('\n');
+  }
+
+  const NANCY_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Nancy, an agent that researches a business's website and market, then writes and designs a week of seven Instagram posts.
+
+Nancy needs:
+- websiteUrl: the business's own website address. Fill it ONLY from the goal or the business context — never guess or invent an address. If none is stated, return "".
+- mustTalkAbout: anything the goal says the week must feature (a launch, an offer, an event), in a short phrase. "" if nothing is stated.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the week of posts is for",
+  "params": { "websiteUrl": "", "mustTalkAbout": "" }
+}`;
+
+  function describeNancyResult(result) {
+    const lines = [`**Nancy ran for real.** Researched ${result.businessName || 'the business'} and created ${result.posts.length} Instagram posts with finished graphics.`, ''];
+    result.posts.forEach(p => lines.push(`- **Day ${p.day} — ${p.content_pillar || p.objective || ''}:** ${p.hook || p.slide_headline}${p.imageFallback ? ' _(simple graphic: the AI image could not be made)_' : ''}`));
+    lines.push('', 'Waiting for your approval — nothing has been scheduled or published.');
+    return lines.join('\n');
+  }
+
+  const SOCIAL_PLATFORMS = ['LinkedIn', 'Twitter/X', 'Facebook'];
+  const SOCIAL_GOALS = ['Thought Leadership', 'Product Launch', 'Case Study', 'Engagement', 'Community Building'];
+
+  const SOCIAL_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Social Studio, an agent that writes a batch of text posts for LinkedIn, X and Facebook.
+
+Fill these ONLY from what the goal or business context states — never invent a topic:
+- topic: what the posts should be about, in one or two short sentences. If the goal does not say, return "".
+- contentGoal: exactly one of ${SOCIAL_GOALS.join(' | ')} — the one the goal most closely implies (Engagement if unclear)
+- platforms: any of ${SOCIAL_PLATFORMS.join(', ')} the goal mentions; ["LinkedIn"] if none are named. Never Instagram or TikTok (other agents cover those).
+- postCount: how many posts, 3 to 10 (6 if unstated)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the posts are for",
+  "params": { "topic": "", "contentGoal": "Engagement", "platforms": ["LinkedIn"], "postCount": 6 }
+}`;
+
+  function sanitizeSocialParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const platforms = [...new Set((Array.isArray(src.platforms) ? src.platforms : []).filter(x => SOCIAL_PLATFORMS.includes(x)))];
+    return {
+      topic: String(src.topic == null ? '' : src.topic).replace(/\s+/g, ' ').trim().slice(0, 400),
+      contentGoal: SOCIAL_GOALS.includes(src.contentGoal) ? src.contentGoal : 'Engagement',
+      platforms: platforms.length ? platforms : ['LinkedIn'],
+      postCount: Math.max(3, Math.min(10, parseInt(src.postCount, 10) || 6)),
+    };
+  }
+
+  function describeSocialParams(params) {
+    return `Write ${params.postCount} ${params.platforms.join('/')} posts about: ${params.topic || '[topic]'}`;
+  }
+
+  function missingSocialInputs(params) {
+    return sanitizeSocialParams(params).topic ? [] : ['what the posts should be about'];
+  }
+
+  /**
+   * Run Social Studio for real: one server call writes and saves the batch as
+   * a mission artifact awaiting approval. Remembered on task._socialState so a
+   * retry never writes (and pays for) a second batch.
+   *
+   * @param {object} task  { params: {topic, contentGoal, platforms, postCount} }
+   * @param {object} opts  { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl }
+   */
+  async function runSocialTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeSocialParams(task.params);
+    const missing = missingSocialInputs(params);
+    if (missing.length) throw new Error(`Social Studio needs ${missing.join(' ')} before it can write.`);
+    if (task._socialState && task._socialState.artifactId) return task._socialState;
+
+    if (onStatus) onStatus(`Writing ${params.postCount} posts…`);
+    const res = await doFetch('/api/mission-social', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'generate', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Social Studio request failed (HTTP ${res.status})`);
+    task._socialState = {
+      artifactId: data.artifactId, status: data.status, contentPlanNote: data.contentPlanNote || '',
+      posts: data.posts || [], postable: data.postable || 0, complete: true,
+    };
+    return task._socialState;
+  }
+
+  function describeSocialResult(result) {
+    const blocked = result.posts.filter(p => p.problem);
+    const lines = [`**Social Studio wrote ${result.posts.length} posts for real.** ${result.contentPlanNote || ''}`.trim(), ''];
+    result.posts.forEach(p => lines.push(`- **${p.platform} — ${p.title || p.hook}**${p.problem ? ` _(cannot be published as written: ${p.problem})_` : ''}`));
+    if (blocked.length) lines.push('', `${blocked.length} post${blocked.length === 1 ? '' : 's'} will be left out when you approve, because ${blocked.length === 1 ? 'it cannot' : 'they cannot'} be published as written.`);
+    lines.push('', 'Waiting for your approval — nothing has been scheduled or published.');
+    return lines.join('\n');
+  }
+
+  const SEO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the SEO agent, which researches a website's competitors and keyword gaps, proposes content topics, and writes full SEO articles.
+
+It needs:
+- websiteUrl: the business's own website address. Fill it ONLY from the goal or the business context — never guess or invent an address. If none is stated, return "".
+- articleCount: how many full articles to write, 1 to 3 (2 if the goal doesn't say)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the content plan is for",
+  "params": { "websiteUrl": "", "articleCount": 2 }
+}`;
+
+  function describeSeoResult(result) {
+    const real = result.topics.filter(t => t.data_source === 'real').length;
+    const lines = [
+      `**The SEO agent ran for real.** Read the site, ${result.competitors && result.competitors.length ? `researched ${result.competitors.length} competitors, ` : ''}proposed ${result.topics.length} topics (${real} with a real search volume, ${result.topics.length - real} estimates) and wrote ${result.articles.length} article${result.articles.length === 1 ? '' : 's'}.`,
+    ];
+    if (result.competitorsNote) lines.push(`Competitor research: ${result.competitorsNote}`);
+    if (result.volumesNote) lines.push(result.volumesNote);
+    lines.push('', '**Articles written:**');
+    result.articles.forEach(a => lines.push(`- ${a.title} — ${a.word_count || '?'} words, targeting "${a.target_keyword}"`));
+    lines.push('', 'Waiting for your approval — nothing has been published. Approving saves the plan and articles into the SEO Content Engine.');
+    return lines.join('\n');
+  }
+
+  const ADS_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the Ad Creative Lab, which writes real ad copy for paid platforms.
+
+Fill these ONLY from what the goal or business context states — never invent a product, offer or audience:
+- product: what is being advertised — the specific product, service or offer, in one or two plain sentences. "" if the goal doesn't say.
+- audience: who the ads target, in plain words (job, trade, location, need). Use the ideal customer from the business context if the goal doesn't say. "" if neither does.
+- objective: exactly one of Awareness | Traffic | Leads | Conversions | Retargeting — the one the goal implies (Conversions if unclear)
+- platforms: any of Meta/Facebook, LinkedIn, Google Search, Google Display, Twitter/X, TikTok, YouTube the goal mentions; ["Meta/Facebook"] if none (at most 4)
+- variants: ad variants per platform, 2 to 5 (3 if unstated)
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the ads are for",
+  "params": { "product": "", "audience": "", "objective": "Conversions", "platforms": ["Meta/Facebook"], "variants": 3 }
+}`;
+
+  function describeAdsResult(result) {
+    const problems = result.variants.filter(v => v.problems && v.problems.length);
+    const lines = [`**The Ad Creative Lab wrote ${result.variants.length} ads for real** across ${[...new Set(result.variants.map(v => v.platform))].join(', ')}. ${result.strategyNote || ''}`.trim(), ''];
+    result.variants.forEach(v => lines.push(`- **${v.platform} — ${v.angleName || v.framework}:** ${v.headline || v.body.slice(0, 80)}${v.problems && v.problems.length ? ` _(does not fit: ${v.problems.join(' ')})_` : ''}`));
+    if (result.failures && result.failures.length) lines.push('', `Could not be written: ${result.failures.map(f => `${f.platform} (${f.message})`).join('; ')}.`);
+    if (problems.length) lines.push('', `${problems.length} ad${problems.length === 1 ? '' : 's'} will be left out when you approve because ${problems.length === 1 ? 'it does' : 'they do'} not fit the platform's limits.`);
+    lines.push('', 'Waiting for your approval — nothing has been bought or published. Approving saves the fitting ads as ad copy for you to use in your ad manager.');
+    return lines.join('\n');
+  }
+
+  const ANALYTICS_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Analytics Brain, which writes a performance report from the account's own recorded marketing data (email, revenue, audience, automation flows, social posts).
+
+Choose ONLY:
+- periodDays: 7, 30 or 90 — the period the goal asks about (30 if unstated)
+- focus: anything specific the goal wants the report to emphasise, in a short phrase ("" if nothing)
+Do not mention any figures; the report is written from the real data.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the report is for",
+  "params": { "periodDays": 30, "focus": "" }
+}`;
+
+  function sanitizeAnalyticsParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const d = parseInt(src.periodDays, 10);
+    return {
+      periodDays: [7, 30, 90].includes(d) ? d : 30,
+      focus: String(src.focus == null ? '' : src.focus).replace(/\s+/g, ' ').trim().slice(0, 300),
+    };
+  }
+
+  function describeAnalyticsParams(params) {
+    return `Write a performance report on the last ${params.periodDays} days of recorded marketing activity${params.focus ? `, focusing on ${params.focus}` : ''}.`;
+  }
+
+  /**
+   * Run Analytics Brain for real: one server call gathers the account's data,
+   * writes the report and checks every figure against that data. Remembered on
+   * task._analyticsState so a retry never writes (and pays for) a second report.
+   */
+  async function runAnalyticsTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeAnalyticsParams(task.params);
+    if (task._analyticsState) return task._analyticsState;
+
+    if (onStatus) onStatus('Reading your recorded numbers and writing the report…');
+    const res = await doFetch('/api/mission-analytics', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'report', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Analytics request failed (HTTP ${res.status})`);
+    const state = data.status === 'no_data'
+      ? { noData: true, note: data.note, period: data.facts && data.facts.period, complete: true }
+      : { artifactId: data.artifactId, title: data.title, markdown: data.markdown, review: data.review || { approved: false, unsupportedNumbers: [] }, unavailable: data.unavailable || [], period: data.period, complete: true };
+    task._analyticsState = state;
+    return state;
+  }
+
+  function describeAnalyticsResult(result) {
+    if (result.noData) return `**Analytics Brain looked at your real data** — ${result.note}`;
+    const r = result.review || {};
+    const lines = [`**Analytics Brain wrote "${result.title}" from your real numbers** (${result.period ? result.period.label : 'recent activity'}).`];
+    if (result.unavailable && result.unavailable.length) lines.push('Not available: ' + result.unavailable.join('; '));
+    if (r.approved) lines.push(`Every figure in it was checked against your data${r.fixed ? ' (after one correction)' : ''}.`, '', 'Waiting for your approval — approving saves it to Report History.');
+    else lines.push(`It contains figures that are **not in your data** (${(r.unsupportedNumbers || []).join(', ')}), so it cannot be approved. Run it again or reject it.`);
+    return lines.join('\n');
+  }
+
+  const COMPETITIVE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Scout, which reads competitors' public websites and compares how they position themselves.
+
+Fill this ONLY from what the goal or business context actually names — never guess or invent a competitor or a website address:
+- urls: website addresses of competitors the goal or context explicitly names (at most 5). If it names a competitor but gives no address, leave that one out. Return [] if none are named.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the comparison is for",
+  "params": { "urls": [] }
+}`;
+
+  function describeCompetitiveResult(result) {
+    if (result.status === 'empty') return `**Scout tried for real** — ${result.note}`;
+    const read = result.competitors.filter(c => !c.error);
+    const lines = [`**Scout read ${read.length} of ${result.competitors.length} competitor site${result.competitors.length === 1 ? '' : 's'} for real** and wrote "${result.title}".`];
+    result.competitors.forEach(c => lines.push(c.error
+      ? `- ${c.name}: could not be analysed — ${c.error}`
+      : `- ${c.name}: ${c.findings} verified finding${c.findings === 1 ? '' : 's'}${c.droppedUnverified ? ` (${c.droppedUnverified} left out because their quote was not on the page)` : ''}`));
+    if (result.seoNote) lines.push(result.seoNote);
+    const r = result.review || {};
+    if (r.approved) lines.push('', 'Every finding is backed by a quote from their pages, and every figure in the comparison was checked.', 'Waiting for your approval — approving saves it to Report History and starts daily change-watching on these sites.');
+    else lines.push('', `The comparison contains figures that are **not in the findings** (${(r.unsupportedNumbers || []).join(', ')}), so it cannot be approved. Run it again or reject it.`);
+    return lines.join('\n');
+  }
+
+  const CRO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for the CRO Lab, which audits real web pages for conversion problems and proposes A/B tests.
+
+Fill these ONLY from what the goal or business context states — never invent a page or a goal:
+- urls: the page addresses to audit (at most 2). Use a page the goal names; otherwise the business's own website address if the context states one. [] if neither.
+- goal: what counts as a conversion on these pages, in a few words (e.g. "phone call bookings", "quote requests", "online sales"). "" if the goal doesn't say.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the audit is for",
+  "params": { "urls": [], "goal": "" }
+}`;
+
+  function sanitizeCroParams(p) {
+    const src = (p && typeof p === 'object') ? p : {};
+    const raw = Array.isArray(src.urls) ? src.urls : String(src.urls || '').split(/[\s,]+/);
+    const seen = new Set(); const urls = [];
+    for (const r of raw) {
+      let s = String(r || '').trim().slice(0, 300);
+      if (!s) continue;
+      if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+      try { const u = new URL(s); if (/^https?:$/.test(u.protocol) && u.hostname.includes('.') && !seen.has(u.toString())) { seen.add(u.toString()); urls.push(u.toString()); } } catch { /* skip */ }
+      if (urls.length >= 2) break;
+    }
+    return { urls, goal: String(src.goal == null ? '' : src.goal).replace(/\s+/g, ' ').trim().slice(0, 160) };
+  }
+
+  function describeCroParams(params) {
+    return `Audit ${params.urls.length ? params.urls.join(' and ') : '[page]'} for conversion problems and propose A/B tests for: ${params.goal || '[goal]'}.`;
+  }
+
+  function missingCroInputs(params) {
+    const p = sanitizeCroParams(params);
+    const m = [];
+    if (!p.urls.length) m.push('the page to audit');
+    if (!p.goal) m.push('what counts as a conversion');
+    return m;
+  }
+
+  /**
+   * Run the CRO Lab for real: one server call reads the pages, finds the
+   * problems in their HTML and proposes citation-checked tests. Remembered on
+   * task._croState so a retry never audits (and pays) twice.
+   */
+  async function runCroTask(task, { authHeaders, intelProfileId, projectId, missionId, businessContext, language, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizeCroParams(task.params);
+    const missing = missingCroInputs(params);
+    if (missing.length) throw new Error(`The CRO Lab needs ${missing.join(' and ')} before it can start.`);
+    if (task._croState) return task._croState;
+
+    if (onStatus) onStatus('Reading the page and finding what to test…');
+    const res = await doFetch('/api/mission-cro', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'audit', ...params, businessContext: businessContext || '', language: language || '',
+        projectId: projectId || undefined, intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `CRO request failed (HTTP ${res.status})`);
+    task._croState = {
+      artifactId: data.artifactId, status: data.status, ideas: data.ideas || [], observations: data.observations || [],
+      unreadable: data.unreadable || [], droppedUnverified: data.droppedUnverified || 0, droppedForeignFigures: data.droppedForeignFigures || 0,
+      note: data.note || null, goal: params.goal, complete: true,
+    };
+    return task._croState;
+  }
+
+  function describeCroResult(result) {
+    if (!result.ideas.length) return `**The CRO Lab audited the page for real** — ${result.note || 'no test idea survived the checks.'}`;
+    const lines = [`**The CRO Lab audited the page for real and proposed ${result.ideas.length} test${result.ideas.length === 1 ? '' : 's'}** for the goal "${result.goal}". Each is tied to something found on the page; impact, confidence and ease are judgement scores out of 10, and no result is forecast.`, ''];
+    result.ideas.forEach((i, n) => lines.push(`${n + 1}. **${i.name}** — impact ${i.impact}, confidence ${i.confidence}, ease ${i.ease}. ${i.basis.type === 'observation' ? `Because: ${i.basis.issue}.` : `The page says “${i.basis.quote}”.`}`));
+    const dropped = (result.droppedUnverified || 0) + (result.droppedForeignFigures || 0);
+    if (dropped) lines.push('', `${dropped} further idea${dropped === 1 ? ' was' : 's were'} left out because ${dropped === 1 ? 'it' : 'they'} could not be tied to something on the page, or promised a result.`);
+    (result.unreadable || []).forEach(u => lines.push('', `Could not read ${u.url}: ${u.error}`));
+    lines.push('', 'Waiting for your approval — nothing on your website changes and no test is started. Approving adds these tests to the CRO Lab backlog.');
+    return lines.join('\n');
+  }
+
+  const LINKEDIN_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for LinkedIn Outreach, which drafts a connection note and a follow-up message for specific people. It cannot search LinkedIn or find people.
+
+Fill these ONLY from what the goal or business context explicitly states — never invent a person or an offer:
+- prospects: people the goal names (name, and title/company if stated). [] if none are named.
+- offer: what is being offered to them, in one or two plain sentences. "" if the goal doesn't say.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is being contacted and why",
+  "params": { "offer": "", "prospects": [ { "name": "", "title": "", "company": "" } ] }
+}`;
+
+  const VIDEO_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Video Studio, which renders a single short AI video clip — one continuous shot of a few seconds, with no on-screen words.
+
+Fill these ONLY from what the goal or business context states — never invent products, people or places the business does not have:
+- brief: what the clip should show, in one or two plain sentences (subject, setting, the one thing that happens). "" if the goal gives nothing to show.
+- platform: where the clip is meant to be used if the goal says (e.g. "TikTok", "Instagram Reels", "YouTube", "website"); "" if not.
+- duration: seconds, 2 to 12. 5 unless the goal says otherwise.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what the clip is for",
+  "params": { "brief": "", "platform": "", "duration": 5 }
+}`;
+
+  const COMPLIANCE_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Compliance Guard, which screens the content this mission's other agents produce (and any content the goal itself includes) before it is approved.
+
+Fill these ONLY from what the goal or business context states:
+- region: where the content will be published or sent — one of US, UK, EU, AU, CA, Global. Use the business's own location if stated; "Global" if unclear or several.
+- content: ONLY if the goal itself contains the text to be checked (pasted copy), copy that text exactly; otherwise "".
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on what is being screened",
+  "params": { "region": "Global", "content": "" }
+}`;
+
+  const PAT_TASK_SYSTEM_PROMPT = `You are a senior marketing operations director setting up ONE task for Pat, an agent that drafts a real outreach email, checks it, and prepares the audience.
+
+Pat needs these inputs. Fill each ONLY from what the goal or business context actually states — never guess or invent:
+- offer: what is being offered to the recipients, in one or two plain sentences, using only facts stated
+- ctaUrl: the link recipients should click, ONLY if a real URL is stated; otherwise ""
+- audience: who it is going to, in plain words (e.g. "plumbers in Austin")
+- audienceTags: contact tags that identify the audience. If the mission finds businesses with "blade", use ["blade-prospect", "<trade as lowercase-hyphenated plural, e.g. plumbers>"]; otherwise []
+If the goal does not state the offer, return "" — a person will be asked. Do not write the email here.
+
+Respond ONLY with valid JSON — no markdown fences, no commentary:
+{
+  "taskName": "short, specific task name",
+  "objective": "one sentence on who is emailed and why",
+  "params": { "offer": "", "ctaUrl": "", "audience": "", "audienceTags": [] }
+}`;
+
+  function sanitizePatParams(p) {
+    const clean = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+    const src = (p && typeof p === 'object') ? p : {};
+    let ctaUrl = clean(src.ctaUrl, 500);
+    try { if (ctaUrl && !/^https?:$/.test(new URL(ctaUrl).protocol)) ctaUrl = ''; } catch { ctaUrl = ''; }
+    const tags = Array.isArray(src.audienceTags) ? src.audienceTags : [];
+    return {
+      offer: clean(src.offer, 600),
+      ctaUrl,
+      audience: clean(src.audience, 200),
+      audienceTags: [...new Set(tags.map(t => clean(t, 40).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean))].slice(0, 5),
+    };
+  }
+
+  function describePatParams(params) {
+    return `Draft an outreach email to ${params.audience || '[audience]'}: ${params.offer || '[offer]'}`;
+  }
+
+  function missingPatInputs(params) {
+    return sanitizePatParams(params).offer ? [] : ['what you are offering them'];
+  }
+
+  /**
+   * Run Pat for real: one server call that drafts, checks and reviews the
+   * email and saves it as a mission artifact awaiting approval. If the server
+   * needs a fact it will not invent, it answers with questions and this
+   * throws them — the mission shows them rather than a made-up draft.
+   *
+   * @param {object} task  { params: {offer, ctaUrl, audience, audienceTags} }
+   * @param {object} opts  { authHeaders, intelProfileId, missionId, sender: {senderName, companyName, businessContext}, expectedRecipients, onStatus, fetchImpl }
+   */
+  async function runPatTask(task, { authHeaders, intelProfileId, missionId, sender, expectedRecipients, onStatus, fetchImpl } = {}) {
+    const doFetch = fetchImpl || ((...a) => fetch(...a));
+    const params = sanitizePatParams(task.params);
+    const missing = missingPatInputs(params);
+    if (missing.length) throw new Error(`Pat needs ${missing.join(' and ')} before it can draft.`);
+
+    if (task._patState && task._patState.artifactId) return task._patState;   // retry must not draft (and pay) twice
+    if (onStatus) onStatus('Drafting the email and running the send-time checks…');
+    const res = await doFetch('/api/mission-pat', {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'draft', ...params, ...(sender || {}),
+        expectedRecipients: expectedRecipients || 0,
+        intelProfileId: intelProfileId || undefined, missionId: missionId || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || `Pat request failed (HTTP ${res.status})`);
+    if (data.status === 'needs_input') {
+      throw new Error(`Pat needs more from you: ${(data.questions || []).map(q => q.question).join(' ')}`);
+    }
+    task._patState = {
+      artifactId: data.artifactId, subject: data.subject, html: data.html || '', text: data.text || '', preview: data.preview || {},
+      review: data.review || { approved: false, blockers: [] }, fixed: !!data.fixed,
+      questions: data.questions || [], audienceTags: params.audienceTags, complete: true,
+    };
+    return task._patState;
+  }
+
+  /** A plain-markdown account of a real Pat result, for the mission report. */
+  function describePatResult(result) {
+    const r = result.review || {};
+    const lines = [`**Pat drafted for real.** Subject: "${result.subject}".`];
+    if (r.approved) {
+      lines.push(`It passed the send-time checks and Scotty's QA review${result.fixed ? ' (after one automatic fix)' : ''}.${r.summary ? ' ' + r.summary : ''}`);
+      if ((r.warnings || []).length) lines.push('Warnings: ' + r.warnings.join('; '));
+      lines.push('', 'Waiting for your approval — nothing has been sent.');
+    } else {
+      lines.push('It did **not** pass review, so it cannot be approved yet:');
+      (r.blockers || []).forEach(b => lines.push(`- ${b}`));
+      (result.questions || []).forEach(q => lines.push(`- Needs from you: ${q}`));
+    }
+    return lines.join('\n');
+  }
+
   /**
    * Generate a multi-agent mission plan.
    * Returns a JSON object with missionTitle, missionSummary, and tasks[].
@@ -897,6 +1614,9 @@ ${capabilityList}
 Rules:
 - Select the 4–6 agents that best match the goal — do NOT always default to seo+competitive
 - For prospect/outreach goals: prioritise sales → email → linkedin → content
+- When the goal is to find LOCAL businesses of a particular trade in a particular place (plumbers, dentists, roofers…), use "blade" instead of "sales" — blade finds real businesses; never select both for the same prospecting job
+- After blade, include "chase" when the offer depends on how good or bad each business's website is (website redesign, hosting, SEO): it audits every shortlisted site for real. Skip it when website quality is irrelevant
+- When the goal is to email the businesses found (or an existing audience) about a stated offer, include "delivery" (Pat) — it drafts and checks one real email. Use "email" instead for sequences, newsletters or copy-only work
 - For campaign goals: prioritise content → ads → email → social
 - Also recommend a channelMix: 3-5 channels/content formats most worth leaning into for
   THIS specific goal this week (e.g. "Short-form video", "Carousels & images", "Email sequence",
@@ -923,7 +1643,7 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
       messages: [{ role: 'user', content: `Goal: ${goal}\n\nContext:\n${ctxSummary}` }],
     }, 'Mission plan selection');
 
-    const agentKeys = Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : [];
+    const agentKeys = orderForExecution(Array.isArray(selection.agentKeys) ? selection.agentKeys.filter(k => MISSION_AGENT_CAPABILITIES[k]) : []);
     if (!agentKeys.length) throw new Error('Mission plan parsing failed — no valid agents were selected');
     report({ stage: 'selected', agentKeys, missionTitle: selection.missionTitle });
 
@@ -949,13 +1669,207 @@ Respond ONLY with valid JSON — no markdown fences, no commentary:
   "userPrompt": "2-4 sentences of specific, self-contained instruction"
 }`;
 
-      const taskData = await callJsonPrompt({
-        systemPrompt: taskSystemPrompt,
-        messages: [{
-          role: 'user',
-          content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
-        }],
-      }, `Mission plan task for the ${agentKey} agent`);
+      const missionMessage = {
+        role: 'user',
+        content: `Mission: ${selection.missionTitle}\nMission summary: ${selection.missionSummary}\nOriginal goal: ${goal}\n\nContext:\n${ctxSummary}`,
+      };
+
+      // Blade runs for real, so its task is structured inputs the real
+      // pipeline can act on (a trade and a place), not a prose instruction
+      // for Claude to role-play. Anything the goal doesn't actually state
+      // stays blank for the user to fill in before the mission starts — an
+      // invented city would mean searching for the wrong businesses.
+      let taskData;
+      if (agentKey === 'blade') {
+        const raw = await callJsonPrompt({
+          systemPrompt: BLADE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the blade agent');
+        const params = sanitizeBladeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Find local prospects').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'blade',
+          userPrompt: describeBladeParams(params),
+        };
+      } else if (agentKey === 'compliance' && window.ComplianceMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: COMPLIANCE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the compliance agent');
+        const params = window.ComplianceMission.sanitizeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Compliance screen').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'compliance',
+          userPrompt: window.ComplianceMission.describeParams(params, agentKeys.filter(k => window.ComplianceMission.PRODUCERS.includes(k))),
+        };
+      } else if (agentKey === 'video' && window.VideoMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: VIDEO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the video agent');
+        const rp = raw.params || {};
+        const params = window.VideoMission.sanitizeParams({ brief: rp.brief, duration: rp.duration, aspectRatio: window.VideoMission.aspectForPlatform(rp.platform) });
+        taskData = {
+          taskName: String(raw.taskName || 'Video clip').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'video',
+          userPrompt: window.VideoMission.describeParams(params),
+        };
+      } else if (agentKey === 'linkedin' && window.LinkedInMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: LINKEDIN_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the linkedin agent');
+        const rp = raw.params || {};
+        // People already kept on the LinkedIn Outreach page are the user's own facts; use them when the goal names nobody.
+        const named = Array.isArray(rp.prospects) ? rp.prospects : [];
+        const params = window.LinkedInMission.sanitizeParams({ offer: rp.offer, prospects: named.length ? named : window.LinkedInMission.readStoredProspects() });
+        taskData = {
+          taskName: String(raw.taskName || 'LinkedIn outreach drafts').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'linkedin',
+          userPrompt: window.LinkedInMission.describeParams(params),
+        };
+      } else if (agentKey === 'cro') {
+        const raw = await callJsonPrompt({
+          systemPrompt: CRO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the cro agent');
+        const rp = raw.params || {};
+        const params = sanitizeCroParams({ urls: (rp.urls && rp.urls.length) ? rp.urls : (contextBundle.website ? [contextBundle.website] : []), goal: rp.goal });
+        taskData = {
+          taskName: String(raw.taskName || 'CRO audit').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'cro',
+          userPrompt: describeCroParams(params),
+        };
+      } else if (agentKey === 'competitive' && window.CompetitiveMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: COMPETITIVE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the competitive agent');
+        // Competitors the person already keeps in their Business Brain are facts, not guesses.
+        const named = (raw.params && raw.params.urls) || [];
+        const params = window.CompetitiveMission.sanitizeParams({ urls: named.length ? named : window.CompetitiveMission.radarUrls() });
+        taskData = {
+          taskName: String(raw.taskName || 'Competitor analysis').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'competitive',
+          userPrompt: window.CompetitiveMission.describeParams(params),
+        };
+      } else if (agentKey === 'analytics') {
+        const raw = await callJsonPrompt({
+          systemPrompt: ANALYTICS_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the analytics agent');
+        const params = sanitizeAnalyticsParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Performance report').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'analytics',
+          userPrompt: describeAnalyticsParams(params),
+        };
+      } else if (agentKey === 'ads' && window.AdsMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: ADS_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the ads agent');
+        const params = window.AdsMission.sanitizeParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Write ad campaign').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'ads',
+          userPrompt: window.AdsMission.describeParams(params),
+        };
+      } else if (agentKey === 'seo' && window.SeoMission) {   // module missing → falls back to the written plan, never a half-real task
+        const raw = await callJsonPrompt({
+          systemPrompt: SEO_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the seo agent');
+        // The Business Brain's own website is a fact, not a guess: use it when the goal names none.
+        const params = window.SeoMission.sanitizeParams({
+          websiteUrl: (raw.params && raw.params.websiteUrl) || contextBundle.website || '',
+          articleCount: raw.params && raw.params.articleCount,
+        });
+        taskData = {
+          taskName: String(raw.taskName || 'SEO content plan').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'seo',
+          userPrompt: window.SeoMission.describeParams(params),
+        };
+      } else if (agentKey === 'social') {
+        const raw = await callJsonPrompt({
+          systemPrompt: SOCIAL_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the social agent');
+        const params = sanitizeSocialParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Write social posts').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'social',
+          userPrompt: describeSocialParams(params),
+        };
+      } else if (agentKey === 'nancy' && window.NancyMission) {
+        const raw = await callJsonPrompt({
+          systemPrompt: NANCY_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the nancy agent');
+        // The Business Brain's own website is a fact, not a guess: use it when the goal names none.
+        const params = window.NancyMission.sanitizeParams({
+          websiteUrl: raw.params && raw.params.websiteUrl || contextBundle.website || '',
+          mustTalkAbout: raw.params && raw.params.mustTalkAbout,
+        });
+        taskData = {
+          taskName: String(raw.taskName || 'Create Instagram week').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'nancy',
+          userPrompt: window.NancyMission.describeParams(params),
+        };
+      } else if (agentKey === 'chase') {
+        const raw = await callJsonPrompt({
+          systemPrompt: CHASE_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the chase agent');
+        const params = sanitizeChaseParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Audit prospect websites').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'chase',
+          userPrompt: describeChaseParams(params),
+        };
+      } else if (agentKey === 'delivery') {
+        const raw = await callJsonPrompt({
+          systemPrompt: PAT_TASK_SYSTEM_PROMPT,
+          messages: [missionMessage],
+        }, 'Mission plan task for the delivery agent');
+        const params = sanitizePatParams(raw.params);
+        taskData = {
+          taskName: String(raw.taskName || 'Draft outreach email').slice(0, 80),
+          objective: String(raw.objective || '').slice(0, 300),
+          params,
+          realExecutor: 'delivery',
+          userPrompt: describePatParams(params),
+        };
+      } else {
+        taskData = await callJsonPrompt({
+          systemPrompt: taskSystemPrompt,
+          messages: [missionMessage],
+        }, `Mission plan task for the ${agentKey} agent`);
+      }
       tasks.push({ agentKey, ...taskData });
       report({ stage: 'task_done', agentKey, index: i, total: agentKeys.length, taskName: taskData.taskName });
     }
@@ -1182,6 +2096,43 @@ Respond ONLY with valid JSON:
     isOrchestrationIntent,
     generateMissionPlan,
     executeAgentTask,
+    isRealExecutor,
+    orderForExecution,
+    runBladeTask,
+    describeBladeResult,
+    sanitizeBladeParams,
+    describeBladeParams,
+    missingBladeInputs,
+    runChaseTask,
+    runCroTask,
+    describeCroResult,
+    sanitizeCroParams,
+    describeCroParams,
+    missingCroInputs,
+    describeCompetitiveResult,
+    runAnalyticsTask,
+    describeAnalyticsResult,
+    sanitizeAnalyticsParams,
+    describeAnalyticsParams,
+    describeAdsResult,
+    describeSeoResult,
+    runSocialTask,
+    describeSocialResult,
+    sanitizeSocialParams,
+    describeSocialParams,
+    missingSocialInputs,
+    SOCIAL_PLATFORMS,
+    SOCIAL_GOALS,
+    describeNancyResult,
+    describeChaseResult,
+    sanitizeChaseParams,
+    describeChaseParams,
+    missingChaseInputs,
+    runPatTask,
+    describePatResult,
+    sanitizePatParams,
+    describePatParams,
+    missingPatInputs,
     getAgentInlinePrompt,
     assessAndPlanAutomation,
     executeAutomationStep,

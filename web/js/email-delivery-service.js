@@ -36,14 +36,20 @@ const EmailDeliveryService = (() => {
    * @param {string} [opts.replyTo]
    * @param {string} [opts.campaignName]
    * @param {Array<{to:string, toName?:string, mergeFields?:Object}>} opts.recipients
+   * @param {Object} [opts.senderFields] {senderName, senderTitle, …} merged into every recipient
    * @returns {Object} campaign
    */
-  function collateCampaign({ subject, html, text, replyTo, campaignName, recipients, companyName, mailingAddress }) {
+  function collateCampaign({ subject, html, text, replyTo, campaignName, recipients, companyName, mailingAddress, senderFields }) {
     const cleanSubject = (subject || '').trim();
     const cleanHtml     = (html || '').trim();
     const cleanRecipients = (recipients || [])
       .map(r => (typeof r === 'string') ? { to: r.trim() } : { to: (r.to || '').trim(), toName: r.toName, mergeFields: r.mergeFields, _contactId: r._contactId })
-      .filter(r => r.to);
+      .filter(r => r.to)
+      // {{senderName}} & co. are the same for every recipient: who this
+      // campaign is sent as. They go in last so a recipient row can't override them.
+      .map(r => senderFields && Object.keys(senderFields).length
+        ? { ...r, mergeFields: { ...(r.mergeFields || {}), ...senderFields } }
+        : r);
 
     return {
       id:             'campaign_' + Math.random().toString(36).slice(2, 10),
@@ -175,6 +181,7 @@ const EmailDeliveryService = (() => {
         subject:      campaign.subject,
         html:         campaign.html,
         text:         campaign.text,
+        language:     (window.IntelligenceEngine && window.IntelligenceEngine.brain && window.IntelligenceEngine.brain.getWritingLanguage && window.IntelligenceEngine.brain.getWritingLanguage()) || undefined,
       }),
     });
     const data = await res.json().catch(() => ({}));

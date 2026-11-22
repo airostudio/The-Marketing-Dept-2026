@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connections | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/autopilot.css">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/autopilot-ui.js"></script>
+</head>
+<body>
+<nav class="ap-nav"><a href="/hub.html">Agent Hub</a><a href="/inbox.html">What happened</a><a href="/seo/autopilot.html">SEO Autopilot</a><a href="/scotty.html">Scotty</a></nav>
+<div class="ap-wrap">
+  <h1>🔌 Connections</h1>
+  <p class="ap-sub">Connect your own website and accounts so Audema's agents can do the work for you, not just tell you what to do. Each login is checked before it's saved, stored encrypted, and used only for the jobs you turn on. If one stops working, your agents pause that work and ask you to reconnect it.</p>
+  <div id="scopeWarn" class="ap-card ap-hidden"><span class="ap-warn">Pick a business (Business Brain profile) or project first. Connections belong to one business.</span></div>
+  <div id="keyWarn" class="ap-card ap-hidden"><span class="ap-warn">Audema can't store connections yet: CONNECTIONS_ENCRYPTION_KEY isn't set on the server.</span></div>
+
+  <div class="ap-card">
+    <h2>Your connections</h2>
+    <div id="list" class="ap-muted">Loading…</div>
+  </div>
+
+  <div class="ap-card" id="addCard">
+    <h2 id="addTitle">Connect your website</h2>
+    <label class="ap-f">Platform</label>
+    <select id="provider"></select>
+    <p class="ap-muted" id="help" style="margin:10px 0;"></p>
+    <div id="fields"></div>
+    <div class="ap-row" style="margin-top:12px;"><button class="ap-btn" id="connectBtn">Check and connect</button><span class="ap-muted" id="msg"></span></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const { $, esc, call, scope } = window.AutopilotUI;
+  const FIELD = {
+    siteUrl: { label: 'Website address', type: 'text', placeholder: 'https://example.com' },
+    username: { label: 'WordPress username', type: 'text' },
+    appPassword: { label: 'Application password', type: 'password', placeholder: 'xxxx xxxx xxxx xxxx xxxx xxxx' },
+    token: { label: 'API token', type: 'password' },
+    shopDomain: { label: 'Store address', type: 'text', placeholder: 'my-store.myshopify.com' },
+    apiKey: { label: 'Wix API key', type: 'password' },
+    siteId: { label: 'Wix Site ID', type: 'text', placeholder: '1a2b3c4d-…' },
+  };
+  const OPTIONAL = { wix: ['memberId', 'siteUrl'], shopify: ['author'] };
+  const OPT_FIELD = { memberId: { label: 'Wix Member ID (only if Wix asks for an author)', type: 'text' }, author: { label: 'Author name on posts (optional)', type: 'text' } };
+  const params = new URLSearchParams(location.search);
+  let providers = [], reconnectId = params.get('reconnect');
+
+  function renderFields() {
+    const p = providers.find(x => x.id === $('provider').value); if (!p) return;
+    $('help').textContent = p.help;
+    const names = [...p.needs, ...(OPTIONAL[p.id] || [])].filter((n, i, a) => a.indexOf(n) === i);
+    $('fields').innerHTML = names.map(n => { const f = FIELD[n] || OPT_FIELD[n]; return `<label class="ap-f">${esc(f.label)}</label><input data-field="${esc(n)}" type="${f.type}" autocomplete="off" placeholder="${esc(f.placeholder || '')}">`; }).join('');
+  }
+
+  async function load() {
+    const s = scope();
+    if (!s.intelProfileId && !s.projectId) { $('scopeWarn').classList.remove('ap-hidden'); $('list').textContent = ''; }
+    try {
+      const pv = await call('/api/connections', { action: 'providers' });
+      providers = pv.providers;
+      if (!pv.encryptionConfigured) $('keyWarn').classList.remove('ap-hidden');
+      $('provider').innerHTML = providers.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('');
+      if (params.get('provider')) $('provider').value = params.get('provider');
+      renderFields();
+      if (reconnectId) $('addTitle').textContent = 'Reconnect';
+    } catch (e) { $('help').textContent = e.message; }
+    if (!s.intelProfileId && !s.projectId) return;
+    try {
+      const d = await call('/api/connections', { action: 'list', ...s });
+      if (!d.connections.length) { $('list').innerHTML = '<span class="ap-muted">Nothing connected yet.</span>'; return; }
+      $('list').innerHTML = `<table class="ap-table"><tbody>${d.connections.map(c => `<tr>
+        <td><strong>${esc(c.label)}</strong><div class="ap-muted">${esc(c.provider)}${c.siteUrl ? ' · ' + esc(c.siteUrl) : ''}</div></td>
+        <td><span class="ap-pill ${c.status === 'active' ? 'ok' : 'warn'}">${c.status === 'active' ? 'working' : 'needs you'}</span>${c.statusNote ? `<div class="ap-muted">${esc(c.statusNote)}</div>` : ''}</td>
+        <td class="ap-muted">${c.lastOkAt ? 'last worked ' + esc(new Date(c.lastOkAt).toLocaleString()) : ''}</td>
+        <td class="ap-row"><button class="ap-btn ghost" data-test="${esc(c.id)}">Test</button><button class="ap-btn ghost" data-re="${esc(c.id)}" data-provider="${esc(c.provider)}">Reconnect</button><button class="ap-btn ghost danger" data-off="${esc(c.id)}">Disconnect</button></td></tr>`).join('')}</tbody></table>`;
+    } catch (e) { $('list').textContent = e.message; }
+  }
+
+  $('provider').addEventListener('change', renderFields);
+  $('list').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    try {
+      if (b.dataset.test) { b.textContent = 'Testing…'; const r = await call('/api/connections', { action: 'test', id: b.dataset.test }); b.textContent = r.working ? `✓ Working (${r.pagesSeen} pages seen)` : '✗ Not working'; if (!r.working) alert(r.error); }
+      if (b.dataset.re) { reconnectId = b.dataset.re; $('provider').value = b.dataset.provider; $('addTitle').textContent = 'Reconnect'; renderFields(); $('addCard').scrollIntoView({ behavior: 'smooth' }); }
+      if (b.dataset.off && confirm('Disconnect? The saved login is deleted and agents stop using it.')) { await call('/api/connections', { action: 'disconnect', id: b.dataset.off }); load(); }
+    } catch (e) { alert(e.message); }
+  });
+  $('connectBtn').addEventListener('click', async () => {
+    const fields = {}; $('fields').querySelectorAll('[data-field]').forEach(i => { fields[i.dataset.field] = i.value; });
+    $('msg').textContent = 'Checking the login works…'; $('connectBtn').disabled = true;
+    try {
+      const r = await call('/api/connections', { action: 'connect', provider: $('provider').value, fields, connectionId: reconnectId || undefined, ...scope() });
+      $('msg').textContent = `✓ Connected: ${r.connection.label}${r.resumed ? ` — ${r.resumed} waiting job${r.resumed === 1 ? '' : 's'} carrying on` : ''}`;
+      $('fields').querySelectorAll('input[type=password]').forEach(i => { i.value = ''; });
+      reconnectId = null; $('addTitle').textContent = 'Connect your website'; load();
+    } catch (e) { $('msg').textContent = e.message; }
+    finally { $('connectBtn').disabled = false; }
+  });
+  load();
+})();
+</script>
+</body>
+</html>

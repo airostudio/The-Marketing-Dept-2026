@@ -155,7 +155,9 @@ console.log('\n──── keyed on the account, and after the account exists �
    exists to be reachable when authentication is the broken thing. There is no
    account to key on there, so the address is the only key available, and the
    limit is correspondingly tight. Everything else must key on the account. */
-const PUBLIC_BY_DESIGN = new Set(['api/app-config.js']);
+// scorecard-public is the page a business's visitors fill in at /s/<slug>:
+// they have no account, so the address is the only thing to key on.
+const PUBLIC_BY_DESIGN = new Set(['api/app-config.js', 'api/scorecard-public.js']);
 
 const addressKeyed = ENDPOINTS.filter(f =>
   !PUBLIC_BY_DESIGN.has(f) &&
@@ -177,6 +179,7 @@ const AUTH_CALLS = [
   'await requireAdmin(req, res)',
   'await authenticateSender(req)',
   'await requireInternalToolsAccess(req, res)', // wraps requireUser() plus the tool's own unlock-token check
+  'await getCallerFromToken(supabaseUrl, serviceKey, accessToken)', // the service-role-key endpoints (ab-tests.js, email-flows.js, site-snapshot.js, ...) that decode the caller's own bearer token themselves instead of calling requireUser()
 ];
 const misordered = ENDPOINTS.filter(f => {
   if (PUBLIC_BY_DESIGN.has(f)) return false;   // no auth to come after

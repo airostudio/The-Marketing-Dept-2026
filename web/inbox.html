@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Happened | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/autopilot.css">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/autopilot-ui.js"></script>
+</head>
+<body>
+<nav class="ap-nav"><a href="/hub.html">Agent Hub</a><a href="/autopilot.html">Autopilot</a><a href="/seo/autopilot.html">SEO Autopilot</a><a href="/connections.html">Connections</a><a href="/scotty.html">Scotty</a></nav>
+<div class="ap-wrap">
+  <h1>📬 What happened</h1>
+  <p class="ap-sub">Everything your agents did on their own: what they published, problems they hit and fixed, and the few things only you can do — approve a piece, or reconnect an account. You also get an email when something needs you.</p>
+  <div id="scopeWarn" class="ap-card ap-hidden"><span class="ap-warn">Pick a business (Business Brain profile) or project first.</span></div>
+  <div class="ap-row" style="margin-bottom:14px;">
+    <button class="ap-btn ghost" data-filter="all">Everything</button>
+    <button class="ap-btn ghost" data-filter="needs">Needs you <span id="needsCount"></span></button>
+    <span class="ap-muted" id="msg"></span>
+  </div>
+  <div id="events" class="ap-muted">Loading…</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const { $, esc, safeHref, call, scope } = window.AutopilotUI;
+  const ICON = { done: '✅', repaired: '🛠️', needs_approval: '👀', needs_permission: '🔑', failed: '⚠️', info: 'ℹ️' };
+  const LABEL = { done: 'Done', repaired: 'Fixed a problem', needs_approval: 'Needs your OK', needs_permission: 'Needs a connection', failed: 'Couldn\'t finish', info: 'Note' };
+  let events = [], filter = 'all';
+  const open = new Map(); // event id → loaded article
+  const reviews = new Map(); // event id → loaded mission artifact
+
+  function actions(e) {
+    const a = e.action || {};
+    if (e.resolved) return '';
+    if (e.kind === 'needs_approval' && a.type === 'approve') return `<button class="ap-btn" data-preview="${esc(e.id)}">Read it</button>`;
+    if (e.kind === 'needs_approval' && a.type === 'artifact') return `<button class="ap-btn" data-review="${esc(e.id)}">Review</button>`;
+    if (e.kind === 'needs_permission' && a.type === 'settings') return `<a class="ap-btn" href="/autopilot.html#${esc(encodeURIComponent(a.agent || ''))}">Open settings</a>`;
+    if (e.kind === 'needs_permission' && a.type === 'link' && localHref(a.href)) return `<a class="ap-btn" href="${esc(localHref(a.href))}">Open</a>`;
+    if (e.kind === 'needs_permission') {
+      const href = a.type === 'reconnect' && a.connectionId ? `/connections.html?reconnect=${encodeURIComponent(a.connectionId)}` : '/connections.html';
+      return `<a class="ap-btn" href="${esc(href)}">${a.type === 'reconnect' ? 'Reconnect' : 'Connect'}</a>`;
+    }
+    const parts = [];
+    if (a.type === 'link' && localHref(a.href)) parts.push(`<a class="ap-btn ghost" href="${esc(localHref(a.href))}">Open</a>`);
+    if (a.type === 'open' && safeHref(a.url)) parts.push(`<a class="ap-btn ghost" href="${esc(safeHref(a.url))}" target="_blank" rel="noopener">View it</a>`);
+    if (a.type === 'copy_article' && a.articleId) parts.push(`<button class="ap-btn" data-copy="${esc(a.articleId)}">Copy article</button>`);
+    if (e.kind === 'failed' && e.jobId) parts.push(`<button class="ap-btn ghost" data-retry="${esc(e.jobId)}">Try again</button>`);
+    if (e.kind !== 'needs_approval' && e.kind !== 'needs_permission') parts.push(`<button class="ap-btn ghost" data-dismiss="${esc(e.id)}">Dismiss</button>`);
+    return parts.join('');
+  }
+
+  // Only our own pages, by path (an event's link is never an outside address).
+  function localHref(h) { return typeof h === 'string' && /^\/[A-Za-z0-9_\-/.]*(#[\w-]*)?$/.test(h) && !h.startsWith('//') ? h : ''; }
+
+  function artifactBody(art) {
+    const p = art.payload || {};
+    if (art.kind === 'analytics_report') {
+      return `${p.review && p.review.approved === false ? '<p class="ap-warn">Some numbers in this report could not be matched to your data, so it can\'t be approved as is.</p>' : ''}<div class="ap-preview" style="white-space:pre-wrap">${esc(p.markdown || '')}</div>`;
+    }
+    if (art.kind === 'cro_plan') {
+      return `<div class="ap-preview">${(p.ideas || []).map(i => `<h3>${esc(i.name)}</h3><p>${esc(i.hypothesis)}</p>${i.what_to_change ? `<p><strong>Change:</strong> ${esc(i.what_to_change)}</p>` : ''}${i.primary_metric ? `<p><strong>Measure:</strong> ${esc(i.primary_metric)}</p>` : ''}`).join('')}</div>`;
+    }
+    if (art.kind === 'social_posts') {
+      return `<div class="ap-preview">${(p.posts || []).map(x => `<div style="border-bottom:1px solid #ddd;padding:8px 0;"><strong>${esc(x.platform)}</strong>${x.title ? ` — ${esc(x.title)}` : ''}<div style="white-space:pre-wrap">${esc(x.body)}</div>${(x.hashtags || []).length ? `<div>${x.hashtags.map(h => '#' + esc(h)).join(' ')}</div>` : ''}${x.problem ? `<div style="color:#b45309">⚠ ${esc(x.problem)}</div>` : ''}</div>`).join('')}</div>`;
+    }
+    return `<div class="ap-preview" style="white-space:pre-wrap">${esc(JSON.stringify(p, null, 2).slice(0, 4000))}</div>`;
+  }
+
+  function reviewBlock(e) {
+    const art = reviews.get(e.id); if (!art) return '';
+    const decided = art.status !== 'pending_approval';
+    return `<div>${artifactBody(art)}<div class="ap-row" style="margin-top:10px;">${decided ? `<span class="ap-muted">Already ${esc(String(art.status).replace('_', ' '))}.</span>` : `<button class="ap-btn" data-aapprove="${esc(e.id)}">Approve</button><button class="ap-btn ghost danger" data-areject="${esc(e.id)}">Reject</button>`}</div></div>`;
+  }
+
+  function articleBlock(e) {
+    if (reviews.has(e.id)) return reviewBlock(e);
+    const art = open.get(e.id); if (!art) return '';
+    return `<div data-art="${esc(e.id)}">
+      <div class="ap-muted" style="margin-top:10px;">${esc(art.words || 0)} words · keyword: ${esc(art.keyword || '—')}</div>
+      <div class="ap-preview" data-view><h2>${esc(art.title)}</h2>${art.html}</div>
+      <div class="ap-hidden" data-edit>
+        <label class="ap-f">Title</label><input data-k="title" value="${esc(art.title)}">
+        <label class="ap-f">Meta description</label><input data-k="meta_description" value="${esc(art.metaDescription || '')}">
+        <label class="ap-f">Article (Markdown)</label><textarea data-k="body_markdown" rows="16">${esc(art.markdown)}</textarea>
+      </div>
+      <div class="ap-row" style="margin-top:10px;">
+        <button class="ap-btn" data-approve="${esc(e.id)}">Approve and publish</button>
+        <button class="ap-btn ghost" data-editbtn="${esc(e.id)}">Edit</button>
+        <button class="ap-btn ghost danger" data-reject="${esc(e.id)}">Don't publish</button>
+      </div></div>`;
+  }
+
+  function render() {
+    const list = filter === 'needs' ? events.filter(e => !e.resolved && (e.kind === 'needs_approval' || e.kind === 'needs_permission')) : events;
+    if (!list.length) { $('events').innerHTML = `<div class="ap-card ap-muted">${filter === 'needs' ? 'Nothing needs you right now.' : 'Nothing has happened yet. Turn on an autopilot and its work shows up here.'}</div>`; return; }
+    $('events').innerHTML = list.map(e => `<div class="ap-event${!e.read ? ' open' : ''}" data-id="${esc(e.id)}">
+      <div class="ap-row" style="justify-content:space-between;"><span class="ap-pill ${e.kind === 'done' ? 'ok' : e.kind === 'failed' ? 'bad' : 'warn'}">${ICON[e.kind] || ''} ${esc(LABEL[e.kind] || e.kind)}</span><span class="ap-muted">${esc(new Date(e.createdAt).toLocaleString())}${e.resolved ? ' · handled' : ''}</span></div>
+      <div class="t" style="margin-top:8px;">${esc(e.title)}</div>
+      ${e.body ? `<div class="b">${esc(e.body)}</div>` : ''}
+      <div class="ap-row" style="margin-top:10px;">${actions(e)}</div>
+      ${articleBlock(e)}
+    </div>`).join('');
+  }
+
+  async function load() {
+    const s = scope();
+    if (!s.intelProfileId && !s.projectId) { $('scopeWarn').classList.remove('ap-hidden'); $('events').textContent = ''; return; }
+    try {
+      const d = await call('/api/activity', { action: 'list', ...s });
+      events = d.events;
+      $('needsCount').textContent = d.needsYou ? `(${d.needsYou})` : '';
+      if (d.needsYou && filter === 'all' && !load.once) filter = 'needs';
+      load.once = true;
+      render();
+      const unread = events.filter(e => !e.read).map(e => e.id);
+      if (unread.length) call('/api/activity', { action: 'read', ids: unread }).catch(() => {});
+    } catch (e) { $('events').innerHTML = `<div class="ap-card ap-warn">${esc(e.message)}</div>`; }
+  }
+
+  const byId = (id) => events.find(e => e.id === id);
+  document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
+
+  $('events').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const d = b.dataset;
+    try {
+      if (d.review) {
+        const e = byId(d.review);
+        if (reviews.has(e.id)) { reviews.delete(e.id); return render(); }
+        b.textContent = 'Loading…';
+        const r = await call('/api/mission-artifacts', { action: 'get', artifactId: e.action.artifactId });
+        reviews.set(e.id, r.artifact); render();
+      } else if (d.aapprove || d.areject) {
+        const e = byId(d.aapprove || d.areject);
+        if (d.areject && !confirm('Reject this? Nothing from it is used.')) return;
+        b.disabled = true;
+        const r = await call('/api/mission-artifacts', { action: d.aapprove ? 'approve' : 'reject', artifactId: e.action.artifactId });
+        $('msg').textContent = d.aapprove ? (r.note || 'Approved.') : 'Rejected.';
+        reviews.delete(e.id); load();
+      } else if (d.preview) {
+        const e = byId(d.preview);
+        if (open.has(e.id)) { open.delete(e.id); return render(); }
+        b.textContent = 'Loading…';
+        const r = await call('/api/autopilot', { action: 'article', articleId: e.action.articleId });
+        open.set(e.id, r.article); render();
+      } else if (d.editbtn) {
+        const box = $('events').querySelector(`[data-art="${CSS.escape(d.editbtn)}"]`);
+        box.querySelector('[data-view]').classList.toggle('ap-hidden'); box.querySelector('[data-edit]').classList.toggle('ap-hidden');
+        b.textContent = box.querySelector('[data-edit]').classList.contains('ap-hidden') ? 'Edit' : 'Preview';
+      } else if (d.approve) {
+        const e = byId(d.approve);
+        const box = $('events').querySelector(`[data-art="${CSS.escape(d.approve)}"]`);
+        const art = open.get(e.id), edits = {};
+        box.querySelectorAll('[data-k]').forEach(i => { const orig = { title: art.title, meta_description: art.metaDescription || '', body_markdown: art.markdown }[i.dataset.k]; if (i.value !== orig) edits[i.dataset.k] = i.value; });
+        b.disabled = true;
+        const r = await call('/api/autopilot', { action: 'approve', jobId: e.action.jobId, edits: Object.keys(edits).length ? edits : undefined });
+        $('msg').textContent = r.note; open.delete(e.id); load();
+      } else if (d.reject) {
+        const e = byId(d.reject);
+        if (!confirm('Don\'t publish this? The topic is set aside and nothing goes on your site.')) return;
+        const r = await call('/api/autopilot', { action: 'reject', jobId: e.action.jobId });
+        $('msg').textContent = r.note; open.delete(e.id); load();
+      } else if (d.retry) {
+        const r = await call('/api/autopilot', { action: 'retry', jobId: d.retry }); $('msg').textContent = r.note; load();
+      } else if (d.dismiss) {
+        await call('/api/activity', { action: 'dismiss', id: d.dismiss }); load();
+      } else if (d.copy) {
+        const r = await call('/api/autopilot', { action: 'article', articleId: d.copy });
+        const text = `${r.article.title}\n\n${r.article.markdown.replace(/^#\s.*\n+/, '')}`;
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([`<h1>${esc(r.article.title)}</h1>${r.article.html}`], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+        } catch { await navigator.clipboard.writeText(text); }
+        b.textContent = '✓ Copied — paste into a new GoDaddy blog post';
+      }
+    } catch (e) { $('msg').textContent = e.message; b.disabled = false; }
+  });
+  load();
+  setInterval(() => { if (!document.hidden && !open.size && !reviews.size) load(); }, 60000);
+})();
+</script>
+</body>
+</html>

@@ -20,46 +20,8 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
-
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 6;
-
-
-const TOPICS_TOOL = {
-  name: 'submit_seo_topics',
-  description: 'Submit candidate SEO content topics grounded in the real business profile and real competitor content gaps provided.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      topics: {
-        type: 'array',
-        minItems: 8,
-        // Was 20 — with a rationale sentence per topic that's genuinely a
-        // lot of output tokens, and generation time scales with it. Vercel
-        // kills this function at 60s regardless of the internal timeout
-        // below, so the real fix for a timeout is less output, not just a
-        // bigger number here. 12 topics is still a solid batch and finishes
-        // comfortably inside the ceiling.
-        maxItems: 12,
-        items: {
-          type: 'object',
-          properties: {
-            topic: { type: 'string', description: 'The article topic, human-readable' },
-            target_keyword: { type: 'string', description: 'The primary search phrase this topic targets' },
-            est_search_volume: { type: 'string', description: 'Rough monthly-search-volume bucket: "low (under 100)", "medium (100-1000)", "high (1000+)" — a directional estimate, not a real number' },
-            est_difficulty: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Estimated how hard this would be to rank for, given typical competition for this kind of term' },
-            rationale: { type: 'string', description: 'Why this topic, in one short sentence (~15 words) — grounded in a specific product/service, a real competitor content gap, or a real ICP pain point' },
-            content_pillar: { type: 'string', description: 'Short category label to group related topics, e.g. "Getting Started", "Comparisons", "Use Cases"' },
-          },
-          required: ['topic', 'target_keyword', 'est_search_volume', 'est_difficulty', 'rationale', 'content_pillar'],
-        },
-      },
-    },
-    required: ['topics'],
-  },
-};
+// The prompt and tool live in the shared engine, which SEO Autopilot also uses.
+const { proposeTopics } = require('./_lib/seo-engine.js');
 
 module.exports = withFailureReporting('api/seo-keyword-research', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -76,27 +38,13 @@ module.exports = withFailureReporting('api/seo-keyword-research', async function
 
   if (rateLimited(req, res, { name: 'seo-keyword-research', max: 6, windowMs: 60 * 1000, auth })) return;
 
-  const { profile, competitors = [], cross_competitor_gaps = [] } = req.body || {};
+  const { profile, competitors = [], cross_competitor_gaps = [], language = '' } = req.body || {};
   if (!profile || !profile.business_summary) return res.status(400).json({ error: 'profile (from seo-analyze-site) is required' });
 
-  const system = `You are an SEO content strategist proposing article topics. Ground every topic in the REAL business profile, products/services, and competitor content gaps provided — never propose a topic unrelated to what this business actually offers. Avoid duplicating any topic already in existing_topics. Search volume and difficulty are directional buckets, not real numbers — you have no live keyword database.`;
-
-  const user = `BUSINESS PROFILE:\n${JSON.stringify(profile, null, 2)}\n\nCOMPETITOR CONTENT (${competitors.length} competitors researched):\n${JSON.stringify(competitors, null, 2)}\n\nCROSS-COMPETITOR CONTENT GAPS:\n${JSON.stringify(cross_competitor_gaps, null, 2)}\n\nPropose 8-12 SEO article topics that would genuinely help this specific business, prioritizing real content gaps and real product/service coverage over generic industry topics.`;
-
-  // timeoutMs pushed close to Vercel's own 60s maxDuration for this
-  // function (vercel.json) — this is the platform's hard ceiling, not a
-  // number this file controls, so timeoutMs can't usefully exceed it by
-  // much; the maxItems cut above is what actually keeps real-world
-  // generation time well under it rather than just barely inside it.
-  const result = await callClaudeForJSON({ system, user, tool: TOPICS_TOOL, maxTokens: 3000, timeoutMs: 55000 });
-  if (!result.success) return res.status(502).json({ success: false, error: result.error });
-
-  const topics = (result.data.topics || []).map(t => ({
-    topic: t.topic, target_keyword: t.target_keyword,
-    search_volume: null, difficulty: null,
-    est_search_volume: t.est_search_volume, est_difficulty: t.est_difficulty,
-    data_source: 'estimate', rationale: t.rationale, content_pillar: t.content_pillar,
-  }));
-
-  return res.json({ success: true, topics });
+  try {
+    const topics = await proposeTopics({ profile, competitors, cross_competitor_gaps, language });
+    return res.json({ success: true, topics });
+  } catch (err) {
+    return res.status(502).json({ success: false, error: err.message });
+  }
 });

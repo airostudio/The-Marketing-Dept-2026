@@ -27,6 +27,7 @@
 
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { publishPost } = require('./publish-social-post.js');
+const notify = require('./_lib/autopilot/notify.js');
 
 const BATCH_LIMIT = 25;
 
@@ -108,6 +109,7 @@ module.exports = withFailureReporting('api/cron-auto-publish', async function ha
         publish_status: 'failed',
         publish_error: result.error || result.status,
       });
+      await notify.postFailed((m, p, b) => sb(supabaseUrl, serviceKey, m, p, b), post, result);
       summary.failed++;
     }
 

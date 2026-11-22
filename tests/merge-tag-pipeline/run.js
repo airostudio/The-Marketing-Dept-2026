@@ -133,7 +133,8 @@ console.log('\n──── Scotty attempts its own fix pass on a blocked campai
 
 console.log('\n──── the fix endpoint is instructed never to invent facts, only rewrite tone ────');
 {
-  const fixSrc = read('api/fix-campaign.js');
+  // The prompt and its question filtering now live in the shared lib that both Pat's page and Scotty's missions use.
+  const fixSrc = read('api/_lib/campaign-review.js');
   check('the prompt explicitly bans inventing a URL/name/stat/address', /Never invent a URL, a name, a number, a testimonial, or an address/.test(fixSrc));
   check('the prompt distinguishes fixable tone/spam issues from must-ask factual gaps', /FIX IT YOURSELF/.test(fixSrc) && /ASK THE SENDER/.test(fixSrc));
   check('uses the same forced-tool-call helper as review-campaign — no freehand JSON parsing', /callClaudeForJSON/.test(fixSrc));

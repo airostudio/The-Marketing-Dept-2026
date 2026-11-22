@@ -1,0 +1,663 @@
+/**
+ * api/mission-artifacts.js — see and decide on what a Scotty mission
+ * actually produced.
+ *
+ * POST { action: 'list',    status?, missionId? }
+ * POST { action: 'get',     artifactId }
+ * POST { action: 'approve', artifactId }
+ * POST { action: 'reject',  artifactId }
+ * Header: Authorization: Bearer <the caller's own Supabase access token>
+ *
+ * Approving is the one human checkpoint in an otherwise automatic mission,
+ * so it is deliberately the only place a real effect happens, and a
+ * deliberately narrow one:
+ *
+ *   blade_leads — imports the shortlisted businesses that have a real email
+ *   into Beeker's contacts, tagged 'blade-prospect' plus the trade, with how
+ *   they were found recorded as the contact's consent_source (an honest
+ *   "found via public listing, no prior opt-in", never a made-up opt-in).
+ *   It sends nothing. Sending is Pat's job, behind Pat's own checks and the
+ *   unsubscribe/suppression machinery every send already goes through.
+ *
+ *   pat_campaign — records the human OK on a drafted outreach email and
+ *   finds/creates the dynamic segment for its audience tags. It sends
+ *   nothing and refuses to approve a draft whose QA review did not pass.
+ *   The person then sends from Pat's own page (suppression, quota, content
+ *   guard and the compliance footer all apply there).
+ *
+ *   chase_audit — tags the audited businesses that are already in the audience
+ *   (matched by email, the flow owner's own contacts only) with how strong an
+ *   opportunity they are (opportunity-high-priority, …) and records their
+ *   score and platform on the contact. It changes nothing else and sends
+ *   nothing; a tag is a label, it does not suppress or enrol anyone.
+ *
+ *   nancy_week — puts the week's posts in the Content Calendar as APPROVED
+ *   (your approval here is the review), ready to be scheduled there. It
+ *   schedules nothing and publishes nothing; nothing goes out until a post is
+ *   given a time in the Calendar.
+ *
+ *   social_posts — puts the posts that can be published as written in the
+ *   Content Calendar as APPROVED, ready to schedule. Posts that cannot (for
+ *   example over X's character limit) are left out and named in the result.
+ *   Schedules and publishes nothing.
+ *
+ *   seo_plan — saves the plan into the SEO Content Engine as a new run: the
+ *   site analysis, every proposed topic (search volume labelled real or
+ *   estimate) and the drafted articles (as drafts, topics marked written).
+ *   Publishes nothing anywhere; the articles are for a person to read, edit
+ *   and publish by hand.
+ *
+ *   ad_campaign — saves the ads that fit their platform's copy limits as
+ *   approved AD COPY (social_posts rows with source 'ad') for the person to
+ *   paste into their ad manager. Ads over a limit are left out and named.
+ *   Buys, publishes and schedules nothing — there is no ad account behind it.
+ *
+ *   analytics_report — saves the report to Report History (analytics_reports)
+ *   with the figures it was written from kept as its source data. Refuses a
+ *   report that contains a figure not found in the account's data. Sends and
+ *   publishes nothing.
+ *
+ *   competitive_report — saves the report to Report History and starts daily
+ *   change-watching (competitor_watches) on the competitors that were read.
+ *   Refuses a report with a figure that is not in the findings. Contacts and
+ *   changes nothing on the competitors' side.
+ *
+ *   cro_plan — adds the test ideas to the CRO Lab's ICE backlog (cro_backlog_tests,
+ *   with the model's impact/confidence/ease scores, which the page lets you edit)
+ *   and saves the audit to Report History. Starts no test and changes no website.
+ *
+ *   linkedin_drafts — records the human OK on drafted connection notes and
+ *   follow-ups and returns the drafts that passed the checks. It contacts no
+ *   one and never touches LinkedIn (its terms forbid automated sending): the
+ *   browser files the drafts against the prospects, and the person sends them
+ *   by hand.
+ *
+ *   compliance_review — saves the screen to Report History. It changes no
+ *   content and approves nothing else. The screen also marks each output it
+ *   read; an output marked with a critical finding is only approved when the
+ *   request says the person has read the findings (acknowledgeCompliance).
+ *
+ *   video_clip — adds the finished clip to the Video Studio gallery
+ *   (video_generations), with its storage label kept: a clip that only has the
+ *   generator's expiring link stays marked temporary there. Posts and
+ *   publishes nothing.
+ *
+ * An artifact can be decided exactly once: the status change is a conditional
+ * update, so a double-click or two teammates approving at the same moment
+ * cannot import the same list twice.
+ */
+
+'use strict';
+
+const { sbRest, isUuid } = require('./_lib/supabase-rest.js');
+const { withFailureReporting } = require('./_lib/report-failure.js');
+const { rateLimited } = require('./_lib/rate-limit.js');
+const { canAccessRecord, accessibleProfileIds, ownedOrSharedFilter } = require('./_lib/profile-access.js');
+const { runWithConcurrency } = require('./_lib/blade-pipeline.js');
+
+const STATUSES = ['building', 'pending_approval', 'approved', 'rejected', 'empty'];
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const CONSENT_SOURCE = 'Found by Blade on the business\'s public Google listing / website. No prior opt-in from this contact.';
+
+async function getCallerFromToken(supabaseUrl, serviceKey, accessToken) {
+  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function tableError(res) {
+  if (res.status === 404) {
+    return { code: 'not_installed', error: 'Mission artifacts are not installed. Run supabase-mission-artifacts.sql in the Supabase SQL editor.' };
+  }
+  return { code: 'db_error', error: `Database error (HTTP ${res.status}).` };
+}
+
+function slug(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+}
+
+function summarise(a) {
+  const leads = Array.isArray(a.payload?.leads) ? a.payload.leads : [];
+  return {
+    id: a.id, kind: a.kind, agentKey: a.agent_key, title: a.title, status: a.status,
+    missionId: a.mission_id, createdAt: a.created_at, decidedAt: a.decided_at,
+    attention: a.payload?.attention || null,
+    compliance: a.payload?.compliance ? { verdict: a.payload.compliance.verdict, critical: a.payload.compliance.critical, warnings: a.payload.compliance.warnings, reviewId: a.payload.compliance.reviewId } : null,
+    counts: { leads: leads.length, withEmail: leads.filter(l => l.email).length, withOwner: leads.filter(l => l.ownerFirstName).length, audited: leads.filter(l => l.audit).length, reportOk: a.kind === 'analytics_report' ? !!a.payload?.review?.approved : a.kind === 'competitive_report' ? !!a.payload?.report?.review?.approved : undefined, usableDrafts: Array.isArray(a.payload?.drafts) ? a.payload.drafts.filter(d => d.usable).length : 0, ideas: Array.isArray(a.payload?.ideas) ? a.payload.ideas.length : 0, competitors: Array.isArray(a.payload?.profiles) ? a.payload.profiles.length : 0, usableAds: Array.isArray(a.payload?.variants) ? a.payload.variants.filter(v => !(v.problems && v.problems.length)).length : 0, articles: Array.isArray(a.payload?.articles) ? a.payload.articles.length : 0, topics: Array.isArray(a.payload?.topics) ? a.payload.topics.length : 0, postable: Array.isArray(a.payload?.posts) ? a.payload.posts.filter(p => !p.problem).length : 0, posts: Array.isArray(a.payload?.posts) ? a.payload.posts.length : 0, video: a.kind === 'video_clip' ? (a.payload?.video ? a.payload.video.storage || 'temporary' : null) : undefined },
+  };
+}
+
+/** The dynamic segment for a Pat draft's audience tags; created if absent. */
+async function ensureAudienceSegment(sb, artifact, callerId) {
+  const tags = Array.isArray(artifact.payload?.params?.audienceTags) ? artifact.payload.params.audienceTags : [];
+  if (!tags.length) return { segmentId: null };
+  const name = `Scotty: ${tags.join(' + ')}`;
+  const found = await sb('GET', `/segments?user_id=eq.${callerId}&name=eq.${encodeURIComponent(name)}&select=id&limit=1`);
+  if (!found.ok) throw new Error('Could not check for the audience segment.');
+  if (found.data && found.data[0]) return { segmentId: found.data[0].id, segmentName: name };
+  const made = await sb('POST', '/segments', {
+    user_id: callerId, intel_profile_id: artifact.intel_profile_id || null, name,
+    description: 'Created by a Scotty mission. Subscribed contacts carrying all of these tags.',
+    member_mode: 'dynamic', filter_rules: { tagsAll: tags, status: 'subscribed' },
+  });
+  if (!made.ok || !made.data?.[0]) throw new Error('Could not create the audience segment.');
+  return { segmentId: made.data[0].id, segmentName: name };
+}
+
+/** linkedin_drafts → the drafts fit to use. No external write. */
+async function approveLinkedInDrafts(sb, artifact) {
+  const drafts = (Array.isArray(artifact.payload?.drafts) ? artifact.payload.drafts : []).filter(d => d.usable);
+  if (!drafts.length) throw new Error('None of these drafts passed the checks, so there is nothing to approve.');
+  return { approved: drafts.length, skipped: (artifact.payload.drafts.length - drafts.length), drafts: drafts.map(d => ({ id: d.id, clientId: d.clientId, name: d.name, title: d.title, company: d.company, linkedinUrl: d.linkedinUrl, connectionNote: d.connectionNote, followUp: d.followUp })) };
+}
+
+/** compliance_review → Report History, as a readable report with the not-legal-advice line kept. */
+async function saveComplianceReview(sb, artifact, callerId) {
+  const p = artifact.payload || {};
+  const findings = Array.isArray(p.findings) ? p.findings : [];
+  const pieces = Array.isArray(p.pieces) ? p.pieces : [];
+  const scope = { project_id: artifact.intel_profile_id ? null : (p.params?.projectId || null), intel_profile_id: artifact.intel_profile_id || null };
+  const label = { needs_changes: 'Needs changes', check_warnings: 'Check the warnings', no_issues_found: 'No issues found by this screen', rules_only: 'Rule checks only — the review did not run' };
+  const lines = [`# ${artifact.title}`, '', `Region: ${p.params?.region || 'Global'}${p.params?.industry ? ` · Industry: ${p.params.industry}` : ''}`,
+    `Critical: ${p.counts?.critical || 0} · Warnings: ${p.counts?.warnings || 0} · Suggestions: ${p.counts?.suggestions || 0}`, '',
+    '_An AI-assisted screen, not legal advice. "No issues found" means this screen found none, not that a lawyer has signed off._', ''];
+  if (p.reviewError) lines.push(`_The judgement review could not run (${p.reviewError}); only the rule checks were applied._`, '');
+  for (const piece of pieces) {
+    lines.push(`## ${piece.label} — ${label[piece.verdict] || piece.verdict}`, '');
+    for (const f of findings.filter(x => x.pieceId === piece.id)) {
+      lines.push(`- **${f.severity.toUpperCase()}** — “${f.quote}”`, `  - ${f.issue}`, `  - Rule: ${f.rule}`);
+      if (f.fix) lines.push(`  - Suggested: ${f.fix}`);
+    }
+    lines.push('');
+  }
+  const rep = await sb('POST', '/analytics_reports', {
+    user_id: callerId, ...scope, report_type: 'compliance', audience: 'team', title: artifact.title, focus: p.params?.region || null,
+    source_data: JSON.stringify({ reviewed: p.reviewed || [], findings }), content: lines.join('\n'),
+  });
+  if (!rep.ok || !rep.data?.[0]) throw new Error(`Could not save the review to Report History (HTTP ${rep.status}).`);
+  return { reportId: rep.data[0].id, findings: findings.length };
+}
+
+/** video_clip → the Video Studio gallery. Idempotent on the artifact id. */
+async function saveVideoToGallery(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const video = payload.video;
+  if (!video || !video.videoUrl) throw new Error('This video has no finished file to keep.');
+  const params = payload.params || {};
+  const clientId = `scotty-${artifact.id}`;
+  const scope = { project_id: artifact.intel_profile_id ? null : (params.projectId || null), intel_profile_id: artifact.intel_profile_id || null };
+  const existing = await sb('GET', `/video_generations?user_id=eq.${callerId}&client_id=eq.${encodeURIComponent(clientId)}&select=id&limit=1`);
+  if (!existing.ok) throw new Error(existing.status === 404 ? 'The Video Studio gallery is not installed. Run supabase-video-gallery.sql in the Supabase SQL editor.' : `Could not read the video gallery (HTTP ${existing.status}).`);
+  if (!(existing.data && existing.data[0])) {
+    const ins = await sb('POST', '/video_generations', {
+      user_id: callerId, ...scope, client_id: clientId,
+      prompt: payload.prompt || params.brief || '', mode: 'text-to-video', image_url: null,
+      aspect_ratio: params.aspectRatio || '16:9', duration: params.duration || 5, resolution: params.resolution || '1080p',
+      task_id: payload.taskId || null, status: 'succeeded',
+      video_url: video.videoUrl, thumbnail_url: video.thumbnailUrl || null,
+      storage: video.storage === 'permanent' ? 'permanent' : 'temporary', storage_note: video.storageNote || null,
+    });
+    if (!ins.ok) throw new Error(`Could not add the video to the gallery (HTTP ${ins.status}).`);
+  }
+  return { videoGenId: clientId, videoUrl: video.videoUrl, storage: video.storage === 'permanent' ? 'permanent' : 'temporary', storageNote: video.storageNote || null };
+}
+
+/** cro_plan → CRO ICE backlog + Report History. The backlog rows are undone if the report cannot be saved. */
+async function saveCroPlan(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const ideas = Array.isArray(payload.ideas) ? payload.ideas : [];
+  if (!ideas.length) throw new Error('This plan has no test ideas to save.');
+  const projectId = payload.params?.projectId || null;
+  const scope = { project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null };
+
+  // The CRO page builds inline handlers from the id (updateIce(<id>, …)), so ids must be plain numbers like its own Date.now() ids.
+  const base = Date.now() * 10;
+  const rows = ideas.map((i, n) => ({ user_id: callerId, ...scope, client_id: String(base + n), name: i.name, impact: i.impact, confidence: i.confidence, ease: i.ease }));
+  const ins = await sb('POST', '/cro_backlog_tests', rows);
+  if (!ins.ok) throw new Error(`Could not add the tests to the backlog (HTTP ${ins.status}).`);
+
+  const lines = [`# ${artifact.title}`, '', `Conversion goal: ${payload.params?.goal || ''}`, `Pages: ${(payload.params?.urls || []).join(', ')}`, '',
+    '_Impact, confidence and ease are judgement scores out of 10, not measurements. No result is forecast._', ''];
+  ideas.forEach((i, n) => {
+    lines.push(`## ${n + 1}. ${i.name}`, `Page: ${i.page}`, `Impact ${i.impact} · Confidence ${i.confidence} · Ease ${i.ease}`, '',
+      `**Why:** ${i.basis.type === 'observation' ? `${i.basis.issue} — ${i.basis.evidence}` : `Page says “${i.basis.quote}”`}`,
+      `**Hypothesis:** ${i.hypothesis}`, `**Change:** ${i.whatToChange}`, `**Measure:** ${i.primaryMetric}`, '');
+  });
+  const rep = await sb('POST', '/analytics_reports', {
+    user_id: callerId, ...scope, report_type: 'cro', audience: 'team', title: artifact.title, focus: payload.params?.goal || null,
+    source_data: JSON.stringify({ observations: payload.observations || [] }), content: lines.join('\n'),
+  });
+  if (!rep.ok || !rep.data?.[0]) {
+    await sb('DELETE', `/cro_backlog_tests?user_id=eq.${callerId}&client_id=in.(${rows.map(r => r.client_id).join(',')})`);
+    throw new Error(`Could not save the audit report (HTTP ${rep.status}).`);
+  }
+  return { backlog: rows.length, reportId: rep.data[0].id };
+}
+
+/** competitive_report → Report History + competitor watches. */
+async function saveCompetitiveReport(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const report = payload.report || {};
+  if (!report.markdown) throw new Error('This report has no content to save.');
+  const projectId = payload.params?.projectId || null;
+  const ins = await sb('POST', '/analytics_reports', {
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    report_type: 'competitive', audience: 'team', title: artifact.title, focus: null,
+    source_data: JSON.stringify(report.findings || []), content: report.markdown,
+  });
+  if (!ins.ok || !ins.data?.[0]) throw new Error(`Could not save the report (HTTP ${ins.status}).`);
+
+  // Watching is the second half of the approval. The report is already saved,
+  // so a watch that fails is counted and named, not allowed to undo it.
+  let watching = 0, alreadyWatching = 0, failed = 0;
+  const failedWatches = [];
+  for (const p of (Array.isArray(payload.profiles) ? payload.profiles : []).filter(x => !x.error)) {
+    const w = await sb('POST', '/competitor_watches', { user_id: callerId, name: p.name, url: p.url, active: true });
+    if (w.ok) watching++;
+    else if (w.status === 409) alreadyWatching++;
+    else { failed++; failedWatches.push({ name: p.name, url: p.url, status: w.status }); }
+  }
+  return { reportId: ins.data[0].id, watching, alreadyWatching, failed, failedLeads: failedWatches };
+}
+
+/** analytics_report → analytics_reports (Report History). */
+async function saveAnalyticsReport(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  if (!payload.markdown) throw new Error('This report has no content to save.');
+  const days = payload.params?.periodDays || 30;
+  const projectId = payload.params?.projectId || null;
+  const ins = await sb('POST', '/analytics_reports', {
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    report_type: days <= 7 ? 'weekly' : days <= 30 ? 'monthly' : 'quarterly', audience: 'team',
+    title: artifact.title, focus: payload.params?.focus || null,
+    source_data: JSON.stringify(payload.facts || {}), content: payload.markdown,
+  });
+  if (!ins.ok || !ins.data?.[0]) throw new Error(`Could not save the report (HTTP ${ins.status}).`);
+  return { reportId: ins.data[0].id };
+}
+
+/** ad_campaign → social_posts rows with source 'ad', approved. One atomic insert of the ads that fit. */
+async function saveAdCopy(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const all = Array.isArray(payload.variants) ? payload.variants : [];
+  const usable = all.filter(v => !(v.problems && v.problems.length));
+  const skipped = all.filter(v => v.problems && v.problems.length).map(v => ({ platform: v.platform, angleName: v.angleName, reason: v.problems.join(' ') }));
+  if (!usable.length) throw new Error('None of these ads fit their platform as written, so there is nothing to save.');
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = usable.map(v => ({
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    batch_id: batchId, source: 'ad', platform: v.platform, angle_type: v.framework || null,
+    hook: v.angleName || null, headline: (v.headline || v.angleName || v.body).slice(0, 200), body: v.body || '', cta: v.cta || null,
+    hashtags: [], visual_direction: v.visualDirection || null, status: 'approved',
+    metadata: {
+      origin_agent: 'ads', ad_only: true, description: v.description || null, framework: v.framework,
+      psychologicalTrigger: v.psychologicalTrigger, abHypothesis: v.abHypothesis, objective: payload.params?.objective || null,
+      warnings: v.warnings || [], mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+    },
+  }));
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the ad copy (HTTP ${ins.status}).`);
+  return { ads: rows.length, skipped, batchId };
+}
+
+/** seo_plan → seo_runs + seo_topics + seo_articles. Undone (the run deleted) if any step fails. */
+async function saveSeoPlan(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const profile = payload.profile || {};
+  const topics = Array.isArray(payload.topics) ? payload.topics : [];
+  const articles = Array.isArray(payload.articles) ? payload.articles : [];
+  if (!topics.length) throw new Error('This plan has no topics to save.');
+  const projectId = payload.params?.projectId || null;
+
+  const run = await sb('POST', '/seo_runs', {
+    user_id: callerId, project_id: artifact.intel_profile_id ? null : projectId, intel_profile_id: artifact.intel_profile_id || null,
+    website_url: payload.params?.websiteUrl, business_summary: profile.business_summary || null,
+    products_services: profile.products_services || [], target_customer: profile.target_customer || null,
+    existing_topics: profile.existing_topics || [], competitors: payload.competitors || [], status: 'ready',
+  });
+  if (!run.ok || !run.data?.[0]) throw new Error(`Could not create the SEO run (HTTP ${run.status}).`);
+  const runId = run.data[0].id;
+  const undo = async (msg) => { await sb('DELETE', `/seo_runs?id=eq.${runId}`); throw new Error(msg); };
+
+  const written = new Set(articles.map(a => a.topicIndex));
+  const trows = topics.map((t, i) => ({
+    run_id: runId, user_id: callerId, topic: t.topic, target_keyword: t.target_keyword || null,
+    search_volume: t.data_source === 'real' ? t.search_volume : null, difficulty: t.data_source === 'real' ? t.difficulty : null,
+    data_source: t.data_source === 'real' ? 'real' : 'estimate',
+    rationale: t.rationale || null, content_pillar: t.content_pillar || null,
+    status: written.has(i) ? 'written' : 'planned',
+  }));
+  const tins = await sb('POST', '/seo_topics', trows);
+  if (!tins.ok || !Array.isArray(tins.data) || tins.data.length !== trows.length) return undo(`Could not save the topics (HTTP ${tins.status}).`);
+  // Matched back by content, not position, in case the database returns rows in another order.
+  const idFor = (i) => (tins.data.find(r => r.topic === topics[i].topic && r.target_keyword === (topics[i].target_keyword || null)) || {}).id || null;
+
+  if (articles.length) {
+    const arows = articles.map(a => ({
+      run_id: runId, user_id: callerId, topic_id: idFor(a.topicIndex),
+      title: a.title, meta_description: a.meta_description || null, slug: a.slug || null,
+      target_keyword: a.target_keyword || null, body_markdown: a.body_markdown,
+      schema_markup: a.schema_markup || null, word_count: a.word_count || null, status: 'draft',
+    }));
+    const ains = await sb('POST', '/seo_articles', arows);
+    if (!ains.ok) return undo(`Could not save the articles (HTTP ${ains.status}).`);
+  }
+  return { runId, topics: trows.length, articles: articles.length, realVolumes: trows.filter(t => t.data_source === 'real').length };
+}
+
+/** social_posts (mission) → social_posts (Calendar). One atomic insert of the postable ones. */
+async function sendSocialToCalendar(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const all = Array.isArray(payload.posts) ? payload.posts : [];
+  const postable = all.filter(p => !p.problem);
+  const skipped = all.filter(p => p.problem).map(p => ({ platform: p.platform, title: p.title, reason: p.problem }));
+  if (!postable.length) throw new Error('None of these posts can be published as written, so there is nothing to send.');
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = postable.map(p => ({
+    user_id: callerId,
+    project_id: artifact.intel_profile_id ? null : projectId,
+    intel_profile_id: artifact.intel_profile_id || null,
+    batch_id: batchId, source: 'organic', platform: p.platform,
+    hook: p.hook || null, headline: (p.title || p.hook || p.body).slice(0, 200), body: p.body, hashtags: p.hashtags || [],
+    status: 'approved',
+    metadata: {
+      origin_agent: 'social', title: p.title, recommended_format: p.recommendedFormat, suggested_posting_time: p.postingTime,
+      engagement_note: p.engagementNote, content_goal: payload.params?.contentGoal || null,
+      mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+    },
+  }));
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
+  return { posts: rows.length, skipped, ids: (Array.isArray(ins.data) ? ins.data : []).map(r => r.id).filter(Boolean), batchId };
+}
+
+/** nancy_week → social_posts, approved and unscheduled. One atomic insert. */
+async function sendWeekToCalendar(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const posts = Array.isArray(payload.posts) ? payload.posts : [];
+  if (!posts.length) throw new Error('This week has no posts to send.');
+  const platforms = Array.isArray(payload.params?.platforms) && payload.params.platforms.length ? payload.params.platforms : ['Instagram'];
+  const batchId = require('crypto').randomUUID();
+  const projectId = payload.params?.projectId || null;
+  const rows = [];
+  for (const p of posts) {
+    for (const platform of platforms) {
+      rows.push({
+        user_id: callerId,
+        project_id: artifact.intel_profile_id ? null : projectId,
+        intel_profile_id: artifact.intel_profile_id || null,
+        batch_id: batchId,
+        source: 'organic', platform,
+        hook: p.hook || null, headline: p.slide_headline, body: p.caption, cta: p.cta || null,
+        hashtags: p.hashtags || [], visual_direction: p.visual_direction || null,
+        image_url: p.imageUrl, image_render_status: 'rendered',
+        status: 'approved',
+        metadata: {
+          origin_agent: 'nancy', day: p.day, objective: p.objective, content_pillar: p.content_pillar,
+          cta_url: p.cta_url || null, mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
+        },
+      });
+    }
+  }
+  const ins = await sb('POST', '/social_posts', rows);
+  if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
+  const saved = Array.isArray(ins.data) ? ins.data : [];
+  return { posts: posts.length, platforms, rows: rows.length, ids: saved.map(r => r.id).filter(Boolean), batchId };
+}
+
+/** chase_audit → opportunity tags on contacts that already exist. */
+async function tagAuditedProspects(sb, artifact, callerId) {
+  const leads = (Array.isArray(artifact.payload?.leads) ? artifact.payload.leads : []);
+  const scored = leads.filter(l => l.audit && l.audit.opportunity && l.email && EMAIL_RE.test(String(l.email).trim()));
+  const unscored = leads.length - scored.length;
+  if (!scored.length) return { tagged: 0, notInAudience: 0, unscored, failed: 0, failedLeads: [] };
+
+  const byEmail = new Map(scored.map(l => [String(l.email).trim().toLowerCase(), l]));
+  const found = await sb('GET',
+    `/contacts?user_id=eq.${callerId}&email=in.(${[...byEmail.keys()].map(encodeURIComponent).join(',')})&select=id,email,tags,custom_fields`);
+  // Without the audience list there is nothing safe to tag: hand the approval back.
+  if (!found.ok) throw new Error('Could not look up which of these businesses are already in your audience.');
+  const contacts = found.data || [];
+  const inAudience = new Set(contacts.map(c => String(c.email).toLowerCase()));
+  const notInAudience = [...byEmail.keys()].filter(e => !inAudience.has(e)).length;
+
+  let tagged = 0, failed = 0;
+  const failedLeads = [];
+  await runWithConcurrency(contacts, 5, async (c) => {
+    const lead = byEmail.get(String(c.email).toLowerCase());
+    const cls = String(lead.audit.opportunity.classification || '').replace(/_/g, '-');
+    const tag = `opportunity-${cls}`;
+    // Replace any earlier opportunity-* tag so a re-audit moves the label, not piles them up.
+    const tags = [...new Set([...(Array.isArray(c.tags) ? c.tags : []).filter(t => !String(t).startsWith('opportunity-')), tag])];
+    const custom_fields = {
+      ...((c.custom_fields && typeof c.custom_fields === 'object') ? c.custom_fields : {}),
+      opportunity_score: lead.audit.opportunity.score,
+      site_platform: lead.audit.platform || null,
+      audited_at: lead.audit.checkedAt || null,
+    };
+    const up = await sb('PATCH', `/contacts?id=eq.${c.id}&user_id=eq.${callerId}`, { tags, custom_fields });
+    if (up.ok) tagged++;
+    else { failed++; failedLeads.push({ email: c.email, name: lead.name, status: up.status }); }
+  });
+  return { tagged, notInAudience, unscored, failed, failedLeads: failedLeads.slice(0, 50) };
+}
+
+/** blade_leads → Beeker contacts. Returns the counts, never throws on a single bad row. */
+async function importBladeLeads(sb, artifact, callerId) {
+  const payload = artifact.payload || {};
+  const leads = Array.isArray(payload.leads) ? payload.leads : [];
+
+  const withEmail = leads.filter(l => l.email && EMAIL_RE.test(String(l.email).trim()));
+  const skippedNoEmail = leads.length - withEmail.length;
+  if (!withEmail.length) return { imported: 0, skippedNoEmail, skippedExisting: 0, failed: 0 };
+
+  const emails = [...new Set(withEmail.map(l => String(l.email).trim().toLowerCase()))];
+  const existingRes = await sb('GET',
+    `/contacts?user_id=eq.${callerId}&email=in.(${emails.map(encodeURIComponent).join(',')})&select=email`);
+  // If we cannot tell who is already in the audience, importing blind could
+  // resurrect someone who unsubscribed — stop rather than guess.
+  if (!existingRes.ok) throw new Error('Could not check which of these people are already in your audience.');
+  const existing = new Set((existingRes.data || []).map(c => String(c.email).toLowerCase()));
+
+  const sectorTag = slug(payload.params?.sector);
+  const tags = ['blade-prospect', ...(sectorTag ? [sectorTag] : [])];
+  const now = new Date().toISOString();
+
+  const seen = new Set();
+  const toInsert = [];
+  let skippedExisting = 0;
+  for (const l of withEmail) {
+    const email = String(l.email).trim().toLowerCase();
+    if (existing.has(email) || seen.has(email)) { skippedExisting++; continue; }
+    seen.add(email);
+    toInsert.push({
+      user_id: callerId,
+      intel_profile_id: artifact.intel_profile_id || null,
+      email,
+      first_name: l.ownerFirstName || null,
+      company: l.name || null,
+      custom_fields: {
+        website: l.website || null, phone: l.phone || null, area: l.area || null,
+        website_status: l.siteStatus || null, personal_note: l.note || null,
+        place_id: l.placeId || null,
+        email_source: l.emailSource || null, email_source_url: l.emailSourceUrl || null,
+      },
+      tags,
+      status: 'subscribed',
+      source: 'blade_mission',
+      consent_source: CONSENT_SOURCE,
+      consent_timestamp: now,
+    });
+  }
+
+  let imported = 0, failed = 0;
+  const failedLeads = [];
+  await runWithConcurrency(toInsert, 5, async (row) => {
+    const ins = await sb('POST', '/contacts', row);
+    if (ins.ok) imported++;
+    else if (ins.status === 409) skippedExisting++;   // raced with another import
+    else {
+      failed++;
+      // Named, so a person (and the cleanup agent that reports it) knows
+      // exactly who didn't make it in, not just how many.
+      failedLeads.push({ email: row.email, name: row.company, status: ins.status });
+    }
+  });
+  return { imported, skippedNoEmail, skippedExisting, failed, failedLeads: failedLeads.slice(0, 50) };
+}
+
+module.exports = withFailureReporting('api/mission-artifacts', async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.' });
+  }
+
+  const accessToken = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+  if (!accessToken) return res.status(401).json({ error: 'Missing Authorization header.' });
+  const caller = await getCallerFromToken(supabaseUrl, serviceKey, accessToken);
+  if (!caller?.id) return res.status(401).json({ error: 'Invalid or expired session.' });
+
+  if (rateLimited(req, res, { name: 'mission-artifacts', max: 60, windowMs: 60 * 1000, auth: { userId: caller.id } })) return;
+
+  const sb = (m, p, b) => sbRest(supabaseUrl, serviceKey, m, p, b);
+  const body = req.body || {};
+
+  async function load(artifactId, { requireEdit }) {
+    if (!artifactId || !isUuid(artifactId)) return { http: 400, err: { error: 'artifactId is required.' } };
+    const r = await sb('GET', `/mission_artifacts?id=eq.${artifactId}&limit=1`);
+    if (!r.ok) return { http: r.status === 404 ? 503 : 500, err: tableError(r) };
+    const a = r.data && r.data[0];
+    const allowed = a && await canAccessRecord(supabaseUrl, serviceKey, caller.id, a, { requireEdit });
+    if (!allowed) return { http: 404, err: { error: 'Artifact not found.' } };
+    return { artifact: a };
+  }
+
+  try {
+    if (body.action === 'list') {
+      const profileIds = await accessibleProfileIds(supabaseUrl, serviceKey, caller.id);
+      const filters = [ownedOrSharedFilter(caller.id, profileIds)];
+      if (body.status) {
+        if (!STATUSES.includes(body.status)) return res.status(400).json({ error: `status must be one of: ${STATUSES.join(', ')}` });
+        filters.push(`status=eq.${body.status}`);
+      }
+      if (body.missionId) {
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(body.missionId))) return res.status(400).json({ error: 'missionId is not valid.' });
+        filters.push(`mission_id=eq.${body.missionId}`);
+      }
+      const r = await sb('GET', `/mission_artifacts?${filters.join('&')}&order=created_at.desc&limit=100`);
+      if (!r.ok) return res.status(r.status === 404 ? 503 : 500).json(tableError(r));
+      return res.json({ ok: true, artifacts: (r.data || []).map(summarise) });
+    }
+
+    if (body.action === 'get') {
+      const { artifact, http, err } = await load(body.artifactId, { requireEdit: false });
+      if (err) return res.status(http).json(err);
+      return res.json({ ok: true, artifact: { ...summarise(artifact), payload: artifact.payload } });
+    }
+
+    if (body.action === 'approve' || body.action === 'reject') {
+      const { artifact, http, err } = await load(body.artifactId, { requireEdit: true });
+      if (err) return res.status(http).json(err);
+      if (artifact.status !== 'pending_approval') {
+        return res.status(409).json({ error: `This is ${artifact.status.replace('_', ' ')}, so it cannot be ${body.action === 'approve' ? 'approved' : 'rejected'} now.` });
+      }
+
+      // A draft that failed its own QA cannot be approved: fix the blockers
+      // (or reject it) instead of waving it through.
+      if (body.action === 'approve' && artifact.kind === 'pat_campaign' && !artifact.payload?.review?.approved) {
+        return res.status(409).json({
+          error: 'This draft did not pass review, so it cannot be approved.',
+          blockers: artifact.payload?.review?.blockers || [],
+        });
+      }
+      if (body.action === 'approve' && artifact.kind === 'competitive_report' && !artifact.payload?.report?.review?.approved) {
+        const bad = artifact.payload?.report?.review?.unsupportedNumbers || [];
+        return res.status(409).json({
+          error: `This report contains figures that are not in the competitors' pages or search data (${bad.join(', ') || 'unspecified'}), so it cannot be approved.`,
+          blockers: bad,
+        });
+      }
+      // A report with a figure that isn't in the account's data never reaches Report History.
+      if (body.action === 'approve' && artifact.kind === 'analytics_report' && !artifact.payload?.review?.approved) {
+        const bad = artifact.payload?.review?.unsupportedNumbers || [];
+        return res.status(409).json({
+          error: `This report contains figures that are not in your data (${bad.join(', ') || 'unspecified'}), so it cannot be approved.`,
+          blockers: bad,
+        });
+      }
+
+      // The compliance screen found something critical in this output: approving it needs a person to say they have read it.
+      const flagged = artifact.payload?.compliance;
+      if (body.action === 'approve' && flagged && flagged.critical > 0 && body.acknowledgeCompliance !== true) {
+        return res.status(409).json({
+          code: 'compliance_flags',
+          error: `The compliance screen found ${flagged.critical} critical issue${flagged.critical === 1 ? '' : 's'} in this. Read ${flagged.critical === 1 ? 'it' : 'them'} before approving.`,
+          findings: flagged.top || [],
+        });
+      }
+      if (body.action === 'approve' && artifact.kind === 'video_clip' && !artifact.payload?.video?.videoUrl) {
+        return res.status(409).json({ error: 'This video has no finished file, so there is nothing to approve.' });
+      }
+
+      const target = body.action === 'approve' ? 'approved' : 'rejected';
+      // Claim the decision atomically: only a row still pending_approval flips,
+      // so of two simultaneous clicks exactly one gets a row back.
+      const claim = await sb('PATCH', `/mission_artifacts?id=eq.${artifact.id}&status=eq.pending_approval`, {
+        status: target, decided_by: caller.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      if (!claim.ok) return res.status(500).json({ error: 'Could not record the decision.' });
+      if (!Array.isArray(claim.data) || !claim.data.length) {
+        return res.status(409).json({ error: 'Someone else already decided this.' });
+      }
+      // An autopilot's "Ready for your OK" in What happened is answered now.
+      await sb('PATCH', `/activity_events?kind=eq.needs_approval&resolved_at=is.null&action->>artifactId=eq.${artifact.id}`, { resolved_at: new Date().toISOString() }).catch(() => {});
+      if (target === 'rejected') return res.json({ ok: true, status: 'rejected' });
+
+      let result;
+      try {
+        if (artifact.kind === 'blade_leads') result = await importBladeLeads(sb, artifact, caller.id);
+        else if (artifact.kind === 'linkedin_drafts') result = await approveLinkedInDrafts(sb, artifact);
+        else if (artifact.kind === 'compliance_review') result = await saveComplianceReview(sb, artifact, caller.id);
+        else if (artifact.kind === 'video_clip') result = await saveVideoToGallery(sb, artifact, caller.id);
+        else if (artifact.kind === 'cro_plan') result = await saveCroPlan(sb, artifact, caller.id);
+        else if (artifact.kind === 'competitive_report') result = await saveCompetitiveReport(sb, artifact, caller.id);
+        else if (artifact.kind === 'analytics_report') result = await saveAnalyticsReport(sb, artifact, caller.id);
+        else if (artifact.kind === 'ad_campaign') result = await saveAdCopy(sb, artifact, caller.id);
+        else if (artifact.kind === 'seo_plan') result = await saveSeoPlan(sb, artifact, caller.id);
+        else if (artifact.kind === 'social_posts') result = await sendSocialToCalendar(sb, artifact, caller.id);
+        else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);
+        else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);
+        else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);
+        else result = {};
+      } catch (e) {
+        // Nothing was imported and nobody was told it had been — hand the
+        // artifact back so the approval can simply be tried again.
+        await sb('PATCH', `/mission_artifacts?id=eq.${artifact.id}`, { status: 'pending_approval', decided_by: null, decided_at: null });
+        return res.status(502).json({ error: e.message });
+      }
+
+      await sb('PATCH', `/mission_artifacts?id=eq.${artifact.id}`, {
+        payload: { ...(artifact.payload || {}), approval: { ...result, ...(flagged && flagged.critical > 0 ? { complianceAcknowledged: true } : {}), at: new Date().toISOString(), by: caller.id } },
+        updated_at: new Date().toISOString(),
+      });
+      return res.json({ ok: true, status: 'approved', result });
+    }
+
+    return res.status(400).json({ error: `Unknown action "${body.action}". Use 'list', 'get', 'approve' or 'reject'.` });
+  } catch (err) {
+    return res.status(502).json({ error: err.message });
+  }
+});

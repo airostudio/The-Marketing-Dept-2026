@@ -57,12 +57,21 @@ SOURCES = [
     'supabase-support.sql',
     'supabase-email-events.sql',
     'supabase-email-engine.sql',
+    'supabase-email-flows-sender.sql',
+    'supabase-email-flow-triggers.sql',
     'supabase-email-suppression.sql',
     'supabase-competitive-roster.sql',
     'supabase-video-gallery.sql',
     'supabase-cro-backlog.sql',
     'supabase-system-failures.sql',
     'supabase-link-reports.sql',
+    'supabase-sales-intel-sweep.sql',
+    'supabase-team-access-extend.sql',
+    'supabase-site-snapshots.sql',
+    'supabase-mission-artifacts.sql',
+    'supabase-scorecards.sql',
+    'supabase-blade-sweeps.sql',
+    'supabase-autopilot.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')
