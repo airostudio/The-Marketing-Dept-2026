@@ -40,6 +40,7 @@ const { applyMergeFields, resolveFieldAliases } = require('./_lib/merge-fields.j
 const { findUnresolvedMergeTags } = require('./_lib/content-guard.js');
 const { buildMergeFields, copyIssues } = require('./_lib/flow-merge.js');
 const { filterSuppressed } = require('./_lib/send-guard.js');
+const notify = require('./_lib/autopilot/notify.js');
 
 const MAX_SENDS_PER_RUN = 200;
 const SUPPRESSED = ['unsubscribed', 'bounced', 'complained'];
@@ -214,6 +215,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     if (!fromEmail) {
       report.failed++;
       report.details.push({ email, step: step.step_order, outcome: 'no_from_address' });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'no_from_address', detail: null });
       continue;
     }
 
@@ -235,6 +237,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     if (issues.length) {
       report.failed++;
       report.details.push({ email, step: step.step_order, outcome: 'copy_not_sendable', issues });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'copy_not_sendable', detail: (issues || []).join('; ') });
       continue;
     }
     const mergeFields = buildMergeFields(contact, flow.sender_fields);
@@ -290,6 +293,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
         report.failed++;
         report.details.push({ email, step: step.step_order, outcome: 'send_failed',
                               status: upstream.status, error: errBody.slice(0, 200) });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'send_failed', detail: `HTTP ${upstream.status}: ${errBody.slice(0, 200)}` });
         // The enrolment stays advanced. Rewinding it would re-send on the next
         // run, and a 4xx from Resend usually means the message was rejected
         // for a reason that will not change in ten minutes.
@@ -297,6 +301,7 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
     } catch (e) {
       report.failed++;
       report.details.push({ email, step: step.step_order, outcome: 'send_error', error: e.message });
+      await notify.flowSendFailed(sb, { userId: enrolment.user_id || flow.user_id, flowName: flow.name, outcome: 'send_error', detail: e.message });
     }
   }
 

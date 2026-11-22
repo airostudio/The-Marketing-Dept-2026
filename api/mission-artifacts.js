@@ -622,6 +622,8 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       if (!Array.isArray(claim.data) || !claim.data.length) {
         return res.status(409).json({ error: 'Someone else already decided this.' });
       }
+      // An autopilot's "Ready for your OK" in What happened is answered now.
+      await sb('PATCH', `/activity_events?kind=eq.needs_approval&resolved_at=is.null&action->>artifactId=eq.${artifact.id}`, { resolved_at: new Date().toISOString() }).catch(() => {});
       if (target === 'rejected') return res.json({ ok: true, status: 'rejected' });
 
       let result;

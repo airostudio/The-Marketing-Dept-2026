@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autopilot | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/autopilot.css">
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/writing-language.js"></script>
+<script src="/js/autopilot-ui.js"></script>
+</head>
+<body>
+<nav class="ap-nav"><a href="/hub.html">Agent Hub</a><a href="/inbox.html">What happened</a><a href="/connections.html">Connections</a><a href="/scotty.html">Scotty</a></nav>
+<div class="ap-wrap">
+  <h1>🛫 Autopilot</h1>
+  <p class="ap-sub">Your agents doing the work on a schedule, not just telling you what to do. Each one runs on its days, fixes the problems it can on its own, asks you when it needs a login or a decision, and reports everything in <a href="/inbox.html" style="color:var(--ap-accent)">What happened</a>. SEO Autopilot publishes to your website once it has earned your trust. The others finish their work and hand it to you for one-click approval, because what they produce goes out to customers (posts, tests on your site) or makes claims about your numbers.</p>
+  <div id="scopeWarn" class="ap-card ap-hidden"><span class="ap-warn">Pick a business (Business Brain profile) or project first.</span></div>
+  <div id="cards" class="ap-muted">Loading…</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const { $, esc, call, scope } = window.AutopilotUI;
+  const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const ABOUT = {
+    seo: 'Picks a topic you can win, writes the article in your voice, checks it and publishes it to your website.',
+    analytics: 'Writes a report on your real marketing numbers (emails, audience, posts, flows, sales). Every figure is checked against your data; if nothing happened, it skips the report and says so.',
+    cro: 'Reads your page and proposes A/B tests against your conversion goal, never repeating a test you already have.',
+    social: 'Drafts your next batch of posts, working through your topics in turn. Approved posts go into your Content Calendar, ready to schedule.',
+  };
+  const DEFAULT_DAYS = { seo: [2, 5], analytics: [1], cro: [3], social: [1] };
+  const PLATFORMS = ['LinkedIn', 'Twitter/X', 'Facebook'];
+  const GOALS = ['Engagement', 'Thought Leadership', 'Product Launch', 'Case Study', 'Community Building'];
+  let tz = 'UTC'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { /* default */ }
+  const langs = (window.WritingLanguage && window.WritingLanguage.list && window.WritingLanguage.list()) || [];
+  const langSelect = (v) => `<select data-k="language"><option value="">Same as my Business Brain</option>${langs.map(l => `<option value="${esc(l.code)}"${l.code === v ? ' selected' : ''}>${esc(l.label)}</option>`).join('')}</select>`;
+
+  function fields(agent, s) {
+    if (agent === 'analytics') return `<div class="ap-grid"><div><label class="ap-f">Report covers</label><select data-k="periodDays">${[7, 30, 90].map(d => `<option value="${d}"${Number(s.periodDays || 7) === d ? ' selected' : ''}>the last ${d} days</option>`).join('')}</select></div><div><label class="ap-f">Language</label>${langSelect(s.language)}</div></div><label class="ap-f">Anything to focus on (optional)</label><input data-k="focus" value="${esc(s.focus || '')}" placeholder="e.g. how the spring offer is doing">`;
+    if (agent === 'cro') return `<label class="ap-f">What counts as a conversion</label><input data-k="goal" value="${esc(s.goal || '')}" placeholder="a booking, a call, a sale…"><label class="ap-f">Pages to test (up to 2; your website if blank)</label><textarea data-k="urls" rows="2" placeholder="https://example.com/">${esc((s.urls || []).join('\n'))}</textarea><label class="ap-f">Language</label>${langSelect(s.language)}`;
+    if (agent === 'social') return `<label class="ap-f">Topics, one per line (it works through them in turn; your products if blank)</label><textarea data-k="topics" rows="3">${esc((s.topics || []).join('\n'))}</textarea><label class="ap-f">Networks</label><div class="ap-row">${PLATFORMS.map(p => `<label class="ap-row ap-muted"><input type="checkbox" data-platform value="${esc(p)}"${(s.platforms || ['LinkedIn']).includes(p) ? ' checked' : ''}> ${esc(p)}</label>`).join('')}</div><div class="ap-grid"><div><label class="ap-f">Goal</label><select data-k="contentGoal">${GOALS.map(g => `<option${(s.contentGoal || 'Engagement') === g ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select></div><div><label class="ap-f">Posts each time</label><input data-k="postCount" type="number" min="1" max="10" value="${esc(s.postCount || 5)}"></div><div><label class="ap-f">Language</label>${langSelect(s.language)}</div></div>`;
+    return '';
+  }
+
+  function card(a) {
+    const ap = a.autopilot, c = (ap && ap.cadence) || {}, s = (ap && ap.settings) || {};
+    const days = c.days || DEFAULT_DAYS[a.agent] || [1];
+    const status = !ap ? 'Off' : ap.pausedReason ? `Paused: ${ap.pausedReason}` : ap.enabled && ap.nextRunAt ? `Next run: ${new Date(ap.nextRunAt).toLocaleString()}` : 'Off';
+    if (a.agent === 'seo') {
+      return `<div class="ap-card" id="${esc(a.agent)}"><div class="ap-row" style="justify-content:space-between;"><h2 style="margin:0;">${esc(a.label)}</h2><span class="ap-pill ${ap && ap.enabled ? 'ok' : ''}">${esc(status)}</span></div><p class="ap-muted">${esc(ABOUT.seo)}${ap && ap.mode === 'earn_trust' ? ` Approved so far: ${esc(ap.trustEarned)} of ${esc(ap.trustRequired)}.` : ''}</p><a class="ap-btn" href="/seo/autopilot.html">Set up SEO Autopilot</a></div>`;
+    }
+    return `<div class="ap-card" id="${esc(a.agent)}" data-agent="${esc(a.agent)}" data-id="${esc(ap ? ap.id : '')}">
+      <div class="ap-row" style="justify-content:space-between;"><h2 style="margin:0;">${esc(a.label)}</h2><label class="ap-row"><input type="checkbox" data-k="enabled"${ap && ap.enabled ? ' checked' : ''}> <strong>On</strong></label></div>
+      <p class="ap-muted">${esc(ABOUT[a.agent] || '')} <em>Always asks for your OK before anything is used.</em></p>
+      <label class="ap-f">Days</label><div class="ap-row">${DAY.map((d, i) => `<label class="ap-row ap-muted"><input type="checkbox" data-day value="${i}"${days.includes(i) ? ' checked' : ''}> ${d}</label>`).join('')}</div>
+      <div class="ap-grid"><div><label class="ap-f">Time of day</label><select data-k="hour">${Array.from({ length: 24 }, (_, h) => `<option value="${h}"${(c.hour ?? 9) === h ? ' selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}</select></div><div><label class="ap-f">Time zone</label><input data-k="timezone" value="${esc(c.timezone || tz)}"></div></div>
+      ${fields(a.agent, s)}
+      <div class="ap-row" style="margin-top:14px;"><button class="ap-btn" data-save>Save</button><button class="ap-btn ghost" data-run${ap ? '' : ' disabled'}>Run it now</button><span class="ap-muted" data-msg>${esc(status)}</span></div>
+    </div>`;
+  }
+
+  async function load() {
+    const s = scope();
+    if (!s.intelProfileId && !s.projectId) { $('scopeWarn').classList.remove('ap-hidden'); $('cards').textContent = ''; return; }
+    try {
+      const d = await call('/api/autopilot', { action: 'agents', ...s });
+      $('cards').innerHTML = d.agents.map(card).join('');
+      if (location.hash) { const el = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (el) el.scrollIntoView(); }
+    } catch (e) { $('cards').innerHTML = `<div class="ap-card ap-warn">${esc(e.message)}</div>`; }
+  }
+
+  $('cards').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const box = b.closest('[data-agent]'); if (!box) return;
+    const msg = box.querySelector('[data-msg]');
+    const v = (k) => { const el = box.querySelector(`[data-k="${k}"]`); return el ? el.value : undefined; };
+    try {
+      if (b.hasAttribute('data-save')) {
+        msg.textContent = 'Saving…';
+        const settings = { language: v('language'), periodDays: v('periodDays'), focus: v('focus'), goal: v('goal'), urls: v('urls'), topics: v('topics'), contentGoal: v('contentGoal'), postCount: v('postCount'), platforms: [...box.querySelectorAll('[data-platform]:checked')].map(i => i.value) };
+        await call('/api/autopilot', {
+          action: 'save', agent: box.dataset.agent, ...scope(), enabled: box.querySelector('[data-k="enabled"]').checked,
+          cadence: { days: [...box.querySelectorAll('[data-day]:checked')].map(i => Number(i.value)), hour: Number(v('hour')), timezone: String(v('timezone') || '').trim() },
+          settings,
+        });
+        await load();
+        const again = document.querySelector(`[data-agent="${CSS.escape(box.dataset.agent)}"] [data-msg]`);
+        if (again) again.textContent = `Saved. ${again.textContent}`;
+      } else if (b.hasAttribute('data-run')) {
+        const r = await call('/api/autopilot', { action: 'runNow', id: box.dataset.id });
+        msg.textContent = r.note;
+      }
+    } catch (e) { msg.textContent = e.message; }
+  });
+  load();
+})();
+</script>
+</body>
+</html>

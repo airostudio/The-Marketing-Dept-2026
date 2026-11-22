@@ -34,7 +34,9 @@ module.exports = withFailureReporting('api/activity', async function handler(req
       const s = await scope.scopeFor(uid, body, { requireEdit: false });
       if (s.err) return res.status(s.err.http).json(s.err);
       const open = body.onlyOpen ? '&resolved_at=is.null' : '';
-      const r = await sb('GET', `/activity_events?${s.filter}${open}&select=*&order=created_at.desc&limit=100`);
+      // The business's events, plus the caller's own that aren't tied to any business (e.g. a competitor watch).
+      const [col, cond] = s.filter.split('=');
+      const r = await sb('GET', `/activity_events?or=(${col}.${cond},and(user_id.eq.${uid},intel_profile_id.is.null,project_id.is.null))${open}&select=*&order=created_at.desc&limit=100`);
       if (!r.ok) return res.status(r.status === 404 ? 503 : 500).json(r.status === 404 ? { code: 'not_installed', error: 'Autopilot is not installed. Run supabase-autopilot.sql in the Supabase SQL editor.' } : { error: `Database error (HTTP ${r.status}).` });
       const events = (r.data || []).map(view);
       return res.json({ ok: true, events, needsYou: events.filter(e => !e.resolved && (e.kind === 'needs_approval' || e.kind === 'needs_permission')).length, unread: events.filter(e => !e.read).length });

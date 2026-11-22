@@ -21,7 +21,7 @@ const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
 /* ── An in-memory stand-in for Supabase's REST API (the filters we use) ── */
 let clock = Date.parse('2026-11-23T21:00:00Z');
 const nowIso = () => new Date(clock).toISOString();
-const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [] };
+const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [], mission_artifacts: [], experiments: [] };
 const DEFAULTS = {
   connections: { status: 'active', config: {}, status_note: null },
   autopilots: { enabled: true, mode: 'earn_trust', trust_required: 2, trust_earned: 0, settings: {}, cadence: {}, paused_reason: null, connection_id: null },
@@ -45,13 +45,17 @@ function test(v, cond) {
   const cmp = typeof v === 'number' ? v - Number(arg) : (s < arg ? -1 : s > arg ? 1 : 0);
   return { eq: s === arg, neq: s !== arg, lt: cmp < 0, lte: cmp <= 0, gt: cmp > 0, gte: cmp >= 0 }[op];
 }
+function splitTop(sx) { const out = []; let depth = 0, cur = ''; for (const ch of sx) { if (ch === '(') depth++; if (ch === ')') depth--; if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch; } if (cur) out.push(cur); return out; }
+function evalCond(row, c) {
+  const m = c.match(/^(and|or)\((.*)\)$/);
+  if (m) { const parts = splitTop(m[2]); return m[1] === 'and' ? parts.every(x => evalCond(row, x)) : parts.some(x => evalCond(row, x)); }
+  const j = c.indexOf('.'); return test(field(row, c.slice(0, j)), c.slice(j + 1));
+}
 function matches(row, params) {
   for (const [k, v] of params) {
     if (['select', 'order', 'limit', 'on_conflict'].includes(k)) continue;
-    if (k === 'or') {
-      const parts = v.replace(/^\(|\)$/g, '').split(',');
-      if (!parts.some(p => { const j = p.indexOf('.'); return test(field(row, p.slice(0, j)), p.slice(j + 1)); })) return false;
-    } else if (!test(field(row, k), v)) return false;
+    if (k === 'or') { if (!evalCond(row, `or${v}`)) return false; }
+    else if (!test(field(row, k), v)) return false;
   }
   return true;
 }
@@ -482,6 +486,105 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   check('disconnecting wipes the stored login and unhooks the autopilot', r.statusCode === 200 && conn.secret_enc === null && conn.status === 'disconnected' && ap.connection_id === null);
   cms.PROVIDERS.wordpress.verify = realVerify;
 
+  console.log('\n──── the other agents on the same engine ────');
+  process.env.ANTHROPIC_API_KEY = 'sk-test';
+  r = await api(autopilotApi, OWNER, { action: 'agents', intelProfileId: PROFILE });
+  check('every agent that can run on autopilot is listed (SEO, Analytics, CRO, Social)', r.statusCode === 200 && ['seo', 'analytics', 'cro', 'social'].every(a => r.body.agents.some(x => x.agent === a)) && r.body.agents.find(x => x.agent === 'seo').autopilot.id === ap.id);
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'analytics', intelProfileId: PROFILE, mode: 'auto', cadence: { days: [1], hour: 8, timezone: 'Australia/Sydney' }, settings: { periodDays: 30, focus: 'spring offer' } });
+  const apA = db.autopilots.find(x => x.agent === 'analytics');
+  check('draft-and-approve agents always ask, whatever mode is sent', r.statusCode === 200 && apA.mode === 'approve' && apA.settings.periodDays === 30 && apA.settings.focus === 'spring offer');
+  let facts = { period: { label: 'the last 30 days' }, email: { available: true, campaignsSent: 0 }, audience: { available: true, totalContacts: 0 }, social: { available: false }, flows: { available: false }, revenue: { available: false } };
+  const built = [];
+  deps.gatherFacts = async (sbx, o) => { built.push(o); return facts; };
+  deps.buildReport = async (f, o) => { built.push(o); return { title: 'Marketing report — last 30 days', markdown: '## Summary\n\n12 emails sent.', review: { approved: true } }; };
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apA.id });
+  await tick();
+  const jA1 = db.agent_jobs.filter(j => j.autopilot_id === apA.id)[0];
+  check('Analytics: nothing happened → no report written, and the business is told why', jA1.status === 'done' && jA1.result.skipped === 'no_data' && built.length === 1 && built[0].userId === OWNER && built[0].periodDays === 30 && /No report this time/.test(lastEvent('info').title) && !db.mission_artifacts.length);
+  facts = { ...facts, email: { available: true, campaignsSent: 12 } };
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apA.id });
+  await tick();
+  const artA = db.mission_artifacts[0];
+  const askA = lastEvent('needs_approval');
+  check('Analytics: the report is written from the facts and waits for approval as a mission artifact', artA && artA.kind === 'analytics_report' && artA.status === 'pending_approval' && artA.intel_profile_id === PROFILE && artA.payload.markdown.includes('12 emails') && built[2].focus === 'spring offer' && /Emergency plumbers/.test(built[2].businessContext));
+  check('…and the inbox asks for a review of that artifact (emailed)', askA.action.type === 'artifact' && askA.action.artifactId === artA.id && /checked against your data/.test(askA.body) && emails.slice(-1)[0].body.subject.includes(artA.title));
+
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'cro', intelProfileId: PROFILE, cadence: { days: [3], hour: 9, timezone: 'UTC' }, settings: { urls: 'javascript:alert(1)\nhttps://example.com/book' } });
+  const apC = db.autopilots.find(x => x.agent === 'cro');
+  check('CRO: only real page addresses are kept', JSON.stringify(apC.settings.urls) === '["https://example.com/book"]' && apC.settings.goal === '');
+  const crawled = [];
+  let crawlFails = 1;
+  deps.crawlSite = async (u) => { crawled.push(u); if (crawlFails-- > 0) throw new Error('fetch failed'); return { homepageHtml: '<h1>Book</h1>', pages: [] }; };
+  deps.auditAndPropose = async (sites, o) => ({ ideas: [{ name: 'Move the booking form up', hypothesis: 'Because the form is below the fold…', what_to_change: 'Form position', primary_metric: 'Bookings' }], observations: [], droppedUnverified: 0, droppedForeignFigures: 0, _o: o });
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apC.id });
+  await tick();
+  const jC = db.agent_jobs.filter(j => j.autopilot_id === apC.id)[0];
+  const askC = lastEvent('needs_permission');
+  check('CRO: with no goal it doesn\'t guess — it asks for one and waits', jC.status === 'waiting_permission' && /needs your goal/.test(askC.title) && askC.action.type === 'settings' && askC.action.agent === 'cro' && !crawled.length);
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'cro', intelProfileId: PROFILE, cadence: { days: [3], hour: 9, timezone: 'UTC' }, settings: { goal: 'a booking', urls: 'https://example.com/book' } });
+  check('…saving the goal picks the work back up and clears the request', jC.status === 'queued' && askC.resolved_at);
+  await tick();
+  check('…an unreadable page is retried later (not failed)', jC.status === 'queued' && jC.repairs.length === 1 && /website didn't answer/.test(jC.last_error));
+  clock += 31 * 60000;
+  await tick();
+  const artC = db.mission_artifacts.find(x => x.kind === 'cro_plan');
+  check('…then the tests are proposed and wait for approval', jC.status === 'done' && artC && artC.status === 'pending_approval' && artC.payload.params.goal === 'a booking' && lastEvent('needs_approval').action.artifactId === artC.id);
+  check('…and the business is told a problem was fixed on the way', /CRO Lab fixed 1 problem/.test(lastEvent('repaired').title));
+
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'social', intelProfileId: PROFILE, cadence: { days: [1], hour: 9, timezone: 'UTC' }, settings: { topics: 'Blocked drains\nHot water', platforms: ['LinkedIn', 'MySpace'], postCount: 99 } });
+  const apS = db.autopilots.find(x => x.agent === 'social');
+  check('Social: settings cleaned (known networks only, at most 10 posts)', JSON.stringify(apS.settings.platforms) === '["LinkedIn"]' && apS.settings.postCount === 10);
+  const gens = [];
+  deps.generateSocialPosts = async (o) => { gens.push(o); return { contentPlanNote: 'note', posts: [{ platform: 'LinkedIn', title: 'T', body: `Post about ${o.topic}`, hashtags: ['#plumbing'] }, { platform: 'Facebook', body: 'not asked for' }] }; };
+  for (let i = 0; i < 3; i++) { await api(autopilotApi, OWNER, { action: 'runNow', id: apS.id }); await tick(); }
+  check('Social: works through the topics in turn', JSON.stringify(gens.map(g => g.topic)) === '["Blocked drains","Hot water","Blocked drains"]');
+  const artS = db.mission_artifacts.filter(x => x.kind === 'social_posts');
+  check('…drafts are cleaned to the chosen networks and wait for approval (nothing posted)', artS.length === 3 && artS[0].payload.posts.length === 1 && artS[0].payload.posts[0].hashtags[0] === 'plumbing' && artS.every(x => x.status === 'pending_approval') && /nothing is posted/.test(lastEvent('needs_approval').body));
+  delete process.env.ANTHROPIC_API_KEY;
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apS.id });
+  await tick();
+  const jNoKey = db.agent_jobs.filter(j => j.autopilot_id === apS.id).slice(-1)[0];
+  check('a missing AI key fails at once, says so plainly, and alerts the Audema team', jNoKey.status === 'failed' && /missing a setting/.test(lastEvent('failed').body));
+  process.env.ANTHROPIC_API_KEY = 'sk-test';
+  const ma = read('api/mission-artifacts.js');
+  check('approving or rejecting an artifact clears its "Ready for your OK" in the inbox', /activity_events\?kind=eq\.needs_approval&resolved_at=is\.null&action->>artifactId=eq\.\$\{artifact\.id\}/.test(ma));
+
+  console.log('\n──── background jobs report what they did ────');
+  const notify = require(path.join(REPO, 'api/_lib/autopilot/notify.js'));
+  const sweep = { id: uuid(), user_id: OWNER, intel_profile_id: PROFILE, name: 'Texas — plumbers', write_to_tracker: true, totals: {} };
+  await notify.sweepResult(sb, sweep, { ran: true, status: 'running' }, deps);
+  const nBefore = db.activity_events.length;
+  check('a sweep still running says nothing', db.activity_events.length === nBefore);
+  await notify.sweepResult(sb, sweep, { ran: true, status: 'paused', note: 'Google Places refused (quota exceeded).', totals: { searched: 40, qualified: 6, written: 5 } }, deps);
+  const sw = lastEvent('needs_permission');
+  check('Blade: a sweep paused by Google\'s quota asks the business, with the counts so far', sw && sw.agent === 'blade' && /paused the Texas — plumbers sweep/.test(sw.title) && /40 towns searched · 6 businesses qualified · 5 added to the tracker/.test(sw.body) && sw.action.href === '/agents/blade-sweeps.html');
+  await notify.sweepResult(sb, sweep, { ran: true, status: 'paused', note: 'Google Places refused (quota exceeded).', totals: {} }, deps);
+  check('…said once, not every five minutes', db.activity_events.filter(e => e.title === sw.title).length === 1);
+  await notify.sweepResult(sb, sweep, { ran: true, status: 'done', totals: { searched: 120, qualified: 14, written: 12 } }, deps);
+  check('…and when it finishes', /Blade finished sweeping/.test(lastEvent('done').title));
+  await notify.competitorChanged(sb, { user_id: OWNER, name: 'Rival Plumbing', url: 'https://rival.example/pricing' }, [{ change_type: 'title', previous_value: 'From $99', new_value: 'From $79' }, { change_type: 'content' }], deps);
+  const cw = lastEvent('info');
+  check('Competitor watch: a change is reported with what changed', /Rival Plumbing changed their page/.test(cw.title) && /"From \$99" → "From \$79"/.test(cw.body) && /wording changed/.test(cw.body) && cw.intel_profile_id === null);
+  r = await api(activityApi, OWNER, { action: 'list', intelProfileId: PROFILE });
+  check('…and shows in the owner\'s inbox even though it isn\'t tied to a business', r.body.events.some(e => e.id === cw.id));
+  r = await api(activityApi, TEAMMATE, { action: 'list', intelProfileId: PROFILE });
+  check('…but not in a teammate\'s (it is the owner\'s own watch)', r.statusCode === 200 && !r.body.events.some(e => e.id === cw.id) && r.body.events.some(e => e.id === sw.id));
+  const post = { id: uuid(), user_id: OWNER, intel_profile_id: PROFILE, platform: 'LinkedIn', headline: 'Spring offer' };
+  await notify.postFailed(sb, post, { success: false, status: 'not_connected', error: 'LinkedIn is not connected' }, deps);
+  await notify.postFailed(sb, post, { success: false, status: 'not_connected' }, deps);
+  check('Scheduled posts: a network that isn\'t connected is one request, not one per post', db.activity_events.filter(e => /LinkedIn isn't connected/.test(e.title)).length === 1 && lastEvent('needs_permission').agent === 'social');
+  await notify.postFailed(sb, post, { success: false, status: 'failed', error: 'Text too long' }, deps);
+  check('…a real failure says what went wrong and that nothing was posted', /Text too long\. Nothing was posted/.test(lastEvent('failed').body));
+  await notify.flowSendFailed(sb, { userId: OWNER, flowName: 'Welcome', outcome: 'no_from_address' }, deps);
+  await notify.flowSendFailed(sb, { userId: OWNER, flowName: 'Welcome', outcome: 'no_from_address' }, deps);
+  await notify.flowSendFailed(sb, { userId: OWNER, flowName: 'Welcome', outcome: 'sent' }, deps);
+  check('Email flows: a step that can\'t send says how to fix it, once', db.activity_events.filter(e => /"Welcome" couldn't send/.test(e.title)).length === 1 && /no "from" address/.test(lastEvent('failed').body));
+  check('a report that can\'t be written never stops the job', (await notify.postFailed(async () => { throw new Error('db down'); }, post, { status: 'x' }, deps)) === null);
+  for (const [file, fn] of [['api/cron-blade-sweeps.js', 'sweepResult'], ['api/cron-competitor-watch.js', 'competitorChanged'], ['api/cron-auto-publish.js', 'postFailed'], ['api/cron-email-flows.js', 'flowSendFailed']]) {
+    check(`${file} reports to What happened`, read(file).includes(`notify.${fn}(`));
+  }
+  check('every email-flow failure the business can fix is reported', ['no_from_address', 'copy_not_sendable', 'send_failed', 'send_error'].every(o => read('api/cron-email-flows.js').includes(`outcome: '${o}', detail`)));
+
   console.log('\n──── pages, cron, database ────');
   const vercel = JSON.parse(read('vercel.json'));
   check('the runner runs every 5 minutes', vercel.crons.some(c => c.path === '/api/cron-autopilot' && c.schedule === '1-59/5 * * * *'));
@@ -490,13 +593,17 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   const sql = read('supabase-autopilot.sql');
   check('the four tables have row-level security on and no browser policies', ['connections', 'autopilots', 'agent_jobs', 'activity_events'].every(tb => new RegExp(`ALTER TABLE ${tb}\\s+ENABLE ROW LEVEL SECURITY`).test(sql)) && !/CREATE POLICY/i.test(sql));
   check('the install-all file includes it', read('supabase-install-all.sql').includes('CREATE TABLE IF NOT EXISTS activity_events'));
-  for (const pg of ['web/connections.html', 'web/seo/autopilot.html', 'web/inbox.html']) {
+  for (const pg of ['web/connections.html', 'web/seo/autopilot.html', 'web/inbox.html', 'web/autopilot.html']) {
     const src = read(pg);
     check(`${pg}: signed-in calls through the shared helper, nothing interpolated unescaped`, src.includes('/js/autopilot-ui.js') && src.includes('/js/send-auth.js') && !/\$\{(e|a|c|j|art|p|l|f)\.(title|body|label|provider|siteUrl|lastError|statusNote|keyword|help|name)\}/.test(src));
   }
   const inbox = read('web/inbox.html');
   check('inbox: links from events go through safeHref; reconnect goes to Connections', /safeHref\(a\.url\)/.test(inbox) && /connections\.html\?reconnect=/.test(inbox));
-  check('nav: the content engine and hub link to the new pages', read('web/seo/content-engine.html').includes('/seo/autopilot.html') && read('web/hub.html').includes('/inbox.html'));
+  const lh = inbox.match(/function localHref\(h\) \{[^\n]+\}/);
+  const localHref = lh && new Function(`${lh[0]}; return localHref;`)();
+  check('inbox: an event\'s link can only be one of our own pages', localHref && localHref('/agents/blade-sweeps.html') && !localHref('//evil.example/x') && !localHref('https://evil.example') && !localHref('javascript:alert(1)') && !localHref('/a"onmouseover=x'));
+  check('inbox: mission artifacts are reviewed and decided through their own endpoint', /\/api\/mission-artifacts', \{ action: 'get'/.test(inbox) && /action: d\.aapprove \? 'approve' : 'reject'/.test(inbox));
+  check('nav: the content engine and hub link to the new pages', read('web/seo/content-engine.html').includes('/seo/autopilot.html') && read('web/hub.html').includes('/inbox.html') && read('web/hub.html').includes('/autopilot.html'));
 
   console.log(`\n${failures ? `${failures} FAILED` : 'All passed'}`);
   process.exit(failures ? 1 : 0);

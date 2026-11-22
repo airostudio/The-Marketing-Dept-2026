@@ -17,10 +17,16 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '
 
 /**
  * @param {Function} sb
- * @param {{user_id, intel_profile_id?, project_id?, agent?, job_id?, kind, title, body?, details?, action?}} ev
+ * @param {{user_id, intel_profile_id?, project_id?, agent?, job_id?, kind, title, body?, details?, action?, dedupeHours?}} ev
  * @returns {Promise<object|null>} the stored event
  */
 async function record(sb, ev, deps = {}) {
+  // A problem a cron sees every few minutes is one inbox item, not hundreds.
+  if (ev.dedupeHours) {
+    const since = new Date(Date.now() - ev.dedupeHours * 3600000).toISOString();
+    const dup = await sb('GET', `/activity_events?user_id=eq.${ev.user_id}&title=eq.${encodeURIComponent(str(ev.title, 200))}&resolved_at=is.null&created_at=gte.${encodeURIComponent(since)}&select=id&limit=1`);
+    if (dup.ok && (dup.data || []).length) return null;
+  }
   const row = {
     user_id: ev.user_id, intel_profile_id: ev.intel_profile_id || null, project_id: ev.project_id || null,
     agent: ev.agent || null, job_id: ev.job_id || null, kind: ev.kind,

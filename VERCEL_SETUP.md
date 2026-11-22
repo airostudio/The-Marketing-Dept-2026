@@ -755,6 +755,10 @@ SEO Autopilot (`/seo/autopilot.html`) picks a topic, writes the article, checks 
 | `APP_BASE_URL` | Your app's address (e.g. `https://app.audema.ai`), used for the link in alert emails | Recommended |
 | `SHOPIFY_API_VERSION` | Shopify Admin API version (default `2025-01`) | Optional |
 
+**The other agents on the same engine** (`/autopilot.html`): Analytics Brain writes a report on the business's real numbers, CRO Lab proposes A/B tests for its pages, and Social Studio drafts the next batch of posts. Each runs on its own days and repairs faults the same way. Each ends as a mission artifact the business approves from What happened. They always ask, because their work goes out to customers or makes claims about the business's numbers. These use `ANTHROPIC_API_KEY` and need `supabase-mission-artifacts.sql`.
+
+**Background jobs now report too:** Blade area sweeps (finished, or paused by a Google Places quota), competitor-watch changes, scheduled posts that couldn't go out, and email-flow steps that couldn't send. Each shows in What happened (deduplicated so a repeating problem is one item) and is emailed when it needs the business.
+
 ### Setup
 
 1. Run `supabase-autopilot.sql` in Supabase Dashboard → SQL Editor (it is also in `supabase-install-all.sql`). It creates `connections`, `autopilots`, `agent_jobs` and `activity_events`, with row-level security on and no browser policies: only the API reads them, so a browser never sees an encrypted login. It also lets `seo_articles` record where each article was published.

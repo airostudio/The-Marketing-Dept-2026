@@ -6,7 +6,9 @@
 
 'use strict';
 
-const HANDLERS = [require('./seo.js')];
+const drafts = require('./drafts.js');
+
+const HANDLERS = [require('./seo.js'), drafts.analytics, drafts.cro, drafts.social];
 
 const byAgent = new Map(HANDLERS.map(h => [h.agent, h]));
 const byKind = new Map(HANDLERS.map(h => [h.kind, h]));
@@ -14,5 +16,5 @@ const byKind = new Map(HANDLERS.map(h => [h.kind, h]));
 module.exports = {
   forAgent: (a) => byAgent.get(a) || null,
   forKind: (k) => byKind.get(k) || null,
-  agents: () => HANDLERS.map(h => ({ agent: h.agent, label: h.label })),
+  agents: () => HANDLERS.map(h => ({ agent: h.agent, label: h.label, approvalOnly: !!h.approvalOnly })),
 };

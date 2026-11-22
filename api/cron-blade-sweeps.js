@@ -14,6 +14,7 @@
 const { sbRest } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { tick } = require('./_lib/blade-sweep.js');
+const notify = require('./_lib/autopilot/notify.js');
 
 const TOTAL_BUDGET_MS = 120000;
 const MIN_BATCH_MS = 50000;
@@ -38,6 +39,7 @@ module.exports = withFailureReporting('api/cron-blade-sweeps', async function ha
     try {
       const out = await tick(sb, sweep, { placesKey, budgetMs: Math.min(left, 90000) });
       ran.push({ id: sweep.id, ...out });
+      await notify.sweepResult(sb, sweep, out);
     } catch (e) {
       ran.push({ id: sweep.id, ran: false, error: e.message });
     }

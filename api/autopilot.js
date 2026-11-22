@@ -3,6 +3,7 @@
  * much it may do on its own, and answer what it asks (approve / reject).
  *
  * POST { action, ... }   Header: Authorization: Bearer <Supabase access token>
+ *   agents  { intelProfileId?|projectId? }        → every agent that can run on autopilot, with its settings
  *   get     { agent, intelProfileId?|projectId? } → settings, this business's connections, recent work
  *   save    { agent, intelProfileId?|projectId?, enabled, cadence, mode, connectionId?, settings }
  *   runNow  { id }                     → start a piece of work now
@@ -86,7 +87,8 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
 
       if (body.action === 'save') {
         const cadence = cleanCadence(body.cadence);
-        const mode = MODES.includes(body.mode) ? body.mode : 'earn_trust';
+        // Agents whose work ends in a draft for approval always ask; only SEO can earn the right to publish.
+        const mode = handler.approvalOnly ? 'approve' : (MODES.includes(body.mode) ? body.mode : 'earn_trust');
         let connectionId = null;
         if (body.connectionId) {
           if (!isUuid(body.connectionId)) return res.status(400).json({ error: 'connectionId is not a valid id.' });
@@ -95,16 +97,16 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
           connectionId = body.connectionId;
         }
         const enabled = body.enabled !== false;
-        const row = { enabled, cadence, mode, connection_id: connectionId, settings: cleanSettings(handler.agent, body.settings), next_run_at: enabled ? nextRunAt(cadence, now).toISOString() : null, paused_reason: null };
+        const row = { enabled, cadence, mode, connection_id: connectionId, settings: handler.cleanSettings ? handler.cleanSettings(body.settings) : cleanSettings(handler.agent, body.settings), next_run_at: enabled ? nextRunAt(cadence, now).toISOString() : null, paused_reason: null };
         const saved = ap ? await sb('PATCH', `/autopilots?id=eq.${ap.id}`, row)
           : await sb('POST', '/autopilots', { user_id: s.ownerId, intel_profile_id: s.intel_profile_id, project_id: s.project_id, agent: handler.agent, ...row });
         if (!saved.ok || !saved.data || !saved.data[0]) return res.status(saved.status === 404 ? 503 : 500).json(tableError(saved));
         ap = saved.data[0];
-        // Work that was waiting for a website (a connection or its address) carries on.
+        // Work that was waiting for a setting (a website, a goal, topics) carries on with the new ones.
         // Work waiting for a specific login to be reconnected keeps waiting for that.
-        if (connectionId || row.settings.siteUrl) {
-          await sb('PATCH', `/agent_jobs?autopilot_id=eq.${ap.id}&status=eq.waiting_permission&state->>waitingFor=is.null`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0 });
-          await sb('PATCH', `/activity_events?${s.filter}&kind=eq.needs_permission&resolved_at=is.null&action->>type=eq.connect`, { resolved_at: now.toISOString() });
+        const resumed = await sb('PATCH', `/agent_jobs?autopilot_id=eq.${ap.id}&status=eq.waiting_permission&state->>waitingFor=is.null`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0 });
+        if (resumed.ok && (resumed.data || []).length) {
+          await sb('PATCH', `/activity_events?${s.filter}&agent=eq.${handler.agent}&kind=eq.needs_permission&resolved_at=is.null&action->>type=in.(connect,settings)`, { resolved_at: now.toISOString() });
         }
       }
       const conns = await sb('GET', `/connections?${s.filter}&status=neq.disconnected&select=*&order=created_at.desc`);
@@ -115,6 +117,17 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
         connections: ((conns.ok && conns.data) || []).map(publicView),
         jobs: ((jobs.ok && jobs.data) || []).map(jobView),
       });
+    }
+
+    if (body.action === 'agents') {
+      const s = await scope.scopeFor(uid, body, { requireEdit: false });
+      if (s.err) return res.status(s.err.http).json(s.err);
+      const aps = await sb('GET', `/autopilots?${s.filter}&select=*&order=created_at.asc`);
+      if (!aps.ok) return res.status(aps.status === 404 ? 503 : 500).json(tableError(aps));
+      return res.json({ ok: true, agents: registry.agents().map(a => {
+        const ap = (aps.data || []).find(x => x.agent === a.agent);
+        return { ...a, autopilot: ap ? { id: ap.id, enabled: ap.enabled, cadence: ap.cadence, mode: ap.mode, settings: ap.settings, nextRunAt: ap.next_run_at, lastRunAt: ap.last_run_at, pausedReason: ap.paused_reason, trustEarned: ap.trust_earned, trustRequired: ap.trust_required } : null };
+      }) });
     }
 
     if (body.action === 'runNow') {
