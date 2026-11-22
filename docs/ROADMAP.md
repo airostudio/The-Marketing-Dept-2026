@@ -3,6 +3,18 @@
 Things that are decided but not built yet. Each says what is missing today so
 nobody assumes it works.
 
+## Autopilot
+
+SEO Autopilot writes and publishes to WordPress, Webflow, Shopify and Wix on a schedule. It earns trust first, repairs what it can, asks for logins and approvals, and reports in What happened.
+
+- **Not yet included:**
+  - **Search Console.** Tracking how published articles rank, and refreshing ones that slip, needs Google sign-in (OAuth). Today's Search Console screen isn't wired to real data.
+  - **Technical fixes on the site.** Changing titles, meta descriptions, image alt text or schema on existing pages. Today the audits recommend these changes but don't apply them.
+  - **Featured images** on published articles.
+  - **Sign-in buttons for the platforms.** Logins are pasted (application password, token or API key) rather than connected by a one-click sign-in (OAuth app). Shopify and Wix one-click sign-in need a registered public app.
+  - **Other agents on autopilot.** Social posting (needs each network's sign-in), analytics reports, competitor watch, Blade sweeps, CRO and email are next to move onto the same engine.
+  - **Wix drafts on retry.** Before a retry posts again, the duplicate check looks for an existing post. On Wix it can only find published posts, so a Wix *draft* that timed out after it was created could be saved twice.
+
 ## Automation flows
 
 - **Teammate-created contacts in automatic enrolment.** Today the

@@ -18,57 +18,8 @@
 const { requireUser } = require('./_lib/require-user.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
-
-const { callClaudeForJSON } = require('./_lib/nancy-claude.js');
-const { directive: languageDirective } = require('./_lib/writing-language.js');
-
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 8;
-
-
-const ARTICLE_TOOL = {
-  name: 'submit_seo_article',
-  description: 'Submit the finished SEO article with metadata, ready to publish.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string', description: 'SEO title tag, under 60 characters, includes the target keyword naturally' },
-      meta_description: { type: 'string', description: 'Meta description, 140-160 characters, includes the target keyword, written to earn the click' },
-      slug: { type: 'string', description: 'URL slug: lowercase, hyphenated, short' },
-      body_markdown: { type: 'string', description: 'The full article in Markdown: an H1, then H2/H3 structure, 650-1000 words, genuinely useful content (not keyword-stuffed filler), includes the target keyword naturally in the first 100 words and at least one H2. Keep each section tight — a shorter genuinely useful article beats a padded long one.' },
-      faqs: {
-        type: 'array', maxItems: 3,
-        items: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string', description: '1-2 sentences' } }, required: ['question', 'answer'] },
-        description: 'Optional FAQ section content, real questions a searcher would actually have — keep answers short',
-      },
-      internal_link_suggestions: { type: 'array', items: { type: 'string' }, maxItems: 3, description: 'Suggested anchor text + what existing page on the site it should link to (based on products_services/existing_topics given) — the user fills in the real URL. One short phrase each.' },
-    },
-    required: ['title', 'meta_description', 'slug', 'body_markdown'],
-  },
-};
-
-function buildSchemaMarkup(article, profile) {
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: article.title,
-    description: article.meta_description,
-  };
-  if (article.faqs && article.faqs.length) {
-    return [
-      schema,
-      {
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: article.faqs.map(f => ({
-          '@type': 'Question', name: f.question,
-          acceptedAnswer: { '@type': 'Answer', text: f.answer },
-        })),
-      },
-    ];
-  }
-  return [schema];
-}
+// The prompt and tool live in the shared engine, which SEO Autopilot also uses.
+const { writeArticle } = require('./_lib/seo-engine.js');
 
 module.exports = withFailureReporting('api/seo-write-article', async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,43 +40,10 @@ module.exports = withFailureReporting('api/seo-write-article', async function ha
   if (!topic || !topic.topic) return res.status(400).json({ error: 'topic (from seo-keyword-research) is required' });
   if (!profile) return res.status(400).json({ error: 'profile (from seo-analyze-site) is required' });
 
-  const system = `You are an expert SEO content writer. Write a genuinely useful, well-researched article that happens to be well-optimized for search — never keyword-stuffed filler. Ground every factual claim about the business in the profile given; never invent a specific product feature, price, or statistic that isn't provided. If you'd naturally cite a stat you don't have, phrase it generally instead of inventing a number. Spelling and grammar must be flawless.${languageDirective(language) ? ' ' + languageDirective(language) : ''}`;
-
-  const user = `TOPIC: ${topic.topic}
-TARGET KEYWORD: ${topic.target_keyword}
-WHY THIS TOPIC: ${topic.rationale || ''}
-CONTENT PILLAR: ${topic.content_pillar || ''}
-
-BUSINESS PROFILE (ground the article in this — real products/services, real target customer, do not invent beyond this):
-${JSON.stringify(profile, null, 2)}
-${brandVoice ? `\nBRAND VOICE: ${brandVoice}` : ''}
-
-Write the complete article now.`;
-
-  // maxTokens/timeoutMs both cut down from their original values (6000/55s
-  // was still timing out against Vercel's own 60s maxDuration ceiling for
-  // this function — see the reduced word/FAQ/link counts above, which is
-  // the change that actually reduces real generation time, not just this
-  // number) — same "shrink the batch" fix already proven for
-  // seo-keyword-research.js and Nancy's content planner before it.
-  const result = await callClaudeForJSON({ system, user, tool: ARTICLE_TOOL, maxTokens: 4500, timeoutMs: 55000 });
-  if (!result.success) return res.status(502).json({ success: false, error: result.error });
-
-  const data = result.data;
-  const wordCount = (data.body_markdown || '').trim().split(/\s+/).filter(Boolean).length;
-
-  return res.json({
-    success: true,
-    article: {
-      title: data.title,
-      meta_description: data.meta_description,
-      slug: data.slug,
-      body_markdown: data.body_markdown,
-      faqs: data.faqs || [],
-      internal_link_suggestions: data.internal_link_suggestions || [],
-      schema_markup: buildSchemaMarkup(data, profile),
-      word_count: wordCount,
-      target_keyword: topic.target_keyword,
-    },
-  });
+  try {
+    const article = await writeArticle({ topic, profile, brandVoice, language });
+    return res.json({ success: true, article });
+  } catch (err) {
+    return res.status(502).json({ success: false, error: err.message });
+  }
 });

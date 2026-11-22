@@ -71,6 +71,7 @@ SOURCES = [
     'supabase-mission-artifacts.sql',
     'supabase-scorecards.sql',
     'supabase-blade-sweeps.sql',
+    'supabase-autopilot.sql',
 ]
 
 POLICY_1 = re.compile(r'(?m)^CREATE POLICY ("([^"]+)"|(\S+)) ON (\w+)')

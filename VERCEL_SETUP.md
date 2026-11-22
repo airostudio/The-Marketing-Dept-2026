@@ -741,6 +741,34 @@ No paid API required — it fetches the tracked page's HTML directly and extract
 
 ---
 
+## Autopilot — agents that do the work, repair themselves, and say what happened
+
+SEO Autopilot (`/seo/autopilot.html`) picks a topic, writes the article, checks it and publishes it to the business's own website on the business's schedule. It asks for approval on the first two articles, then publishes on its own (the business can choose "always ask" or "on its own from the start"). `api/cron-autopilot.js` runs every 5 minutes and moves every piece of work forward one step at a time. Faults are repaired on their own (server errors and rate limits are retried with growing waits, a failed AI answer is asked again). A refused login pauses the work and asks the business to reconnect. Everything shows in **What happened** (`/inbox.html`), and anything that needs a person is also emailed.
+
+| Variable Name | Description | Required |
+|--------------|-------------|----------|
+| `CONNECTIONS_ENCRYPTION_KEY` | Any long random string (32+ characters, e.g. `openssl rand -base64 48`). Encrypts each business's website logins (AES-256-GCM) before they are stored. **Without it, no connection can be saved.** Changing it later means every business has to reconnect. | ✅ Yes |
+| `CRON_SECRET` | Same bearer token as the other cron jobs | ✅ Yes |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Already required above | ✅ Yes |
+| `ANTHROPIC_API_KEY` | Already required above (writes the articles) | ✅ Yes |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Already used for email. Sends "needs you" and "couldn't finish" alerts. Without them, alerts appear only in What happened. | Recommended |
+| `APP_BASE_URL` | Your app's address (e.g. `https://app.audema.ai`), used for the link in alert emails | Recommended |
+| `SHOPIFY_API_VERSION` | Shopify Admin API version (default `2025-01`) | Optional |
+
+### Setup
+
+1. Run `supabase-autopilot.sql` in Supabase Dashboard → SQL Editor (it is also in `supabase-install-all.sql`). It creates `connections`, `autopilots`, `agent_jobs` and `activity_events`, with row-level security on and no browser policies: only the API reads them, so a browser never sees an encrypted login. It also lets `seo_articles` record where each article was published.
+2. Add `CONNECTIONS_ENCRYPTION_KEY` (and `APP_BASE_URL`) in Vercel, then redeploy.
+3. The cron runs at `1-59/5 * * * *`. Like the other frequent cron jobs here, it needs a Pro plan and fires only on the **Production** deployment.
+4. A business connects its site under **Connections** (`/connections.html`). Each login is tested before it is saved:
+   - **WordPress** (including GoDaddy Managed WordPress): username + an Application Password.
+   - **Webflow**: a site API token with CMS read/write. The blog collection and its fields are found automatically.
+   - **Shopify**: the store's `.myshopify.com` address + a custom app's Admin API token (`read_content`, `write_content`).
+   - **Wix**: an API key with Wix Blog permission + the Site ID.
+   - **GoDaddy Website Builder**: no publishing API exists, so each article is prepared ready to paste, and the business is told when one is ready.
+
+---
+
 ## Additional Resources
 
 - [Vercel Environment Variables Docs](https://vercel.com/docs/concepts/projects/environment-variables)

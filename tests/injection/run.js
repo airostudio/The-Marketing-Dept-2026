@@ -132,7 +132,7 @@ console.log('\n──── no prompt pastes fetched text in raw ────');
 // a crawled site, or a web-search result.
 const PROMPT_ENDPOINTS = [
   'api/nancy-analyze-website.js',
-  'api/seo-analyze-site.js',
+  'api/_lib/seo-engine.js',          // api/seo-analyze-site.js's prompt lives here now
   'api/nancy-structure-competitors.js',
   'api/seo-structure-competitors.js',
   'api/seo-backlink-structure.js',
