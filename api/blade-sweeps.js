@@ -40,7 +40,7 @@ function canWriteTrackers(auth) {
   const role = auth.profile && auth.profile.role;
   if (role === 'admin' || role === 'super_admin') return true;
   const allowed = String(process.env.WEBESE_TRACKER_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-  return allowed.includes(auth.user.id);
+  return allowed.includes(auth.userId);
 }
 
 function cleanRoot(r) {
@@ -74,7 +74,7 @@ module.exports = withFailureReporting('api/blade-sweeps', async function handler
   if (rateLimited(req, res, { name: 'blade-sweeps', max: 30, windowMs: 60 * 1000, auth })) return;
   const sb = (m, p, b) => sbRest(supabaseUrl, serviceKey, m, p, b);
   const body = req.body || {};
-  const uid = auth.user.id;
+  const uid = auth.userId;
 
   const tableError = (r) => r.status === 404
     ? { code: 'not_installed', error: 'Blade sweeps are not installed. Run supabase-blade-sweeps.sql in the Supabase SQL editor.' }

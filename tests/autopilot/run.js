@@ -91,7 +91,7 @@ let callerId = OWNER;
 
 mockModule('api/_lib/supabase-rest.js', { sbRest: async (u, k, m, p, b) => sb(m, p, b), isUuid });
 mockModule('api/_lib/rate-limit.js', { rateLimited: () => false });
-mockModule('api/_lib/require-user.js', { requireUser: async (req, res) => (callerId ? { user: { id: callerId }, profile: { role: 'user' } } : (res.status(401).json({ error: 'Sign in' }), null)) });
+mockModule('api/_lib/require-user.js', { requireUser: async (req, res) => (callerId ? { userId: callerId, profile: { role: 'user' }, email: null } : (res.status(401).json({ error: 'Sign in' }), null)) });
 mockModule('api/_lib/report-failure.js', { withFailureReporting: (n, fn) => fn, reportFailureAsync: () => {}, reportFailure: () => {} });
 mockModule('api/_lib/profile-access.js', {
   canAccessRecord: async (u, k, caller, row) => {

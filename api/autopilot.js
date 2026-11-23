@@ -59,7 +59,7 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
   if (!auth) return;
   if (rateLimited(req, res, { name: 'autopilot', max: 40, windowMs: 60 * 1000, auth })) return;
   const sb = (m, p, b) => sbRest(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, m, p, b);
-  const uid = auth.user.id;
+  const uid = auth.userId;
   const body = req.body || {};
   const now = new Date();
   const tableError = (r) => (r.status === 404 ? { code: 'not_installed', error: 'Autopilot is not installed. Run supabase-autopilot.sql in the Supabase SQL editor.' } : { code: 'db_error', error: `Database error (HTTP ${r.status}).` });

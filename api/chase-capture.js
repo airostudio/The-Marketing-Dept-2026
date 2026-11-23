@@ -61,7 +61,7 @@ module.exports = withFailureReporting('api/chase-capture', async function handle
 
   if (isR2Configured()) {
     try {
-      const hosted = await uploadToR2(`captures/${auth.user.id}/${filename}`, shot.buffer, shot.mimeType);
+      const hosted = await uploadToR2(`captures/${auth.userId}/${filename}`, shot.buffer, shot.mimeType);
       if (hosted) return res.json({ ...out, imageUrl: hosted, storage: 'permanent' });
       out.notes.push('R2_PUBLIC_BASE_URL is not set, so the capture was stored without a public link.');
     } catch (e) {

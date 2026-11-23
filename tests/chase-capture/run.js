@@ -58,7 +58,7 @@ function png(w, h, extra = 0) { const b = Buffer.alloc(33 + extra); b.writeUInt3
 
   console.log('\n──── the endpoint ────');
   let shot = null, r2 = true, uploaded = [];
-  mockModule('api/_lib/require-user.js', { requireUser: async (req, res) => (req.headers.authorization ? { user: { id: 'u1' }, profile: {} } : (res.status(401).json({ error: 'Sign in' }), null)) });
+  mockModule('api/_lib/require-user.js', { requireUser: async (req, res) => (req.headers.authorization ? { userId: 'u1', profile: {}, email: null } : (res.status(401).json({ error: 'Sign in' }), null)) });
   mockModule('api/_lib/rate-limit.js', { rateLimited: () => false });
   mockModule('api/_lib/report-failure.js', { withFailureReporting: (n, h) => h });
   mockModule('api/_lib/safe-fetch.js', { validateTarget: async (raw) => (/127\.0\.0\.1|169\.254|localhost/.test(raw) ? { ok: false, reason: 'that address is on a private network' } : { ok: true, url: new URL(raw) }) });

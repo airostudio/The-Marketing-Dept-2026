@@ -27,7 +27,7 @@ module.exports = withFailureReporting('api/activity', async function handler(req
   if (rateLimited(req, res, { name: 'activity', max: 60, windowMs: 60 * 1000, auth })) return;
   const sb = (m, p, b) => sbRest(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, m, p, b);
   const body = req.body || {};
-  const uid = auth.user.id;
+  const uid = auth.userId;
 
   try {
     if (body.action === 'list') {

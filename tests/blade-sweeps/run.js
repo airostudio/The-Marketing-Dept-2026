@@ -242,7 +242,7 @@ const STRANGER = '44444444-4444-4444-4444-444444444444';
   mockModule('api/_lib/rate-limit.js', { rateLimited: () => false });
   let callerId = null;
   mockModule('api/_lib/require-user.js', {
-    requireUser: async (req, res) => { if (!callerId) { res.status(401).json({ error: 'Sign in' }); return null; } return { user: { id: callerId }, profile: db.profiles.find(p => p.id === callerId) || { role: 'user' } }; },
+    requireUser: async (req, res) => { if (!callerId) { res.status(401).json({ error: 'Sign in' }); return null; } return { userId: callerId, profile: db.profiles.find(p => p.id === callerId) || { role: 'user' }, email: null }; },
     callerOwnsScope: async () => true,
   });
   mockModule('api/_lib/geonames.js', { ...fakeGeo, NOT_CONFIGURED: 'GEONAMES_USERNAME is not set.' });
