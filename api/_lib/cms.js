@@ -8,6 +8,7 @@
  *                          fields). Returns { label, siteUrl, config, secret }.
  *   publish(conn, post, { status: 'publish'|'draft' })
  *                          → { url, remoteId, status }
+ *   update(conn, remoteId, post)  change a post already on the site (refreshes)
  *   ping(conn)             is the login still accepted? (throws if not)
  *   listPages(conn)        the site's own posts/pages (for internal links;
  *                          best-effort, never throws)
@@ -94,6 +95,13 @@ const wordpress = {
     }, 'WordPress', deps);
     return { url: r.link || null, remoteId: String(r.id || ''), status: r.status || opts.status };
   },
+  async update(conn, remoteId, post, deps) {
+    const r = await call(`${conn.site_url}/wp-json/wp/v2/posts/${encodeURIComponent(remoteId)}`, {
+      method: 'POST', headers: { Authorization: this.auth(conn.secret), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: post.title, content: md.toHtml(post.markdown, { dropFirstH1: true }), excerpt: post.excerpt }),
+    }, 'WordPress', deps);
+    return { url: r.link || null, remoteId: String(r.id || remoteId) };
+  },
   async ping(conn, deps) { await call(`${conn.site_url}/wp-json/wp/v2/users/me`, { headers: { Authorization: this.auth(conn.secret) } }, 'WordPress', deps); },
   /** A post this site already has under the slug (a retry after a timed-out publish must not post twice). */
   async findExisting(conn, post, deps) {
@@ -157,6 +165,14 @@ const webflow = {
     const slug = (r.fieldData && r.fieldData.slug) || post.slug;
     return { url: live ? `${conn.site_url}/${c.collectionSlug}/${slug}` : null, remoteId: String(r.id || ''), status: live ? 'publish' : 'draft' };
   },
+  async update(conn, remoteId, post, deps) {
+    const c = conn.config;
+    const fieldData = { name: post.title, [c.fieldMap.body]: md.toHtml(post.markdown, { dropFirstH1: true }) };
+    if (c.fieldMap.summary) fieldData[c.fieldMap.summary] = post.excerpt;
+    const r = await call(`${WF}/collections/${c.collectionId}/items/${encodeURIComponent(remoteId)}/live`, { method: 'PATCH', headers: { ...this.headers(conn.secret), 'Content-Type': 'application/json' }, body: JSON.stringify({ fieldData }) }, 'Webflow', deps);
+    const slug = (r.fieldData && r.fieldData.slug) || post.slug;
+    return { url: slug ? `${conn.site_url}/${c.collectionSlug}/${slug}` : null, remoteId: String(r.id || remoteId) };
+  },
   async ping(conn, deps) { await call(`${WF}/collections/${conn.config.collectionId}`, { headers: this.headers(conn.secret) }, 'Webflow', deps); },
   async findExisting(conn, post, deps) {
     if (!post.slug) return null;
@@ -199,6 +215,14 @@ const shopify = {
     const a = r.article || {};
     return { url: live ? `${conn.site_url}/blogs/${conn.config.blogHandle}/${a.handle || post.slug}` : null, remoteId: String(a.id || ''), status: live ? 'publish' : 'draft' };
   },
+  async update(conn, remoteId, post, deps) {
+    const r = await call(`${this.base(conn)}/blogs/${conn.config.blogId}/articles/${encodeURIComponent(remoteId)}.json`, {
+      method: 'PUT', headers: { 'X-Shopify-Access-Token': conn.secret.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ article: { id: Number(remoteId) || remoteId, title: post.title, body_html: md.toHtml(post.markdown, { dropFirstH1: true }), summary_html: post.excerpt ? `<p>${post.excerpt.replace(/[<>&]/g, '')}</p>` : undefined } }),
+    }, 'Shopify', deps);
+    const a = r.article || {};
+    return { url: a.handle ? `${conn.site_url}/blogs/${conn.config.blogHandle}/${a.handle}` : null, remoteId: String(a.id || remoteId) };
+  },
   async ping(conn, deps) { await call(`${this.base(conn)}/blogs/${conn.config.blogId}.json`, { headers: { 'X-Shopify-Access-Token': conn.secret.token } }, 'Shopify', deps); },
   async findExisting(conn, post, deps) {
     if (!post.slug) return null;
@@ -240,6 +264,13 @@ const wix = {
     const url = p.url && p.url.base ? `${p.url.base.replace(/\/+$/, '')}${p.url.path || ''}` : null;
     return { url: opts.status !== 'draft' ? url : null, remoteId: String(p.id || ''), status: opts.status !== 'draft' ? 'publish' : 'draft' };
   },
+  async update(conn, remoteId, post, deps) {
+    // Wix edits a post through its draft, then republishes it.
+    const draftPost = { id: remoteId, title: post.title, richContent: md.toRicos(post.markdown, { dropFirstH1: true }), excerpt: post.excerpt };
+    const r = await call(`${WIX}/blog/v3/draft-posts/${encodeURIComponent(remoteId)}`, { method: 'PATCH', headers: this.headers(conn.secret, conn.config), body: JSON.stringify({ draftPost, action: 'UPDATE_PUBLISH', fieldsets: ['URL'] }) }, 'Wix', deps);
+    const p = r.draftPost || {};
+    return { url: p.url && p.url.base ? `${p.url.base.replace(/\/+$/, '')}${p.url.path || ''}` : null, remoteId: String(p.id || remoteId) };
+  },
   async ping(conn, deps) { await call(`${WIX}/blog/v3/posts?paging.limit=1`, { headers: this.headers(conn.secret, conn.config) }, 'Wix', deps); },
   async findExisting(conn, post, deps) {
     if (!post.slug) return null;
@@ -265,6 +296,7 @@ const godaddy = {
     return { label: `GoDaddy — ${new URL(origin).hostname}`, siteUrl: origin, config: {}, secret: {} };
   },
   async publish() { throw fail('GoDaddy Website Builder has no publishing API.', 0, 'unsupported'); },
+  async update() { throw fail('GoDaddy Website Builder has no publishing API.', 0, 'unsupported'); },
   async ping() { /* nothing to log in to */ },
   async listPages() { return []; },
 };

@@ -34,7 +34,8 @@ const MIN_WORDS = 400;
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 const scopeFilter = (ap) => (ap.intel_profile_id ? `intel_profile_id=eq.${ap.intel_profile_id}` : ap.project_id ? `project_id=eq.${ap.project_id}` : `user_id=eq.${ap.user_id}`);
 // Saved topics: real search volume first (bigger first), then real difficulty (easier first).
-const savedOrder = (a, b) => ((b.search_volume != null) - (a.search_volume != null)) || ((a.difficulty ?? 50) - (b.difficulty ?? 50)) || (Number(b.search_volume || 0) - Number(a.search_volume || 0));
+// Searches the site already nearly ranks for (from its own Search Console) come first: proven demand.
+const savedOrder = (a, b) => ((b.data_source === 'search_console') - (a.data_source === 'search_console')) || ((b.search_volume != null) - (a.search_volume != null)) || ((a.difficulty ?? 50) - (b.difficulty ?? 50)) || (Number(b.search_volume || 0) - Number(a.search_volume || 0));
 // Freshly proposed topics only have the model's estimates: easiest first, then larger.
 const DIFF_RANK = { low: 0, medium: 1, high: 2 };
 const SIZE_RANK = (t) => (/high/i.test(t.est_search_volume || '') ? 0 : /medium/i.test(t.est_search_volume || '') ? 1 : 2);
@@ -194,7 +195,7 @@ const steps = {
       throw e;
     }
     const at = new Date(now()).toISOString();
-    await sb('PATCH', `/seo_articles?id=eq.${state.articleId}`, { status: status === 'draft' ? 'draft' : 'published', published_url: out.url, published_at: status === 'draft' ? null : at, connection_id: conn.id });
+    await sb('PATCH', `/seo_articles?id=eq.${state.articleId}`, { status: status === 'draft' ? 'draft' : 'published', published_url: out.url, published_at: status === 'draft' ? null : at, connection_id: conn.id, remote_id: out.remoteId || null });
     await sb('PATCH', `/seo_topics?id=eq.${state.topicId}`, { status: 'written' });
     await sb('PATCH', `/connections?id=eq.${conn.id}`, { last_ok_at: at });
     return {

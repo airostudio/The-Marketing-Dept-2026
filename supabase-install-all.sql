@@ -5347,3 +5347,27 @@ ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS connection_id UUID REFERENCES connections(id) ON DELETE SET NULL;
 ALTER TABLE seo_articles DROP CONSTRAINT IF EXISTS seo_articles_status_check;
 ALTER TABLE seo_articles ADD CONSTRAINT seo_articles_status_check CHECK (status IN ('draft', 'downloaded', 'published_elsewhere', 'published'));
+-- The post's id on the website, so a later refresh or fix updates it instead of posting a twin.
+ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS remote_id TEXT;
+ALTER TABLE seo_articles ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMPTZ;
+-- Topics found in the business's own Search Console data (searches it nearly ranks for).
+ALTER TABLE seo_topics DROP CONSTRAINT IF EXISTS seo_topics_data_source_check;
+ALTER TABLE seo_topics ADD CONSTRAINT seo_topics_data_source_check CHECK (data_source IN ('real', 'estimate', 'search_console'));
+
+-- What Search Console said each time it was read, per page, so movement can be shown and acted on.
+CREATE TABLE IF NOT EXISTS search_snapshots (
+  id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
+  intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
+  connection_id    UUID        REFERENCES connections(id) ON DELETE SET NULL,
+  property         TEXT        NOT NULL,
+  period_start     DATE        NOT NULL,
+  period_end       DATE        NOT NULL,
+  totals           JSONB       NOT NULL DEFAULT '{}',   -- { clicks, impressions, ctr, position }
+  pages            JSONB       NOT NULL DEFAULT '[]',   -- [{ page, clicks, impressions, ctr, position }]
+  queries          JSONB       NOT NULL DEFAULT '[]',   -- top queries, same shape with `query`
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_search_snapshots_scope ON search_snapshots (intel_profile_id, created_at DESC);
+ALTER TABLE search_snapshots ENABLE ROW LEVEL SECURITY;

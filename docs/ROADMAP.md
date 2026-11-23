@@ -8,7 +8,7 @@ nobody assumes it works.
 SEO Autopilot writes and publishes to WordPress, Webflow, Shopify and Wix on a schedule. Analytics Brain, CRO Lab and Social Studio run on the same engine and hand their work over for approval. It earns trust first, repairs what it can, asks for logins and approvals, and reports in What happened.
 
 - **Not yet included:**
-  - **Search Console.** Tracking how published articles rank, and refreshing ones that slip, needs Google sign-in (OAuth). Today's Search Console screen isn't wired to real data.
+  - **Search Console screens.** The weekly Search report reads real Search Console data through each business's Google sign-in. The older Search Console screens in the SEO section still use the unfinished browser sign-in and show no real data.
   - **Technical fixes on the site.** Changing titles, meta descriptions, image alt text or schema on existing pages. Today the audits recommend these changes but don't apply them.
   - **Featured images** on published articles.
   - **Sign-in buttons for the platforms.** Logins are pasted (application password, token or API key) rather than connected by a one-click sign-in (OAuth app). Shopify and Wix one-click sign-in need a registered public app.

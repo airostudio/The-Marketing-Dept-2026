@@ -788,6 +788,8 @@ Each network needs an app registered once by you (Audema's owner). For every app
 
 Until a network's env vars are set, its button shows "not set up yet". The older deployment-wide tokens (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`…) still work as a fallback for posts whose business hasn't signed in.
 
+**Search report** (`/autopilot.html`): once a business signs in to Search Console, a weekly report reads its own search data. It shows clicks and positions against the previous 28 days and how each article Audema published is doing. It adds searches the site nearly ranks for (positions 8–20, with real impressions) to SEO Autopilot's plan, which writes those first. When a published article slips 3+ places, SEO Autopilot rewrites it and asks before updating the live post in place. Run `supabase-autopilot.sql` again for the `search_snapshots` table and the new `seo_articles` / `seo_topics` columns.
+
 **Not yet:** images on LinkedIn and X posts (they go out as text, and the business is told); Instagram and TikTok sign-in; posting to a LinkedIn Company Page (needs LinkedIn's Community Management API approval).
 
 ---

@@ -11,7 +11,7 @@
  *                                        counts toward earned trust
  *   reject  { jobId, reason? }         → nothing is published; the topic is set aside
  *   retry   { jobId }                  → try a failed job again from where it stopped
- *   article { articleId }              → the article's text, for preview or copy/paste
+ *   article { articleId } | { jobId }  → the article's text (or a job's rewrite), for preview or copy/paste
  */
 
 'use strict';
@@ -88,7 +88,7 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
       if (body.action === 'save') {
         const cadence = cleanCadence(body.cadence);
         // Agents whose work ends in a draft for approval always ask; only SEO can earn the right to publish.
-        const mode = handler.approvalOnly ? 'approve' : (MODES.includes(body.mode) ? body.mode : 'earn_trust');
+        const mode = handler.approvalOnly ? 'approve' : handler.informOnly ? 'auto' : (MODES.includes(body.mode) ? body.mode : 'earn_trust');
         let connectionId = null;
         if (body.connectionId) {
           if (!isUuid(body.connectionId)) return res.status(400).json({ error: 'connectionId is not a valid id.' });
@@ -164,7 +164,8 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
       const u = await sb('PATCH', `/agent_jobs?id=eq.${job.id}&status=eq.waiting_approval`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0, state: { ...st, article, approvedBy: uid, approvedAt: now.toISOString() } });
       if (!u.ok || !(u.data || []).length) return res.status(409).json({ error: 'Someone else already answered this.' });
       let trust = null;
-      if (ap && ap.mode === 'earn_trust') {
+      // A refresh of a live article always asks; it doesn't count toward publishing on its own.
+      if (ap && ap.mode === 'earn_trust' && job.kind === 'seo_article') {
         trust = Math.min(ap.trust_required, (ap.trust_earned || 0) + 1);
         await sb('PATCH', `/autopilots?id=eq.${ap.id}`, { trust_earned: trust });
       }
@@ -183,6 +184,15 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
       await sb('PATCH', `/agent_jobs?id=eq.${job.id}&status=eq.failed`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0, finished_at: null });
       await sb('PATCH', `/activity_events?job_id=eq.${job.id}&kind=eq.failed&resolved_at=is.null`, { resolved_at: now.toISOString() });
       return res.json({ ok: true, note: 'Trying again from where it stopped.' });
+    }
+
+    if (body.action === 'article' && body.jobId) {
+      // The rewrite a job is asking about (a refresh isn't saved over the live article until approved).
+      const { job, err, http } = await jobAndAutopilot(body.jobId);
+      if (err) return res.status(http).json(err);
+      const a = (job.state || {}).article;
+      if (!a) return res.status(404).json({ error: 'Nothing has been written for this yet.' });
+      return res.json({ ok: true, article: { id: null, title: a.title, metaDescription: a.meta_description, slug: a.slug, keyword: a.target_keyword, markdown: a.body_markdown, html: md.toHtml(a.body_markdown, { dropFirstH1: true }), status: job.status, publishedUrl: (job.state.original || {}).url || null, words: (job.state.checks || {}).words || null } });
     }
 
     if (body.action === 'article') {

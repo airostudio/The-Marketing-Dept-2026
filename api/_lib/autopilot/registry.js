@@ -8,13 +8,14 @@
 
 const drafts = require('./drafts.js');
 
-const HANDLERS = [require('./seo.js'), drafts.analytics, drafts.cro, drafts.social];
+const HANDLERS = [require('./seo.js'), require('./seo-refresh.js'), require('./search.js'), drafts.analytics, drafts.cro, drafts.social];
 
-const byAgent = new Map(HANDLERS.map(h => [h.agent, h]));
+// An agent's main handler is its autopilot; a secondary one (e.g. SEO refresh) only runs jobs queued for it.
+const byAgent = new Map(HANDLERS.filter(h => !h.secondary).map(h => [h.agent, h]));
 const byKind = new Map(HANDLERS.map(h => [h.kind, h]));
 
 module.exports = {
   forAgent: (a) => byAgent.get(a) || null,
   forKind: (k) => byKind.get(k) || null,
-  agents: () => HANDLERS.map(h => ({ agent: h.agent, label: h.label, approvalOnly: !!h.approvalOnly })),
+  agents: () => HANDLERS.filter(h => !h.secondary).map(h => ({ agent: h.agent, label: h.label, approvalOnly: !!h.approvalOnly, informOnly: !!h.informOnly })),
 };

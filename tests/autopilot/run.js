@@ -21,7 +21,7 @@ const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
 /* ── An in-memory stand-in for Supabase's REST API (the filters we use) ── */
 let clock = Date.parse('2026-11-23T21:00:00Z');
 const nowIso = () => new Date(clock).toISOString();
-const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [], mission_artifacts: [], experiments: [] };
+const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [], mission_artifacts: [], experiments: [], search_snapshots: [] };
 const DEFAULTS = {
   connections: { status: 'active', config: {}, status_note: null },
   autopilots: { enabled: true, mode: 'earn_trust', trust_required: 2, trust_earned: 0, settings: {}, cadence: {}, paused_reason: null, connection_id: null },
@@ -38,6 +38,7 @@ function field(row, key) {
 }
 function test(v, cond) {
   const i = cond.indexOf('.'); const op = cond.slice(0, i), arg = cond.slice(i + 1);
+  if (op === 'not') return !test(v, arg);
   if (op === 'is') return arg === 'null' ? v == null : String(v) === arg;
   if (op === 'in') return arg.replace(/^\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')).includes(String(v));
   if (v == null) return false;
@@ -245,6 +246,11 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   const wixMissing = await wix.findExisting(wixConn, { slug: 'nope' }, { fetch: fetchWith([]) });
   check('Webflow and Wix also find a post already there (a 404 just means "not yet")', wfFound && wfFound.url === 'https://acme.com/blog-posts/t' && wixMissing === null);
   check('every connector except GoDaddy can find an existing post before a retry', ['wordpress', 'webflow', 'shopify', 'wix'].every(k => typeof cms.PROVIDERS[k].findExisting === 'function'));
+  reqs.length = 0;
+  await wordpress.update(wpConn, '7', { title: 'T2', markdown: '# T2\n\nNew body', excerpt: 'E2' }, { fetch: fetchWith([[/wp\/v2\/posts\/7$/, resp(200, { id: 7, link: 'https://example.com/t' })]]) });
+  await shopify.update(shopConn, '3', { title: 'T2', markdown: 'New body', excerpt: 'E2' }, { fetch: fetchWith([[/articles\/3\.json$/, resp(200, { article: { id: 3, handle: 't' } })]]) });
+  await wix.update(wixConn, 'p1', { title: 'T2', markdown: 'New body', excerpt: 'E2' }, { fetch: fetchWith([[/draft-posts\/p1$/, resp(200, { draftPost: { id: 'p1' } })]]) });
+  check('updating a live post changes that post in place (WordPress, Shopify, Wix republish)', JSON.parse(reqs[0].init.body).content === '<p>New body</p>' && reqs[1].init.method === 'PUT' && JSON.parse(reqs[1].init.body).article.id === 3 && reqs[2].init.method === 'PATCH' && JSON.parse(reqs[2].init.body).action === 'UPDATE_PUBLISH');
   check('every connector can check its login strictly (ping)', Object.values(cms.PROVIDERS).every(p => typeof p.ping === 'function'));
 
   /* ── Endpoints + runner, end to end ── */
@@ -685,6 +691,81 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   const slots = spreadSlots(3, { hour: 10, timezone: 'Australia/Sydney' }, new Date('2026-11-23T01:00:00Z'));
   check('approved posts are spread one a day at the business\'s hour, starting tomorrow', JSON.stringify(slots.map(d => d.toISOString())) === JSON.stringify(['2026-11-23T23:00:00.000Z', '2026-11-24T23:00:00.000Z', '2026-11-25T23:00:00.000Z']));
   check('approving an autopilot\'s posts queues them for publishing (Social Studio and Nancy)', (ma.match(/applyAutoSchedule\(rows, payload\.autoSchedule/g) || []).length === 2 && /status: 'scheduled', publish_status: 'queued'/.test(read('api/mission-artifacts.js')));
+
+  console.log('\n──── Search Console: sign in, report, act ────');
+  const gscLib = require(path.join(REPO, 'api/_lib/gsc.js'));
+  const gStart = new URL((await api(oauthApi, OWNER, { action: 'start', provider: 'gsc', intelProfileId: PROFILE })).body.url);
+  check('Google: read-only Search Console access, offline (so it keeps working), our callback', gStart.origin === 'https://accounts.google.com' && gStart.searchParams.get('scope') === 'https://www.googleapis.com/auth/webmasters.readonly' && gStart.searchParams.get('access_type') === 'offline' && gStart.searchParams.get('prompt') === 'consent');
+  check('…and it remembers the business\'s website to pick the right property', oauth.openState(gStart.searchParams.get('state')).siteUrl === 'https://example.com');
+  global.fetch = oFetch([[/oauth2\.googleapis\.com\/token/, resp(200, { access_token: 'gat', expires_in: 3600 })]]);
+  const gNo = mkRes(); gNo.end = function () { return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c', state: gStart.searchParams.get('state') } }, gNo);
+  check('Google without lasting access is refused with how to fix it (nothing saved)', /lasting access/.test(new URLSearchParams(gNo.headers.Location.split('?')[1]).get('oauth_error')) && !db.connections.some(c => c.provider === 'gsc'));
+  const gStart2 = new URL((await api(oauthApi, OWNER, { action: 'start', provider: 'gsc', intelProfileId: PROFILE })).body.url);
+  global.fetch = oFetch([[/oauth2\.googleapis\.com\/token/, resp(200, { access_token: 'gat', refresh_token: 'grt', expires_in: 3600 })], [/webmasters\/v3\/sites$/, resp(200, { siteEntry: [{ siteUrl: 'https://other.example/', permissionLevel: 'siteOwner' }, { siteUrl: 'sc-domain:example.com', permissionLevel: 'siteFullUser' }, { siteUrl: 'https://unverified.example/', permissionLevel: 'siteUnverifiedUser' }] })]]);
+  const gRes = mkRes(); gRes.end = function () { return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c', state: gStart2.searchParams.get('state') } }, gRes);
+  const gConn = db.connections.find(c => c.provider === 'gsc');
+  check('…the matching property is chosen (domain property for the business\'s site); unverified ones left out', gConn && gConn.config.property === 'sc-domain:example.com' && gConn.config.properties.length === 2 && gConn.label === 'Search Console — example.com');
+  global.fetch = realFetch;
+
+  const gq = [];
+  const gNow = Date.parse('2026-11-23T00:00:00Z');
+  global.fetch = async (url, init) => { gq.push({ url, body: JSON.parse(init.body) }); return resp(200, { rows: [{ keys: ['https://example.com/a'], clicks: 5, impressions: 100, ctr: 0.05, position: 7.25 }] }); };
+  const perf = await gscLib.performance(sb, { ...gConn, secret: box.open(gConn.secret_enc) }, { days: 28, endOffsetDays: 3, now: gNow }, { now: () => gNow });
+  check('Search Console is asked for final data ending 3 days ago (its numbers lag), for the chosen property', gq[0].url.includes(encodeURIComponent('sc-domain:example.com')) && gq[0].body.endDate === '2026-11-20' && gq[0].body.startDate === '2026-10-24' && gq[0].body.dataState === 'final' && perf.rows[0].ctr === 5 && perf.rows[0].position === 7.3);
+  global.fetch = realFetch;
+  const sd = gscLib.strikingDistance([{ query: 'blocked drain cost sydney', position: 11.2, impressions: 80 }, { query: 'hot water repair', position: 12, impressions: 300 }, { query: 'plumber', position: 9, impressions: 900 }, { query: 'gas fitter near me', position: 3, impressions: 500 }, { query: 'leaking tap fix', position: 15, impressions: 5 }], { covered: ['Hot water repair'] });
+  check('nearly-ranking searches: page 1–2, real impressions, not already covered, not one-word', sd.length === 1 && sd[0].query === 'blocked drain cost sydney');
+
+  // The SEO autopilot publishes to a live WordPress site again.
+  const wp2 = { id: uuid(), user_id: OWNER, intel_profile_id: PROFILE, provider: 'wordpress', label: 'WordPress — example.com', site_url: 'https://example.com', config: {}, secret_enc: box.seal({ username: 'sam', appPassword: 'pw' }), status: 'active' };
+  db.connections.push(wp2);
+  Object.assign(ap, { connection_id: wp2.id, enabled: true });
+  Object.assign(a1, { connection_id: wp2.id, remote_id: '1', refreshed_at: null });
+  const updates = [];
+  wpMock.update = async (c, remoteId, post) => { updates.push({ c, remoteId, post }); return { url: a1.published_url, remoteId }; };
+  const covered = db.seo_topics.find(t => t.topic === 'Hot water system repair');
+  deps.gsc = {
+    performance: async (sbx, c, o) => {
+      if (o.dimension === 'query') return { startDate: '2026-10-27', endDate: '2026-11-23', totals: {}, rows: [{ query: 'blocked drain cost sydney', clicks: 1, impressions: 80, ctr: 1, position: 11.2 }, { query: covered.target_keyword, clicks: 3, impressions: 300, ctr: 1, position: 12 }] };
+      return o.endOffsetDays === 3
+        ? { startDate: '2026-10-27', endDate: '2026-11-23', totals: { clicks: 120, impressions: 4000, ctr: 3, position: 14.2 }, rows: [{ page: a1.published_url + '/', clicks: 10, impressions: 400, ctr: 2.5, position: 9.4 }, { page: 'https://example.com/services', clicks: 60, impressions: 900, ctr: 6.7, position: 4.1 }] }
+        : { startDate: '2026-09-29', endDate: '2026-10-26', totals: { clicks: 100, impressions: 3500, ctr: 2.9, position: 15 }, rows: [{ page: a1.published_url, clicks: 25, impressions: 380, ctr: 6.6, position: 4.2 }, { page: 'https://example.com/services', clicks: 50, impressions: 800, ctr: 6.2, position: 6.0 }] };
+    },
+  };
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'search', intelProfileId: PROFILE, mode: 'approve', cadence: { days: [1], hour: 7, timezone: 'UTC' }, settings: {} });
+  const apG = db.autopilots.find(x => x.agent === 'search');
+  check('the Search report just reports (no approval mode), adding topics and refreshing by default', apG.mode === 'auto' && apG.settings.addTopics === true && apG.settings.refreshSlipping === true);
+  const topicsBefore = db.seo_topics.length;
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apG.id });
+  await tick();
+  const repJob = db.agent_jobs.filter(j => j.autopilot_id === apG.id)[0];
+  const repEv = lastEvent('done');
+  check('it saves what Search Console said', db.search_snapshots && db.search_snapshots.length === 1 && db.search_snapshots[0].property === 'sc-domain:example.com' && db.search_snapshots[0].totals.clicks === 120);
+  check('the report: clicks and change, what climbed, what slipped', repJob.status === 'done' && /Search report: 120 clicks in 28 days \(\+20%\)/.test(repEv.title) && /\/services: position 6 → 4\.1/.test(repEv.body) && /\/emergency-plumber-sydney\/?: position 4\.2 → 9\.4/.test(repEv.body));
+  const newTopic = db.seo_topics.slice(topicsBefore);
+  check('a search it nearly ranks for goes into SEO Autopilot\'s plan, labelled as from Search Console (covered ones skipped)', newTopic.length === 1 && newTopic[0].topic === 'blocked drain cost sydney' && newTopic[0].data_source === 'search_console' && /position 11\.2 for "blocked drain cost sydney" \(80 impressions/.test(newTopic[0].rationale) && /Added to SEO Autopilot's plan/.test(repEv.body));
+  const refJob = db.agent_jobs.find(j => j.kind === 'seo_refresh');
+  check('the slipping article is queued for a refresh, and the report says so', refJob && refJob.state.articleId === a1.id && refJob.autopilot_id === ap.id && /slipped 5\.2 places/.test(repEv.body));
+  await tick();
+  const refAsk = lastEvent('needs_approval');
+  check('the refresh is rewritten and checked, then always asks (it changes a live page)', refJob.status === 'waiting_approval' && refAsk.action.refresh === true && /position 4\.2 → 9\.4/.test(refAsk.body) && /updates the same post/.test(refAsk.body) && !updates.length);
+  r = await api(autopilotApi, OWNER, { action: 'article', jobId: refJob.id });
+  check('the rewrite can be read before deciding (the live article is untouched until then)', r.statusCode === 200 && r.body.article.html.includes('<p>') && a1.title === 'Emergency plumber in Sydney: what to do first');
+  const trustBefore = ap.trust_earned;
+  await api(autopilotApi, OWNER, { action: 'approve', jobId: refJob.id });
+  await tick();
+  check('approving updates the same post on the website (never a second copy)', updates.length === 1 && updates[0].remoteId === '1' && calls.publish.length === 6 && refJob.status === 'done');
+  check('…the article record is updated and dated, and refreshes don\'t count toward publishing on its own', a1.refreshed_at && a1.body_markdown === refJob.state.article.body_markdown && ap.trust_earned === trustBefore && /Refreshed on WordPress/.test(lastEvent('done').title));
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apG.id });
+  await tick();
+  check('a just-refreshed article isn\'t refreshed again straight away', db.agent_jobs.filter(j => j.kind === 'seo_refresh').length === 1);
+  const gscConnRow = db.connections.find(c => c.provider === 'gsc'); gscConnRow.status = 'disconnected';
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apG.id });
+  await tick();
+  check('with no Search Console connected it asks for one and waits', /needs your Search Console/.test(lastEvent('needs_permission').title) && lastEvent('needs_permission').action.provider === 'gsc');
+  delete deps.gsc;
 
   console.log('\n──── pages, cron, database ────');
   const vercel = JSON.parse(read('vercel.json'));

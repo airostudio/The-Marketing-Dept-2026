@@ -94,7 +94,7 @@
         <label class="ap-f">Article (Markdown)</label><textarea data-k="body_markdown" rows="16">${esc(art.markdown)}</textarea>
       </div>
       <div class="ap-row" style="margin-top:10px;">
-        <button class="ap-btn" data-approve="${esc(e.id)}">Approve and publish</button>
+        <button class="ap-btn" data-approve="${esc(e.id)}">${e.action && e.action.refresh ? 'Approve and update the live post' : 'Approve and publish'}</button>
         <button class="ap-btn ghost" data-editbtn="${esc(e.id)}">Edit</button>
         <button class="ap-btn ghost danger" data-reject="${esc(e.id)}">Don't publish</button>
       </div></div>`;
@@ -151,7 +151,7 @@
         const e = byId(d.preview);
         if (open.has(e.id)) { open.delete(e.id); return render(); }
         b.textContent = 'Loading…';
-        const r = await call('/api/autopilot', { action: 'article', articleId: e.action.articleId });
+        const r = await call('/api/autopilot', e.action.refresh ? { action: 'article', jobId: e.action.jobId } : { action: 'article', articleId: e.action.articleId });
         open.set(e.id, r.article); render();
       } else if (d.editbtn) {
         const box = $('events').querySelector(`[data-art="${CSS.escape(d.editbtn)}"]`);
