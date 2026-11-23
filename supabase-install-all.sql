@@ -2059,6 +2059,14 @@ CREATE TABLE IF NOT EXISTS agent_audit_runs (
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- An audit runs over several short invocations (each agent's web research can
+-- take a couple of minutes), so a run is 'running' until every agent has a
+-- finding; progress holds the per-agent attempt counts and last errors.
+ALTER TABLE agent_audit_runs ADD COLUMN IF NOT EXISTS progress JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE agent_audit_runs ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+ALTER TABLE agent_audit_runs DROP CONSTRAINT IF EXISTS agent_audit_runs_status_check;
+ALTER TABLE agent_audit_runs ADD CONSTRAINT agent_audit_runs_status_check CHECK (status IN ('running', 'completed', 'partial', 'failed'));
+
 CREATE TABLE IF NOT EXISTS agent_audit_findings (
   id                UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
   run_id            UUID        NOT NULL REFERENCES agent_audit_runs(id) ON DELETE CASCADE,

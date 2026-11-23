@@ -685,12 +685,16 @@ Every 2 months, `api/cron-agent-audit.js` runs a real, live web-search-backed re
 
 1. Run `supabase-agent-audits.sql` in Supabase Dashboard → SQL Editor. This creates `agent_audit_runs` and `agent_audit_findings` — read-only for any signed-in user (it's meta-info about the product's own agents, not client data), writes only via the service-role key.
 2. No new env vars if `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` are already set from earlier sections — this feature reuses all four.
-3. The Vercel Cron entry (`vercel.json`) fires at `0 6 1 */2 *` — 06:00 UTC on the 1st of every odd month (Jan, Mar, May, Jul, Sep, Nov).
-4. Scotty (`web/scotty.html`) shows an "🛰️ Agent Audit" card in Mission Control whenever a run exists, with agent/flagged counts and a "View Report" button that opens the full per-agent findings (gaps, recommendations, security notes, sources).
+3. Run `supabase-agent-audits.sql` again if you ran it before November 2026. It adds the `progress` and `finished_at` columns and the `running` status.
+4. The Vercel Cron entry (`vercel.json`) fires at `*/10 6-8 1 */2 *`: every 10 minutes from 06:00 to 08:50 UTC on the 1st of every odd month (Jan, Mar, May, Jul, Sep, Nov). The first call of the window starts the audit and later calls finish it. Once it's done, the rest of the window does nothing. To run an audit now, call `/api/cron-agent-audit?force=1` with the cron secret.
+5. Scotty (`web/scotty.html`) shows an "🛰️ Agent Audit" card in Mission Control whenever a run exists, with agent/flagged counts and a "View Report" button that opens the full per-agent findings (gaps, recommendations, security notes, sources).
 
 **What this job deliberately does NOT do**: it never modifies any other agent's code, prompts, or behavior — it only produces a research report for a human to act on. Auto-patching production files from an unsupervised cron job would be a real safety regression, not a step toward genuine autonomy; consequential changes stay gated behind human review.
 
-Each of the 15 per-agent research calls runs concurrently (`Promise.allSettled`, 40s timeout each) to fit inside Vercel's 60s function budget. If an individual agent's research call fails (timeout, rate limit, etc.), it's recorded with an `error` field and `up_to_date: true` — a failed run is never mistaken for a "this agent needs work" flag.
+Each agent's research (web searches plus a written finding) gets up to 110 seconds. The first audit allowed 40 seconds and every agent timed out. Eight agents are researched in parallel per invocation, and each finding is saved as it lands.
+- **Retries:** an agent whose research times out or is rate-limited is retried on the next invocation, up to 3 tries.
+- **Recorded failures:** after the third try it's recorded with its `error` and `up_to_date: true`, so a failure is never mistaken for a "this agent needs work" flag.
+- **Scotty's card** shows only finished audits.
 
 ---
 

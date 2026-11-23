@@ -19,6 +19,7 @@
  */
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const REPO = path.resolve(__dirname, '..', '..');
 
@@ -198,74 +199,74 @@ console.log('\n──── missing key is a skip, not a failure ────');
     findingWhenResearchFails.gaps.some(g => g.includes('gpt-5.6-luna')));
   check('never throws past auditModelHealth', true); // reaching this line proves it
 
-  /* ── 7. Wired into the SAME run/findings insert as the per-agent loop ────── */
-  console.log('\n──── one run, one findings insert — not a parallel table ────');
+  /* ── 7. The audit: spread over invocations, retried, never cut short ───── */
+  console.log('\n──── the audit runs over several invocations, retrying what times out ────');
 
   process.env.OPENAI_API_KEY = 'sk-test';
   process.env.GEMINI_API_KEY = 'test-key';
 
-  let insertedRun = null;
-  let insertedFindings = null;
+  // A tiny stand-in for the two audit tables (PostgREST over fetch).
+  const tables = { agent_audit_runs: [], agent_audit_findings: [] };
+  let n = 0;
+  function rest(u, opts) {
+    const url = new URL(u); const t = url.pathname.split('/').pop(); const rows = tables[t];
+    const params = [...url.searchParams].filter(([k]) => !['select', 'order', 'limit'].includes(k));
+    const hit = rows.filter(r => params.every(([k, v]) => String(r[k]) === v.replace(/^eq\./, '')));
+    const method = (opts && opts.method) || 'GET';
+    if (method === 'POST') { const body = JSON.parse(opts.body); const list = (Array.isArray(body) ? body : [body]).map(b => ({ id: `id-${++n}`, run_at: b.run_at || new Date(Date.now()).toISOString(), ...b })); rows.push(...list); return list; }
+    if (method === 'PATCH') { hit.forEach(r => Object.assign(r, JSON.parse(opts.body))); return hit; }
+    const sorted = t === 'agent_audit_runs' ? hit.slice().sort((a, b) => (a.run_at < b.run_at ? 1 : -1)) : hit;
+    return url.searchParams.get('limit') ? sorted.slice(0, Number(url.searchParams.get('limit'))) : sorted;
+  }
+  let slowAgents = new Set(), anthropicCalls = 0;
   global.fetch = async (url, opts) => {
     const u = String(url);
+    if (u.includes('/rest/v1/agent_audit_')) { const data = rest(u, opts); return { ok: true, status: 200, json: async () => data }; }
     if (u.includes('api.anthropic.com/v1/messages')) {
-      // Every agent audit call AND the model-health research call go through
-      // here — return a valid finding for all of them.
-      return {
-        ok: true, status: 200,
-        json: async () => ({
-          stop_reason: 'tool_use',
-          content: [{
-            type: 'tool_use', name: 'submit_agent_audit_finding',
-            input: { upToDate: true, summary: 'ok', gaps: [], recommendations: [], securityNotes: [], sources: [] },
-          }],
-        }),
-      };
+      anthropicCalls++;
+      const prompt = JSON.parse(opts.body).messages[0].content;
+      const slow = [...slowAgents].find(k => prompt.includes(k));
+      if (slow) { const e = new Error('The operation was aborted due to timeout'); e.name = 'TimeoutError'; throw e; }
+      return { ok: true, status: 200, json: async () => ({ stop_reason: 'tool_use', content: [{ type: 'tool_use', name: 'submit_agent_audit_finding', input: { upToDate: true, summary: 'ok', gaps: [], recommendations: [], securityNotes: [], sources: [] } }] }) };
     }
-    if (u.includes('api.openai.com/v1/chat/completions')) {
-      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'OK' } }] }) };
-    }
-    if (u.includes('api.openai.com/v1/models/')) {
-      return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-2.5-flare' }) };
-    }
-    if (u.includes('generativelanguage.googleapis.com') && u.includes(':generateContent')) {
-      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'OK' }] } }] }) };
-    }
-    if (u.includes('generativelanguage.googleapis.com')) {
-      return { ok: true, status: 200, json: async () => ({ name: 'models/gemini-2.5-flash-image' }) };
-    }
-    if (u.includes('/rest/v1/agent_audit_runs')) {
-      insertedRun = JSON.parse(opts.body);
-      return { ok: true, status: 201, json: async () => ([{ id: 'run-123', ...insertedRun }]) };
-    }
-    if (u.includes('/rest/v1/agent_audit_findings')) {
-      insertedFindings = JSON.parse(opts.body);
-      return { ok: true, status: 201, json: async () => (insertedFindings) };
-    }
+    if (u.includes('api.openai.com/v1/chat/completions')) return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'OK' } }] }) };
+    if (u.includes('api.openai.com/v1/models/')) return { ok: true, status: 200, json: async () => ({ id: 'gpt-image-2.5-flare' }) };
+    if (u.includes('generativelanguage.googleapis.com') && u.includes(':generateContent')) return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'OK' }] } }] }) };
+    if (u.includes('generativelanguage.googleapis.com')) return { ok: true, status: 200, json: async () => ({ name: 'models/gemini-2.5-flash-image' }) };
     return { ok: false, status: 404, json: async () => ({}) };
   };
 
   const handler = require(path.join(REPO, 'api/cron-agent-audit.js'));
-  let statusCode = null, jsonBody = null;
-  const res = {
-    status(c) { statusCode = c; return this; },
-    json(b) { jsonBody = b; return this; },
-  };
-  await handler({ method: 'POST', headers: { authorization: 'Bearer test-cron-secret' }, body: {} }, res);
+  const invoke = async (query = {}) => { let body = null; const res = { headersSent: false, status() { return this; }, json(b) { body = b; this.headersSent = true; return this; } }; await handler({ method: 'GET', headers: { authorization: 'Bearer test-cron-secret' }, query, body: {} }, res); return body; };
 
-  check('the handler responds success', jsonBody && jsonBody.success === true);
-  check('agent_audit_runs got exactly one row', insertedRun && !Array.isArray(insertedRun));
-  check('agent_count includes the +1 for AI Model Health',
-    insertedRun && insertedRun.agent_count === 16); // 15 specialist agents + 1
-  check('agent_audit_findings insert is ONE array carrying every specialist finding PLUS platform-model-health',
-    Array.isArray(insertedFindings) && insertedFindings.length === 16);
-  const modelHealthRow = insertedFindings && insertedFindings.find(f => f.agent_key === 'platform-model-health');
-  check('the model-health finding is present with the right agent_key/agent_label',
-    modelHealthRow && modelHealthRow.agent_label === 'AI Model Health (Platform Infrastructure)');
-  check('it shares the same run_id as every other finding in this run',
-    modelHealthRow && insertedFindings.every(f => f.run_id === modelHealthRow.run_id));
-  check('all specialist findings came back healthy in this fixture, so up_to_date is true for them',
-    insertedFindings.filter(f => f.agent_key !== 'platform-model-health').every(f => f.up_to_date === true));
+  check('each agent now gets well over the old 40s for its web research', handler.PER_AGENT_TIMEOUT_MS >= 100000);
+  check('the cron fires every 10 minutes through the audit window', /"\/api\/cron-agent-audit", "schedule": "\*\/10 6-8 1 \*\/2 \*"/.test(fs.readFileSync(path.join(REPO, 'vercel.json'), 'utf8')));
+  const seoKey = 'SEO Intelligence (Rex)';
+  slowAgents = new Set([seoKey]);
+  let out = await invoke();
+  const run = tables.agent_audit_runs[0];
+  check('the first invocation starts one audit and researches a batch in parallel (not all 16 at once)', out.success && out.status === 'running' && run.status === 'running' && run.agent_count === 16 && out.researchedNow === 8);
+  check('…saving each finding as it lands; the slow one is counted, not recorded as a failure yet', tables.agent_audit_findings.length === 7 && run.progress && run.progress.seo.attempts === 1 && /longer than 110s/.test(run.progress.seo.lastError));
+  out = await invoke();
+  check('the next invocation carries on with the rest (the timed-out one goes to the back)', out.status === 'running' && tables.agent_audit_findings.length === 15 && !tables.agent_audit_findings.some(f => f.agent_key === 'seo'));
+  slowAgents = new Set();
+  out = await invoke();
+  check('…and retries the one that timed out, which now succeeds', tables.agent_audit_findings.length === 16 && tables.agent_audit_findings.find(f => f.agent_key === 'seo').error === null);
+  check('when every agent has a finding, the run is closed with a real summary', run.status === 'completed' && run.finished_at && /Audited 16 agents — 0 flagged with gaps\./.test(run.overall_summary) && out.failedCount === 0);
+  const ids = new Set(tables.agent_audit_findings.map(f => f.run_id));
+  check('every finding (model health included) belongs to that one run', ids.size === 1 && ids.has(run.id) && tables.agent_audit_findings.some(f => f.agent_key === 'platform-model-health' && f.agent_label === 'AI Model Health (Platform Infrastructure)'));
+  const callsBefore = anthropicCalls;
+  out = await invoke();
+  check('once done, the rest of the window does nothing (no second audit, no spend)', out.skipped === true && anthropicCalls === callsBefore && tables.agent_audit_runs.length === 1);
+
+  slowAgents = new Set([seoKey]);
+  await invoke({ force: '1' });
+  for (let k = 0; k < 4; k++) await invoke();
+  const run2 = tables.agent_audit_runs.find(r => r.id !== run.id);
+  const seo2 = tables.agent_audit_findings.find(f => f.run_id === run2.id && f.agent_key === 'seo');
+  check('an agent that keeps timing out is recorded as failed after 3 tries, with the reason', run2.status === 'partial' && seo2 && /longer than 110s \(after 3 tries\)/.test(seo2.error) && seo2.up_to_date === true);
+  check('…and the summary says how many couldn\'t be researched', /1 couldn't be researched after 3 tries/.test(run2.overall_summary));
+  check('the Scotty card only shows finished audits', /\.neq\('status', 'running'\)/.test(fs.readFileSync(path.join(REPO, 'web/scotty.html'), 'utf8')));
 
   global.fetch = realFetch;
 

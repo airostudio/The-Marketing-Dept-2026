@@ -6121,6 +6121,7 @@ const AgentAudit = (() => {
         const { data: runs, error } = await sb
             .from('agent_audit_runs')
             .select('*')
+            .neq('status', 'running')   // an audit still in progress isn't a result yet
             .order('run_at', { ascending: false })
             .limit(1);
         if (error || !runs || !runs.length) return;

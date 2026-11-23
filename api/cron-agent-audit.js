@@ -47,7 +47,15 @@
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { anthropicHeaders } = require('./_lib/anthropic-headers.js');
 const WEB_SEARCH_MAX_USES_PER_AGENT = 4;
-const PER_AGENT_TIMEOUT_MS = 40000; // leaves headroom inside the 60s function ceiling for the Supabase writes after all agents settle
+// A research turn with several web searches plus a written finding routinely
+// takes 60–120s. The first audit used 40s and every agent timed out, so each
+// agent now gets 110s, and the audit is spread over several invocations
+// (see the handler) instead of having to fit in one.
+const PER_AGENT_TIMEOUT_MS = 110000;
+const AGENTS_PER_INVOCATION = 8;        // run in parallel; the rest go in the next invocation
+const MAX_ATTEMPTS = 3;                 // per agent, across invocations, before it's recorded as failed
+const RESTART_AFTER_DAYS = 40;          // the cron fires every 10 min in its window; only start a new audit this long after the last
+const STALE_RUN_DAYS = 3;               // a run still 'running' this long is closed with what it has
 const MODEL = 'claude-sonnet-4-6';
 
 // One entry per specialist agent — agentKey should match (or map cleanly
@@ -294,7 +302,7 @@ Any model above marked "ok": false is a CONFIRMED, currently-happening failure a
 Search first, then call submit_agent_audit_finding as your final action. Do not respond with plain text.`;
 }
 
-async function auditModelHealth(apiKey, liveTestResults) {
+async function auditModelHealth(apiKey, liveTestResults, { throwOnResearchFailure = false } = {}) {
   const anyLiveFailure = liveTestResults.some((r) => r.ok === false);
 
   const body = {
@@ -324,6 +332,9 @@ async function auditModelHealth(apiKey, liveTestResults) {
     if (!toolUse) throw new Error('Claude did not return a structured finding for model health.');
     finding = toolUse.input;
   } catch (err) {
+    // While there are attempts left, a failed research call is retried rather
+    // than quietly reported as "live tests only".
+    if (throwOnResearchFailure) throw err;
     // The research call failing does not excuse us from surfacing confirmed
     // live-test failures — those are ground truth measured moments ago,
     // independent of whether Claude's research call succeeded.
@@ -456,6 +467,48 @@ async function sb(supabaseUrl, serviceKey, method, path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
+const MODEL_HEALTH = { key: 'platform-model-health', label: 'AI Model Health (Platform Infrastructure)', kind: 'model' };
+const ITEMS = [...AGENT_REGISTRY.map(a => ({ key: a.key, label: a.label, kind: 'agent', agent: a })), MODEL_HEALTH];
+const DAY_MS = 86400000;
+
+function findingRow(runId, item, f, error) {
+  if (error) {
+    // No finding on a failed agent: don't falsely flag it as needing work.
+    return { run_id: runId, agent_key: item.key, agent_label: item.label, up_to_date: true, summary: null, gaps: [], recommendations: [], security_notes: [], sources: [], error: String(error).slice(0, 500) };
+  }
+  return { run_id: runId, agent_key: item.key, agent_label: item.label, up_to_date: !!f.upToDate, summary: f.summary || null, gaps: f.gaps || [], recommendations: f.recommendations || [], security_notes: f.securityNotes || [], sources: f.sources || [], error: null };
+}
+
+async function researchItem(item, keys, lastAttempt) {
+  if (item.kind === 'agent') return auditOneAgent(keys.anthropic, item.agent);
+  const liveTestResults = (await Promise.allSettled(MODEL_REGISTRY.map((entry) => testModelLive(entry, keys))))
+    .map((r, i) => (r.status === 'fulfilled' ? r.value : { id: MODEL_REGISTRY[i].id, provider: MODEL_REGISTRY[i].provider, ok: false, error: truncateErr((r.reason && r.reason.message) || String(r.reason)) }));
+  // On the last attempt, live-test results are still worth reporting even if the research call fails.
+  return auditModelHealth(keys.anthropic, liveTestResults.filter((r) => !r.skipped), { throwOnResearchFailure: !lastAttempt });
+}
+
+/** Close a run: every agent has a finding (or ran out of attempts). */
+async function finalize(supabaseUrl, serviceKey, run) {
+  const f = await sb(supabaseUrl, serviceKey, 'GET', `/agent_audit_findings?run_id=eq.${run.id}&select=agent_key,up_to_date,error`);
+  const findings = (f.ok && f.data) || [];
+  const failedCount = findings.filter((x) => x.error).length;
+  const flaggedCount = findings.filter((x) => !x.up_to_date).length;
+  const status = failedCount === 0 ? 'completed' : (failedCount === findings.length ? 'failed' : 'partial');
+  const overallSummary = `Audited ${ITEMS.length} agents — ${flaggedCount} flagged with gaps${failedCount ? `, ${failedCount} couldn't be researched after ${MAX_ATTEMPTS} tries (see each one's error)` : ''}.`;
+  await sb(supabaseUrl, serviceKey, 'PATCH', `/agent_audit_runs?id=eq.${run.id}`, { status, flagged_count: flaggedCount, overall_summary: overallSummary, finished_at: new Date().toISOString() });
+  return { status, flaggedCount, failedCount, overallSummary };
+}
+
+/**
+ * Each invocation does part of an audit:
+ *   - no audit running and the last one is recent → nothing to do
+ *   - otherwise start one (or continue the running one): research up to
+ *     AGENTS_PER_INVOCATION agents in parallel, save each finding as it
+ *     lands, count failures, and retry them on the next invocation
+ *   - when every agent has a finding (or has used MAX_ATTEMPTS), close the run
+ * vercel.json fires this every 10 minutes for three hours on audit day, which
+ * is plenty for 16 agents with retries. ?force=1 starts a new audit now.
+ */
 module.exports = withFailureReporting('api/cron-agent-audit', async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -473,105 +526,65 @@ module.exports = withFailureReporting('api/cron-agent-audit', async function han
   if (!supabaseUrl || !serviceKey) {
     return res.status(500).json({ error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured.' });
   }
+  const keys = { anthropic: apiKey, openai: process.env.OPENAI_API_KEY, gemini: process.env.GEMINI_API_KEY };
+  const force = String((req.query && req.query.force) || '') === '1';
+  const now = Date.now();
 
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
+  // The audit in progress, if any.
+  const cur = await sb(supabaseUrl, serviceKey, 'GET', '/agent_audit_runs?status=eq.running&select=*&order=run_at.desc&limit=1');
+  if (!cur.ok) return res.status(502).json({ error: 'Could not read agent_audit_runs (run supabase-agent-audits.sql again for the progress column).', detail: cur.data });
+  let run = cur.data && cur.data[0];
 
-  const [results, modelHealthResult] = await Promise.all([
-    Promise.allSettled(AGENT_REGISTRY.map((agent) => auditOneAgent(apiKey, agent))),
-    (async () => {
-      try {
-        const liveTestResults = (await Promise.allSettled(
-          MODEL_REGISTRY.map((entry) => testModelLive(entry, { anthropic: apiKey, openai: openaiKey, gemini: geminiKey }))
-        )).map((r, i) => (r.status === 'fulfilled' ? r.value : { id: MODEL_REGISTRY[i].id, provider: MODEL_REGISTRY[i].provider, ok: false, error: truncateErr((r.reason && r.reason.message) || String(r.reason)) }));
+  if (run && now - Date.parse(run.run_at) > STALE_RUN_DAYS * DAY_MS) {
+    // Left over from an earlier window: record what never finished, and close it.
+    const have = await sb(supabaseUrl, serviceKey, 'GET', `/agent_audit_findings?run_id=eq.${run.id}&select=agent_key`);
+    const done = new Set(((have.ok && have.data) || []).map((x) => x.agent_key));
+    const left = ITEMS.filter((it) => !done.has(it.key));
+    if (left.length) await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_findings', left.map((it) => findingRow(run.id, it, null, ((run.progress || {})[it.key] || {}).lastError || 'The audit window ended before this agent was researched.')));
+    await finalize(supabaseUrl, serviceKey, run);
+    run = null;
+  }
 
-        const testedResults = liveTestResults.filter((r) => !r.skipped);
-        const finding = await auditModelHealth(apiKey, testedResults);
-        return { status: 'fulfilled', value: finding };
-      } catch (err) {
-        // Matches this file's own documented convention: no finding on a
-        // failed run — don't falsely flag as needing work.
-        return { status: 'fulfilled', value: { upToDate: true, summary: null, gaps: [], recommendations: [], securityNotes: [], sources: [], error: err instanceof Error ? err.message : String(err) } };
-      }
-    })(),
-  ]);
-
-  const findings = results.map((result, i) => {
-    const agent = AGENT_REGISTRY[i];
-    if (result.status === 'fulfilled') {
-      const f = result.value;
-      return {
-        run_id: null, // filled in after the run row is created
-        agent_key: agent.key,
-        agent_label: agent.label,
-        up_to_date: !!f.upToDate,
-        summary: f.summary || null,
-        gaps: f.gaps || [],
-        recommendations: f.recommendations || [],
-        security_notes: f.securityNotes || [],
-        sources: f.sources || [],
-        error: null,
-      };
+  if (!run) {
+    const last = await sb(supabaseUrl, serviceKey, 'GET', '/agent_audit_runs?select=run_at&order=run_at.desc&limit=1');
+    const lastAt = last.ok && last.data && last.data[0] ? Date.parse(last.data[0].run_at) : 0;
+    if (!force && lastAt && now - lastAt < RESTART_AFTER_DAYS * DAY_MS) {
+      return res.json({ success: true, skipped: true, note: 'No audit is due and none is in progress.' });
     }
-    return {
-      run_id: null,
-      agent_key: agent.key,
-      agent_label: agent.label,
-      up_to_date: true, // no finding — don't falsely flag as "needs work" on a failed run
-      summary: null,
-      gaps: [],
-      recommendations: [],
-      security_notes: [],
-      sources: [],
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-    };
-  });
-
-  // The AI Model Health check is folded into the SAME run/findings array as
-  // every specialist agent — same run row, same insert, agent_key
-  // 'platform-model-health' (a reserved pseudo-agent-key; see
-  // supabase-agent-audits.sql).
-  const modelHealthFinding = modelHealthResult.value;
-  findings.push({
-    run_id: null,
-    agent_key: 'platform-model-health',
-    agent_label: 'AI Model Health (Platform Infrastructure)',
-    up_to_date: modelHealthFinding.error ? true : !!modelHealthFinding.upToDate,
-    summary: modelHealthFinding.summary || null,
-    gaps: modelHealthFinding.gaps || [],
-    recommendations: modelHealthFinding.recommendations || [],
-    security_notes: modelHealthFinding.securityNotes || [],
-    sources: modelHealthFinding.sources || [],
-    error: modelHealthFinding.error || null,
-  });
-
-  const agentCount = AGENT_REGISTRY.length + 1; // + AI Model Health
-  const failedCount = findings.filter((f) => f.error).length;
-  const flaggedCount = findings.filter((f) => !f.up_to_date).length;
-  const status = failedCount === 0 ? 'completed' : (failedCount === findings.length ? 'failed' : 'partial');
-
-  const overallSummary = `Audited ${agentCount} agents — ${flaggedCount} flagged with gaps, ${failedCount} failed to complete research${failedCount ? ' (will retry next scheduled run)' : ''}.`;
-
-  const runInsert = await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_runs', {
-    status,
-    agent_count: agentCount,
-    flagged_count: flaggedCount,
-    overall_summary: overallSummary,
-  });
-
-  if (!runInsert.ok || !runInsert.data?.[0]?.id) {
-    return res.status(502).json({ error: 'Failed to create agent_audit_runs row.', detail: runInsert.data });
+    const created = await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_runs', { status: 'running', agent_count: ITEMS.length, flagged_count: 0, overall_summary: `Researching ${ITEMS.length} agents…`, progress: {} });
+    if (!created.ok || !created.data?.[0]?.id) return res.status(502).json({ error: 'Failed to create agent_audit_runs row.', detail: created.data });
+    run = created.data[0];
   }
 
-  const runId = runInsert.data[0].id;
-  const findingsWithRunId = findings.map((f) => ({ ...f, run_id: runId }));
+  const have = await sb(supabaseUrl, serviceKey, 'GET', `/agent_audit_findings?run_id=eq.${run.id}&select=agent_key`);
+  const done = new Set(((have.ok && have.data) || []).map((x) => x.agent_key));
+  const progress = { ...(run.progress || {}) };
+  const pending = ITEMS.filter((it) => !done.has(it.key)).sort((a, b) => ((progress[a.key] || {}).attempts || 0) - ((progress[b.key] || {}).attempts || 0));
+  const batch = pending.slice(0, AGENTS_PER_INVOCATION);
 
-  const findingsInsert = await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_findings', findingsWithRunId);
-  if (!findingsInsert.ok) {
-    return res.status(502).json({ error: 'Run created but failed to save findings.', runId, detail: findingsInsert.data });
+  const settled = await Promise.allSettled(batch.map((it) => researchItem(it, keys, ((progress[it.key] || {}).attempts || 0) + 1 >= MAX_ATTEMPTS)));
+  const rows = [];
+  settled.forEach((r, i) => {
+    const it = batch[i];
+    const attempts = ((progress[it.key] || {}).attempts || 0) + 1;
+    if (r.status === 'fulfilled') { rows.push(findingRow(run.id, it, r.value, null)); progress[it.key] = { attempts, ok: true }; return; }
+    const msg = (r.reason && r.reason.message) || String(r.reason);
+    const error = /aborted due to timeout|TimeoutError/i.test(msg) ? `Research took longer than ${Math.round(PER_AGENT_TIMEOUT_MS / 1000)}s` : msg;
+    progress[it.key] = { attempts, lastError: error.slice(0, 300) };
+    if (attempts >= MAX_ATTEMPTS) rows.push(findingRow(run.id, it, null, `${error} (after ${attempts} tries)`));
+  });
+  if (rows.length) {
+    const ins = await sb(supabaseUrl, serviceKey, 'POST', '/agent_audit_findings', rows);
+    if (!ins.ok) return res.status(502).json({ error: 'Failed to save findings.', runId: run.id, detail: ins.data });
   }
-
-  return res.json({ success: true, runId, status, agentCount, flaggedCount, failedCount, overallSummary });
+  const remaining = pending.length - rows.length;
+  if (remaining > 0) {
+    await sb(supabaseUrl, serviceKey, 'PATCH', `/agent_audit_runs?id=eq.${run.id}`, { progress, overall_summary: `Researching… ${ITEMS.length - remaining} of ${ITEMS.length} agents done.` });
+    return res.json({ success: true, runId: run.id, status: 'running', researchedNow: batch.length, savedNow: rows.length, remaining });
+  }
+  await sb(supabaseUrl, serviceKey, 'PATCH', `/agent_audit_runs?id=eq.${run.id}`, { progress });
+  const out = await finalize(supabaseUrl, serviceKey, run);
+  return res.json({ success: true, runId: run.id, agentCount: ITEMS.length, ...out });
 });
 
 // Exposed for tests/model-health/run.js only — Vercel invokes module.exports
@@ -579,3 +592,5 @@ module.exports = withFailureReporting('api/cron-agent-audit', async function han
 module.exports.MODEL_REGISTRY = MODEL_REGISTRY;
 module.exports.testModelLive = testModelLive;
 module.exports.auditModelHealth = auditModelHealth;
+module.exports.ITEMS = ITEMS;
+module.exports.PER_AGENT_TIMEOUT_MS = PER_AGENT_TIMEOUT_MS;
