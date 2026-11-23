@@ -29,6 +29,13 @@
     <div id="list" class="ap-muted">Loading…</div>
   </div>
 
+  <div class="ap-card">
+    <h2>Sign in to your accounts</h2>
+    <p class="ap-muted" style="margin-top:0;">Social accounts let Audema publish the posts you approve and schedule. Search Console lets it see how your pages rank (read-only).</p>
+    <div id="signin" class="ap-row"></div>
+    <div class="ap-muted" id="signinMsg" style="margin-top:8px;"></div>
+  </div>
+
   <div class="ap-card" id="addCard">
     <h2 id="addTitle">Connect your website</h2>
     <label class="ap-f">Platform</label>
@@ -54,6 +61,14 @@
   const OPTIONAL = { wix: ['memberId', 'siteUrl'], shopify: ['author'] };
   const OPT_FIELD = { memberId: { label: 'Wix Member ID (only if Wix asks for an author)', type: 'text' }, author: { label: 'Author name on posts (optional)', type: 'text' } };
   const params = new URLSearchParams(location.search);
+  let signIn = [], reSignIn = null;
+  async function startSignIn(provider, connectionId) {
+    $('signinMsg').textContent = 'Opening the sign-in…';
+    try { const r = await call('/api/oauth', { action: 'start', provider, connectionId: connectionId || undefined, ...scope() }); location.href = r.url; }
+    catch (e) { $('signinMsg').textContent = e.message; }
+  }
+  if (params.get('connected')) $('signinMsg').textContent = `✓ Connected: ${params.get('connected')}`;
+  if (params.get('oauth_error')) $('signinMsg').textContent = params.get('oauth_error');
   let providers = [], reconnectId = params.get('reconnect');
 
   function renderFields() {
@@ -69,29 +84,39 @@
     try {
       const pv = await call('/api/connections', { action: 'providers' });
       providers = pv.providers;
+      signIn = pv.signIn || [];
+      $('signin').innerHTML = signIn.map(p => `<button class="ap-btn${p.configured ? '' : ' ghost'}" data-signin="${esc(p.id)}"${p.configured ? '' : ' disabled'} title="${esc(p.configured ? p.help : 'Not set up on this Audema yet')}">${p.configured ? 'Sign in with ' : ''}${esc(p.label)}${p.configured ? '' : ' (not set up yet)'}</button>`).join('');
       if (!pv.encryptionConfigured) $('keyWarn').classList.remove('ap-hidden');
       $('provider').innerHTML = providers.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('');
-      if (params.get('provider')) $('provider').value = params.get('provider');
+      if (params.get('provider') && providers.some(p => p.id === params.get('provider'))) $('provider').value = params.get('provider');
       renderFields();
       if (reconnectId) $('addTitle').textContent = 'Reconnect';
     } catch (e) { $('help').textContent = e.message; }
     if (!s.intelProfileId && !s.projectId) return;
     try {
       const d = await call('/api/connections', { action: 'list', ...s });
+      const re = reconnectId && d.connections.find(c => c.id === reconnectId);
+      if (re && signIn.some(p => p.id === re.provider)) { reSignIn = re; $('signinMsg').textContent = `Sign in to ${re.label} again below to reconnect it.`; }
       if (!d.connections.length) { $('list').innerHTML = '<span class="ap-muted">Nothing connected yet.</span>'; return; }
       $('list').innerHTML = `<table class="ap-table"><tbody>${d.connections.map(c => `<tr>
         <td><strong>${esc(c.label)}</strong><div class="ap-muted">${esc(c.provider)}${c.siteUrl ? ' · ' + esc(c.siteUrl) : ''}</div></td>
         <td><span class="ap-pill ${c.status === 'active' ? 'ok' : 'warn'}">${c.status === 'active' ? 'working' : 'needs you'}</span>${c.statusNote ? `<div class="ap-muted">${esc(c.statusNote)}</div>` : ''}</td>
-        <td class="ap-muted">${c.lastOkAt ? 'last worked ' + esc(new Date(c.lastOkAt).toLocaleString()) : ''}</td>
+        <td class="ap-muted">${c.lastOkAt ? 'last worked ' + esc(new Date(c.lastOkAt).toLocaleString()) : ''}${c.choice && c.choice.options.length > 1 ? `<div><label class="ap-f">${esc(c.choice.label)}</label><select data-choose="${esc(c.id)}">${c.choice.options.map(o => `<option value="${esc(o.value)}"${o.value === c.choice.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>` : ''}</td>
         <td class="ap-row"><button class="ap-btn ghost" data-test="${esc(c.id)}">Test</button><button class="ap-btn ghost" data-re="${esc(c.id)}" data-provider="${esc(c.provider)}">Reconnect</button><button class="ap-btn ghost danger" data-off="${esc(c.id)}">Disconnect</button></td></tr>`).join('')}</tbody></table>`;
     } catch (e) { $('list').textContent = e.message; }
   }
 
   $('provider').addEventListener('change', renderFields);
+  $('signin').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-signin]'); if (b && !b.disabled) startSignIn(b.dataset.signin, reSignIn && reSignIn.provider === b.dataset.signin ? reSignIn.id : null); });
+  $('list').addEventListener('change', async (ev) => {
+    const sel = ev.target.closest('select[data-choose]'); if (!sel) return;
+    try { await call('/api/connections', { action: 'choose', id: sel.dataset.choose, value: sel.value }); load(); } catch (e) { alert(e.message); }
+  });
   $('list').addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     try {
       if (b.dataset.test) { b.textContent = 'Testing…'; const r = await call('/api/connections', { action: 'test', id: b.dataset.test }); b.textContent = r.working ? `✓ Working (${r.pagesSeen} pages seen)` : '✗ Not working'; if (!r.working) alert(r.error); }
+      if (b.dataset.re && signIn.some(p => p.id === b.dataset.provider)) { await startSignIn(b.dataset.provider, b.dataset.re); return; }
       if (b.dataset.re) { reconnectId = b.dataset.re; $('provider').value = b.dataset.provider; $('addTitle').textContent = 'Reconnect'; renderFields(); $('addCard').scrollIntoView({ behavior: 'smooth' }); }
       if (b.dataset.off && confirm('Disconnect? The saved login is deleted and agents stop using it.')) { await call('/api/connections', { action: 'disconnect', id: b.dataset.off }); load(); }
     } catch (e) { alert(e.message); }

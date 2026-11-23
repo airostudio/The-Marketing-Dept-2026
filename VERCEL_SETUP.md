@@ -773,6 +773,25 @@ SEO Autopilot (`/seo/autopilot.html`) picks a topic, writes the article, checks 
 
 ---
 
+## Sign in with LinkedIn, Facebook, X and Google (each business's own accounts)
+
+Businesses connect their own social accounts and Search Console under **Connections** by signing in. Audema then publishes the posts they approve and schedule through **their** accounts, and reads **their** search data. Tokens are stored encrypted (`CONNECTIONS_ENCRYPTION_KEY`), refreshed automatically, and a refused sign-in pauses the work and asks the business to sign in again.
+
+Each network needs an app registered once by you (Audema's owner). For every app, add this **redirect URI** exactly: `https://<your app domain>/api/oauth` (it uses `APP_BASE_URL`).
+
+| Network | Env vars | Where to create the app | Permissions to request |
+|---|---|---|---|
+| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | linkedin.com/developers → Create app → Products: "Sign In with LinkedIn using OpenID Connect" and "Share on LinkedIn" | `openid profile w_member_social` (posts as the signed-in member) |
+| Facebook Pages | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` (optional `FACEBOOK_GRAPH_VERSION`, default v21.0) | developers.facebook.com → Create app (Business) → Facebook Login for Business | `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`. **Meta App Review** is required before businesses other than your app's admins/testers can connect |
+| X | `X_CLIENT_ID`, `X_CLIENT_SECRET` | developer.x.com → Project → App → User authentication: OAuth 2.0, type "Web App" (confidential) | `tweet.read tweet.write users.read offline.access`. Posting needs an X API plan that allows writes |
+| Google Search Console | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | console.cloud.google.com → enable "Google Search Console API" → OAuth consent screen → Credentials → OAuth client ID (Web application) | `webmasters.readonly`. Google verification of the consent screen is needed before it leaves "testing" mode (100 test users) |
+
+Until a network's env vars are set, its button shows "not set up yet". The older deployment-wide tokens (`META_PAGE_ACCESS_TOKEN`, `LINKEDIN_ACCESS_TOKEN`, `TWITTER_USER_ACCESS_TOKEN`…) still work as a fallback for posts whose business hasn't signed in.
+
+**Not yet:** images on LinkedIn and X posts (they go out as text, and the business is told); Instagram and TikTok sign-in; posting to a LinkedIn Company Page (needs LinkedIn's Community Management API approval).
+
+---
+
 ## Additional Resources
 
 - [Vercel Environment Variables Docs](https://vercel.com/docs/concepts/projects/environment-variables)

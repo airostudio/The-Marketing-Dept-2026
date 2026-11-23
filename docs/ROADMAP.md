@@ -12,7 +12,7 @@ SEO Autopilot writes and publishes to WordPress, Webflow, Shopify and Wix on a s
   - **Technical fixes on the site.** Changing titles, meta descriptions, image alt text or schema on existing pages. Today the audits recommend these changes but don't apply them.
   - **Featured images** on published articles.
   - **Sign-in buttons for the platforms.** Logins are pasted (application password, token or API key) rather than connected by a one-click sign-in (OAuth app). Shopify and Wix one-click sign-in need a registered public app.
-  - **Posting to social networks.** Social Studio drafts posts on a schedule and they go into the Content Calendar on approval. Publishing to LinkedIn, Facebook or X still needs each network's sign-in (OAuth), which isn't built. Scheduled posts that can't go out are reported in What happened.
+  - **Social sign-in gaps.** LinkedIn, Facebook Pages and X publish through each business's own sign-in. Still missing: images on LinkedIn and X posts, Instagram and TikTok sign-in, and LinkedIn Company Pages.
   - **Not yet on autopilot:** Nancy's illustrated week (its images are made step by step from the browser), Pat's email campaigns (sending stays behind Pat's own checks), Blade discovery runs outside area sweeps, and the Deck Maker.
   - **Analytics scoped by business.** Analytics Brain's facts are gathered for the account owner's whole login, not one business profile.
   - **Wix drafts on retry.** Before a retry posts again, the duplicate check looks for an existing post. On Wix it can only find published posts, so a Wix *draft* that timed out after it was created could be saved twice.

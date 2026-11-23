@@ -49,4 +49,16 @@ function nextRunAt(cadence, from = new Date()) {
   return new Date(from.getTime() + 7 * 86400000);
 }
 
-module.exports = { nextRunAt, cleanCadence, partsIn };
+/**
+ * `n` posting slots, one a day at `hour` in `timezone`, starting the day after
+ * `from` (so the business has time to see what is going out).
+ */
+function spreadSlots(n, { hour = 10, timezone = 'UTC' } = {}, from = new Date()) {
+  const c = cleanCadence({ days: [0, 1, 2, 3, 4, 5, 6], hour, timezone });
+  const out = [];
+  let t = nextRunAt(c, new Date(from.getTime() + 12 * 3600000));
+  for (let i = 0; i < n; i++) { out.push(t); t = nextRunAt(c, new Date(t.getTime() + 60000)); }
+  return out;
+}
+
+module.exports = { nextRunAt, cleanCadence, partsIn, spreadSlots };

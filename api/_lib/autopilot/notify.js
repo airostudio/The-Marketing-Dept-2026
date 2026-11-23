@@ -10,6 +10,7 @@
 'use strict';
 
 const activity = require('./activity.js');
+const { providerFor: socialProvider } = require('../social-publish.js');
 
 const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 async function safe(fn) { try { return await fn(); } catch { return null; } }
@@ -45,12 +46,23 @@ function postFailed(sb, post, result, deps) {
   return safe(() => activity.record(sb, {
     user_id: post.user_id, intel_profile_id: post.intel_profile_id, project_id: post.project_id, agent: 'social',
     kind: notConnected ? 'needs_permission' : 'failed',
+    action: notConnected ? { type: 'connect', provider: socialProvider(post.platform) } : { type: 'link', href: '/agents/social-agent.html' },
     title: notConnected ? `${str(post.platform, 40)} isn't connected, so scheduled posts can't go out` : `A scheduled ${str(post.platform, 40)} post couldn't be published`,
     body: notConnected
-      ? `"${str(post.headline || post.body, 120)}" was due but Audema can't post to ${str(post.platform, 40)} for you yet. Post it yourself from Social Studio's Content Calendar, or connect ${str(post.platform, 40)} when that becomes available.`
+      ? `"${str(post.headline || post.body, 120)}" was due but Audema can't post to ${str(post.platform, 40)} for you yet. Sign in to ${str(post.platform, 40)} under Connections and waiting posts go out, or post it yourself from Social Studio's Content Calendar.`
       : `"${str(post.headline || post.body, 120)}" — ${str(result && (result.error || result.status), 300)}. Nothing was posted. Open it in Social Studio's Content Calendar to fix and reschedule.`,
-    action: { type: 'link', href: '/agents/social-agent.html' },
     dedupeHours: notConnected ? 24 : 0,
+  }, deps));
+}
+
+/** A business's own social sign-in was refused while posting: ask it to sign in again. */
+function signInNeeded(sb, post, conn, deps) {
+  return safe(() => activity.record(sb, {
+    user_id: post.user_id, intel_profile_id: post.intel_profile_id, project_id: post.project_id, agent: 'social', kind: 'needs_permission',
+    title: `Sign in to ${str(conn.label, 80)} again so scheduled posts can go out`,
+    body: `${str(conn.problem, 300)}.\n\nNothing was posted. Posts waiting for it go out as soon as you sign in again under Connections.`,
+    action: { type: 'reconnect', connectionId: conn.id },
+    dedupeHours: 24,
   }, deps));
 }
 
@@ -73,4 +85,4 @@ function flowSendFailed(sb, { userId, flowName, outcome, detail }, deps) {
   }, deps));
 }
 
-module.exports = { sweepResult, competitorChanged, postFailed, flowSendFailed, FLOW_REASONS };
+module.exports = { sweepResult, competitorChanged, postFailed, signInNeeded, flowSendFailed, FLOW_REASONS };

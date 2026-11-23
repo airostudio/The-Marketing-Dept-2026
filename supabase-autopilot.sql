@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS connections (
   user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   project_id       UUID        REFERENCES projects(id) ON DELETE CASCADE,
   intel_profile_id UUID        REFERENCES intelligence_profiles(id) ON DELETE CASCADE,
-  provider         TEXT        NOT NULL CHECK (provider IN ('wordpress', 'webflow', 'shopify', 'wix', 'godaddy', 'gsc')),
+  provider         TEXT        NOT NULL CHECK (provider IN ('wordpress', 'webflow', 'shopify', 'wix', 'godaddy', 'gsc', 'linkedin', 'facebook', 'x')),
   label            TEXT        NOT NULL DEFAULT '',
   site_url         TEXT,
   config           JSONB       NOT NULL DEFAULT '{}',   -- non-secret: blog id, collection id, field map…
@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS connections (
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_connections_user ON connections (user_id, provider);
+-- Sign-in connections (LinkedIn, Facebook Pages, X) were added after the first release.
+ALTER TABLE connections DROP CONSTRAINT IF EXISTS connections_provider_check;
+ALTER TABLE connections ADD CONSTRAINT connections_provider_check
+  CHECK (provider IN ('wordpress', 'webflow', 'shopify', 'wix', 'godaddy', 'gsc', 'linkedin', 'facebook', 'x'));
 
 CREATE TABLE IF NOT EXISTS autopilots (
   id               UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,

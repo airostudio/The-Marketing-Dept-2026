@@ -143,6 +143,9 @@ const social = {
       topics: list(src.topics, 20, 200), platforms: platforms.length ? platforms : ['LinkedIn'],
       contentGoal: SOCIAL_GOALS.includes(src.contentGoal) ? src.contentGoal : 'Engagement',
       postCount: Math.max(1, Math.min(10, parseInt(src.postCount, 10) || 5)),
+      // On approval: queue the posts one a day at this hour (published through the business's own signed-in accounts).
+      autoSchedule: src.autoSchedule !== false,
+      postHour: Number.isInteger(Number(src.postHour)) ? Math.max(0, Math.min(23, Number(src.postHour))) : 10,
       language: writingLanguage.isSupported(src.language) ? src.language : '',
     };
   },
@@ -170,11 +173,11 @@ const social = {
       if (!posts.length) throw fault('The posts came back empty.', 'model');
       const artifact = await saveArtifact(sb, autopilot, {
         agent_key: 'social', kind: 'social_posts', title: `Social posts — ${topic.slice(0, 80)}`,
-        payload: { params: { topic, contentGoal: s.contentGoal, platforms: s.platforms, postCount: s.postCount, language: s.language, projectId: autopilot.project_id || null }, contentPlanNote: str(gen.contentPlanNote, 800), posts, autopilot: true },
+        payload: { params: { topic, contentGoal: s.contentGoal, platforms: s.platforms, postCount: s.postCount, language: s.language, projectId: autopilot.project_id || null }, contentPlanNote: str(gen.contentPlanNote, 800), posts, autopilot: true, autoSchedule: s.autoSchedule ? { hour: s.postHour, timezone: (autopilot.cadence && autopilot.cadence.timezone) || 'UTC' } : null },
         status: 'pending_approval',
       });
       const ready = posts.filter(p => !p.problem).length;
-      return { done: { artifactId: artifact.id, topic }, event: readyEvent('Social Studio', artifact, `${posts.length} post${posts.length === 1 ? '' : 's'} about "${topic}" for ${s.platforms.join(', ')}${ready < posts.length ? ` (${posts.length - ready} need${posts.length - ready === 1 ? 's' : ''} a fix before they can go out)` : ''}. Approving puts them in your Content Calendar ready to schedule; nothing is posted.`) };
+      return { done: { artifactId: artifact.id, topic }, event: readyEvent('Social Studio', artifact, `${posts.length} post${posts.length === 1 ? '' : 's'} about "${topic}" for ${s.platforms.join(', ')}${ready < posts.length ? ` (${posts.length - ready} need${posts.length - ready === 1 ? 's' : ''} a fix before they can go out)` : ''}. ${s.autoSchedule ? `Approving schedules them one a day at ${String(s.postHour).padStart(2, '0')}:00, posted through your own signed-in accounts (Connections).` : 'Approving puts them in your Content Calendar ready to schedule; nothing is posted.'}`) };
     },
   },
 };

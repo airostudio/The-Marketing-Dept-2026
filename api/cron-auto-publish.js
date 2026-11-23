@@ -28,6 +28,31 @@
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { publishPost } = require('./publish-social-post.js');
 const notify = require('./_lib/autopilot/notify.js');
+const socialPublish = require('./_lib/social-publish.js');
+const faults = require('./_lib/autopilot/faults.js');
+const { load: loadConnection } = require('./_lib/autopilot/connections.js');
+
+/**
+ * Publish through the business's OWN signed-in account when it has one
+ * (Connections → LinkedIn / Facebook / X). Returns the same shape as
+ * publishPost, plus `retryInMs` for a hiccup worth trying again and
+ * `connection` for a sign-in that was refused.
+ */
+async function publishWithConnection(sb3, conn, post, attempt) {
+  let c;
+  try {
+    c = await loadConnection(sb3, conn.id);
+    const out = await socialPublish.publishVia(sb3, c, post);
+    await sb3('PATCH', `/connections?id=eq.${conn.id}`, { last_ok_at: new Date().toISOString() });
+    return { success: true, status: 'published', platformPostId: out.platformPostId, url: out.url, note: out.note };
+  } catch (e) {
+    const { kind, retryAfterMs } = faults.classify(e);
+    const d = faults.decide(kind, attempt, retryAfterMs);
+    if (d.action === 'retry') return { success: false, status: 'retry', retryInMs: d.waitMs, error: faults.describe(kind, e) };
+    if (d.action === 'ask_permission') return { success: false, status: 'not_connected', error: e.message, connection: { id: conn.id, label: conn.label, problem: faults.describe(kind, e) } };
+    return { success: false, status: 'failed', error: e.message };
+  }
+}
 
 const BATCH_LIMIT = 25;
 
@@ -78,14 +103,35 @@ module.exports = withFailureReporting('api/cron-auto-publish', async function ha
     // also pick this row up — it's no longer in the 'queued' state it needs.
     await sb(supabaseUrl, serviceKey, 'PATCH', `/social_posts?id=eq.${post.id}`, { publish_status: 'publishing' });
 
-    const result = await publishPost({
-      platform: post.platform,
-      headline: post.headline,
-      body: post.body,
-      cta: post.cta,
-      hashtags: post.hashtags,
-      imageUrl: post.image_url || '',
-    });
+    const sb3 = (m, p, b) => sb(supabaseUrl, serviceKey, m, p, b);
+    const conn = await socialPublish.findConnection(sb3, post).catch(() => null);
+    const attempt = Number((post.metadata || {}).publish_attempts) || 0;
+    const result = conn
+      ? await publishWithConnection(sb3, conn, post, attempt)
+      : await publishPost({
+        platform: post.platform,
+        headline: post.headline,
+        body: post.body,
+        cta: post.cta,
+        hashtags: post.hashtags,
+        imageUrl: post.image_url || '',
+      });
+
+    if (result.status === 'retry') {
+      // A hiccup: back in the queue a little later, counted, so it can't loop forever.
+      await sb3('PATCH', `/social_posts?id=eq.${post.id}`, { publish_status: 'queued', publish_error: result.error, scheduled_at: new Date(Date.now() + result.retryInMs).toISOString(), metadata: { ...(post.metadata || {}), publish_attempts: attempt + 1 } });
+      summary.results.push({ id: post.id, platform: post.platform, status: 'retrying' });
+      continue;
+    }
+    if (result.connection) {
+      // The sign-in was refused: mark it, keep the post waiting, and ask the business to sign in again.
+      await sb3('PATCH', `/connections?id=eq.${result.connection.id}`, { status: 'needs_attention', status_note: result.connection.problem, last_error_at: new Date().toISOString() });
+      await sb3('PATCH', `/social_posts?id=eq.${post.id}`, { publish_status: 'not_connected', publish_error: result.error });
+      await notify.signInNeeded(sb3, post, result.connection);
+      summary.failed++;
+      summary.results.push({ id: post.id, platform: post.platform, status: 'not_connected' });
+      continue;
+    }
 
     if (result.success && result.status === 'published') {
       await sb(supabaseUrl, serviceKey, 'PATCH', `/social_posts?id=eq.${post.id}`, {

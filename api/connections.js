@@ -10,6 +10,8 @@
  *       encrypts the secret, and — on a reconnect — restarts any agent work
  *       that was waiting for it and clears the request from the inbox.
  *   test { id } | disconnect { id }
+ *   choose { id, value }                → which Facebook Page / Search Console site a sign-in uses
+ * Sign-in connections (LinkedIn, Facebook, X, Search Console) start at api/oauth.js.
  *
  * Env: CONNECTIONS_ENCRYPTION_KEY (required to store secrets).
  */
@@ -22,6 +24,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { canAccessRecord } = require('./_lib/profile-access.js');
 const { PROVIDERS } = require('./_lib/cms.js');
+const oauth = require('./_lib/oauth.js');
 const box = require('./_lib/secret-box.js');
 const { publicView, load } = require('./_lib/autopilot/connections.js');
 const activity = require('./_lib/autopilot/activity.js');
@@ -52,7 +55,11 @@ module.exports = withFailureReporting('api/connections', async function handler(
 
   try {
     if (body.action === 'providers') {
-      return res.json({ ok: true, encryptionConfigured: box.isConfigured(), providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, needs: p.needs, help: p.help })) });
+      return res.json({
+        ok: true, encryptionConfigured: box.isConfigured(),
+        providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, needs: p.needs, help: p.help })),
+        signIn: Object.entries(oauth.PROVIDERS).map(([id, p]) => ({ id, label: p.label, kind: p.kind, help: p.help, configured: oauth.isConfigured(id) })),
+      });
     }
 
     if (body.action === 'list') {
@@ -65,7 +72,7 @@ module.exports = withFailureReporting('api/connections', async function handler(
 
     if (body.action === 'connect') {
       const provider = PROVIDERS[body.provider];
-      if (!provider) return res.status(400).json({ error: `Unknown platform "${body.provider}".` });
+      if (!provider) return res.status(400).json({ error: oauth.PROVIDERS[body.provider] ? `${oauth.PROVIDERS[body.provider].label} is connected by signing in, not with a key.` : `Unknown platform "${body.provider}".` });
       if (!box.isConfigured()) return res.status(503).json({ error: box.NOT_CONFIGURED, code: 'not_configured' });
       let existing = null, s;
       if (body.connectionId) {
@@ -109,6 +116,12 @@ module.exports = withFailureReporting('api/connections', async function handler(
       if (m.err) return res.status(m.http).json(m.err);
       try {
         const conn = await load(sb, m.row.id);
+        if (oauth.PROVIDERS[conn.provider]) {
+          const secret = await oauth.fresh(sb, conn);
+          await oauth.PROVIDERS[conn.provider].ping(conn, secret);
+          await sb('PATCH', `/connections?id=eq.${conn.id}`, { last_ok_at: new Date().toISOString() });
+          return res.json({ ok: true, working: true, pagesSeen: null });
+        }
         await PROVIDERS[conn.provider].ping(conn);
         const pages = await PROVIDERS[conn.provider].listPages(conn);
         await sb('PATCH', `/connections?id=eq.${conn.id}`, { last_ok_at: new Date().toISOString() });
@@ -116,6 +129,26 @@ module.exports = withFailureReporting('api/connections', async function handler(
       } catch (e) {
         return res.json({ ok: true, working: false, error: e.message, kind: e.kind || null });
       }
+    }
+
+    if (body.action === 'choose') {
+      // Which Facebook Page / Search Console site a sign-in is used for — only one it already has.
+      const m = await mine(body.id);
+      if (m.err) return res.status(m.http).json(m.err);
+      const c = m.row, cfg = c.config || {};
+      if (c.provider === 'facebook') {
+        const page = (cfg.pages || []).find(p => p.id === String(body.value));
+        if (!page) return res.status(400).json({ error: 'That Page is not one this sign-in can post to.' });
+        const u = await sb('PATCH', `/connections?id=eq.${c.id}`, { config: { ...cfg, pageId: page.id, pageName: page.name }, label: `Facebook — ${page.name}`, site_url: `https://www.facebook.com/${page.id}` });
+        return res.json({ ok: true, connection: publicView(u.data[0]) });
+      }
+      if (c.provider === 'gsc') {
+        if (!(cfg.properties || []).includes(String(body.value))) return res.status(400).json({ error: 'That site is not in this Search Console account.' });
+        const v = String(body.value);
+        const u = await sb('PATCH', `/connections?id=eq.${c.id}`, { config: { ...cfg, property: v }, label: `Search Console — ${v.replace(/^sc-domain:/, '').replace(/^https?:\/\//, '').replace(/\/$/, '')}`, site_url: v.startsWith('sc-domain:') ? `https://${v.slice(10)}` : v });
+        return res.json({ ok: true, connection: publicView(u.data[0]) });
+      }
+      return res.status(400).json({ error: 'Nothing to choose for this connection.' });
     }
 
     if (body.action === 'disconnect') {

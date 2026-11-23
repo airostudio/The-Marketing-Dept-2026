@@ -94,6 +94,21 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
 const { canAccessRecord, accessibleProfileIds, ownedOrSharedFilter } = require('./_lib/profile-access.js');
 const { runWithConcurrency } = require('./_lib/blade-pipeline.js');
+const { spreadSlots } = require('./_lib/autopilot/schedule.js');
+
+/**
+ * Posts an autopilot drafted with "schedule when I approve" go straight into
+ * the publishing queue, one a day at the chosen hour, instead of waiting in
+ * the Calendar. `slotOf(row)` says which day a row belongs to (posts for
+ * several networks on the same day share a slot).
+ */
+function applyAutoSchedule(rows, auto, slotOf) {
+  if (!auto || !rows.length) return rows;
+  const n = Math.max(...rows.map(slotOf)) + 1;
+  const slots = spreadSlots(n, { hour: auto.hour, timezone: auto.timezone });
+  for (const r of rows) Object.assign(r, { status: 'scheduled', publish_status: 'queued', scheduled_at: slots[slotOf(r)].toISOString() });
+  return rows;
+}
 
 const STATUSES = ['building', 'pending_approval', 'approved', 'rejected', 'empty'];
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -371,9 +386,10 @@ async function sendSocialToCalendar(sb, artifact, callerId) {
       mission_artifact_id: artifact.id, approved_in: 'scotty_mission',
     },
   }));
+  applyAutoSchedule(rows, payload.autoSchedule, (r) => rows.indexOf(r));
   const ins = await sb('POST', '/social_posts', rows);
   if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
-  return { posts: rows.length, skipped, ids: (Array.isArray(ins.data) ? ins.data : []).map(r => r.id).filter(Boolean), batchId };
+  return { posts: rows.length, skipped, scheduled: !!payload.autoSchedule, firstAt: payload.autoSchedule ? rows[0].scheduled_at : null, ids: (Array.isArray(ins.data) ? ins.data : []).map(r => r.id).filter(Boolean), batchId };
 }
 
 /** nancy_week → social_posts, approved and unscheduled. One atomic insert. */
@@ -404,10 +420,12 @@ async function sendWeekToCalendar(sb, artifact, callerId) {
       });
     }
   }
+  const days = [...new Set(posts.map(p => Number(p.day) || 0))].sort((a, b) => a - b);
+  applyAutoSchedule(rows, payload.autoSchedule, (r) => days.indexOf(Number(r.metadata.day) || 0));
   const ins = await sb('POST', '/social_posts', rows);
   if (!ins.ok) throw new Error(`Could not save the posts to the Content Calendar (HTTP ${ins.status}).`);
   const saved = Array.isArray(ins.data) ? ins.data : [];
-  return { posts: posts.length, platforms, rows: rows.length, ids: saved.map(r => r.id).filter(Boolean), batchId };
+  return { posts: posts.length, platforms, scheduled: !!payload.autoSchedule, firstAt: payload.autoSchedule ? rows[0].scheduled_at : null, rows: rows.length, ids: saved.map(r => r.id).filter(Boolean), batchId };
 }
 
 /** chase_audit → opportunity tags on contacts that already exist. */

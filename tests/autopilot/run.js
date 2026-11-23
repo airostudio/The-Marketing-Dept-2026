@@ -39,7 +39,7 @@ function field(row, key) {
 function test(v, cond) {
   const i = cond.indexOf('.'); const op = cond.slice(0, i), arg = cond.slice(i + 1);
   if (op === 'is') return arg === 'null' ? v == null : String(v) === arg;
-  if (op === 'in') return arg.replace(/^\(|\)$/g, '').split(',').includes(String(v));
+  if (op === 'in') return arg.replace(/^\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')).includes(String(v));
   if (v == null) return false;
   const s = String(v);
   const cmp = typeof v === 'number' ? v - Number(arg) : (s < arg ? -1 : s > arg ? 1 : 0);
@@ -171,7 +171,7 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   console.log('\n──── website connectors ────');
   const reqs = [];
   const okTarget = { validateTarget: async (u) => ({ ok: true, url: new URL(u) }) };
-  const resp = (status, body, headers = {}) => ({ ok: status >= 200 && status < 300, status, headers: { get: (k) => headers[k.toLowerCase()] || null }, json: async () => body });
+  const resp = (status, body, headers = {}) => ({ ok: status >= 200 && status < 300, status, headers: { get: (k) => headers[k.toLowerCase()] || null }, json: async () => body, text: async () => JSON.stringify(body) });
   const fetchWith = (routes) => async (url, init) => { reqs.push({ url, init }); for (const [re, r] of routes) if (re.test(url)) return typeof r === 'function' ? r(url, init) : r; return resp(404, { message: 'no route' }); };
   const { wordpress, webflow, shopify, wix, godaddy } = cms.PROVIDERS;
 
@@ -539,7 +539,7 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   for (let i = 0; i < 3; i++) { await api(autopilotApi, OWNER, { action: 'runNow', id: apS.id }); await tick(); }
   check('Social: works through the topics in turn', JSON.stringify(gens.map(g => g.topic)) === '["Blocked drains","Hot water","Blocked drains"]');
   const artS = db.mission_artifacts.filter(x => x.kind === 'social_posts');
-  check('…drafts are cleaned to the chosen networks and wait for approval (nothing posted)', artS.length === 3 && artS[0].payload.posts.length === 1 && artS[0].payload.posts[0].hashtags[0] === 'plumbing' && artS.every(x => x.status === 'pending_approval') && /nothing is posted/.test(lastEvent('needs_approval').body));
+  check('…drafts are cleaned to the chosen networks and wait for approval (nothing posted)', artS.length === 3 && artS[0].payload.posts.length === 1 && artS[0].payload.posts[0].hashtags[0] === 'plumbing' && artS.every(x => x.status === 'pending_approval') && /schedules them one a day at 10:00, posted through your own signed-in accounts/.test(lastEvent('needs_approval').body) && artS[0].payload.autoSchedule.hour === 10 && artS[0].payload.autoSchedule.timezone === 'UTC');
   delete process.env.ANTHROPIC_API_KEY;
   await api(autopilotApi, OWNER, { action: 'runNow', id: apS.id });
   await tick();
@@ -584,6 +584,107 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
     check(`${file} reports to What happened`, read(file).includes(`notify.${fn}(`));
   }
   check('every email-flow failure the business can fix is reported', ['no_from_address', 'copy_not_sendable', 'send_failed', 'send_error'].every(o => read('api/cron-email-flows.js').includes(`outcome: '${o}', detail`)));
+
+  console.log('\n──── sign in with LinkedIn, Facebook, X, Google ────');
+  const oauth = require(path.join(REPO, 'api/_lib/oauth.js'));
+  const oauthApi = require(path.join(REPO, 'api/oauth.js'));
+  for (const k of ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'X_CLIENT_ID', 'X_CLIENT_SECRET', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET']) delete process.env[k];
+  r = await api(connectionsApi, OWNER, { action: 'providers' });
+  check('sign-in accounts are listed, each saying whether this Audema has it set up', ['linkedin', 'facebook', 'x', 'gsc'].every(id => r.body.signIn.some(p => p.id === id && p.configured === false)));
+  r = await api(oauthApi, OWNER, { action: 'start', provider: 'x', intelProfileId: PROFILE });
+  check('starting a network that isn\'t set up says which settings are missing', r.statusCode === 503 && /X_CLIENT_ID/.test(r.body.error));
+  Object.assign(process.env, { X_CLIENT_ID: 'xid', X_CLIENT_SECRET: 'xsec', FACEBOOK_APP_ID: 'fid', FACEBOOK_APP_SECRET: 'fsec', LINKEDIN_CLIENT_ID: 'lid', LINKEDIN_CLIENT_SECRET: 'lsec', GOOGLE_OAUTH_CLIENT_ID: 'gid', GOOGLE_OAUTH_CLIENT_SECRET: 'gsec' });
+  r = await api(oauthApi, STRANGER, { action: 'start', provider: 'x', intelProfileId: PROFILE });
+  check('an outsider can\'t start connecting the business\'s accounts', r.statusCode === 403);
+  r = await api(oauthApi, OWNER, { action: 'start', provider: 'x', intelProfileId: PROFILE });
+  const xUrl = new URL(r.body.url);
+  const xState = oauth.openState(xUrl.searchParams.get('state'));
+  check('X: sent to X\'s consent screen with PKCE, the right scopes and our callback', xUrl.origin === 'https://x.com' && xUrl.searchParams.get('code_challenge_method') === 'S256' && /tweet\.write/.test(xUrl.searchParams.get('scope')) && /offline\.access/.test(xUrl.searchParams.get('scope')) && xUrl.searchParams.get('redirect_uri') === 'https://app.example/api/oauth');
+  check('…the state is sealed (unreadable, holds the business and the PKCE verifier)', !xUrl.searchParams.get('state').includes(PROFILE) && xState.intel_profile_id === PROFILE && xState.ownerId === OWNER && xState.verifier && require('crypto').createHash('sha256').update(xState.verifier).digest('base64url') === xUrl.searchParams.get('code_challenge'));
+  check('…and expires', oauth.openState(xUrl.searchParams.get('state'), Date.now() + 16 * 60000) === null && oauth.openState('v1.forged.state.x') === null);
+
+  const oreqs = [];
+  const oFetch = (routes) => async (url, init = {}) => { oreqs.push({ url, init }); for (const [re, rr] of routes) if (re.test(url)) return rr; return resp(404, { error: 'no route' }); };
+  const realFetch = global.fetch;
+  global.fetch = oFetch([[/api\.x\.com\/2\/oauth2\/token/, resp(200, { access_token: 'xat', refresh_token: 'xrt', expires_in: 7200 })], [/api\.x\.com\/2\/users\/me/, resp(200, { data: { id: '42', username: 'acmeplumbing' } })]]);
+  const getRes = mkRes(); getRes.end = function () { this.ended = true; return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c0de', state: xUrl.searchParams.get('state') } }, getRes);
+  const xConn = db.connections.find(c => c.provider === 'x');
+  const tokenReq = oreqs.find(q => /oauth2\/token/.test(q.url));
+  check('callback: code swapped with the verifier and client auth, account saved encrypted under the business', xConn && xConn.intel_profile_id === PROFILE && xConn.user_id === OWNER && xConn.label === 'X — @acmeplumbing' && box.open(xConn.secret_enc).refreshToken === 'xrt' && new URLSearchParams(tokenReq.init.body).get('code_verifier') === xState.verifier && tokenReq.init.headers.Authorization.startsWith('Basic '));
+  check('…and the browser goes back to Connections saying so', getRes.statusCode === 302 && /\/connections\.html\?connected=X/.test(getRes.headers.Location));
+  const bad = mkRes(); bad.end = function () { return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c', state: 'v1.tampered.state.value' } }, bad);
+  check('a forged or stale state connects nothing', /oauth_error=/.test(bad.headers.Location) && db.connections.filter(c => c.provider === 'x').length === 1);
+  const cancel = mkRes(); cancel.end = function () { return this; };
+  const st2 = (await api(oauthApi, OWNER, { action: 'start', provider: 'x', intelProfileId: PROFILE })).body.url;
+  await oauthApi({ method: 'GET', headers: {}, query: { error: 'access_denied', state: new URL(st2).searchParams.get('state') } }, cancel);
+  check('cancelling the sign-in says nothing was connected', /cancelled/.test(decodeURIComponent(cancel.headers.Location)));
+
+  const fbStart = new URL((await api(oauthApi, OWNER, { action: 'start', provider: 'facebook', intelProfileId: PROFILE })).body.url);
+  check('Facebook: asks only for Page posting, never the personal profile', /pages_manage_posts/.test(fbStart.searchParams.get('scope')) && !/publish_actions|user_posts/.test(fbStart.searchParams.get('scope')));
+  global.fetch = oFetch([[/oauth\/access_token\?.*fb_exchange_token/, resp(200, { access_token: 'long' })], [/oauth\/access_token/, resp(200, { access_token: 'short' })], [/me\/accounts/, resp(200, { data: [{ id: 'p1', name: 'Acme Plumbing', access_token: 'pt1', tasks: ['CREATE_CONTENT'] }, { id: 'p2', name: 'Acme Gas', access_token: 'pt2', tasks: ['CREATE_CONTENT'] }, { id: 'p3', name: 'Read only', access_token: 'pt3', tasks: ['ANALYZE'] }] })]]);
+  const fbRes = mkRes(); fbRes.end = function () { return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c', state: fbStart.searchParams.get('state') } }, fbRes);
+  const fbConn = db.connections.find(c => c.provider === 'facebook');
+  check('Facebook: only Pages it may post to are offered; long-lived Page tokens kept encrypted', fbConn && fbConn.config.pages.length === 2 && fbConn.config.pageId === 'p1' && box.open(fbConn.secret_enc).pageTokens.p2 === 'pt2' && !JSON.stringify(fbConn.config).includes('pt1'));
+  r = await api(connectionsApi, OWNER, { action: 'list', intelProfileId: PROFILE });
+  const fbView = r.body.connections.find(c => c.provider === 'facebook');
+  check('…the business can choose which Page (the list never carries a token)', fbView.choice.options.length === 2 && !JSON.stringify(r.body).includes('pt1'));
+  r = await api(connectionsApi, OWNER, { action: 'choose', id: fbConn.id, value: 'p3' });
+  check('…but not a Page the sign-in can\'t post to', r.statusCode === 400 && fbConn.config.pageId === 'p1');
+  r = await api(connectionsApi, OWNER, { action: 'choose', id: fbConn.id, value: 'p2' });
+  check('…choosing one switches the label too', r.statusCode === 200 && fbConn.config.pageId === 'p2' && fbConn.label === 'Facebook — Acme Gas');
+
+  console.log('\n──── publishing through the business\'s own accounts ────');
+  const sp = require(path.join(REPO, 'api/_lib/social-publish.js'));
+  db.social_posts = [];
+  const mkPost = (o) => { const p = { id: uuid(), user_id: OWNER, intel_profile_id: PROFILE, project_id: null, status: 'scheduled', publish_status: 'queued', scheduled_at: new Date(Date.now() - 60000).toISOString(), metadata: {}, hashtags: [], ...o }; db.social_posts.push(p); return p; };
+  check('a post finds its business\'s connection for that network', (await sp.findConnection(sb, { platform: 'Twitter/X', intel_profile_id: PROFILE })).id === xConn.id && (await sp.findConnection(sb, { platform: 'Twitter/X', intel_profile_id: uuid() })) === null);
+  const longPost = { platform: 'Twitter/X', body: 'x'.repeat(300) };
+  threw = null; try { await sp.publishVia(sb, { ...xConn, secret: box.open(xConn.secret_enc) }, longPost); } catch (e) { threw = e; }
+  check('a post too long for X is refused with the reason, never cut short', threw && threw.kind === 'permanent' && /300 characters; X allows 280/.test(threw.message));
+  global.fetch = oFetch([[/api\.x\.com\/2\/oauth2\/token/, resp(200, { access_token: 'xat2', refresh_token: 'xrt2', expires_in: 7200 })], [/api\.x\.com\/2\/tweets/, resp(201, { data: { id: '999' } })]]);
+  const xc = { ...xConn, secret: { ...box.open(xConn.secret_enc), expiresAt: new Date(Date.now() + 60000).toISOString() } };
+  oreqs.length = 0;
+  const outX = await sp.publishVia(sb, xc, { platform: 'Twitter/X', body: 'Hot water out? We can help.', hashtags: ['#plumbing'] });
+  check('an expiring token is refreshed first and the new one saved (X rotates refresh tokens)', oreqs[0].url.includes('oauth2/token') && box.open(xConn.secret_enc).refreshToken === 'xrt2');
+  check('…then the post goes out with its hashtags, and the real link comes back', outX.url === 'https://x.com/i/web/status/999' && JSON.parse(oreqs[1].init.body).text === 'Hot water out? We can help.\n\n#plumbing');
+
+  const autoPub = require(path.join(REPO, 'api/cron-auto-publish.js'));
+  process.env.CRON_SECRET = 'cron';
+  const runCron = async () => { const rr = mkRes(); await autoPub({ method: 'GET', headers: { authorization: 'Bearer cron' } }, rr); return rr.body; };
+  // cron-auto-publish talks to Supabase over fetch: route it to the in-memory db.
+  const dbFetch = (extra = []) => async (url, init = {}) => {
+    if (url.startsWith('https://db.example/rest/v1')) { const out = await sb(init.method || 'GET', url.slice('https://db.example/rest/v1'.length), init.body ? JSON.parse(init.body) : undefined); return { ok: out.ok, status: out.status, json: async () => out.data, text: async () => JSON.stringify(out.data) }; }
+    oreqs.push({ url, init });
+    for (const [re, rr] of extra) if (re.test(url)) return typeof rr === 'function' ? rr() : rr;
+    return resp(404, {});
+  };
+  const pOk = mkPost({ platform: 'Twitter/X', body: 'Scheduled post' });
+  global.fetch = dbFetch([[/api\.x\.com\/2\/tweets/, resp(201, { data: { id: '1001' } })]]);
+  let cronOut = await runCron();
+  check('the scheduled-post cron publishes through the business\'s own X account', pOk.status === 'published' && pOk.publish_status === 'published' && pOk.publish_platform_post_id === '1001' && cronOut.published === 1);
+  const pHiccup = mkPost({ platform: 'Twitter/X', body: 'Hiccup post' });
+  global.fetch = dbFetch([[/api\.x\.com\/2\/tweets/, resp(503, { title: 'Service Unavailable' })]]);
+  await runCron();
+  check('a hiccup puts it back in the queue a little later, counted (not failed)', pHiccup.publish_status === 'queued' && pHiccup.metadata.publish_attempts === 1 && Date.parse(pHiccup.scheduled_at) > Date.now() + 60000);
+  pHiccup.scheduled_at = new Date(Date.now() - 1000).toISOString();
+  global.fetch = dbFetch([[/api\.x\.com\/2\/tweets/, resp(401, { title: 'Unauthorized' })]]);
+  await runCron();
+  check('a refused sign-in: post waits, connection flagged, business asked to sign in again', pHiccup.publish_status === 'not_connected' && xConn.status === 'needs_attention' && /Sign in to X — @acmeplumbing again/.test(lastEvent('needs_permission').title) && lastEvent('needs_permission').action.connectionId === xConn.id);
+  const reStart = await api(oauthApi, OWNER, { action: 'start', provider: 'x', connectionId: xConn.id });
+  global.fetch = oFetch([[/api\.x\.com\/2\/oauth2\/token/, resp(200, { access_token: 'xat3', refresh_token: 'xrt3', expires_in: 7200 })], [/api\.x\.com\/2\/users\/me/, resp(200, { data: { id: '42', username: 'acmeplumbing' } })]]);
+  global.fetch = ((inner) => async (url, init) => (url.startsWith('https://db.example') ? dbFetch()(url, init) : inner(url, init)))(global.fetch);
+  const reRes = mkRes(); reRes.end = function () { return this; };
+  await oauthApi({ method: 'GET', headers: {}, query: { code: 'c', state: new URL(reStart.body.url).searchParams.get('state') } }, reRes);
+  check('signing in again fixes the connection, clears the request, and re-queues the waiting post', xConn.status === 'active' && box.open(xConn.secret_enc).accessToken === 'xat3' && pHiccup.publish_status === 'queued' && lastEvent('needs_permission').resolved_at && db.connections.filter(c => c.provider === 'x').length === 1);
+  global.fetch = realFetch;
+
+  const { spreadSlots } = require(path.join(REPO, 'api/_lib/autopilot/schedule.js'));
+  const slots = spreadSlots(3, { hour: 10, timezone: 'Australia/Sydney' }, new Date('2026-11-23T01:00:00Z'));
+  check('approved posts are spread one a day at the business\'s hour, starting tomorrow', JSON.stringify(slots.map(d => d.toISOString())) === JSON.stringify(['2026-11-23T23:00:00.000Z', '2026-11-24T23:00:00.000Z', '2026-11-25T23:00:00.000Z']));
+  check('approving an autopilot\'s posts queues them for publishing (Social Studio and Nancy)', (ma.match(/applyAutoSchedule\(rows, payload\.autoSchedule/g) || []).length === 2 && /status: 'scheduled', publish_status: 'queued'/.test(read('api/mission-artifacts.js')));
 
   console.log('\n──── pages, cron, database ────');
   const vercel = JSON.parse(read('vercel.json'));

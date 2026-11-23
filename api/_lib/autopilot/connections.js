@@ -15,6 +15,10 @@ function publicView(c) {
     id: c.id, provider: c.provider, label: c.label, siteUrl: c.site_url, status: c.status, statusNote: c.status_note,
     lastOkAt: c.last_ok_at, lastErrorAt: c.last_error_at, createdAt: c.created_at,
     intelProfileId: c.intel_profile_id, projectId: c.project_id,
+    // A Facebook sign-in can manage several Pages, a Google one several Search Console sites: which one is used.
+    choice: c.provider === 'facebook' ? { label: 'Page', value: (c.config || {}).pageId, options: ((c.config || {}).pages || []).map(p => ({ value: p.id, label: p.name })) }
+      : c.provider === 'gsc' ? { label: 'Site', value: (c.config || {}).property, options: ((c.config || {}).properties || []).map(p => ({ value: p, label: p.replace(/^sc-domain:/, '') })) }
+      : null,
   };
 }
 
