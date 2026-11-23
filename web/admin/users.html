@@ -90,6 +90,7 @@
   .detail-header p { margin:2px 0 0; color:var(--text3); font-size:12.5px; }
 
   .actions-row { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .client-pill:empty { display:none; }
 </style>
 </head>
 <body>
@@ -273,6 +274,7 @@
     if (f) f.innerHTML = '<option value="">All clients</option><option value="none">No client</option>' + clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   }
   const clientName = (id) => (clients.find(c => c.id === id) || {}).name || '';
+  const clientLabel = (u) => (u.workspace_id ? `${clientName(u.workspace_id) || 'client'}${u.workspace_role === 'owner' ? ' · owner' : ''}` : '');
 
   async function api(payload) {
     const res = await fetch('/api/admin-users', {
@@ -341,7 +343,7 @@
         <div class="row-tags">
           <span class="pill role-${esc(u.role || 'user')}">${esc((u.role || 'user').replace('_', ' '))}</span>
           <span class="pill plan">${esc((u.plan || 'free').replace('_', ' '))}</span>
-          ${u.workspace_id ? `<span class="pill plan" title="Client">${esc(clientName(u.workspace_id) || 'client')}${u.workspace_role === 'owner' ? ' · owner' : ''}</span>` : ''}
+          <span class="pill plan client-pill" title="Client">${esc(clientLabel(u))}</span>
         </div>
         <div class="row-date">${esc(u.created_at ? new Date(u.created_at).toLocaleDateString() : '')}</div>
       </div>`).join('');
