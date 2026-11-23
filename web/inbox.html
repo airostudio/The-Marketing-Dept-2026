@@ -75,6 +75,15 @@
     if (art.kind === 'social_posts') {
       return `<div class="ap-preview">${(p.posts || []).map(x => `<div style="border-bottom:1px solid #ddd;padding:8px 0;"><strong>${esc(x.platform)}</strong>${x.title ? ` — ${esc(x.title)}` : ''}<div style="white-space:pre-wrap">${esc(x.body)}</div>${(x.hashtags || []).length ? `<div>${x.hashtags.map(h => '#' + esc(h)).join(' ')}</div>` : ''}${x.problem ? `<div style="color:#b45309">⚠ ${esc(x.problem)}</div>` : ''}</div>`).join('')}</div>`;
     }
+    if (art.kind === 'deck_outline') {
+      return `<div class="ap-preview">${(p.slides || []).map((sl, i) => `<h3>${i + 1}. ${esc(sl.title)}</h3><ul>${(sl.bullets || []).map(b => `<li>${esc(b)}</li>`).join('')}</ul>`).join('')}</div><p><a class="ap-btn ghost" href="/agents/deck-agent.html?artifact=${encodeURIComponent(art.id)}">Open in Deck Maker</a></p>`;
+    }
+    if (art.kind === 'pat_campaign') {
+      return `${p.review && p.review.approved === false ? '<p class="ap-warn">Pat\'s review found problems, so it can\'t be approved as is.</p>' : ''}<div class="ap-preview"><p><strong>Subject:</strong> ${esc(p.subject || '')}</p><div style="white-space:pre-wrap">${esc(p.text || '')}</div></div><p class="ap-muted">${p.autoSend ? 'Approving sends it to contacts tagged ' + esc(((p.params || {}).audienceTags || []).join(' + ')) + ', within your daily limit.' : 'Approving gets it ready to send from Pat\'s page.'}</p>`;
+    }
+    if (art.kind === 'nancy_week') {
+      return `<div class="ap-preview">${(p.posts || []).map(x => `<div style="display:flex;gap:10px;border-bottom:1px solid #ddd;padding:8px 0;">${safeHref(x.imageUrl) ? `<img src="${esc(safeHref(x.imageUrl))}" alt="" style="width:96px;height:120px;object-fit:cover;border-radius:6px;">` : ''}<div><strong>Day ${esc(x.day)}</strong> — ${esc(x.slide_headline || x.hook || '')}<div style="white-space:pre-wrap">${esc(x.caption || '')}</div></div></div>`).join('')}</div>`;
+    }
     return `<div class="ap-preview" style="white-space:pre-wrap">${esc(JSON.stringify(p, null, 2).slice(0, 4000))}</div>`;
   }
 

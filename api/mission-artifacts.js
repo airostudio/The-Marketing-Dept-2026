@@ -642,7 +642,12 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
       }
       // An autopilot's "Ready for your OK" in What happened is answered now.
       await sb('PATCH', `/activity_events?kind=eq.needs_approval&resolved_at=is.null&action->>artifactId=eq.${artifact.id}`, { resolved_at: new Date().toISOString() }).catch(() => {});
-      if (target === 'rejected') return res.json({ ok: true, status: 'rejected' });
+      // An autopilot job waiting on this decision (e.g. Pat's campaign) carries on, or stops.
+      const waitingJob = artifact.payload && isUuid(artifact.payload.autopilotJobId) ? artifact.payload.autopilotJobId : null;
+      if (target === 'rejected') {
+        if (waitingJob) await sb('PATCH', `/agent_jobs?id=eq.${waitingJob}&status=eq.waiting_approval`, { status: 'cancelled', finished_at: new Date().toISOString(), result: { rejected: true } }).catch(() => {});
+        return res.json({ ok: true, status: 'rejected' });
+      }
 
       let result;
       try {
@@ -659,6 +664,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
         else if (artifact.kind === 'nancy_week') result = await sendWeekToCalendar(sb, artifact, caller.id);
         else if (artifact.kind === 'chase_audit') result = await tagAuditedProspects(sb, artifact, caller.id);
         else if (artifact.kind === 'pat_campaign') result = await ensureAudienceSegment(sb, artifact, caller.id);
+        else if (artifact.kind === 'deck_outline') result = { open: `/agents/deck-agent.html?artifact=${artifact.id}` };
         else result = {};
       } catch (e) {
         // Nothing was imported and nobody was told it had been — hand the
@@ -671,6 +677,7 @@ module.exports = withFailureReporting('api/mission-artifacts', async function ha
         payload: { ...(artifact.payload || {}), approval: { ...result, ...(flagged && flagged.critical > 0 ? { complianceAcknowledged: true } : {}), at: new Date().toISOString(), by: caller.id } },
         updated_at: new Date().toISOString(),
       });
+      if (waitingJob) await sb('PATCH', `/agent_jobs?id=eq.${waitingJob}&status=eq.waiting_approval`, { status: 'queued', run_at: new Date().toISOString(), step_attempts: 0 }).catch(() => {});
       return res.json({ ok: true, status: 'approved', result });
     }
 

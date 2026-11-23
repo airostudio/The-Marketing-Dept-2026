@@ -2664,9 +2664,30 @@ No headers, no commentary, no other text.`;
         }
     }
 
+    // A deck the autopilot wrote (What happened → Open in Deck Maker): load its
+    // slides and offer the download. The text is shown escaped, never as HTML.
+    async function loadAutopilotDeck(artifactId) {
+        const outputArea = document.getElementById('outputArea');
+        try {
+            const res = await fetch('/api/mission-artifacts', { method: 'POST', headers: await window.sendAuthHeaders(), body: JSON.stringify({ action: 'get', artifactId }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            const a = data.artifact || {}, p = a.payload || {};
+            if (a.kind !== 'deck_outline' || !p.markdown) throw new Error('This isn\'t a deck the autopilot wrote.');
+            outputArea.innerHTML = `<div class="output-body" id="outputBody" style="white-space:pre-wrap">${escDeckHtml(p.markdown)}</div>`;
+            window.currentDeckData = { text: p.markdown, company: p.company || 'Presentation', deckType: p.deckType || 'Marketing review', audience: p.audience || 'Team' };
+            renderSlidePreview(parseDeckStructure(p.markdown), resolveDesign(window.currentDeckData.deckType, '', []));
+            document.getElementById('downloadBtn').style.display = 'block';
+        } catch (e) {
+            outputArea.innerHTML = `<div style="color:#f87171;padding:10px;">Couldn't open the deck: ${escDeckHtml(e.message)}</div>`;
+        }
+    }
+
     // Boot template picker on DOM ready + prefill company name from BusinessBrain
     document.addEventListener('DOMContentLoaded', () => {
         initTemplatePicker();
+        const deckArtifact = new URLSearchParams(location.search).get('artifact');
+        if (deckArtifact && /^[0-9a-f-]{36}$/i.test(deckArtifact)) loadAutopilotDeck(deckArtifact);
         try {
             const companyEl = document.getElementById('company');
             const brainName = window.IntelligenceEngine?.brain?.load()?.company?.name;

@@ -561,6 +561,15 @@ module.exports = withFailureReporting('api/nancy-render-week', async function ha
   if (!auth) return;
 
   if (rateLimited(req, res, { name: 'nancy-render-week', max: 8, windowMs: 60 * 1000, auth })) return;
+  return core(req, res);
+});
+
+/**
+ * The work itself, after the caller is known. Exported so the autopilot can
+ * run Nancy's week server-side (api/_lib/autopilot/nancy.js) through exactly
+ * the same code.
+ */
+async function core(req, res) {
 
   const { post, brand = {}, businessName = '', businessProfile = {}, userPhotos = [] } = req.body || {};
   if (!post || typeof post !== 'object') return res.status(400).json({ error: 'post is required' });
@@ -612,4 +621,6 @@ module.exports = withFailureReporting('api/nancy-render-week', async function ha
     success: true,
     asset: { day: post.day, format: 'svg', svg, dataUri, hostedUrl, mimeType: 'image/svg+xml', width: CANVAS.width, height: CANVAS.height, fallbackReason },
   });
-});
+}
+
+module.exports.core = core;

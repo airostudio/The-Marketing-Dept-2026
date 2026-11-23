@@ -103,6 +103,15 @@ module.exports = withFailureReporting('api/nancy-content-plan', async function h
   if (!auth) return;
 
   if (rateLimited(req, res, { name: 'nancy-content-plan', max: 8, windowMs: 60 * 1000, auth })) return;
+  return core(req, res);
+});
+
+/**
+ * The work itself, after the caller is known. Exported so the autopilot can
+ * run Nancy's week server-side (api/_lib/autopilot/nancy.js) through exactly
+ * the same code.
+ */
+async function core(req, res) {
 
   const { businessProfile, brand, strategy, personalization = {}, previousTopics = [], dayRange = [1, 7], priorPosts = [], language = '' } = req.body || {};
   if (!businessProfile || !strategy) return res.status(400).json({ error: 'businessProfile and strategy are required' });
@@ -185,4 +194,6 @@ Hard rules:
     week_rationale: result.data.week_rationale || null,
     posts: validPosts,
   });
-});
+}
+
+module.exports.core = core;

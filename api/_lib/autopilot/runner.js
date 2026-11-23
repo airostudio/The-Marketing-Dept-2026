@@ -81,6 +81,8 @@ async function runJob(sb, jobRow, deps) {
   }
 
   for (let i = 0; i < MAX_STEPS_PER_RUN; i++) {
+    // Slow steps (an image, a long article) each get a fresh run rather than overrunning this one.
+    if (i > 0 && deps.deadline && now() > deps.deadline) break;
     const stepFn = handler.steps[job.step];
     if (!stepFn) { await save({ status: 'failed', lock_until: null, last_error: `Unknown step "${job.step}".`, finished_at: iso(now()) }); return { ran: true, status: 'failed' }; }
     let out;
@@ -90,11 +92,13 @@ async function runJob(sb, jobRow, deps) {
       // Work a step finished before it failed (e.g. fixes already applied) is kept, so a retry doesn't redo it.
       if (err && err.stateUpdate) await save({ state: { ...(job.state || {}), ...err.stateUpdate } });
       const { kind, retryAfterMs } = faults.classify(err);
-      const decision = faults.decide(kind, job.step_attempts || 0, retryAfterMs);
+      // A step that made progress before pausing (e.g. a daily send limit) hasn't failed: its tries start over.
+      const attempt = err && err.progressed ? 0 : (job.step_attempts || 0);
+      const decision = faults.decide(kind, attempt, retryAfterMs);
       const problem = faults.describe(kind, err);
       if (decision.action === 'retry') {
         const repairs = [...(job.repairs || []), { at: iso(now()), step: job.step, problem, fix: `${decision.fix} (in ${Math.round(decision.waitMs / 60000)} min)` }].slice(-30);
-        await save({ status: 'queued', lock_until: null, step_attempts: (job.step_attempts || 0) + 1, run_at: iso(now() + decision.waitMs), last_error: problem, repairs });
+        await save({ status: 'queued', lock_until: null, step_attempts: err && err.progressed ? 0 : (job.step_attempts || 0) + 1, run_at: iso(now() + decision.waitMs), last_error: problem, repairs });
         return { ran: true, status: 'retrying', kind };
       }
       if (decision.action === 'ask_permission') {
@@ -139,8 +143,10 @@ async function runJob(sb, jobRow, deps) {
 
 /** One cron tick: schedule due autopilots, then run due jobs until time runs out. */
 async function tick(sb, deps) {
-  const d = { now: Date.now, budgetMs: 110000, ...deps };
+  // Functions get 150s; the slowest step (one of Nancy's days) can take ~100s, so nothing new starts after ~40s.
+  const d = { now: Date.now, budgetMs: 100000, ...deps };
   const started = d.now();
+  if (!d.deadline) d.deadline = started + d.budgetMs - 60000;   // no new step starts with under a minute left
   const sched = await scheduleDue(sb, d);
   const due = await sb('GET', `/agent_jobs?status=eq.queued&run_at=lte.${encodeURIComponent(iso(d.now()))}&select=*&order=run_at.asc&limit=25`);
   const ran = [];

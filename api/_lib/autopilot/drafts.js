@@ -26,6 +26,7 @@ const { buildReport } = require('../analytics-report.js');
 const { crawlSite } = require('../nancy-crawl.js');
 const { auditAndPropose } = require('../cro-audit.js');
 const { generateSocialPosts } = require('../social-posts-gen.js');
+const { callClaudeForJSON } = require('../nancy-claude.js');
 
 const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 const list = (v, n, each) => (Array.isArray(v) ? v : String(v || '').split(/\n|,/)).map(x => str(x, each)).filter(Boolean).slice(0, n);
@@ -182,6 +183,60 @@ const social = {
   },
 };
 
-for (const h of [analytics, cro, social]) h.stepLabel = () => ({ analytics: 'writing the report', cro: 'auditing your pages', social: 'drafting the posts' }[h.agent]);
+/* ── Deck Maker: the monthly marketing review ────────────────────────── */
+const DECK_TYPES = ['COVER', 'METRICS', 'CHANNELS', 'INSIGHT', 'EVIDENCE', 'STRATEGY', 'NEXT_QUARTER', 'TIMELINE', 'CUSTOM'];
+const DECK_TOOL = {
+  name: 'submit_deck',
+  description: 'A short marketing review deck built only from the facts given.',
+  input_schema: { type: 'object', properties: { slides: { type: 'array', items: { type: 'object', properties: {
+    title: { type: 'string' }, type: { type: 'string', enum: DECK_TYPES },
+    bullets: { type: 'array', items: { type: 'string' }, description: '2-5 short bullets. Every number must come from the facts, exactly.' },
+    speaker_notes: { type: 'string' }, so_what: { type: 'string' },
+  }, required: ['title', 'type', 'bullets'] } } }, required: ['slides'] },
+};
+/** Every figure in a line must appear in the facts; otherwise the line is dropped. */
+function backedByFacts(line, factsText) { return (String(line).match(/\d[\d,.]*%?/g) || []).every(n => factsText.includes(n.replace(/,/g, '').replace(/%$/, '').replace(/\.0+$/, ''))); }
 
-module.exports = { analytics, cro, social, businessContext };
+const deck = {
+  agent: 'deck', kind: 'deck_outline', firstStep: 'outline', label: 'Deck Maker', approvalOnly: true,
+  cleanSettings(s) {
+    const src = (s && typeof s === 'object') ? s : {};
+    return { periodDays: PERIODS.includes(Number(src.periodDays)) ? Number(src.periodDays) : 30, audience: str(src.audience, 120) || 'the team', language: writingLanguage.isSupported(src.language) ? src.language : '' };
+  },
+  steps: {
+    async outline({ sb, autopilot, deps }) {
+      if (!autopilot) throw noAutopilot();
+      needKey();
+      const s = deck.cleanSettings(autopilot.settings);
+      const facts = await (deps.gatherFacts || gatherFacts)(sb, { supabaseUrl: process.env.SUPABASE_URL, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY, userId: autopilot.user_id, periodDays: s.periodDays });
+      const anyData = (facts.email && facts.email.campaignsSent > 0) || (facts.audience && facts.audience.totalContacts > 0) || (facts.social && (facts.social.postsCreated > 0 || facts.social.published > 0)) || (facts.revenue && facts.revenue.orders > 0);
+      if (!anyData) return { done: { skipped: 'no_data' }, event: { kind: 'info', title: 'No review deck this time: nothing to report', body: 'There was no marketing activity on record for the period, so Deck Maker skipped the review deck rather than fill it with guesses.' } };
+      const ctx = await businessContext(sb, autopilot);
+      const factsText = JSON.stringify(facts);
+      const r = await (deps.callClaude || callClaudeForJSON)({
+        system: `You build a short marketing review deck (6-9 slides) for ${s.audience}. Use ONLY the facts given: every number must appear in them exactly; never estimate, round differently, or add a benchmark. Where a channel has no data, say so plainly instead of filling it. ${writingLanguage.directive(s.language) || ''}`,
+        user: `Business:\n${ctx.text || 'unknown'}\n\nFacts (${facts.period ? facts.period.label : ''}):\n${factsText.slice(0, 12000)}`,
+        tool: DECK_TOOL, maxTokens: 4000,
+      });
+      if (!r.success) throw fault(`Deck Maker couldn't write the deck: ${r.error}`, /took too long|overloaded|5\d\d/i.test(r.error) ? 'transient' : 'model');
+      let dropped = 0;
+      const slides = (r.data.slides || []).map(sl => {
+        const bullets = (sl.bullets || []).map(b => str(b, 200)).filter(b => { const ok = backedByFacts(b, factsText); if (!ok) dropped++; return ok; });
+        return { ...sl, title: str(sl.title, 90), type: DECK_TYPES.includes(sl.type) ? sl.type : 'CUSTOM', bullets };
+      }).filter(sl => sl.bullets.length || sl.type === 'COVER');
+      if (slides.length < 3) throw fault('The deck came back with too few slides backed by your numbers.', 'model');
+      const markdown = slides.map((sl, i) => [`**Slide ${i + 1}: ${sl.title}**`, `[TYPE: ${sl.type}]`, ...sl.bullets.map(b => `- ${b}`), sl.speaker_notes ? `Speaker Notes: ${str(sl.speaker_notes, 400)}` : '', sl.so_what ? `So What: ${str(sl.so_what, 160)}` : ''].filter(Boolean).join('\n')).join('\n\n');
+      const company = (ctx.text.match(/^About: (.{1,60})/) || [])[1] || 'Marketing review';
+      const artifact = await saveArtifact(sb, autopilot, {
+        agent_key: 'deck', kind: 'deck_outline', title: `Marketing review deck — ${facts.period ? facts.period.label : ''}`.trim(),
+        payload: { params: { periodDays: s.periodDays, audience: s.audience, projectId: autopilot.project_id || null }, markdown, slides, facts, dropped, company: str(company, 60), deckType: 'Marketing review', audience: s.audience, autopilot: true },
+        status: 'pending_approval',
+      });
+      return { done: { artifactId: artifact.id }, event: readyEvent('Deck Maker', artifact, `${slides.length} slides for ${s.audience}, built only from your real numbers${dropped ? ` (${dropped} line${dropped === 1 ? '' : 's'} with a figure not in your data ${dropped === 1 ? 'was' : 'were'} removed)` : ''}. Open it in Deck Maker to download the PowerPoint.`) };
+    },
+  },
+};
+
+for (const h of [analytics, cro, social, deck]) h.stepLabel = () => ({ analytics: 'writing the report', cro: 'auditing your pages', social: 'drafting the posts', deck: 'writing the deck' }[h.agent]);
+
+module.exports = { analytics, cro, social, deck, businessContext, backedByFacts };

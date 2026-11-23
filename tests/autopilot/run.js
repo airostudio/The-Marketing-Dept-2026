@@ -21,7 +21,7 @@ const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
 /* ── An in-memory stand-in for Supabase's REST API (the filters we use) ── */
 let clock = Date.parse('2026-11-23T21:00:00Z');
 const nowIso = () => new Date(clock).toISOString();
-const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [], mission_artifacts: [], experiments: [], search_snapshots: [] };
+const db = { connections: [], autopilots: [], agent_jobs: [], activity_events: [], seo_runs: [], seo_topics: [], seo_articles: [], profiles: [], projects: [], intelligence_profiles: [], mission_artifacts: [], experiments: [], search_snapshots: [], contacts: [] };
 const DEFAULTS = {
   connections: { status: 'active', config: {}, status_note: null },
   autopilots: { enabled: true, mode: 'earn_trust', trust_required: 2, trust_earned: 0, settings: {}, cadence: {}, paused_reason: null, connection_id: null },
@@ -39,6 +39,7 @@ function field(row, key) {
 function test(v, cond) {
   const i = cond.indexOf('.'); const op = cond.slice(0, i), arg = cond.slice(i + 1);
   if (op === 'not') return !test(v, arg);
+  if (op === 'ov') { const want = arg.replace(/^\{|\}$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')); return Array.isArray(v) && v.some(x => want.includes(x)); }
   if (op === 'is') return arg === 'null' ? v == null : String(v) === arg;
   if (op === 'in') return arg.replace(/^\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')).includes(String(v));
   if (v == null) return false;
@@ -836,6 +837,74 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   const fDone = lastEvent('done');
   check('…and the report lists what changed (and fixed a problem on the way)', /Site fixes: 2 applied/.test(fDone.title) && /Acme Plumbing \| Emergency Plumbers Sydney/.test(fDone.body) && /Site fixes fixed 1 problem/.test(lastEvent('repaired').title));
   delete deps.fetchText; delete deps.callClaude; delete deps.applyFixes;
+
+  console.log('\n──── Nancy\'s week, Pat\'s campaign, the review deck ────');
+  process.env.ANTHROPIC_API_KEY = 'sk-test';
+  const fakeCore = (fn) => async (req, res) => { const out = await fn(req.body); return res.status(out.code || 200).json(out.body); };
+  const planned = [], rendered = [];
+  deps.planCore = fakeCore(async (b) => { planned.push(b); const d = b.dayRange[0]; return { body: { success: true, posts: [{ day: d, objective: 'awareness', content_pillar: 'tips', format: 'single', hook: `Hook ${d}`, slide_headline: `Headline ${d}`, slide_copy: 'Copy', caption: `Caption ${d}`, cta: 'Call us', visual_direction: 'clean', hashtags: ['plumbing'] }] } }; });
+  let hosting = true;
+  deps.renderCore = fakeCore(async (b) => { rendered.push(b.post.day); return { body: { success: true, asset: { day: b.post.day, format: 'ai', hostedUrl: hosting ? `https://cdn.example/nancy/${b.post.day}.png` : null } } }; });
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'nancy', intelProfileId: PROFILE, cadence: { days: [0], hour: 18, timezone: 'Australia/Sydney' }, settings: { platforms: ['Facebook', 'TikTok'], postHour: 11 } });
+  const apN = db.autopilots.find(x => x.agent === 'nancy');
+  check('Nancy: always asks; only networks it can post to are kept', apN.mode === 'approve' && JSON.stringify(apN.settings.platforms) === '["Facebook"]');
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apN.id });
+  await tick();
+  check('…with no first week made with Nancy, it says how to start (no guessing a brand)', /starts after your first week/.test(lastEvent('info').title) && !planned.length);
+  db.mission_artifacts.push({ id: uuid(), user_id: OWNER, intel_profile_id: PROFILE, kind: 'nancy_week', status: 'approved', created_at: nowIso(), payload: { params: { websiteUrl: 'https://example.com', platforms: ['Instagram'] }, businessProfile: { business_name: 'Acme Plumbing' }, brand: { colors: ['#123456'] }, strategy: { pillars: ['tips'] }, posts: [{ day: 1, hook: 'Old hook one' }] } });
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apN.id });
+  await tick();
+  const weekArt = db.mission_artifacts.filter(a => a.kind === 'nancy_week').slice(-1)[0];
+  check('it builds the week one day at a time through Nancy\'s own plan and image code', weekArt.status === 'building' && weekArt.payload.posts.length === 5 && JSON.stringify(rendered) === '[1,2,3,4,5]');
+  check('…reusing her research, never repeating an earlier hook, and posting to the chosen network', planned[0].businessProfile.business_name === 'Acme Plumbing' && planned[0].previousTopics.includes('Old hook one') && planned[1].priorPosts.length === 1 && JSON.stringify(weekArt.payload.params.platforms) === '["Facebook"]' && weekArt.payload.autoSchedule.hour === 11 && weekArt.payload.autoSchedule.timezone === 'Australia/Sydney');
+  await tick();
+  check('…then the finished week waits for approval in the inbox, every post with its hosted image', weekArt.status === 'pending_approval' && weekArt.payload.posts.length === 7 && weekArt.payload.posts.every(x => /^https:\/\/cdn\.example/.test(x.imageUrl)) && lastEvent('needs_approval').action.artifactId === weekArt.id && /one a day at 11:00/.test(lastEvent('needs_approval').body));
+  hosting = false;
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apN.id });
+  await tick();
+  check('without image hosting it stops and says so, instead of a week that can\'t be posted', /missing a setting/.test(lastEvent('failed').body) && /Image hosting \(R2\)/.test(lastEvent('failed').body));
+
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'pat', intelProfileId: PROFILE, cadence: { days: [2], hour: 9, timezone: 'UTC' }, settings: { offer: 'Free drain check this month', ctaUrl: 'javascript:alert(1)', senderName: 'Sam' } });
+  const apP = db.autopilots.find(x => x.agent === 'pat');
+  check('Pat: unsafe links dropped; sending on approval is off unless turned on', apP.settings.ctaUrl === '' && apP.settings.autoSend === false);
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apP.id });
+  await tick();
+  check('…with no audience it asks who it\'s for (never emails everyone)', /who the campaign is for/.test(lastEvent('needs_permission').title));
+  const built2 = [];
+  deps.buildCampaign = async (inp) => { built2.push(inp); return { status: 'drafted', subject: 'A free drain check', html: '<p>Hi {{firstName}}</p>', text: 'Hi {{firstName}}', review: { approved: true, blockers: [] } }; };
+  await api(autopilotApi, OWNER, { action: 'save', agent: 'pat', intelProfileId: PROFILE, cadence: { days: [2], hour: 9, timezone: 'UTC' }, settings: { offer: 'Free drain check this month', ctaUrl: 'https://example.com/drain', senderName: 'Sam', audienceTags: 'customers, leads', autoSend: true } });
+  await tick();
+  const pj = db.agent_jobs.filter(j => j.autopilot_id === apP.id)[0];
+  const campArt = db.mission_artifacts.find(a => a.kind === 'pat_campaign');
+  check('saving the audience carries on: the campaign is drafted with every check and waits for approval', pj.status === 'waiting_approval' && pj.step === 'send' && campArt.status === 'pending_approval' && campArt.payload.autopilotJobId === pj.id && built2[0].ctaUrl === 'https://example.com/drain' && /Approving sends it/.test(lastEvent('needs_approval').body));
+  check('approving or rejecting the campaign in the inbox carries the job on or stops it', /agent_jobs\?id=eq\.\$\{waitingJob\}&status=eq\.waiting_approval`, \{ status: 'queued'/.test(read('api/mission-artifacts.js')) && /status: 'cancelled', finished_at/.test(read('api/mission-artifacts.js')));
+  for (let i = 0; i < 60; i++) db.contacts.push({ id: `c${String(i).padStart(3, '0')}`, user_id: OWNER, intel_profile_id: PROFILE, email: `p${i}@example.com`, first_name: `P${i}`, status: i === 5 ? 'unsubscribed' : 'subscribed', tags: i % 2 ? ['customers'] : ['leads', 'other'] });
+  db.contacts.push({ id: 'c900', user_id: OWNER, intel_profile_id: PROFILE, email: 'x@example.com', status: 'subscribed', tags: ['suppliers'] });
+  const emailed = []; let dailyLeft = 30;
+  deps.sendCore = async (req, res, who) => {
+    const rec = req.body.recipients; const ok = rec.slice(0, dailyLeft); dailyLeft -= ok.length;
+    ok.forEach(x => emailed.push(x.to));
+    if (!ok.length) return res.status(429).json({ error: 'Daily send limit of 30 reached for this account.' });
+    return res.json({ success: true, sent: ok.length, rejected: rec.slice(ok.length).map(x => ({ to: x.to, error: 'Daily send limit reached' })), suppressed: 0, owner: who.userId });
+  };
+  campArt.status = 'approved'; pj.status = 'queued'; pj.run_at = nowIso();
+  await tick();
+  check('sending: only subscribed contacts with the audience tags, through Pat\'s guarded send, up to the daily limit', emailed.length === 30 && !emailed.includes('p5@example.com') && !emailed.includes('x@example.com') && pj.status === 'queued' && pj.state.sent === 30);
+  check('…the rest wait for tomorrow (a full quota is a pause, not a failure)', Date.parse(pj.run_at) >= Date.parse('2026-11-24T00:00:00Z') && !events('failed').some(e => e.job_id === pj.id) && pj.step_attempts === 0);
+  clock = Date.parse(pj.run_at) + 1000; dailyLeft = 30;
+  await tick();
+  check('…and tomorrow it carries on from where it stopped: nobody is emailed twice', pj.status === 'done' && emailed.length === 59 && new Set(emailed).size === 59 && /Sent: Email campaign/.test(lastEvent('done').title) && /59 emails sent/.test(lastEvent('done').body));
+
+  deps.gatherFacts = async () => ({ period: { label: 'the last 30 days' }, email: { available: true, campaignsSent: 4, openRate: 41.5 }, audience: { available: true, totalContacts: 61 }, social: {}, revenue: {} });
+  deps.callClaude = async () => ({ success: true, data: { slides: [{ title: 'Marketing review', type: 'COVER', bullets: [] }, { title: 'Email', type: 'METRICS', bullets: ['Campaigns sent: 4', 'Open rate: 41.5%', 'Industry average: 21%'], speaker_notes: 'Strong opens.' }, { title: 'Audience', type: 'METRICS', bullets: ['Contacts: 61'] }, { title: 'Next month', type: 'NEXT_QUARTER', bullets: ['Grow the list'] }] } });
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'deck', intelProfileId: PROFILE, cadence: { days: [1], hour: 9, timezone: 'UTC' }, settings: { audience: 'the owners' } });
+  await api(autopilotApi, OWNER, { action: 'runNow', id: db.autopilots.find(x => x.agent === 'deck').id });
+  await tick();
+  const deckArt = db.mission_artifacts.find(a => a.kind === 'deck_outline');
+  check('Deck: a review deck from real numbers; a line with a figure not in the data is removed', deckArt && !deckArt.payload.markdown.includes('21%') && deckArt.payload.markdown.includes('Open rate: 41.5%') && deckArt.payload.dropped === 1);
+  check('…in the exact slide format Deck Maker reads, waiting for approval with a link to open it', /^\*\*Slide 1: Marketing review\*\*\n\[TYPE: COVER\]/.test(deckArt.payload.markdown) && /\*\*Slide 2: Email\*\*\n\[TYPE: METRICS\]\n- Campaigns sent: 4/.test(deckArt.payload.markdown) && /Open it in Deck Maker/.test(lastEvent('needs_approval').body));
+  check('Deck Maker opens an autopilot deck by its id, showing the text escaped', /loadAutopilotDeck\(deckArtifact\)/.test(read('web/agents/deck-agent.html')) && /escDeckHtml\(p\.markdown\)/.test(read('web/agents/deck-agent.html')));
+  for (const k of ['planCore', 'renderCore', 'buildCampaign', 'sendCore', 'gatherFacts', 'callClaude']) delete deps[k];
 
   console.log('\n──── pages, cron, database ────');
   const vercel = JSON.parse(read('vercel.json'));

@@ -796,6 +796,11 @@ Until a network's env vars are set, its button shows "not set up yet". The older
 - **Webflow:** static pages. The site token needs "Pages: read and write".
 - **Everything else** is handed over ready to paste.
 
+**Nancy, Pat and the Deck Maker on autopilot** (`/autopilot.html`):
+- **Nancy's week.** After the first week is made with Nancy on her page (that's where she learns the brand), every following week is made on schedule. The autopilot calls her own plan and image code server-side, one day at a time, then the week waits for approval. Approving posts one a day through the business's signed-in accounts. It needs R2 image hosting (`R2_*`); without it the week stops and says so.
+- **Pat's campaign.** Drafted with every check Pat's page runs, then approved in What happened. With "send it when I approve" on, it goes to the subscribed contacts with the audience tags through Pat's own send path: suppression, daily quota, compliance footer and unsubscribe link. A full daily quota carries on the next day, and nobody is emailed twice.
+- **Deck Maker.** A monthly marketing review deck built only from the business's real numbers. Lines with figures not in the data are removed. "Open in Deck Maker" turns it into the PowerPoint.
+
 **Not yet:** images on LinkedIn and X posts (they go out as text, and the business is told); Instagram and TikTok sign-in; posting to a LinkedIn Company Page (needs LinkedIn's Community Management API approval).
 
 ---

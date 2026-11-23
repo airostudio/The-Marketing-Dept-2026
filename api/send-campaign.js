@@ -98,6 +98,16 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
   // claimQuota() below, which is database-backed; this only stops one
   // account hammering one instance.
   if (rateLimited(req, res, { name: 'send-campaign', max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW, auth: { userId } })) return;
+  return core(req, res, { userId, profile });
+});
+
+/**
+ * Everything after "who is sending" is known: the content check, suppression,
+ * the daily quota, the compliance footer and the send. Exported so an
+ * approved Pat campaign can be sent by the autopilot (api/_lib/autopilot/pat.js)
+ * through exactly the same guards — never around them.
+ */
+async function core(req, res, { userId, profile }) {
 
   const proto   = req.headers['x-forwarded-proto'] || 'https';
   const baseUrl = process.env.PUBLIC_APP_URL || `${proto}://${req.headers.host}`;
@@ -316,4 +326,6 @@ module.exports = withFailureReporting('api/send-campaign', async function handle
     dailyLimit: quota.cap,
     ...(warnings.length ? { warnings } : {}),
   });
-});
+}
+
+module.exports.core = core;
