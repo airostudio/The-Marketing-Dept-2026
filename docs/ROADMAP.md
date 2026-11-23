@@ -9,7 +9,7 @@ SEO Autopilot writes and publishes to WordPress, Webflow, Shopify and Wix on a s
 
 - **Not yet included:**
   - **Search Console screens.** The weekly Search report reads real Search Console data through each business's Google sign-in. The older Search Console screens in the SEO section still use the unfinished browser sign-in and show no real data.
-  - **Technical fixes on the site.** Changing titles, meta descriptions, image alt text or schema on existing pages. Today the audits recommend these changes but don't apply them.
+  - **Site fixes gaps.** Titles, descriptions and alt text are applied on WordPress (alt text; titles and descriptions only with Rank Math), Shopify and Webflow static pages. Still handed over to paste: Yoast sites, Webflow CMS items and images, Wix, and GoDaddy. Schema markup and broken links aren't fixed yet.
   - **Featured images** on published articles.
   - **Sign-in buttons for the platforms.** Logins are pasted (application password, token or API key) rather than connected by a one-click sign-in (OAuth app). Shopify and Wix one-click sign-in need a registered public app.
   - **Social sign-in gaps.** LinkedIn, Facebook Pages and X publish through each business's own sign-in. Still missing: images on LinkedIn and X posts, Instagram and TikTok sign-in, and LinkedIn Company Pages.

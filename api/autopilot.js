@@ -10,6 +10,7 @@
  *   approve { jobId, edits? }          → publish (edits to title/meta/body are applied first);
  *                                        counts toward earned trust
  *   reject  { jobId, reason? }         → nothing is published; the topic is set aside
+ *   fixes   { jobId }                  → the site fixes a job proposes (approve with edits: { fixes: [{ id, include, value }] })
  *   retry   { jobId }                  → try a failed job again from where it stopped
  *   article { articleId } | { jobId }  → the article's text (or a job's rewrite), for preview or copy/paste
  */
@@ -155,6 +156,21 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
         await resolve();
         return res.json({ ok: true, status: 'cancelled', note: 'Nothing was published. That topic is set aside.' });
       }
+      if (job.kind === 'site_fixes') {
+        // The business ticks, unticks or edits each fix before approving.
+        const edits = new Map((Array.isArray(body.edits && body.edits.fixes) ? body.edits.fixes : []).map(f => [String(f.id), f]));
+        const list = (st.fixes || []).map(f => {
+          const e = edits.get(f.id); if (!e) return f;
+          const limit = f.type === 'title' ? 70 : f.type === 'meta' ? 170 : 125;
+          const v = str(e.value, limit);
+          return { ...f, include: e.include !== false && !!(v || f.value), value: v || f.value };
+        });
+        if (!list.some(f => f.include)) return res.status(400).json({ error: 'Nothing is ticked. Reject it instead if none of the fixes should be made.' });
+        const uf = await sb('PATCH', `/agent_jobs?id=eq.${job.id}&status=eq.waiting_approval`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0, state: { ...st, fixes: list, approvedBy: uid, approvedAt: now.toISOString() } });
+        if (!uf.ok || !(uf.data || []).length) return res.status(409).json({ error: 'Someone else already answered this.' });
+        await resolve();
+        return res.json({ ok: true, status: 'queued', note: `Approved ${list.filter(f => f.include).length} fix${list.filter(f => f.include).length === 1 ? '' : 'es'}. They're applied within a few minutes.` });
+      }
       let article = st.article;
       const e = body.edits && typeof body.edits === 'object' ? body.edits : null;
       if (e && article) {
@@ -184,6 +200,13 @@ module.exports = withFailureReporting('api/autopilot', async function handler(re
       await sb('PATCH', `/agent_jobs?id=eq.${job.id}&status=eq.failed`, { status: 'queued', run_at: now.toISOString(), step_attempts: 0, finished_at: null });
       await sb('PATCH', `/activity_events?job_id=eq.${job.id}&kind=eq.failed&resolved_at=is.null`, { resolved_at: now.toISOString() });
       return res.json({ ok: true, note: 'Trying again from where it stopped.' });
+    }
+
+    if (body.action === 'fixes') {
+      const { job, err, http } = await jobAndAutopilot(body.jobId);
+      if (err) return res.status(http).json(err);
+      if (job.kind !== 'site_fixes') return res.status(400).json({ error: 'This isn\'t a set of site fixes.' });
+      return res.json({ ok: true, status: job.status, fixes: ((job.state || {}).fixes || []).map(f => ({ id: f.id, page: f.page, type: f.type, problem: f.problem, current: f.current, value: f.value, src: f.src || null, auto: !!f.auto, include: f.include !== false })), results: (job.state || {}).results || {} });
     }
 
     if (body.action === 'article' && body.jobId) {

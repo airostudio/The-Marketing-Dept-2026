@@ -767,6 +767,76 @@ async function api(handler, caller, body) { callerId = caller; const res = mkRes
   check('with no Search Console connected it asks for one and waits', /needs your Search Console/.test(lastEvent('needs_permission').title) && lastEvent('needs_permission').action.provider === 'gsc');
   delete deps.gsc;
 
+  console.log('\n──── Site fixes: titles, descriptions, alt text ────');
+  const pf = require(path.join(REPO, 'api/_lib/page-fixes.js'));
+  const pageHtml = '<html><head><title>Home</title></head><body><h1>Emergency plumbers in Sydney</h1><p>We fix burst pipes 24/7 across Sydney. Call 0400 000 000.</p><img src="/wp-content/uploads/2026/05/van-1024x768.jpg" width="800"><img src="/logo.svg"><img src="/team.jpg" alt=""><img src="data:image/png;base64,xx"><img src="/pixel.gif" width="1"></body></html>';
+  const sp1 = pf.scanPage(pageHtml, 'https://example.com/');
+  check('scan: a short title, a missing description, and one real image with no alt (decorative alt="", icons, SVGs and data images left alone)', sp1.title === 'Home' && sp1.issues.map(i => i.type).join(',') === 'title,meta,alt' && sp1.issues[2].src === 'https://example.com/wp-content/uploads/2026/05/van-1024x768.jpg' && /burst pipes/.test(sp1.text));
+  const prompts = [];
+  const fakeClaude = async (o) => {
+    prompts.push(o);
+    if (o.tool.name === 'submit_page_fixes') return { success: true, data: { pages: [{ index: 0, title: 'Emergency Plumbers Sydney | 24/7 Burst Pipe Repairs', meta_description: 'Burst pipe or blocked drain? Our Sydney emergency plumbers fix it 24/7 — rated #1 by 500 customers. Call now for a fast, tidy repair.' }] } };
+    return { success: true, data: { images: [{ index: 0, alt: 'Plumbing van parked outside a Sydney home' }] } };
+  };
+  let props = await pf.propose([sp1], { businessName: 'Acme Plumbing' }, { callClaude: fakeClaude });
+  check('fixes are written from the page; a description that invents a figure ("500 customers") is dropped', props.length === 2 && props[0].type === 'title' && props[1].type === 'alt' && props.every(f => f.include && /^f\d+$/.test(f.id)));
+  check('…the page text goes to the model fenced as untrusted, and alt text is written by looking at the image', /<untrusted|untrusted/i.test(prompts[0].user) && prompts[1].user.some(b => b.type === 'image' && b.source.url === sp1.issues[2].src));
+  props = await pf.propose([sp1], { neverSay: ['24/7'] }, { callClaude: fakeClaude });
+  check('…and a fix using a phrase the business never says is dropped', !props.some(f => f.type === 'title'));
+
+  const apply = pf.makeApply(cms);
+  const wpc = { site_url: 'https://example.com', config: {}, secret: { username: 'sam', appPassword: 'pw' } };
+  reqs.length = 0;
+  let ar = await apply.wordpress(wpc, { type: 'alt', page: 'https://example.com/', src: 'https://example.com/wp-content/uploads/2026/05/van-1024x768.jpg', value: 'Plumbing van' }, { fetch: fetchWith([[/media\?search=van/, resp(200, [{ id: 31, source_url: 'https://example.com/wp-content/uploads/2026/05/van.jpg' }])], [/media\/31$/, resp(200, { id: 31 })]]) });
+  check('WordPress: alt text is set on the image in the media library (matched across its resized copies)', JSON.parse(reqs[1].init.body).alt_text === 'Plumbing van' && /media library/.test(ar.note));
+  threw = null; try { await apply.wordpress(wpc, { type: 'meta', page: 'https://example.com/services/', value: 'x' }, { fetch: fetchWith([[/pages\?slug=services/, resp(200, [{ id: 5, link: 'https://example.com/services/' }])], [/rankmath/, resp(404, { code: 'rest_no_route' })]]) }); } catch (e) { threw = e; }
+  check('WordPress without Rank Math: honestly handed over, saying why', threw && threw.kind === 'unsupported' && /Rank Math does; Yoast/.test(threw.message));
+  reqs.length = 0;
+  await apply.wordpress(wpc, { type: 'title', page: 'https://example.com/services/', value: 'Our services' }, { fetch: fetchWith([[/pages\?slug=services/, resp(200, [{ id: 5, link: 'https://example.com/services/' }])], [/rankmath/, resp(200, { ok: true })]]) });
+  check('WordPress with Rank Math: the SEO title is set on the right page', JSON.parse(reqs.find(q => /rankmath/.test(q.url)).init.body).meta.rank_math_title === 'Our services' && JSON.parse(reqs.find(q => /rankmath/.test(q.url)).init.body).objectID === 5);
+  reqs.length = 0;
+  await apply.shopify(shopConn, { type: 'meta', page: 'https://shop.example/products/blue-tap', value: 'A blue tap' }, { fetch: fetchWith([[/products\.json\?handle=blue-tap/, resp(200, { products: [{ id: 77, images: [] }] })], [/products\/77\.json$/, resp(200, { product: { id: 77 } })]]) });
+  check('Shopify: a product\'s search description is set', JSON.parse(reqs[1].init.body).product.metafields_global_description_tag === 'A blue tap');
+  reqs.length = 0;
+  await apply.shopify(shopConn, { type: 'alt', page: 'https://shop.example/products/blue-tap', src: 'https://cdn.shopify.com/s/files/1/blue-tap.jpg?v=1', value: 'Blue mixer tap' }, { fetch: fetchWith([[/products\.json\?handle=blue-tap/, resp(200, { products: [{ id: 77, images: [{ id: 9, src: 'https://cdn.shopify.com/s/files/1/blue-tap.jpg?v=2' }] }] })], [/images\/9\.json$/, resp(200, {})]]) });
+  check('Shopify: product image alt text is set on that image', JSON.parse(reqs[1].init.body).image.alt === 'Blue mixer tap');
+  threw = null; try { await apply.shopify(shopConn, { type: 'title', page: 'https://shop.example/', value: 'x' }); } catch (e) { threw = e; }
+  check('Shopify home page: handed over, pointing to where it\'s set', threw && threw.kind === 'unsupported' && /Online Store → Preferences/.test(threw.message));
+  reqs.length = 0;
+  await apply.webflow({ site_url: 'https://acme.com', config: { siteId: 's1' }, secret: { token: 't' } }, { type: 'title', page: 'https://acme.com/about', value: 'About Acme' }, { fetch: fetchWith([[/sites\/s1\/pages/, resp(200, { pages: [{ id: 'pg1', slug: 'about' }] })], [/pages\/pg1$/, resp(200, {})]]) });
+  check('Webflow: a static page\'s SEO title is set', reqs[1].init.method === 'PUT' && JSON.parse(reqs[1].init.body).seo.title === 'About Acme');
+  threw = null; try { await apply.wix(); } catch (e) { threw = e; }
+  check('Wix: says plainly it can\'t, so everything is handed over', threw && threw.kind === 'unsupported');
+
+  r = await api(autopilotApi, OWNER, { action: 'save', agent: 'fixes', intelProfileId: PROFILE, connectionId: wp2.id, cadence: { days: [4], hour: 9, timezone: 'UTC' }, settings: { types: ['title', 'meta', 'alt'] } });
+  const apF = db.autopilots.find(x => x.agent === 'fixes');
+  check('Site fixes always asks (it changes live pages)', apF.mode === 'approve');
+  deps.fetchText = async (u) => ({ status: 200, text: u === 'https://example.com/' ? pageHtml : '<html><head><title>Our plumbing services in Sydney and surrounds</title><meta name="description" content="Every plumbing service we offer across Sydney, from blocked drains and burst pipes to hot water systems and gas fitting."></head><body><h1>Services</h1></body></html>' });
+  deps.callClaude = fakeClaude;
+  const applied = []; let hiccup = true;
+  deps.applyFixes = { wordpress: async (c, f) => { if (f.type === 'alt' && hiccup) { hiccup = false; throw Object.assign(new Error('WordPress had a server error (502)'), { kind: 'transient', status: 502 }); } if (f.type === 'title') { applied.push(f); return { note: 'Set in Rank Math.' }; } if (f.type === 'alt') { applied.push(f); return {}; } throw Object.assign(new Error('Your SEO plugin doesn\'t let other apps change titles'), { kind: 'unsupported' }); } };
+  await api(autopilotApi, OWNER, { action: 'runNow', id: apF.id });
+  await tick();
+  const fj = db.agent_jobs.filter(j => j.autopilot_id === apF.id)[0];
+  const fAsk = lastEvent('needs_approval');
+  check('it reads the pages, writes fixes only where something is wrong, and asks', fj.status === 'waiting_approval' && fj.state.fixes.length === 2 && fAsk.action.type === 'fixes' && /2 fixes on 2 pages/.test(fAsk.title) && !applied.length);
+  r = await api(autopilotApi, OWNER, { action: 'fixes', jobId: fj.id });
+  check('the business can see each fix: page, problem, current and proposed value, image', r.statusCode === 200 && r.body.fixes.length === 2 && r.body.fixes[1].src && r.body.fixes[0].current === 'Home');
+  r = await api(autopilotApi, STRANGER, { action: 'fixes', jobId: fj.id });
+  check('…only the business can', r.statusCode === 404);
+  r = await api(autopilotApi, OWNER, { action: 'approve', jobId: fj.id, edits: { fixes: [{ id: 'f1', include: false }, { id: 'f2', include: false }] } });
+  check('approving with nothing ticked is refused (reject instead)', r.statusCode === 400 && fj.status === 'waiting_approval');
+  r = await api(autopilotApi, OWNER, { action: 'approve', jobId: fj.id, edits: { fixes: [{ id: 'f1', include: true, value: 'Acme Plumbing | Emergency Plumbers Sydney' }] } });
+  check('approving with an edit queues it with the edited value', r.statusCode === 200 && fj.state.fixes[0].value === 'Acme Plumbing | Emergency Plumbers Sydney' && fAsk.resolved_at);
+  await tick();
+  check('a hiccup mid-way keeps the fixes already made and retries the rest later', fj.status === 'queued' && fj.state.results.f1 && fj.state.results.f1.ok && !fj.state.results.f2 && applied.length === 1);
+  clock += 3 * 60000;
+  await tick();
+  check('…the retry doesn\'t repeat a fix already made', fj.status === 'done' && applied.length === 2 && applied.filter(f => f.id === 'f1').length === 1);
+  const fDone = lastEvent('done');
+  check('…and the report lists what changed (and fixed a problem on the way)', /Site fixes: 2 applied/.test(fDone.title) && /Acme Plumbing \| Emergency Plumbers Sydney/.test(fDone.body) && /Site fixes fixed 1 problem/.test(lastEvent('repaired').title));
+  delete deps.fetchText; delete deps.callClaude; delete deps.applyFixes;
+
   console.log('\n──── pages, cron, database ────');
   const vercel = JSON.parse(read('vercel.json'));
   check('the runner runs every 5 minutes', vercel.crons.some(c => c.path === '/api/cron-autopilot' && c.schedule === '1-59/5 * * * *'));

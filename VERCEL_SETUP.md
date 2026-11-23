@@ -790,6 +790,12 @@ Until a network's env vars are set, its button shows "not set up yet". The older
 
 **Search report** (`/autopilot.html`): once a business signs in to Search Console, a weekly report reads its own search data. It shows clicks and positions against the previous 28 days and how each article Audema published is doing. It adds searches the site nearly ranks for (positions 8–20, with real impressions) to SEO Autopilot's plan, which writes those first. When a published article slips 3+ places, SEO Autopilot rewrites it and asks before updating the live post in place. Run `supabase-autopilot.sql` again for the `search_snapshots` table and the new `seo_articles` / `seo_topics` columns.
 
+**Site fixes** (`/autopilot.html`): checks the business's live pages for missing or weak titles, meta descriptions and image alt text. It writes fixes from each page's own words (alt text from looking at the image) and drops any fix that adds a figure the page doesn't state. The business ticks or edits each fix, then it applies them where the platform allows:
+- **WordPress:** alt text, plus titles and descriptions when the site uses Rank Math.
+- **Shopify:** pages, blog posts and products, and product image alt text. The custom app needs `write_products` as well as `write_content`.
+- **Webflow:** static pages. The site token needs "Pages: read and write".
+- **Everything else** is handed over ready to paste.
+
 **Not yet:** images on LinkedIn and X posts (they go out as text, and the business is told); Instagram and TikTok sign-in; posting to a LinkedIn Company Page (needs LinkedIn's Community Management API approval).
 
 ---

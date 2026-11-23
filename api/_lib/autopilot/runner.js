@@ -11,7 +11,8 @@
  *        { wait: 'permission', … }  stop until the business connects/reconnects something
  *        { later: ms, state, note } nothing to do yet; look again later
  *        { done: result, event? }   finished
- *      A step that throws is handled by faults.js: retried with growing
+ *      A step that throws is handled by faults.js (an error may carry
+ *      .stateUpdate: progress made before it failed, kept for the retry): retried with growing
  *      waits, slowed down for rate limits, or stopped with a request for a
  *      login. Every repair is written on the job, and when the job finishes
  *      after repairs the business is told what went wrong and what was done.
@@ -86,6 +87,8 @@ async function runJob(sb, jobRow, deps) {
     try {
       out = await stepFn({ job, state: job.state || {}, sb, autopilot, now, deps, tell });
     } catch (err) {
+      // Work a step finished before it failed (e.g. fixes already applied) is kept, so a retry doesn't redo it.
+      if (err && err.stateUpdate) await save({ state: { ...(job.state || {}), ...err.stateUpdate } });
       const { kind, retryAfterMs } = faults.classify(err);
       const decision = faults.decide(kind, job.step_attempts || 0, retryAfterMs);
       const problem = faults.describe(kind, err);

@@ -303,4 +303,4 @@ const godaddy = {
 
 const PROVIDERS = { wordpress, webflow, shopify, wix, godaddy };
 
-module.exports = { PROVIDERS, publicOrigin, httpFail, fail };
+module.exports = { PROVIDERS, publicOrigin, httpFail, fail, call };
