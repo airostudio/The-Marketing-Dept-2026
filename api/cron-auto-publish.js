@@ -28,6 +28,7 @@
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { publishPost } = require('./publish-social-post.js');
 const notify = require('./_lib/autopilot/notify.js');
+const settings = require('./_lib/settings.js');
 const socialPublish = require('./_lib/social-publish.js');
 const faults = require('./_lib/autopilot/faults.js');
 const { load: loadConnection } = require('./_lib/autopilot/connections.js');
@@ -98,6 +99,7 @@ module.exports = withFailureReporting('api/cron-auto-publish', async function ha
   const summary = { checked: posts.length, published: 0, publishing: 0, failed: 0, results: [] };
 
   for (const post of posts) {
+    await settings.attachUser(post.user_id);   // the client's own sign-in apps and tokens
     // Optimistic lock: flip to 'publishing' before the external call so a
     // second overlapping cron run (rare, but cron overlap does happen) won't
     // also pick this row up — it's no longer in the 'queued' state it needs.

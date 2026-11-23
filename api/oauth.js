@@ -23,6 +23,7 @@ const box = require('./_lib/secret-box.js');
 const oauth = require('./_lib/oauth.js');
 const scope = require('./_lib/autopilot/scope.js');
 const activity = require('./_lib/autopilot/activity.js');
+const settings = require('./_lib/settings.js');
 
 function baseUrl(req) {
   const env = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
@@ -48,6 +49,8 @@ module.exports = withFailureReporting('api/oauth', async function handler(req, r
     const st = q.state ? oauth.openState(String(q.state)) : null;
     if (!st) return back(res, { oauth_error: 'That sign-in link expired or was not started here. Start again from Connections.' });
     if (q.error) return back(res, { oauth_error: q.error === 'access_denied' || q.error === 'user_cancelled_authorize' ? 'Sign-in was cancelled. Nothing was connected.' : `The sign-in didn't finish: ${String(q.error_description || q.error).slice(0, 200)}` });
+    // The sign-in app belongs to the business owner's client (their own LinkedIn/Facebook/X/Google app, if set).
+    await settings.attachUser(st.ownerId);
     const p = oauth.PROVIDERS[st.provider];
     if (!p || !q.code) return back(res, { oauth_error: 'The sign-in didn\'t return a code. Try again.' });
     let v;
@@ -106,13 +109,15 @@ module.exports = withFailureReporting('api/oauth', async function handler(req, r
     if (!isUuid(body.connectionId)) return res.status(400).json({ error: 'connectionId is not a valid id.' });
     const c = await sb('GET', `/connections?id=eq.${body.connectionId}&select=*&limit=1`);
     const row = c.ok && c.data && c.data[0];
-    if (!row || row.provider !== body.provider || !(await canAccessRecord(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, auth.user.id, row, { requireEdit: true }))) return res.status(404).json({ error: 'Connection not found.' });
+    if (!row || row.provider !== body.provider || !(await canAccessRecord(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, auth.userId, row, { requireEdit: true }))) return res.status(404).json({ error: 'Connection not found.' });
     s = { ownerId: row.user_id, intel_profile_id: row.intel_profile_id, project_id: row.project_id };
     connectionId = row.id;
   } else {
-    s = await scope.scopeFor(auth.user.id, body);
+    s = await scope.scopeFor(auth.userId, body);
     if (s.err) return res.status(s.err.http).json(s.err);
   }
+  await settings.attachUser(s.ownerId);
+  if (!oauth.isConfigured(body.provider)) return res.status(503).json({ code: 'not_configured', error: `Connecting ${p.label} isn't set up for this account yet. An admin can add the app details under Settings.` });
   // For Search Console, the business's own site picks the matching property.
   let siteUrl = null;
   if (body.provider === 'gsc') {

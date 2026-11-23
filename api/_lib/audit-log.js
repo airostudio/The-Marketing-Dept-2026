@@ -46,6 +46,10 @@ const ACTIONS = {
   PLAN_CHANGED:   'plan_changed',
   OWNER_CLAIMED:  'owner_claimed',
   TICKET_UPDATED: 'ticket_updated',
+  SETTING_CHANGED:    'setting_changed',
+  WORKSPACE_CREATED:  'workspace_created',
+  WORKSPACE_DELETED:  'workspace_deleted',
+  WORKSPACE_ASSIGNED: 'workspace_assigned',
 };
 
 /**

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings | Audema Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#070711; --panel:#0f0f1c; --panel2:#15152a; --border:rgba(255,255,255,0.09);
+    --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+    --grad:linear-gradient(135deg,#7c3aed,#ec4899); --purple:#7c3aed; --cyan:#06b6d4;
+    --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; font-size:14px; }
+  a { color:var(--cyan); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:12px 24px;
+        border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; gap:8px; }
+  .nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; color:var(--text); font-weight:800; }
+  .nav-dot { width:10px; height:10px; border-radius:50%; background:var(--grad); }
+  .nav-link { padding:6px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+              text-decoration:none; color:var(--text2); border:1px solid var(--border); margin-left:8px; }
+  .nav-link.active { color:var(--text); border-color:var(--purple); background:rgba(124,58,237,0.12); }
+  .wrap { max-width:1080px; margin:0 auto; padding:26px 24px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:13px; margin:0 0 22px; line-height:1.6; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;
+             color:var(--text2); margin:0 0 14px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:12.5px; line-height:1.55; margin-bottom:13px; }
+  .msg.error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .msg.ok { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+  .msg.info { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+  .muted { color:var(--text3); font-size:12.5px; line-height:1.6; }
+
+  select, textarea { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  textarea { width:100%; min-height:80px; resize:vertical; line-height:1.6; margin-bottom:11px; }
+  select:focus, textarea:focus { outline:none; border-color:var(--purple); }
+  button { background:var(--grad); color:#fff; border:none; border-radius:9px; padding:9px 16px;
+           font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  button:disabled { opacity:.55; cursor:default; }
+
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+
+  
+  input { background:var(--panel2); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:9px 11px; font-family:inherit; font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { text-align:left; padding:9px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  th { color:var(--text3); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  #gate { padding:60px 24px; text-align:center; color:var(--text2); }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/admin/dashboard.html" class="nav-logo"><span class="nav-dot"></span> Audema Admin</a>
+  <div>
+    <a href="/admin/dashboard.html" class="nav-link">Overview</a>
+    <a href="/admin/users.html" class="nav-link">Users</a>
+    <a href="/admin/settings.html" class="nav-link active">Settings</a>
+    <a href="/admin/activity.html" class="nav-link">Activity</a>
+    <a href="/admin/support.html" class="nav-link">Support</a>
+    <a href="/admin/failures.html" class="nav-link">Failures</a>
+  </div>
+</nav>
+<div id="gate">Loading…</div>
+<div class="wrap" id="wrap" style="display:none">
+  <h1>Settings</h1>
+  <p class="sub">The keys and options Audema's agents use. Set your <strong>platform defaults</strong> here instead of in Vercel. To sell Audema to a client who brings their own (their own Anthropic key, email sender, LinkedIn or Google app…), add them as a client, put their users in it on the Users page, and set the client's own values. Anything a client leaves blank uses your default. Values are stored encrypted and never shown again. Supabase, the cron secret, the encryption key and billing stay in Vercel.</p>
+  <div id="msg"></div>
+
+  <div class="card">
+    <h2>Clients</h2>
+    <div class="filters"><input id="newName" placeholder="New client name" style="min-width:240px"><button id="btnCreate">Add client</button></div>
+    <div id="clients" class="muted">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>Values</h2>
+    <div class="filters"><label class="muted" for="scope">Editing</label><select id="scope"><option value="">Platform defaults (everyone)</option></select></div>
+    <div id="editor"></div>
+  </div>
+</div>
+
+<script src="/js/escape-html.js"></script>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/settings-editor.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = window.escapeHtml || (v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+  let token = null, clients = [];
+  const msg = (text, kind) => { $('msg').innerHTML = text ? `<div class="msg ${esc(kind || 'info')}">${esc(text)}</div>` : ''; };
+
+  async function api(payload) {
+    const res = await fetch('/api/admin-settings', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  }
+
+  function editScope() {
+    window.SettingsEditor.mount($('editor'), { api, workspaceId: $('scope').value || null, onSaved: loadClients });
+  }
+
+  async function loadClients() {
+    try {
+      clients = (await api({ action: 'workspaces' })).workspaces;
+      $('clients').innerHTML = clients.length ? `<table><thead><tr><th>Client</th><th>Users</th><th>Own settings</th><th></th></tr></thead><tbody>${clients.map(c => `<tr>
+        <td><strong>${esc(c.name)}</strong></td><td>${esc(c.members)}</td><td>${esc(c.ownSettings)}</td>
+        <td style="text-align:right"><button class="ghost" data-edit="${esc(c.id)}">Edit settings</button> <button class="ghost" data-rename="${esc(c.id)}">Rename</button> <button class="ghost" data-del="${esc(c.id)}">Delete</button></td></tr>`).join('')}</tbody></table>
+        <p class="muted">Put users in a client on the <a href="/admin/users.html">Users</a> page. A client's owner can manage that client's settings themselves at /client-settings.html.</p>`
+        : '<p class="muted">No clients yet. Everyone uses the platform defaults.</p>';
+      const cur = $('scope').value;
+      $('scope').innerHTML = '<option value="">Platform defaults (everyone)</option>' + clients.map(c => `<option value="${esc(c.id)}">Client: ${esc(c.name)}</option>`).join('');
+      $('scope').value = clients.some(c => c.id === cur) ? cur : '';
+    } catch (e) { $('clients').innerHTML = `<div class="msg error">${esc(e.message)}</div>`; }
+  }
+
+  async function boot() {
+    let user = null, profile = null;
+    try {
+      if (window.Supabase?.ready) await window.Supabase.ready();
+      user = await window.Auth?.getUser?.();
+      const s = await window.Supabase?.getClient?.()?.auth?.getSession?.();
+      token = s?.data?.session?.access_token || null;
+      if (user) profile = await window.Supabase.DB.getProfile(user.id);
+    } catch (e) { /* handled below */ }
+    if (!user || !token) { $('gate').innerHTML = 'You need to be signed in.<br><br><a href="/index.html?openAuth=login">Sign in →</a>'; return; }
+    // Convenience only: api/admin-settings.js refuses non-admins itself.
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) { $('gate').innerHTML = 'This page is for Audema admins. Client owners manage their settings at <a href="/client-settings.html">Client settings</a>.'; return; }
+    $('gate').style.display = 'none'; $('wrap').style.display = 'block';
+    $('scope').addEventListener('change', editScope);
+    $('btnCreate').addEventListener('click', async () => {
+      const name = $('newName').value.trim(); if (!name) return;
+      try { await api({ action: 'createWorkspace', name }); $('newName').value = ''; msg(`Added ${name}. Now put their users in it on the Users page.`, 'ok'); await loadClients(); } catch (e) { msg(e.message, 'error'); }
+    });
+    $('clients').addEventListener('click', async (ev) => {
+      const b = ev.target.closest('button'); if (!b) return;
+      try {
+        if (b.dataset.edit) { $('scope').value = b.dataset.edit; editScope(); $('editor').scrollIntoView({ behavior: 'smooth' }); }
+        if (b.dataset.rename) { const c = clients.find(x => x.id === b.dataset.rename); const name = prompt('New name', c.name); if (name) { await api({ action: 'renameWorkspace', workspaceId: c.id, name }); await loadClients(); } }
+        if (b.dataset.del) { const c = clients.find(x => x.id === b.dataset.del); if (confirm(`Delete ${c.name}? Its own settings are deleted; its users stay and use the platform defaults.`)) { await api({ action: 'deleteWorkspace', workspaceId: c.id }); await loadClients(); editScope(); } }
+      } catch (e) { msg(e.message, 'error'); }
+    });
+    await loadClients();
+    editScope();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

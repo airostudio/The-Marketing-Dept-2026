@@ -31,6 +31,7 @@ const { withFailureReporting } = require('./_lib/report-failure.js');
 const crypto = require('crypto');
 const { sbRest } = require('./_lib/supabase-rest.js');
 const notify = require('./_lib/autopilot/notify.js');
+const settings = require('./_lib/settings.js');
 
 const MAX_WATCHES_PER_RUN = 150; // keeps this inside Vercel's 60s function budget
 const PER_FETCH_TIMEOUT_MS = 8000;
@@ -162,7 +163,7 @@ module.exports = withFailureReporting('api/cron-competitor-watch', async functio
   const truncated = allWatches.length > MAX_WATCHES_PER_RUN;
   const watches = allWatches.slice(0, MAX_WATCHES_PER_RUN);
 
-  const results = await runWithConcurrency(watches, FETCH_CONCURRENCY, (w) => processWatch(supabaseUrl, serviceKey, w));
+  const results = await runWithConcurrency(watches, FETCH_CONCURRENCY, (w) => settings.runAs(w.user_id, () => processWatch(supabaseUrl, serviceKey, w)));
 
   const changedCount = results.filter(r => r && r.changed).length;
   const errorCount = results.filter(r => r && r.error).length;

@@ -41,6 +41,7 @@ const { findUnresolvedMergeTags } = require('./_lib/content-guard.js');
 const { buildMergeFields, copyIssues } = require('./_lib/flow-merge.js');
 const { filterSuppressed } = require('./_lib/send-guard.js');
 const notify = require('./_lib/autopilot/notify.js');
+const settings = require('./_lib/settings.js');
 
 const MAX_SENDS_PER_RUN = 200;
 const SUPPRESSED = ['unsubscribed', 'bounced', 'complained'];
@@ -108,6 +109,8 @@ module.exports = withFailureReporting('api/cron-email-flows', async function han
   }
 
   for (const enrolment of due) {
+    // Each send uses the client's own email settings (sender, Resend account) when it has them.
+    await settings.attachUser(enrolment.user_id);
     const flow = enrolment.email_flows || {};
     const email = enrolment.email;
 

@@ -25,6 +25,7 @@
 const faults = require('./faults.js');
 const activity = require('./activity.js');
 const { nextRunAt } = require('./schedule.js');
+const settings = require('../settings.js');
 
 const OPEN = ['queued', 'running', 'waiting_approval', 'waiting_permission'];
 const LOCK_MS = 4 * 60 * 1000;
@@ -152,7 +153,8 @@ async function tick(sb, deps) {
   const ran = [];
   for (const job of (due.ok && due.data) || []) {
     if (d.now() - started > d.budgetMs - 60000) break;   // never start a job with under a minute left
-    try { ran.push({ id: job.id, ...(await runJob(sb, job, d)) }); }
+    // Each job runs with its owner's client settings (their own keys, sender, sign-in apps).
+    try { ran.push({ id: job.id, ...(await settings.runAs(job.user_id, () => runJob(sb, job, d))) }); }
     catch (e) { ran.push({ id: job.id, ran: false, error: e.message }); }
   }
   return { scheduled: sched.scheduled, ran };

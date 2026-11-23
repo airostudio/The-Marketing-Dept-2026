@@ -773,6 +773,24 @@ SEO Autopilot (`/seo/autopilot.html`) picks a topic, writes the article, checks 
 
 ---
 
+## Settings and clients (selling Audema to other marketing clients)
+
+Third-party keys and options are set on the admin **Settings** page (`/admin/settings.html`), not only in Vercel:
+- **Platform defaults** are your keys, used by everyone.
+- **Clients** are the businesses or agencies you sell Audema to. Add a client, put their users in it on the **Users** page (with one user as the client's **owner**), and set the client's own values. Examples: their own Anthropic key, Resend account and sender address, their own LinkedIn/Facebook/X/Google sign-in apps, R2 bucket, Places key.
+- A client's owner can manage those values themselves at `/client-settings.html`.
+
+When an agent needs a key, Audema uses the **client's own value**, then **your platform default**, then the **Vercel environment variable**. Every request runs with its signed-in user's client. Background work (autopilot jobs, scheduled posts, email flows, Blade sweeps, competitor watch, public scorecards, sign-ins) runs with the business owner's client. Values are encrypted with `CONNECTIONS_ENCRYPTION_KEY` and never shown again; admins see only the last four characters. Platform admins see clients' hints. Client owners never see your platform keys.
+
+1. Run `supabase-workspaces.sql` (also in `supabase-install-all.sql`).
+2. `CONNECTIONS_ENCRYPTION_KEY` must be set in Vercel; settings can't be saved without it.
+3. Database settings switch on automatically on Vercel. Set `APP_SETTINGS_DB=off` to ignore them, or `APP_SETTINGS_DB=on` to use them elsewhere.
+4. A change takes effect at once on the server that saved it, and within a minute everywhere else.
+
+**These stay in Vercel only** (the app needs them to start, or they protect the whole platform): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `CRON_SECRET`, `CONNECTIONS_ENCRYPTION_KEY`, `UNSUBSCRIBE_SECRET`, `SCORECARD_SECRET`, `MCP_SECRET`, `STRIPE_*`, `RESEND_WEBHOOK_SECRET`, `OWNER_EMAIL`, the Webese and BuiltWith-tool secrets, and the credit-cost settings.
+
+---
+
 ## Sign in with LinkedIn, Facebook, X and Google (each business's own accounts)
 
 Businesses connect their own social accounts and Search Console under **Connections** by signing in. Audema then publishes the posts they approve and schedule through **their** accounts, and reads **their** search data. Tokens are stored encrypted (`CONNECTIONS_ENCRYPTION_KEY`), refreshed automatically, and a refused sign-in pauses the work and asks the business to sign in again.

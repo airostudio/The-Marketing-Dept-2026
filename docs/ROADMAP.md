@@ -3,6 +3,17 @@
 Things that are decided but not built yet. Each says what is missing today so
 nobody assumes it works.
 
+## Clients (selling Audema)
+
+Admins set third-party keys on the Settings page as platform defaults, and each client can have its own. A client's owner can manage them at /client-settings.html.
+
+- **Not yet included:**
+  - Per-client branding (logo, colours, custom domain).
+  - Per-client billing (clients are still billed per user through the existing plans).
+  - A client owner adding or removing their own users (a platform admin does that on the Users page).
+  - Limits on how much a client can spend on the platform's keys.
+  - A few browser-side keys in `web/js/config.js` are still deployment-wide.
+
 ## Autopilot
 
 SEO Autopilot writes and publishes to WordPress, Webflow, Shopify and Wix on a schedule. Analytics Brain, CRO Lab and Social Studio run on the same engine and hand their work over for approval. It earns trust first, repairs what it can, asks for logins and approvals, and reports in What happened.

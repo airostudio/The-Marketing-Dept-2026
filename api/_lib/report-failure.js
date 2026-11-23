@@ -319,6 +319,13 @@ function reportFailureAsync(f) {
  */
 function withFailureReporting(source, handler) {
   return async function wrapped(req, res) {
+    // Every request runs with its caller's client settings (api/_lib/settings.js).
+    const settings = require('./settings.js');
+    return settings.withRequest(req, () => runReported(source, handler, req, res));
+  };
+}
+
+async function runReported(source, handler, req, res) {
     try {
       return await handler(req, res);
     } catch (err) {
@@ -348,7 +355,6 @@ function withFailureReporting(source, handler) {
         }
       } catch { /* nothing further to do */ }
     }
-  };
 }
 
 module.exports = {

@@ -99,6 +99,7 @@
   <div>
     <a href="/admin/dashboard.html" class="nav-link">Overview</a>
     <a href="/admin/users.html" class="nav-link active">Users</a>
+    <a href="/admin/settings.html" class="nav-link">Settings</a>
     <a href="/admin/activity.html" class="nav-link">Activity</a>
     <a href="/admin/support.html" class="nav-link">Support</a>
     <a href="/admin/failures.html" class="nav-link">Failures</a>
@@ -125,6 +126,7 @@
         <option value="admin">Admin</option>
         <option value="super_admin">Super Admin</option>
       </select>
+      <select id="client-filter"><option value="">All clients</option></select>
       <button class="ghost" id="btn-refresh">Refresh</button>
       <button id="btn-new">+ New user</button>
     </div>
@@ -165,6 +167,17 @@
           <option value="agency_growth">Agency Growth</option>
           <option value="agency_pro">Agency Pro</option>
           <option value="agency_enterprise">Agency Enterprise</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edit-workspace">Client</label>
+        <select id="edit-workspace"><option value="">— None (platform defaults) —</option></select>
+      </div>
+      <div class="field">
+        <label for="edit-workspace-role">Client role</label>
+        <select id="edit-workspace-role">
+          <option value="member">Member</option>
+          <option value="owner">Owner (manages the client's settings)</option>
         </select>
       </div>
       <div class="field span2"><label>Joined</label><input id="edit-joined" disabled></div>
@@ -247,6 +260,20 @@
     if (text) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Clients (workspaces) the platform sells to — managed on the Settings page.
+  let clients = [];
+  async function loadClients() {
+    try {
+      const res = await fetch('/api/admin-settings', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'workspaces' }) });
+      const data = await res.json().catch(() => ({}));
+      clients = res.ok ? (data.workspaces || []) : [];
+    } catch { clients = []; }
+    $('edit-workspace').innerHTML = '<option value="">— None (platform defaults) —</option>' + clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    const f = $('client-filter');
+    if (f) f.innerHTML = '<option value="">All clients</option><option value="none">No client</option>' + clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  }
+  const clientName = (id) => (clients.find(c => c.id === id) || {}).name || '';
+
   async function api(payload) {
     const res = await fetch('/api/admin-users', {
       method: 'POST',
@@ -289,6 +316,9 @@
     const roleFilter = $('role-filter').value;
     const rows = allUsers.filter(u => {
       if (roleFilter && (u.role || 'user') !== roleFilter) return false;
+      const cf = $('client-filter') ? $('client-filter').value : '';
+      if (cf === 'none' && u.workspace_id) return false;
+      if (cf && cf !== 'none' && u.workspace_id !== cf) return false;
       if (!q) return true;
       const hay = [u.firstname, u.lastname, u.email].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
@@ -311,6 +341,7 @@
         <div class="row-tags">
           <span class="pill role-${esc(u.role || 'user')}">${esc((u.role || 'user').replace('_', ' '))}</span>
           <span class="pill plan">${esc((u.plan || 'free').replace('_', ' '))}</span>
+          ${u.workspace_id ? `<span class="pill plan" title="Client">${esc(clientName(u.workspace_id) || 'client')}${u.workspace_role === 'owner' ? ' · owner' : ''}</span>` : ''}
         </div>
         <div class="row-date">${esc(u.created_at ? new Date(u.created_at).toLocaleDateString() : '')}</div>
       </div>`).join('');
@@ -347,6 +378,8 @@
     $('edit-lastname').value = u.lastname || '';
     $('edit-role').value = u.role || 'user';
     $('edit-plan').value = u.plan || 'free';
+    $('edit-workspace').value = u.workspace_id || '';
+    $('edit-workspace-role').value = u.workspace_role === 'owner' ? 'owner' : 'member';
     $('edit-joined').value = u.created_at ? new Date(u.created_at).toLocaleString() : '—';
 
     $('btn-delete').style.display = (u.id === me.id) ? 'none' : 'inline-block';
@@ -377,6 +410,12 @@
         role: $('edit-role').value,
         plan: $('edit-plan').value,
       });
+      const ws = $('edit-workspace').value || null, wr = $('edit-workspace-role').value;
+      if (ws !== (editingUser.workspace_id || null) || (ws && wr !== (editingUser.workspace_role || 'member'))) {
+        const r = await fetch('/api/admin-settings', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'assign', userId: editingUser.id, workspaceId: ws, role: wr }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Could not change the user\'s client.');
+      }
       msg('User updated.', 'ok');
       backToList();
       await loadUsers();
@@ -469,6 +508,7 @@
 
     $('search').addEventListener('input', renderList);
     $('role-filter').addEventListener('change', renderList);
+    $('client-filter').addEventListener('change', renderList);
     $('btn-refresh').addEventListener('click', loadUsers);
     $('btn-new').addEventListener('click', openNew);
     $('btn-new-back').addEventListener('click', backToList);
@@ -477,6 +517,7 @@
     $('btn-delete').addEventListener('click', deleteUserNow);
     $('btn-create').addEventListener('click', createUser);
 
+    await loadClients();
     await loadUsers();
   }
 

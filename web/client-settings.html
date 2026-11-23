@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Settings | Audema</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/autopilot.css">
+<style>
+  :root { --panel2: var(--ap-panel2); --border: var(--ap-line); --text2: var(--ap-muted); --text3: var(--ap-muted); }
+  #editor button { padding:7px 12px; border-radius:8px; border:0; font:inherit; font-size:12px; font-weight:700; cursor:pointer; background:var(--ap-accent); color:#fff; }
+  #editor button.ghost { background:transparent; border:1px solid var(--ap-line); color:var(--ap-text); }
+  .muted { color:var(--ap-muted); font-size:13px; } .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .msg { padding:10px 13px; border-radius:9px; font-size:13px; margin-bottom:12px; } .msg.error { background:rgba(248,113,113,.12); color:#fca5a5; }
+</style>
+<script src="/js/supabase.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/send-auth.js"></script>
+<script src="/js/failure-reporter.js"></script>
+<script src="/js/autopilot-ui.js"></script>
+<script src="/js/settings-editor.js"></script>
+</head>
+<body>
+<nav class="ap-nav"><a href="/hub.html">Agent Hub</a><a href="/autopilot.html">Autopilot</a><a href="/connections.html">Connections</a><a href="/inbox.html">What happened</a></nav>
+<div class="ap-wrap">
+  <h1>⚙️ Client settings</h1>
+  <p class="ap-sub" id="intro">Loading…</p>
+  <div class="ap-card"><div id="editor"></div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const { $, esc, call } = window.AutopilotUI;
+  const api = (payload) => call('/api/admin-settings', payload);
+  (async () => {
+    try {
+      const me = await api({ action: 'me' });
+      if (me.workspace && me.workspaceRole === 'owner') {
+        $('intro').innerHTML = `Your own keys and options for <strong>${esc(me.workspace.name)}</strong>. Anything you set here is used for your team instead of the platform's: your Anthropic key, your email sender, your own LinkedIn, Facebook, X or Google app, and so on. Leave a setting blank to keep using the platform's. Values are stored encrypted and never shown again.`;
+        window.SettingsEditor.mount($('editor'), { api, workspaceId: me.workspace.id });
+      } else if (me.isPlatformAdmin) {
+        $('intro').innerHTML = 'You\'re a platform admin: platform defaults and every client\'s settings are on the <a href="/admin/settings.html" style="color:var(--ap-accent)">admin Settings page</a>.';
+        $('editor').closest('.ap-card').remove();
+      } else {
+        $('intro').textContent = me.workspace ? `Settings for ${me.workspace.name} are managed by its owner.` : 'Your account uses the platform\'s settings. Nothing to set here.';
+        $('editor').closest('.ap-card').remove();
+      }
+    } catch (e) { $('intro').textContent = e.message; }
+  })();
+})();
+</script>
+</body>
+</html>

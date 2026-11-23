@@ -33,6 +33,8 @@
 
 'use strict';
 
+const settings = require('./_lib/settings.js');
+
 const { sbRest } = require('./_lib/supabase-rest.js');
 const { withFailureReporting } = require('./_lib/report-failure.js');
 const { rateLimited } = require('./_lib/rate-limit.js');
@@ -84,6 +86,7 @@ module.exports = withFailureReporting('api/scorecard-public', async function han
   if (req.method === 'GET') {
     if (rateLimited(req, res, { name: 'scorecard-view', max: 60, windowMs: 60 * 1000 })) return;
     const row = await load();
+    if (row) await settings.attachUser(row.user_id);   // the scorecard owner's client keys
     if (!row || row.status === 'draft') return res.status(404).json({ error: 'Not found.' });
     if (row.status === 'closed') return res.json({ status: 'closed', title: row.definition?.title || row.title, businessName: row.definition?.businessName || '' });
     return res.json({ status: 'live', scorecard: publicView(row), startToken: sc.signStart(slug) });
@@ -99,6 +102,8 @@ module.exports = withFailureReporting('api/scorecard-public', async function han
   if (tokenProblem) return res.status(400).json({ error: tokenProblem, code: 'start_token' });
 
   const row = await load();
+
+  if (row) await settings.attachUser(row.user_id);   // the scorecard owner's client keys
   if (!row || row.status !== 'live') return res.status(404).json({ error: 'This is no longer taking answers.' });
   const def = row.definition || {};
 
